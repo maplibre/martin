@@ -14,6 +14,8 @@ use martin::config::args::WebUiMode;
 use martin::config::file::ProcessConfig;
 #[cfg(feature = "unstable-cog")]
 use martin::config::file::reload::cog::CogReloader;
+#[cfg(feature = "geojson")]
+use martin::config::file::reload::geojson::GeoJsonReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MbtilesReloader;
 #[cfg(feature = "pmtiles")]
@@ -37,7 +39,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
-    let env = OsEnv::default();
+    let env = OsEnv;
     let save_config = args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {}", cfg_filename.display());
@@ -74,6 +76,7 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
+        feature = "geojson",
         feature = "pmtiles",
         feature = "postgres"
     ))]
@@ -104,6 +107,13 @@ async fn start(args: Args) -> MartinResult<()> {
         let reloader = CogReloader::new(mgr.clone(), resolver.clone(), &config.cog);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start CogReloader {e:?}");
+        }
+    }
+    #[cfg(feature = "geojson")]
+    {
+        let reloader = GeoJsonReloader::new(mgr.clone(), resolver.clone(), &config.geojson);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start GeoJsonReloader {e:?}");
         }
     }
     #[cfg(feature = "pmtiles")]

@@ -1,0 +1,30 @@
+---
+source: martin-core/tests/geojson_test.rs
+assertion_line: 408
+expression: tile.layers
+---
+[
+    MvtLayer {
+        name: "snap",
+        extent: 4096,
+        features: [
+            MvtFeature {
+                id: None,
+                geometry: POLYGON((2161 1816,2275 1816,2275 1934,2161 1934,2161 1816)),
+                properties: [
+                    (
+                        "kind",
+                        String(
+                            "poly",
+                        ),
+                    ),
+                ],
+            },
+            MvtFeature {
+                id: None,
+                geometry: POINT(2218 1876),
+                properties: [],
+            },
+        ],
+    },
+]

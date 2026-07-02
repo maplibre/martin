@@ -51,6 +51,11 @@ pub enum MartinCoreError {
     #[error("Source was modified and needs to be reloaded")]
     SourceNeedsReload,
 
+    /// Errors that can occur during [`geojson`](crate::tiles::geojson) processing operations.
+    #[cfg(feature = "geojson")]
+    #[error(transparent)]
+    GeoJsonError(#[from] super::geojson::GeoJsonError),
+
     /// Errors occurring from other sources, not implemented by `martin-core`.
     #[error(transparent)]
     OtherError(#[from] Box<dyn std::error::Error + Send + Sync>),

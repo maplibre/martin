@@ -185,6 +185,7 @@ pmtiles:
         maxzoom: 3
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
+geojson: {}
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:

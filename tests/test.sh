@@ -292,6 +292,20 @@ clean_headers_dump() {
   $SED --in-place '1d' "$FILE"
 }
 
+# Stage the fixture outside the watched directory and rename it in, so it appears atomically.
+# A plain `cp` writes in place, letting the reload watcher read a 0-byte file mid-copy.
+# Staging inside the watched directory is not enough either: the watcher still observes the
+# intermediate `.staging` file and warns when it is renamed away mid-scan.
+# The staging path is in the destination's parent directory, which shares its filesystem, so the
+# rename is atomic and the watcher only ever sees the finished file appear in one step.
+install_watched_fixture() {
+  SRC="$1"
+  DEST="$2"
+  STAGING="$(dirname "$DEST")/../$(basename "$DEST").staging"
+  cp "$SRC" "$STAGING"
+  mv "$STAGING" "$DEST"
+}
+
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
@@ -844,6 +858,7 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'geojson.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
@@ -887,6 +902,114 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
+
+echo "::group::Test GeoJSON source"
+TEST_NAME="geojson"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/geojson)
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test GeoJSON catalog"
+test_jsn catalog_geojson catalog
+
+>&2 echo "***** Test GeoJSON input forms *****"
+# FeatureCollection (.geojson)
+test_jsn geojson_fc1       feature_collection_1
+test_pbf geojson_fc1_0_0_0 feature_collection_1/0/0/0
+# FeatureCollection of mixed Point/LineString/Polygon
+test_jsn geojson_fc2       feature_collection_2
+test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
+# FeatureCollection from a .json (not .geojson) file
+test_jsn geojson_fc3       feature_collection_3
+test_pbf geojson_fc3_0_0_0 feature_collection_3/0/0/0
+# A single top-level Feature
+test_jsn geojson_f1        feature_1
+test_pbf geojson_f1_0_0_0  feature_1/0/0/0
+# A bare top-level Geometry (no Feature/FeatureCollection wrapper)
+test_jsn geojson_bare       bare_geometry
+test_pbf geojson_bare_0_0_0 bare_geometry/0/0/0
+
+>&2 echo "***** Test GeoJSON geometry types (MultiPoint, MultiLineString, MultiPolygon, GeometryCollection) *****"
+test_jsn geojson_multi       multi_geometries
+test_pbf geojson_multi_0_0_0 multi_geometries/0/0/0
+
+>&2 echo "***** Test GeoJSON property value types (string/int/uint/float/bool/array/object, null omitted) *****"
+test_jsn geojson_props       properties
+test_pbf geojson_props_0_0_0 properties/0/0/0
+
+>&2 echo "***** Test GeoJSON clipping, spatial index and tile-coordinate transform at zoom > 0 *****"
+test_pbf geojson_clip_0_0_0 clip/0/0/0
+test_pbf geojson_clip_1_0_0 clip/1/0/0
+test_pbf geojson_clip_1_1_0 clip/1/1/0
+test_pbf geojson_clip_1_0_1 clip/1/0/1
+test_pbf geojson_clip_1_1_1 clip/1/1/1
+
+>&2 echo "***** Test GeoJSON empty tile returns 204 No Content *****"
+EMPTY_TILE_CODE=$($CURL --output /dev/null --write-out '%{http_code}' "$MARTIN_URL/feature_1/1/0/1")
+if [[ "$EMPTY_TILE_CODE" != "204" ]]; then
+  echo "ERROR: expected 204 for a tile with no features, got $EMPTY_TILE_CODE"
+  exit 1
+fi
+>&2 echo "OK: empty tile returned 204"
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+echo "::group::Test GeoJSON hot reload"
+TEST_NAME="geojson_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+GEOJSON_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/geojson_reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$GEOJSON_RELOAD_WATCH_DIR"
+
+ARG=("$GEOJSON_RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+GEOJSON_SOURCE_ID="feature_collection_1"
+
+>&2 echo "Test GeoJSON reload: catalog starts empty with no geojson in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test GeoJSON reload: adding a new GeoJSON file triggers source addition"
+install_watched_fixture "tests/fixtures/geojson/${GEOJSON_SOURCE_ID}.geojson" "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source "$GEOJSON_SOURCE_ID"
+
+>&2 echo "Test GeoJSON reload: updating a GeoJSON file triggers source update"
+touch "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_log_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+
+>&2 echo "Test GeoJSON reload: removing a GeoJSON file triggers source removal"
+rm "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source_removed "$GEOJSON_SOURCE_ID"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" "Added source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Removed source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
 echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
@@ -1080,6 +1203,105 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   { set +x; } 2> /dev/null
   echo "::endgroup::"
+
+  echo "::group::Test mbtiles pack/unpack"
+  set -x
+
+  # pack / unpack round-trip coverage. These verify themselves inline (no golden
+  # files) by comparing the regenerated tile tree / tiles table against the input,
+  # so the work happens in a temp dir rather than $TEST_OUT_DIR.
+  PU_DIR="$(mktemp -d "$TEST_TEMP_DIR/pack_unpack.XXXXXX")"
+
+  >&2 echo "Test pack/unpack: PBF tile tree round-trips through gzip compression"
+  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_xyz"
+  # unpack names files with the metadata format extension and the xyz scheme by default
+  if [[ ! -f "$PU_DIR/wc_xyz/0/0/0.pbf" ]]; then
+    echo "ERROR: unpack did not write the expected 0/0/0.pbf tile"
+    exit 1
+  fi
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_repacked.mbtiles"
+  $MBTILES_BIN unpack "$PU_DIR/wc_repacked.mbtiles" "$PU_DIR/wc_xyz_again"
+  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_xyz_again"; then
+    echo "ERROR: PBF pack -> unpack round-trip changed the tile tree"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: --scheme flips the y coordinate"
+  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_tms" --scheme tms
+  ( cd "$PU_DIR/wc_xyz" && find . -type f | sort ) > "$PU_DIR/xyz.list"
+  ( cd "$PU_DIR/wc_tms" && find . -type f | sort ) > "$PU_DIR/tms.list"
+  if diff --brief "$PU_DIR/xyz.list" "$PU_DIR/tms.list" > /dev/null; then
+    echo "ERROR: xyz and tms unpack produced identical file names; --scheme had no effect"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: --compress none round-trips and stores vector tiles as-is"
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_default.mbtiles"
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw.mbtiles" --compress none
+  $MBTILES_BIN unpack "$PU_DIR/wc_raw.mbtiles" "$PU_DIR/wc_raw_out"
+  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw_out"; then
+    echo "ERROR: --compress none pack -> unpack round-trip changed the tile tree"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: unpack fails on a nonexistent file and on metadata without a format"
+  if $MBTILES_BIN unpack "$PU_DIR/does-not-exist.mbtiles" "$PU_DIR/missing_out" 2>&1; then
+    echo "ERROR: unpack of a nonexistent file should have failed"
+    exit 1
+  fi
+  if $MBTILES_BIN unpack ./tests/fixtures/mbtiles/geography-class-png.mbtiles "$PU_DIR/noformat_out" 2>&1; then
+    echo "ERROR: unpack should fail when the metadata table has no format"
+    exit 1
+  fi
+  if $MBTILES_BIN pack "$PU_DIR/does-not-exist-dir" "$PU_DIR/from_missing.mbtiles" 2>&1; then
+    echo "ERROR: pack of a nonexistent directory should have failed"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: pack rejects unsupported extensions and inconsistent formats"
+  mkdir -p "$PU_DIR/bad_ext/0/0"
+  echo nope > "$PU_DIR/bad_ext/0/0/0.txt"
+  if $MBTILES_BIN pack "$PU_DIR/bad_ext" "$PU_DIR/bad_ext.mbtiles" 2>&1; then
+    echo "ERROR: pack of an unsupported file extension should have failed"
+    exit 1
+  fi
+  mkdir -p "$PU_DIR/mixed/0/0" "$PU_DIR/mixed/1/0"
+  cp "$PU_DIR/wc_xyz/0/0/0.pbf" "$PU_DIR/mixed/0/0/0.pbf"
+  echo raster > "$PU_DIR/mixed/1/0/0.png"
+  if $MBTILES_BIN pack "$PU_DIR/mixed" "$PU_DIR/mixed.mbtiles" 2>&1; then
+    echo "ERROR: pack of a directory with inconsistent tile formats should have failed"
+    exit 1
+  fi
+
+  if command -v sqlite3 > /dev/null; then
+    DUMP_TILES="SELECT zoom_level, tile_column, tile_row, hex(tile_data) FROM tiles ORDER BY 1, 2, 3;"
+
+    >&2 echo "Test pack/unpack: uncompressed image tiles round-trip byte-for-byte in both schemes"
+    sqlite3 ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$DUMP_TILES" > "$PU_DIR/webp_src.dump"
+    for scheme in xyz tms; do
+      $MBTILES_BIN unpack ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$PU_DIR/webp_$scheme" --scheme "$scheme"
+      $MBTILES_BIN pack "$PU_DIR/webp_$scheme" "$PU_DIR/webp_$scheme.mbtiles" --scheme "$scheme"
+      sqlite3 "$PU_DIR/webp_$scheme.mbtiles" "$DUMP_TILES" > "$PU_DIR/webp_$scheme.dump"
+      if ! diff "$PU_DIR/webp_src.dump" "$PU_DIR/webp_$scheme.dump"; then
+        echo "ERROR: webp pack/unpack ($scheme) did not reproduce the original tiles"
+        exit 1
+      fi
+    done
+
+    >&2 echo "Test pack/unpack: default gzips vector tiles while --compress none leaves them raw"
+    DEFAULT_GZ=$(sqlite3 "$PU_DIR/wc_default.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
+    RAW_GZ=$(sqlite3 "$PU_DIR/wc_raw.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
+    if [[ "$DEFAULT_GZ" -eq 0 || "$RAW_GZ" -ne 0 ]]; then
+      echo "ERROR: expected default pack to gzip vector tiles ($DEFAULT_GZ gzipped) and --compress none not to ($RAW_GZ gzipped)"
+      exit 1
+    fi
+  fi
+
+  # sudo fallback: the Docker image runs mbtiles as root, leaving root-owned dirs.
+  rm -rf "$PU_DIR" 2> /dev/null || sudo rm -rf "$PU_DIR"
+
+  { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi
@@ -1103,7 +1325,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
 
 >&2 echo "Test reload: adding a new MBTiles file triggers source addition"
-cp tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+install_watched_fixture tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
 wait_for_catalog_source "world_cities"
 test_jsn reload_catalog_added catalog
 
@@ -1157,7 +1379,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
 
 >&2 echo "Test PMTiles reload: adding a new PMTiles file triggers source addition"
-cp tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
+install_watched_fixture tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
 wait_for_catalog_source "png"
 test_jsn pmtiles_reload_catalog_added catalog
 
@@ -1243,7 +1465,7 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 
 COG_SOURCE_ID="usda_naip_128_none_z2"
-cp "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+install_watched_fixture "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
 
 COG_ENABLED=0
 for _ in {1..10}; do

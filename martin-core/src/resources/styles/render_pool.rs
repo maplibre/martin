@@ -9,6 +9,7 @@ use maplibre_native::{
 use tokio::sync::oneshot;
 use tracing::info;
 
+use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
 use crate::resources::styles::StyleError;
 
 /// Parameters for a free-camera (static) map render.
@@ -41,6 +42,9 @@ pub struct RenderParams {
     bearing: f64,
     /// Pitch in degrees away from straight-down (0 = flat top-down view).
     pitch: f64,
+    /// Overlay spec to composite for this render. An empty spec (no features)
+    /// is the canonical "nothing to draw" and short-circuits to a plain render.
+    overlays: Arc<OverlaySpec>,
 }
 
 impl RenderParams {
@@ -58,6 +62,7 @@ impl RenderParams {
             pixel_ratio: 1.0,
             bearing: 0.0,
             pitch: 0.0,
+            overlays: Arc::new(OverlaySpec::default()),
         }
     }
 
@@ -76,6 +81,16 @@ impl RenderParams {
     pub fn with_orientation(mut self, bearing: f64, pitch: f64) -> Self {
         self.bearing = bearing;
         self.pitch = pitch;
+        self
+    }
+
+    /// Apply `spec` as ephemeral sources+layers for this render only.
+    ///
+    /// `Arc` because `RenderParams` is `Clone` and travels through the worker
+    /// channel; the `GeoJSON` payload could be large.
+    #[must_use]
+    pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
+        self.overlays = spec;
         self
     }
 }
@@ -337,6 +352,46 @@ fn load_style_cached<S>(
     Ok(())
 }
 
+/// Applies an overlay to the renderer's style and removes it again on drop --
+/// even on an early return or panic -- so the cached style returns to a clean
+/// base for the next request.
+struct RendererWithOverlay<'r> {
+    renderer: &'r mut ImageRenderer<Static>,
+    applied: Option<AppliedOverlay>,
+}
+
+impl<'r> RendererWithOverlay<'r> {
+    /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
+    /// guard drops.
+    fn apply(
+        renderer: &'r mut ImageRenderer<Static>,
+        spec: &OverlaySpec,
+    ) -> Result<Self, StyleError> {
+        let applied = {
+            let mut style = renderer.style();
+            apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?
+        };
+        Ok(Self {
+            renderer,
+            applied: Some(applied),
+        })
+    }
+
+    /// The renderer carrying the applied overlay, for issuing render calls.
+    fn renderer(&mut self) -> &mut ImageRenderer<Static> {
+        self.renderer
+    }
+}
+
+impl Drop for RendererWithOverlay<'_> {
+    fn drop(&mut self) {
+        if let Some(applied) = self.applied.take() {
+            let mut style = self.renderer.style();
+            applied.remove_from(&mut style);
+        }
+    }
+}
+
 /// A free-camera renderer pinned to a fixed output geometry, with its cached style.
 struct StaticRenderer {
     renderer: ImageRenderer<Static>,
@@ -383,9 +438,26 @@ impl StaticRenderer {
             .zoom(params.zoom)
             .bearing(params.bearing)
             .pitch(params.pitch);
-        self.renderer
-            .render_static(&camera)
-            .map_err(StyleError::RenderingError)
+
+        let render_once = |r: &mut ImageRenderer<Static>| {
+            r.render_static(&camera).map_err(StyleError::RenderingError)
+        };
+
+        if params.overlays.is_empty() {
+            // No overlay: a single render captures the fully-tiled frame.
+            return render_once(&mut self.renderer);
+        }
+
+        // The overlay's GeoJSON source only tiles once the pipeline has rendered
+        // at least once; adding it before any render leaves it blank.
+        let _ = render_once(&mut self.renderer);
+
+        let mut overlay = RendererWithOverlay::apply(&mut self.renderer, &params.overlays)?;
+        let renderer = overlay.renderer();
+
+        // The source tiles synchronously, so this first render after `add_source`
+        // already captures the overlay.
+        render_once(renderer)
     }
 }
 

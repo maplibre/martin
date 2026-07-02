@@ -12,9 +12,9 @@ mod ui 'martin/martin-ui/justfile'
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 
-# list of features we deem stable for release packaging (also the default feature set)
-stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
-# stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
+# list of features we deem stable for release packaging
+stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
+# stable_features plus features needing controlled native deps
 full_features := stable_features + ',rendering'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -29,6 +29,9 @@ binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-tele
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+# Download the prebuilt maplibre_native core amalgam instead of compiling the ~1 GB C++ core from source.
+# Set MLN_PRECOMPILE=0 to build maplibre_native from source instead.
+export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 
@@ -49,14 +52,17 @@ export AWS_REGION := 'eu-central-1'
     {{just}} --list
 
 # Run benchmark tests
-bench:
+bench: fetch
     cargo bench --bench sources
+    cargo bench -p martin-core --bench geojson_tiles
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
+    oha --latency-correction -n 200            --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
+    oha --latency-correction -n {{requests}}            http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
@@ -67,11 +73,11 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     oha --latency-correction -n {{requests}}            http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Start release-compiled Martin server and a test database
-bench-server: start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+bench-server: fetch start
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Build martin with hotpath profiling support
-build-hotpath:
+build-hotpath: fetch
     RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
@@ -79,7 +85,7 @@ bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
-gen-schemas:
+gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
@@ -188,7 +194,7 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 # On Linux, replay the rendering tests' tiles from the cassette (like `coverage`).
-bless-insta *args:  (cargo-install 'cargo-insta')
+bless-insta *args:  fetch (cargo-install 'cargo-insta')
     #!/usr/bin/env bash
     set -euo pipefail
     if [ "$(uname)" = Linux ]; then
@@ -203,14 +209,14 @@ bless-int: start
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
 
-bless-pg: start  (cargo-install 'cargo-insta')
+bless-pg: fetch start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo insta test --accept --features test-pg --no-default-features --package martin --lib
     cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-build-release target:
+build-release target: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     # on debian we need to build a deb package
@@ -239,14 +245,14 @@ build-release-full target:
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
-build-deb output: (cargo-install 'cargo-deb')
+build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
-build-release-musl target:
+build-release-musl target: fetch
     rustup target add {{target}}
     {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
     {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
@@ -274,12 +280,12 @@ move-artifacts target:
     fi
 
 
-# Quick compile without building a binary
-check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace
+# Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
+check *args: fetch (cargo-install 'cargo-hack')
+    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
-check-binstall: (cargo-install 'cargo-binstall')
+check-binstall: fetch (cargo-install 'cargo-binstall')
     cargo binstall martin --manifest-path martin/Cargo.toml --dry-run --no-confirm
 
 # Test documentation generation
@@ -294,7 +300,7 @@ clean: clean-test stop ui::clean
     cargo clean
 
 # Run cargo clippy to lint the code
-clippy *args:
+clippy *args: fetch
     cargo clippy --workspace --all-targets {{args}}
 
 # Validate markdown URLs with markdown-link-check
@@ -365,7 +371,7 @@ seed-render-fixtures:
     {{just}} _run-render-proxy record "cargo test -p martin-core --no-default-features --features rendering --test rendering_test && cargo test -p martin --no-default-features --features rendering --test styles_rendering_test"
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
-coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
+coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
     set -euo pipefail
     if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
@@ -391,7 +397,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov report {{args}}
 
 # Start Martin server
-cp *args:
+cp *args: fetch
     cargo run --bin martin-cp -- {{args}}
 
 # Start Martin server and open a test page (not the integrated UI)
@@ -425,7 +431,7 @@ env-info:
     node --version
 
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
-fmt:
+fmt: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
@@ -506,7 +512,7 @@ install-dependencies backend='vulkan':
 lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
 
 # Run mbtiles command
-mbtiles *args:
+mbtiles *args: fetch
     cargo run -p mbtiles -- {{args}}
 
 # Create assets package
@@ -530,7 +536,7 @@ pg_dump *args:
     pg_dump {{args}} {{quote(DATABASE_URL)}}
 
 # Update sqlite database schema.
-prepare-sqlite: install-sqlx
+prepare-sqlite: fetch install-sqlx
     mkdir -p mbtiles/.sqlx
     cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
 
@@ -549,15 +555,15 @@ restart:
     {{just}} start
 
 # Start Martin server
-run *args='--webui enable-for-all':
+run *args='--webui enable-for-all': fetch
     cargo run -p martin -- {{args}}
 
 # Start release-compiled Martin server and a test database
-run-release *args='--webui enable-for-all': start
+run-release *args='--webui enable-for-all': fetch start
     cargo run -p martin --release -- {{args}}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`
-semver *args:  (cargo-install 'cargo-semver-checks')
+semver *args:  fetch (cargo-install 'cargo-semver-checks')
     cargo semver-checks {{args}}
 
 # Start a test database
@@ -580,7 +586,7 @@ stop:
     docker compose down --remove-orphans
 
 # runs cargo-shear to lint Rust dependencies
-shear:
+shear: fetch
     cargo shear --expand
     # in the future: add --deny-warnings
     # https://github.com/Boshen/cargo-shear/pull/386
@@ -595,13 +601,13 @@ test: start
     {{just}} test-int
 
 # Run PostgreSQL-requiring tests only
-test-pg: start
+test-pg: fetch start
     cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
 
 # Run MinIO/S3-requiring tests only (Docker required)
-test-minio:
+test-minio: fetch
     cargo test --features test-minio --no-default-features --test pmt_minio_test
 
 # Run server-side rendering tests only (Linux only; skipped elsewhere).
@@ -616,11 +622,11 @@ test-rendering:
     {{just}} with-render-cache 'cargo test -p martin-core --no-default-features --features rendering --test rendering_test && cargo test -p martin --no-default-features --features rendering --test styles_rendering_test'
 
 # Run Rust unit tests (cargo test)
-test-cargo *args:
+test-cargo *args: fetch
     cargo test {{args}}
 
 # Run unit tests for each package in dependency order
-test-packages-ci:
+test-packages-ci: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     cargo test --package martin-tile-utils
@@ -630,11 +636,11 @@ test-packages-ci:
     cargo test --package martin
 
 # Run Rust doc tests
-test-doc *args:
+test-doc *args: fetch
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
+test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
 # Run integration tests
@@ -734,7 +740,7 @@ test-ssl-cert: start-ssl-cert
     tests/test.sh
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
-update:
+update: fetch
     cargo +nightly -Z unstable-options update --breaking
     # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
     sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
@@ -832,6 +838,25 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
         fi
     fi
+
+# Fetch all workspace dependencies up front, retrying with exponential backoff to tolerate flaky networks
+[private]
+fetch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    delay=5
+    for attempt in $(seq 1 5); do
+        if cargo fetch --locked; then
+            exit 0
+        fi
+        if [[ "$attempt" -lt 5 ]]; then
+            echo "cargo fetch failed (attempt ${attempt}/5); retrying in ${delay}s..." >&2
+            sleep "$delay"
+            delay=$(( delay * 2 ))
+        fi
+    done
+    echo "cargo fetch failed after 5 attempts" >&2
+    exit 1
 
 # Delete test output files
 [private]

@@ -12,6 +12,26 @@ pub enum PassthroughError {
     #[error("Passthrough upstream has no URL templates configured")]
     EmptyUrlList,
 
+    /// A configured request header name was not a valid HTTP header name.
+    #[error("Invalid header name {name:?} for passthrough upstream: {source}")]
+    InvalidHeaderName {
+        /// The offending header name as written in the config.
+        name: String,
+        /// Why the name was rejected.
+        #[source]
+        source: reqwest::header::InvalidHeaderName,
+    },
+
+    /// A configured request header value was not a valid HTTP header value.
+    #[error("Invalid value for header {name:?} for passthrough upstream: {source}")]
+    InvalidHeaderValue {
+        /// The header name whose value was rejected.
+        name: String,
+        /// Why the value was rejected.
+        #[source]
+        source: reqwest::header::InvalidHeaderValue,
+    },
+
     /// A configured tile-URL template is missing one of the `{z}`/`{x}`/`{y}` placeholders.
     #[error("Tile URL template {0} must contain {{z}}, {{x}} and {{y}} placeholders")]
     InvalidUrlTemplate(String),

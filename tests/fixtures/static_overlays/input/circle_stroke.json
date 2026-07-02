@@ -1,0 +1,17 @@
+{
+  "features": [
+    {
+      "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
+      "properties": {
+        "circle-color": "#285DAA",
+        "circle-opacity": 0.5,
+        "circle-radius": 8,
+        "circle-stroke-color": "#111725",
+        "circle-stroke-opacity": 1.0,
+        "circle-stroke-width": 3
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

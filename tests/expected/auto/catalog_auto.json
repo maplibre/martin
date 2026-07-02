@@ -3,6 +3,7 @@
     "Overpass Mono Light": {
       "end": 128276,
       "family": "Overpass Mono",
+      "format": "otf",
       "glyphs": 988,
       "start": 0,
       "style": "Light"
@@ -10,6 +11,7 @@
     "Overpass Mono Regular": {
       "end": 128276,
       "family": "Overpass Mono",
+      "format": "ttf",
       "glyphs": 988,
       "start": 0,
       "style": "Regular"

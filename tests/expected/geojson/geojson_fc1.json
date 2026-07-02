@@ -1,0 +1,17 @@
+{
+  "bounds": [
+    -100,
+    -50,
+    25,
+    50
+  ],
+  "center": [
+    -37.5,
+    0,
+    0
+  ],
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/feature_collection_1/{z}/{x}/{y}"
+  ]
+}

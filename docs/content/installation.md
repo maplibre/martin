@@ -112,7 +112,7 @@ martin --help
     The default feature set does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
     To include it (Linux only), add the `rendering` feature.
     You will need its build dependencies first (`just install-dependencies`).
-
-```bash
-cargo install martin --locked --features rendering
-```
+    
+    ```bash
+    cargo install martin --locked --features rendering
+    ```

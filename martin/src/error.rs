@@ -3,6 +3,8 @@ use std::io;
 
 #[cfg(feature = "unstable-cog")]
 use martin_core::tiles::cog::CogError;
+#[cfg(feature = "geojson")]
+use martin_core::tiles::geojson::GeoJsonError;
 #[cfg(feature = "mbtiles")]
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "pmtiles")]
@@ -68,6 +70,10 @@ pub enum MartinError {
     #[cfg(feature = "unstable-cog")]
     #[error(transparent)]
     CogError(#[from] CogError),
+
+    #[cfg(feature = "geojson")]
+    #[error(transparent)]
+    GeoJsonError(#[from] GeoJsonError),
 
     #[error(transparent)]
     ConfigFileError(#[from] ConfigFileError),

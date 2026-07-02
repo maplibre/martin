@@ -70,11 +70,19 @@ After doing so, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API t
     Static rendering shares the limitations listed above (Linux only, no caching, no concurrency).
     The HTTP shape may still change in patch releases.
 
-Martin can render a single PNG/JPEG of a style at a chosen camera. The endpoint is:
+Martin can render a single PNG/JPEG/WebP of a style at a chosen camera.
+The same URL is served by two methods:
 
-```text
-GET /style/{style_id}/static/{camera}/{size}.{ext}
+```http
+GET  /style/{style_id}/static/{camera}/{size}.{ext}
+POST /style/{style_id}/static/{camera}/{size}.{ext}
 ```
+
+`GET` returns the base map alone.
+`POST` additionally accepts a GeoJSON `FeatureCollection` in the body, with
+styling on each feature's `properties`, and overlays those features on top
+of the base style for that single render.
+An empty or missing body is equivalent to `GET`.
 
 #### Camera
 
@@ -98,3 +106,212 @@ The `{camera}` segment chooses what the image looks at:
 `800x600.png`, `400x300@2x.jpg`.
 Allowed extensions are `png`, `jpg`, and `webp`.
 Width and height are capped at 2048 px each; scale is capped at `4x`.
+
+#### Overlay body (`POST`)
+
+The overlay body is a GeoJSON `FeatureCollection`. Each feature carries its
+style on `properties` using
+[MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) paint/layout
+property names (`circle-*`, `line-*`, `fill-*`). Any property left unset falls
+back to MapLibre's own default.
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "LineString",
+        "coordinates": [[-10, 5], [10, 5]] },
+      "properties": { "line-color": "#f00", "line-width": 3, "line-cap": "round" }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0, 0] },
+      "properties": { "circle-color": "#00f", "circle-radius": 8 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Polygon",
+        "coordinates": [[[-5,-5],[5,-5],[5,5],[-5,5],[-5,-5]]] },
+      "properties": { "fill-color": "#0a0", "fill-opacity": 0.5 }
+    }
+  ]
+}
+```
+
+How features become layers:
+
+- **Point / MultiPoint** -> one `circle` layer.
+- **LineString / MultiLineString** -> one `line` layer.
+- **Polygon / MultiPolygon** -> a `fill` layer (unless only `line-*`
+  properties are set), plus a `line` layer when any `line-*` property is
+  present (so a polygon with `line-color` gets an outline of `line-width`).
+- `GeometryCollection` and features with `geometry: null` are silently
+  skipped.
+
+Anything the server can't make sense of is rejected with `400 Bad
+Request`: a malformed body, a top-level `type` that isn't
+`FeatureCollection`, a member `type` that isn't `Feature`, an invalid CSS
+color, a non-numeric width, or an unknown `line-cap`/`line-join` enum value.
+Unknown property keys on `feature.properties` are **silently ignored**, so
+GeoJSON files that already carry application metadata (`id`, `name`,
+`title`, `description`, …) work without modification.
+
+##### Supported style properties
+
+Every property is optional; an unset property uses the
+[MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) default.
+
+| MapLibre property       | Applies to            | MapLibre default     |
+| ----------------------- | --------------------- | -------------------- |
+| `circle-color`          | Point                 | `#000000`            |
+| `circle-opacity`        | Point                 | `1`                  |
+| `circle-radius`         | Point                 | `5`                  |
+| `circle-stroke-color`   | Point                 | `#000000`            |
+| `circle-stroke-opacity` | Point                 | `1`                  |
+| `circle-stroke-width`   | Point                 | `0`                  |
+| `line-color`            | LineString / Polygon  | `#000000`            |
+| `line-opacity`          | LineString / Polygon  | `1`                  |
+| `line-width`            | LineString / Polygon  | `1`                  |
+| `line-cap`              | LineString / Polygon  | `butt`               |
+| `line-join`             | LineString / Polygon  | `miter`              |
+| `fill-color`            | Polygon               | `#000000`            |
+| `fill-opacity`          | Polygon               | `1`                  |
+| `fill-outline-color`    | Polygon               | matches `fill-color` |
+
+`line-cap` is one of `butt`, `round`, `square`; `line-join` is one of
+`miter`, `bevel`, `round`. Colors accept any CSS color string.
+
+Range checks are not enforced - `*-opacity` values outside `0..=1` and
+negative widths are passed through to MapLibre verbatim.
+
+##### Out of scope
+
+- Data-driven expressions on individual feature properties (each feature
+  becomes its own GeoJSON source and layer with literal paint values).
+- Layer types beyond `fill` / `line` / `circle` (no `symbol`, `heatmap`,
+  `raster`, `fill-extrusion`).
+- Externally-referenced GeoJSON URLs (every feature is inline).
+- Symbol/icon markers (no `symbol` layer) - use a `circle` instead.
+- Z-ordering relative to base style layers - all overlay layers are drawn
+  on top of the base style, in feature-array order.
+
+All examples below render the same camera (`/static/0,0,2/200x200.png`)
+against the `maplibre_demo` style, so the visual differences come only from
+the overlay body.
+
+##### Line
+
+<div class="grid" markdown>
+
+```json hl_lines="9-14"
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [[-10.0, -10.0], [10.0, 10.0]]
+    },
+    "properties": {
+      "line-color": "#95BEFA",
+      "line-width": 5,
+      "line-cap": "round",
+      "line-join": "round"
+    }
+  }]
+}
+```
+
+![Pastel-blue diagonal stroke over the demo basemap](images/static-overlay/line_color.png){ width="100%" }
+
+</div>
+
+##### Fill
+
+<div class="grid" markdown>
+
+```json hl_lines="12-15"
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [[
+        [-10.0, -10.0], [10.0, -10.0],
+        [10.0, 10.0], [-10.0, 10.0],
+        [-10.0, -10.0]
+      ]]
+    },
+    "properties": {
+      "fill-color": "red",
+      "fill-opacity": 1.0
+    }
+  }]
+}
+```
+
+![Filled red square polygon](images/static-overlay/fill_color.png){ width="100%" }
+
+</div>
+
+##### Fill opacity (alpha blending)
+
+<div class="grid" markdown>
+
+```json hl_lines="9-10 18-19"
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Polygon",
+        "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]] },
+      "properties": {
+        "fill-color": "#285DAA",
+        "fill-opacity": 0.5
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Polygon",
+        "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]] },
+      "properties": {
+        "fill-color": "#95BEFA",
+        "fill-opacity": 0.5
+      }
+    }
+  ]
+}
+```
+
+![Two semi-transparent brand-color rectangles overlapping](images/static-overlay/fill_opacity.png){ width="100%" }
+
+</div>
+
+##### Circle (marker)
+
+<div class="grid" markdown>
+
+```json hl_lines="9-12"
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [0.0, 0.0]
+    },
+    "properties": {
+      "circle-color": "#285DAA",
+      "circle-radius": 8
+    }
+  }]
+}
+```
+
+![Primary-colored circle marker at the equator/prime meridian](images/static-overlay/circle_color.png){ width="100%" }
+
+</div>
