@@ -125,6 +125,8 @@ pub fn parse_config(
 /// so without this those configs fail to load. Substitution inside quoted scalars and `subst`'s
 /// backslash escaping are not restored -- both are unrelated to the single-colon default.
 fn rewrite_legacy_substitution_syntax(contents: &str) -> Cow<'_, str> {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+
     if !contents.contains("${") {
         return Cow::Borrowed(contents);
     }
@@ -155,7 +157,6 @@ fn rewrite_legacy_substitution_syntax(contents: &str) -> Cow<'_, str> {
         return Cow::Borrowed(contents);
     }
 
-    static WARNED: std::sync::Once = std::sync::Once::new();
     WARNED.call_once(|| {
         warn!(
             deprecated_tokens = rewrites,
