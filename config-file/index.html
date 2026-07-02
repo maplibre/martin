@@ -1515,6 +1515,8 @@ contain environment variables, which will be expanded before parsing.
 For example, to use <code>MY_DATABASE_URL</code> in your
 config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a
 default <code>connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}</code></p>
+<p>The legacy single-colon default <code>${MY_DATABASE_URL:postgres://postgres@localhost/db}</code> is still
+accepted for backward compatibility, but is deprecated in favor of the <code>:-</code> form shown above.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>--config<span class="w"> </span>config.yaml
 </span></code></pre></div>
 <p>You may wish to auto-generate a config file with <code>--save-config</code> argument.
