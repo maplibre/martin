@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -91,8 +92,9 @@ pub fn parse_config(
     properties: &HashMap<String, String>,
     file_name: &Path,
 ) -> ConfigFileResult<Config> {
-    let migrated = if needs_deprecated_migration(contents) {
-        match serde_saphyr::from_str::<serde_json::Value>(contents) {
+    let contents = rewrite_legacy_substitution_syntax(contents);
+    let migrated = if needs_deprecated_migration(&contents) {
+        match serde_saphyr::from_str::<serde_json::Value>(&contents) {
             Ok(mut value) => {
                 migrate_deprecated_config(&mut value);
                 serde_saphyr::to_string(&value).unwrap_or_else(|_| contents.to_string())
@@ -114,6 +116,62 @@ pub fn parse_config(
 
     serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
+}
+
+/// Rewrites the legacy single-colon default `${VAR:default}` to serde-saphyr's `${VAR:-default}`,
+/// warning once when anything changes.
+///
+/// Martin <= 1.10 used the `subst` crate's single-colon syntax; serde-saphyr rejects it outright,
+/// so without this those configs fail to load. Substitution inside quoted scalars and `subst`'s
+/// backslash escaping are not restored -- both are unrelated to the single-colon default.
+fn rewrite_legacy_substitution_syntax(contents: &str) -> Cow<'_, str> {
+    if !contents.contains("${") {
+        return Cow::Borrowed(contents);
+    }
+
+    // One segment per reference body, so nested `${a:x${b:y}}` splits into its own body.
+    let mut segments = contents.split("${");
+    let first = segments.next().unwrap_or("");
+    let mut out = String::with_capacity(contents.len() + 8);
+    out.push_str(first);
+
+    let mut prev = first;
+    let mut rewrites = 0usize;
+    for body in segments {
+        out.push_str("${");
+        // A `${` after an odd run of `$` is escaped (`$$` -> literal `$`), not a reference.
+        let escaped = prev.bytes().rev().take_while(|&b| b == b'$').count() % 2 == 1;
+        match rewrite_reference_body(body).filter(|_| !escaped) {
+            Some(rewritten) => {
+                out.push_str(&rewritten);
+                rewrites += 1;
+            }
+            None => out.push_str(body),
+        }
+        prev = body;
+    }
+
+    if rewrites == 0 {
+        return Cow::Borrowed(contents);
+    }
+
+    warn!(
+        deprecated_tokens = rewrites,
+        "Deprecated `${{VAR:default}}` substitution syntax in config; use `${{VAR:-default}}`. Support for the single-colon form will be removed in a future release."
+    );
+    Cow::Owned(out)
+}
+
+/// Rewrites the operator colon (the first `:` before the closing `}`) of one `${...}` body from
+/// `:default` to `:-default`, returning `None` when it is already an operator or absent.
+fn rewrite_reference_body(body: &str) -> Option<String> {
+    let end = body.find('}').unwrap_or(body.len());
+    let (name, default) = body.get(..end)?.split_once(':')?;
+    if default.starts_with(['-', '+', '?']) {
+        return None;
+    }
+    let rest = body.get(end..).unwrap_or_default();
+    Some(format!("{name}:-{default}{rest}"))
 }
 
 /// Cheap pre-check: does the YAML mention any deprecated cache key?
@@ -518,15 +576,66 @@ mod tests {
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
 
-    #[test]
-    fn substitution_single_colon_default_is_rejected() {
+    #[rstest]
+    #[case::var_set("${BASE:fallback}", "/my/path")]
+    #[case::var_unset("${UNSET:fallback}", "fallback")]
+    fn substitution_single_colon_default_is_translated(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
         let env = props(&[("BASE", "/my/path")]);
-        parse_config(
-            "base_path: ${BASE:fallback}\n",
-            &env,
-            Path::new("test.yaml"),
-        )
-        .expect_err("subst-style `${VAR:default}` must be rejected, not silently kept");
+        let config = parse_with_env(&format!("base_path: {input}\n"), &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+    }
+
+    #[rstest]
+    #[case::braced("base_path: ${BASE}\n")]
+    #[case::bare("base_path: $BASE\n")]
+    #[case::dash_default("base_path: ${BASE:-fallback}\n")]
+    #[case::plus_alternate("base_path: ${BASE:+set}\n")]
+    #[case::error_if_unset("connection_string: ${DB:?required}\n")]
+    #[case::bare_dash("base_path: ${BASE-fallback}\n")]
+    #[case::escaped_dollar("escaped: $$BASE\n")]
+    #[case::escaped_braced("escaped: $${a:b}\n")]
+    #[case::plain("plain: no substitution here\n")]
+    fn rewrite_legacy_substitution_syntax_borrows_when_unchanged(#[case] input: &str) {
+        assert!(
+            matches!(rewrite_legacy_substitution_syntax(input), Cow::Borrowed(_)),
+            "should not rewrite: {input:?}"
+        );
+    }
+
+    #[rstest]
+    #[case::simple("${BASE:fallback}", "${BASE:-fallback}")]
+    #[case::colon_in_default("${UNSET:postgres://h:5432/db}", "${UNSET:-postgres://h:5432/db}")]
+    #[case::nested("${a:x${b:y}}", "${a:-x${b:-y}}")]
+    #[case::prefix_and_suffix("prefix-${BASE:def}-suffix", "prefix-${BASE:-def}-suffix")]
+    #[case::escaped_prefix("$$${a:b}", "$$${a:-b}")]
+    fn rewrite_legacy_substitution_syntax_translates_single_colon(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        match rewrite_legacy_substitution_syntax(input) {
+            Cow::Owned(s) => assert_eq!(s, expected, "input {input:?}"),
+            Cow::Borrowed(_) => panic!("expected rewrite for {input:?}"),
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn substitution_legacy_single_colon_connection_string() {
+        let config = parse_with_env(
+            "postgres:\n  connection_string: ${UNSET:postgres://postgres@localhost:5432/db}\n",
+            &HashMap::new(),
+        );
+        let pg = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(
+            pg.connection_string.as_deref(),
+            Some("postgres://postgres@localhost:5432/db")
+        );
     }
 
     #[rstest]
