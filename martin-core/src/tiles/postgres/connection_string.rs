@@ -94,8 +94,14 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case("postgres://user:secret@localhost:5432/db", "postgres://user:REDACTED@localhost:5432/db")]
-    #[case("postgres://user:p@ss:word@localhost:5432/db", "postgres://user:REDACTED@localhost:5432/db")]
+    #[case(
+        "postgres://user:secret@localhost:5432/db",
+        "postgres://user:REDACTED@localhost:5432/db"
+    )]
+    #[case(
+        "postgres://user:p@ss:word@localhost:5432/db",
+        "postgres://user:REDACTED@localhost:5432/db"
+    )]
     #[case(
         "postgres://host/db?password=secret&sslmode=require",
         "postgres://host/db?password=REDACTED&sslmode=require"
@@ -104,18 +110,31 @@ mod tests {
         "host=localhost password=secret sslmode=verify-full",
         "host=localhost password=REDACTED sslmode=verify-full"
     )]
-    #[case("host=localhost password='se cret' dbname=db", "host=localhost password=REDACTED dbname=db")]
-    #[case("postgres://user@localhost:5432/db", "postgres://user@localhost:5432/db")]
+    #[case(
+        "host=localhost password='se cret' dbname=db",
+        "host=localhost password=REDACTED dbname=db"
+    )]
+    #[case(
+        "postgres://user@localhost:5432/db",
+        "postgres://user@localhost:5432/db"
+    )]
     #[case("postgres://localhost:5432/db", "postgres://localhost:5432/db")]
     #[case("host=localhost mypassword=keep", "host=localhost mypassword=keep")]
-    #[case("host=localhost dbname=db sslmode=verify-full", "host=localhost dbname=db sslmode=verify-full")]
+    #[case(
+        "host=localhost dbname=db sslmode=verify-full",
+        "host=localhost dbname=db sslmode=verify-full"
+    )]
     fn redacts(#[case] conn_str: &str, #[case] expected: &str) {
-        assert_eq!(RedactedConnectionString::new(conn_str).to_string(), expected);
+        assert_eq!(
+            RedactedConnectionString::new(conn_str).to_string(),
+            expected
+        );
     }
 
     #[test]
     fn never_leaks_secret_from_malformed_url() {
-        let conn_str = "postgres://postgres:testpassword@host.docke???WQD?wq/dqdr.internal:5432/database";
+        let conn_str =
+            "postgres://postgres:testpassword@host.docke???WQD?wq/dqdr.internal:5432/database";
         let redacted = RedactedConnectionString::new(conn_str);
         for rendered in [redacted.to_string(), format!("{redacted:?}")] {
             assert!(!rendered.contains("testpassword"), "leaked: {rendered}");
