@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      full:
+        description: 'Build the batteries-included `-full` variant (adds the rendering feature). Linux gnu only.'
+        required: false
+        type: boolean
+        default: false
       use_cache:
         description: 'Enable Rust build cache (Swatinem/rust-cache)'
         required: false
@@ -68,14 +73,19 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
       - name: Install rendering dependencies
-        if: runner.os == 'Linux' && !inputs.musl
+        if: runner.os == 'Linux' && inputs.full
         run: just install-dependencies
 
       - name: Build ${{ inputs.target }}
-        if: ${{ !inputs.musl }}
+        if: ${{ !inputs.musl && !inputs.full }}
         env:
           TARGET: ${{ inputs.target }}
         run: just build-release "$TARGET"
+      - name: Build ${{ inputs.target }} (full)
+        if: ${{ inputs.full }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just build-release-full "$TARGET"
       - name: Build ${{ inputs.target }} (musl)
         if: inputs.musl
         env:
@@ -86,8 +96,8 @@ jobs:
           TARGET: ${{ inputs.target }}
         run: just move-artifacts "$TARGET"
 
-      - name: Save build artifacts to build-${{ inputs.target }}
+      - name: Save build artifacts to build-${{ inputs.target }}${{ inputs.full && '-full' || '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: build-${{ inputs.target }}
+          name: build-${{ inputs.target }}${{ inputs.full && '-full' || '' }}
           path: target_releases/

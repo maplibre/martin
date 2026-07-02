@@ -26,17 +26,31 @@ docker run -p 3000:3000 \
            --config /config/config.yaml
 ```
 
+!!! note
+    The default image is lean and does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
+    If you need it, use the batteries-included `-full` image instead (e.g. `ghcr.io/maplibre/martin:1.11.0 or `ghcr.io/maplibre/martin:1.11.0-full`).
+    It is larger because it bundles the `maplibre_native` runtime libraries.
+
 ### From Binary Distributions Manually
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | x64                                                                                              | ARM-64                                                                   |
-|----------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    | [.tar.gz][rl-macos-x64]                                                                          | [.tar.gz][rl-macos-a64]                                                  |
-| Windows  | [.zip][rl-win64-zip]                                                                             |                                                                          |
+| Platform | x64                                                                                                                          | ARM-64                                                                                                  |
+|----------|------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
+| macOS    | [.tar.gz][rl-macos-x64]                                                                                                      | [.tar.gz][rl-macos-a64]                                                                                 |
+| Windows  | [.zip][rl-win64-zip]                                                                                                         |                                                                                                        |
+
+!!! note
+    The standard binaries do **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
+    The `-full` Linux-gnu tarballs do.
+    They add the `rendering` feature and its bundled native libraries.
 
 [rl-linux-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
+
+[rl-linux-x64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz
+
+[rl-linux-a64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz
 
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz
 
@@ -94,10 +108,11 @@ cargo install martin --locked
 martin --help
 ```
 
-#### Platform-Specific Build Notes
+!!! note
+    The default feature set does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
+    To include it (Linux only), add the `rendering` feature.
+    You will need its build dependencies first (`just install-dependencies`).
 
-##### Windows
-
-When building from source on Windows, please note the following feature limitations:
-
-- **`unstable-rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).
+    ```bash
+    cargo install martin --locked --features rendering
+    ```
