@@ -50,3 +50,11 @@ postgres:
 mbtiles:
   sources:
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
+
+# Passthrough source self-proxying the `table_source` endpoint, so the proxy + cache +
+# MVT<->MLT conversion path is exercised end-to-end against a real upstream.
+passthrough:
+  sources:
+    passthrough_table:
+      url: http://localhost:${MARTIN_PORT:-3111}/table_source/{z}/{x}/{y}
+      format: mvt

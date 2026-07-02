@@ -166,6 +166,47 @@ observability:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
 on_invalid: warn
+# Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+# Each upstream is configured under `sources`.
+passthrough:
+  # MVT->MLT encoder settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  convert_to_mvt: {}
+  # Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
+  #
+  # Each value is one of:
+  # - a `{z}/{x}/{y}` URL template, e.g. `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+  # - a `TileJSON` document URL; its tile URLs, zoom range, and bounds are read from the document
+  # - a list of URL templates, to spread requests across mirror upstreams
+  # - an object with `url` plus any of `headers` (e.g. for auth), `timeout`, `format`,
+  #   `minzoom`/`maxzoom`/`bounds`/`attribution`, `cache`, and `convert_to_mlt`/`convert_to_mvt`
+  sources:
+    hosted: https://demotiles.maplibre.org/tiles/tiles.json
+    osm: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+    secure:
+      format: mvt
+      headers:
+        Authorization: ${API_TOKEN}
+      maxzoom: 14
+      minzoom: 0
+      url: https://api.example.com/{z}/{x}/{y}
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
   # MVT->MLT encoder settings for all `PMTiles` sources.
