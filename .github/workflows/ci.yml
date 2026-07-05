@@ -118,7 +118,8 @@ jobs:
       - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
         with: { tool: 'just' }
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: just test-schemas
   lint-rust-dependencies:
     name: Lint Rust dependencies
@@ -243,7 +244,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         # https://github.com/docker/setup-buildx-action
-        with: { install: true, platforms: 'linux/amd64,linux/arm64' }
+        with: { platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-gnu${{ matrix.suffix }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-aarch64-unknown-linux-gnu${{ matrix.suffix }}', path: 'target_releases/linux/arm64/' }
@@ -749,7 +750,8 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - name: Run rendering tests
         run: just test-rendering
 
