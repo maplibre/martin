@@ -598,7 +598,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       pg11-alpine:
-        image: postgis/postgis:11-3.0-alpine
+        image: postgis/postgis:13-3.0-alpine
         ports:
           - 5432/tcp
         options: >-
