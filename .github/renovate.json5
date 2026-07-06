@@ -21,7 +21,6 @@
       // group gives each its own PR for manual review.
       matchManagers: ['cargo'],
       matchPackageNames: [
-        '*',
         '!libdeflater',
         '!libdeflate-sys',
         '!insta',
@@ -33,7 +32,7 @@
     },
     {
       matchManagers: ['npm'],
-      matchPackageNames: ['*', '!@biomejs/biome'],
+      matchPackageNames: ['!@biomejs/biome'],
       groupName: 'npm dependencies',
     },
     {
