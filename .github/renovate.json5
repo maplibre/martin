@@ -6,6 +6,7 @@
   ],
   schedule: ['before 5am on the first day of the month'],
   minimumReleaseAge: '7 days',
+  lockFileMaintenance: { enabled: true },
   prConcurrentLimit: 10,
   packageRules: [
     {
