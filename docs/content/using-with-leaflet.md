@@ -27,4 +27,4 @@ L.vectorGrid
 ```
 
 !!! warning
-    Style serving is specific to [maplibre](https://maplibre.org/martin/using-with-maplibre/) or [deck.gl](https://maplibre.org/martin/using-with-deckgl/).
+    Style serving is specific to [maplibre](using-with-maplibre.md) or [deck.gl](using-with-deck-gl.md).
