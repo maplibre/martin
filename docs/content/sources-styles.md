@@ -224,7 +224,7 @@ the overlay body.
 
 <div class="grid" markdown>
 
-```json hl_lines="12-15"
+```json hl_lines="13-16"
 {
   "type": "FeatureCollection",
   "features": [{
