@@ -31,6 +31,7 @@ The config file can then be used via the `--config my-config.yaml` option.
     - encode them as MVT
 
     To improve performance, we currently assume that each file fits into RAM.
+    If you want to want and can convert your geojson files to [mbtiles/ pmtiles](sources-files.md), we recomend tooling like [`tippecanoe`](https://github.com/felt/tippecanoe).
 
 ## Run Martin with configuration file
 
@@ -84,5 +85,3 @@ The following events are handled automatically:
 !!! note
     Hot reload applies to directories configured under `geojson.paths` (or passed on the CLI).
     Named sources listed under `geojson.sources` are snapshotted at startup and are not watched for changes.
-
-If you want to convert your geojson files to [mbtiles/ pmtiles](sources-files.md), we recomend tooling like [`tippecanoe`](https://github.com/felt/tippecanoe).
