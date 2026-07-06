@@ -7,12 +7,6 @@
   schedule: ['* * 1,15 * *'],
   minimumReleaseAge: '7 days',
   automerge: true,
-  // lockFileMaintenance runs a wholesale `cargo update`, which ignores the
-  // per-package exclusions below and floats the deny.toml-banned crates
-  // (libdeflater, freetype-sys, ...) past their last-known-good versions,
-  // breaking the musl and Windows builds.
-  // Lockfiles are instead refreshed via the normal grouped update PRs and `just update`.
-  lockFileMaintenance: { enabled: false },
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
   packageRules: [
