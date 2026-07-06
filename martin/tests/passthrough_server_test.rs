@@ -107,10 +107,10 @@ async fn mvt_passes_through_unchanged() {
     assert_eq!(body, mvt.as_slice());
 }
 
-/// A real upstream (e.g. another Martin) sends the `ETag` quoted on the wire. Those quotes
-/// must be stripped before serving, otherwise `EntityTag::new_strong` panics the worker.
+/// A real upstream (e.g. another Martin) sends the `ETag` quoted on the wire. That quoted value is
+/// unusable as a strong tag, so the served tile falls back to a content hash rather than the upstream tag.
 #[actix_rt::test]
-async fn quoted_upstream_etag_is_normalized() {
+async fn quoted_upstream_etag_falls_back_to_hash() {
     let server = MockServer::start().await;
     mount_mvt(&server, "\"real-etag\"", mvt_tile()).await;
 
