@@ -54,8 +54,8 @@ jobs:
           # RUSTSEC-2026-0180 = postgres-protocol dos
           # RUSTSEC-2026-0178 = tokio-postgres dos
           # RUSTSEC-2026-0189 = rmcp Streamable HTTP DNS rebinding; only pulled in via hotpath's hotpath-mcp profiling tool, never compiled into the shipped server
-          # RUSTSEC-2026-0194 = quick-xml quadratic attribute-name check dos; pulled in via object_store parsing trusted cloud-storage XML, no path to quick-xml>=0.41 (object_store 0.14 still on 0.40.1)
-          # RUSTSEC-2026-0195 = quick-xml unbounded namespace-declaration allocation dos; same object_store chain, no path to quick-xml>=0.41 yet
+          # RUSTSEC-2026-0194 = quick-xml quadratic attribute-check dos; transitive via object_store 0.13 (quick-xml ^0.39), patched only in quick-xml 0.41 which needs a breaking object_store 0.14 bump
+          # RUSTSEC-2026-0195 = quick-xml unbounded namespace-declaration dos; same object_store 0.13 pin, patched only in quick-xml 0.41
   dependency-review:
     runs-on: ubuntu-latest
     permissions:
