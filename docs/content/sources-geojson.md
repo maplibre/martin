@@ -1,4 +1,12 @@
-## GeoJSON Feature Serving
+---
+icon: material/vector-polygon
+tags:
+  - geojson
+  - tile-sources
+  - configuration
+---
+
+# GeoJSON Feature Serving
 
 A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](https://geojson.org/) as specified by [RFC7946](https://datatracker.ietf.org/doc/html/rfc7946).
 Instead of incurring the overhead of serving them directly, we serve them as Vector tiles.
@@ -10,7 +18,7 @@ For example:
 martin /path/to/geojson/file.geojson /path/to/directory
 ```
 
-You may also want to generate a [config file](config-file.md) using `--save-config my-config.yaml`.
+You may also want to generate a [config file](config-file/index.md) using `--save-config my-config.yaml`.
 The config file can then be used via the `--config my-config.yaml` option.
 
 !!! warning
@@ -23,6 +31,29 @@ The config file can then be used via the `--config my-config.yaml` option.
     - encode them as MVT
 
     To improve performance, we currently assume that each file fits into RAM.
+
+## Run Martin with configuration file
+
+```yaml
+geojson:
+  # Optionally override the MVT tile grid extent for every GeoJSON source. Defaults to 4096.
+  extent: 4096
+  # Optionally override the clip margin kept around each tile edge, in tile units. Defaults to 64.
+  buffer: 64
+  paths:
+    # Scan this whole directory, publishing every *.json/*.geojson file as a source.
+    - /path/to/geojson/directory
+    # A specific file is published as a single source.
+    - /path/to/file.geojson
+  sources:
+    # A named source mapping a source name to a single file.
+    foo: /path/to/file.geojson
+```
+
+The type-level `extent` and `buffer` apply to every GeoJSON source:
+
+- **`extent`** - side length of the MVT tile coordinate grid each tile is encoded into (defaults to `4096`, the value [MapLibre](https://maplibre.org/) assumes). Must be non-zero.
+- **`buffer`** - clip margin kept around each tile edge, in tile units (defaults to `64`). Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
 
 ## GeoJSON Hot Reload
 

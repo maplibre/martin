@@ -1,3 +1,7 @@
+---
+icon: material/map
+---
+
 # Map renderer specific
 
 Martin can serve tiles to a variety of map rendering libraries.

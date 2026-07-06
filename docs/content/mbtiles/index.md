@@ -1,3 +1,10 @@
+---
+icon: material/database
+tags:
+  - mbtiles
+  - tools
+---
+
 # Working with MBTiles archives
 
 Martin includes `mbtiles` utility to interact with the [`*.mbtiles` files](../mbtiles-schema.md) from the command line.
