@@ -63,6 +63,9 @@ if [[ -z "${CURL_BIN:-}" ]]; then
 fi
 CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
 
+# Server-side rendering is opt-in (`-full` builds only), so its tests are gated on this env var.
+MARTIN_RENDERING="${MARTIN_RENDERING:-0}"
+
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
     # timeout -k 20s 20s curl --retry 10 --retry-all-errors --retry-delay 1 -sS "$MARTIN_URL/health"
@@ -823,12 +826,10 @@ test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 test_metrics "metrics_1"
 
-# Test style rendering (only available on Linux with the rendering feature)
-# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output
-RENDERING_AVAILABLE=0
-if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
+# Test style rendering (only in `-full` builds; gated by MARTIN_RENDERING).
+# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output.
+if [[ "$MARTIN_RENDERING" == "1" ]]; then
   >&2 echo "***** Test server-side style rendering *****"
-  RENDERING_AVAILABLE=1
   # PNG rendering
   $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null
   $CURL "$MARTIN_URL/style/maplibre/1/0/0.png" > /dev/null
@@ -861,8 +862,8 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'geojson.w
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
-# rendering: true produces different warnings depending on whether the rendering feature is compiled in
-if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
+# The styles.rendering config key logs differently depending on whether rendering is compiled in.
+if [[ "$MARTIN_RENDERING" == "1" ]]; then
   test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
 else
   test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."

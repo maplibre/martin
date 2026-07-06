@@ -18,6 +18,7 @@ When used as a library, you can use the following features:
   * `fonts` - enable font sources
   * `sprites` - enable sprite sources
   * `styles` - enable style sources
+  * `rendering` - enable server-side raster tile rendering of styles (Linux only, not in the default build; pulls in the `maplibre_native` native dependencies)
 * `lambda` - add specialised support for running in serverless functions
 
 If you are missing a part of Martin functionality in the [public `martin` API](https://docs.rs/martin), we would love to hear from you.
