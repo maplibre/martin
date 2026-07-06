@@ -46,8 +46,6 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 
 [rl-linux-a64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz
 
-[rl-macos-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-apple-darwin.tar.gz
-
 [rl-macos-a64]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz
 
 [rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip
