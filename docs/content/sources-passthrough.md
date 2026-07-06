@@ -64,7 +64,7 @@ passthrough:
 A source value under `passthrough.sources` is one of:
 
 | Form | Example | Notes |
-|------|---------|-------|
+| ---- | ------- | ----- |
 | URL template | `https://tile.osm.org/{z}/{x}/{y}.png` | A single `{z}/{x}/{y}` template. |
 | TileJSON URL | `https://example.org/tiles.json` | A lone non-template URL is treated as a [TileJSON](https://github.com/mapbox/tilejson-spec) document; tiles, zoom, bounds, and attribution come from the document. |
 | List of templates | `[https://a…/{z}/{x}/{y}, https://b…/{z}/{x}/{y}]` | Requests are spread across the mirrors. |
@@ -73,7 +73,7 @@ A source value under `passthrough.sources` is one of:
 ### Detailed object fields
 
 | Field | Applies to | Description |
-|-------|-----------|-------------|
+| ----- | ---------- | ----------- |
 | `url` | all | Upstream `{z}/{x}/{y}` template(s) or a single TileJSON document URL. |
 | `headers` | all | HTTP headers sent with every request (e.g. `Authorization`). Values support `${ENV_VAR}` substitution. |
 | `timeout` | all | Per-request timeout, e.g. `30s`, `1m`. Defaults to `30s`. |
