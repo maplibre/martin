@@ -63,7 +63,6 @@ fn redact(conn_str: &str) -> String {
 /// Redacts the `scheme://user:PASSWORD@` userinfo of a URL the `url` crate could not parse.
 fn redact_url_userinfo(conn_str: &str) -> String {
     static USERINFO: LazyLock<Regex> = LazyLock::new(|| {
-        // The username ends at the first `:`; the password (which may itself contain `:`) runs to `@`.
         Regex::new(r"(?i)([a-z][a-z0-9+.\-]*://[^@/?#:\s]*:)[^@/?#\s]*(@)")
             .expect("userinfo redaction regex is valid")
     });
@@ -132,13 +131,11 @@ mod tests {
         );
     }
 
-    /// A URL the `url` crate cannot parse (here, an invalid port) falls back to the userinfo regex.
     #[rstest]
     #[case(
         "postgres://postgres:testpassword@host:notaport/db",
         "postgres://postgres:REDACTED@host:notaport/db"
     )]
-    // A password containing `:` must be redacted whole, not just its final `:`-delimited segment.
     #[case(
         "postgres://postgres:test:password@host:notaport/db",
         "postgres://postgres:REDACTED@host:notaport/db"
