@@ -1,6 +1,9 @@
 name: Setup Rust
-description: Free runner disk space, install the stable Rust toolchain, and install the build tooling.
+description: Free runner disk space, install a Rust toolchain, and install the build tooling.
 inputs:
+  toolchain:
+    description: Rust toolchain to install and set as the default, e.g. "stable" or "nightly".
+    default: "stable"
   components:
     description: Space-separated rustup components to add, e.g. "clippy rustfmt".
     default: ""
@@ -27,7 +30,9 @@ runs:
         docker-images: true
         swap-storage: true
     - shell: bash
-      run: rustup update stable && rustup default stable
+      env:
+        TOOLCHAIN: ${{ inputs.toolchain }}
+      run: rustup update "$TOOLCHAIN" && rustup default "$TOOLCHAIN"
     - if: inputs.components != ''
       shell: bash
       env:
