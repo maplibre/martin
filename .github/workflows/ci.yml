@@ -133,15 +133,11 @@ jobs:
       - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
-      - run: rustup default nightly
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
-        with: { tool: 'cargo-shear,just' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
-
+      - uses: ./.github/actions/setup-rust
+        with: { toolchain: nightly, tools: 'cargo-shear,just', rendering: true }
       - run: just shear
   build-aarch64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
