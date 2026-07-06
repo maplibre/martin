@@ -49,6 +49,7 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - name: Generate code coverage
         run: just coverage --codecov --output-path target/codecov.info

@@ -4759,7 +4759,6 @@ dependencies = [
  "tracing-test",
  "url",
  "utoipa",
- "utoipa-actix-web",
  "walkdir",
  "xxhash-rust",
 ]
@@ -9357,17 +9356,6 @@ dependencies = [
  "serde",
  "serde_json",
  "utoipa-gen",
-]
-
-[[package]]
-name = "utoipa-actix-web"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7eda9c23c05af0fb812f6a177514047331dac4851a2c8e9c4b895d6d826967f"
-dependencies = [
- "actix-service",
- "actix-web",
- "utoipa",
 ]
 
 [[package]]
