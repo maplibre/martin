@@ -34,6 +34,18 @@
       groupName: 'cargo dependencies',
     },
     {
+      // Breaking bumps get their own PR.
+      matchManagers: ['cargo'],
+      matchUpdateTypes: ['major'],
+      groupName: null,
+    },
+    {
+      matchManagers: ['cargo'],
+      matchUpdateTypes: ['minor'],
+      matchCurrentVersion: '/^0\\./',
+      groupName: null,
+    },
+    {
       matchManagers: ['npm'],
       matchPackageNames: ['!@biomejs/biome'],
       groupName: 'npm dependencies',
