@@ -94,33 +94,44 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case(
+    #[case::url_userinfo(
         "postgres://user:secret@localhost:5432/db",
         "postgres://user:REDACTED@localhost:5432/db"
     )]
-    #[case(
+    #[case::url_userinfo_with_colon(
         "postgres://user:p@ss:word@localhost:5432/db",
         "postgres://user:REDACTED@localhost:5432/db"
     )]
-    #[case(
+    #[case::url_userinfo_percent_encoded(
+        "postgres://user:p%26ss%3Aword@localhost:5432/db",
+        "postgres://user:REDACTED@localhost:5432/db"
+    )]
+    #[case::url_query_password(
         "postgres://host/db?password=secret&sslmode=require",
         "postgres://host/db?password=REDACTED&sslmode=require"
     )]
-    #[case(
+    #[case::url_query_password_percent_encoded(
+        "postgres://host/db?password=p%26w%3Drd&sslmode=require",
+        "postgres://host/db?password=REDACTED&sslmode=require"
+    )]
+    #[case::keyword_password(
         "host=localhost password=secret sslmode=verify-full",
         "host=localhost password=REDACTED sslmode=verify-full"
     )]
-    #[case(
+    #[case::keyword_password_quoted(
         "host=localhost password='se cret' dbname=db",
         "host=localhost password=REDACTED dbname=db"
     )]
-    #[case(
+    #[case::url_no_password(
         "postgres://user@localhost:5432/db",
         "postgres://user@localhost:5432/db"
     )]
-    #[case("postgres://localhost:5432/db", "postgres://localhost:5432/db")]
-    #[case("host=localhost mypassword=keep", "host=localhost mypassword=keep")]
-    #[case(
+    #[case::url_no_userinfo("postgres://localhost:5432/db", "postgres://localhost:5432/db")]
+    #[case::keyword_password_substring(
+        "host=localhost mypassword=keep",
+        "host=localhost mypassword=keep"
+    )]
+    #[case::keyword_no_password(
         "host=localhost dbname=db sslmode=verify-full",
         "host=localhost dbname=db sslmode=verify-full"
     )]
@@ -132,11 +143,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case(
+    #[case::bad_port(
         "postgres://postgres:testpassword@host:notaport/db",
         "postgres://postgres:REDACTED@host:notaport/db"
     )]
-    #[case(
+    #[case::bad_port_colon_password(
         "postgres://postgres:test:password@host:notaport/db",
         "postgres://postgres:REDACTED@host:notaport/db"
     )]
