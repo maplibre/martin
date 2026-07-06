@@ -4,8 +4,11 @@
     'config:recommended',
     ':dependencyDashboard',
   ],
+  // Bi-weekly: only open/update PRs on the 1st and 15th of each month.
+  schedule: ['* * 1,15 * *'],
   minimumReleaseAge: '7 days',
-  lockFileMaintenance: { enabled: true },
+  automerge: true,
+  lockFileMaintenance: { enabled: true, automerge: true },
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
   packageRules: [
@@ -45,10 +48,6 @@
       matchDatasources: ['docker'],
       matchPackageNames: ['ghcr.io/maplibre/martin'],
       minimumReleaseAge: '0 days',
-    },
-    {
-      matchUpdateTypes: ['patch'],
-      automerge: true,
     },
   ],
 }
