@@ -39,6 +39,14 @@
       groupName: 'npm dependencies',
     },
     {
+      // Biome is updated via .pre-commit-config.yaml, not renovate: pre-commit.ci
+      // bumps the biome hook rev and sync-biome-version propagates it to the
+      // biome.json schemas and package.json dependencies.
+      matchManagers: ['npm'],
+      matchPackageNames: ['@biomejs/biome'],
+      enabled: false,
+    },
+    {
       matchDatasources: ['docker'],
       groupName: 'docker images',
     },
