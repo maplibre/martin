@@ -1,0 +1,42 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "fill-color": "#2E8B57",
+        "fill-opacity": 1.0,
+        "fill-outline-color": "#0B3D24"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [[-14.0, 7.0], [14.0, -7.0]],
+        "type": "LineString"
+      },
+      "properties": {
+        "line-cap": "round",
+        "line-color": "#D7263D",
+        "line-join": "round",
+        "line-width": 4
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
+      "properties": {
+        "circle-color": "#285DAA",
+        "circle-radius": 9,
+        "circle-stroke-color": "#FFFFFF",
+        "circle-stroke-width": 2
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

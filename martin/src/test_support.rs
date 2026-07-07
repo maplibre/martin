@@ -130,4 +130,57 @@ pub(crate) mod duckdb {
                 .expect("read-only DuckDB pool")
         }
     }
+
+    /// A temp `.parquet` file populated from a SQL fixture.
+    pub(crate) struct TestGeoParquet {
+        _dir: TempDir,
+        path: PathBuf,
+    }
+
+    impl TestGeoParquet {
+        /// Runs `setup_sql` in memory, then exports `source_table` to a parquet file.
+        pub(crate) fn from_sql(
+            parquet_filename: &str,
+            setup_sql: &str,
+            source_table: &str,
+        ) -> Self {
+            let dir = TempDir::new().expect("temporary GeoParquet directory");
+            let path = dir.path().join(parquet_filename);
+            let conn = Connection::open_in_memory().expect("in-memory DuckDB database");
+            conn.execute_batch("INSTALL spatial;")
+                .expect("spatial extension installed");
+            conn.execute_batch("LOAD spatial;")
+                .expect("spatial extension loaded");
+            conn.execute_batch(setup_sql)
+                .expect("GeoParquet fixture SQL executed");
+
+            let export_path = path.to_str().expect("parquet path must be UTF-8");
+            let escaped_export_path = export_path.replace('\'', "''");
+            conn.execute_batch(&format!(
+                "COPY {source_table} TO '{escaped_export_path}' (FORMAT PARQUET);"
+            ))
+            .expect("GeoParquet fixture exported");
+
+            Self { _dir: dir, path }
+        }
+
+        #[must_use]
+        pub(crate) fn path(&self) -> &std::path::Path {
+            &self.path
+        }
+
+        /// Opens a read-only database pool for running `read_parquet(...)` queries.
+        pub(crate) fn query_pool(&self, id: &str, pool_size: usize) -> DuckDBPool {
+            let db_path = self._dir.path().join("_query.duckdb");
+            let conn = Connection::open(&db_path).expect("writable scratch DuckDB database");
+            conn.execute_batch("INSTALL spatial;")
+                .expect("spatial extension installed");
+            conn.execute_batch("LOAD spatial;")
+                .expect("spatial extension loaded");
+            drop(conn);
+
+            DuckDBPool::new_database_file(id.to_string(), db_path, pool_size, None, None)
+                .expect("read-only DuckDB query pool")
+        }
+    }
 }

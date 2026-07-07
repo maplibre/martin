@@ -36,7 +36,12 @@ use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "postgres", feature = "mlt"))]
 use crate::config::file::process::resolve_process_config;
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -120,6 +125,12 @@ impl Config {
             res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
         }
 
+        #[cfg(feature = "geojson")]
+        {
+            self.geojson.finalize()?;
+            res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
+        }
+
         #[cfg(feature = "sprites")]
         {
             self.sprites.finalize()?;
@@ -158,6 +169,9 @@ impl Config {
 
         #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
+
+        #[cfg(feature = "geojson")]
+        let is_empty = is_empty && self.geojson.is_empty();
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
@@ -357,7 +371,8 @@ impl Config {
             feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
-            feature = "unstable-cog"
+            feature = "unstable-cog",
+            feature = "geojson"
         )),
         expect(
             unused_variables,
@@ -374,7 +389,8 @@ impl Config {
                 feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
-                feature = "unstable-cog"
+                feature = "unstable-cog",
+                feature = "geojson"
             )),
             expect(
                 unused_mut,
@@ -415,6 +431,13 @@ impl Config {
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy());
+            sources_and_warnings.push(Box::pin(val));
+        }
+
+        #[cfg(feature = "geojson")]
+        if !self.geojson.is_empty() {
+            let cfg = &mut self.geojson;
+            let val = resolve_files(cfg, idr, &["json", "geojson"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 

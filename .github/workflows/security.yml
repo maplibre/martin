@@ -19,10 +19,10 @@ jobs:
         actions: read
       steps:
         - name: Checkout repository
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+          uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
           with: { persist-credentials: false }
         - name: Run zizmor
-          uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
+          uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
   audit:
     runs-on: ubuntu-latest
     permissions:
@@ -30,12 +30,12 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0119,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0049,RUSTSEC-2026-0097,RUSTSEC-2026-0098,RUSTSEC-2026-0099,RUSTSEC-2026-0104,RUSTSEC-2026-0105,RUSTSEC-2025-0141,RUSTSEC-2026-0145,RUSTSEC-2026-0179,RUSTSEC-2026-0180,RUSTSEC-2026-0178
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0119,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0049,RUSTSEC-2026-0097,RUSTSEC-2026-0098,RUSTSEC-2026-0099,RUSTSEC-2026-0104,RUSTSEC-2026-0105,RUSTSEC-2025-0141,RUSTSEC-2026-0145,RUSTSEC-2026-0179,RUSTSEC-2026-0180,RUSTSEC-2026-0178,RUSTSEC-2026-0189,RUSTSEC-2026-0194,RUSTSEC-2026-0195
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing side channels => not used exploitably
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0119 = number_prefix is unmaintained, but we need no change in this lib
@@ -53,13 +53,16 @@ jobs:
           # RUSTSEC-2026-0179 = postgres-protocol dos
           # RUSTSEC-2026-0180 = postgres-protocol dos
           # RUSTSEC-2026-0178 = tokio-postgres dos
+          # RUSTSEC-2026-0189 = rmcp Streamable HTTP DNS rebinding; only pulled in via hotpath's hotpath-mcp profiling tool, never compiled into the shipped server
+          # RUSTSEC-2026-0194 = quick-xml quadratic attribute-check dos; transitive via object_store 0.13 (quick-xml ^0.39), patched only in quick-xml 0.41 which needs a breaking object_store 0.14 bump
+          # RUSTSEC-2026-0195 = quick-xml unbounded namespace-declaration dos; same object_store 0.13 pin, patched only in quick-xml 0.41
   dependency-review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
@@ -96,7 +99,7 @@ jobs:
         - language: rust
     steps:
     - name: Checkout repository
-      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with: { persist-credentials: false }
     - name: Initialize CodeQL
       uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2

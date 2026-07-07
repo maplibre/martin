@@ -1,0 +1,161 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            2161,
+            2162
+          ],
+          [
+            2275,
+            2280
+          ],
+          [
+            1706,
+            1689
+          ]
+        ],
+        "type": "MultiPoint"
+      },
+      "properties": {
+        "id": 1,
+        "kind": "multipoint",
+        "source_mvt_layer": "multi_geometries"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              1592,
+              2545
+            ],
+            [
+              1535,
+              2622
+            ]
+          ],
+          [
+            [
+              2503,
+              2545
+            ],
+            [
+              2560,
+              2622
+            ]
+          ]
+        ],
+        "type": "MultiLineString"
+      },
+      "properties": {
+        "id": 2,
+        "kind": "multilinestring",
+        "source_mvt_layer": "multi_geometries"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                2048,
+                2104
+              ],
+              [
+                2104,
+                2104
+              ],
+              [
+                2104,
+                2048
+              ],
+              [
+                2048,
+                2048
+              ],
+              [
+                2048,
+                2104
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                2730,
+                2104
+              ],
+              [
+                2787,
+                2104
+              ],
+              [
+                2787,
+                2048
+              ],
+              [
+                2730,
+                2048
+              ],
+              [
+                2730,
+                2104
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 3,
+        "kind": "multipolygon",
+        "source_mvt_layer": "multi_geometries"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1365,
+          2906
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 4,
+        "kind": "geometrycollection",
+        "source_mvt_layer": "multi_geometries"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            1251,
+            2906
+          ],
+          [
+            1308,
+            3030
+          ]
+        ],
+        "type": "LineString"
+      },
+      "properties": {
+        "id": 4,
+        "kind": "geometrycollection",
+        "source_mvt_layer": "multi_geometries"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

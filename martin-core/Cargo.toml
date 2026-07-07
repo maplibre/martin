@@ -11,6 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[[bench]]
+name = "geojson_tiles"
+harness = false
+required-features = ["geojson"]
+
 [features]
 default = [
     "unstable-duckdb",
@@ -23,6 +28,19 @@ default = [
     "sprites",
     "styles",
     "unstable-cog",
+    "geojson",
+]
+geojson = [
+    "dep:geojson",
+    "dep:geo-index",
+    "dep:geozero",
+    "dep:geo-types",
+    "dep:geo",
+    "dep:rayon",
+    "dep:serde_json",
+    "dep:tokio",
+    "tokio/fs",
+    "_tiles",
 ]
 metrics = ["dep:prometheus"]
 postgres = [
@@ -35,10 +53,12 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "dep:url",
     "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
-rendering = ["styles", "dep:maplibre_native", "dep:image", "dep:flume"]
+unstable-cog = ["dep:png", "dep:tiff", "dep:serde_json", "_tiles"]
+overlay = ["dep:geojson", "dep:strum"]
+rendering = ["styles", "overlay", "dep:maplibre_native", "dep:flume"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -46,6 +66,7 @@ fonts = [
     "dep:itertools",
     "dep:dashmap",
     "dep:walkdir",
+    "dep:strum",
 ]
 sprites = [
     "dep:actix-web",
@@ -74,14 +95,13 @@ test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-image = { workspace = true, optional = true }
 maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
 backon = { workspace = true, optional = true }
-base64  = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 chrono.workspace = true
 dashmap = { workspace = true, optional = true }
@@ -91,8 +111,12 @@ derive-debug.workspace = true
 duckdb = { workspace = true, optional = true }
 flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+geo = { workspace = true, optional = true }
+geo-index = { workspace = true, optional = true }
+geo-types = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
+geozero = { workspace = true, optional = true }
 hotpath.workspace = true
-image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -103,6 +127,7 @@ pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
@@ -114,6 +139,7 @@ serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
@@ -130,8 +156,11 @@ actix-web.workspace = true
 approx.workspace = true
 backon.workspace = true
 bytes.workspace = true
+criterion = { workspace = true }
 env_logger.workspace = true
+fast-mvt.workspace = true
 futures.workspace = true
+image.workspace = true
 image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true

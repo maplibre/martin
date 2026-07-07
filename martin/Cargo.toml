@@ -111,10 +111,12 @@ default = [
     "sprites",
     "styles",
     "webui",
+    "geojson",
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-rendering = ["styles", "martin-core/rendering", "dep:image"]
+overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
+rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -129,6 +131,7 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
+geojson = ["martin-core/geojson", "_tiles"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -138,7 +141,6 @@ _catalog = []
 unstable-schemas = [
     "dep:schemars",
     "dep:utoipa",
-    "dep:utoipa-actix-web",
     "martin-core/unstable-schemas",
     "fonts",
     "mbtiles",
@@ -173,10 +175,12 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
+csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
+geojson = { workspace = true, optional = true }
 hotpath.workspace = true
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
@@ -203,18 +207,23 @@ serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 static-files = { workspace = true, optional = true }
-subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { workspace = true, features = ["io-std"] }
+tokio = { workspace = true, features = ["io-std", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
-tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
+tracing-subscriber = { workspace = true, default-features = false, features = [
+    "env-filter",
+    "json",
+    "fmt",
+    "std",
+    "ansi",
+    "chrono",
+] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
-utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
 
@@ -230,6 +239,7 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
+test_each_file.workspace = true
 testcontainers-modules.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tracing-test.workspace = true

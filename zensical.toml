@@ -61,6 +61,8 @@ nav = [
             {"PostgreSQL Function Sources" = "sources-pg-functions.md"}
         ]},
         {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
+        {"GeoJSON Sources" = "sources-geojson.md"},
+        {"Passthrough Sources" = "sources-passthrough.md"},
         {"Composite Sources" = "sources-composite.md"}
     ]},
     {"Supporting Resources" = [
@@ -391,3 +393,4 @@ alternate_style = true
 
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]

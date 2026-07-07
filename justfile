@@ -13,7 +13,7 @@ mod ui 'martin/martin-ui/justfile'
 just := quote(just_executable())
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
@@ -52,12 +52,15 @@ export AWS_REGION := 'eu-central-1'
 # Run benchmark tests
 bench: fetch
     cargo bench --bench sources
+    cargo bench -p martin-core --bench geojson_tiles
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
+    oha --latency-correction -n 200            --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
+    oha --latency-correction -n {{requests}}            http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
@@ -69,7 +72,7 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: fetch start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Build martin with hotpath profiling support
 build-hotpath: fetch
@@ -264,9 +267,9 @@ move-artifacts target:
     fi
 
 
-# Quick compile without building a binary
-check: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace
+# Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
+check *args: fetch (cargo-install 'cargo-hack')
+    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
