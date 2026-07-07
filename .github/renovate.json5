@@ -1,0 +1,78 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':dependencyDashboard',
+  ],
+  schedule: ['* * 1,15 * *'],
+  minimumReleaseAge: '7 days',
+  automerge: true,
+  lockFileMaintenance: { enabled: true, automerge: true },
+  prConcurrentLimit: 10,
+  prHourlyLimit: 0,
+  packageRules: [
+    {
+      matchManagers: ['github-actions'],
+      groupName: 'github-actions',
+    },
+    {
+      // These crates are excluded because specific newer versions are broken
+      // (see deny.toml): libdeflater/libdeflate-sys@1.25.0 fail to compile under
+      // musl; insta@1.45.0/1.45.1 fail `cargo test -- diff_and_patch`;
+      // freetype-sys@0.23.0 / freetype-rs@0.38.0 / sdf_glyph_renderer@1.1.0 fail
+      // to compile (missing zlib.h) on musl and Windows. Keeping them out of the
+      // group gives each its own PR for manual review.
+      matchManagers: ['cargo'],
+      matchPackageNames: [
+        '!libdeflater',
+        '!libdeflate-sys',
+        '!insta',
+        '!freetype-sys',
+        '!freetype-rs',
+        '!sdf_glyph_renderer',
+      ],
+      groupName: 'cargo dependencies',
+    },
+    {
+      // Breaking bumps get their own PR.
+      matchManagers: ['cargo'],
+      matchUpdateTypes: ['major'],
+      groupName: null,
+    },
+    {
+      matchManagers: ['cargo'],
+      matchUpdateTypes: ['minor'],
+      matchCurrentVersion: '/^0\\./',
+      groupName: null,
+    },
+    {
+      matchManagers: ['npm'],
+      matchPackageNames: ['!@biomejs/biome'],
+      groupName: 'npm dependencies',
+    },
+    {
+      // Biome is updated via .pre-commit-config.yaml, not renovate: pre-commit.ci
+      // bumps the biome hook rev and sync-biome-version propagates it to the
+      // biome.json schemas and package.json dependencies.
+      matchManagers: ['npm'],
+      matchPackageNames: ['@biomejs/biome'],
+      enabled: false,
+    },
+    {
+      matchDatasources: ['docker'],
+      groupName: 'docker images',
+    },
+    {
+      matchDatasources: ['docker'],
+      matchPackageNames: ['ghcr.io/maplibre/martin'],
+      minimumReleaseAge: '0 days',
+    },
+    {
+      // Test setup intentionally pins Postgres 11 (oldest version we support).
+      matchDatasources: ['docker'],
+      matchPackageNames: ['postgis/postgis'],
+      matchCurrentValue: '/^11/',
+      enabled: false,
+    },
+  ],
+}

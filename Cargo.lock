@@ -1374,10 +1374,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "serde",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -1767,9 +1765,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.18"
+version = "0.9.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
+checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -3449,6 +3447,15 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72ffc47505087fdc3825511dd51e7c9758ef729737d5764568f36fb671c0dee8"
 dependencies = [
+ "hotpath-macros 0.17.0",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e20540efb12e8f697d2083418b84a1f111f50444f04d401cd0aeef9ab71e271"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -3459,7 +3466,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros",
+ "hotpath-macros 0.21.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -3482,6 +3489,12 @@ name = "hotpath-macros"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a87c69fd35b5116b60e56c449afabc6cc6c05aac9d6d31aa3b565916d6b572db"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83255cc6b795aa3b264304b3bee12bcfaaafe5df686eb7bd3366d3ebd6feef51"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3490,15 +3503,15 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.17.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bfbef796755eaa115acf7a58092231b7a02e5f4573d18b1ede3ccbcda8db146"
+checksum = "27b78f6a7ec1b711177e20a80212c058643a27078e7470e2a92f53bd257bdc29"
 
 [[package]]
 name = "hotpath-meta"
-version = "0.17.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ec0ac081668bbc76200eb7834c878aa8c369af237cf0ee9de5173624a6c5cd"
+checksum = "347afb94ccc918eb52d19fabcffa06de7fb75ef6f3dd91b2ef426c64de83bd9e"
 dependencies = [
  "hotpath-macros-meta",
 ]
@@ -4700,7 +4713,7 @@ dependencies = [
  "enum-display",
  "futures",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.21.0",
  "humantime-serde",
  "image",
  "image-compare",
@@ -4744,7 +4757,6 @@ dependencies = [
  "tracing-test",
  "url",
  "utoipa",
- "utoipa-actix-web",
  "walkdir",
  "wiremock",
  "xxhash-rust",
@@ -4777,7 +4789,7 @@ dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "geozero",
- "hotpath",
+ "hotpath 0.21.0",
  "image",
  "image-compare",
  "insta",
@@ -4873,7 +4885,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
- "hotpath",
+ "hotpath 0.21.0",
  "insta",
  "itertools 0.15.0",
  "martin-tile-utils",
@@ -5049,7 +5061,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.17.0",
  "integer-encoding",
  "num-traits",
  "num_enum",
@@ -6949,12 +6961,11 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "0.13.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1815dbc06c414d720f8bc1951eccd66bc99efc6376331f1e7093a119b3eb508"
+checksum = "1d1f571c72940a19d9532fe52dbea8bc9912bf1d766c2970bb824056b86f3f59"
 dependencies = [
  "async-trait",
- "axum",
  "base64 0.22.1",
  "bytes",
  "chrono",
@@ -6964,7 +6975,7 @@ dependencies = [
  "http-body-util",
  "pastey 0.2.3",
  "pin-project-lite",
- "rand 0.9.4",
+ "rand 0.10.1",
  "rmcp-macros",
  "schemars 1.2.1",
  "serde",
@@ -6981,9 +6992,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "0.13.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11f0bc7008fa102e771a76c6d2c9b253be3f2baa5964e060464d038ae1cbc573"
+checksum = "1aad0035b69380782d78ea95b508327e6deaa2235909053e596eea8f27b5e1d5"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -9343,17 +9354,6 @@ dependencies = [
  "serde",
  "serde_json",
  "utoipa-gen",
-]
-
-[[package]]
-name = "utoipa-actix-web"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7eda9c23c05af0fb812f6a177514047331dac4851a2c8e9c4b895d6d826967f"
-dependencies = [
- "actix-service",
- "actix-web",
- "utoipa",
 ]
 
 [[package]]

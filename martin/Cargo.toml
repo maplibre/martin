@@ -143,7 +143,6 @@ _catalog = []
 unstable-schemas = [
     "dep:schemars",
     "dep:utoipa",
-    "dep:utoipa-actix-web",
     "martin-core/unstable-schemas",
     "fonts",
     "mbtiles",
@@ -228,7 +227,6 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 ] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
-utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
 

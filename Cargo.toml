@@ -92,7 +92,7 @@ geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
 geozero = { version = "0.15.1", features = ["with-mvt", "with-geo"] }
-hotpath = "0.17"
+hotpath = "0.21"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
@@ -164,7 +164,6 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
-utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
 wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
