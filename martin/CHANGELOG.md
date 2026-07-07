@@ -45,7 +45,7 @@ Done in [#2199](https://github.com/maplibre/martin/pull/2199) by [@JakeLow](http
 ### Passthrough sources
 
 Martin can now proxy tiles from an upstream HTTP tile server.
-It fetches each tile from the configured upstream and serves the bytes verbatim, while the rest of Martin's pipeline (caching, headers, MVT↔MLT conversion) applies on top.
+It fetches each tile from the configured upstream and serves the bytes verbatim, while the rest of Martin's pipeline (caching, headers, MVT<->MLT conversion) applies on top.
 Use it to put Martin's cache in front of an existing tile server, hide an upstream API key from browsers, or spread requests across mirrors.
 
 ```yaml
