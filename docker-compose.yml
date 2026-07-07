@@ -107,7 +107,7 @@ services:
 
   db-legacy:
     # This should match the version of postgres used in the CI workflow
-    image: postgis/postgis:11-3.0-alpine
+    image: postgis/postgis:13-3.0-alpine
     platform: linux/x86_64
     restart: unless-stopped
     ports:

@@ -62,6 +62,7 @@ nav = [
         ]},
         {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
         {"GeoJSON Sources" = "sources-geojson.md"},
+        {"Passthrough Sources" = "sources-passthrough.md"},
         {"Composite Sources" = "sources-composite.md"}
     ]},
     {"Supporting Resources" = [

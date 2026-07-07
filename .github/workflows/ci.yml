@@ -60,7 +60,8 @@ jobs:
           key: ${{ matrix.os }}
       - name: Install uv
         if: runner.os == 'Linux'
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - name: Run cargo test
         run: just test-packages-ci
       - run: just test-doc
@@ -121,7 +122,8 @@ jobs:
       - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
         with: { tool: 'just' }
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: just test-schemas
   lint-rust-dependencies:
     name: Lint Rust dependencies
@@ -131,15 +133,11 @@ jobs:
       - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
-      - run: rustup default nightly
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
-        with: { tool: 'cargo-shear,just' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
-
+      - uses: ./.github/actions/setup-rust
+        with: { toolchain: nightly, tools: 'cargo-shear,just', rendering: true }
       - run: just shear
   build-aarch64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
@@ -598,7 +596,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       pg11-alpine:
-        image: postgis/postgis:11-3.0-alpine
+        image: postgis/postgis:13-3.0-alpine
         ports:
           - 5432/tcp
         options: >-

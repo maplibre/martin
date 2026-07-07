@@ -79,6 +79,7 @@ jobs:
       # rules (trailing newline, etc.) - same tiebreaker the bless job uses.
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts
         continue-on-error: true
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
@@ -128,6 +129,7 @@ jobs:
         run: just install-dependencies
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - run: just bless
 
