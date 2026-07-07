@@ -1375,10 +1375,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "serde",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -1768,9 +1766,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.19"
+version = "0.9.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4279b0f31df31b4add8aeae57d40f3b5e53aad2b531e89b982bd75ed1898851d"
+checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -3449,7 +3447,7 @@ dependencies = [
 name = "hotpath"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc2c28b1fa962e433f800ed1ea0bf53dc028d3745cf2acec6cfd28b65ac96afa"
+checksum = "2e20540efb12e8f697d2083418b84a1f111f50444f04d401cd0aeef9ab71e271"
 dependencies = [
  "arc-swap",
  "axum",
@@ -3461,7 +3459,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros 0.18.0",
+ "hotpath-macros 0.21.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -3490,9 +3488,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a585238d8daf746e27df0f24d1bbdcd2410e9febff63f9a0173f90d7e71c50f6"
+checksum = "83255cc6b795aa3b264304b3bee12bcfaaafe5df686eb7bd3366d3ebd6feef51"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3507,15 +3505,15 @@ checksum = "7edb8da2a00454786fbb75ab24c4f72380afeb9b5136776caa7737df9895bfa7"
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "309f63c2f755dead454dd4b3ea8ab5c947f14f8ea435fbcd37fa820e17290e80"
+checksum = "27b78f6a7ec1b711177e20a80212c058643a27078e7470e2a92f53bd257bdc29"
 
 [[package]]
 name = "hotpath-meta"
-version = "0.18.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68faa91a9e1114dff668cd90560f332da6bbde40dae37ec28ea1c43ca5ce3be3"
+checksum = "347afb94ccc918eb52d19fabcffa06de7fb75ef6f3dd91b2ef426c64de83bd9e"
 dependencies = [
  "hotpath-macros-meta",
 ]
@@ -4717,7 +4715,7 @@ dependencies = [
  "enum-display",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.18.0",
+ "hotpath 0.21.0",
  "humantime-serde",
  "image",
  "image-compare",
@@ -4792,7 +4790,7 @@ dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "geozero",
- "hotpath 0.18.0",
+ "hotpath 0.21.0",
  "image",
  "image-compare",
  "insta",
@@ -4888,7 +4886,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
- "hotpath 0.18.0",
+ "hotpath 0.21.0",
  "insta",
  "itertools 0.15.0",
  "martin-tile-utils",
@@ -6942,12 +6940,11 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "0.13.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1815dbc06c414d720f8bc1951eccd66bc99efc6376331f1e7093a119b3eb508"
+checksum = "1d1f571c72940a19d9532fe52dbea8bc9912bf1d766c2970bb824056b86f3f59"
 dependencies = [
  "async-trait",
- "axum",
  "base64 0.22.1",
  "bytes",
  "chrono",
@@ -6957,7 +6954,7 @@ dependencies = [
  "http-body-util",
  "pastey 0.2.3",
  "pin-project-lite",
- "rand 0.9.4",
+ "rand 0.10.1",
  "rmcp-macros",
  "schemars 1.2.1",
  "serde",
@@ -6974,9 +6971,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "0.13.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11f0bc7008fa102e771a76c6d2c9b253be3f2baa5964e060464d038ae1cbc573"
+checksum = "1aad0035b69380782d78ea95b508327e6deaa2235909053e596eea8f27b5e1d5"
 dependencies = [
  "darling",
  "proc-macro2",
