@@ -164,7 +164,6 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
-utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
 wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
