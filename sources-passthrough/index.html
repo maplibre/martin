@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/sources-composite/">
+        <link rel="canonical" href="https://maplibre.org/martin/sources-passthrough/">
       
       
-        <link rel="prev" href="../sources-passthrough/">
+        <link rel="prev" href="../sources-geojson/">
       
       
-        <link rel="next" href="../sources-sprites/">
+        <link rel="next" href="../sources-composite/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Composite Sources - Martin Tile Server Documentation</title>
+        <title>Passthrough Sources - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#composite-sources" class="md-skip">
+        <a href="#passthrough-sources" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Composite Sources
+              Passthrough Sources
             
           </span>
         </div>
@@ -1061,10 +1061,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../sources-passthrough/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 11h-3.18C14.4 9.84 13.3 9 12 9s-2.4.84-2.82 2H6c-.33 0-2-.1-2-2V8c0-1.83 1.54-2 2-2h10.18C16.6 7.16 17.7 8 19 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3c-1.3 0-2.4.84-2.82 2H6C4.39 4 2 5.06 2 8v1c0 2.94 2.39 4 4 4h3.18c.42 1.16 1.52 2 2.82 2s2.4-.84 2.82-2H18c.33 0 2 .1 2 2v1c0 1.83-1.54 2-2 2H7.82C7.4 16.84 6.3 16 5 16a3 3 0 0 0-3 3 3 3 0 0 0 3 3c1.3 0 2.4-.84 2.82-2H18c1.61 0 4-1.07 4-4v-1c0-2.93-2.39-4-4-4m1-7a1 1 0 0 1 1 1 1 1 0 0 1-1 1 1 1 0 0 1-1-1 1 1 0 0 1 1-1M5 20a1 1 0 0 1-1-1 1 1 0 0 1 1-1 1 1 0 0 1 1 1 1 1 0 0 1-1 1"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Passthrough Sources
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1081,6 +1109,77 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#run-martin-with-configuration-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Run Martin with configuration file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-forms" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Upstream forms
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upstream forms">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detailed-object-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Detailed object fields
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-level-conversion-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type-level conversion defaults
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1090,19 +1189,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../sources-composite/" class="md-nav__link">
         
   
   
@@ -1119,7 +1209,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -1582,7 +1671,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-composite.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-passthrough.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1590,18 +1679,162 @@
   
 
 
-<h1 id="composite-sources">Composite Sources</h1>
-<p>Composite Sources allows combining multiple sources into one.
-Composite Source consists of multiple sources separated by comma <code>{source1},...,{sourceN}</code></p>
-<p>Each source in a composite source can be accessed with its <code>{source_name}</code> as a <code>source-layer</code> property.</p>
-<p>Composite source <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint is available
-at <code>/{source1},...,{sourceN}</code>, and tiles are available at <code>/{source1},...,{sourceN}/{z}/{x}/{y}</code>.</p>
-<p>For example, composite source combining <code>points</code> and <code>lines</code> sources will be available at <code>/points,lines/{z}/{x}/{y}</code></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># TileJSON</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>curl<span class="w"> </span>localhost:3000/points,lines
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Whole world as a single tile</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>curl<span class="w"> </span>localhost:3000/points,lines/0/0/0
+<h1 id="passthrough-sources">Passthrough Sources</h1>
+<p>A <code>passthrough</code> source proxies tiles from an upstream HTTP tile server through Martin.
+Martin fetches each tile from the upstream URL and serves the bytes verbatim, preserving the upstream <code>Content-Encoding</code>.
+The rest of Martin's pipeline is applied on top, exactly as for any other source.
+This means that you can use this to <a href="../config-file/#postprocessing">convert between MVT and MLT</a> and for <a href="../config-file/">tile caching</a></p>
+<p>Use it to:</p>
+<ul>
+<li>put Martin's cache, headers, and MLT conversion in front of an existing tile server</li>
+<li>serve an upstream that requires an API key without leaking the key to browsers</li>
+<li>spread tile requests across several mirror upstreams</li>
+</ul>
+<p>Unlike file sources, passthrough sources have no <code>paths:</code> to glob.
+Each source names an upstream directly.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Every requested tile results in an upstream HTTP fetch unless it is served from Martin's cache.
+Point passthrough sources only at upstreams you are authorised to proxy, and be mindful of their rate limits and usage policies.</p>
+</div>
+<h2 id="run-martin-with-configuration-file">Run Martin with configuration file</h2>
+<p>Passthrough sources are only available via the <a href="../config-file/">configuration file</a>.
+There is no CLI shorthand.
+Each entry under <code>passthrough.sources</code> maps the source ID Martin serves under to an upstream.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="c1"># Shorthand: a `{z}/{x}/{y}` URL template.</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">osm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tile.openstreetmap.org/{z}/{x}/{y}.png</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="c1"># Shorthand: a TileJSON document URL. Its tile URLs, zoom range, bounds,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="c1"># and attribution are read from the document.</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">hosted</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://demotiles.maplibre.org/tiles/tiles.json</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="c1"># Shorthand: a list of URL templates, to spread requests across mirrors.</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">mirrored</span><span class="p">:</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://a.example.com/{z}/{x}/{y}.pbf</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://b.example.com/{z}/{x}/{y}.pbf</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="c1"># Detailed object form, for headers, timeouts, and metadata.</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">secure</span><span class="p">:</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com/{z}/{x}/{y}</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="c1"># HTTP headers sent with every upstream request. Values support `${ENV_VAR}` substitution.</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">headers</span><span class="p">:</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">        </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${API_TOKEN}</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">      </span><span class="c1"># Per-request timeout. Accepts human-readable values like &quot;30s&quot; or &quot;1m&quot;. Defaults to &quot;30s&quot;.</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">      </span><span class="c1"># Explicit tile format. When unset it is detected from the URL extension,</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">      </span><span class="c1"># the upstream TileJSON, or the response itself.</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">      </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mvt</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">      </span><span class="c1"># TileJSON metadata advertised for template upstreams.</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">      </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">      </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">      </span><span class="nt">bounds</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-85.0511</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">180.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">85.0511</span><span class="p p-Indicator">]</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">      </span><span class="nt">attribution</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;©</span><span class="nv"> </span><span class="s">Example&#39;</span>
+</span></code></pre></div>
+<h2 id="upstream-forms">Upstream forms</h2>
+<p>A source value under <code>passthrough.sources</code> is one of:</p>
+<table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Example</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>URL template</td>
+<td><code>https://tile.osm.org/{z}/{x}/{y}.png</code></td>
+<td>A single <code>{z}/{x}/{y}</code> template.</td>
+</tr>
+<tr>
+<td>TileJSON URL</td>
+<td><code>https://example.org/tiles.json</code></td>
+<td>A lone non-template URL is treated as a <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> document; tiles, zoom, bounds, and attribution come from the document.</td>
+</tr>
+<tr>
+<td>List of templates</td>
+<td><code>[https://a…/{z}/{x}/{y}, https://b…/{z}/{x}/{y}]</code></td>
+<td>Requests are spread across the mirrors.</td>
+</tr>
+<tr>
+<td>Object</td>
+<td><code>{ url: …, headers: … }</code></td>
+<td>The detailed form below.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="detailed-object-fields">Detailed object fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Applies to</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>all</td>
+<td>Upstream <code>{z}/{x}/{y}</code> template(s) or a single TileJSON document URL.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>all</td>
+<td>HTTP headers sent with every request (e.g. <code>Authorization</code>). Values support <code>${ENV_VAR}</code> substitution.</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>all</td>
+<td>Per-request timeout, e.g. <code>30s</code>, <code>1m</code>. Defaults to <code>30s</code>.</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>all</td>
+<td>Explicit tile format override (e.g. <code>mvt</code>, <code>png</code>). Detected when unset.</td>
+</tr>
+<tr>
+<td><code>attribution</code></td>
+<td>templates only</td>
+<td>Attribution advertised in the served TileJSON.</td>
+</tr>
+<tr>
+<td><code>cache</code></td>
+<td>all</td>
+<td>Zoom-level bounds for tile caching.</td>
+</tr>
+<tr>
+<td><code>convert_to_mlt</code> / <code>convert_to_mvt</code></td>
+<td>all</td>
+<td>Per-source <a href="../config-file/#postprocessing">MVT/MLT conversion</a> overrides.</td>
+</tr>
+<tr>
+<td><code>minzoom</code> / <code>maxzoom</code></td>
+<td>templates only</td>
+<td>Zoom range advertised in the served TileJSON.</td>
+</tr>
+<tr>
+<td><code>bounds</code></td>
+<td>templates only</td>
+<td>Geographic bounds advertised in the served TileJSON.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>minzoom</code>, <code>maxzoom</code>, <code>bounds</code>, and <code>attribution</code> are only used for URL-template upstreams.
+For a TileJSON upstream, that metadata is read from the upstream document instead.</p>
+</div>
+<h2 id="type-level-conversion-defaults">Type-level conversion defaults</h2>
+<p>Alongside <code>sources</code>, the <code>passthrough</code> section accepts <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys that apply to every passthrough source.
+They override the global defaults and are themselves overridden by a per-source setting.
+See <a href="../config-file/#postprocessing">Postprocessing</a> for what these conversions do.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">osm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tile.openstreetmap.org/{z}/{x}/{y}.png</span>
 </span></code></pre></div>
 
 
@@ -1611,14 +1844,21 @@ at <code>/{source1},...,{sourceN}</code>, and tiles are available at <code>/{sou
       
       
       
-        <span class="md-tag">tile-sources</span>
+        <span class="md-tag">passthrough</span>
       
     
       
       
       
       
-        <span class="md-tag">composite-sources</span>
+        <span class="md-tag">proxy</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">tile-sources</span>
       
     
       
@@ -1670,7 +1910,7 @@ at <code>/{source1},...,{sourceN}</code>, and tiles are available at <code>/{sou
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../sources-passthrough/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Passthrough Sources">
+          <a href="../sources-geojson/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GeoJSON Sources">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1680,20 +1920,20 @@ at <code>/{source1},...,{sourceN}</code>, and tiles are available at <code>/{sou
                 Previous
               </span>
               <div class="md-ellipsis">
-                Passthrough Sources
+                GeoJSON Sources
               </div>
             </div>
           </a>
         
         
           
-          <a href="../sources-sprites/" class="md-footer__link md-footer__link--next" aria-label="Next: Sprites">
+          <a href="../sources-composite/" class="md-footer__link md-footer__link--next" aria-label="Next: Composite Sources">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Sprites
+                Composite Sources
               </div>
             </div>
             <div class="md-footer__button md-icon">
