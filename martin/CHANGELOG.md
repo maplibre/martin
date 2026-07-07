@@ -9,42 +9,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.12.0](https://github.com/maplibre/martin/compare/martin-v1.11.0...martin-v1.12.0) - 2026-07-07
 
-### Added
+### GeoJSON tile source
 
-- *(geojson)* serve MVT tiles from a GeoJSON file ([#2538](https://github.com/maplibre/martin/pull/2538))
-- *(rendering)* add static map overlay endpoint ([#2794](https://github.com/maplibre/martin/pull/2794))
-- geoparquet config and resolver wiring  ([#2931](https://github.com/maplibre/martin/pull/2931))
-- update to mlt-core 0.11.1 ([#2899](https://github.com/maplibre/martin/pull/2899))
-- *(geojson)* add GeoJSON tile source to martin-core ([#2925](https://github.com/maplibre/martin/pull/2925))
-- *(martin-core)* add static map overlay rendering engine ([#2922](https://github.com/maplibre/martin/pull/2922))
-- *(martin-core)* add Transport::from_string_headers ([#2913](https://github.com/maplibre/martin/pull/2913))
-- *(martin-core)* passthrough tile source ([#2908](https://github.com/maplibre/martin/pull/2908))
-- *(tile-utils)* make tile_bbox public ([#2924](https://github.com/maplibre/martin/pull/2924))
-- Add `mbtiles pack` and `mbtiles unpack` subcommands ([#2199](https://github.com/maplibre/martin/pull/2199))
+Martin can now serve vector tiles directly from a `.geojson`/`.json` file, no pre-processing into MBTiles/PMTiles required.
+
+How it works:
+
+- **On startup** the features are reprojected from WGS84 (EPSG:4326) to Web Mercator (EPSG:3857) and indexed in a packed Hilbert R-Tree.
+- **Per tile request** Martin queries the R-Tree for geometries overlapping the tile bbox, clips them (with a configurable `buffer`), transforms into tile coordinate space and encodes MVT, all on the fly. The tile `extent` and `buffer` are configurable.
+
+Because it's file-backed, GeoJSON sources **hot-reload**: point Martin at a directory and it watches for `.geojson`/`.json` changes via filesystem events, adding, updating and removing sources without a restart, just like PMTiles and COG.
+
+Great for smaller datasets and quick prototyping.
+Done in [#2538](https://github.com/maplibre/martin/pull/2538), [#2925](https://github.com/maplibre/martin/pull/2925) by [@thomfuhrmann](https://github.com/thomfuhrmann).
+
+### Static map overlays
+
+Building on the static rendering core from the last release, we added an endpoint to render a static map image with overlays drawn on top:
+
+```
+POST /style/{id}/static/{camera}/{wxh.fmt}
+```
+
+The camera can be a center point, a bounding box, or auto-fit to the overlays you pass in.
+Overlays support fills, lines and circles with configurable color/opacity.
+See the [documentation](https://maplibre.org/martin/sources-styles.html) for the full field list and examples.
+Done in [#2794](https://github.com/maplibre/martin/pull/2794), [#2922](https://github.com/maplibre/martin/pull/2922).
+
+### `mbtiles pack` and `mbtiles unpack`
+
+The `mbtiles` CLI gained two subcommands for converting between an MBTiles archive and a `{z}/{x}/{y}.{ext}` directory tree.
+`unpack` extracts an archive into a directory (handy for inspecting individual tiles or serving them with any static HTTP server), and `pack` does the inverse.
+Done in [#2199](https://github.com/maplibre/martin/pull/2199) by [@JakeLow](https://github.com/JakeLow).
+
+### Passthrough sources
+
+Martin can now proxy tiles from an upstream HTTP tile server.
+It fetches each tile from the configured upstream and serves the bytes verbatim, while the rest of Martin's pipeline (caching, headers, MVT↔MLT conversion) applies on top.
+Use it to put Martin's cache in front of an existing tile server, hide an upstream API key from browsers, or spread requests across mirrors.
+
+```yaml
+passthrough:
+  sources:
+    osm: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+    secure:
+      url: https://api.example.com/{z}/{x}/{y}
+      headers:
+        Authorization: ${API_TOKEN}
+      timeout: 30s
+```
+
+An upstream can be a `{z}/{x}/{y}` template, a TileJSON document URL, a list of mirror templates, or the detailed object form above.
+See the [documentation](https://maplibre.org/martin/sources-passthrough.html) for the full field list.
+Done in [#2913](https://github.com/maplibre/martin/pull/2913), [#2908](https://github.com/maplibre/martin/pull/2908), [#2924](https://github.com/maplibre/martin/pull/2924).
+
+### More capable config parsing
+
+We reworked how config files are parsed by migrating YAML handling to `serde-saphyr` (dropping `serde_yaml`).
+YAML anchors and aliases now work, and the `${VAR:default}` (with all the docker-compose shorthands now also supported) environment-variable substitution syntax is still supported.
+Done in [#2943](https://github.com/maplibre/martin/pull/2943), [#2877](https://github.com/maplibre/martin/pull/2877), [#2870](https://github.com/maplibre/martin/pull/2870), [#2921](https://github.com/maplibre/martin/pull/2921).
+
+### ☀️ GSoC spotlight: duckdb GeoParquet sources
+
+**GeoParquet** (via DuckDB) config parsing and resolver wiring landed as a building block, continuing our GSoC DuckDB work.
+Top-level config/lifecycle wiring is planned for a follow-up.
+Done in [#2931](https://github.com/maplibre/martin/pull/2931), [#2902](https://github.com/maplibre/martin/pull/2902) by [@manbhav234](https://github.com/manbhav234).
 
 ### Fixed
 
-- *(deps)* update npm dependencies ([#2955](https://github.com/maplibre/martin/pull/2955))
-- *(config)* accept legacy ${VAR:default} substitution syntax ([#2943](https://github.com/maplibre/martin/pull/2943))
-- *(ci)* stop compiling bundled DuckDB in non-duckdb test builds and other CI stability fixes ([#2920](https://github.com/maplibre/martin/pull/2920))
-- gate idr lint expectations on absence of consuming backends ([#2916](https://github.com/maplibre/martin/pull/2916))
-- *(postgres)* redact password in BadConnectionString error ([#2944](https://github.com/maplibre/martin/pull/2944))
+- *(pg)* Redact the password in the `BadConnectionString` error so it can't leak into logs ([#2944](https://github.com/maplibre/martin/pull/2944)).
+- Improve logging when a requested zoom is out of range ([#2893](https://github.com/maplibre/martin/pull/2893)).
 
 ### Other
 
-- *(deps)* autoupdate pre-commit ([#2966](https://github.com/maplibre/martin/pull/2966))
-- disable uv CI cache and drop unused image/utoipa-actix-web deps ([#2963](https://github.com/maplibre/martin/pull/2963))
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 18 updates ([#2940](https://github.com/maplibre/martin/pull/2940))
-- better yaml parsing for configs, e.g. anchors, ... (config-6) ([#2870](https://github.com/maplibre/martin/pull/2870))
-- *(deps)* Bump js-yaml from 4.1.1 to 4.2.0 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2933](https://github.com/maplibre/martin/pull/2933))
-- *(deps)* autoupdate pre-commit ([#2932](https://github.com/maplibre/martin/pull/2932))
-- *(martin-core)* derive font extensions from FontFormat via strum ([#2921](https://github.com/maplibre/martin/pull/2921))
-- Fold unicode arrows to ASCII in pre-commit ([#2909](https://github.com/maplibre/martin/pull/2909))
-- duckdb bounds refactor and sql utils ([#2902](https://github.com/maplibre/martin/pull/2902))
-- *(deps)* update mlt-core ([#2906](https://github.com/maplibre/martin/pull/2906))
-- fmt imports ([#2903](https://github.com/maplibre/martin/pull/2903))
-- migrate YAML serialization to serde-saphyr, drop serde_yaml (config-5) ([#2877](https://github.com/maplibre/martin/pull/2877))
-- *(deps-dev)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2900](https://github.com/maplibre/martin/pull/2900))
+- Documented the new passthrough and GeoJSON sources, plus assorted docs fixes ([#2965](https://github.com/maplibre/martin/pull/2965)).
+- Migrated dependency automation from Dependabot to Renovate ([#2947](https://github.com/maplibre/martin/pull/2947), [#2949](https://github.com/maplibre/martin/pull/2949), [#2951](https://github.com/maplibre/martin/pull/2951), [#2952](https://github.com/maplibre/martin/pull/2952), [#2960](https://github.com/maplibre/martin/pull/2960), [#2962](https://github.com/maplibre/martin/pull/2962), [#2967](https://github.com/maplibre/martin/pull/2967), [#2969](https://github.com/maplibre/martin/pull/2969)).
+- Numerous CI stability fixes ([#2920](https://github.com/maplibre/martin/pull/2920), [#2916](https://github.com/maplibre/martin/pull/2916), [#2963](https://github.com/maplibre/martin/pull/2963), [#2903](https://github.com/maplibre/martin/pull/2903), [#2909](https://github.com/maplibre/martin/pull/2909))
+- various dependency bumps ([#2899](https://github.com/maplibre/martin/pull/2899), [#2955](https://github.com/maplibre/martin/pull/2955),  [#2966](https://github.com/maplibre/martin/pull/2966), [#2906](https://github.com/maplibre/martin/pull/2906), [#2933](https://github.com/maplibre/martin/pull/2933), [#2932](https://github.com/maplibre/martin/pull/2932), [#2940](https://github.com/maplibre/martin/pull/2940), [#2900](https://github.com/maplibre/martin/pull/2900))
 
 ## [1.11.0](https://github.com/maplibre/martin/compare/martin-v1.10.1...martin-v1.11.0) - 2026-06-16
 
