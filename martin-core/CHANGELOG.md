@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/maplibre/martin/compare/martin-core-v0.8.0...martin-core-v0.9.0) - 2026-07-07
+
+### Added
+
+- *(geojson)* serve MVT tiles from a GeoJSON file ([#2538](https://github.com/maplibre/martin/pull/2538))
+- *(geojson)* add GeoJSON tile source to martin-core ([#2925](https://github.com/maplibre/martin/pull/2925))
+- *(martin-core)* add static map overlay rendering engine ([#2922](https://github.com/maplibre/martin/pull/2922))
+- *(martin-core)* add Transport::from_string_headers ([#2913](https://github.com/maplibre/martin/pull/2913))
+- *(martin-core)* passthrough tile source ([#2908](https://github.com/maplibre/martin/pull/2908))
+
+### Fixed
+
+- *(postgres)* redact password in BadConnectionString error ([#2944](https://github.com/maplibre/martin/pull/2944))
+
+### Other
+
+- disable uv CI cache and drop unused image/utoipa-actix-web deps ([#2963](https://github.com/maplibre/martin/pull/2963))
+- *(martin-core)* derive font extensions from FontFormat via strum ([#2921](https://github.com/maplibre/martin/pull/2921))
+- duckdb bounds refactor and sql utils ([#2902](https://github.com/maplibre/martin/pull/2902))
+- fmt imports ([#2903](https://github.com/maplibre/martin/pull/2903))
+
 ## [0.8.0](https://github.com/maplibre/martin/compare/martin-core-v0.7.0...martin-core-v0.8.0) - 2026-06-16
 
 ### Added
