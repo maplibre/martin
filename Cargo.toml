@@ -92,7 +92,7 @@ geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
 geozero = { version = "0.15.1", features = ["with-mvt", "with-geo"] }
-hotpath = "0.18"
+hotpath = "0.21"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
