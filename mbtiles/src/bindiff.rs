@@ -10,14 +10,13 @@ use futures::TryStreamExt as _;
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
-use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, SqliteExecutor, query};
 use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
-use crate::queries::create_bsdiffraw_tables;
-use crate::{MbtError, MbtResult, MbtType, Mbtiles, get_bsdiff_tbl_name};
+use crate::{MbtError, MbtResult, MbtType, Mbtiles};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -452,4 +451,74 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         q.execute(&mut *conn).await?;
         Ok(())
     }
+}
+
+#[must_use]
+pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
+    match patch_type {
+        BinDiffRaw => "bsdiffraw",
+        BinDiffGz => "bsdiffrawgz",
+    }
+}
+
+pub async fn create_bsdiffraw_tables<T>(
+    conn: &mut T,
+    patch_type: PatchType,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let tbl = get_bsdiff_tbl_name(patch_type);
+    debug!("Creating if needed bin-diff table: {tbl}(z,x,y,data,hash)");
+    let s = if strict { " STRICT" } else { "" };
+    let sql = format!(
+        "CREATE TABLE IF NOT EXISTS {tbl} (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             patch_data blob NOT NULL,
+             tile_xxh3_64_hash integer NOT NULL,
+             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
+    );
+
+    conn.execute(AssertSqlSafe(sql)).await?;
+    Ok(())
+}
+
+/// Check if `MBTiles` has a table or a view named `bsdiffraw` or `bsdiffrawgz` with needed fields,
+/// and return the corresponding patch type. If missing, return `PatchType::Whole`
+pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<Option<PatchType>>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    for (tbl, pt) in [("bsdiffraw", BinDiffRaw), ("bsdiffrawgz", BinDiffGz)] {
+        //  'bsdiffraw' or 'bsdiffrawgz' table or view columns and their types are as expected:
+        //  5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
+        //  The order is not important
+        let sql = format!(
+            "SELECT (
+           SELECT COUNT(*) = 5
+           FROM pragma_table_info('{tbl}')
+           WHERE ((name = 'zoom_level' AND type LIKE '%INT%')
+               OR (name = 'tile_column' AND type LIKE '%INT%')
+               OR (name = 'tile_row' AND type LIKE '%INT%')
+               OR (name = 'patch_data' AND type = 'BLOB')
+               OR (name = 'tile_xxh3_64_hash' AND type LIKE '%INT%'))
+           --
+       ) as is_valid;"
+        );
+
+        if query(AssertSqlSafe(sql))
+            .fetch_one(&mut *conn)
+            .await?
+            .get::<Option<i32>, _>(0)
+            .unwrap_or_default()
+            == 1
+        {
+            return Ok(Some(pt));
+        }
+    }
+
+    Ok(None)
 }

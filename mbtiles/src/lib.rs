@@ -28,12 +28,22 @@ pub use pool::MbtilesPool;
 mod queries;
 pub use queries::*;
 
+mod schema_flat;
+pub use schema_flat::*;
+
+mod schema_flat_with_hash;
+pub use schema_flat_with_hash::*;
+
+mod schema_normalized;
+pub use schema_normalized::*;
+
 mod summary;
 
 mod update;
 pub use update::UpdateZoomType;
 
 mod bindiff;
+pub use bindiff::get_patch_type;
 
 #[cfg(feature = "transcode")]
 mod transcoder;
