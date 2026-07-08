@@ -28,8 +28,9 @@ pub fn escape_relation(relation: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case::simple("roads", "\"roads\"")]

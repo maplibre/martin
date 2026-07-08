@@ -1,6 +1,9 @@
 #![cfg(feature = "geojson")]
 #![allow(clippy::unwrap_used)]
 
+use std::io::Write as _;
+use std::num::NonZeroU32;
+
 use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 use geojson::{
@@ -11,8 +14,6 @@ use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
 use serde_json::{Map, json};
-use std::io::Write as _;
-use std::num::NonZeroU32;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
