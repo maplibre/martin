@@ -5,9 +5,6 @@ tags:
   - pmtiles
   - tile-sources
   - configuration
-  - aws
-  - azure
-  - google-cloud
 ---
 
 # MBTiles and PMTiles File Sources
