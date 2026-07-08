@@ -16,7 +16,7 @@
   // one document-level listener survives "instant" navigation (body swapped, no
   // full reload); re-query the footer links each keypress so they track the current page.
   document.addEventListener('keydown', (event) => {
-    // leave modifier combos alone — e.g. browser back/forward shortcuts
+    // leave modifier combos alone - e.g. browser back/forward shortcuts
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
