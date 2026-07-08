@@ -252,12 +252,8 @@ impl Mbtiles {
         // Need to drop rows in order to re-borrow connection reference as mutable
         drop(rows);
 
-        // The metadata `minzoom`/`maxzoom` (and per-`vector_layer` zoom ranges)
-        // are not guaranteed to match the tiles actually stored in the file.
-        // For example, a file may declare `maxzoom=14` in its metadata while only
-        // containing tiles up to zoom 6. Reconcile the served zoom levels against
-        // the real zoom extent of the `tiles` table so we never advertise zoom
-        // levels that have no tiles. See <https://github.com/maplibre/martin/issues/1791>.
+        // the metadata zoom range can claim more than the tiles table actually
+        // holds (#1791), so reconcile it against the real extent.
         if let Some((min_zoom, max_zoom)) = compute_min_max_zoom(&mut *conn).await? {
             reconcile_zoom_levels(&mut tj, min_zoom, max_zoom);
         }
@@ -354,22 +350,13 @@ impl Mbtiles {
     }
 }
 
-/// Reconcile a declared `(minzoom, maxzoom)` pair against the real
-/// `[tile_min, tile_max]` zoom range covered by the tiles table.
-///
-/// Implements the reconciliation proposed in
-/// <https://github.com/maplibre/martin/issues/1791>:
+/// reconcile a declared `(minzoom, maxzoom)` against the `[tile_min, tile_max]`
+/// the tiles actually cover (#1791) — a missing value just falls back to the extent.
 ///
 /// ```text
 /// minzoom = min(tile_min, declared_max, declared_min)
 /// maxzoom = min(tile_max, max(tile_min, declared_max, declared_min))
 /// ```
-///
-/// A declared value that is missing defaults to the corresponding tile extent
-/// (`tile_min`/`tile_max`), so files without zoom metadata get it populated
-/// from the actual tiles. In practice this expands `minzoom` downward to
-/// include any lower-zoom tiles that exist and caps `maxzoom` so it never
-/// advertises a higher zoom than any tile present.
 fn reconciled_zoom_range(
     declared_min: Option<u8>,
     declared_max: Option<u8>,
@@ -383,11 +370,8 @@ fn reconciled_zoom_range(
     (minzoom, maxzoom)
 }
 
-/// Reconcile the `TileJSON` zoom levels (top-level and per-`vector_layer`)
-/// against the real `[tile_min, tile_max]` zoom range covered by the tiles.
-///
-/// See [`reconciled_zoom_range`] and
-/// <https://github.com/maplibre/martin/issues/1791>.
+/// apply [`reconciled_zoom_range`] to the tilejson's top-level zoom and to every
+/// vector layer.
 fn reconcile_zoom_levels(tj: &mut TileJSON, tile_min: u8, tile_max: u8) {
     let (minzoom, maxzoom) = reconciled_zoom_range(tj.minzoom, tj.maxzoom, tile_min, tile_max);
     tj.minzoom = Some(minzoom);
@@ -620,8 +604,8 @@ mod tests {
         );
     }
 
-    /// Build a flat-schema in-memory mbtiles with the given `metadata` rows and
-    /// tiles at each of the `tile_zooms` (a single dummy tile per zoom).
+    /// flat-schema in-memory mbtiles: the given `metadata` rows plus one dummy
+    /// tile at each of `tile_zooms`.
     fn zoom_fixture_script(metadata: &[(&str, &str)], tile_zooms: &[u8]) -> String {
         use std::fmt::Write as _;
 
@@ -641,7 +625,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_zoom_clamps_overclaimed_maxzoom() {
-        // Metadata claims tiles up to z14, but the tiles table only has z0-z2.
+        // claims z14 but only ships z0-z2 -> maxzoom gets capped to 2.
         let script = zoom_fixture_script(
             &[
                 ("minzoom", "0"),
@@ -664,9 +648,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_zoom_expands_to_lower_tiles() {
-        // Metadata claims tiles start at z2, but tiles exist down to z0.
-        // Per the issue #1791 formula, minzoom is expanded down to the real
-        // lowest zoom so we don't hide the low-zoom tiles that exist.
+        // says minzoom=2 but there are tiles down at z0 -> pull minzoom down so
+        // we don't hide them.
         let script =
             zoom_fixture_script(&[("minzoom", "2"), ("maxzoom", "5")], &[0, 1, 2, 3, 4, 5]);
         let (mbt, mut conn) = anonymous_mbtiles(&script).await;
@@ -677,7 +660,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_zoom_populated_when_absent() {
-        // No zoom metadata at all: derive it from the tiles table.
+        // no zoom metadata at all -> derive it from the tiles.
         let script = zoom_fixture_script(&[("name", "no-zoom")], &[2, 3]);
         let (mbt, mut conn) = anonymous_mbtiles(&script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
@@ -687,9 +670,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_zoom_preserves_declared_min_within_range() {
-        // A sparse file that declares a wide range but only ships a single
-        // high-zoom tile keeps its declared minzoom (the formula never raises
-        // minzoom). Mirrors the `zoomed_world_cities` fixture behavior.
+        // declares 0-6 but ships only a z6 tile -> minzoom stays 0 (we never
+        // raise it). same shape as the zoomed_world_cities fixture.
         let script = zoom_fixture_script(&[("minzoom", "0"), ("maxzoom", "6")], &[6]);
         let (mbt, mut conn) = anonymous_mbtiles(&script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
@@ -699,7 +681,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_zoom_untouched_without_tiles() {
-        // With no tiles, there is nothing to validate against; keep metadata.
+        // empty tileset -> nothing to reconcile against, leave metadata alone.
         let script = zoom_fixture_script(&[("minzoom", "0"), ("maxzoom", "9")], &[]);
         let (mbt, mut conn) = anonymous_mbtiles(&script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
