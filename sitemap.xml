@@ -61,6 +61,12 @@
         <loc>https://maplibre.org/martin/sources-files/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/sources-mbtiles/</loc>
+      </url>
+      <url>
+        <loc>https://maplibre.org/martin/sources-pmtiles/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/pg-connections/</loc>
       </url>
       <url>

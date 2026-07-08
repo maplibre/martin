@@ -2008,7 +2008,7 @@ This is possible via multiple ways, such as <a href="https://osm2pgsql.org/"><co
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="s2">&quot;  ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));&quot;</span>
 </span></code></pre></div>
 <h2 id="serving-tiles-with-martin">Serving tiles with Martin</h2>
-<p>Now we will serve the content of <a href="../sources-files/">mbtiles</a> and the <a href="../pg-connections/">postgis database</a>.</p>
+<p>Now we will serve the content of <a href="../sources-mbtiles/">mbtiles</a> and the <a href="../pg-connections/">postgis database</a>.</p>
 <p>If you want more precise options what things are published how, please see the <a href="../config-file/">configuration file</a> or <a href="../run-with-cli/">cli documentation</a>.
 By default, we will share every servable postgres <a href="../sources-pg-tables/">table, view</a> and <a href="../sources-pg-functions/">function</a>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>martin<span class="w"> </span>data/monaco.mbtiles<span class="w"> </span>postgres://postgres:mypass@localhost:5432/postgres

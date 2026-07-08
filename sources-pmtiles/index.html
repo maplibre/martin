@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/sources-files/">
+        <link rel="canonical" href="https://maplibre.org/martin/sources-pmtiles/">
       
       
-        <link rel="prev" href="../sources-tiles/">
+        <link rel="prev" href="../sources-mbtiles/">
       
       
-        <link rel="next" href="../sources-mbtiles/">
+        <link rel="next" href="../pg-connections/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>MBTiles and PMTiles File Sources - Martin Tile Server Documentation</title>
+        <title>PMTiles File Sources - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mbtiles-and-pmtiles-file-sources" class="md-skip">
+        <a href="#pmtiles-file-sources" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MBTiles and PMTiles File Sources
+              PMTiles File Sources
             
           </span>
         </div>
@@ -943,7 +943,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="././" class="md-nav__link md-nav__link--active">
+            <a href="../sources-files/" class="md-nav__link ">
               
   
   
@@ -962,7 +962,7 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_5_2_2" id="__nav_5_2_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_2_2" id="__nav_5_2_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1013,10 +1013,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../sources-pmtiles/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4M4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4m0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  PMTiles File Sources
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1033,6 +1061,354 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pmtiles-hot-reload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PMTiles Hot Reload
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serving-pmtiles-without-a-tile-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving PMTiles without a Tile Server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serving-pmtiles-from-local-file-systems-http-or-object-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving PMTiles from local file systems, http or Object Storage
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Serving PMTiles from local file systems, http or Object Storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-http-client-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Available http client settings
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available http client settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Proxy settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-aws-s3-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Available AWS S3 settings
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available AWS S3 settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aws-specific-authentication-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AWS specific Authentication &amp; Credentials
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-specific-connection-endpoint-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AWS specific Connection &amp; Endpoint Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-specific-request-behavior-fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AWS specific Request Behavior &amp; Fallbacks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-specific-object-integrity-encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AWS Specific Object Integrity &amp; Encryption
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-settings_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Proxy settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-google-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Available google settings
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available google settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#google-specific-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Google specific configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-options_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-settings_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Proxy settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#available-azure-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Available azure settings
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available azure settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#azure-specific-authentication-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Azure specific Authentication &amp; Credentials
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#azure-specific-connection-endpoint-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Azure specific Connection &amp; Endpoint Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#azure-specific-request-behavior-security-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Azure specific Request Behavior &amp; Security Options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection-options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connection options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-settings_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Proxy settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1695,7 +2071,7 @@
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../sources-files/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -1716,7 +2092,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-files/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-pmtiles.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1724,79 +2100,1038 @@
   
 
 
-<h1 id="mbtiles-and-pmtiles-file-sources">MBTiles and PMTiles File Sources</h1>
-<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a>
-and <a href="https://github.com/mapbox/mbtiles-spec">MBTile</a> files.
-To serve a file from CLI, simply put the path to the file or the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files.
-A path to PMTiles file may be a URL.
+<h1 id="pmtiles-file-sources">PMTiles File Sources</h1>
+<p>Martin can serve any type of tiles from <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTile</a> files.
+A PMTiles archive can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
+A path to a PMTiles file may be a URL.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w">  </span>/path/to/mbtiles/file.mbtiles<span class="w">  </span>/path/to/directory<span class="w">   </span>https://example.org/path/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w">  </span>/path/to/directory<span class="w">   </span>https://example.org/path/tiles.pmtiles
 </span></code></pre></div>
 <p>You may also want to generate a <a href="../config-file/">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit
 it and use it with <code>--config my-config.yaml</code> option.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>See <a href="../sources-tiles/">our tile sources explanation</a> for a more detailed explanation on the difference between our available data sources.</p>
+<p>See <a href="../sources-files/#mbtiles-vs-pmtiles">MBTiles vs PMTiles</a> for a comparison of the two file formats.</p>
 </div>
-<p>Both formats have their own dedicated page describing how to configure them:</p>
-<ul>
-<li><a href="../sources-mbtiles/">MBTiles File Sources</a> - local SQLite archives.</li>
-<li><a href="../sources-pmtiles/">PMTiles File Sources</a> - local or remote (HTTP range / object storage) archives.</li>
-</ul>
-<h2 id="mbtiles-vs-pmtiles">MBTiles vs PMTiles</h2>
-<p>MBTiles and PMTiles are both formats for storing tiled geospatial data, but they differ in architecture, deployment, and operational characteristics.</p>
-<h3 id="key-differences">Key Differences</h3>
-<ul>
-<li><strong>Deployment model</strong>
-  <strong>MBTiles</strong> archives must be stored locally on the same machine as the tile server.
-  <strong>PMTiles</strong> archives can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
-  <strong>PMTiles</strong> allows simpler production deployment with Kubernetes, as it allows the large data file to reside in S3 and shared by multiple pods, but restricted from direct user access.</li>
-<li><strong>Performance</strong>
-  <strong>MBTiles</strong> typically provide slightly lower latency due to local access and SQLite indexing.
-  <strong>PMTiles</strong> may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.</li>
-<li><strong>Storage efficiency</strong>
-  <strong>PMTiles</strong> archives are generally more space-efficient, typically ~10-15% smaller than equivalent <strong>MBTiles</strong> archives.</li>
-<li><strong>Memory usage</strong>
-  <strong>MBTiles</strong> relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
-  <strong>PMTiles</strong> can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.</li>
-</ul>
-<p>The choice between MBTiles and PMTiles depends on system requirements:</p>
-<ul>
-<li>Use <strong>MBTiles</strong> for local, self-contained deployments with minimal external dependencies.</li>
-<li>Use <strong>PMTiles</strong> for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.</li>
-</ul>
-<h2 id="postprocessing">Postprocessing</h2>
-<p>MBTiles and PMTiles sources support <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys to control tile postprocessing.
-This can be set for all sources of a type or for an individual source.
-See <a href="../config-file/#postprocessing">Configuration File</a> for details.</p>
+<h2 id="pmtiles-hot-reload">PMTiles Hot Reload</h2>
+<p>Martin watches local directories configured under <code>pmtiles</code> for <code>.pmtiles</code> files using filesystem events, with the same add/modify/remove semantics described for <a href="../sources-mbtiles/#mbtiles-hot-reload">MBTiles</a>.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">basemap</span><span class="p">:</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/basemap.pmtiles</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">    </span><span class="c1"># convert MVT -&gt; MLT when client requests it</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">convert_to_mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">    </span><span class="c1"># convert MLT -&gt; MVT when client requests it</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">mlt_archive</span><span class="p">:</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/mlt_tiles.pmtiles</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">convert_to_mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span><span class="w"> </span><span class="c1"># disabllow any on the the fly conversion</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/pmtiles/directory</span>
 </span></code></pre></div>
-<h2 id="autodiscovery">Autodiscovery</h2>
-<p>For mbtiles or local pmtiles files, we support auto discovering at startup.
-This means that the following will discover all mbtiles and pmtiles files in the directory:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>martin<span class="w">  </span>/path/to/directory
+<p>For remote object-storage prefixes (<code>s3://bucket/prefix/</code>, <code>gs://bucket/prefix/</code>, <code>https://host/prefix/</code>, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
+object <code>ETag</code> or <code>Last-Modified</code> headers to detect updates to an existing source.
+There is no event channel from blob storage to subscribe to.
+Added, updated, and removed objects propagate to the catalog.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/tiles/</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10m</span><span class="w">  </span><span class="c1"># default; set to &quot;0s&quot; to disable remote polling</span>
 </span></code></pre></div>
-<p>For remote PMTiles, individual file URLs work as expected.
-Remote object-storage <em>prefixes</em> (e.g. <code>s3://bucket/tiles/</code>) are also supported via periodic listing - see <a href="../sources-pmtiles/#pmtiles-hot-reload">PMTiles Hot Reload</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Hot reload applies to directories and remote prefixes configured under <code>pmtiles.paths</code> (or passed on the CLI).
+Named sources listed under <code>pmtiles.sources</code> and individual remote-file URLs are snapshotted at startup and are not watched for changes.</p>
+</div>
+<h2 id="serving-pmtiles-without-a-tile-server">Serving PMTiles without a Tile Server</h2>
+<p>PMTiles archives can be served directly from HTTP range-capable storage without a dedicated tile server.
+This approach has several limitations:</p>
+<ul>
+<li><strong>Unrestricted access risk</strong>
+  Without proper access controls, clients may download large portions (or all) of an archive, leading to significant egress costs.
+  A tile server restricts access to tile requests, but bulk extraction remains possible via many requests, which are generally easier to detect and block.</li>
+<li><strong>Over-fetching</strong>
+  PMTiles may fetch more data than strictly required per tile request to minimize the number of HTTP requests.</li>
+<li><strong>Lack of source composition</strong>
+  Direct serving does not support combining PMTiles with dynamic data sources (e.g., PostGIS) into a unified tile service.
+  A tile server (e.g, Martin) is required for this.</li>
+<li><strong>Caching behavior</strong>
+  Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.</li>
+</ul>
+<h2 id="serving-pmtiles-from-local-file-systems-http-or-object-storage">Serving PMTiles from local file systems, http or Object Storage</h2>
+<p>The settings available for a PMTiles source depend on the backend:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Local File System</label><label for="__tabbed_1_2">Http(s)</label><label for="__tabbed_1_3">Amazon S3</label><label for="__tabbed_1_4">Google Cloud Storage</label><label for="__tabbed_1_5">Microsoft Azure</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>For local sources, you need to provide the path or URL.
+For example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>martin<span class="w">  </span>path/to/tiles.pmtiles
+</span></code></pre></div>
+<p>The available schemes are:</p>
+<ul>
+<li><code>file:///path/to/my/file.pmtiles</code></li>
+<li><code>path/to/my/file.pmtiles</code></li>
+</ul>
+<p>You can also configure this via the configuration file:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file:///path/to/my/file.pmtiles</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>For HTTP(s), you need to provide the url.
+For example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>martin<span class="w">  </span>https://example.com/tiles.pmtiles
+</span></code></pre></div>
+<p>The available url schemes are:</p>
+<ul>
+<li><code>http://example.com/path.pmtiles</code></li>
+<li><code>https://example.com/path.pmtiles</code></li>
+</ul>
+<p>If you want more control over your requests, you can configure additional options here as such:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
+</span></code></pre></div>
+<h3 id="available-http-client-settings">Available http client settings</h3>
+<h4 id="security-options">Security options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow_http</code></td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>allow_invalid_certificates</code></td>
+<td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="connection-options">Connection options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_agent</code></td>
+<td>User-Agent header to be used by this client</td>
+<td><code>martin 1.0.0</code></td>
+</tr>
+<tr>
+<td><code>randomize_addresses</code></td>
+<td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>connect_timeout</code></td>
+<td>Timeout for only the connect phase of a Client</td>
+<td><code>5s</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>The timeout is applied from when the request starts connecting until the response body has finished</td>
+<td><code>10s</code></td>
+</tr>
+<tr>
+<td><code>pool_idle_timeout</code></td>
+<td>The pool max idle timeout</td>
+<td><code>5m</code></td>
+</tr>
+<tr>
+<td><code>pool_max_idle_per_host</code></td>
+<td>maximum number of idle connections per host</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>http1_only</code></td>
+<td>Only use http1 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_only</code></td>
+<td>Only use http2 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_interval</code></td>
+<td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_timeout</code></td>
+<td>Timeout for receiving an acknowledgement of the keep-alive ping.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_while_idle</code></td>
+<td>Enable HTTP2 keep alive pings for idle connections</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>http2_max_frame_size</code></td>
+<td>Sets the maximum frame size to use for HTTP2.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="proxy-settings">Proxy settings</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxy_url</code></td>
+<td>HTTP proxy to use for requests</td>
+<td><code>http://proxy.example.com:8080</code></td>
+</tr>
+<tr>
+<td><code>proxy_ca_certificate</code></td>
+<td>PEM-formatted CA certificate for proxy connections</td>
+<td><code>-----BEGIN CERTIFICATE-----</code><br>...<br><code>-----END CERTIFICATE-----</code></td>
+</tr>
+<tr>
+<td><code>proxy_excludes</code></td>
+<td>List of hosts that bypass proxy</td>
+<td><code>example.com</code>, <code>maplibre.org</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tabbed-block">
+<div class="admonition info">
+<p class="admonition-title">Important</p>
+<p>Even though we name this section <code>Amazon S3</code>, it also works with other providers that support the S3 API, such as <a href="https://www.min.io/">MinIO</a>, <a href="https://docs.ceph.com/en/latest/radosgw/s3/">Ceph</a>, <a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a>, <a href="https://www.hetzner.com/de/storage/object-storage/">hetzner object storage</a> and many more.</p>
+</div>
+<p>For AWS, you need to provide the bucket name and the prefix of the object key.
+For example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>martin<span class="w">  </span>s3://my-bucket/tiles.pmtiles
+</span></code></pre></div>
+<p>The available url schemes are:</p>
+<ul>
+<li><code>s3://&lt;bucket&gt;/&lt;path&gt;</code></li>
+<li><code>s3a://&lt;bucket&gt;/&lt;path&gt;</code></li>
+<li><code>https://s3.&lt;region&gt;.amazonaws.com/&lt;bucket&gt;</code></li>
+<li><code>https://&lt;bucket&gt;.s3.&lt;region&gt;.amazonaws.com</code></li>
+<li><code>https://ACCOUNT_ID.r2.cloudflarestorage.com/bucket</code></li>
+</ul>
+<p>If you want more control over your requests, you can configure additional options here as such:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>All settings are also available under the <code>aws_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="available-aws-s3-settings">Available AWS S3 settings</h3>
+<h4 id="aws-specific-authentication-credentials">AWS specific Authentication &amp; Credentials</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>access_key_id</code></td>
+<td>AWS Access Key</td>
+<td><code>AKIAIOSFODNN7EXAMPLE</code></td>
+</tr>
+<tr>
+<td><code>secret_access_key</code></td>
+<td>Secret Access Key</td>
+<td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td>
+</tr>
+<tr>
+<td><code>session_token</code><br><code>token</code></td>
+<td>AWS session token used for temporary credentials</td>
+<td><code>IQoJb3JpZ2luX2VjEOr...</code></td>
+</tr>
+<tr>
+<td><code>web_identity_token_file</code></td>
+<td>Web identity token file path for AssumeRoleWithWebIdentity</td>
+<td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td>
+</tr>
+<tr>
+<td><code>role_arn</code></td>
+<td>Role ARN to assume with web identity token</td>
+<td><code>arn:aws:iam::123456789012:role/MyWebIdentityRole</code></td>
+</tr>
+<tr>
+<td><code>role_session_name</code></td>
+<td>Session name for web identity assumption</td>
+<td><code>my-session</code></td>
+</tr>
+<tr>
+<td><code>endpoint_url_sts</code></td>
+<td>Custom STS endpoint for web identity token exchange</td>
+<td><code>https://sts.amazonaws.com</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="aws-specific-connection-endpoint-configuration">AWS specific Connection &amp; Endpoint Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>AWS region<br>Defaults to <code>us-east-1</code></td>
+<td><code>us-west-2</code></td>
+</tr>
+<tr>
+<td><code>bucket</code><br><code>bucket_name</code></td>
+<td>Bucket name</td>
+<td><code>my-app-bucket</code></td>
+</tr>
+<tr>
+<td><code>endpoint</code><br><code>endpoint_url</code></td>
+<td>Custom S3 endpoint<br>Defaults to regional endpoint<br>Ensure consistency with <code>virtual_hosted_style_request</code><br>By default, <strong>only HTTPS schemes are enabled</strong>; enabling HTTP can expose sensitive data<br>Local testing example: <code>"http://localhost:4566"</code></td>
+<td><code>https://s3.us-west-2.amazonaws.com</code></td>
+</tr>
+<tr>
+<td><code>metadata_endpoint</code></td>
+<td>Instance metadata endpoint (IPv4 default <code>http://169.254.169.254</code>)<br>IPv6 alternative: <code>http://fd00:ec2::254</code></td>
+<td><code>http://169.254.169.254</code></td>
+</tr>
+<tr>
+<td><code>container_credentials_relative_uri</code></td>
+<td>ECS container credentials relative URI</td>
+<td><code>/v2/credentials/12345678-1234-1234-1234-123456789012</code></td>
+</tr>
+<tr>
+<td><code>container_credentials_full_uri</code></td>
+<td>EKS container credentials full URI</td>
+<td><code>http://169.254.170.2/v2/credentials/abc123</code></td>
+</tr>
+<tr>
+<td><code>container_authorization_token_file</code></td>
+<td>Authorization token file for EKS container creds</td>
+<td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="aws-specific-request-behavior-fallbacks">AWS specific Request Behavior &amp; Fallbacks</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>imdsv1_fallback</code></td>
+<td>Fall back to IMDSv1 if IMDSv2 is <strong>not supported</strong> (useful for older kube2iam deployments)<br><strong>Security note:</strong> AWS recommends IMDSv2 only; IMDSv1 is vulnerable to <a href="https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/">SSRF attacks</a><br>Has no effect if not using instance credentials</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>virtual_hosted_style_request</code></td>
+<td>Use virtual-hosted-style requests instead of path-style<br>Endpoint must match the style<br>Ensures correct bucket addressing for security and routing</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>skip_signature</code></td>
+<td>Skip signing request<br><strong>Security warning:</strong> Unsigned requests may expose credentials or allow tampering if endpoint is public</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>unsigned_payload</code></td>
+<td>Use unsigned payload option (<code>UNSIGNED-PAYLOAD</code>) instead of signed<br><strong>Impact:</strong> Checksums for request body are not computed in canonical requests, which can reduce integrity guarantees<br>Default is signed payload with checksum</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>disable_tagging</code></td>
+<td>Disable tagging objects (useful if unsupported by backend)</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>s3_express</code></td>
+<td>Enable S3 Express One Zone</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>request_payer</code></td>
+<td>Enable S3 Requester Pays</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="aws-specific-object-integrity-encryption">AWS Specific Object Integrity &amp; Encryption</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>checksum</code></td>
+<td>Checksum algorithm for uploads</td>
+<td><code>SHA256</code></td>
+</tr>
+<tr>
+<td><code>server_side_encryption</code></td>
+<td>Type of server-side encryption:<br><code>AES256</code> (SSE-S3)<br><code>aws:kms</code> (SSE-KMS)<br><code>aws:kms:dsse</code> (DSSE-KMS)<br><code>sse-c</code></td>
+<td><code>AES256</code></td>
+</tr>
+<tr>
+<td><code>kms_key_id</code></td>
+<td>KMS Key ID for SSE-KMS or DSSE-KMS</td>
+<td><code>arn:aws:kms:us-east-1:123456789012:key/abcd-1234-efgh-5678</code></td>
+</tr>
+<tr>
+<td><code>bucket_key_enabled</code></td>
+<td>Use bucket's default KMS key (<code>true</code>/<code>false</code>)</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>customer_encryption_key</code></td>
+<td>Base64-encoded 256-bit key for SSE-C</td>
+<td><code>MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="security-options_1">Security options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow_http</code></td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>allow_invalid_certificates</code></td>
+<td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="connection-options_1">Connection options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_agent</code></td>
+<td>User-Agent header to be used by this client</td>
+<td><code>martin 1.0.0</code></td>
+</tr>
+<tr>
+<td><code>randomize_addresses</code></td>
+<td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>connect_timeout</code></td>
+<td>Timeout for only the connect phase of a Client</td>
+<td><code>5s</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>The timeout is applied from when the request starts connecting until the response body has finished</td>
+<td><code>10s</code></td>
+</tr>
+<tr>
+<td><code>pool_idle_timeout</code></td>
+<td>The pool max idle timeout</td>
+<td><code>5m</code></td>
+</tr>
+<tr>
+<td><code>pool_max_idle_per_host</code></td>
+<td>maximum number of idle connections per host</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>http1_only</code></td>
+<td>Only use http1 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_only</code></td>
+<td>Only use http2 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_interval</code></td>
+<td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_timeout</code></td>
+<td>Timeout for receiving an acknowledgement of the keep-alive ping.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_while_idle</code></td>
+<td>Enable HTTP2 keep alive pings for idle connections</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>http2_max_frame_size</code></td>
+<td>Sets the maximum frame size to use for HTTP2.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="proxy-settings_1">Proxy settings</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxy_url</code></td>
+<td>HTTP proxy to use for requests</td>
+<td><code>http://proxy.example.com:8080</code></td>
+</tr>
+<tr>
+<td><code>proxy_ca_certificate</code></td>
+<td>PEM-formatted CA certificate for proxy connections</td>
+<td><code>-----BEGIN CERTIFICATE-----</code><br>...<br><code>-----END CERTIFICATE-----</code></td>
+</tr>
+<tr>
+<td><code>proxy_excludes</code></td>
+<td>List of hosts that bypass proxy</td>
+<td><code>example.com</code>, <code>maplibre.org</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tabbed-block">
+<p>For Google Cloud, you need to provide the bucket name and the prefix of the object key.
+For example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>martin<span class="w">  </span>gs://my-bucket/tiles.pmtiles
+</span></code></pre></div>
+<p>The available url scheme is:</p>
+<ul>
+<li><code>gs://bucket/path</code></li>
+</ul>
+<p>If you want more control over your requests, you can configure additional options here as such:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket/path/to/tiles.pmtiles</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>All settings are also available under the <code>google_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="available-google-settings">Available google settings</h3>
+<h4 id="google-specific-configuration">Google specific configuration</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>base_url</code></td>
+<td>Sets the base URL for communicating with GCS.<br>If not explicitly set, it will be:<br>1. Derived from the service account credentials, if provided<br>2. Otherwise, uses the default GCS endpoint</td>
+<td><code>https://storage.googleapis.com</code></td>
+</tr>
+<tr>
+<td><code>service_account</code><br><code>service_account_path</code></td>
+<td>Path to the service account file</td>
+<td><code>some/path/to/file</code></td>
+</tr>
+<tr>
+<td><code>service_account_key</code></td>
+<td>The serialized service account key</td>
+<td><code>{"private_key": "private_key", "private_key_id": "private_key_id", "client_email":"client_email", "disable_oauth":true}</code></td>
+</tr>
+<tr>
+<td><code>bucket</code><br><code>bucket_name</code></td>
+<td>Bucket name</td>
+<td><code>foobar-abc</code></td>
+</tr>
+<tr>
+<td><code>application_credentials</code></td>
+<td>Set the path to the <a href="https://cloud.google.com/docs/authentication/provide-credentials-adc">application credentials file</a></td>
+<td><code>some/path/to/file</code></td>
+</tr>
+<tr>
+<td><code>skip_signature</code></td>
+<td>Skip signing request</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="security-options_2">Security options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow_http</code></td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>allow_invalid_certificates</code></td>
+<td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="connection-options_2">Connection options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_agent</code></td>
+<td>User-Agent header to be used by this client</td>
+<td><code>martin 1.0.0</code></td>
+</tr>
+<tr>
+<td><code>randomize_addresses</code></td>
+<td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>connect_timeout</code></td>
+<td>Timeout for only the connect phase of a Client</td>
+<td><code>5s</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>The timeout is applied from when the request starts connecting until the response body has finished</td>
+<td><code>10s</code></td>
+</tr>
+<tr>
+<td><code>pool_idle_timeout</code></td>
+<td>The pool max idle timeout</td>
+<td><code>5m</code></td>
+</tr>
+<tr>
+<td><code>pool_max_idle_per_host</code></td>
+<td>maximum number of idle connections per host</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>http1_only</code></td>
+<td>Only use http1 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_only</code></td>
+<td>Only use http2 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_interval</code></td>
+<td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_timeout</code></td>
+<td>Timeout for receiving an acknowledgement of the keep-alive ping.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_while_idle</code></td>
+<td>Enable HTTP2 keep alive pings for idle connections</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>http2_max_frame_size</code></td>
+<td>Sets the maximum frame size to use for HTTP2.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="proxy-settings_2">Proxy settings</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxy_url</code></td>
+<td>HTTP proxy to use for requests</td>
+<td><code>http://proxy.example.com:8080</code></td>
+</tr>
+<tr>
+<td><code>proxy_ca_certificate</code></td>
+<td>PEM-formatted CA certificate for proxy connections</td>
+<td><code>-----BEGIN CERTIFICATE-----</code><br>...<br><code>-----END CERTIFICATE-----</code></td>
+</tr>
+<tr>
+<td><code>proxy_excludes</code></td>
+<td>List of hosts that bypass proxy</td>
+<td><code>example.com</code>, <code>maplibre.org</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tabbed-block">
+<p>For Azure, you need to provide the account name, container and path.
+For example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>martin<span class="w">  </span>az://my-container/tiles.pmtiles
+</span></code></pre></div>
+<p>The available url schemes are:</p>
+<ul>
+<li><code>abfs[s]://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>abfs[s]://&lt;file_system&gt;@&lt;account_name&gt;.dfs.core.windows.net/&lt;path&gt;</code></li>
+<li><code>abfs[s]://&lt;file_system&gt;@&lt;account_name&gt;.dfs.fabric.microsoft.com/&lt;path&gt;</code></li>
+<li><code>az://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>adl://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>azure://&lt;container&gt;/&lt;path&gt;</code> (custom)</li>
+<li><code>https://&lt;account&gt;.dfs.core.windows.net</code></li>
+<li><code>https://&lt;account&gt;.blob.core.windows.net</code></li>
+<li><code>https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;</code></li>
+<li><code>https://&lt;account&gt;.dfs.fabric.microsoft.com</code></li>
+<li><code>https://&lt;account&gt;.dfs.fabric.microsoft.com/&lt;container&gt;</code></li>
+<li><code>https://&lt;account&gt;.blob.fabric.microsoft.com</code></li>
+<li><code>https://&lt;account&gt;.blob.fabric.microsoft.com/&lt;container&gt;</code></li>
+</ul>
+<p>If you want more control over your requests, you can configure additional options here as such:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">az://my-container/tiles.pmtiles</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>All settings are also available under the <code>azure_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="available-azure-settings">Available azure settings</h3>
+<h4 id="azure-specific-authentication-credentials">Azure specific Authentication &amp; Credentials</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>account_name</code></td>
+<td>Name of the Azure Storage account</td>
+<td><code>myaccount</code></td>
+</tr>
+<tr>
+<td><code>access_key</code><br><code>account_key</code><br><code>master_key</code></td>
+<td>Master key for accessing the storage account<br><br><strong>Security note:</strong><br> Keep this key secret; anyone with access can read/write all data in the account</td>
+<td><code>abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yzab5678cdef9012</code></td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td>Service principal client ID for OAuth authorization</td>
+<td><code>12345678-90ab-cdef-1234-567890abcdef</code></td>
+</tr>
+<tr>
+<td><code>client_secret</code></td>
+<td>Service principal client secret for OAuth authorization<br><strong>Security note:</strong> Must be kept confidential</td>
+<td><code>s3cr3tV@lu3!</code></td>
+</tr>
+<tr>
+<td><code>tenant_id</code><br><code>authority_id</code></td>
+<td>Tenant ID used in OAuth flows</td>
+<td><code>abcdef12-3456-7890-abcd-ef1234567890</code></td>
+</tr>
+<tr>
+<td><code>authority_host</code></td>
+<td>Authority host used in OAuth flows</td>
+<td><code>https://login.microsoftonline.com/</code></td>
+</tr>
+<tr>
+<td><code>sas_key</code><br><code>sas_token</code></td>
+<td>Shared Access Signature (percent-encoded)<br><br><strong>Security note:</strong><br> Grants scoped access; treat as sensitive credentials</td>
+<td><code>sv=2021-06-08&amp;ss=b&amp;srt=sco&amp;sp=rwdl</code><br><code>&amp;se=2025-12-31T23:59:00Z&amp;sig=ABCDEF1234567890</code></td>
+</tr>
+<tr>
+<td><code>bearer_token</code><br><code>token</code></td>
+<td>Bearer token for requests<br><br><strong>Security note:</strong><br> Token must be protected; use HTTPS</td>
+<td><code>eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></td>
+</tr>
+<tr>
+<td><code>identity_endpoint</code><br><code>msi_endpoint</code></td>
+<td>Endpoint to request a managed identity token</td>
+<td><code>http://169.254.169.254/metadata/identity/oauth2/token</code></td>
+</tr>
+<tr>
+<td><code>object_id</code></td>
+<td>Object ID for use with managed identity authentication</td>
+<td><code>12345678-90ab-cdef-1234-567890abcdef</code></td>
+</tr>
+<tr>
+<td><code>msi_resource_id</code></td>
+<td>Resource ID for managed identity authentication</td>
+<td><code>/subscriptions/12345678-90ab-cdef-1234-567890abcdef/</code><br><code>resourcegroups/myrg/providers/Microsoft.ManagedIdentity/</code><br><code>userAssignedIdentities/myidentity</code></td>
+</tr>
+<tr>
+<td><code>federated_token_file</code></td>
+<td>File containing token for Azure AD workload identity federation</td>
+<td><code>/var/run/secrets/azure/federated-token</code></td>
+</tr>
+<tr>
+<td><code>use_azure_cli</code></td>
+<td>Use Azure CLI for acquiring access token</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="azure-specific-connection-endpoint-configuration">Azure specific Connection &amp; Endpoint Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>endpoint</code></td>
+<td>Override endpoint used to communicate with blob storage</td>
+<td><code>https://myaccount.blob.core.windows.net</code></td>
+</tr>
+<tr>
+<td><code>object_store_use_emulator</code><br><code>use_emulator</code></td>
+<td>Use Azurite storage emulator</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>use_fabric_endpoint</code></td>
+<td>Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com)</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>container_name</code></td>
+<td>Container name in the storage account</td>
+<td><code>mycontainer</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="azure-specific-request-behavior-security-options">Azure specific Request Behavior &amp; Security Options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>skip_signature</code></td>
+<td>Skip signing requests<br><br><strong>Security warning:</strong><br> Unsigned requests may expose sensitive data or allow tampering; use only in secure or local environments</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>disable_tagging</code></td>
+<td>Disable object tagging (useful if backend does not support it)</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>fabric_token_service_url</code></td>
+<td>URL of Fabric token service</td>
+<td><code>https://fabric-token.mycompany.com</code></td>
+</tr>
+<tr>
+<td><code>fabric_workload_host</code></td>
+<td>Host for Fabric workload</td>
+<td><code>https://workload.fabric.mycompany.com</code></td>
+</tr>
+<tr>
+<td><code>fabric_session_token</code></td>
+<td>Session token for Fabric<br><br><strong>Security note:</strong> Must be protected; use HTTPS</td>
+<td><code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></td>
+</tr>
+<tr>
+<td><code>fabric_cluster_identifier</code></td>
+<td>Identifier for Fabric cluster</td>
+<td><code>fabric-cluster-01</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="security-options_3">Security options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow_http</code></td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>allow_invalid_certificates</code></td>
+<td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="connection-options_3">Connection options</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_agent</code></td>
+<td>User-Agent header to be used by this client</td>
+<td><code>martin 1.0.0</code></td>
+</tr>
+<tr>
+<td><code>randomize_addresses</code></td>
+<td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>connect_timeout</code></td>
+<td>Timeout for only the connect phase of a Client</td>
+<td><code>5s</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>The timeout is applied from when the request starts connecting until the response body has finished</td>
+<td><code>10s</code></td>
+</tr>
+<tr>
+<td><code>pool_idle_timeout</code></td>
+<td>The pool max idle timeout</td>
+<td><code>5m</code></td>
+</tr>
+<tr>
+<td><code>pool_max_idle_per_host</code></td>
+<td>maximum number of idle connections per host</td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>http1_only</code></td>
+<td>Only use http1 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_only</code></td>
+<td>Only use http2 connections</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_interval</code></td>
+<td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_timeout</code></td>
+<td>Timeout for receiving an acknowledgement of the keep-alive ping.</td>
+<td><code>15s</code></td>
+</tr>
+<tr>
+<td><code>http2_keep_alive_while_idle</code></td>
+<td>Enable HTTP2 keep alive pings for idle connections</td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>http2_max_frame_size</code></td>
+<td>Sets the maximum frame size to use for HTTP2.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="proxy-settings_3">Proxy settings</h4>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxy_url</code></td>
+<td>HTTP proxy to use for requests</td>
+<td><code>http://proxy.example.com:8080</code></td>
+</tr>
+<tr>
+<td><code>proxy_ca_certificate</code></td>
+<td>PEM-formatted CA certificate for proxy connections</td>
+<td><code>-----BEGIN CERTIFICATE-----</code><br>...<br><code>-----END CERTIFICATE-----</code></td>
+</tr>
+<tr>
+<td><code>proxy_excludes</code></td>
+<td>List of hosts that bypass proxy</td>
+<td><code>example.com</code>, <code>maplibre.org</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
 
 
   <nav class="md-tags" >
-    
-      
-      
-      
-      
-        <span class="md-tag">mbtiles</span>
-      
     
       
       
@@ -1817,6 +3152,27 @@ Remote object-storage <em>prefixes</em> (e.g. <code>s3://bucket/tiles/</code>) a
       
       
         <span class="md-tag">configuration</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">aws</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">azure</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">google-cloud</span>
       
     
   </nav>
@@ -1861,7 +3217,7 @@ Remote object-storage <em>prefixes</em> (e.g. <code>s3://bucket/tiles/</code>) a
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../sources-tiles/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tile Sources">
+          <a href="../sources-mbtiles/" class="md-footer__link md-footer__link--prev" aria-label="Previous: MBTiles File Sources">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1871,20 +3227,20 @@ Remote object-storage <em>prefixes</em> (e.g. <code>s3://bucket/tiles/</code>) a
                 Previous
               </span>
               <div class="md-ellipsis">
-                Tile Sources
+                MBTiles File Sources
               </div>
             </div>
           </a>
         
         
           
-          <a href="../sources-mbtiles/" class="md-footer__link md-footer__link--next" aria-label="Next: MBTiles File Sources">
+          <a href="../pg-connections/" class="md-footer__link md-footer__link--next" aria-label="Next: PostgreSQL Connections">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                MBTiles File Sources
+                PostgreSQL Connections
               </div>
             </div>
             <div class="md-footer__button md-icon">
