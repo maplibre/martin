@@ -1,7 +1,6 @@
 ---
 icon: material/database
 tags:
-  - mbtiles
   - pmtiles
   - tile-sources
   - configuration
@@ -10,86 +9,26 @@ tags:
   - google-cloud
 ---
 
-# MBTiles and PMTiles File Sources
+# PMTiles File Sources
 
-Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new)
-and [MBTile](https://github.com/mapbox/mbtiles-spec) files.
-To serve a file from CLI, simply put the path to the file or the directory with `*.mbtiles` or `*.pmtiles` files.
-A path to PMTiles file may be a URL.
+Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new) files.
+A PMTiles archive can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
+A path to a PMTiles file may be a URL.
 For example:
 
 ```bash
-martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
+martin  /path/to/directory   https://example.org/path/tiles.pmtiles
 ```
 
 You may also want to generate a [config file](config-file/index.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
 
 !!! tip
-    See [our tile sources explanation](sources-tiles/index.md) for a more detailed explanation on the difference between our available data sources.
+    See [MBTiles vs PMTiles](sources-files/index.md#mbtiles-vs-pmtiles) for a comparison of the two file formats.
 
-### Postprocessing
+## PMTiles Hot Reload
 
-MBTiles and PMTiles sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
-This can be set for all sources of a type or for an individual source.
-See [Configuration File](config-file/index.md#postprocessing) for details.
-
-```yaml
-pmtiles:
-  sources:
-    basemap:
-      path: /data/basemap.pmtiles
-      convert_to_mlt: auto    # convert MVT -> MLT when client requests it
-      convert_to_mvt: auto    # convert MLT -> MVT when client requests it
-    mlt_archive:
-      path: /data/mlt_tiles.pmtiles
-      convert_to_mvt: disable # disabllow any on the the fly conversion
-      convert_to_mlt: disable
-```
-
-### Autodiscovery
-
-For mbtiles or local pmtiles files, we support auto discovering at startup.
-This means that the following will discover all mbtiles and pmtiles files in the directory:
-
-```bash
-martin  /path/to/directory
-```
-
-For remote PMTiles, individual file URLs work as expected.
-Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](#pmtiles-hot-reload) below.
-
-### MBTiles Hot Reload
-
-Martin watches directories configured under `mbtiles` for changes at runtime.
-When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
-
-```bash
-# Martin will watch this directory and reflect any *.mbtiles changes live
-martin  /path/to/mbtiles/directory
-```
-
-Or via config file:
-
-```yaml
-mbtiles:
-  paths:
-    - /path/to/mbtiles/directory
-```
-
-The following events are handled automatically:
-
-- **File added** - the new source appears in the catalog.
-- **File modified** - the source is reloaded and its tile cache is invalidated.
-  Not avaliable on windows due to OS-limtations (SQLite not allowing `FILE_SHARE_DELETE`).
-- **File removed** - the source is removed from the catalog.
-
-!!! note
-    Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
-
-### PMTiles Hot Reload
-
-Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for MBTiles above.
+Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for [MBTiles](sources-mbtiles.md#mbtiles-hot-reload).
 
 ```yaml
 pmtiles:
@@ -113,26 +52,7 @@ pmtiles:
     Hot reload applies to directories and remote prefixes configured under `pmtiles.paths` (or passed on the CLI).
     Named sources listed under `pmtiles.sources` and individual remote-file URLs are snapshotted at startup and are not watched for changes.
 
-## MBTiles vs PMTiles
-
-MBTiles and PMTiles are both formats for storing tiled geospatial data, but they differ in architecture, deployment, and operational characteristics.
-
-### Key Differences
-
-- **Deployment model**
-  **MBTiles** archives must be stored locally on the same machine as the tile server.
-  **PMTiles** archives can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
-  **PMTiles** allows simpler production deployment with Kubernetes, as it allows the large data file to reside in S3 and shared by multiple pods, but restricted from direct user access.
-- **Performance**
-  **MBTiles** typically provide slightly lower latency due to local access and SQLite indexing.
-  **PMTiles** may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.
-- **Storage efficiency**
-  **PMTiles** archives are generally more space-efficient, typically ~10-15% smaller than equivalent **MBTiles** archives.
-- **Memory usage**
-  **MBTiles** relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
-  **PMTiles** can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.
-
-### Serving PMTiles without a Tile Server
+## Serving PMTiles without a Tile Server
 
 PMTiles archives can be served directly from HTTP range-capable storage without a dedicated tile server.
 This approach has several limitations:
@@ -148,12 +68,7 @@ This approach has several limitations:
 - **Caching behavior**
   Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.
 
-The choice between MBTiles and PMTiles depends on system requirements:
-
-- Use **MBTiles** for local, self-contained deployments with minimal external dependencies.
-- Use **PMTiles** for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.
-
-### Serving PMTiles from local file systems, http or Object Storage
+## Serving PMTiles from local file systems, http or Object Storage
 
 The settings available for a PMTiles source depend on the backend:
 

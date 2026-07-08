@@ -8,14 +8,14 @@ tags:
 
 Martin supports multiple tile sources
 
-- [MBTiles Sources](../sources-files.md) Local Sqlite database containing pre-generated vector or raster tiles.
-- [PMTiles Sources](../sources-files.md) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
+- [MBTiles Sources](../sources-mbtiles.md) Local Sqlite database containing pre-generated vector or raster tiles.
+- [PMTiles Sources](../sources-pmtiles.md) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
 - [GeoJSON Sources](../sources-geojson.md) A local file with geodata that we can convert to vector tiles.
 - [PostgreSQL Connections](../pg-connections/index.md) with
   - [Table Sources](../sources-pg-tables.md)
   - [Function Sources](../sources-pg-functions.md)
 
-The difference between tile archives (*[MBTiles/PMTiles](../sources-files.md)*), semi-static data (*[GeoJSON](../sources-geojson.md)*) and a database ([PG-Table](../sources-pg-tables.md)/[PG-Function](../sources-pg-functions.md)) is that
+The difference between tile archives (*[MBTiles/PMTiles](../sources-files/index.md)*), semi-static data (*[GeoJSON](../sources-geojson.md)*) and a database ([PG-Table](../sources-pg-tables.md)/[PG-Function](../sources-pg-functions.md)) is that
 
 - **database** are more flexible and may (depending on how you fill it) be updated in **real-time**.
 - **Tile archives** on the other hand may (depending on the data) be more **compact, memory efficient and exhibit better performance** for tile-serving.
