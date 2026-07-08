@@ -8,8 +8,9 @@ tags:
 
 Martin supports multiple tile sources
 
-- [MBTiles Sources](../sources-mbtiles.md) Local Sqlite database containing pre-generated vector or raster tiles.
-- [PMTiles Sources](../sources-pmtiles.md) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
+- [Tile Archive files](../sources-files/index.md)
+  - [MBTiles Sources](../sources-mbtiles.md) Local Sqlite database containing pre-generated vector or raster tiles.
+  - [PMTiles Sources](../sources-pmtiles.md) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
 - [GeoJSON Sources](../sources-geojson.md) A local file with geodata that we can convert to vector tiles.
 - [PostgreSQL Connections](../pg-connections/index.md) with
   - [Table Sources](../sources-pg-tables.md)
