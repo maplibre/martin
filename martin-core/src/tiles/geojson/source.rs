@@ -240,8 +240,9 @@ fn flatten_geometry_collections(f: PreparedFeature, out: &mut Vec<PreparedFeatur
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     fn fixtures_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

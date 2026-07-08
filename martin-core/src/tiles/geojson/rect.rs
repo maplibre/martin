@@ -1,10 +1,9 @@
 use core::f64;
 use std::num::NonZeroU32;
 
+use geo::bool_ops::FillRule;
 use geo::orient::Direction;
-use geo::{
-    BooleanOps as _, MapCoords as _, Orient as _, Validation as _, bool_ops::FillRule, unary_union,
-};
+use geo::{BooleanOps as _, MapCoords as _, Orient as _, Validation as _, unary_union};
 use geo_types::{Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, Point, Polygon};
 use martin_tile_utils::tile_bbox;
 
