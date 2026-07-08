@@ -127,7 +127,8 @@ nav = [
 # The path provided should be relative to the "docs_dir".
 #
 # Read more: https://zensical.org/docs/customization/#additional-javascript
-#extra_javascript = ["javascripts/extra.js"]
+# Enables Left/Right arrow keys to page through the guide (issue #2788).
+extra_javascript = ["javascripts/keyboard-nav.js"]
 
 # ----------------------------------------------------------------------------
 # Section for configuring theme options
