@@ -276,7 +276,7 @@ impl Mbtiles {
             Some(value) => {
                 HashAlgorithm::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
                     algorithm: value,
-                    filepath: self.filepath().to_string(),
+                    filepath: self.filepath().into(),
                 })
             }
         }

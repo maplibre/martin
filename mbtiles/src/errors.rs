@@ -89,7 +89,10 @@ pub enum MbtError {
     #[error(
         "MBTiles file {filepath} declares an unsupported tile hash algorithm `{algorithm}` in its metadata. This build can only validate `md5` hashes."
     )]
-    UnsupportedHashAlgorithm { algorithm: String, filepath: String },
+    UnsupportedHashAlgorithm {
+        algorithm: String,
+        filepath: PathBuf,
+    },
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
     InvalidFilenameType(PathBuf),
