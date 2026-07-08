@@ -7,7 +7,6 @@
   schedule: ['* * 1,15 * *'],
   minimumReleaseAge: '7 days',
   automerge: true,
-  lockFileMaintenance: { enabled: true, automerge: true },
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
   packageRules: [
