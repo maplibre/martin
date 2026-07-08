@@ -41,7 +41,7 @@ pub const HASH_ALGORITHM: &str = "hash_algorithm";
 /// tile-hashing algorithm recorded in the [`HASH_ALGORITHM`] metadata key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HashAlgorithm {
-    /// md5 — used by `mbtiles`, `martin-cp`, `tilelive-copy`. the only algorithm this
+    /// md5 - used by `mbtiles`, `martin-cp`, `tilelive-copy`. the only algorithm this
     /// build can compute, and the default when [`HASH_ALGORITHM`] is absent.
     #[default]
     Md5,
@@ -664,7 +664,7 @@ LIMIT 1;"
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
-        // bail if the stored hash used an algorithm we can't recompute — else comparing
+        // bail if the stored hash used an algorithm we can't recompute - else comparing
         // md5 against, say, fnv1a shows up as a confusing `AggHashMismatch` (#1086).
         let HashAlgorithm::Md5 = self.get_hash_algorithm(&mut *conn).await?;
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
