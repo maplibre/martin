@@ -351,7 +351,7 @@ impl Mbtiles {
 }
 
 /// reconcile a declared `(minzoom, maxzoom)` against the `[tile_min, tile_max]`
-/// the tiles actually cover (#1791) — a missing value just falls back to the extent.
+/// the tiles actually cover (#1791) - a missing value just falls back to the extent.
 ///
 /// ```text
 /// minzoom = min(tile_min, declared_max, declared_min)
