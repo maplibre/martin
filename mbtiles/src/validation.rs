@@ -31,34 +31,24 @@ pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
 /// Metadata key for a diff file, describing the expected [`AGG_TILES_HASH`] value of the tileset to which the diff will be applied.
 pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 
-/// Metadata key recording the algorithm used to hash tile data and to compute
-/// the [`AGG_TILES_HASH`] value.
+/// metadata key naming the algorithm used to hash tiles and compute [`AGG_TILES_HASH`].
 ///
-/// Historically `mbtiles`/`martin-cp` (and `tilelive-copy`) always used MD5 and
-/// never stored the algorithm. Other tools (e.g. `tippecanoe`) use different
-/// algorithms such as `fnv1a`, which previously surfaced as a confusing
-/// [`AGG_TILES_HASH`] mismatch during validation. When this key is absent, MD5
-/// is assumed for backwards compatibility.
-///
-/// See <https://github.com/maplibre/martin/issues/1086>.
+/// old `mbtiles`/`martin-cp`/`tilelive-copy` always used md5 and never stored this,
+/// so an absent key means md5. other tools like `tippecanoe` use e.g. `fnv1a`, which
+/// used to show up as a confusing [`AGG_TILES_HASH`] mismatch (#1086).
 pub const HASH_ALGORITHM: &str = "hash_algorithm";
 
-/// Algorithm used to hash tile data in an `MBTiles` file, as recorded in the
-/// [`HASH_ALGORITHM`] metadata key.
+/// tile-hashing algorithm recorded in the [`HASH_ALGORITHM`] metadata key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HashAlgorithm {
-    /// MD5, the algorithm used by `mbtiles`, `martin-cp`, and `tilelive-copy`.
-    ///
-    /// This is the only algorithm this build can currently compute, and the
-    /// default assumed when [`HASH_ALGORITHM`] is not present in the metadata.
+    /// md5 — used by `mbtiles`, `martin-cp`, `tilelive-copy`. the only algorithm this
+    /// build can compute, and the default when [`HASH_ALGORITHM`] is absent.
     #[default]
     Md5,
 }
 
 impl HashAlgorithm {
-    /// Parse a [`HASH_ALGORITHM`] metadata value (case-insensitive).
-    ///
-    /// Returns `None` for an algorithm this build cannot compute.
+    /// parse a [`HASH_ALGORITHM`] value (case-insensitive). `None` if this build can't compute it.
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         match value.to_ascii_lowercase().as_str() {
@@ -260,13 +250,10 @@ impl Mbtiles {
         self.get_metadata_value(&mut *conn, AGG_TILES_HASH).await
     }
 
-    /// Determine the tile-hashing algorithm recorded in the metadata table.
-    ///
-    /// Historically the algorithm was always MD5 and never stored, so a missing
-    /// [`HASH_ALGORITHM`] key is treated as [`HashAlgorithm::Md5`]. An explicit
-    /// but unrecognized value yields [`MbtError::UnsupportedHashAlgorithm`]
-    /// rather than silently comparing hashes computed with a different
-    /// algorithm. See <https://github.com/maplibre/martin/issues/1086>.
+    /// tile-hashing algorithm from the metadata table. a missing [`HASH_ALGORITHM`]
+    /// means [`HashAlgorithm::Md5`] (it was always md5 and never stored); an explicit
+    /// but unknown value gives [`MbtError::UnsupportedHashAlgorithm`] rather than
+    /// silently comparing hashes from a different algorithm (#1086).
     pub async fn get_hash_algorithm<T>(&self, conn: &mut T) -> MbtResult<HashAlgorithm>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -677,9 +664,8 @@ LIMIT 1;"
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
-        // Make sure the stored hash was produced with an algorithm we can
-        // recompute. Otherwise comparing an md5 against, say, an fnv1a hash
-        // would surface as a confusing `AggHashMismatch`. See issue #1086.
+        // bail if the stored hash used an algorithm we can't recompute — else comparing
+        // md5 against, say, fnv1a shows up as a confusing `AggHashMismatch` (#1086).
         let HashAlgorithm::Md5 = self.get_hash_algorithm(&mut *conn).await?;
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
@@ -1031,8 +1017,7 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn agg_hash_check_rejects_unsupported_algorithm() {
-        // A file that declares a non-md5 algorithm must fail with a clear
-        // error instead of a confusing agg_tiles_hash mismatch.
+        // declaring a non-md5 algorithm must fail clearly, not as a confusing agg_tiles_hash mismatch.
         let (mbt, mut conn) = anonymous_mbtiles(
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
              CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
