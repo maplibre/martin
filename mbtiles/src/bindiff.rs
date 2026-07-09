@@ -494,7 +494,7 @@ where
 {
     for (tbl, pt) in [("bsdiffraw", BinDiffRaw), ("bsdiffrawgz", BinDiffGz)] {
         //  'bsdiffraw' or 'bsdiffrawgz' table or view columns and their types are as expected:
-        //  5 columns (zoom_level, tile_column, tile_row, tile_data, tile_hash).
+        //  5 columns (zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash).
         //  The order is not important
         let sql = format!(
             "SELECT (

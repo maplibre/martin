@@ -127,7 +127,7 @@ where
     );
     conn.execute(AssertSqlSafe(sql)).await?;
 
-    debug!("Creating if needed tiles view for flat-with-hash");
+    debug!("Creating if needed tiles view for normalized map+images structure");
     conn.execute(
         "CREATE VIEW IF NOT EXISTS tiles AS
              SELECT map.zoom_level AS zoom_level,
@@ -187,7 +187,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn detect_dedup_id_normalized() {
-        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let script = include_str!("../../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         let (_mbt, mut conn) = anonymous_mbtiles(script).await;
 
         assert!(is_dedup_id_normalized_tables_type(&mut conn).await.unwrap());
