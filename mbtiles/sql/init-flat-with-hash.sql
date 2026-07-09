@@ -8,5 +8,9 @@ CREATE TABLE tiles_with_hash (
 );
 
 CREATE VIEW tiles AS
-SELECT zoom_level, tile_column, tile_row, tile_data
+SELECT
+    zoom_level,
+    tile_column,
+    tile_row,
+    tile_data
 FROM tiles_with_hash;

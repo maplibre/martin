@@ -13,9 +13,9 @@ CREATE TABLE images (
 
 CREATE VIEW tiles AS
 SELECT
-    map.zoom_level AS zoom_level,
-    map.tile_column AS tile_column,
-    map.tile_row AS tile_row,
-    images.tile_data AS tile_data
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    images.tile_data
 FROM map
-JOIN images ON images.tile_id = map.tile_id;
+INNER JOIN images ON map.tile_id = images.tile_id;
