@@ -21,20 +21,38 @@ where
         .is_none())
 }
 
+/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL:
+/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...` (idempotent; `SQLite` strips
+/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a ` STRICT` suffix when `strict`.
+///
+/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
+/// on `;` is safe because these files are ours and contain no embedded semicolons.
+pub(crate) async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    for stmt in sql.split(';') {
+        let stmt = stmt.trim();
+        if stmt.is_empty() {
+            continue;
+        }
+        let mut stmt = stmt
+            .replacen("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
+            .replacen("CREATE VIEW ", "CREATE VIEW IF NOT EXISTS ", 1);
+        if strict && stmt.to_ascii_uppercase().starts_with("CREATE TABLE") {
+            stmt.push_str(" STRICT");
+        }
+        conn.execute(AssertSqlSafe(stmt)).await?;
+    }
+    Ok(())
+}
+
 pub async fn create_metadata_table<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating metadata table if it doesn't already exist");
-    let s = if strict { " STRICT" } else { "" };
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS metadata (
-             name text NOT NULL PRIMARY KEY,
-             value text){s};"
-    );
-    conn.execute(AssertSqlSafe(sql)).await?;
-
-    Ok(())
+    create_schema(conn, include_str!("../sql/init-metadata.sql"), strict).await
 }
 
 pub async fn reset_db_settings<T>(conn: &mut T) -> MbtResult<()>

@@ -12,7 +12,7 @@ expression: actual_value
     - "(  6, 1, 4, blob(1B1F00F8077163E37063303653B324A12804E8010450E0ED01), 808518166405267028  )"
 - type: table
   tbl_name: metadata
-  sql: "CREATE TABLE metadata (\n             name text NOT NULL PRIMARY KEY,\n             value text)"
+  sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"585A88FEEC740448FF1EB4F96088FFE3\"  )"
     - "(  \"agg_tiles_hash_after_apply\", \"3BCDEE3F52407FF1315629298CB99133\"  )"
@@ -22,7 +22,7 @@ expression: actual_value
     - "(  \"md-remove\", NULL  )"
 - type: table
   tbl_name: tiles
-  sql: "CREATE TABLE tiles (\n             zoom_level integer NOT NULL,\n             tile_column integer NOT NULL,\n             tile_row integer NOT NULL,\n             tile_data blob,\n             PRIMARY KEY(zoom_level, tile_column, tile_row))"
+  sql: "CREATE TABLE tiles (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_data BLOB,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
   values:
     - "(  5, 2, 2, NULL  )"
     - "(  5, 2, 3, NULL  )"

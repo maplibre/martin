@@ -1,10 +1,11 @@
 //! The `flat-with-hash` `MBTiles` schema: a `tiles_with_hash` table that adds a `tile_hash`
 //! column to the flat schema, plus a `tiles` view for compatibility.
 
-use sqlx::{AssertSqlSafe, Executor as _, SqliteExecutor, query};
+use sqlx::{SqliteExecutor, query};
 use tracing::debug;
 
 use crate::errors::MbtResult;
+use crate::queries::create_schema;
 
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
 pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
@@ -54,27 +55,15 @@ pub async fn create_flat_with_hash_tables<T>(conn: &mut T, strict: bool) -> MbtR
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
-    let s = if strict { " STRICT" } else { "" };
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS tiles_with_hash (
-             zoom_level integer NOT NULL,
-             tile_column integer NOT NULL,
-             tile_row integer NOT NULL,
-             tile_data blob,
-             tile_hash text,
-             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
+    debug!(
+        "Creating if needed flat-with-hash table and tiles view: tiles_with_hash(z,x,y,data,hash)"
     );
-    conn.execute(AssertSqlSafe(sql)).await?;
-
-    debug!("Creating if needed tiles view for flat-with-hash");
-    conn.execute(
-        "CREATE VIEW IF NOT EXISTS tiles AS
-             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash;",
+    create_schema(
+        conn,
+        include_str!("../../sql/init-flat-with-hash.sql"),
+        strict,
     )
-    .await?;
-
-    Ok(())
+    .await
 }
 
 #[cfg(test)]

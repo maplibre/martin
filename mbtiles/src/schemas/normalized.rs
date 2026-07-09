@@ -3,10 +3,11 @@
 //! `tiles_with_hash` view exposes the `tile_id` as a hash, and an alternative
 //! `tiles_shallow` + `tiles_data` variant uses an integer `tile_data_id`.
 
-use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteExecutor, query};
+use sqlx::{Row as _, SqliteExecutor, query};
 use tracing::debug;
 
 use crate::errors::MbtResult;
+use crate::queries::create_schema;
 
 pub async fn is_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -107,39 +108,8 @@ pub async fn create_normalized_tables<T>(conn: &mut T, strict: bool) -> MbtResul
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Creating if needed normalized table: map(z,x,y,id)");
-    let s = if strict { " STRICT" } else { "" };
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS map (
-             zoom_level integer NOT NULL,
-             tile_column integer NOT NULL,
-             tile_row integer NOT NULL,
-             tile_id text,
-             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
-    );
-    conn.execute(AssertSqlSafe(sql)).await?;
-
-    debug!("Creating if needed normalized table: images(id,data)");
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS images (
-             tile_id text NOT NULL PRIMARY KEY,
-             tile_data blob){s};"
-    );
-    conn.execute(AssertSqlSafe(sql)).await?;
-
-    debug!("Creating if needed tiles view for normalized map+images structure");
-    conn.execute(
-        "CREATE VIEW IF NOT EXISTS tiles AS
-             SELECT map.zoom_level AS zoom_level,
-                    map.tile_column AS tile_column,
-                    map.tile_row AS tile_row,
-                    images.tile_data AS tile_data
-             FROM map
-             JOIN images ON images.tile_id = map.tile_id;",
-    )
-    .await?;
-
-    Ok(())
+    debug!("Creating if needed normalized tables and tiles view: map(z,x,y,id) + images(id,data)");
+    create_schema(conn, include_str!("../../sql/init-normalized.sql"), strict).await
 }
 
 pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
@@ -147,20 +117,12 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed tiles_with_hash view for normalized map+images structure");
-    conn.execute(
-        "CREATE VIEW IF NOT EXISTS tiles_with_hash AS
-             SELECT
-                 map.zoom_level AS zoom_level,
-                 map.tile_column AS tile_column,
-                 map.tile_row AS tile_row,
-                 images.tile_data AS tile_data,
-                 images.tile_id AS tile_hash
-             FROM map
-             JOIN images ON images.tile_id = map.tile_id",
+    create_schema(
+        conn,
+        include_str!("../../sql/init-normalized-with-hash.sql"),
+        false,
     )
-    .await?;
-
-    Ok(())
+    .await
 }
 
 #[cfg(test)]
