@@ -28,12 +28,16 @@ pub use pool::MbtilesPool;
 mod queries;
 pub use queries::*;
 
+mod schemas;
+pub use schemas::*;
+
 mod summary;
 
 mod update;
 pub use update::UpdateZoomType;
 
 mod bindiff;
+pub use bindiff::get_patch_type;
 
 #[cfg(feature = "transcode")]
 mod transcoder;

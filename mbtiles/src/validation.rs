@@ -14,13 +14,13 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
     InvalidTileIndex,
 };
+use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
-use crate::queries::{
-    has_tiles_with_hash, is_dedup_id_normalized_tables_type, is_flat_tables_type,
-    is_flat_with_hash_tables_type, is_normalized_tables_type,
+use crate::{
+    Mbtiles, has_tiles_with_hash, invert_y_value, is_dedup_id_normalized_tables_type,
+    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
-use crate::{Mbtiles, get_patch_type, invert_y_value};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
