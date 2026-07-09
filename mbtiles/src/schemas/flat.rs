@@ -57,8 +57,7 @@ where
 mod tests {
     use super::*;
     use crate::metadata::anonymous_mbtiles;
-    use crate::schema_flat_with_hash::is_flat_with_hash_tables_type;
-    use crate::schema_normalized::is_normalized_tables_type;
+    use crate::{is_flat_with_hash_tables_type, is_normalized_tables_type};
 
     #[actix_rt::test]
     async fn create_and_detect_flat() {

@@ -167,8 +167,7 @@ where
 mod tests {
     use super::*;
     use crate::metadata::anonymous_mbtiles;
-    use crate::schema_flat::is_flat_tables_type;
-    use crate::schema_flat_with_hash::has_tiles_with_hash;
+    use crate::{has_tiles_with_hash, is_flat_tables_type};
 
     #[actix_rt::test]
     async fn create_and_detect_normalized() {

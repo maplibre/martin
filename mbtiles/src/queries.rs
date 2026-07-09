@@ -4,11 +4,11 @@ use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, SqliteExecutor, query
 use tracing::debug;
 
 use crate::MbtError::InvalidZoomValue;
-use crate::MbtType;
 use crate::errors::MbtResult;
-use crate::schema_flat::create_flat_tables;
-use crate::schema_flat_with_hash::create_flat_with_hash_tables;
-use crate::schema_normalized::{create_normalized_tables, create_tiles_with_hash_view};
+use crate::{
+    MbtType, create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
+    create_tiles_with_hash_view,
+};
 
 /// Returns true if the database is empty (no tables/indexes/...)
 pub async fn is_empty_database<T>(conn: &mut T) -> MbtResult<bool>
