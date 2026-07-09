@@ -1,9 +1,10 @@
 //! The `flat` `MBTiles` schema: a single `tiles(zoom_level, tile_column, tile_row, tile_data)` table.
 
-use sqlx::{AssertSqlSafe, Executor as _, SqliteExecutor, query};
+use sqlx::{SqliteExecutor, query};
 use tracing::debug;
 
 use crate::errors::MbtResult;
+use crate::queries::create_schema;
 
 pub async fn is_flat_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -39,18 +40,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed flat table: tiles(z,x,y,data)");
-    let s = if strict { " STRICT" } else { "" };
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS tiles (
-             zoom_level integer NOT NULL,
-             tile_column integer NOT NULL,
-             tile_row integer NOT NULL,
-             tile_data blob,
-             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
-    );
-    conn.execute(AssertSqlSafe(sql)).await?;
-
-    Ok(())
+    create_schema(conn, include_str!("../../sql/init-flat.sql"), strict).await
 }
 
 #[cfg(test)]

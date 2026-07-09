@@ -1,39 +1,21 @@
 CREATE TABLE map (
-    zoom_level INTEGER,
-    tile_column INTEGER,
-    tile_row INTEGER,
-    tile_id TEXT
+    zoom_level INTEGER NOT NULL,
+    tile_column INTEGER NOT NULL,
+    tile_row INTEGER NOT NULL,
+    tile_id TEXT,
+    PRIMARY KEY (zoom_level, tile_column, tile_row)
 );
 
 CREATE TABLE images (
-    tile_id TEXT,
+    tile_id TEXT NOT NULL PRIMARY KEY,
     tile_data BLOB
-);
-
-CREATE UNIQUE INDEX map_index ON map (
-    zoom_level, tile_column, tile_row
-);
-CREATE UNIQUE INDEX images_id ON images (
-    tile_id
 );
 
 CREATE VIEW tiles AS
 SELECT
-    map.zoom_level,
-    map.tile_column,
-    map.tile_row,
-    images.tile_data
-FROM
-    map INNER JOIN images
-    ON map.tile_id = images.tile_id;
-
-CREATE VIEW tiles_with_hash AS
-SELECT
-    map.zoom_level,
-    map.tile_column,
-    map.tile_row,
-    images.tile_data,
-    images.tile_id AS tile_hash
-FROM
-    map INNER JOIN images
-    ON map.tile_id = images.tile_id;
+    map.zoom_level AS zoom_level,
+    map.tile_column AS tile_column,
+    map.tile_row AS tile_row,
+    images.tile_data AS tile_data
+FROM map
+JOIN images ON images.tile_id = map.tile_id;

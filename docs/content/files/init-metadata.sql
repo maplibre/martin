@@ -1,0 +1,1 @@
+../../../mbtiles/sql/init-metadata.sql

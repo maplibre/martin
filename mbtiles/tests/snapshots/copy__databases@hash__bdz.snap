@@ -12,7 +12,7 @@ expression: actual_value
     - "(  6, 1, 4, blob(1B1F00F8077163E37063303653B324A12804E8010450E0ED01), 808518166405267028  )"
 - type: table
   tbl_name: metadata
-  sql: "CREATE TABLE metadata (\n             name text NOT NULL PRIMARY KEY,\n             value text)"
+  sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"9AFEC3326B465CB939664C47A572D4C6\"  )"
     - "(  \"agg_tiles_hash_after_apply\", \"A18D0C39730FB52E5A547F096F5C60E8\"  )"
@@ -22,7 +22,7 @@ expression: actual_value
     - "(  \"md-remove\", NULL  )"
 - type: table
   tbl_name: tiles_with_hash
-  sql: "CREATE TABLE tiles_with_hash (\n             zoom_level integer NOT NULL,\n             tile_column integer NOT NULL,\n             tile_row integer NOT NULL,\n             tile_data blob,\n             tile_hash text,\n             PRIMARY KEY(zoom_level, tile_column, tile_row))"
+  sql: "CREATE TABLE tiles_with_hash (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_data BLOB,\n    tile_hash TEXT,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
   values:
     - "(  5, 2, 2, NULL, \"\"  )"
     - "(  5, 2, 3, NULL, \"\"  )"
@@ -43,5 +43,5 @@ expression: actual_value
   values: ~
 - type: view
   tbl_name: tiles
-  sql: "CREATE VIEW tiles AS\n             SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles_with_hash"
+  sql: "CREATE VIEW tiles AS\nSELECT zoom_level, tile_column, tile_row, tile_data\nFROM tiles_with_hash"
   values: ~
