@@ -3,6 +3,6 @@
 SELECT nspname
 FROM pg_namespace
 WHERE
-    nspname NOT LIKE 'pg\_%'
+    nspname <> 'pg_catalog'
     AND nspname <> 'information_schema'
 ORDER BY nspname;
