@@ -29,9 +29,9 @@ expression: actual_value
   values: ~
 - type: view
   tbl_name: tiles
-  sql: "CREATE VIEW tiles AS\nSELECT\n    map.zoom_level AS zoom_level,\n    map.tile_column AS tile_column,\n    map.tile_row AS tile_row,\n    images.tile_data AS tile_data\nFROM map\nJOIN images ON images.tile_id = map.tile_id"
+  sql: "CREATE VIEW tiles AS\nSELECT\n    map.zoom_level,\n    map.tile_column,\n    map.tile_row,\n    images.tile_data\nFROM map\nINNER JOIN images ON map.tile_id = images.tile_id"
   values: ~
 - type: view
   tbl_name: tiles_with_hash
-  sql: "CREATE VIEW tiles_with_hash AS\nSELECT\n    map.zoom_level AS zoom_level,\n    map.tile_column AS tile_column,\n    map.tile_row AS tile_row,\n    images.tile_data AS tile_data,\n    images.tile_id AS tile_hash\nFROM map\nJOIN images ON images.tile_id = map.tile_id"
+  sql: "CREATE VIEW tiles_with_hash AS\nSELECT\n    map.zoom_level,\n    map.tile_column,\n    map.tile_row,\n    images.tile_data,\n    images.tile_id AS tile_hash\nFROM map\nINNER JOIN images ON map.tile_id = images.tile_id"
   values: ~

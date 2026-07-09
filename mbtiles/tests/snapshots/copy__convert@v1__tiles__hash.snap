@@ -33,5 +33,5 @@ expression: actual_value
   values: ~
 - type: view
   tbl_name: tiles
-  sql: "CREATE VIEW tiles AS\nSELECT zoom_level, tile_column, tile_row, tile_data\nFROM tiles_with_hash"
+  sql: "CREATE VIEW tiles AS\nSELECT\n    zoom_level,\n    tile_column,\n    tile_row,\n    tile_data\nFROM tiles_with_hash"
   values: ~
