@@ -41,6 +41,24 @@ export function parsePrometheusMetrics(text: string): {
 }
 
 /**
+ * Finds the metric endpoint labels matching a group's route patterns.
+ *
+ * Labels carry the server's `route_prefix` (e.g. `/martin/{source_ids}/{z}/{x}/{y}`),
+ * while the patterns in `ENDPOINT_GROUPS` are unprefixed.
+ * Matching by suffix keeps the grouping correct regardless of the configured prefix.
+ * Patterns start with `/`, so the suffix always lands on a path-segment boundary.
+ */
+function matchingLabels(labels: Iterable<string>, patterns: readonly string[]): Set<string> {
+  const matched = new Set<string>();
+  for (const label of labels) {
+    if (patterns.some((pattern) => label === pattern || label.endsWith(pattern))) {
+      matched.add(label);
+    }
+  }
+  return matched;
+}
+
+/**
  * Aggregates endpoint metrics into logical groups and computes average duration and request count.
  *
  * @param sum - Record of endpoint to sum of durations
@@ -53,11 +71,12 @@ export function aggregateEndpointGroups(
   count: Record<string, number>,
   endpointGroups: Record<string, readonly string[]>,
 ): Record<string, { averageRequestDurationMs: number; requestCount: number }> {
+  const labels = new Set([...Object.keys(sum), ...Object.keys(count)]);
   const result: Record<string, { averageRequestDurationMs: number; requestCount: number }> = {};
   for (const [group, endpoints] of Object.entries(endpointGroups)) {
     let totalSum = 0;
     let totalCount = 0;
-    for (const endpoint of endpoints) {
+    for (const endpoint of matchingLabels(labels, endpoints)) {
       totalSum += sum[endpoint] || 0;
       totalCount += count[endpoint] || 0;
     }
@@ -142,23 +161,19 @@ export function aggregateHistogramGroups(
 ): Record<string, HistogramBucket[]> {
   const result: Record<string, HistogramBucket[]> = {};
 
+  const labels = Object.keys(histograms);
   for (const [group, endpoints] of Object.entries(endpointGroups)) {
-    for (const endpoint of endpoints) {
-      if (!result[group]) {
-        // due to etags, a multiple statuses are relevant.
-        // because they are not merged in previous steps, we have to do this here
-        // => short-circuiting by setting the result to the histogram would be incorrect
-        result[group] = [];
-      }
-      // Check if histogram data exists for this endpoint
-      if (histograms[endpoint]) {
-        for (const bucket of histograms[endpoint]) {
-          const existingBucket = result[group].find((b) => b.le === bucket.le);
-          if (existingBucket) {
-            existingBucket.count += bucket.count;
-          } else {
-            result[group].push(bucket);
-          }
+    // due to etags, multiple statuses are relevant.
+    // because they are not merged in previous steps, we have to do this here
+    // => short-circuiting by setting the result to the histogram would be incorrect
+    result[group] = [];
+    for (const endpoint of matchingLabels(labels, endpoints)) {
+      for (const bucket of histograms[endpoint]) {
+        const existingBucket = result[group].find((b) => b.le === bucket.le);
+        if (existingBucket) {
+          existingBucket.count += bucket.count;
+        } else {
+          result[group].push(bucket);
         }
       }
     }
