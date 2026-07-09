@@ -16,7 +16,7 @@ pub async fn query_schemas(pool: &PostgresPool) -> PostgresResult<BTreeSet<Strin
         .await
         .map_err(|e| PostgresError(e, "querying available schemas"))?
         .into_iter()
-        .map(|row| row.get::<_, String>("schema"))
+        .map(|row| row.get::<_, String>("nspname"))
         .collect();
     Ok(schemas)
 }
