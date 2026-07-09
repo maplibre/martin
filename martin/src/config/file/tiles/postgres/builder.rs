@@ -400,7 +400,7 @@ impl PostgresAutoDiscoveryBuilder {
             function_infos_from_db,
             all_schemas,
             &function_info_from_config.schema,
-            "tile-serving functions (e.g. (z,x,y) -> bytea)",
+            "tile-serving functions (z,x,y) -> bytea",
             id,
         )?;
         let function_name = &function_info_from_config.function;
