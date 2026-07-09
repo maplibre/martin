@@ -118,6 +118,40 @@ describe('parsePrometheusMetrics', () => {
       expect(result.group2.averageRequestDurationMs).toBe(0);
       expect(result.group2.requestCount).toBe(0);
     });
+
+    it('matches endpoints carrying a route_prefix', () => {
+      // With `route_prefix = /martin`, actix labels endpoints with the prefix,
+      // but ENDPOINT_GROUPS patterns are unprefixed.
+      const sum = {
+        '/martin/{source_ids}': 2,
+        '/martin/{source_ids}/{z}/{x}/{y}': 10,
+      };
+      const count = {
+        '/martin/{source_ids}': 4,
+        '/martin/{source_ids}/{z}/{x}/{y}': 20,
+      };
+      const endpointGroups = {
+        tiles: ['/{source_ids}/{z}/{x}/{y}', '/{source_ids}'],
+      };
+
+      const result = aggregateEndpointGroups(sum, count, endpointGroups);
+
+      // sum = 10+2 = 12, count = 20+4 = 24, avg = (12/24)*1000 = 500
+      expect(result.tiles.requestCount).toBe(24);
+      expect(result.tiles.averageRequestDurationMs).toBeCloseTo(500);
+    });
+
+    it('does not let a shorter pattern double-count a longer endpoint', () => {
+      // `/{source_ids}` must not also match `/martin/{source_ids}/{z}/{x}/{y}`.
+      const sum = { '/martin/{source_ids}/{z}/{x}/{y}': 10 };
+      const count = { '/martin/{source_ids}/{z}/{x}/{y}': 20 };
+      const endpointGroups = {
+        tiles: ['/{source_ids}/{z}/{x}/{y}', '/{source_ids}'],
+      };
+
+      const result = aggregateEndpointGroups(sum, count, endpointGroups);
+      expect(result.tiles.requestCount).toBe(20);
+    });
   });
 
   describe('parsePrometheusHistogram', () => {
@@ -346,6 +380,25 @@ describe('parsePrometheusMetrics', () => {
         expect(result.sprites).toHaveLength(0);
         expect(result.tiles).toBeDefined();
         expect(result.tiles).toHaveLength(0);
+      });
+
+      it('matches prefixed endpoint labels against unprefixed patterns', () => {
+        const histograms = {
+          '/martin/{source_ids}/{z}/{x}/{y}': [
+            { count: 1000, le: 0.005 },
+            { count: 1200, le: 0.01 },
+          ],
+        };
+
+        const endpointGroups = {
+          tiles: ['/{source_ids}/{z}/{x}/{y}', '/{source_ids}'],
+        };
+
+        const result = aggregateHistogramGroups(histograms, endpointGroups);
+
+        expect(result.tiles).toHaveLength(2);
+        expect(result.tiles[0]).toEqual({ count: 1000, le: 0.005 });
+        expect(result.tiles[1]).toEqual({ count: 1200, le: 0.01 });
       });
 
       it('handles partial histogram data (some endpoints missing)', () => {
