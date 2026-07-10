@@ -1,4 +1,3 @@
-
 use fast_mvt::{MvtFeatureBuilder, MvtValue};
 use geo::{BoundingRect as _, MapCoords as _};
 use geo_index::rtree::sort::HilbertSort;
