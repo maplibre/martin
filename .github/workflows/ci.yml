@@ -199,7 +199,7 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
-        with: { tool: sqlx-cli }
+        with: { tool: 'just,sqlx-cli,fast-mvt' }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -223,8 +223,8 @@ jobs:
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
-      - name: Set up gdal-bin and sqlite3-tools
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Set up sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
         # https://github.com/docker/setup-buildx-action
@@ -462,12 +462,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - name: Set up gdal-bin and sqlite3-tools
+      - name: Set up sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
-        if: matrix.os == 'ubuntu-latest'
-        with: { tool: 'just,mlt' }
+        with: { tool: 'just,mlt,fast-mvt' }
       - name: Install rendering dependencies
         if: matrix.os == 'ubuntu-latest'
         run: just install-dependencies
@@ -779,10 +778,10 @@ jobs:
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
-      - name: Set up gdal-bin and sqlite3-tools
-        run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Set up sqlite3-tools
+        run: sudo apt update && sudo apt-get install -y sqlite3-tools
       - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
-        with: { tool: 'just' }
+        with: { tool: 'just,fast-mvt' }
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Integration Tests
