@@ -443,7 +443,7 @@ Read it when you're curious **why** certain choices were made.
             Rect["Tile Rect + buffer<br/>(WebMercator bbox)"]
             Query["R-tree candidate lookup"]
             Clip["Parallel clip + transform<br/>(geo, rayon)"]
-            Encode["MVT encode<br/>(geozero::mvt)"]
+            Encode["MVT encode<br/>(fast-mvt)"]
         end
 
         File --> Parse --> Reproject --> RTree
@@ -463,7 +463,7 @@ Read it when you're curious **why** certain choices were made.
     1. The requested `z/x/y` is converted to a Web Mercator tile `Rect`, grown outward by the configurable `buffer` (as a `buffer / extent` fraction) so geometry near the edge survives clipping.
     2. The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (`204 No Content`).
     3. Candidates are clipped in parallel (`rayon`): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (`extent` units, y flipped for MVT).
-    4. Surviving features are encoded into a single MVT layer named after the source id (`geozero::mvt`); properties are mapped to MVT column values (JSON arrays/objects serialized to strings, nulls dropped).
+    4. Surviving features are encoded into a single MVT layer named after the source id (`fast-mvt`); properties are mapped to MVT values (JSON arrays/objects serialized to strings, nulls dropped).
     5. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
 
     **Configuration** (`GeoJsonConfig`, both `.json` and `.geojson` extensions are discovered):

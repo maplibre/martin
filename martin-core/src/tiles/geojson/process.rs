@@ -8,11 +8,14 @@ use serde_json::Map;
 
 use crate::tiles::geojson::error::GeoJsonError;
 
-/// A feature ready to be served: a Web Mercator geometry plus its `GeoJSON` properties.
+/// A feature ready to be served: a geometry plus its `GeoJSON` properties.
+///
+/// The coordinate type `T` tracks which space the geometry lives in: `f64` for the preprocessed
+/// Web Mercator (EPSG:3857) features, and `i32` once clipped and snapped to the MVT tile grid.
 #[derive(Clone)]
-pub(crate) struct PreparedFeature {
-    /// Geometry in Web Mercator (EPSG:3857).
-    pub(crate) geom: geo_types::Geometry<f64>,
+pub(crate) struct PreparedFeature<T: geo_types::CoordNum = f64> {
+    /// Feature geometry.
+    pub(crate) geom: geo_types::Geometry<T>,
     /// `GeoJSON` feature properties, carried verbatim into the MVT feature.
     pub(crate) properties: Option<Map<String, JsonValue>>,
 }
