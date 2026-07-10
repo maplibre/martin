@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::vec;
 
 use async_trait::async_trait;
 use fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
@@ -156,13 +155,15 @@ impl Source for GeoJsonSource {
             return Ok(Vec::new());
         }
 
+        // Clip and snap to the integer MVT grid in parallel, so the f64 -> i32 conversion happens
+        // once per feature here rather than serially at encode time.
         let clipped_fs = indices
             .into_par_iter()
             .filter_map(|i| {
                 let f = &self.features[i as usize];
                 let geom = rect.clip_transform_validate_geometry(f.geom.clone())?;
-                Some(PreparedFeature {
-                    geom,
+                Some(PreparedFeature::<i32> {
+                    geom: to_tile_geometry(&geom),
                     properties: f.properties.clone(),
                 })
             })
@@ -188,15 +189,14 @@ impl Source for GeoJsonSource {
 fn encode_features(
     layer_name: &str,
     extent: MvtExtent,
-    features: Vec<PreparedFeature>,
+    features: Vec<PreparedFeature<i32>>,
 ) -> Result<TileData, GeoJsonError> {
     let mut layer = MvtTileBuilder::with_capacity(1)
         .layer_with_capacity(layer_name, features.len())
         .map_err(GeoJsonError::MvtError)?;
     layer.extent(extent);
     for f in features {
-        let geom = to_tile_geometry(&f.geom);
-        let mut feature = layer.feature(&geom).map_err(GeoJsonError::MvtError)?;
+        let mut feature = layer.feature(&f.geom).map_err(GeoJsonError::MvtError)?;
         if let Some(properties) = f.properties {
             add_properties(&mut feature, properties)?;
         }
@@ -207,14 +207,25 @@ fn encode_features(
 
 /// Convert a tile-space geometry whose coordinates are already floored to integer grid positions
 /// into the integer-coordinate geometry the MVT encoder consumes.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the debug_assert guards the i32 range; coordinates are floored tile-grid positions"
+)]
 fn to_tile_geometry(geom: &Geometry<f64>) -> MvtGeometry {
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "coordinates are floored tile-grid positions within the extent, so they fit in i32"
-    )]
-    geom.map_coords(|c| Coord {
-        x: c.x as i32,
-        y: c.y as i32,
+    let range = f64::from(i32::MIN)..=f64::from(i32::MAX);
+    geom.map_coords(|c| {
+        // `as i32` saturates on overflow, silently corrupting geometry. Tile-space coordinates
+        // stay within roughly `0..=extent` (plus buffer), so this only trips on an absurd extent.
+        debug_assert!(
+            range.contains(&c.x) && range.contains(&c.y),
+            "tile coordinate ({}, {}) is outside i32 range; extent/buffer too large",
+            c.x,
+            c.y
+        );
+        Coord {
+            x: c.x as i32,
+            y: c.y as i32,
+        }
     })
 }
 
@@ -222,7 +233,10 @@ fn to_tile_geometry(geom: &Geometry<f64>) -> MvtGeometry {
 /// contained geometry (recursively), since an MVT feature holds a single geometry.
 /// All resulting features share the original properties.
 /// Features with any other geometry are pushed unchanged.
-fn flatten_geometry_collections(f: PreparedFeature, out: &mut Vec<PreparedFeature>) {
+fn flatten_geometry_collections<T: geo_types::CoordNum>(
+    f: PreparedFeature<T>,
+    out: &mut Vec<PreparedFeature<T>>,
+) {
     match f.geom {
         Geometry::GeometryCollection(geometries) => {
             for geom in geometries {
