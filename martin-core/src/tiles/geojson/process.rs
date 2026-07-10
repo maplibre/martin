@@ -99,20 +99,21 @@ pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {
 /// are serialized to a JSON string, matching the MVT value model which has no composite types.
 pub(crate) fn add_properties(
     feature: &mut MvtFeatureBuilder,
-    properties: &Map<String, JsonValue>,
+    properties: Map<String, JsonValue>,
 ) -> Result<(), GeoJsonError> {
     for (key, value) in properties {
         let mvt_value = match value {
             // MVT has no composite value type, so arrays and objects are serialized to a JSON string.
-            JsonValue::Array(_) | JsonValue::Object(_) => {
-                let json_string = serde_json::to_string(value)
-                    .map_err(|_err| GeoJsonError::UnsupportedProperty(key.clone()))?;
-                MvtValue::String(json_string)
-            }
+            JsonValue::Array(_) | JsonValue::Object(_) => match serde_json::to_string(&value) {
+                Ok(v) => MvtValue::String(v),
+                Err(_) => return Err(GeoJsonError::UnsupportedProperty(key)),
+            },
             // Scalars (and null) convert straight through fast-mvt's `serde_json::Value` mapping.
             // Non-finite or arbitrary-precision numbers have no MVT representation and error out.
-            _ => MvtValue::try_from(value.clone())
-                .map_err(|_err| GeoJsonError::UnsupportedProperty(key.clone()))?,
+            _ => match MvtValue::try_from(value) {
+                Ok(v) => v,
+                Err(_) => return Err(GeoJsonError::UnsupportedProperty(key)),
+            },
         };
         // A null property yields `MvtValue::Null`, which `tag` skips.
         feature

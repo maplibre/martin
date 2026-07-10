@@ -177,7 +177,7 @@ impl Source for GeoJsonSource {
 
         // Coordinates are already in the tile coordinate system, so the extent is only advertised
         // on the layer; no additional scaling happens during encoding.
-        let tile = encode_features(&self.id, self.extent, &flattened_fs)
+        let tile = encode_features(&self.id, self.extent, flattened_fs)
             .map_err(MartinCoreError::GeoJsonError)?;
         Ok(tile)
     }
@@ -188,7 +188,7 @@ impl Source for GeoJsonSource {
 fn encode_features(
     layer_name: &str,
     extent: MvtExtent,
-    features: &[PreparedFeature],
+    features: Vec<PreparedFeature>,
 ) -> Result<TileData, GeoJsonError> {
     let mut layer = MvtTileBuilder::with_capacity(1)
         .layer_with_capacity(layer_name, features.len())
@@ -197,7 +197,7 @@ fn encode_features(
     for f in features {
         let geom = to_tile_geometry(&f.geom);
         let mut feature = layer.feature(&geom).map_err(GeoJsonError::MvtError)?;
-        if let Some(properties) = &f.properties {
+        if let Some(properties) = f.properties {
             add_properties(&mut feature, properties)?;
         }
         layer = feature.finish();
