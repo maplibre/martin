@@ -19,6 +19,14 @@
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
+    // don't hijack arrows while the search overlay is open: the user is either
+    // typing a query or arrowing through the results, which moves focus onto the
+    // result links (so an activeElement check alone doesn't cover it). `#__search`
+    // is the theme's search toggle checkbox, checked whenever search is open.
+    var searchToggle = document.getElementById('__search');
+    if (searchToggle && searchToggle.checked) {
+      return;
+    }
     if (isTypingTarget(document.activeElement)) {
       return;
     }
