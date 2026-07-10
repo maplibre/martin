@@ -14,13 +14,13 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
     InvalidTileIndex,
 };
+use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
-use crate::queries::{
-    has_tiles_with_hash, is_dedup_id_normalized_tables_type, is_flat_tables_type,
-    is_flat_with_hash_tables_type, is_normalized_tables_type,
+use crate::{
+    Mbtiles, has_tiles_with_hash, invert_y_value, is_dedup_id_normalized_tables_type,
+    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
-use crate::{Mbtiles, get_patch_type, invert_y_value};
 
 /// Metadata key for the aggregate tiles hash value
 pub const AGG_TILES_HASH: &str = "agg_tiles_hash";
@@ -30,6 +30,33 @@ pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
 
 /// Metadata key for a diff file, describing the expected [`AGG_TILES_HASH`] value of the tileset to which the diff will be applied.
 pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
+
+/// metadata key naming the algorithm used to hash tiles and compute [`AGG_TILES_HASH`].
+///
+/// old `mbtiles`/`martin-cp`/`tilelive-copy` always used md5 and never stored this,
+/// so an absent key means md5. other tools like `tippecanoe` use e.g. `fnv1a`, which
+/// used to show up as a confusing [`AGG_TILES_HASH`] mismatch (#1086).
+pub const HASH_ALGORITHM: &str = "hash_algorithm";
+
+/// tile-hashing algorithm recorded in the [`HASH_ALGORITHM`] metadata key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HashAlgorithm {
+    /// md5 - used by `mbtiles`, `martin-cp`, `tilelive-copy`. the only algorithm this
+    /// build can compute, and the default when [`HASH_ALGORITHM`] is absent.
+    #[default]
+    Md5,
+}
+
+impl HashAlgorithm {
+    /// parse a [`HASH_ALGORITHM`] value (case-insensitive). `None` if this build can't compute it.
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.to_ascii_lowercase().as_str() {
+            "md5" => Some(Self::Md5),
+            _ => None,
+        }
+    }
+}
 
 /// Describes the naming convention used by a normalized `MBTiles` schema.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
@@ -221,6 +248,25 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         self.get_metadata_value(&mut *conn, AGG_TILES_HASH).await
+    }
+
+    /// tile-hashing algorithm from the metadata table. a missing [`HASH_ALGORITHM`]
+    /// means [`HashAlgorithm::Md5`] (it was always md5 and never stored); an explicit
+    /// but unknown value gives [`MbtError::UnsupportedHashAlgorithm`] rather than
+    /// silently comparing hashes from a different algorithm (#1086).
+    pub async fn get_hash_algorithm<T>(&self, conn: &mut T) -> MbtResult<HashAlgorithm>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        match self.get_metadata_value(&mut *conn, HASH_ALGORITHM).await? {
+            None => Ok(HashAlgorithm::Md5),
+            Some(value) => {
+                HashAlgorithm::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
+                    algorithm: value,
+                    filepath: self.filepath().into(),
+                })
+            }
+        }
     }
 
     /// Detect tile format and verify that it is consistent across some tiles
@@ -618,6 +664,9 @@ LIMIT 1;"
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
             return Err(AggHashValueNotFound(self.filepath().to_string()));
         };
+        // bail if the stored hash used an algorithm we can't recompute - else comparing
+        // md5 against, say, fnv1a shows up as a confusing `AggHashMismatch` (#1086).
+        let HashAlgorithm::Md5 = self.get_hash_algorithm(&mut *conn).await?;
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
             let file = self.filepath().to_string();
@@ -925,6 +974,63 @@ pub(crate) mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch { .. })));
+    }
+
+    #[actix_rt::test]
+    async fn hash_algorithm_defaults_to_md5_when_absent() {
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
+        )
+        .await;
+        assert_eq!(
+            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
+            HashAlgorithm::Md5
+        );
+    }
+
+    #[actix_rt::test]
+    async fn hash_algorithm_reads_md5_case_insensitively() {
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
+             INSERT INTO metadata VALUES('hash_algorithm', 'MD5');",
+        )
+        .await;
+        assert_eq!(
+            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
+            HashAlgorithm::Md5
+        );
+    }
+
+    #[actix_rt::test]
+    async fn hash_algorithm_rejects_unsupported() {
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
+             INSERT INTO metadata VALUES('hash_algorithm', 'fnv1a');",
+        )
+        .await;
+        let result = mbt.get_hash_algorithm(&mut conn).await;
+        assert!(
+            matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. })),
+            "expected UnsupportedHashAlgorithm, got {result:?}"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn agg_hash_check_rejects_unsupported_algorithm() {
+        // declaring a non-md5 algorithm must fail clearly, not as a confusing agg_tiles_hash mismatch.
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
+             CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+             INSERT INTO metadata VALUES('agg_tiles_hash', 'DEADBEEF');
+             INSERT INTO metadata VALUES('hash_algorithm', 'fnv1a');
+             INSERT INTO tiles VALUES(0, 0, 0, X'00');",
+        )
+        .await;
+        let result = mbt.check_agg_tiles_hashes(&mut conn).await;
+        assert!(
+            matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. })),
+            "expected UnsupportedHashAlgorithm, got {result:?}"
+        );
     }
 
     #[actix_rt::test]

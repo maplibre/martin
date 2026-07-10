@@ -9,6 +9,14 @@ tags:
 
 The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying three different kinds of schema for `tiles` data: `flat`, `flat-with-hash`, and `normalized`. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
 
+## metadata
+
+Every schema includes a shared `metadata` table that stores key/value pairs such as the tileset name, format, and bounds.
+
+```sql
+--8<-- "files/init-metadata.sql"
+```
+
 ## flat
 
 Flat schema is the closest to the original MBTiles specification.
@@ -36,14 +44,14 @@ The `map` table contains a `tile_id` column that is a foreign key to the `images
 The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the `flat-with-hash` schema, and also to optimize storage by storing each unique tile only once.
 
 ```sql
---8<-- "files/init-normalized.sql:0:28"
+--8<-- "files/init-normalized.sql"
 ```
 
 Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_hash` view.
 All `normalized` files created by the `mbtiles` tool will contain this view.
 
 ```sql
---8<-- "files/init-normalized.sql:30:39"
+--8<-- "files/init-normalized-with-hash.sql"
 ```
 
 ### Alternative normalized schema (dedup-id)

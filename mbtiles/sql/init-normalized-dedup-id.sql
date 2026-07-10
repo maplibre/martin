@@ -1,12 +1,3 @@
-CREATE TABLE metadata (
-    name TEXT,
-    value TEXT
-);
-
-CREATE UNIQUE INDEX name ON metadata (
-    name
-);
-
 CREATE TABLE tiles_data (
     tile_data_id INTEGER PRIMARY KEY,
     tile_data BLOB
@@ -26,7 +17,5 @@ SELECT
     tiles_shallow.tile_column,
     tiles_shallow.tile_row,
     tiles_data.tile_data
-FROM
-    tiles_shallow
-INNER JOIN tiles_data
-    ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;
+FROM tiles_shallow
+INNER JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;

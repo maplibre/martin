@@ -6,6 +6,8 @@ tilejson:
   - id: table_source
     fields:
       gid: int4
+    maxzoom: 6
+    minzoom: 0
   bounds:
   - -2.0
   - -1.0
