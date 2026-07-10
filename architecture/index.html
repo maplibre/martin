@@ -1793,7 +1793,7 @@ Martin loads the whole file once, reprojects and indexes it in memory, then clip
         Rect["Tile Rect + buffer&lt;br/&gt;(WebMercator bbox)"]
         Query["R-tree candidate lookup"]
         Clip["Parallel clip + transform&lt;br/&gt;(geo, rayon)"]
-        Encode["MVT encode&lt;br/&gt;(geozero::mvt)"]
+        Encode["MVT encode&lt;br/&gt;(fast-mvt)"]
     end
 
     File --&gt; Parse --&gt; Reproject --&gt; RTree
@@ -1811,7 +1811,7 @@ Martin loads the whole file once, reprojects and indexes it in memory, then clip
 <li>The requested <code>z/x/y</code> is converted to a Web Mercator tile <code>Rect</code>, grown outward by the configurable <code>buffer</code> (as a <code>buffer / extent</code> fraction) so geometry near the edge survives clipping.</li>
 <li>The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (<code>204 No Content</code>).</li>
 <li>Candidates are clipped in parallel (<code>rayon</code>): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (<code>extent</code> units, y flipped for MVT).</li>
-<li>Surviving features are encoded into a single MVT layer named after the source id (<code>geozero::mvt</code>); properties are mapped to MVT column values (JSON arrays/objects serialized to strings, nulls dropped).</li>
+<li>Surviving features are encoded into a single MVT layer named after the source id (<code>fast-mvt</code>); properties are mapped to MVT values (JSON arrays/objects serialized to strings, nulls dropped).</li>
 <li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
 </ol>
 <p><strong>Configuration</strong> (<code>GeoJsonConfig</code>, both <code>.json</code> and <code>.geojson</code> extensions are discovered):</p>
