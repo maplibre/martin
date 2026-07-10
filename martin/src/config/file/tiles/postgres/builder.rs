@@ -1037,7 +1037,7 @@ mod tests {
         [
             SourceError {
                 source_id: "t_missing_schema",
-                error: "Unable to configure source t_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, tiger_data, topology",
+                error: "Unable to configure source t_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, pg_temp_1, pg_toast, pg_toast_temp_1, plain_schema, public, tiger, tiger_data, topology",
             },
             SourceError {
                 source_id: "t_schema_without_geometry",
@@ -1045,11 +1045,11 @@ mod tests {
             },
             SourceError {
                 source_id: "f_missing_schema",
-                error: "Unable to configure source f_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, tiger_data, topology",
+                error: "Unable to configure source f_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, pg_temp_1, pg_toast, pg_toast_temp_1, plain_schema, public, tiger, tiger_data, topology",
             },
             SourceError {
                 source_id: "f_schema_without_functions",
-                error: "Unable to configure source f_schema_without_functions because schema 'empty_schema' exists but has no tile-serving functions (e.g. (z,x,y) -> bytea).",
+                error: "Unable to configure source f_schema_without_functions because schema 'empty_schema' exists but has no tile-serving functions (z,x,y) -> bytea.",
             },
         ]
         "#);
