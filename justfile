@@ -202,7 +202,7 @@ bless-insta *args:  fetch (cargo-install 'cargo-insta')
     fi
 
 # Bless integration tests
-bless-int: start
+bless-int: start install-mvt
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
@@ -501,6 +501,10 @@ lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
 mbtiles *args: fetch
     cargo run -p mbtiles -- {{args}}
 
+# Run the fast-mvt `mvt` CLI, e.g. `just mvt dump tile.pbf` to dump a vector tile as readable text
+mvt *args: install-mvt
+    mvt {{args}}
+
 # Create assets package
 package-assets target:
     #!/usr/bin/env bash
@@ -622,7 +626,7 @@ test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-for
     cargo fmt --all -- --check
 
 # Run integration tests
-test-int: clean-test install-sqlx start-pmtiles-server
+test-int: clean-test install-sqlx start-pmtiles-server install-mvt
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
@@ -755,18 +759,16 @@ validate-tools:
     if ! command -v sqldiff >/dev/null 2>&1; then
         missing_tools+=("sqldiff")
     fi
+    # `mvt` dumps vector tiles to a readable form in the integration tests. Install it with
+    # `just install-mvt` (or `cargo install fast-mvt --features=cli`).
+    if ! command -v mvt >/dev/null 2>&1; then
+        missing_tools+=("mvt")
+    fi
 
     # Check Darwin-specific tools
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if ! command -v gsed >/dev/null 2>&1; then
             missing_tools+=("gsed")
-        fi
-    fi
-
-    # Check Linux-specific tools
-    if [[ "$OSTYPE" == "linux"* ]]; then
-        if ! command -v ogrmerge.py >/dev/null 2>&1; then
-            missing_tools+=("ogrmerge.py")
         fi
     fi
 
@@ -784,9 +786,10 @@ validate-tools:
         echo "✓ All required tools are installed"
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
-        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
-        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
-        echo "  FreeBSD: pkg install jq curl sqlite3 gdal protobuf"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools"
+        echo "  macOS: brew install jq file curl grep sqlite gsed"
+        echo "  FreeBSD: pkg install jq curl sqlite3 protobuf"
+        echo "  mvt: cargo install fast-mvt --features=cli   (or 'just install-mvt')"
         echo ""
         exit 1
     fi
@@ -872,3 +875,7 @@ docker-up name:
 # Install SQLX cli if not already installed.
 [private]
 install-sqlx:  (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '--features' 'sqlite,native-tls')
+
+# Install mvt cli if not already installed.
+[private]
+install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')
