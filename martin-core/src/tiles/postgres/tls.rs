@@ -3,15 +3,17 @@ use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::sync::Arc;
 
 use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;
 use regex::Regex;
+use rustls::client::WebPkiServerVerifier;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::aws_lc_rs::default_provider;
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, Error, SignatureScheme};
+use rustls::{CertificateError, DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
@@ -111,6 +113,57 @@ impl ServerCertVerifier for NoCertificateVerification {
     }
 }
 
+/// Verifies the certificate chain against the configured roots but accepts a hostname mismatch.
+///
+/// This implements the semantics of `sslmode=verify-ca`, which checks that the server certificate
+/// is signed by a trusted CA while skipping the hostname check performed by `verify-full`.
+/// See <https://www.postgresql.org/docs/current/libpq-ssl.html#LIBQ-SSL-CERTIFICATES>.
+#[derive(Debug)]
+struct NoHostnameVerification(Arc<WebPkiServerVerifier>);
+
+impl ServerCertVerifier for NoHostnameVerification {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        server_name: &ServerName<'_>,
+        ocsp_response: &[u8],
+        now: UnixTime,
+    ) -> Result<ServerCertVerified, Error> {
+        match self
+            .0
+            .verify_server_cert(end_entity, intermediates, server_name, ocsp_response, now)
+        {
+            Err(Error::InvalidCertificate(
+                CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. },
+            )) => Ok(ServerCertVerified::assertion()),
+            other => other,
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        self.0.verify_tls12_signature(message, cert, dss)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        self.0.verify_tls13_signature(message, cert, dss)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.supported_verify_schemes()
+    }
+}
+
 fn read_certs(file: &PathBuf) -> PostgresResult<Vec<CertificateDer<'static>>> {
     rustls_pemfile::certs(&mut cert_reader(file)?)
         .collect::<Result<Vec<_>, io::Error>>()
@@ -129,7 +182,7 @@ pub fn make_connector(
     ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
 ) -> PostgresResult<MakeRustlsConnect> {
-    let (verify_ca, _verify_hostname) = match ssl_mode {
+    let (verify_ca, verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),
             SslMode::Require => match ssl_root_cert {
@@ -167,7 +220,8 @@ pub fn make_connector(
         }
     }
 
-    let builder = rustls::ClientConfig::builder().with_root_certificates(roots);
+    let roots = Arc::new(roots);
+    let builder = rustls::ClientConfig::builder().with_root_certificates(roots.clone());
 
     let mut builder = if let (Some(cert), Some(key)) = (ssl_cert, ssl_key) {
         match rustls_pemfile::read_one(&mut cert_reader(key)?) {
@@ -193,20 +247,15 @@ pub fn make_connector(
     if !verify_ca {
         builder
             .dangerous()
-            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification));
+            .set_certificate_verifier(Arc::new(NoCertificateVerification));
+    } else if !verify_hostname {
+        let verifier = WebPkiServerVerifier::builder(roots).build()?;
+        builder
+            .dangerous()
+            .set_certificate_verifier(Arc::new(NoHostnameVerification(verifier)));
     }
 
-    let connector = MakeRustlsConnect::new(builder);
-
-    // TODO: ???
-    // if !verify_hostname {
-    //     connector.set_callback(|cfg, _domain| {
-    //         cfg.set_verify_hostname(false);
-    //         Ok(())
-    //     });
-    // }
-
-    Ok(connector)
+    Ok(MakeRustlsConnect::new(builder))
 }
 
 #[cfg(test)]

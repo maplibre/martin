@@ -52,6 +52,10 @@ pub enum PostgresError {
     #[error(transparent)]
     RustlsError(#[from] rustls::Error),
 
+    /// Cannot build the TLS certificate verifier.
+    #[error(transparent)]
+    CannotBuildTlsVerifier(#[from] rustls::client::VerifierBuilderError),
+
     /// Unknown SSL mode specified.
     #[error("Unknown SSL mode: {0:?}")]
     UnknownSslMode(SslMode),
