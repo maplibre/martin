@@ -1,0 +1,19 @@
+=============================================================
+layer: 0
+  name: mat_view
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(655,1583)
+    properties:
+      id=1
+  feature: 1
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1207,1540)
+    properties:
+      id=2

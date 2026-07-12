@@ -20,7 +20,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
         run: just fmt-toml
@@ -67,7 +67,7 @@ jobs:
         run: rustup update stable && rustup default stable
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: just }
       # `just gen-schemas` enables `rendering` on Linux so the OpenAPI doc
       # covers the static-render routes - that pulls in maplibre-native,
@@ -112,7 +112,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with:
           tool: just,cargo-binstall,mlt
 
@@ -124,7 +124,7 @@ jobs:
         working-directory: martin/martin-ui
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv

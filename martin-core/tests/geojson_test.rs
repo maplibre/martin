@@ -1,6 +1,9 @@
 #![cfg(feature = "geojson")]
 #![allow(clippy::unwrap_used)]
 
+use std::io::Write as _;
+use std::num::NonZeroU32;
+
 use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 use geojson::{
@@ -11,8 +14,6 @@ use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
 use serde_json::{Map, json};
-use std::io::Write as _;
-use std::num::NonZeroU32;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
@@ -343,7 +344,7 @@ async fn property_types_round_trip_and_null_is_omitted() {
     let f = &layer.features[0];
 
     assert!(matches!(prop(f, "s"), Some(MvtValue::String(s)) if s == "hi"));
-    assert!(matches!(prop(f, "i"), Some(MvtValue::SInt(-7))));
+    assert!(matches!(prop(f, "i"), Some(MvtValue::Int(-7))));
     assert!(matches!(prop(f, "big"), Some(MvtValue::UInt(u)) if *u == u64::MAX));
     assert!(matches!(prop(f, "f"), Some(MvtValue::Double(d)) if (*d - 1.5).abs() < f64::EPSILON));
     assert!(matches!(prop(f, "b"), Some(MvtValue::Bool(true))));

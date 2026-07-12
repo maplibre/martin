@@ -308,4 +308,124 @@ mod tests {
         assert_eq!(postgis_version.minor, 0);
         assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
     }
+
+    struct TlsCerts {
+        ca_pem: String,
+        server_cert_pem: String,
+        server_key_pem: String,
+    }
+
+    fn generate_tls_certs_with_mismatched_hostname() -> TlsCerts {
+        use rcgen::{
+            BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
+            KeyUsagePurpose,
+        };
+
+        let ca_key = KeyPair::generate().unwrap();
+        let mut ca_params = CertificateParams::new(Vec::<String>::new()).unwrap();
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
+        let ca_cert = ca_params.self_signed(&ca_key).unwrap();
+        let ca_pem = ca_cert.pem();
+        let issuer = Issuer::new(ca_params, ca_key);
+
+        let server_key = KeyPair::generate().unwrap();
+        let mut server_params =
+            CertificateParams::new(vec!["postgres.internal".to_string()]).unwrap();
+        server_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
+        let server_cert = server_params.signed_by(&server_key, &issuer).unwrap();
+
+        TlsCerts {
+            ca_pem,
+            server_cert_pem: server_cert.pem(),
+            server_key_pem: server_key.serialize_pem(),
+        }
+    }
+
+    async fn start_postgres_with_tls(
+        certs: &TlsCerts,
+    ) -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        let init_script = concat!(
+            "#!/bin/bash\n",
+            "set -e\n",
+            "cp /certs/server.crt \"$PGDATA/server.crt\"\n",
+            "cp /certs/server.key \"$PGDATA/server.key\"\n",
+            "chmod 600 \"$PGDATA/server.crt\" \"$PGDATA/server.key\"\n",
+            "echo 'ssl = on' >> \"$PGDATA/postgresql.conf\"\n",
+        );
+
+        (|| async {
+            Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0")
+                .with_copy_to(
+                    "/certs/server.crt".to_string(),
+                    certs.server_cert_pem.clone().into_bytes(),
+                )
+                .with_copy_to(
+                    "/certs/server.key".to_string(),
+                    certs.server_key_pem.clone().into_bytes(),
+                )
+                .with_copy_to(
+                    "/docker-entrypoint-initdb.d/00-ssl.sh".to_string(),
+                    init_script.as_bytes().to_vec(),
+                )
+                .start()
+                .await
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .expect("failed to launch tls container after retry attempts")
+    }
+
+    #[tokio::test]
+    async fn verify_ca_skips_hostname_check_but_verify_full_enforces_it() {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
+        let certs = generate_tls_certs_with_mismatched_hostname();
+        let node = start_postgres_with_tls(&certs).await;
+        let host = node.get_host().await.unwrap().to_string();
+        let port = node.get_host_port_ipv4(5432).await.unwrap();
+
+        let mut ca_file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut ca_file, certs.ca_pem.as_bytes()).unwrap();
+        let ca_path = ca_file.path().to_path_buf();
+
+        let verify_full = PostgresPool::new(
+            &format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=verify-full"),
+            None,
+            None,
+            Some(&ca_path),
+            2,
+        )
+        .await;
+        assert!(
+            verify_full.is_err(),
+            "verify-full must reject a certificate whose hostname does not match"
+        );
+
+        let verify_ca = PostgresPool::new(
+            &format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=verify-ca"),
+            None,
+            None,
+            Some(&ca_path),
+            2,
+        )
+        .await;
+        assert!(
+            verify_ca.is_ok(),
+            "verify-ca must accept a CA-valid certificate despite a hostname mismatch, got {:?}",
+            verify_ca.err()
+        );
+    }
 }

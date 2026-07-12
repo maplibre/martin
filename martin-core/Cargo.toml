@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -18,7 +18,6 @@ required-features = ["geojson"]
 
 [features]
 default = [
-    "unstable-duckdb",
     "fonts",
     "mbtiles",
     "metrics",
@@ -33,7 +32,7 @@ default = [
 geojson = [
     "dep:geojson",
     "dep:geo-index",
-    "dep:geozero",
+    "dep:fast-mvt",
     "dep:geo-types",
     "dep:geo",
     "dep:rayon",
@@ -109,13 +108,13 @@ deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
 duckdb = { workspace = true, optional = true }
+fast-mvt = { workspace = true, optional = true }
 flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
-geozero = { workspace = true, optional = true }
 hotpath.workspace = true
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
@@ -163,6 +162,7 @@ futures.workspace = true
 image.workspace = true
 image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
+rcgen.workspace = true
 rstest.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true

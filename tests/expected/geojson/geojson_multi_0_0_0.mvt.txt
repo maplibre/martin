@@ -1,0 +1,49 @@
+=============================================================
+layer: 0
+  name: multi_geometries
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2161,1934)
+      POINT(2275,1816)
+      POINT(1706,2407)
+    properties:
+      id=1
+      kind="multipoint"
+  feature: 1
+    id: (none)
+    geomtype: linestring
+    geometry:
+      LINESTRING[count=2](1592 1551,1535 1474)
+      LINESTRING[count=2](2503 1551,2560 1474)
+    properties:
+      id=2
+      kind="multilinestring"
+  feature: 2
+    id: (none)
+    geomtype: polygon
+    geometry:
+      RING[count=5](2048 1992,2104 1992,2104 2048,2048 2048,2048 1992)[OUTER]
+      RING[count=5](2730 1992,2787 1992,2787 2048,2730 2048,2730 1992)[OUTER]
+    properties:
+      id=3
+      kind="multipolygon"
+  feature: 3
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(1365,1190)
+    properties:
+      id=4
+      kind="geometrycollection"
+  feature: 4
+    id: (none)
+    geomtype: linestring
+    geometry:
+      LINESTRING[count=2](1251 1190,1308 1066)
+    properties:
+      id=4
+      kind="geometrycollection"

@@ -107,7 +107,7 @@ docker exec some-postgis psql --dbname postgres --username postgres --command \
 
 ## Serving tiles with Martin
 
-Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections/index.md).
+Now we will serve the content of [mbtiles](sources-mbtiles.md) and the [postgis database](pg-connections/index.md).
 
 If you want more precise options what things are published how, please see the [configuration file](config-file/index.md) or [cli documentation](run-with-cli.md).
 By default, we will share every servable postgres [table, view](sources-pg-tables.md) and [function](sources-pg-functions.md).

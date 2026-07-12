@@ -1,0 +1,21 @@
+=============================================================
+layer: 0
+  name: clip
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: polygon
+    geometry:
+      RING[count=7](-65 2379,1365 2379,1365 4161,455 4161,455 3632,-65 3632,-65 2379)[OUTER]
+    properties:
+      id=1
+      kind="multipolygon-with-hole"
+  feature: 1
+    id: (none)
+    geomtype: polygon
+    geometry:
+      RING[count=5](2275 2379,2958 2379,2958 3380,2275 3380,2275 2379)[OUTER]
+    properties:
+      id=2
+      kind="polygon-northeast"

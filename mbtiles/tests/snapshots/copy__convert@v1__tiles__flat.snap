@@ -4,12 +4,12 @@ expression: actual_value
 ---
 - type: table
   tbl_name: metadata
-  sql: "CREATE TABLE metadata (\n             name text NOT NULL PRIMARY KEY,\n             value text)"
+  sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"9ED9178D7025276336C783C2B54D6258\"  )"
 - type: table
   tbl_name: tiles
-  sql: "CREATE TABLE tiles (\n             zoom_level integer NOT NULL,\n             tile_column integer NOT NULL,\n             tile_row integer NOT NULL,\n             tile_data blob,\n             PRIMARY KEY(zoom_level, tile_column, tile_row))"
+  sql: "CREATE TABLE tiles (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_data BLOB,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
   values:
     - "(  3, 6, 7, blob(root)  )"
     - "(  5, 0, 0, blob(same)  )"

@@ -54,7 +54,11 @@ nav = [
     "config-file/index.md",
     {"Tile sources" = [
         "sources-tiles/index.md",
-        {"MBTiles and PMTiles File Sources" = "sources-files.md"},
+        {"MBTiles and PMTiles File Sources" = [
+            "sources-files/index.md",
+            {"MBTiles File Sources" = "sources-mbtiles.md"},
+            {"PMTiles File Sources" = "sources-pmtiles.md"}
+        ]},
         {"PostgreSQL Connections" = [
             "pg-connections/index.md",
             {"PostgreSQL Table Sources" = "sources-pg-tables.md"},

@@ -83,7 +83,7 @@ derive-debug = "0.1.2"
 duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
-fast-mvt = { version = "0.4", default-features = false, features = ["reader"] }
+fast-mvt = { version = "0.4", default-features = false, features = ["reader", "writer", "json"] }
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
@@ -91,7 +91,6 @@ geo = "0.33.1"
 geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
-geozero = { version = "0.15.1", features = ["with-mvt", "with-geo"] }
 hotpath = "0.21"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -104,9 +103,9 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.8.3"
-martin-core = { path = "./martin-core", version = "0.8.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.4" }
-mbtiles = { path = "./mbtiles", version = "0.18.0" }
+martin-core = { path = "./martin-core", version = "0.9.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
+mbtiles = { path = "./mbtiles", version = "0.18.1" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.12", default-features = false }
@@ -127,8 +126,9 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
 rayon = "1.11.0"
+rcgen = "0.14"
 regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 rstest = "0.26.1"
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower

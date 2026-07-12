@@ -1,14 +1,13 @@
 use std::fmt::{Debug, Formatter};
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::vec;
 
 use async_trait::async_trait;
+use fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
+use geo::MapCoords as _;
 use geo_index::rtree::{RTree, RTreeIndex as _};
-use geo_types::Geometry;
+use geo_types::{Coord, Geometry};
 use geojson::GeoJson;
-use geozero::mvt::{Message as _, MvtWriter, Tile};
-use geozero::{FeatureProcessor as _, GeozeroGeometry as _};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
 use rayon::prelude::*;
 use tilejson::{Bounds, Center, TileJSON};
@@ -17,7 +16,7 @@ use tracing::trace;
 
 use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::geojson::process::{PreparedFeature, preprocess_geojson, process_properties};
+use crate::tiles::geojson::process::{PreparedFeature, add_properties, preprocess_geojson};
 use crate::tiles::geojson::rect::Rect;
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
@@ -156,13 +155,15 @@ impl Source for GeoJsonSource {
             return Ok(Vec::new());
         }
 
+        // Clip and snap to the integer MVT grid in parallel, so the f64 -> i32 conversion happens
+        // once per feature here rather than serially at encode time.
         let clipped_fs = indices
             .into_par_iter()
             .filter_map(|i| {
                 let f = &self.features[i as usize];
                 let geom = rect.clip_transform_validate_geometry(f.geom.clone())?;
-                Some(PreparedFeature {
-                    geom,
+                Some(PreparedFeature::<i32> {
+                    geom: to_tile_geometry(&geom),
                     properties: f.properties.clone(),
                 })
             })
@@ -175,50 +176,67 @@ impl Source for GeoJsonSource {
             flatten_geometry_collections(f, &mut flattened_fs);
         }
 
-        // Use unscaled writer as the coordinates are already in tile coordinate system
-        let mut mvt_writer = MvtWriter::new_unscaled(self.extent.get())
-            .map_err(GeoJsonError::GeozeroError)
+        // Coordinates are already in the tile coordinate system, so the extent is only advertised
+        // on the layer; no additional scaling happens during encoding.
+        let tile = encode_features(&self.id, self.extent, flattened_fs)
             .map_err(MartinCoreError::GeoJsonError)?;
-        encode_features(&flattened_fs, &mut mvt_writer)
-            .map_err(GeoJsonError::GeozeroError)
-            .map_err(MartinCoreError::GeoJsonError)?;
-        let mvt_layer = mvt_writer.layer(&self.id);
-        let tile = Tile {
-            layers: vec![mvt_layer],
-        };
-        let v = tile.encode_to_vec();
-        Ok(v)
+        Ok(tile)
     }
 }
 
-/// Encode prepared, tile-space features into the MVT writer: one MVT feature each, carrying its
-/// properties and geometry.
+/// Encode prepared, tile-space features into a single MVT layer named `layer_name`: one MVT feature
+/// each, carrying its properties and geometry.
 fn encode_features(
-    features: &[PreparedFeature],
-    writer: &mut MvtWriter,
-) -> Result<(), geozero::error::GeozeroError> {
-    writer.dataset_begin(None)?;
-    for (idx, f) in features.iter().enumerate() {
-        let idx = idx as u64;
-        writer.feature_begin(idx)?;
-        if let Some(properties) = &f.properties {
-            writer.properties_begin()?;
-            process_properties(properties, writer)?;
-            writer.properties_end()?;
+    layer_name: &str,
+    extent: MvtExtent,
+    features: Vec<PreparedFeature<i32>>,
+) -> Result<TileData, GeoJsonError> {
+    let mut layer = MvtTileBuilder::with_capacity(1)
+        .layer_with_capacity(layer_name, features.len())
+        .map_err(GeoJsonError::MvtError)?;
+    layer.extent(extent);
+    for f in features {
+        let mut feature = layer.feature(&f.geom).map_err(GeoJsonError::MvtError)?;
+        if let Some(properties) = f.properties {
+            add_properties(&mut feature, properties)?;
         }
-        writer.geometry_begin()?;
-        f.geom.process_geom(writer)?;
-        writer.geometry_end()?;
-        writer.feature_end(idx)?;
+        layer = feature.finish();
     }
-    writer.dataset_end()
+    Ok(layer.finish().finish())
+}
+
+/// Convert a tile-space geometry whose coordinates are already floored to integer grid positions
+/// into the integer-coordinate geometry the MVT encoder consumes.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the debug_assert guards the i32 range; coordinates are floored tile-grid positions"
+)]
+fn to_tile_geometry(geom: &Geometry<f64>) -> MvtGeometry {
+    let range = f64::from(i32::MIN)..=f64::from(i32::MAX);
+    geom.map_coords(|c| {
+        // `as i32` saturates on overflow, silently corrupting geometry. Tile-space coordinates
+        // stay within roughly `0..=extent` (plus buffer), so this only trips on an absurd extent.
+        debug_assert!(
+            range.contains(&c.x) && range.contains(&c.y),
+            "tile coordinate ({}, {}) is outside i32 range; extent/buffer too large",
+            c.x,
+            c.y
+        );
+        Coord {
+            x: c.x as i32,
+            y: c.y as i32,
+        }
+    })
 }
 
 /// Expand a feature whose geometry is a `GeometryCollection` into one feature per
 /// contained geometry (recursively), since an MVT feature holds a single geometry.
 /// All resulting features share the original properties.
 /// Features with any other geometry are pushed unchanged.
-fn flatten_geometry_collections(f: PreparedFeature, out: &mut Vec<PreparedFeature>) {
+fn flatten_geometry_collections<T: geo_types::CoordNum>(
+    f: PreparedFeature<T>,
+    out: &mut Vec<PreparedFeature<T>>,
+) {
     match f.geom {
         Geometry::GeometryCollection(geometries) => {
             for geom in geometries {
@@ -240,8 +258,9 @@ fn flatten_geometry_collections(f: PreparedFeature, out: &mut Vec<PreparedFeatur
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     fn fixtures_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -270,14 +289,16 @@ mod tests {
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 
-        let decoded = Tile::decode(tile.as_slice()).expect("output is a valid MVT tile");
+        let decoded = fast_mvt::MvtReaderRef::new(tile.as_slice())
+            .and_then(|r| r.to_tile())
+            .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
         let layer = &decoded.layers[0];
         assert_eq!(
             layer.name, "test-source-1",
             "layer is named after the source"
         );
-        assert_eq!(layer.extent(), extent.get());
+        assert_eq!(layer.extent.get(), extent.get());
         assert_eq!(
             layer.features.len(),
             2,

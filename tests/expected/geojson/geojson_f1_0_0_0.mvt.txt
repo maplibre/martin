@@ -1,0 +1,13 @@
+=============================================================
+layer: 0
+  name: feature_1
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geomtype: point
+    geometry:
+      POINT(2200,1344)
+    properties:
+      id=1
+      name="test-point"

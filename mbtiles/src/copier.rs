@@ -14,16 +14,16 @@ use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
-use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
+use crate::bindiff::{
+    BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name,
+};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
-use crate::queries::{
-    create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
-};
+use crate::queries::{detach_db, init_mbtiles_schema, is_empty_database};
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
     MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite,
-    get_bsdiff_tbl_name, invert_y_value, reset_db_settings,
+    create_tiles_with_hash_view, invert_y_value, reset_db_settings,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
