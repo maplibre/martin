@@ -63,12 +63,8 @@ pub(crate) fn render_failure(yaml: &str) -> String {
     buf
 }
 
-/// Parse `yaml` through [`parse_config`], then run [`Config::finalize`] and expect a failure.
-/// Returns the rendered error - either a graphical miette diagnostic (if the error carries
-/// source location info) or a plain `Display` string.
-///
-/// Use for validations that run *after* successful deserialization (e.g. `route_prefix`
-/// must start with `/`, CORS `origin` must be non-empty, no tile sources configured).
+/// Run `yaml` through [`parse_config`] then [`Config::finalize`], expect a failure,
+/// and return the rendered error via [`MartinError::render_diagnostic`].
 pub(crate) fn render_finalize_failure(yaml: &str) -> String {
     let env: HashMap<String, String> = HashMap::new();
     let mut config = parse_config(yaml, &env, Path::new("config.yaml"))
