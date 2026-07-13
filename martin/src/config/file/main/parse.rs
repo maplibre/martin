@@ -181,19 +181,19 @@ fn extract_source_info(source_text: &str, file_name: &Path) -> SourceInfo {
     let spans = serde_saphyr::from_str_with_options::<SpanProbe>(source_text, opts)
         .ok()
         .map(|probe| {
-            let route_prefix = probe.route_prefix.as_ref().and_then(|s| {
-                location_to_source_span(&s.referenced, s.referenced.span().len())
-            });
-            let base_path = probe.base_path.as_ref().and_then(|s| {
-                location_to_source_span(&s.referenced, s.referenced.span().len())
-            });
+            let route_prefix = probe
+                .route_prefix
+                .as_ref()
+                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
+            let base_path = probe
+                .base_path
+                .as_ref()
+                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
             let cors_origin = probe
                 .cors
                 .as_ref()
                 .and_then(|c| c.origin.as_ref())
-                .and_then(|s| {
-                    location_to_source_span(&s.referenced, s.referenced.span().len())
-                });
+                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
             ConfigSpans {
                 route_prefix,
                 base_path,
@@ -370,7 +370,9 @@ mod tests {
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
     use crate::config::primitives::OptOneMany;
-    use crate::config::test_helpers::{render_failure, render_failure_json, render_finalize_failure};
+    use crate::config::test_helpers::{
+        render_failure, render_failure_json, render_finalize_failure,
+    };
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(

@@ -18,7 +18,6 @@ use martin_core::tiles::pmtiles::PmtCache;
 use tracing::{info, instrument, warn};
 
 use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
-use crate::config::file::error::ValidationSpan;
 #[cfg(feature = "_tiles")]
 use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
@@ -33,6 +32,7 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+use crate::config::file::error::ValidationSpan;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "postgres", feature = "mlt"))]
@@ -117,10 +117,12 @@ impl Config {
             }
         }
         if let Some(cors) = &self.srv.cors {
-            cors.validate(self.make_validation_span(
-                self.source_info.spans.cors_origin,
-                "origin list is empty",
-            ))?;
+            cors.validate(
+                self.make_validation_span(
+                    self.source_info.spans.cors_origin,
+                    "origin list is empty",
+                ),
+            )?;
         }
         #[cfg(feature = "postgres")]
         {

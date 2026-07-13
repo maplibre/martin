@@ -137,14 +137,12 @@ impl ConfigFileError {
                     span: span.clone(),
                 }))
             }
-            Self::BasePathInvalid(_, Some(span)) => {
-                Some(miette::Report::new(ValidationReport {
-                    message: self.to_string(),
-                    code: "martin::config::base_path",
-                    help: "The path must start with '/' and be a valid URI path, e.g. `/tiles` or `/api/v1`.",
-                    span: span.clone(),
-                }))
-            }
+            Self::BasePathInvalid(_, Some(span)) => Some(miette::Report::new(ValidationReport {
+                message: self.to_string(),
+                code: "martin::config::base_path",
+                help: "The path must start with '/' and be a valid URI path, e.g. `/tiles` or `/api/v1`.",
+                span: span.clone(),
+            })),
             _ => None,
         }
     }

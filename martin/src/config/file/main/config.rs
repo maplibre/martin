@@ -7,6 +7,7 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
+use super::parse::SourceInfo;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -37,7 +38,6 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "styles")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{GlobalCacheConfig, UnrecognizedValues};
-use super::parse::SourceInfo;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
