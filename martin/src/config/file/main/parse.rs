@@ -746,8 +746,6 @@ mod tests {
         }
     }
 
-    // ----- Finalize validation diagnostics: errors that occur after successful parsing -----
-
     #[test]
     fn finalize_base_path_must_start_with_slash() {
         insta::assert_snapshot!(
