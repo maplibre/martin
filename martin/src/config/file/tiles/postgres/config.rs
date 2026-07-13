@@ -99,6 +99,7 @@ pub struct PostgresConfig {
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
     /// Maximum Postgres connections pool size \[default: 20\]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<NonZeroUsize>,
     /// How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
     /// functions, update changed ones, and drop removed ones at runtime, without a restart.
