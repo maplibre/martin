@@ -1,65 +1,44 @@
-=============================================================
 layer: 0
   name: public.function_zxy_query
   version: 2
   extent: 4096
   feature: 0
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1769,2458)
-    properties:
+    geometry: POINT(1769,2458)
+    properties: (none)
   feature: 1
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1674,2518)
-    properties:
+    geometry: POINT(1674,2518)
+    properties: (none)
   feature: 2
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1762,2512)
-    properties:
+    geometry: POINT(1762,2512)
+    properties: (none)
   feature: 3
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1774,2560)
-    properties:
+    geometry: POINT(1774,2560)
+    properties: (none)
   feature: 4
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1733,2471)
-    properties:
+    geometry: POINT(1733,2471)
+    properties: (none)
   feature: 5
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1731,2492)
-    properties:
+    geometry: POINT(1731,2492)
+    properties: (none)
   feature: 6
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1722,2549)
-    properties:
+    geometry: POINT(1722,2549)
+    properties: (none)
   feature: 7
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1680,2500)
-    properties:
+    geometry: POINT(1680,2500)
+    properties: (none)
   feature: 8
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1685,2456)
-    properties:
+    geometry: POINT(1685,2456)
+    properties: (none)
   feature: 9
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1776,2433)
-    properties:
+    geometry: POINT(1776,2433)
+    properties: (none)
