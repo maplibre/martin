@@ -280,7 +280,7 @@ mod tests {
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
     use crate::config::primitives::OptOneMany;
-    use crate::config::test_helpers::{render_failure, render_failure_json};
+    use crate::config::test_helpers::{render_failure, render_failure_json, render_finalize_failure};
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(
@@ -742,5 +742,62 @@ mod tests {
                 "expected no hit in {s:?}"
             );
         }
+    }
+
+    // ----- Finalize validation diagnostics: errors that occur after successful parsing -----
+
+    #[test]
+    fn finalize_base_path_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                base_path: not-a-path
+            "}),
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'not-a-path'"
+        );
+    }
+
+    #[test]
+    fn finalize_route_prefix_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                route_prefix: oops
+            "}),
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'oops'"
+        );
+    }
+
+    #[test]
+    fn finalize_no_sources() {
+        insta::assert_snapshot!(
+            render_finalize_failure("keep_alive: 75\n"),
+            @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+        );
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn finalize_postgres_missing_connection_string() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                postgres:
+                  pool_size: 5
+            "}),
+            @"A postgres connection string must be provided"
+        );
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn finalize_postgres_pool_size_invalid() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                postgres:
+                  connection_string: 'postgres://localhost/db'
+                  pool_size: 0
+            "}),
+            @"The postgres pool_size must be greater than or equal to 1"
+        );
     }
 }
