@@ -1,75 +1,54 @@
-=============================================================
 layer: 0
   name: table_source
   version: 2
   extent: 4096
   feature: 0
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3726,2469)
+    geometry: POINT(3726,2469)
     properties:
-      gid=19
+      gid = 19 (uint)
   feature: 1
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2209,3422)
+    geometry: POINT(2209,3422)
     properties:
-      gid=20
+      gid = 20 (uint)
   feature: 2
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3612,3321)
+    geometry: POINT(3612,3321)
     properties:
-      gid=21
+      gid = 21 (uint)
   feature: 3
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3808,4088)
+    geometry: POINT(3808,4088)
     properties:
-      gid=22
+      gid = 22 (uint)
   feature: 4
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3159,2671)
+    geometry: POINT(3159,2671)
     properties:
-      gid=23
+      gid = 23 (uint)
   feature: 5
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3124,3012)
+    geometry: POINT(3124,3012)
     properties:
-      gid=24
+      gid = 24 (uint)
   feature: 6
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2976,3912)
+    geometry: POINT(2976,3912)
     properties:
-      gid=25
+      gid = 25 (uint)
   feature: 7
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2305,3130)
+    geometry: POINT(2305,3130)
     properties:
-      gid=26
+      gid = 26 (uint)
   feature: 8
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2379,2434)
+    geometry: POINT(2379,2434)
     properties:
-      gid=27
+      gid = 27 (uint)
   feature: 9
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3833,2061)
+    geometry: POINT(3833,2061)
     properties:
-      gid=28
+      gid = 28 (uint)
