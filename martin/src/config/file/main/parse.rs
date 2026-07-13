@@ -280,7 +280,9 @@ mod tests {
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
     use crate::config::primitives::OptOneMany;
-    use crate::config::test_helpers::{render_failure, render_failure_json, render_finalize_failure};
+    use crate::config::test_helpers::{
+        render_failure, render_failure_json, render_finalize_failure,
+    };
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(

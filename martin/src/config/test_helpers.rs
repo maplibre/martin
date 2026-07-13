@@ -64,7 +64,7 @@ pub(crate) fn render_failure(yaml: &str) -> String {
 }
 
 /// Parse `yaml` through [`parse_config`], then run [`Config::finalize`] and expect a failure.
-/// Returns the rendered error — either a graphical miette diagnostic (if the error carries
+/// Returns the rendered error - either a graphical miette diagnostic (if the error carries
 /// source location info) or a plain `Display` string.
 ///
 /// Use for validations that run *after* successful deserialization (e.g. `route_prefix`
