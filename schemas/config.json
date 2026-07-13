@@ -889,6 +889,7 @@
         },
         "pool_size": {
           "description": "Maximum Postgres connections pool size \\[default: 20\\]",
+          "examples": [20],
           "format": "uint",
           "minimum": 1,
           "type": ["integer", "null"]
