@@ -1,7 +1,10 @@
 //! `PostgreSQL` connection pool implementation.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, PoisonError};
 
+use deadpool_postgres::tokio_postgres::{CancelToken, NoTls};
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use postgres::config::SslMode;
 use semver::Version;
@@ -12,7 +15,9 @@ use crate::tiles::postgres::PostgresError::{
     PostgresPoolConnError, PostgresqlTooOld,
 };
 use crate::tiles::postgres::PostgresResult;
-use crate::tiles::postgres::tls::{SslModeOverride, make_connector, parse_conn_str};
+use crate::tiles::postgres::tls::{
+    PgTlsConnector, SslModeOverride, make_connector, parse_conn_str,
+};
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>
@@ -37,6 +42,7 @@ pub struct PostgresPool {
     /// `true` if running postgis >= 3.1
     /// This being `false` indicates that tiles may be cut off at the edges.
     supports_tile_margin: bool,
+    active_query_registry: ActiveQueryRegistry,
 }
 
 impl PostgresPool {
@@ -55,7 +61,8 @@ impl PostgresPool {
         ssl_root_cert: Option<&PathBuf>,
         pool_size: usize,
     ) -> PostgresResult<Self> {
-        let (id, mgr) = Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
+        let (id, mgr, tls) =
+            Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
 
         let pool = Pool::builder(mgr)
             .max_size(pool_size)
@@ -65,6 +72,7 @@ impl PostgresPool {
             id: id.clone(),
             pool,
             supports_tile_margin: false,
+            active_query_registry: ActiveQueryRegistry::new(tls),
         };
         let conn = res.get().await?;
         let pg_ver = get_postgres_version(&conn).await?;
@@ -120,7 +128,7 @@ impl PostgresPool {
         ssl_cert: Option<&PathBuf>,
         ssl_key: Option<&PathBuf>,
         ssl_root_cert: Option<&PathBuf>,
-    ) -> PostgresResult<(String, Manager)> {
+    ) -> PostgresResult<(String, Manager, PgTlsConnector)> {
         let (pg_cfg, ssl_mode) = parse_conn_str(connection_string)?;
 
         let id = pg_cfg.get_dbname().map_or_else(
@@ -151,15 +159,18 @@ impl PostgresPool {
             "Connecting to PostgreSQL"
         );
 
-        let mgr = if pg_cfg.get_ssl_mode() == SslMode::Disable {
-            let connector = deadpool_postgres::tokio_postgres::NoTls {};
-            Manager::from_config(pg_cfg, connector, mgr_config)
+        let (mgr, tls) = if pg_cfg.get_ssl_mode() == SslMode::Disable {
+            let tls = PgTlsConnector::NoTls(NoTls);
+            let mgr = Manager::from_config(pg_cfg, NoTls, mgr_config);
+            (mgr, tls)
         } else {
             let connector = make_connector(ssl_cert, ssl_key, ssl_root_cert, ssl_mode)?;
-            Manager::from_config(pg_cfg, connector, mgr_config)
+            let tls = PgTlsConnector::Rustls(connector.clone());
+            let mgr = Manager::from_config(pg_cfg, connector, mgr_config);
+            (mgr, tls)
         };
 
-        Ok((id, mgr))
+        Ok((id, mgr, tls))
     }
 
     /// Retrieves an [`Object`] from this [`PostgresPool`] or waits for one to become available.
@@ -178,6 +189,12 @@ impl PostgresPool {
     #[must_use]
     pub fn get_id(&self) -> &str {
         &self.id
+    }
+
+    /// Returns a reference to the active query registry.
+    #[must_use]
+    pub fn active_query_registry(&self) -> &ActiveQueryRegistry {
+        &self.active_query_registry
     }
 
     /// Indicates if `ST_TileEnvelope` supports the margin parameter.
@@ -235,10 +252,109 @@ SELECT (regexp_matches(
     Ok(version)
 }
 
+/// Query id + tokens, guarded together so registration is a single lock.
+#[derive(Default)]
+struct ActiveQueryRegistryInner {
+    next_id: u64,
+    tokens: HashMap<u64, CancelToken>,
+}
+
+/// Track ongoing `PostgreSQL` queries so they can be cancelled.
+#[derive(Clone)]
+pub struct ActiveQueryRegistry {
+    inner: Arc<Mutex<ActiveQueryRegistryInner>>,
+    tls: PgTlsConnector,
+}
+
+impl ActiveQueryRegistry {
+    fn new(tls: PgTlsConnector) -> Self {
+        Self {
+            inner: Arc::default(),
+            tls,
+        }
+    }
+
+    /// Registers a query's `CancelToken`
+    /// the returned guard unregisters on drop.
+    #[must_use]
+    pub(crate) fn register(&self, token: CancelToken) -> ActiveQueryGuard {
+        let id = {
+            let mut g = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+            let id = g.next_id;
+            g.next_id += 1;
+            g.tokens.insert(id, token);
+            id
+        };
+        ActiveQueryGuard {
+            inner: Arc::clone(&self.inner),
+            id,
+        }
+    }
+
+    /// Cancels all registered queries concurrently.
+    pub async fn cancel_all(&self) {
+        let tokens = {
+            let mut g = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+            std::mem::take(&mut g.tokens)
+        };
+        let mut set = tokio::task::JoinSet::new();
+        for token in tokens.into_values() {
+            let tls = self.tls.clone();
+            set.spawn(async move {
+                let res = match tls {
+                    PgTlsConnector::NoTls(c) => token.cancel_query(c).await,
+                    PgTlsConnector::Rustls(c) => token.cancel_query(c).await,
+                };
+                if let Err(e) = res {
+                    warn!(error = %e, "Failed to cancel in-flight PostgreSQL query");
+                }
+            });
+        }
+        set.join_all().await;
+    }
+}
+
+impl std::fmt::Debug for ActiveQueryRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (next_id, active_count, ids) = self.inner.try_lock().map_or((0, 0, Vec::new()), |g| {
+            (
+                g.next_id,
+                g.tokens.len(),
+                g.tokens.keys().copied().collect::<Vec<_>>(),
+            )
+        });
+
+        f.debug_struct("ActiveQueryRegistry")
+            .field("next_id", &next_id)
+            .field("active_count", &active_count)
+            .field("active_ids", &ids)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Removes its query from the [`ActiveQueryRegistry`] when dropped.
+pub(crate) struct ActiveQueryGuard {
+    inner: Arc<Mutex<ActiveQueryRegistryInner>>,
+    id: u64,
+}
+
+impl Drop for ActiveQueryGuard {
+    fn drop(&mut self) {
+        self.inner
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .tokens
+            .remove(&self.id);
+    }
+}
+
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use std::time::Duration;
+
     use backon::{ConstantBuilder, Retryable as _};
     use deadpool_postgres::tokio_postgres::Config;
+    use deadpool_postgres::tokio_postgres::error::SqlState;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::ImageExt as _;
@@ -249,7 +365,7 @@ mod tests {
     async fn start_postgres_11_with_posgis_3_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
-        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+        const RETRY_DELAY: Duration = Duration::from_secs(2);
 
         (|| async {
             Postgres::default()
@@ -346,7 +462,7 @@ mod tests {
         certs: &TlsCerts,
     ) -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
-        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+        const RETRY_DELAY: Duration = Duration::from_secs(2);
 
         let init_script = concat!(
             "#!/bin/bash\n",
@@ -427,5 +543,46 @@ mod tests {
             "verify-ca must accept a CA-valid certificate despite a hostname mismatch, got {:?}",
             verify_ca.err()
         );
+    }
+
+    async fn assert_cancel_all_interrupts_sleep(url: &str) {
+        let pool = PostgresPool::new(url, None, None, None, 2).await.unwrap();
+
+        let pool_for_sleep_task = pool.clone();
+        let (registered_tx, registered_rx) = tokio::sync::oneshot::channel();
+        let sleep_task = tokio::spawn(async move {
+            let conn = pool_for_sleep_task.get().await.unwrap();
+            let _guard = pool_for_sleep_task
+                .active_query_registry()
+                .register(conn.cancel_token());
+            registered_tx.send(()).expect("test waiter dropped");
+            conn.query_one("SELECT pg_sleep(5)", &[]).await
+        });
+
+        registered_rx
+            .await
+            .expect("sleep task failed before registering");
+        // Let `query_one` reach Postgres before we cancel.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        pool.active_query_registry.cancel_all().await;
+
+        let db_err = sleep_task.await.unwrap().unwrap_err();
+        assert_eq!(
+            db_err.as_db_error().unwrap().code(),
+            &SqlState::QUERY_CANCELED
+        );
+    }
+
+    /// Uses `DATABASE_URL` when set (CI runs this with both `sslmode=disable` and
+    /// `sslmode=require`); falls back to a local non-SSL URL.
+    fn test_database_url() -> String {
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:postgres@localhost:5411/db?sslmode=disable".to_string()
+        })
+    }
+
+    #[tokio::test]
+    async fn cancel_all_stops_pg_sleep() {
+        assert_cancel_all_interrupts_sleep(&test_database_url()).await;
     }
 }
