@@ -46,10 +46,6 @@ pub enum ConfigFileError {
     DirectoryWalking(#[source] walkdir::Error, PathBuf),
 
     #[cfg(feature = "postgres")]
-    #[error("The postgres pool_size must be greater than or equal to 1")]
-    PostgresPoolSizeInvalid,
-
-    #[cfg(feature = "postgres")]
     #[error("A postgres connection string must be provided")]
     PostgresConnectionStringMissing,
 
@@ -233,8 +229,6 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
-            Self::PostgresPoolSizeInvalid => "martin::config::postgres::pool_size",
-            #[cfg(feature = "postgres")]
             Self::PostgresConnectionStringMissing => "martin::config::postgres::connection_string",
             #[cfg(feature = "postgres")]
             Self::PostgresPoolCreationFailed(_) => "martin::config::postgres::pool_creation",
@@ -260,10 +254,6 @@ impl Diagnostic for ConfigFileError {
             }
             Self::YamlParseError { .. } => {
                 "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."
-            }
-            #[cfg(feature = "postgres")]
-            Self::PostgresPoolSizeInvalid => {
-                "Set `pool_size` to an integer greater than or equal to 1."
             }
             _ => return None,
         };

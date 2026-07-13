@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Add as _;
 use std::time::Duration;
 
@@ -99,8 +99,7 @@ pub struct PostgresConfig {
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
     /// Maximum Postgres connections pool size \[default: 20\]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
-    pub pool_size: Option<usize>,
+    pub pool_size: Option<NonZeroUsize>,
     /// How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
     /// functions, update changed ones, and drop removed ones at runtime, without a restart.
     ///
@@ -159,7 +158,7 @@ pub struct PostgresConfig {
 }
 
 /// Default connection pool size.
-pub const DEFAULT_POOL_SIZE: usize = 20;
+pub const DEFAULT_POOL_SIZE: NonZeroUsize = NonZeroUsize::new(20).expect("default pool size is non-zero");
 
 impl Default for PostgresConfig {
     // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
@@ -399,9 +398,6 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
             self.auto_publish = OptBoolObj::Bool(true);
         }
 
-        if self.pool_size.is_some_and(|size| size < 1) {
-            return Err(ConfigFileError::PostgresPoolSizeInvalid);
-        }
         if self.connection_string.is_none() {
             return Err(ConfigFileError::PostgresConnectionStringMissing);
         }
@@ -626,7 +622,7 @@ mod tests {
                 postgres: One(PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
-                    pool_size: Some(20),
+                    pool_size: NonZeroUsize::new(20),
                     max_feature_count: Some(100),
                     tables: Some(BTreeMap::from([(
                         "table_source".to_string(),
