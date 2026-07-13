@@ -7,7 +7,7 @@ pub mod cache;
 pub mod cors;
 pub mod srv;
 
-mod error;
+pub(crate) mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
 pub mod process;

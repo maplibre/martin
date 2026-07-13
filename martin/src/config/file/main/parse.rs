@@ -2,6 +2,9 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
+use miette::NamedSource;
+use serde::Deserialize;
+use serde_saphyr::Spanned;
 use tracing::warn;
 
 use super::Config;
@@ -114,8 +117,95 @@ pub fn parse_config(
     }
     .with_properties(properties.clone());
 
-    serde_saphyr::from_str_with_options::<Config>(&migrated, options)
-        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
+    let mut config = serde_saphyr::from_str_with_options::<Config>(&migrated, options)
+        .map_err(|e| ConfigFileError::yaml_parse(e, migrated.clone(), file_name))?;
+
+    config.source_info = extract_source_info(&migrated, file_name);
+    Ok(config)
+}
+
+/// Source text and file path retained after parsing so that `finalize()` errors can render
+/// miette diagnostics pointing at the offending YAML.
+#[derive(Clone, Debug, Default)]
+pub struct SourceInfo {
+    pub named_source: Option<NamedSource<String>>,
+    pub spans: ConfigSpans,
+}
+
+impl PartialEq for SourceInfo {
+    fn eq(&self, _: &Self) -> bool {
+        true // spans are metadata, not semantically meaningful
+    }
+}
+
+/// Byte-offset spans for config fields that are validated after deserialization.
+/// Extracted via a second lightweight saphyr parse of only the fields we need.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ConfigSpans {
+    pub route_prefix: Option<miette::SourceSpan>,
+    pub base_path: Option<miette::SourceSpan>,
+    pub cors_origin: Option<miette::SourceSpan>,
+}
+
+/// Throwaway struct used only to extract `Spanned` locations from the YAML source.
+/// Field names must match the top-level config keys (SrvConfig is flattened).
+#[derive(Deserialize)]
+struct SpanProbe {
+    #[serde(default)]
+    route_prefix: Option<Spanned<serde::de::IgnoredAny>>,
+    #[serde(default)]
+    base_path: Option<Spanned<serde::de::IgnoredAny>>,
+    #[serde(default)]
+    cors: Option<CorsSpanProbe>,
+}
+
+#[derive(Deserialize)]
+struct CorsSpanProbe {
+    #[serde(default)]
+    origin: Option<Spanned<serde::de::IgnoredAny>>,
+}
+
+fn location_to_source_span(loc: &serde_saphyr::Location, len: u64) -> Option<miette::SourceSpan> {
+    let offset = loc.span().byte_offset()?;
+    let byte_len = loc.span().byte_len().unwrap_or(len);
+    Some(miette::SourceSpan::new(
+        miette::SourceOffset::from(offset as usize),
+        byte_len as usize,
+    ))
+}
+
+fn extract_source_info(source_text: &str, file_name: &Path) -> SourceInfo {
+    let named_source = NamedSource::new(file_name.display().to_string(), source_text.to_string());
+
+    let opts = serde_saphyr::options! { with_snippet: false };
+    let spans = serde_saphyr::from_str_with_options::<SpanProbe>(source_text, opts)
+        .ok()
+        .map(|probe| {
+            let route_prefix = probe.route_prefix.as_ref().and_then(|s| {
+                location_to_source_span(&s.referenced, s.referenced.span().len())
+            });
+            let base_path = probe.base_path.as_ref().and_then(|s| {
+                location_to_source_span(&s.referenced, s.referenced.span().len())
+            });
+            let cors_origin = probe
+                .cors
+                .as_ref()
+                .and_then(|c| c.origin.as_ref())
+                .and_then(|s| {
+                    location_to_source_span(&s.referenced, s.referenced.span().len())
+                });
+            ConfigSpans {
+                route_prefix,
+                base_path,
+                cors_origin,
+            }
+        })
+        .unwrap_or_default();
+
+    SourceInfo {
+        named_source: Some(named_source),
+        spans,
+    }
 }
 
 /// Rewrites the legacy single-colon default `${VAR:default}` to serde-saphyr's `${VAR:-default}`,
@@ -280,7 +370,7 @@ mod tests {
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
     use crate::config::primitives::OptOneMany;
-    use crate::config::test_helpers::{render_failure, render_failure_json};
+    use crate::config::test_helpers::{render_failure, render_failure_json, render_finalize_failure};
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(
@@ -742,5 +832,80 @@ mod tests {
                 "expected no hit in {s:?}"
             );
         }
+    }
+
+    // ----- Finalize validation diagnostics: errors that occur after successful parsing -----
+
+    #[test]
+    fn finalize_base_path_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                base_path: not-a-path
+            "}),
+            @r"
+        martin::config::base_path (https://maplibre.org/martin/config-file/)
+
+          × Base path must begin with '/' and be a valid URL path, but got 'not-a-
+          │ path'
+           ╭─[config.yaml:2:12]
+         1 │ pmtiles: /tmp
+         2 │ base_path: not-a-path
+           ·            ─────┬────
+           ·                 ╰── invalid base_path
+           ╰────
+          help: The path must start with '/' and be a valid URI path, e.g. `/tiles` or
+                `/api/v1`.
+        "
+        );
+    }
+
+    #[test]
+    fn finalize_route_prefix_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                route_prefix: oops
+            "}),
+            @r"
+        martin::config::base_path (https://maplibre.org/martin/config-file/)
+
+          × Base path must begin with '/' and be a valid URL path, but got 'oops'
+           ╭─[config.yaml:2:15]
+         1 │ pmtiles: /tmp
+         2 │ route_prefix: oops
+           ·               ──┬─
+           ·                 ╰── invalid route_prefix
+           ╰────
+          help: The path must start with '/' and be a valid URI path, e.g. `/tiles` or
+                `/api/v1`.
+        "
+        );
+    }
+
+    #[test]
+    fn finalize_cors_empty_origin() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                cors:
+                  origin: []
+                  max_age: 3600
+            "}),
+            @r"
+        martin::config::cors::no_origins (https://maplibre.org/martin/config-file/)
+
+          × At least one 'origin' must be specified in the 'cors' configuration
+           ╭─[config.yaml:3:11]
+         2 │ cors:
+         3 │   origin: []
+           ·           ┬
+           ·           ╰── origin list is empty
+         4 │   max_age: 3600
+           ╰────
+          help: Either set `cors: true` (allow all origins) or provide at least one
+                entry in `origin` under the cors block.
+        "
+        );
     }
 }

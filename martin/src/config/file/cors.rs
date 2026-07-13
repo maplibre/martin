@@ -101,9 +101,12 @@ impl ConfigurationLivecycleHooks for CorsProperties {
 }
 
 impl CorsProperties {
-    pub fn validate(&self) -> ConfigFileResult<()> {
+    pub fn validate(
+        &self,
+        span: Option<Box<crate::config::file::error::ValidationSpan>>,
+    ) -> ConfigFileResult<()> {
         if self.origin.is_empty() {
-            Err(ConfigFileError::CorsNoOriginsConfigured)
+            Err(ConfigFileError::CorsNoOriginsConfigured(span))
         } else {
             Ok(())
         }
@@ -126,10 +129,13 @@ impl CorsConfig {
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(&self) -> MartinResult<()> {
+    pub fn validate(
+        &self,
+        span: Option<Box<crate::config::file::error::ValidationSpan>>,
+    ) -> MartinResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
-            Self::Properties(properties) => properties.validate().map_err(MartinError::from),
+            Self::Properties(properties) => properties.validate(span).map_err(MartinError::from),
         }
     }
 
@@ -281,7 +287,7 @@ mod tests {
         let default_props = CorsProperties::default();
         assert_eq!(default_props.origin, vec!["*"]);
         assert_eq!(default_props.max_age, None);
-        default_props.validate().unwrap();
+        default_props.validate(None).unwrap();
     }
 
     #[test]
@@ -340,8 +346,8 @@ mod tests {
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
             assert!(matches!(
-                settings.validate(),
-                Err(ConfigFileError::CorsNoOriginsConfigured)
+                settings.validate(None),
+                Err(ConfigFileError::CorsNoOriginsConfigured(_))
             ));
         } else {
             panic!("Expected Properties variant");
@@ -356,7 +362,7 @@ mod tests {
         let CorsConfig::Properties(settings) = config else {
             panic!("Expected Properties variant");
         };
-        settings.validate().unwrap();
+        settings.validate(None).unwrap();
     }
 
     #[test]
@@ -368,8 +374,8 @@ mod tests {
         };
 
         assert!(matches!(
-            properties.validate(),
-            Err(ConfigFileError::CorsNoOriginsConfigured)
+            properties.validate(None),
+            Err(ConfigFileError::CorsNoOriginsConfigured(_))
         ));
     }
 
@@ -380,7 +386,7 @@ mod tests {
             max_age: Some(3600),
             unrecognized: UnrecognizedValues::default(),
         };
-        properties.validate().unwrap();
+        properties.validate(None).unwrap();
 
         let config = CorsConfig::Properties(properties);
         let middleware = config.make_cors_middleware();
@@ -391,7 +397,7 @@ mod tests {
     fn test_cors_with_wildcard_origin() {
         let properties = CorsProperties::default();
         assert_eq!(properties.origin, vec!["*".to_string()]);
-        properties.validate().unwrap();
+        properties.validate(None).unwrap();
 
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();
         assert!(middleware.is_some());

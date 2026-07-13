@@ -223,7 +223,7 @@ pub fn new_server(
         .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_string());
 
     let cors_config = config.cors.clone().unwrap_or_default();
-    cors_config.validate()?;
+    cors_config.validate(None)?;
     cors_config.log_current_configuration();
 
     let factory = move || {

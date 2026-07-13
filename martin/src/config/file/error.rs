@@ -8,6 +8,14 @@ use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
+/// Source location info for validation errors that occur after deserialization.
+#[derive(Clone, Debug)]
+pub struct ValidationSpan {
+    pub named_source: NamedSource<String>,
+    pub span: miette::SourceSpan,
+    pub label: &'static str,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigFileError {
     #[error("IO error {0}: {1}")]
@@ -39,7 +47,10 @@ pub enum ConfigFileError {
     InvalidSourceFilePath(String, PathBuf),
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
-    CorsNoOriginsConfigured,
+    CorsNoOriginsConfigured(Option<Box<ValidationSpan>>),
+
+    #[error("Base path must begin with '/' and be a valid URL path, but got '{0}'")]
+    BasePathInvalid(String, Option<Box<ValidationSpan>>),
 
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
@@ -82,6 +93,18 @@ pub struct YamlParseDetails {
 }
 
 impl ConfigFileError {
+    /// Construct a `CorsNoOriginsConfigured` error without source location info.
+    #[must_use]
+    pub fn cors_no_origins() -> Self {
+        Self::CorsNoOriginsConfigured(None)
+    }
+
+    /// Construct a `BasePathInvalid` error without source location info.
+    #[must_use]
+    pub fn base_path_invalid(path: String) -> Self {
+        Self::BasePathInvalid(path, None)
+    }
+
     /// Construct a YAML parse error with the originating source text and file path.
     ///
     /// The source text is retained so miette diagnostics can render the offending snippet.
@@ -105,6 +128,22 @@ impl ConfigFileError {
                 );
                 let kind = YamlReportKind::for_error(&details.error);
                 Some(miette::Report::new(YamlParseReport { inner, kind }))
+            }
+            Self::CorsNoOriginsConfigured(Some(span)) => {
+                Some(miette::Report::new(ValidationReport {
+                    message: self.to_string(),
+                    code: "martin::config::cors::no_origins",
+                    help: "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block.",
+                    span: span.clone(),
+                }))
+            }
+            Self::BasePathInvalid(_, Some(span)) => {
+                Some(miette::Report::new(ValidationReport {
+                    message: self.to_string(),
+                    code: "martin::config::base_path",
+                    help: "The path must start with '/' and be a valid URI path, e.g. `/tiles` or `/api/v1`.",
+                    span: span.clone(),
+                }))
             }
             _ => None,
         }
@@ -217,6 +256,48 @@ impl Diagnostic for YamlParseReport {
     }
 }
 
+/// Owned wrapper for rendering a validation error (with source span) as a miette diagnostic.
+#[derive(Debug)]
+struct ValidationReport {
+    message: String,
+    code: &'static str,
+    help: &'static str,
+    span: Box<ValidationSpan>,
+}
+
+impl std::fmt::Display for ValidationReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ValidationReport {}
+
+impl Diagnostic for ValidationReport {
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new(self.code))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new(self.help))
+    }
+
+    fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new("https://maplibre.org/martin/config-file/"))
+    }
+
+    fn source_code(&self) -> Option<&dyn SourceCode> {
+        Some(&self.span.named_source)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+        Some(Box::new(std::iter::once(LabeledSpan::new_with_span(
+            Some(self.span.label.to_string()),
+            self.span.span,
+        ))))
+    }
+}
+
 impl Diagnostic for ConfigFileError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let code: &'static str = match self {
@@ -229,7 +310,8 @@ impl Diagnostic for ConfigFileError {
             Self::InvalidSourceUrl(..) => "martin::config::invalid_source_url",
             Self::PathNotConvertibleToUrl(_) => "martin::config::path_not_url",
             Self::InvalidSourceFilePath(..) => "martin::config::invalid_source_file_path",
-            Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
+            Self::CorsNoOriginsConfigured(_) => "martin::config::cors::no_origins",
+            Self::BasePathInvalid(..) => "martin::config::base_path",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
@@ -255,8 +337,11 @@ impl Diagnostic for ConfigFileError {
             Self::NoSources => {
                 "Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config."
             }
-            Self::CorsNoOriginsConfigured => {
+            Self::CorsNoOriginsConfigured(_) => {
                 "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block."
+            }
+            Self::BasePathInvalid(..) => {
+                "The path must start with '/' and be a valid URI path, e.g. `/tiles` or `/api/v1`."
             }
             Self::YamlParseError { .. } => {
                 "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."

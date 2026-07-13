@@ -63,6 +63,37 @@ pub(crate) fn render_failure(yaml: &str) -> String {
     buf
 }
 
+/// Parse `yaml` through [`parse_config`], then run [`Config::finalize`] and expect a failure.
+/// Returns the rendered miette diagnostic at a fixed terminal width.
+///
+/// Use for validations that run *after* successful deserialization (e.g. `route_prefix`
+/// must start with `/`, CORS `origin` must be non-empty).
+pub(crate) fn render_finalize_failure(yaml: &str) -> String {
+    let env: HashMap<String, String> = HashMap::new();
+    let mut config = parse_config(yaml, &env, Path::new("config.yaml"))
+        .unwrap_or_else(|e| panic!("expected config to parse successfully:\n{e}"));
+    let err = config
+        .finalize()
+        .err()
+        .unwrap_or_else(|| panic!("expected finalize to fail for:\n{yaml}"));
+    render_martin_error(&err)
+}
+
+fn render_martin_error(err: &MartinError) -> String {
+    if let MartinError::ConfigFileError(cfg_err) = err
+        && let Some(report) = cfg_err.to_miette_report()
+    {
+        let mut buf = String::new();
+        GraphicalReportHandler::new_themed(GraphicalTheme::unicode_nocolor())
+            .with_width(SNAPSHOT_WIDTH)
+            .with_links(false)
+            .render_report(&mut buf, report.as_ref())
+            .expect("rendering into a String is infallible");
+        return buf;
+    }
+    panic!("expected a miette-renderable ConfigFileError, got: {err}");
+}
+
 /// Same as [`render_failure`] but routes through `MartinError::render_diagnostic_with` in
 /// JSON mode, mirroring what the binary emits when `RUST_LOG_FORMAT=json` is set.
 ///

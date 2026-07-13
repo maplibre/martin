@@ -37,6 +37,7 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "styles")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{GlobalCacheConfig, UnrecognizedValues};
+use super::parse::SourceInfo;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
@@ -176,6 +177,11 @@ pub struct Config {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+
+    /// Source text and span information from the YAML file, populated after parsing.
+    /// Used to produce miette diagnostics pointing at the offending value in `finalize()` errors.
+    #[serde(skip)]
+    pub source_info: SourceInfo,
 }
 
 /// Describes the action to take during startup when configuration is found to be invalid

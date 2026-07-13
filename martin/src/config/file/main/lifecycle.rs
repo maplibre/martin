@@ -18,6 +18,7 @@ use martin_core::tiles::pmtiles::PmtCache;
 use tracing::{info, instrument, warn};
 
 use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
+use crate::config::file::error::ValidationSpan;
 #[cfg(feature = "_tiles")]
 use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
@@ -78,16 +79,48 @@ impl Config {
         }
 
         if let Some(path) = &self.srv.route_prefix {
-            let normalized = parse_base_path(path)?;
-            // For route_prefix, an empty normalized path (from "/") means no prefix
-            self.srv.route_prefix = if normalized.is_empty() {
-                None
-            } else {
-                Some(normalized)
-            };
+            match parse_base_path(path) {
+                Ok(normalized) => {
+                    self.srv.route_prefix = if normalized.is_empty() {
+                        None
+                    } else {
+                        Some(normalized)
+                    };
+                }
+                Err(_) => {
+                    return Err(ConfigFileError::BasePathInvalid(
+                        path.clone(),
+                        self.make_validation_span(
+                            self.source_info.spans.route_prefix,
+                            "invalid route_prefix",
+                        ),
+                    )
+                    .into());
+                }
+            }
         }
         if let Some(path) = &self.srv.base_path {
-            self.srv.base_path = Some(parse_base_path(path)?);
+            match parse_base_path(path) {
+                Ok(normalized) => {
+                    self.srv.base_path = Some(normalized);
+                }
+                Err(_) => {
+                    return Err(ConfigFileError::BasePathInvalid(
+                        path.clone(),
+                        self.make_validation_span(
+                            self.source_info.spans.base_path,
+                            "invalid base_path",
+                        ),
+                    )
+                    .into());
+                }
+            }
+        }
+        if let Some(cors) = &self.srv.cors {
+            cors.validate(self.make_validation_span(
+                self.source_info.spans.cors_origin,
+                "origin list is empty",
+            ))?;
         }
         #[cfg(feature = "postgres")]
         {
@@ -187,6 +220,20 @@ impl Config {
         } else {
             Ok(res)
         }
+    }
+
+    fn make_validation_span(
+        &self,
+        span: Option<miette::SourceSpan>,
+        label: &'static str,
+    ) -> Option<Box<ValidationSpan>> {
+        let source_span = span?;
+        let named_source = self.source_info.named_source.as_ref()?.clone();
+        Some(Box::new(ValidationSpan {
+            named_source,
+            span: source_span,
+            label,
+        }))
     }
 
     #[instrument(skip_all, err(Debug))]
