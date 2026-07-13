@@ -158,7 +158,8 @@ pub struct PostgresConfig {
 }
 
 /// Default connection pool size.
-pub const DEFAULT_POOL_SIZE: NonZeroUsize = NonZeroUsize::new(20).expect("default pool size is non-zero");
+pub const DEFAULT_POOL_SIZE: NonZeroUsize =
+    NonZeroUsize::new(20).expect("default pool size is non-zero");
 
 impl Default for PostgresConfig {
     // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
