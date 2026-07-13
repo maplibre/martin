@@ -1,0 +1,16 @@
+---
+source: martin/src/config/file/main/parse.rs
+expression: "render_finalize_failure(indoc::indoc!\n{\"\n                pmtiles: /tmp\n                base_path: not-a-path\n            \"})"
+---
+martin::config::base_path (https://maplibre.org/martin/config-file/)
+
+  × Base path must begin with '/' and be a valid URL path, but got 'not-a-
+  │ path'
+   ╭─[config.yaml:2:12]
+ 1 │ pmtiles: /tmp
+ 2 │ base_path: not-a-path
+   ·            ─────┬────
+   ·                 ╰── invalid base_path
+   ╰────
+  help: The path must start with '/' and be a valid URI path, e.g. `/tiles` or
+        `/api/v1`.

@@ -4,6 +4,7 @@ use actix_http::Method;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_saphyr::Spanned;
 use tracing::info;
 
 use crate::config::file::{
@@ -58,17 +59,17 @@ impl Default for CorsConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
     /// Sets the `Access-Control-Allow-Origin` header \[default: *\]
     /// '*' will use the requests `ORIGIN` header
-    #[serde(default)]
+    #[serde(default = "default_spanned_empty_vec")]
     #[cfg_attr(
         feature = "unstable-schemas",
         schemars(example = cors_origin_example())
     )]
-    pub origin: Vec<String>,
+    pub origin: Spanned<Vec<String>>,
     /// Sets `Access-Control-Max-Age` Header. \[default: null\]
     /// null means not setting the header for preflight requests
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &3600usize))]
@@ -79,15 +80,35 @@ pub struct CorsProperties {
     pub unrecognized: UnrecognizedValues,
 }
 
+fn default_spanned_empty_vec() -> Spanned<Vec<String>> {
+    Spanned::new(
+        Vec::new(),
+        serde_saphyr::Location::UNKNOWN,
+        serde_saphyr::Location::UNKNOWN,
+    )
+}
+
 #[cfg(feature = "unstable-schemas")]
 fn cors_origin_example() -> Vec<String> {
     vec!["https://example.org".to_string()]
 }
 
+impl PartialEq for CorsProperties {
+    fn eq(&self, other: &Self) -> bool {
+        self.origin.value == other.origin.value && self.max_age == other.max_age
+    }
+}
+
+impl Eq for CorsProperties {}
+
 impl Default for CorsProperties {
     fn default() -> Self {
         Self {
-            origin: vec!["*".to_string()],
+            origin: Spanned::new(
+                vec!["*".to_string()],
+                serde_saphyr::Location::UNKNOWN,
+                serde_saphyr::Location::UNKNOWN,
+            ),
             max_age: None,
             unrecognized: UnrecognizedValues::default(),
         }
@@ -103,10 +124,17 @@ impl ConfigurationLivecycleHooks for CorsProperties {
 impl CorsProperties {
     pub fn validate(
         &self,
-        span: Option<Box<crate::config::file::error::ValidationSpan>>,
+        named_source: Option<&miette::NamedSource<String>>,
     ) -> ConfigFileResult<()> {
-        if self.origin.is_empty() {
-            Err(ConfigFileError::CorsNoOriginsConfigured(span))
+        if self.origin.value.is_empty() {
+            let span = named_source.and_then(|ns| {
+                crate::config::file::error::ValidationSpan::from_location(
+                    ns,
+                    &self.origin.referenced,
+                    "origin list is empty",
+                )
+            });
+            Err(ConfigFileError::CorsNoOriginsConfigured(span.map(Box::new)))
         } else {
             Ok(())
         }
@@ -131,11 +159,13 @@ impl CorsConfig {
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
     pub fn validate(
         &self,
-        span: Option<Box<crate::config::file::error::ValidationSpan>>,
+        named_source: Option<&miette::NamedSource<String>>,
     ) -> MartinResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
-            Self::Properties(properties) => properties.validate(span).map_err(MartinError::from),
+            Self::Properties(properties) => {
+                properties.validate(named_source).map_err(MartinError::from)
+            }
         }
     }
 
@@ -157,10 +187,10 @@ impl CorsConfig {
 
         // allow any origin by default
         // this returns the value of the requests `ORIGIN` header in `Access-Control-Allow-Origin`
-        if properties.origin.contains(&"*".to_string()) {
+        if properties.origin.value.contains(&"*".to_string()) {
             cors = cors.allow_any_origin();
         } else {
-            for origin in &properties.origin {
+            for origin in &properties.origin.value {
                 cors = cors.allowed_origin(origin);
             }
         }
@@ -211,7 +241,7 @@ mod tests {
         let CorsConfig::Properties(props) = cfg else {
             panic!("expected Properties variant");
         };
-        assert_eq!(props.origin, vec!["https://example.org".to_string()]);
+        assert_eq!(props.origin.value, vec!["https://example.org".to_string()]);
         assert_eq!(props.max_age, Some(3600));
     }
 
@@ -285,7 +315,7 @@ mod tests {
     #[test]
     fn test_cors_properties_default_values() {
         let default_props = CorsProperties::default();
-        assert_eq!(default_props.origin, vec!["*"]);
+        assert_eq!(default_props.origin.value, vec!["*"]);
         assert_eq!(default_props.max_age, None);
         default_props.validate(None).unwrap();
     }
@@ -306,7 +336,7 @@ mod tests {
         .unwrap();
 
         if let CorsConfig::Properties(settings) = config {
-            assert_eq!(settings.origin, vec!["https://example.org".to_string()]);
+            assert_eq!(settings.origin.value, vec!["https://example.org".to_string()]);
             assert_eq!(settings.max_age, Some(3600));
         } else {
             panic!("Expected Settings variant for detailed config");
@@ -328,7 +358,7 @@ mod tests {
 
         if let CorsConfig::Properties(settings) = config {
             assert_eq!(
-                settings.origin,
+                settings.origin.value,
                 vec![
                     "https://example.org".to_string(),
                     "https://martin.maplibre.org".to_string(),
@@ -368,7 +398,7 @@ mod tests {
     #[test]
     fn test_cors_validation_error_empty_origin() {
         let properties = CorsProperties {
-            origin: vec![],
+            origin: default_spanned_empty_vec(),
             max_age: Some(3600),
             unrecognized: UnrecognizedValues::default(),
         };
@@ -382,7 +412,11 @@ mod tests {
     #[test]
     fn test_cors_with_valid_properties() {
         let properties = CorsProperties {
-            origin: vec!["https://example.org".to_string()],
+            origin: Spanned::new(
+                vec!["https://example.org".to_string()],
+                serde_saphyr::Location::UNKNOWN,
+                serde_saphyr::Location::UNKNOWN,
+            ),
             max_age: Some(3600),
             unrecognized: UnrecognizedValues::default(),
         };
@@ -396,7 +430,7 @@ mod tests {
     #[test]
     fn test_cors_with_wildcard_origin() {
         let properties = CorsProperties::default();
-        assert_eq!(properties.origin, vec!["*".to_string()]);
+        assert_eq!(properties.origin.value, vec!["*".to_string()]);
         properties.validate(None).unwrap();
 
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();

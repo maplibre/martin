@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_saphyr::Spanned;
 
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
@@ -29,14 +30,14 @@ pub struct SrvConfig {
     /// This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
     /// Must begin with a `/`.
     /// Examples: `/tiles`, `/api/v1/tiles`
-    pub route_prefix: Option<String>,
+    pub route_prefix: Option<Spanned<String>>,
     /// Set `TileJSON` URL path prefix.
     /// This overrides the default path prefix for URLs in `TileJSON` responses.
     /// If both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.
     /// If neither is set, the `X-Rewrite-URL` header is respected.
     /// Must begin with a `/`.
     /// Examples: `/`, `/tiles`
-    pub base_path: Option<String>,
+    pub base_path: Option<Spanned<String>>,
     /// Number of web server workers
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &8usize))]
     pub worker_processes: Option<usize>,
@@ -93,7 +94,10 @@ impl SrvConfig {
     /// purpose of building absolute URLs in responses.
     #[must_use]
     pub fn public_path_prefix(&self) -> Option<&str> {
-        self.base_path.as_deref().or(self.route_prefix.as_deref())
+        self.base_path
+            .as_ref()
+            .map(|s| s.value.as_str())
+            .or(self.route_prefix.as_ref().map(|s| s.value.as_str()))
     }
 }
 
@@ -284,10 +288,14 @@ mod tests {
                 listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::Properties(CorsProperties {
-                    origin: vec![
-                        "https://martin.maplibre.org".to_string(),
-                        "https://example.org".to_string()
-                    ],
+                    origin: Spanned::new(
+                        vec![
+                            "https://martin.maplibre.org".to_string(),
+                            "https://example.org".to_string()
+                        ],
+                        serde_saphyr::Location::UNKNOWN,
+                        serde_saphyr::Location::UNKNOWN,
+                    ),
                     max_age: None,
                     unrecognized: UnrecognizedValues::default()
                 })),

@@ -78,51 +78,54 @@ impl Config {
             }
         }
 
-        if let Some(path) = &self.srv.route_prefix {
-            match parse_base_path(path) {
+        if let Some(spanned) = &self.srv.route_prefix {
+            match parse_base_path(&spanned.value) {
                 Ok(normalized) => {
                     self.srv.route_prefix = if normalized.is_empty() {
                         None
                     } else {
-                        Some(normalized)
+                        Some(serde_saphyr::Spanned::new(
+                            normalized,
+                            spanned.referenced,
+                            spanned.defined,
+                        ))
                     };
                 }
                 Err(_) => {
+                    let span = self.named_source.as_ref().and_then(|ns| {
+                        ValidationSpan::from_location(ns, &spanned.referenced, "invalid route_prefix")
+                    });
                     return Err(ConfigFileError::BasePathInvalid(
-                        path.clone(),
-                        self.make_validation_span(
-                            self.source_info.spans.route_prefix,
-                            "invalid route_prefix",
-                        ),
+                        spanned.value.clone(),
+                        span.map(Box::new),
                     )
                     .into());
                 }
             }
         }
-        if let Some(path) = &self.srv.base_path {
-            match parse_base_path(path) {
+        if let Some(spanned) = &self.srv.base_path {
+            match parse_base_path(&spanned.value) {
                 Ok(normalized) => {
-                    self.srv.base_path = Some(normalized);
+                    self.srv.base_path = Some(serde_saphyr::Spanned::new(
+                        normalized,
+                        spanned.referenced,
+                        spanned.defined,
+                    ));
                 }
                 Err(_) => {
+                    let span = self.named_source.as_ref().and_then(|ns| {
+                        ValidationSpan::from_location(ns, &spanned.referenced, "invalid base_path")
+                    });
                     return Err(ConfigFileError::BasePathInvalid(
-                        path.clone(),
-                        self.make_validation_span(
-                            self.source_info.spans.base_path,
-                            "invalid base_path",
-                        ),
+                        spanned.value.clone(),
+                        span.map(Box::new),
                     )
                     .into());
                 }
             }
         }
         if let Some(cors) = &self.srv.cors {
-            cors.validate(
-                self.make_validation_span(
-                    self.source_info.spans.cors_origin,
-                    "origin list is empty",
-                ),
-            )?;
+            cors.validate(self.named_source.as_ref())?;
         }
         #[cfg(feature = "postgres")]
         {
@@ -222,20 +225,6 @@ impl Config {
         } else {
             Ok(res)
         }
-    }
-
-    fn make_validation_span(
-        &self,
-        span: Option<miette::SourceSpan>,
-        label: &'static str,
-    ) -> Option<Box<ValidationSpan>> {
-        let source_span = span?;
-        let named_source = self.source_info.named_source.as_ref()?.clone();
-        Some(Box::new(ValidationSpan {
-            named_source,
-            span: source_span,
-            label,
-        }))
     }
 
     #[instrument(skip_all, err(Debug))]

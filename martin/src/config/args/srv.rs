@@ -109,11 +109,19 @@ impl SrvArgs {
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;
         }
-        if self.route_prefix.is_some() {
-            srv_config.route_prefix = self.route_prefix;
+        if let Some(v) = self.route_prefix {
+            srv_config.route_prefix = Some(serde_saphyr::Spanned::new(
+                v,
+                serde_saphyr::Location::UNKNOWN,
+                serde_saphyr::Location::UNKNOWN,
+            ));
         }
-        if self.base_path.is_some() {
-            srv_config.base_path = self.base_path;
+        if let Some(v) = self.base_path {
+            srv_config.base_path = Some(serde_saphyr::Spanned::new(
+                v,
+                serde_saphyr::Location::UNKNOWN,
+                serde_saphyr::Location::UNKNOWN,
+            ));
         }
         if self.workers.is_some() {
             srv_config.worker_processes = self.workers;

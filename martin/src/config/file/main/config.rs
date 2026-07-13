@@ -7,7 +7,6 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
-use super::parse::SourceInfo;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -178,10 +177,10 @@ pub struct Config {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
-    /// Source text and span information from the YAML file, populated after parsing.
-    /// Used to produce miette diagnostics pointing at the offending value in `finalize()` errors.
+    /// Source text retained after parsing so that `finalize()` errors can render
+    /// miette diagnostics pointing at the offending value.
     #[serde(skip)]
-    pub source_info: SourceInfo,
+    pub named_source: Option<miette::NamedSource<String>>,
 }
 
 /// Describes the action to take during startup when configuration is found to be invalid

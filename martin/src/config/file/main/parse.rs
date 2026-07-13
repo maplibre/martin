@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use miette::NamedSource;
-use serde::Deserialize;
-use serde_saphyr::Spanned;
 use tracing::warn;
 
 use super::Config;
@@ -120,92 +118,9 @@ pub fn parse_config(
     let mut config = serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated.clone(), file_name))?;
 
-    config.source_info = extract_source_info(&migrated, file_name);
+    config.named_source =
+        Some(NamedSource::new(file_name.display().to_string(), migrated));
     Ok(config)
-}
-
-/// Source text and file path retained after parsing so that `finalize()` errors can render
-/// miette diagnostics pointing at the offending YAML.
-#[derive(Clone, Debug, Default)]
-pub struct SourceInfo {
-    pub named_source: Option<NamedSource<String>>,
-    pub spans: ConfigSpans,
-}
-
-impl PartialEq for SourceInfo {
-    fn eq(&self, _: &Self) -> bool {
-        true // spans are metadata, not semantically meaningful
-    }
-}
-
-/// Byte-offset spans for config fields that are validated after deserialization.
-/// Extracted via a second lightweight saphyr parse of only the fields we need.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ConfigSpans {
-    pub route_prefix: Option<miette::SourceSpan>,
-    pub base_path: Option<miette::SourceSpan>,
-    pub cors_origin: Option<miette::SourceSpan>,
-}
-
-/// Throwaway struct used only to extract `Spanned` locations from the YAML source.
-/// Field names must match the top-level config keys (SrvConfig is flattened).
-#[derive(Deserialize)]
-struct SpanProbe {
-    #[serde(default)]
-    route_prefix: Option<Spanned<serde::de::IgnoredAny>>,
-    #[serde(default)]
-    base_path: Option<Spanned<serde::de::IgnoredAny>>,
-    #[serde(default)]
-    cors: Option<CorsSpanProbe>,
-}
-
-#[derive(Deserialize)]
-struct CorsSpanProbe {
-    #[serde(default)]
-    origin: Option<Spanned<serde::de::IgnoredAny>>,
-}
-
-fn location_to_source_span(loc: &serde_saphyr::Location, len: u64) -> Option<miette::SourceSpan> {
-    let offset = loc.span().byte_offset()?;
-    let byte_len = loc.span().byte_len().unwrap_or(len);
-    Some(miette::SourceSpan::new(
-        miette::SourceOffset::from(offset as usize),
-        byte_len as usize,
-    ))
-}
-
-fn extract_source_info(source_text: &str, file_name: &Path) -> SourceInfo {
-    let named_source = NamedSource::new(file_name.display().to_string(), source_text.to_string());
-
-    let opts = serde_saphyr::options! { with_snippet: false };
-    let spans = serde_saphyr::from_str_with_options::<SpanProbe>(source_text, opts)
-        .ok()
-        .map(|probe| {
-            let route_prefix = probe
-                .route_prefix
-                .as_ref()
-                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
-            let base_path = probe
-                .base_path
-                .as_ref()
-                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
-            let cors_origin = probe
-                .cors
-                .as_ref()
-                .and_then(|c| c.origin.as_ref())
-                .and_then(|s| location_to_source_span(&s.referenced, s.referenced.span().len()));
-            ConfigSpans {
-                route_prefix,
-                base_path,
-                cors_origin,
-            }
-        })
-        .unwrap_or_default();
-
-    SourceInfo {
-        named_source: Some(named_source),
-        spans,
-    }
 }
 
 /// Rewrites the legacy single-colon default `${VAR:default}` to serde-saphyr's `${VAR:-default}`,
@@ -651,7 +566,7 @@ mod tests {
         let env = props(&[("BASE", "/my/path")]);
         let yaml = format!("base_path: {input}\n");
         let config = parse_with_env(&yaml, &env);
-        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
     }
 
     #[cfg(feature = "postgres")]
@@ -681,7 +596,7 @@ mod tests {
     ) {
         let env = props(&[("BASE", "/my/path")]);
         let config = parse_with_env(&format!("base_path: {input}\n"), &env);
-        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
     }
 
     #[rstest]
@@ -741,7 +656,7 @@ mod tests {
     fn substitution_only_in_plain_scalars(#[case] yaml: &str, #[case] expected: &str) {
         let env = props(&[("BASE", "/my/path")]);
         let config = parse_with_env(yaml, &env);
-        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
     }
 
     #[cfg(feature = "postgres")]
@@ -798,7 +713,7 @@ mod tests {
         let config = parse_with_env(yaml, &env);
         assert_eq!(config.cache.size_mb, expected_size_mb);
         assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
-        assert_eq!(config.srv.base_path.as_deref(), expected_base_path);
+        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), expected_base_path);
     }
 
     #[cfg(feature = "postgres")]

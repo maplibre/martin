@@ -145,7 +145,7 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
-    let route_prefix = config.srv.route_prefix.clone();
+    let route_prefix = config.srv.route_prefix.as_ref().map(|s| s.value.clone());
     let (server, listen_addresses) = new_server(
         config.srv,
         #[cfg(feature = "_catalog")]

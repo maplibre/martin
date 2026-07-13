@@ -16,6 +16,27 @@ pub struct ValidationSpan {
     pub label: &'static str,
 }
 
+impl ValidationSpan {
+    /// Build a `ValidationSpan` from a serde-saphyr `Location`, returning `None`
+    /// if byte offset info is unavailable (e.g. `Location::UNKNOWN`).
+    pub fn from_location(
+        named_source: &NamedSource<String>,
+        loc: &serde_saphyr::Location,
+        label: &'static str,
+    ) -> Option<Self> {
+        let offset = loc.span().byte_offset()?;
+        let len = loc.span().byte_len().unwrap_or(loc.span().len());
+        Some(Self {
+            named_source: named_source.clone(),
+            span: miette::SourceSpan::new(
+                miette::SourceOffset::from(offset as usize),
+                len as usize,
+            ),
+            label,
+        })
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigFileError {
     #[error("IO error {0}: {1}")]

@@ -99,7 +99,7 @@ pub async fn get_health() -> impl Responder {
 pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
-        cfg.service(web::scope(prefix).configure(|cfg| {
+        cfg.service(web::scope(&prefix.value).configure(|cfg| {
             register_services(
                 cfg,
                 #[cfg(all(feature = "webui", not(docsrs)))]
@@ -189,7 +189,7 @@ pub fn new_server(
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
-            format!("{prefix}/_/metrics")
+            format!("{}/_/metrics", prefix.value)
         } else {
             "/_/metrics".to_string()
         };

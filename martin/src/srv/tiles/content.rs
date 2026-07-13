@@ -191,7 +191,7 @@ pub async fn redirect_tile_ext(
         *x,
         *y,
         req.query_string(),
-        srv_config.route_prefix.as_deref(),
+        srv_config.route_prefix.as_ref().map(|s| s.value.as_str()),
     )
 }
 
@@ -224,7 +224,7 @@ pub async fn redirect_tiles(
         *x,
         *y,
         req.query_string(),
-        srv_config.route_prefix.as_deref(),
+        srv_config.route_prefix.as_ref().map(|s| s.value.as_str()),
     )
 }
 
