@@ -157,10 +157,7 @@ impl CorsConfig {
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(
-        &self,
-        named_source: Option<&miette::NamedSource<String>>,
-    ) -> MartinResult<()> {
+    pub fn validate(&self, named_source: Option<&miette::NamedSource<String>>) -> MartinResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
             Self::Properties(properties) => {
@@ -336,7 +333,10 @@ mod tests {
         .unwrap();
 
         if let CorsConfig::Properties(settings) = config {
-            assert_eq!(settings.origin.value, vec!["https://example.org".to_string()]);
+            assert_eq!(
+                settings.origin.value,
+                vec!["https://example.org".to_string()]
+            );
             assert_eq!(settings.max_age, Some(3600));
         } else {
             panic!("Expected Settings variant for detailed config");

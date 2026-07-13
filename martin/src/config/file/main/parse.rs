@@ -118,8 +118,7 @@ pub fn parse_config(
     let mut config = serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated.clone(), file_name))?;
 
-    config.named_source =
-        Some(NamedSource::new(file_name.display().to_string(), migrated));
+    config.named_source = Some(NamedSource::new(file_name.display().to_string(), migrated));
     Ok(config)
 }
 
@@ -566,7 +565,10 @@ mod tests {
         let env = props(&[("BASE", "/my/path")]);
         let yaml = format!("base_path: {input}\n");
         let config = parse_with_env(&yaml, &env);
-        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
+        assert_eq!(
+            config.srv.base_path.as_ref().map(|s| s.value.as_str()),
+            Some(expected)
+        );
     }
 
     #[cfg(feature = "postgres")]
@@ -596,7 +598,10 @@ mod tests {
     ) {
         let env = props(&[("BASE", "/my/path")]);
         let config = parse_with_env(&format!("base_path: {input}\n"), &env);
-        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
+        assert_eq!(
+            config.srv.base_path.as_ref().map(|s| s.value.as_str()),
+            Some(expected)
+        );
     }
 
     #[rstest]
@@ -656,7 +661,10 @@ mod tests {
     fn substitution_only_in_plain_scalars(#[case] yaml: &str, #[case] expected: &str) {
         let env = props(&[("BASE", "/my/path")]);
         let config = parse_with_env(yaml, &env);
-        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), Some(expected));
+        assert_eq!(
+            config.srv.base_path.as_ref().map(|s| s.value.as_str()),
+            Some(expected)
+        );
     }
 
     #[cfg(feature = "postgres")]
@@ -713,7 +721,10 @@ mod tests {
         let config = parse_with_env(yaml, &env);
         assert_eq!(config.cache.size_mb, expected_size_mb);
         assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
-        assert_eq!(config.srv.base_path.as_ref().map(|s| s.value.as_str()), expected_base_path);
+        assert_eq!(
+            config.srv.base_path.as_ref().map(|s| s.value.as_str()),
+            expected_base_path
+        );
     }
 
     #[cfg(feature = "postgres")]

@@ -93,7 +93,11 @@ impl Config {
                 }
                 Err(_) => {
                     let span = self.named_source.as_ref().and_then(|ns| {
-                        ValidationSpan::from_location(ns, &spanned.referenced, "invalid route_prefix")
+                        ValidationSpan::from_location(
+                            ns,
+                            &spanned.referenced,
+                            "invalid route_prefix",
+                        )
                     });
                     return Err(ConfigFileError::BasePathInvalid(
                         spanned.value.clone(),
