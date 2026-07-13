@@ -1,19 +1,14 @@
-=============================================================
 layer: 0
   name: mat_view
   version: 2
   extent: 4096
   feature: 0
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(655,1583)
+    geometry: POINT(655,1583)
     properties:
-      id=1
+      id = 1 (uint)
   feature: 1
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1207,1540)
+    geometry: POINT(1207,1540)
     properties:
-      id=2
+      id = 2 (uint)
