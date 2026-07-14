@@ -3,12 +3,12 @@
   "describe": {
     "columns": [
       {
-        "name": "value",
+        "name": "sql",
         "ordinal": 0,
         "origin": {
           "Table": {
-            "name": "value",
-            "table": "metadata"
+            "name": "sql",
+            "table": "sqlite_master"
           }
         },
         "type_info": "Text"
@@ -21,6 +21,6 @@
       "Right": 1
     }
   },
-  "hash": "386a375cf65c3e5aef51deffc99d23bd852ba445c1058aed380fe83bed618c29",
-  "query": "SELECT value from metadata where name = ?"
+  "hash": "f89ff275050a89869db12dfe7579fca1a743870926607180a558277e70f43196",
+  "query": "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?"
 }

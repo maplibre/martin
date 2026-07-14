@@ -524,11 +524,40 @@ package-assets target:
 pg_dump *args:
     pg_dump {{args}} {{quote(DATABASE_URL)}}
 
-# Update sqlite database schema.
+# Update the offline `.sqlx` query cache for the mbtiles crate.
+#
+# `sqlx::query!` verifies every query against ONE database connection per compile
+# (there is no per-query database override), so a single fixture like a flat
+# `world_cities.mbtiles` can only ever verify flat-schema queries. To let queries
+# that touch the normalized / flat-with-hash tables (`map`, `images`,
+# `tiles_with_hash`, `tiles_shallow`, `tiles_data`, ...) also use the checked
+# `query!` syntax, we build one throwaway database from the union of every
+# layout's `init-*.sql` and prepare against it.
+#
+# Two on-the-fly rewrites keep this reusing the real schema files as-is:
+#   * strip `NOT NULL` - the init-*.sql files are the *strict* schemas Martin
+#     writes for new files, but real-world mbtiles (and the read/validation code,
+#     which treats every column as `Option<_>`) are loose; keeping `NOT NULL`
+#     would make sqlx infer non-null columns and break `cargo check`.
+#   * `CREATE ... IF NOT EXISTS` - each layout also defines a `tiles` view that
+#     would clash with the flat `tiles` table (loaded first, so it wins); the
+#     IF NOT EXISTS turns those redundant view definitions into silent no-ops.
 prepare-sqlite: fetch install-sqlx
-    mkdir -p mbtiles/.sqlx
-    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
-    find mbtiles/.sqlx -name '*.json' -type f -exec sh -c \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    db="$(mktemp -t martin-sqlx-verify.XXXXXX.db)"
+    trap 'rm -f "$db"' EXIT
+    # init-flat is listed before the view-defining layouts so `tiles` is a table.
+    for f in init-metadata init-flat init-flat-with-hash init-normalized init-normalized-dedup-id; do
+        # it is safer to handle NULLs than to expect it to never be there
+        sed -E -e 's/[[:space:]]+NOT[[:space:]]+NULL//g' \
+               -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
+            "mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
+    done
+    cd mbtiles
+    mkdir -p .sqlx
+    cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests
+    find .sqlx -name '*.json' -type f -exec sh -c \
       'jq --sort-keys . "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
 
 # Print the connection string for the test database

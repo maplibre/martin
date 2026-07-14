@@ -178,10 +178,10 @@ where
 
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.
-        sqlx::query("PRAGMA journal_mode=WAL")
+        sqlx::query!("PRAGMA journal_mode=WAL")
             .execute(&mut dst_conn)
             .await?;
-        sqlx::query("PRAGMA synchronous=NORMAL")
+        sqlx::query!("PRAGMA synchronous=NORMAL")
             .execute(&mut dst_conn)
             .await?;
 
