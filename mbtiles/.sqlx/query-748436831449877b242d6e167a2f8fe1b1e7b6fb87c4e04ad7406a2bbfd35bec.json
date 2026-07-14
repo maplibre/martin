@@ -1,62 +1,57 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1",
   "describe": {
     "columns": [
       {
         "name": "zoom_level",
         "ordinal": 0,
-        "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "zoom_level"
+            "name": "zoom_level",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Integer"
       },
       {
         "name": "tile_column",
         "ordinal": 1,
-        "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_column"
+            "name": "tile_column",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Integer"
       },
       {
         "name": "tile_row",
         "ordinal": 2,
-        "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_row"
+            "name": "tile_row",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Integer"
       },
       {
         "name": "tile_data",
         "ordinal": 3,
-        "type_info": "Blob",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_data"
+            "name": "tile_data",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Blob"
       }
     ],
+    "nullable": [true, true, true, true],
     "parameters": {
       "Right": 0
-    },
-    "nullable": [
-      true,
-      true,
-      true,
-      true
-    ]
+    }
   },
-  "hash": "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec"
+  "hash": "748436831449877b242d6e167a2f8fe1b1e7b6fb87c4e04ad7406a2bbfd35bec",
+  "query": "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
 }

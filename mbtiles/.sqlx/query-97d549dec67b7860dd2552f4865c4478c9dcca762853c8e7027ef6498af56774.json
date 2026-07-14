@@ -1,21 +1,19 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT (\n             -- Has 'tiles_shallow' and 'tiles_data' tables\n             SELECT COUNT(*) = 2\n             FROM sqlite_master\n             WHERE (name = 'tiles_shallow' OR name = 'tiles_data')\n                 AND type = 'table'\n             --\n         ) AND (\n             -- 'tiles_shallow' table's columns and their types are as expected:\n             -- 4 columns (zoom_level, tile_column, tile_row, tile_data_id).\n             -- The order is not important\n             SELECT COUNT(*) = 4\n             FROM pragma_table_info('tiles_shallow')\n             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')\n                 OR (name = 'tile_column' AND type LIKE '%INT%')\n                 OR (name = 'tile_row' AND type LIKE '%INT%')\n                 OR (name = 'tile_data_id' AND type LIKE '%INT%'))\n             --\n         ) AND (\n             -- 'tiles_data' table's columns and their types are as expected:\n             -- 2 columns (tile_data_id, tile_data).\n             -- The order is not important\n             SELECT COUNT(*) = 2\n             FROM pragma_table_info('tiles_data')\n             WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')\n                 OR (name = 'tile_data' AND type = 'BLOB'))\n             --\n         ) AS is_valid;",
   "describe": {
     "columns": [
       {
         "name": "is_valid",
         "ordinal": 0,
-        "type_info": "Integer",
-        "origin": "Expression"
+        "origin": "Expression",
+        "type_info": "Integer"
       }
     ],
+    "nullable": [false],
     "parameters": {
       "Right": 0
-    },
-    "nullable": [
-      false
-    ]
+    }
   },
-  "hash": "97d549dec67b7860dd2552f4865c4478c9dcca762853c8e7027ef6498af56774"
+  "hash": "97d549dec67b7860dd2552f4865c4478c9dcca762853c8e7027ef6498af56774",
+  "query": "SELECT (\n             -- Has 'tiles_shallow' and 'tiles_data' tables\n             SELECT COUNT(*) = 2\n             FROM sqlite_master\n             WHERE (name = 'tiles_shallow' OR name = 'tiles_data')\n                 AND type = 'table'\n             --\n         ) AND (\n             -- 'tiles_shallow' table's columns and their types are as expected:\n             -- 4 columns (zoom_level, tile_column, tile_row, tile_data_id).\n             -- The order is not important\n             SELECT COUNT(*) = 4\n             FROM pragma_table_info('tiles_shallow')\n             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')\n                 OR (name = 'tile_column' AND type LIKE '%INT%')\n                 OR (name = 'tile_row' AND type LIKE '%INT%')\n                 OR (name = 'tile_data_id' AND type LIKE '%INT%'))\n             --\n         ) AND (\n             -- 'tiles_data' table's columns and their types are as expected:\n             -- 2 columns (tile_data_id, tile_data).\n             -- The order is not important\n             SELECT COUNT(*) = 2\n             FROM pragma_table_info('tiles_data')\n             WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')\n                 OR (name = 'tile_data' AND type = 'BLOB'))\n             --\n         ) AS is_valid;"
 }

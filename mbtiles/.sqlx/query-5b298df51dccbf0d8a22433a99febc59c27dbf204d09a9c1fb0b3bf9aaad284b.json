@@ -1,50 +1,46 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT tile_column, tile_row, tile_data FROM tiles WHERE zoom_level = ? LIMIT 1",
   "describe": {
     "columns": [
       {
         "name": "tile_column",
         "ordinal": 0,
-        "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_column"
+            "name": "tile_column",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Integer"
       },
       {
         "name": "tile_row",
         "ordinal": 1,
-        "type_info": "Integer",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_row"
+            "name": "tile_row",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Integer"
       },
       {
         "name": "tile_data",
         "ordinal": 2,
-        "type_info": "Blob",
         "origin": {
           "Table": {
-            "table": "tiles",
-            "name": "tile_data"
+            "name": "tile_data",
+            "table": "tiles"
           }
-        }
+        },
+        "type_info": "Blob"
       }
     ],
+    "nullable": [true, true, true],
     "parameters": {
       "Right": 1
-    },
-    "nullable": [
-      true,
-      true,
-      true
-    ]
+    }
   },
-  "hash": "5b298df51dccbf0d8a22433a99febc59c27dbf204d09a9c1fb0b3bf9aaad284b"
+  "hash": "5b298df51dccbf0d8a22433a99febc59c27dbf204d09a9c1fb0b3bf9aaad284b",
+  "query": "SELECT tile_column, tile_row, tile_data FROM tiles WHERE zoom_level = ? LIMIT 1"
 }
