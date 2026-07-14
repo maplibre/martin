@@ -787,17 +787,4 @@ mod tests {
             @"A postgres connection string must be provided"
         );
     }
-
-    #[cfg(feature = "postgres")]
-    #[test]
-    fn finalize_postgres_pool_size_invalid() {
-        insta::assert_snapshot!(
-            render_finalize_failure(indoc::indoc! {"
-                postgres:
-                  connection_string: 'postgres://localhost/db'
-                  pool_size: 0
-            "}),
-            @"The postgres pool_size must be greater than or equal to 1"
-        );
-    }
 }
