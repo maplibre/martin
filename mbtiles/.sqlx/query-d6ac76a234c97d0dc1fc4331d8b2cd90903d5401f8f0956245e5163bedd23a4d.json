@@ -25,10 +25,7 @@
         "type_info": "Text"
       }
     ],
-    "nullable": [
-      true,
-      true
-    ],
+    "nullable": [true, true],
     "parameters": {
       "Right": 0
     }

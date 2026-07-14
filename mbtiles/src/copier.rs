@@ -983,12 +983,15 @@ mod tests {
     }
 
     async fn get_table_sql(conn: &mut SqliteConnection, table: &str) -> String {
-        query!("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?", table)
-            .fetch_one(conn)
-            .await
-            .unwrap()
-            .sql
-            .unwrap_or_default()
+        query!(
+            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?",
+            table
+        )
+        .fetch_one(conn)
+        .await
+        .unwrap()
+        .sql
+        .unwrap_or_default()
     }
 
     #[actix_rt::test]

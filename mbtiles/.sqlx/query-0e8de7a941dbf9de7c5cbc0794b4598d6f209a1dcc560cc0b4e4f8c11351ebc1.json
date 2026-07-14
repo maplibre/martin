@@ -62,17 +62,7 @@
         "type_info": "Integer"
       }
     ],
-    "nullable": [
-      true,
-      false,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true
-    ],
+    "nullable": [true, false, true, true, true, true, true, true, true],
     "parameters": {
       "Right": 0
     }
