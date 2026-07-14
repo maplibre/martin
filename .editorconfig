@@ -9,3 +9,6 @@ trim_trailing_whitespace = true
 
 [*.{yml,yaml}]
 indent_size = 2
+
+[Makefile]
+indent_style = tab
