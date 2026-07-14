@@ -3,7 +3,7 @@
 //! `tiles_with_hash` view exposes the `tile_id` as a hash, and an alternative
 //! `tiles_shallow` + `tiles_data` variant uses an integer `tile_data_id`.
 
-use sqlx::{Row as _, SqliteExecutor, query};
+use sqlx::{SqliteExecutor, query};
 use tracing::debug;
 
 use crate::errors::MbtResult;
@@ -15,10 +15,10 @@ where
 {
     let sql = query!(
         "SELECT (
-             -- Has a 'map' table
-             SELECT COUNT(*) = 1
+             -- Has 'map' and 'images' tables
+             SELECT COUNT(*) = 2
              FROM sqlite_master
-             WHERE name = 'map'
+             WHERE (name = 'map' OR name = 'images')
                  AND type = 'table'
              --
          ) AND (
@@ -31,13 +31,6 @@ where
                  OR (name = 'tile_column' AND type LIKE '%INT%')
                  OR (name = 'tile_row' AND type LIKE '%INT%')
                  OR (name = 'tile_id' AND type = 'TEXT'))
-             --
-         ) AND (
-             -- Has a 'images' table
-             SELECT COUNT(*) = 1
-             FROM sqlite_master
-             WHERE name = 'images'
-                 AND type = 'table'
              --
          ) AND (
              -- 'images' table's columns and their types are as expected:
@@ -60,11 +53,12 @@ pub async fn is_dedup_id_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bo
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    let sql = "SELECT (
-             -- Has a 'tiles_shallow' table
-             SELECT COUNT(*) = 1
+    let sql = query!(
+        "SELECT (
+             -- Has 'tiles_shallow' and 'tiles_data' tables
+             SELECT COUNT(*) = 2
              FROM sqlite_master
-             WHERE name = 'tiles_shallow'
+             WHERE (name = 'tiles_shallow' OR name = 'tiles_data')
                  AND type = 'table'
              --
          ) AND (
@@ -79,13 +73,6 @@ where
                  OR (name = 'tile_data_id' AND type LIKE '%INT%'))
              --
          ) AND (
-             -- Has a 'tiles_data' table
-             SELECT COUNT(*) = 1
-             FROM sqlite_master
-             WHERE name = 'tiles_data'
-                 AND type = 'table'
-             --
-         ) AND (
              -- 'tiles_data' table's columns and their types are as expected:
              -- 2 columns (tile_data_id, tile_data).
              -- The order is not important
@@ -94,14 +81,10 @@ where
              WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')
                  OR (name = 'tile_data' AND type = 'BLOB'))
              --
-         ) AS is_valid;";
+         ) AS is_valid;"
+    );
 
-    Ok(query(sql)
-        .fetch_one(&mut *conn)
-        .await?
-        .get::<Option<i32>, _>(0)
-        .unwrap_or_default()
-        == 1)
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
 pub async fn create_normalized_tables<T>(conn: &mut T, strict: bool) -> MbtResult<()>

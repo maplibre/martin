@@ -3,8 +3,7 @@ use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr as _;
-use std::sync::Arc;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use deadpool_postgres::tokio_postgres::config::SslMode;
 use deadpool_postgres::tokio_postgres::{Config, NoTls};
