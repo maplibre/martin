@@ -991,7 +991,7 @@ mod tests {
         .await
         .unwrap()
         .sql
-        .unwrap_or_default()
+        .unwrap()
     }
 
     #[actix_rt::test]
