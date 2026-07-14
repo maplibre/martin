@@ -9,7 +9,9 @@
         "type_info": "Integer"
       }
     ],
-    "nullable": [false],
+    "nullable": [
+      false
+    ],
     "parameters": {
       "Right": 0
     }

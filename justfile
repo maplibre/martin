@@ -528,6 +528,8 @@ pg_dump *args:
 prepare-sqlite: fetch install-sqlx
     mkdir -p mbtiles/.sqlx
     cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
+    find mbtiles/.sqlx -name '*.json' -type f -exec sh -c \
+      'jq --sort-keys . "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
 
 # Print the connection string for the test database
 print-conn-str:
