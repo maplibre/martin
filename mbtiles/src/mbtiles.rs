@@ -471,8 +471,10 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let y = invert_y_value(z, y);
-        let query = query! {"SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?", z, x, y};
+        let query = query! {
+            "SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?",
+            z, x, invert_y_value(z, y),
+        };
         let row = query.fetch_optional(conn).await?;
         if let Some(row) = row
             && let Some(tile_data) = row.tile_data
@@ -634,11 +636,10 @@ impl Mbtiles {
         }
         let sql1 = tx.prepare(to_sql_str(sql1)).await?;
         for (z, x, y, tile_data) in batch {
-            let y = invert_y_value(*z, *y);
             sql1.query()
                 .bind(z)
                 .bind(x)
-                .bind(y)
+                .bind(invert_y_value(*z, *y))
                 .bind(tile_data.as_ref())
                 .execute(&mut *tx)
                 .await?;
