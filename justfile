@@ -8,25 +8,25 @@ mod demo 'demo/justfile'
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
-# How to call the current just executable.
-# Note that just_executable() may have `\` in Windows paths, so we need to quote it.
-just := quote(just_executable())
-
 # list of features we deem stable for release packaging
 stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
-# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+
+# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+just := quote(just_executable())
+# cargo-binstall needs a workaround due to caching when used in CI
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
+
+# if running in CI, treat warnings as errors by setting CARGO_BUILD_WARNINGS to 'deny' unless it is already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+# Use `just env-info` to see the current value of CARGO_BUILD_WARNINGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' {'deny'} else {'warn'})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+
 # Build in release mode by default. Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
 release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
-# cargo-binstall needs a workaround due to caching
-# ci_mode might be manually set by user, so re-check the env var
-binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
-export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+
 # Download the prebuilt maplibre_native core amalgam instead of compiling the ~1 GB C++ core from source.
 # Set MLN_PRECOMPILE=0 to build maplibre_native from source instead.
 export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
@@ -183,12 +183,12 @@ bless:
     echo "Blessing unit tests"
     for target in restart clean-test bless-insta ui::bless bless-pg; do
       echo "::group::just $target"
-      {{quote(just_executable())}} $target
+      {{just}} $target
       echo "::endgroup::"
     done
 
     echo "Blessing integration tests"
-    {{quote(just_executable())}} bless-int
+    {{just}} bless-int
 
 # Run insta snapshot tests and save their output as the new expected output.
 # On Linux, replay the rendering tests' tiles from the cassette (like `coverage`).
@@ -219,7 +219,7 @@ build-release target: fetch
     set -euo pipefail
     # on debian we need to build a deb package
     if [[ "{{target}}" == "debian-x86_64" ]]; then
-        {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
+        {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
         if [[ "{{release_mode}}" == "1" ]]; then
@@ -410,8 +410,7 @@ env-info:
     rustc --version
     cargo --version
     @if [ "$(uname)" != "FreeBSD" ]; then rustup --version; fi
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
     @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     npm --version
     node --version
@@ -798,11 +797,11 @@ validate-tools:
 [private]
 assert-git-is-clean:
     @if [ -n "$(git status --untracked-files --porcelain)" ]; then \
-      >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
-      >&2 echo "######### git status ##########" ;\
-      git status ;\
-      git --no-pager diff ;\
-      exit 1 ;\
+        >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
+        >&2 echo "######### git status ##########" ;\
+        git status ;\
+        git --no-pager diff ;\
+        exit 1 ;\
     fi
 
 # Check if a certain Cargo command is installed, and install it if needed
@@ -810,13 +809,17 @@ assert-git-is-clean:
 cargo-install $COMMAND $INSTALL_CMD='' *args='':
     #!/usr/bin/env bash
     set -euo pipefail
+    unset CARGO_BUILD_WARNINGS
     if ! command -v $COMMAND > /dev/null; then
+        echo "$COMMAND could not be found. Installing..."
         if ! command -v cargo-binstall > /dev/null; then
-            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            set -x
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+            { set +x; } 2>/dev/null
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked"
+            set -x
             cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
+            { set +x; } 2>/dev/null
         fi
     fi
 
