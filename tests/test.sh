@@ -61,7 +61,10 @@ if [[ -z "${CURL_BIN:-}" ]]; then
   echo 'On macOS, install it with: brew install curl'
   exit 1
 fi
-CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
+# --connect-timeout keeps the wait_for retry loop snappy when the server is not up yet;
+# --max-time caps a wedged response so a single hung request fails the job in minutes
+# instead of running into the 6h CI ceiling (see the maplibre-native render-deadlock).
+CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed --connect-timeout 10 --max-time 120}"
 
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
