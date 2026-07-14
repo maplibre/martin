@@ -576,8 +576,8 @@ stop:
     docker compose down --remove-orphans
 
 # runs cargo-shear to lint Rust dependencies
-shear: fetch
-    cargo shear --expand
+shear *args: fetch
+    cargo shear {{args}}
     # in the future: add --deny-warnings
     # https://github.com/Boshen/cargo-shear/pull/386
 

@@ -129,15 +129,13 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
-    needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { toolchain: nightly-2026-07-12, tools: 'cargo-shear,just', rendering: true }
+        with: { tools: 'cargo-shear,just' }
       - run: just shear
   build-aarch64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
