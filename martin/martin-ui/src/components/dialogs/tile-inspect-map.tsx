@@ -121,6 +121,17 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     }
   }, [selectedUnderlay]);
 
+  // The map's onLoad can fire before the TileJSON fetch resolves, in which case
+  // configureMap() early-returns and the view/constraints are never applied.
+  // Re-run it once the TileJSON arrives (and the map has loaded) so the inspect
+  // map opens centered on the tileset instead of the default 0/0/0 world view.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (map?.isStyleLoaded() && tileJsonOperation.data) {
+      configureMap();
+    }
+  }, [tileJsonOperation.data]);
+
   const configureMap = () => {
     if (!mapRef.current) {
       console.error('Map not found despite being initialized, this cannot happen');
@@ -136,9 +147,11 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
       return;
     }
     const tileJson: TileJson = tileJsonOperation.data;
+
+    let isWorld = false;
     if (tileJson.bounds) {
       const [west, south, east, north] = tileJson.bounds;
-      const isWorld = west <= -179 && east >= 179;
+      isWorld = west <= -179 && east >= 179;
       if (!isWorld) {
         map.setMaxBounds([
           [west, south],
@@ -146,15 +159,39 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
         ]);
       }
     }
-    if (tileJson.minzoom) {
+    // Use `!== undefined` rather than a truthy check: a valid minzoom/maxzoom
+    // of 0 is falsy, so `if (tileJson.minzoom)` would silently skip world-min
+    // tilesets (e.g. OpenMapTiles, minzoom 0).
+    if (tileJson.minzoom !== undefined) {
       map.setMinZoom(tileJson.minzoom);
-      map.setZoom(tileJson.minzoom);
     }
-    if (tileJson.maxzoom) {
+    if (tileJson.maxzoom !== undefined) {
       map.setMaxZoom(tileJson.maxzoom);
     }
-    if (tileJson.center) {
-      map.setCenter([tileJson.center[0], tileJson.center[1]]);
+
+    // Apply the initial view from the TileJSON, unless the URL already pins one
+    // (a shared deep link such as #map=9/43.1/-89.2). The `hash="map"` prop
+    // writes a default "#map=0/0/0" on first render, which we treat as "unset".
+    const hash = window.location.hash;
+    const hasExplicitView = hash.startsWith('#map=') && hash !== '#map=0/0/0';
+    if (!hasExplicitView) {
+      if (tileJson.bounds && !isWorld) {
+        // Derive both center and zoom from the data extent. This also sidesteps
+        // the previous bug where center[2] (the recommended zoom) was dropped.
+        const [west, south, east, north] = tileJson.bounds;
+        map.fitBounds(
+          [
+            [west, south],
+            [east, north],
+          ],
+          { animate: false, padding: 20 },
+        );
+      } else if (tileJson.center) {
+        map.jumpTo({
+          center: [tileJson.center[0], tileJson.center[1]],
+          zoom: tileJson.center[2] ?? tileJson.minzoom ?? 0,
+        });
+      }
     }
   };
 
