@@ -528,7 +528,7 @@ pg_dump *args:
 prepare-sqlite: fetch install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
-    db="$(mktemp -t martin-sqlx-verify.XXXXXX.db)"
+    db="$(mktemp -t martin-sqlx-verify.XXXXXX)"
     trap 'rm -f "$db"' EXIT
     # add every possible schema to a dummy temp file so that most queries would compile.
     # `init-flat` is listed before the view-defining layouts so `tiles` is a table.
