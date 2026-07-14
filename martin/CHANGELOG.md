@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0](https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0) - 2026-07-14
+
+### Added
+
+- propagate cancellation to postgres #2646 ([#2901](https://github.com/maplibre/martin/pull/2901))
+- *(mbtiles)* read and validate the hash_algorithm metadata key ([#2985](https://github.com/maplibre/martin/pull/2985))
+
+### Fixed
+
+- *(martin-ui)* center tile inspect map on tileset bounds, not 0/0/0 ([#3002](https://github.com/maplibre/martin/pull/3002))
+- *(postgres)* clearer error when a source schema exists but has no tile sources ([#2979](https://github.com/maplibre/martin/pull/2979))
+- *(martin-ui)* match metric endpoints when a route_prefix is set ([#2986](https://github.com/maplibre/martin/pull/2986))
+- *(postgres)* honor sslmode=verify-ca by skipping only the hostname check ([#2987](https://github.com/maplibre/martin/pull/2987))
+- *(mbtiles)* validate min/max zoom metadata against actual tiles ([#2983](https://github.com/maplibre/martin/pull/2983))
+
+### Other
+
+- add render_finalize_failure helper and snapshot tests ([#3000](https://github.com/maplibre/martin/pull/3000))
+- *(deps)* autoupdate pre-commit ([#2998](https://github.com/maplibre/martin/pull/2998))
+- *(postgres)* use NonZeroUsize for pool_size ([#2996](https://github.com/maplibre/martin/pull/2996))
+- run `just fmt` ([#2981](https://github.com/maplibre/martin/pull/2981))
+- *(deps)* lock file maintenance ([#2961](https://github.com/maplibre/martin/pull/2961))
+- split file sources into MBTiles and PMTiles subpages ([#2978](https://github.com/maplibre/martin/pull/2978))
+- update sqlite queries ([#3003](https://github.com/maplibre/martin/pull/3003))
+- address feedback from fast-mvt migration ([#2993](https://github.com/maplibre/martin/pull/2993))
+- migrate geozero to fast-mvt, make duckdb non-dflt ([#2991](https://github.com/maplibre/martin/pull/2991))
+- fix clippy lints for 1.97 release ([#2989](https://github.com/maplibre/martin/pull/2989))
+- cleanup normalized-dedup sql ([#2990](https://github.com/maplibre/martin/pull/2990))
+- reuse .sql schema files in code ([#2988](https://github.com/maplibre/martin/pull/2988))
+- *(mbtiles)* refactor schemas to individual files ([#2982](https://github.com/maplibre/martin/pull/2982))
+
 ## [1.12.0](https://github.com/maplibre/martin/compare/martin-v1.11.0...martin-v1.12.0) - 2026-07-07
 
 ### GeoJSON tile source

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/maplibre/martin/compare/mbtiles-v0.18.1...mbtiles-v0.19.0) - 2026-07-14
+
+### Added
+
+- *(mbtiles)* read and validate the hash_algorithm metadata key ([#2985](https://github.com/maplibre/martin/pull/2985))
+
+### Fixed
+
+- *(mbtiles)* validate min/max zoom metadata against actual tiles ([#2983](https://github.com/maplibre/martin/pull/2983))
+
+### Other
+
+- update sqlite queries ([#3003](https://github.com/maplibre/martin/pull/3003))
+- cleanup normalized-dedup sql ([#2990](https://github.com/maplibre/martin/pull/2990))
+- reuse .sql schema files in code ([#2988](https://github.com/maplibre/martin/pull/2988))
+- *(mbtiles)* refactor schemas to individual files ([#2982](https://github.com/maplibre/martin/pull/2982))
+
 ## [0.18.1](https://github.com/maplibre/martin/compare/mbtiles-v0.18.0...mbtiles-v0.18.1) - 2026-07-07
 
 ### Added
