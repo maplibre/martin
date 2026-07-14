@@ -576,3 +576,16 @@ impl Config {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::config::test_helpers::render_finalize_failure;
+
+    #[test]
+    fn finalize_no_sources() {
+        insta::assert_snapshot!(
+            render_finalize_failure("keep_alive: 75\n"),
+            @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+        );
+    }
+}

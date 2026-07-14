@@ -496,6 +496,7 @@ mod tests {
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
     use crate::config::primitives::OptOneMany::{Many, One};
+    use crate::config::test_helpers::render_finalize_failure;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
@@ -506,6 +507,17 @@ mod tests {
         let res = config.finalize().unwrap();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
+    }
+
+    #[test]
+    fn finalize_postgres_missing_connection_string() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc! {"
+                postgres:
+                  pool_size: 5
+            "}),
+            @"A postgres connection string must be provided"
+        );
     }
 
     #[test]
