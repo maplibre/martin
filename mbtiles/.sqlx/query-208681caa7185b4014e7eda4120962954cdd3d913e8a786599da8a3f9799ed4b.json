@@ -5,6 +5,7 @@
       {
         "name": "page_size",
         "ordinal": 0,
+        "origin": "Expression",
         "type_info": "Integer"
       }
     ],

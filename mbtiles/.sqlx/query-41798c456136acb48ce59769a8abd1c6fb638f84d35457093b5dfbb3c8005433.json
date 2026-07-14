@@ -5,46 +5,60 @@
       {
         "name": "zoom",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "zoom_level",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "count",
         "ordinal": 1,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "smallest",
         "ordinal": 2,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "largest",
         "ordinal": 3,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "average",
         "ordinal": 4,
+        "origin": "Expression",
         "type_info": "Float"
       },
       {
         "name": "min_tile_x",
         "ordinal": 5,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "min_tile_y",
         "ordinal": 6,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "max_tile_x",
         "ordinal": 7,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "max_tile_y",
         "ordinal": 8,
+        "origin": "Expression",
         "type_info": "Integer"
       }
     ],
