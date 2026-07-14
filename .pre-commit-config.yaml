@@ -33,6 +33,11 @@ repos:
         args: [ --fix=lf ]
       - id: trailing-whitespace
 
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.6.1
+    hooks:
+      - id: editorconfig-checker
+
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.6
     hooks:
