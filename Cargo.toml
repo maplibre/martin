@@ -102,7 +102,11 @@ itertools = "0.15"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-maplibre_native = "0.8.3"
+# Pinned: 0.8.4 deadlocks server-side style rendering on headless Linux (software
+# Vulkan/lavapipe) - the map render future never resolves and the HTTP request hangs
+# until the 6h CI ceiling. Backtrace: map thread's libuv run loop waits forever while a
+# libvulkan_lvp worker is parked on a condvar. Unpin once maplibre-native fixes this.
+maplibre_native = "=0.8.3"
 martin-core = { path = "./martin-core", version = "0.9.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
 mbtiles = { path = "./mbtiles", version = "0.18.1" }
