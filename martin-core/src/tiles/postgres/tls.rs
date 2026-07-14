@@ -4,14 +4,14 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr as _;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
-use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;
+use deadpool_postgres::tokio_postgres::{Config, NoTls};
 use regex::Regex;
 use rustls::client::WebPkiServerVerifier;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::crypto::aws_lc_rs::default_provider;
-use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
+use rustls::crypto::{aws_lc_rs, verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{CertificateError, DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
@@ -24,6 +24,21 @@ use crate::tiles::postgres::PostgresError::{
     InvalidPrivateKey, UnknownSslMode,
 };
 use crate::tiles::postgres::PostgresResult;
+
+/// Pool TLS settings (`NoTls` or rustls), cloned for query cancel.
+///
+/// Cancel opens a new connection, so it needs the same connector the pool uses.
+#[derive(Clone)]
+pub(crate) enum PgTlsConnector {
+    NoTls(NoTls),
+    Rustls(MakeRustlsConnect),
+}
+
+impl Default for PgTlsConnector {
+    fn default() -> Self {
+        Self::NoTls(NoTls)
+    }
+}
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,7 +103,7 @@ impl ServerCertVerifier for NoCertificateVerification {
             message,
             cert,
             dss,
-            &default_provider().signature_verification_algorithms,
+            &aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
@@ -102,12 +117,12 @@ impl ServerCertVerifier for NoCertificateVerification {
             message,
             cert,
             dss,
-            &default_provider().signature_verification_algorithms,
+            &aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        default_provider()
+        aws_lc_rs::default_provider()
             .signature_verification_algorithms
             .supported_schemes()
     }
@@ -176,12 +191,25 @@ fn cert_reader(file: &PathBuf) -> PostgresResult<BufReader<File>> {
     ))
 }
 
+/// Ensure a rustls crypto provider is installed (no-op if one already is).
+///
+/// Needed when `make_connector` runs outside normal martin startup (e.g. tests),
+/// which does not call `martin::init_aws_lc_tls`.
+fn ensure_rustls_provider() {
+    static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
+        let _ = aws_lc_rs::default_provider().install_default();
+    });
+    *INIT_TLS;
+}
+
 pub fn make_connector(
     ssl_cert: Option<&PathBuf>,
     ssl_key: Option<&PathBuf>,
     ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
 ) -> PostgresResult<MakeRustlsConnect> {
+    ensure_rustls_provider();
+
     let (verify_ca, verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),

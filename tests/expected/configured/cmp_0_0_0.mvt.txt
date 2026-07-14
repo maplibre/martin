@@ -1,218 +1,157 @@
-=============================================================
 layer: 0
   name: abc
   version: 2
   extent: 4096
   feature: 0
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2312,2004)
+    geometry: POINT(2312,2004)
     properties:
-      gid=12
+      gid = 12 (uint)
   feature: 1
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2316,1790)
+    geometry: POINT(2316,1790)
     properties:
-      gid=24
+      gid = 24 (uint)
   feature: 2
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2619,1520)
+    geometry: POINT(2619,1520)
     properties:
-      gid=8
+      gid = 8 (uint)
   feature: 3
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2754,966)
+    geometry: POINT(2754,966)
     properties:
-      gid=17
+      gid = 17 (uint)
   feature: 4
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3802,665)
+    geometry: POINT(3802,665)
     properties:
-      gid=7
+      gid = 7 (uint)
   feature: 5
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3898,1322)
+    geometry: POINT(3898,1322)
     properties:
-      gid=29
+      gid = 29 (uint)
   feature: 6
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3786,1562)
+    geometry: POINT(3786,1562)
     properties:
-      gid=6
+      gid = 6 (uint)
   feature: 7
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=3
+      gid = 3 (uint)
   feature: 8
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=2
+      gid = 2 (uint)
   feature: 9
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=1
+      gid = 1 (uint)
   feature: 10
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2749,1706)
+    geometry: POINT(2749,1706)
     properties:
-      gid=20
+      gid = 20 (uint)
   feature: 11
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2780,1898)
+    geometry: POINT(2780,1898)
     properties:
-      gid=30
+      gid = 30 (uint)
   feature: 12
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(49,2032)
+    geometry: POINT(49,2032)
     properties:
-      gid=21
+      gid = 21 (uint)
   feature: 13
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(8,1845)
+    geometry: POINT(8,1845)
     properties:
-      gid=9
+      gid = 9 (uint)
   feature: 14
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(862,1817)
+    geometry: POINT(862,1817)
     properties:
-      gid=15
+      gid = 15 (uint)
   feature: 15
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1415,16)
+    geometry: POINT(1415,16)
     properties:
-      gid=16
+      gid = 16 (uint)
   feature: 16
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(69,313)
+    geometry: POINT(69,313)
     properties:
-      gid=5
+      gid = 5 (uint)
   feature: 17
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1377,2078)
+    geometry: POINT(1377,2078)
     properties:
-      gid=27
+      gid = 27 (uint)
   feature: 18
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1455,2502)
+    geometry: POINT(1455,2502)
     properties:
-      gid=14
+      gid = 14 (uint)
   feature: 19
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1310,3101)
+    geometry: POINT(1310,3101)
     properties:
-      gid=26
+      gid = 26 (uint)
   feature: 20
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(636,2785)
+    geometry: POINT(636,2785)
     properties:
-      gid=4
+      gid = 4 (uint)
   feature: 21
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(769,2818)
+    geometry: POINT(769,2818)
     properties:
-      gid=18
+      gid = 18 (uint)
   feature: 22
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(166,2707)
+    geometry: POINT(166,2707)
     properties:
-      gid=28
+      gid = 28 (uint)
   feature: 23
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1728,2658)
+    geometry: POINT(1728,2658)
     properties:
-      gid=25
+      gid = 25 (uint)
   feature: 24
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3639,2944)
+    geometry: POINT(3639,2944)
     properties:
-      gid=10
+      gid = 10 (uint)
   feature: 25
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3553,2982)
+    geometry: POINT(3553,2982)
     properties:
-      gid=22
+      gid = 22 (uint)
   feature: 26
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2337,2613)
+    geometry: POINT(2337,2613)
     properties:
-      gid=13
+      gid = 13 (uint)
   feature: 27
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2583,2400)
+    geometry: POINT(2583,2400)
     properties:
-      gid=23
+      gid = 23 (uint)
   feature: 28
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2961,2263)
+    geometry: POINT(2961,2263)
     properties:
-      gid=11
+      gid = 11 (uint)
   feature: 29
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3825,2146)
+    geometry: POINT(3825,2146)
     properties:
-      gid=19
+      gid = 19 (uint)
 =============================================================
 layer: 1
   name: points2
@@ -220,211 +159,151 @@ layer: 1
   extent: 4096
   feature: 0
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2068,381)
+    geometry: POINT(2068,381)
     properties:
-      gid=16
+      gid = 16 (uint)
   feature: 1
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2353,1712)
+    geometry: POINT(2353,1712)
     properties:
-      gid=25
+      gid = 25 (uint)
   feature: 2
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2561,1053)
+    geometry: POINT(2561,1053)
     properties:
-      gid=22
+      gid = 22 (uint)
   feature: 3
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3897,1116)
+    geometry: POINT(3897,1116)
     properties:
-      gid=28
+      gid = 28 (uint)
   feature: 4
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3788,1563)
+    geometry: POINT(3788,1563)
     properties:
-      gid=6
+      gid = 6 (uint)
   feature: 5
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=3
+      gid = 3 (uint)
   feature: 6
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=1
+      gid = 1 (uint)
   feature: 7
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3673,1911)
+    geometry: POINT(3673,1911)
     properties:
-      gid=2
+      gid = 2 (uint)
   feature: 8
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(4013,1897)
+    geometry: POINT(4013,1897)
     properties:
-      gid=30
+      gid = 30 (uint)
   feature: 9
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3857,1868)
+    geometry: POINT(3857,1868)
     properties:
-      gid=17
+      gid = 17 (uint)
   feature: 10
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(667,1829)
+    geometry: POINT(667,1829)
     properties:
-      gid=12
+      gid = 12 (uint)
   feature: 11
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1392,664)
+    geometry: POINT(1392,664)
     properties:
-      gid=5
+      gid = 5 (uint)
   feature: 12
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1158,1186)
+    geometry: POINT(1158,1186)
     properties:
-      gid=29
+      gid = 29 (uint)
   feature: 13
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1841,2200)
+    geometry: POINT(1841,2200)
     properties:
-      gid=11
+      gid = 11 (uint)
   feature: 14
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(68,2173)
+    geometry: POINT(68,2173)
     properties:
-      gid=24
+      gid = 24 (uint)
   feature: 15
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(941,2153)
+    geometry: POINT(941,2153)
     properties:
-      gid=27
+      gid = 27 (uint)
   feature: 16
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(874,2164)
+    geometry: POINT(874,2164)
     properties:
-      gid=4
+      gid = 4 (uint)
   feature: 17
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1224,2162)
+    geometry: POINT(1224,2162)
     properties:
-      gid=15
+      gid = 15 (uint)
   feature: 18
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1381,3059)
+    geometry: POINT(1381,3059)
     properties:
-      gid=18
+      gid = 18 (uint)
   feature: 19
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1136,2890)
+    geometry: POINT(1136,2890)
     properties:
-      gid=7
+      gid = 7 (uint)
   feature: 20
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(355,2460)
+    geometry: POINT(355,2460)
     properties:
-      gid=19
+      gid = 19 (uint)
   feature: 21
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(417,3667)
+    geometry: POINT(417,3667)
     properties:
-      gid=8
+      gid = 8 (uint)
   feature: 22
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(1876,2723)
+    geometry: POINT(1876,2723)
     properties:
-      gid=23
+      gid = 23 (uint)
   feature: 23
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(4086,3388)
+    geometry: POINT(4086,3388)
     properties:
-      gid=20
+      gid = 20 (uint)
   feature: 24
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2111,2079)
+    geometry: POINT(2111,2079)
     properties:
-      gid=13
+      gid = 13 (uint)
   feature: 25
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2607,2324)
+    geometry: POINT(2607,2324)
     properties:
-      gid=10
+      gid = 10 (uint)
   feature: 26
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3025,2290)
+    geometry: POINT(3025,2290)
     properties:
-      gid=21
+      gid = 21 (uint)
   feature: 27
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3316,2289)
+    geometry: POINT(3316,2289)
     properties:
-      gid=9
+      gid = 9 (uint)
   feature: 28
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(3166,2187)
+    geometry: POINT(3166,2187)
     properties:
-      gid=26
+      gid = 26 (uint)
   feature: 29
     id: (none)
-    geomtype: point
-    geometry:
-      POINT(2542,2070)
+    geometry: POINT(2542,2070)
     properties:
-      gid=14
+      gid = 14 (uint)

@@ -8,8 +8,8 @@ use crate::CacheZoomRange;
 use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
-use crate::tiles::postgres::PostgresPool;
 use crate::tiles::postgres::utils::query_to_json;
+use crate::tiles::postgres::{ActiveQueryRegistry, PostgresPool};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -76,6 +76,10 @@ impl Source for PostgresSource {
         self.cache_zoom
     }
 
+    fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
+        Some(self.pool.active_query_registry().clone())
+    }
+
     #[instrument(
         level = "debug",
         skip_all,
@@ -93,6 +97,12 @@ impl Source for PostgresSource {
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
         let conn = self.pool.get().await?;
+
+        let cancel_token = conn.cancel_token();
+
+        // Auto-clean up if task completes or is interrupted
+        let _query_guard = self.pool.active_query_registry().register(cancel_token);
+
         let param_types: &[Type] = if self.support_url_query() {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
         } else {
