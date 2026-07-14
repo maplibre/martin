@@ -107,9 +107,9 @@ log = "0.4"
 # until the 6h CI ceiling. Backtrace: map thread's libuv run loop waits forever while a
 # libvulkan_lvp worker is parked on a condvar. Unpin once maplibre-native fixes this.
 maplibre_native = "=0.8.3"
-martin-core = { path = "./martin-core", version = "0.9.0", default-features = false }
+martin-core = { path = "./martin-core", version = "0.10.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
-mbtiles = { path = "./mbtiles", version = "0.18.1" }
+mbtiles = { path = "./mbtiles", version = "0.19.0" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.12", default-features = false }

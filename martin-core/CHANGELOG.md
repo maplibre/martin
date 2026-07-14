@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/maplibre/martin/compare/martin-core-v0.9.0...martin-core-v0.10.0) - 2026-07-14
+
+### Added
+
+- propagate cancellation to postgres #2646 ([#2901](https://github.com/maplibre/martin/pull/2901))
+
+### Fixed
+
+- *(postgres)* honor sslmode=verify-ca by skipping only the hostname check ([#2987](https://github.com/maplibre/martin/pull/2987))
+
+### Other
+
+- update sqlite queries ([#3003](https://github.com/maplibre/martin/pull/3003))
+- address feedback from fast-mvt migration ([#2993](https://github.com/maplibre/martin/pull/2993))
+- migrate geozero to fast-mvt, make duckdb non-dflt ([#2991](https://github.com/maplibre/martin/pull/2991))
+- fix clippy lints for 1.97 release ([#2989](https://github.com/maplibre/martin/pull/2989))
+- run `just fmt` ([#2981](https://github.com/maplibre/martin/pull/2981))
+
 ## [0.9.0](https://github.com/maplibre/martin/compare/martin-core-v0.8.0...martin-core-v0.9.0) - 2026-07-07
 
 ### Added

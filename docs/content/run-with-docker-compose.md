@@ -14,7 +14,7 @@ file as a reference
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:1.12.0
+    image: ghcr.io/maplibre/martin:1.13.0
     restart: unless-stopped
     ports:
       - "3000:3000"
