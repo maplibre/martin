@@ -28,6 +28,14 @@
 //! while `None` means "not in the cache at all". Empty blobs de-duplicate into a single
 //! `cache_data` row like any other content.
 //!
+//! # Bulk copies vs. runtime writes
+//!
+//! Only [`Mbtiles::set_cached`] resolves xxh3-64 collisions (by linear probing). The bulk
+//! SQL paths - `mbtiles copy` into a cache file and [`Mbtiles::insert_tiles`] - key blobs
+//! with `INSERT OR IGNORE` instead: the copier detects a collision afterwards and fails
+//! with [`MbtError::CacheCopyCollision`], while `insert_tiles` cannot detect one (the
+//! source bytes are not in a table to compare against) and accepts the ~2⁻⁶⁴ risk.
+//!
 //! See [`crate::MbtilesCache`] for a pooled, writable entry point.
 
 use sqlx::{Connection as _, SqliteConnection, SqliteExecutor, query, query_scalar};
@@ -42,7 +50,8 @@ use crate::{MbtError, Mbtiles, invert_y_value};
 /// Maximum number of linear probes when resolving an xxh3-64 collision in `set_cached`
 /// before giving up with [`MbtError::CacheKeyExhausted`]. Collisions require billions of
 /// distinct blobs to even begin, so this is only a safety valve against pathological input.
-const MAX_KEY_PROBES: u32 = 1024;
+/// Also the tolerance window used by per-tile validation of cache files.
+pub(crate) const MAX_KEY_PROBES: u32 = 1024;
 
 /// A cached tile together with its cache metadata, as returned by [`Mbtiles::get_cached`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,9 +94,10 @@ impl<'a> CacheEntryMeta<'a> {
 /// Compute the content key (xxh3-64) used as the primary key of the `cache_data` table.
 ///
 /// xxh3 is unsigned but `SQLite` rowids are signed, so we reinterpret the bits (rather than
-/// numerically cast) to keep a lossless, round-trippable 64-bit key.
+/// numerically cast) to keep a lossless, round-trippable 64-bit key. The `xxh3_64_int`
+/// SQL function registered by `attach_sqlite_fn` MUST stay identical to this.
 #[must_use]
-fn content_key(data: &[u8]) -> i64 {
+pub(crate) fn content_key(data: &[u8]) -> i64 {
     i64::from_ne_bytes(xxh3_64(data).to_ne_bytes())
 }
 
@@ -377,6 +387,10 @@ mod tests {
     async fn detected_as_cache() {
         let (mbt, mut conn) = cache().await;
         assert!(mbt.is_cache(&mut conn).await.unwrap());
+        assert_eq!(
+            mbt.detect_type(&mut conn).await.unwrap(),
+            crate::MbtType::Cache
+        );
     }
 
     #[tokio::test]
@@ -635,6 +649,30 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(blob_count(&mut conn).await, 1);
+    }
+
+    #[tokio::test]
+    async fn insert_tiles_bulk_dedup() {
+        let (mbt, mut conn) = cache().await;
+        let batch: Vec<(u8, u32, u32, Vec<u8>)> = vec![
+            (1, 0, 0, b"same".to_vec()),
+            (1, 1, 0, b"same".to_vec()),
+            (1, 1, 1, b"other".to_vec()),
+        ];
+        mbt.insert_tiles(
+            &mut conn,
+            crate::MbtType::Cache,
+            crate::CopyDuplicateMode::Override,
+            &batch,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(blob_count(&mut conn).await, 2);
+        let got = mbt.get_cached(&mut conn, 1, 1, 0).await.unwrap().unwrap();
+        assert_eq!(got.data, b"same");
+        assert_eq!(got.expires, None, "bulk-inserted tiles never expire");
+        assert_eq!(got.etag, None);
     }
 
     #[tokio::test]

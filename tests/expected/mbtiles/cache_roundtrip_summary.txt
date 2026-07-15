@@ -1,0 +1,8 @@
+File path:      tests/mbtiles_temp_files/world_cities_cache_rt_diff.mbtiles
+Schema:         flat
+File size:      2.56kB
+SQL page size:  512B
+SQL page count: 5
+
+   There are no tiles in this mbtiles file
+

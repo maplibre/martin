@@ -6,8 +6,8 @@ use tracing::debug;
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
 use crate::{
-    MbtType, create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
-    create_tiles_with_hash_view,
+    MbtType, create_cache_tables, create_flat_tables, create_flat_with_hash_tables,
+    create_normalized_tables, create_tiles_with_hash_view,
 };
 
 /// Returns true if the database is empty (no tables/indexes/...)
@@ -97,6 +97,7 @@ where
             }
             Ok(())
         }
+        MbtType::Cache => create_cache_tables(&mut *conn, strict).await,
     }
 }
 

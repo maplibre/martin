@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use sqlx::{AssertSqlSafe, Connection as _, query};
 use tracing::{debug, info, warn};
 
-use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtError, MbtResult,
@@ -26,6 +26,11 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     let mut conn = base_mbt.open().await?;
     let base_info = base_mbt.examine_diff(&mut conn).await?;
+    if base_info.mbt_type == Cache {
+        return Err(MbtError::UnsupportedCopyOperation {
+            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_string(),
+        });
+    }
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
     base_mbt.assert_hashes(&base_info, force)?;
 
@@ -111,7 +116,8 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_string()
     } else {
         match patch_type {
-            Flat => "
+            // A Cache patch file is read via its `tiles` view, like Flat
+            Flat | Cache => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
                 .to_string(),
@@ -173,6 +179,8 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
                 )),
             )
         }
+        // Rejected at the top of apply_patch before any SQL is built
+        Cache => unreachable!("a cache file cannot be patched in place"),
     }
 }
 

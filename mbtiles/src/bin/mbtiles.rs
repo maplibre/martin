@@ -11,9 +11,9 @@ use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use mbtiles::{
-    AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UpdateZoomType, apply_patch, pack,
-    unpack,
+    AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
+    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UpdateZoomType, apply_patch,
+    pack, unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -142,6 +142,17 @@ enum Commands {
         /// Compression to store tiles with
         #[arg(long, value_enum, default_value_t)]
         compress: PackCompression,
+    },
+    /// Remove expired entries from a tile-cache `MBTiles` file (see the `cache` schema),
+    /// and optionally evict entries to bound the file size
+    #[command(name = "cache-purge")]
+    CachePurge {
+        /// Tile-cache `MBTiles` file to purge
+        file: PathBuf,
+        /// Also evict entries (soonest-expiring first) until the file's live size
+        /// is at most this many MB
+        #[arg(long)]
+        max_size: Option<u64>,
     },
     /// Unpack an `MBTiles` file into a directory tree of tiles
     #[command(name = "unpack")]
@@ -379,8 +390,33 @@ async fn main_int() -> anyhow::Result<()> {
         } => {
             unpack(&input_file, &output_directory, scheme).await?;
         }
+        Commands::CachePurge { file, max_size } => {
+            cache_purge(file.as_path(), max_size).await?;
+        }
     }
 
+    Ok(())
+}
+
+async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()> {
+    let mbt = Mbtiles::new(file)?;
+    let mut conn = mbt.open().await?;
+    if !mbt.is_cache(&mut conn).await? {
+        return Err(MbtError::NotACacheFile(mbt.filepath().to_string()).into());
+    }
+    let now = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs(),
+    )?;
+    let removed = mbt.purge_expired(&mut conn, now).await?;
+    println!("Removed {removed} expired tile entries");
+    if let Some(max_size_mb) = max_size_mb {
+        let evicted = mbt
+            .purge_cache_to_size(&mut conn, max_size_mb * 1_000_000)
+            .await?;
+        println!("Evicted {evicted} tile entries to fit under {max_size_mb} MB");
+    }
     Ok(())
 }
 

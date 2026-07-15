@@ -77,3 +77,25 @@ where
     );
     create_schema(conn, include_str!("../../sql/init-cache.sql"), strict).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metadata::anonymous_mbtiles;
+    use crate::{
+        is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
+        is_normalized_tables_type,
+    };
+
+    #[actix_rt::test]
+    async fn create_and_detect_cache() {
+        let (_mbt, mut conn) = anonymous_mbtiles("").await;
+        create_cache_tables(&mut conn, false).await.unwrap();
+
+        assert!(is_cache_tables_type(&mut conn).await.unwrap());
+        assert!(!is_flat_tables_type(&mut conn).await.unwrap());
+        assert!(!is_flat_with_hash_tables_type(&mut conn).await.unwrap());
+        assert!(!is_normalized_tables_type(&mut conn).await.unwrap());
+        assert!(!is_dedup_id_normalized_tables_type(&mut conn).await.unwrap());
+    }
+}

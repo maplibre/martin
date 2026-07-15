@@ -76,3 +76,17 @@ A spec-compatible `tiles` view is also created, so the file can still be read by
 ```sql
 --8<-- "files/init-cache.sql"
 ```
+
+### Supported operations
+
+The `mbtiles` tool treats `cache` as a first-class schema, with a few deliberate restrictions:
+
+* `summary`, `validate`, `meta-*`, and serving the file with `martin` all work.
+* `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `expires`/`etag` values are dropped, since standard schemas cannot store them.
+* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache`); the copied entries get `NULL` `expires`/`etag` (never expire). A cache-to-cache copy preserves `expires`/`etag` verbatim.
+* `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob table joined through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
+* `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.
+
+Per-tile validation checks foreign-key integrity (every `tile_cache.tile_id` must exist in `cache_data`) and that each blob is stored under its xxh3-64 content key, allowing for the small linear-probing window the runtime API uses on hash collisions. Unreferenced `cache_data` rows are legal - they appear when an entry is overwritten and disappear on the next purge.
+
+Note that bulk SQL copies into a cache file cannot resolve xxh3-64 collisions the way the runtime `set_cached` API does (by linear probing); the copier instead verifies afterwards that no two different blobs mapped to the same key and fails the copy in that astronomically-unlikely case.

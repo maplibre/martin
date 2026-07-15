@@ -116,6 +116,11 @@ pub enum MbtError {
     #[error("Could not copy MBTiles file: {reason}")]
     UnsupportedCopyOperation { reason: String },
 
+    #[error(
+        "An xxh3-64 hash collision was detected while bulk-copying into cache file {0}: two different tile blobs map to the same content key. Bulk SQL copy cannot resolve collisions; copy the affected tiles via the cache API (set_cached) instead"
+    )]
+    CacheCopyCollision(PathBuf),
+
     #[error("Unexpected duplicate tiles found when copying")]
     DuplicateValues,
 

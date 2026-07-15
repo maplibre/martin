@@ -1,0 +1,1 @@
+ERROR File ./tests/fixtures/mbtiles/world_cities.mbtiles exists but does not use the tile-cache schema, refusing to modify it. Use an empty/new file or an existing cache file
