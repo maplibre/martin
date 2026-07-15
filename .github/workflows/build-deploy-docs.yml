@@ -21,7 +21,7 @@ jobs:
         with: { persist-credentials: false }
 
       - name: 'Validate .md files (use "just fmt-md" to fix)'
-        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd # v23.2.0
+        uses: DavidAnson/markdownlint-cli2-action@8de2aa07cae85fd17c0b35642db70cf5495f1d25 # v24.0.0
         with:
           config: '.github/files/config.markdownlint-cli2.jsonc'
 
@@ -34,7 +34,7 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
+      - uses: taiki-e/install-action@50414676f9f5d50a65992c6dd2ed02641263226c # v2.82.10
         with: { tool: 'just,cargo-binstall' }
 
       - run: just -v docs-build
