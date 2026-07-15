@@ -48,7 +48,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools postgresql-client
       - name: Install rendering dependencies
         run: just install-dependencies
-      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - name: Generate code coverage
