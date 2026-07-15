@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "ec42eb9cf6d7ebbbc8f8ca9c6af9113ecd7f9175293feddf03472808371d0425",
+  "query": "PRAGMA synchronous=NORMAL"
+}

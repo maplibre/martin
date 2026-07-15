@@ -524,11 +524,24 @@ package-assets target:
 pg_dump *args:
     pg_dump {{args}} {{quote(DATABASE_URL)}}
 
-# Update sqlite database schema.
+# Update the offline `.sqlx` query cache for the mbtiles crate.
 prepare-sqlite: fetch install-sqlx
-    mkdir -p mbtiles/.sqlx
-    cd mbtiles && cargo sqlx prepare --database-url sqlite://$PWD/../tests/fixtures/mbtiles/world_cities.mbtiles -- --lib --tests
-    find mbtiles/.sqlx -name '*.json' -type f -exec sh -c \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    db="$(mktemp -t martin-sqlx-verify.XXXXXX)"
+    trap 'rm -f "$db"' EXIT
+    # add every possible schema to a dummy temp file so that most queries would compile.
+    # `init-flat` is listed before the view-defining layouts so `tiles` is a table.
+    for f in init-metadata init-flat init-flat-with-hash init-normalized init-normalized-dedup-id; do
+        # it is safer to handle NULLs than to expect it to never be there
+        sed -E -e 's/[[:space:]]+NOT[[:space:]]+NULL//g' \
+               -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
+            "mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
+    done
+    cd mbtiles
+    mkdir -p .sqlx
+    cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests --features transcode
+    find .sqlx -name '*.json' -type f -exec sh -c \
       'jq --sort-keys . "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
 
 # Print the connection string for the test database

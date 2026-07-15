@@ -181,7 +181,7 @@ where
         sqlx::query("PRAGMA journal_mode=WAL")
             .execute(&mut dst_conn)
             .await?;
-        sqlx::query("PRAGMA synchronous=NORMAL")
+        sqlx::query!("PRAGMA synchronous=NORMAL")
             .execute(&mut dst_conn)
             .await?;
 
