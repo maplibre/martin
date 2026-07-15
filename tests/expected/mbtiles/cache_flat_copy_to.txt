@@ -1,0 +1,2 @@
+ INFO Copying ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) to a new file tests/mbtiles_temp_files/world_cities_cache_flat.mbtiles (cache)
+ INFO Updating agg_tiles_hash mbtiles.file=tests/mbtiles_temp_files/world_cities_cache_flat.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F

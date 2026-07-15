@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
+use crate::{CacheSchema, CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -27,7 +27,9 @@ pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     Normalized,
-    Cache,
+    CacheFlat,
+    #[cfg_attr(feature = "cli", value(alias("cache")))]
+    CacheNormalized,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -587,8 +589,15 @@ impl Mbtiles {
             } => {
                 "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
+            MbtType::Cache {
+                schema: CacheSchema::Flat,
+            } => {
+                "SELECT tile_data, NULL AS tile_hash from tile_cache where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            }
             // Like DedupId, the integer content keys are not md5-text hashes, so no hash is returned
-            MbtType::Cache => {
+            MbtType::Cache {
+                schema: CacheSchema::Normalized,
+            } => {
                 "SELECT cache_data.tile_data, NULL AS tile_hash FROM tile_cache JOIN cache_data ON tile_cache.tile_id = cache_data.tile_id  where tile_cache.zoom_level = ? AND tile_cache.tile_column = ? AND tile_cache.tile_row = ?"
             }
         }
@@ -671,7 +680,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
-            MbtType::Cache => "tile_cache",
+            MbtType::Cache { .. } => "tile_cache",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -719,11 +728,24 @@ impl Mbtiles {
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
+            // Bulk-inserted cache entries get NULL expires/etag (never expire)
+            MbtType::Cache {
+                schema: CacheSchema::Flat,
+            } => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_data)
+    VALUES (?1, ?2, ?3, ?4);"
+                ),
+                None,
+            ),
             // The blob insert is always OR IGNORE: a `cache_data` slot is shared by every
             // entry with the same content, so `on_duplicate` must never REPLACE it. Unlike
             // `set_cached`, this bulk path cannot linear-probe on an xxh3-64 collision
             // (astronomically rare); `expires`/`etag` are left NULL (never expires).
-            MbtType::Cache => (
+            MbtType::Cache {
+                schema: CacheSchema::Normalized,
+            } => (
                 format!(
                     "
     INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_id)

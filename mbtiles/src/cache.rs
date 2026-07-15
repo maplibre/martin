@@ -5,17 +5,23 @@
 //! (`expires` and `etag`) and de-duplicates identical tile blobs, and it is intended to
 //! be embedded by other systems that need a simple on-disk tile cache.
 //!
-//! # Schema
+//! # Schemas
 //!
-//! - `cache_data(tile_id INTEGER PRIMARY KEY, tile_data BLOB)` - the tile blobs.
-//!   `tile_id` is the [xxh3-64](https://github.com/Cyan4973/xxHash) hash of `tile_data`,
-//!   stored as an `INTEGER PRIMARY KEY` so it aliases the rowid (single B-tree, no
-//!   secondary index). Identical blobs collapse to one row.
-//! - `tile_cache(zoom_level, tile_column, tile_row, expires, etag, tile_id)` - a
-//!   `WITHOUT ROWID` index table clustered on `(zoom_level, tile_column, tile_row)`,
-//!   with a `tile_id` foreign key into `cache_data`.
-//! - `tiles` view - a spec-compatible read view, so the file can still be opened by any
-//!   standard `MBTiles` reader (the `expires`/`etag` columns are simply invisible to it).
+//! Two layouts are supported, chosen via [`CacheSchema`]. Both center on a `tile_cache`
+//! table storing tile coordinates with `expires`/`etag` metadata, and both expose a
+//! spec-compatible `tiles` view so the file can still be opened by any standard
+//! `MBTiles` reader (the `expires`/`etag` columns are simply invisible to it).
+//!
+//! - [`CacheSchema::Flat`]: `tile_cache(zoom_level, tile_column, tile_row, expires,
+//!   etag, tile_data)` - the blob is stored inline. Simple and fast, best when few
+//!   tiles share content.
+//! - [`CacheSchema::Normalized`]: `tile_cache(zoom_level, tile_column, tile_row,
+//!   expires, etag, tile_id)` (`WITHOUT ROWID`) plus `cache_data(tile_id INTEGER
+//!   PRIMARY KEY, tile_data BLOB)`. `tile_id` is the
+//!   [xxh3-64](https://github.com/Cyan4973/xxHash) hash of `tile_data`, stored as an
+//!   `INTEGER PRIMARY KEY` so it aliases the rowid (single B-tree, no secondary index).
+//!   Identical blobs collapse to one row - the best default for web-tile caches, where
+//!   identical (e.g. empty or ocean) tiles are common.
 //!
 //! Coordinates use the XYZ (Slippy map) scheme on the API, matching the rest of the crate;
 //! the TMS `tile_row` inversion is handled internally.
@@ -28,24 +34,25 @@
 //! while `None` means "not in the cache at all". Empty blobs de-duplicate into a single
 //! `cache_data` row like any other content.
 //!
-//! # Bulk copies vs. runtime writes
+//! # Bulk copies vs. runtime writes (normalized layout)
 //!
 //! Only [`Mbtiles::set_cached`] resolves xxh3-64 collisions (by linear probing). The bulk
-//! SQL paths - `mbtiles copy` into a cache file and [`Mbtiles::insert_tiles`] - key blobs
-//! with `INSERT OR IGNORE` instead: the copier detects a collision afterwards and fails
-//! with [`MbtError::CacheCopyCollision`], while `insert_tiles` cannot detect one (the
+//! SQL paths - `mbtiles copy` into a normalized cache file and [`Mbtiles::insert_tiles`] -
+//! key blobs with `INSERT OR IGNORE` instead: the copier detects a collision afterwards and
+//! fails with [`MbtError::CacheCopyCollision`], while `insert_tiles` cannot detect one (the
 //! source bytes are not in a table to compare against) and accepts the ~2⁻⁶⁴ risk.
+//! The flat layout stores blobs inline and has no collision concerns.
 //!
 //! See [`crate::MbtilesCache`] for a pooled, writable entry point.
 
-use sqlx::{Connection as _, SqliteConnection, SqliteExecutor, query, query_scalar};
+use sqlx::{Connection as _, Row as _, SqliteConnection, SqliteExecutor, query, query_scalar};
 use tracing::debug;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::errors::MbtResult;
 use crate::queries::create_metadata_table;
-use crate::schemas::{create_cache_tables, is_cache_tables_type};
-use crate::{MbtError, Mbtiles, invert_y_value};
+use crate::schemas::{cache_tables_schema, create_cache_tables};
+use crate::{CacheSchema, MbtError, Mbtiles, invert_y_value};
 
 /// Maximum number of linear probes when resolving an xxh3-64 collision in `set_cached`
 /// before giving up with [`MbtError::CacheKeyExhausted`]. Collisions require billions of
@@ -102,24 +109,38 @@ pub(crate) fn content_key(data: &[u8]) -> i64 {
 }
 
 impl Mbtiles {
-    /// Create the tile-cache schema (`metadata` and `tile_cache` + `cache_data` tables plus
-    /// the `tiles` view) if it does not already exist.
+    /// Create the tile-cache schema of the given [`CacheSchema`] layout (`metadata` and
+    /// the cache tables plus the `tiles` view) if it does not already exist.
     ///
     /// Pass `strict = true` to create `STRICT` tables.
-    pub async fn create_cache_schema<T>(&self, conn: &mut T, strict: bool) -> MbtResult<()>
+    pub async fn create_cache_schema<T>(
+        &self,
+        conn: &mut T,
+        schema: CacheSchema,
+        strict: bool,
+    ) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         create_metadata_table(&mut *conn, strict).await?;
-        create_cache_tables(&mut *conn, strict).await
+        create_cache_tables(&mut *conn, schema, strict).await
     }
 
-    /// Returns `true` if this file uses the tile-cache schema.
+    /// Returns the [`CacheSchema`] layout of this file, or `None` if it does not use a
+    /// tile-cache schema.
+    pub async fn cache_schema<T>(&self, conn: &mut T) -> MbtResult<Option<CacheSchema>>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        cache_tables_schema(conn).await
+    }
+
+    /// Returns `true` if this file uses one of the tile-cache schemas.
     pub async fn is_cache<T>(&self, conn: &mut T) -> MbtResult<bool>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        is_cache_tables_type(conn).await
+        Ok(cache_tables_schema(conn).await?.is_some())
     }
 
     /// Look up a cached tile by its XYZ coordinates.
@@ -131,6 +152,7 @@ impl Mbtiles {
     pub async fn get_cached<T>(
         &self,
         conn: &mut T,
+        schema: CacheSchema,
         z: u8,
         x: u32,
         y: u32,
@@ -138,45 +160,73 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let row = query!(
-            "
-SELECT d.tile_data, c.expires, c.etag
-FROM tile_cache c
-JOIN cache_data d ON d.tile_id = c.tile_id
-WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
-            z,
-            x,
-            invert_y_value(z, y),
-        )
-        .fetch_optional(conn)
-        .await?;
+        let sql = match schema {
+            CacheSchema::Flat => {
+                "SELECT tile_data, expires, etag
+                 FROM tile_cache
+                 WHERE zoom_level = ?1 AND tile_column = ?2 AND tile_row = ?3"
+            }
+            CacheSchema::Normalized => {
+                "SELECT d.tile_data, c.expires, c.etag
+                 FROM tile_cache c
+                 JOIN cache_data d ON d.tile_id = c.tile_id
+                 WHERE c.zoom_level = ?1 AND c.tile_column = ?2 AND c.tile_row = ?3"
+            }
+        };
+        let row = query(sql)
+            .bind(z)
+            .bind(x)
+            .bind(invert_y_value(z, y))
+            .fetch_optional(conn)
+            .await?;
 
         Ok(row.map(|row| CachedTile {
-            data: row.tile_data.unwrap_or_default(),
-            expires: row.expires,
-            etag: row.etag,
+            data: row.get(0),
+            expires: row.get(1),
+            etag: row.get(2),
         }))
     }
 
     /// Insert or replace a cached tile, with its [`CacheEntryMeta`] (`expires`/`etag`).
     ///
-    /// The tile blob is de-duplicated by content: identical blobs share a single
-    /// `cache_data` row keyed on their xxh3-64 hash.
+    /// With [`CacheSchema::Flat`], this is a plain upsert with the blob stored inline.
     ///
+    /// With [`CacheSchema::Normalized`], the tile blob is de-duplicated by content:
+    /// identical blobs share a single `cache_data` row keyed on their xxh3-64 hash.
     /// On the astronomically-rare hash collision (a *different* blob already stored under the
     /// hash key), the key is resolved by **linear probing** - `key`, `key + 1`, … - until a
     /// free slot or a slot holding identical bytes is found. The resolved key is stored in the
     /// index row, so reads never probe and no existing entry is ever overwritten. If no slot
     /// is found within [`MAX_KEY_PROBES`], returns [`MbtError::CacheKeyExhausted`].
+    #[expect(clippy::too_many_arguments)]
     pub async fn set_cached(
         &self,
         conn: &mut SqliteConnection,
+        schema: CacheSchema,
         z: u8,
         x: u32,
         y: u32,
         data: &[u8],
         meta: CacheEntryMeta<'_>,
     ) -> MbtResult<()> {
+        if schema == CacheSchema::Flat {
+            // Inline blob: a plain upsert, no de-duplication or key probing involved.
+            query(
+                "INSERT OR REPLACE INTO tile_cache
+                     (zoom_level, tile_column, tile_row, expires, etag, tile_data)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .bind(z)
+            .bind(x)
+            .bind(invert_y_value(z, y))
+            .bind(meta.expires)
+            .bind(meta.etag)
+            .bind(data)
+            .execute(&mut *conn)
+            .await?;
+            return Ok(());
+        }
+
         let mut tx = conn.begin().await?;
 
         // Resolve the content key. Reuse an existing slot holding identical bytes, or claim a
@@ -283,7 +333,8 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
     }
 
     /// Delete all entries whose `expires` timestamp is strictly less than `now` (a Unix-epoch
-    /// seconds value), then remove any blobs that are no longer referenced.
+    /// seconds value), then remove any blobs that are no longer referenced
+    /// ([`CacheSchema::Normalized`] only - the flat layout has no separate blobs).
     ///
     /// Returns the number of `tile_cache` rows removed. Entries with `expires IS NULL` never
     /// expire and are left untouched. Freed pages are released back to the OS via
@@ -291,16 +342,19 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
     /// `auto_vacuum` enabled (files created by [`crate::MbtilesCache::open`] do); for other
     /// files the pages are reused by later writes, and a one-off full `VACUUM` is needed
     /// to shrink them on disk.
-    pub async fn purge_expired(&self, conn: &mut SqliteConnection, now: i64) -> MbtResult<u64> {
+    pub async fn purge_expired(
+        &self,
+        conn: &mut SqliteConnection,
+        schema: CacheSchema,
+        now: i64,
+    ) -> MbtResult<u64> {
         let mut tx = conn.begin().await?;
         let removed = query("DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1")
             .bind(now)
             .execute(&mut *tx)
             .await?
             .rows_affected();
-        query("DELETE FROM cache_data WHERE tile_id NOT IN (SELECT tile_id FROM tile_cache)")
-            .execute(&mut *tx)
-            .await?;
+        gc_orphaned_blobs(&mut tx, schema).await?;
         tx.commit().await?;
         query("PRAGMA incremental_vacuum")
             .execute(&mut *conn)
@@ -322,6 +376,7 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
     pub async fn purge_cache_to_size(
         &self,
         conn: &mut SqliteConnection,
+        schema: CacheSchema,
         max_bytes: u64,
     ) -> MbtResult<u64> {
         /// How many `tile_cache` rows to evict between size re-measurements. Small enough
@@ -339,9 +394,7 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
             .execute(&mut *tx)
             .await?
             .rows_affected();
-            query("DELETE FROM cache_data WHERE tile_id NOT IN (SELECT tile_id FROM tile_cache)")
-                .execute(&mut *tx)
-                .await?;
+            gc_orphaned_blobs(&mut tx, schema).await?;
             tx.commit().await?;
             query("PRAGMA incremental_vacuum")
                 .execute(&mut *conn)
@@ -353,6 +406,20 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
         }
         Ok(removed)
     }
+}
+
+/// Remove `cache_data` blobs no longer referenced by any `tile_cache` entry
+/// ([`CacheSchema::Normalized`] only - the flat layout stores blobs inline).
+async fn gc_orphaned_blobs(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    schema: CacheSchema,
+) -> MbtResult<()> {
+    if schema == CacheSchema::Normalized {
+        query("DELETE FROM cache_data WHERE tile_id NOT IN (SELECT tile_id FROM tile_cache)")
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
 }
 
 /// The database size excluding free pages: `(page_count - freelist_count) * page_size`.
@@ -373,33 +440,56 @@ async fn db_live_size(conn: &mut SqliteConnection) -> MbtResult<u64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CacheEntryMeta, Mbtiles};
+    use rstest::rstest;
 
-    /// Open an in-memory cache file with the schema created.
-    async fn cache() -> (Mbtiles, sqlx::SqliteConnection) {
+    use crate::CacheSchema::{Flat, Normalized};
+    use crate::{CacheEntryMeta, CacheSchema, Mbtiles};
+
+    /// Open an in-memory cache file with the given layout created.
+    async fn cache(schema: CacheSchema) -> (Mbtiles, sqlx::SqliteConnection) {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        mbt.create_cache_schema(&mut conn, false).await.unwrap();
+        mbt.create_cache_schema(&mut conn, schema, false)
+            .await
+            .unwrap();
         (mbt, conn)
     }
 
+    /// Count the rows of the table holding tile blobs in the given layout.
+    async fn blob_count(conn: &mut sqlx::SqliteConnection, schema: CacheSchema) -> i64 {
+        let sql = match schema {
+            Flat => "SELECT COUNT(*) FROM tile_cache",
+            Normalized => "SELECT COUNT(*) FROM cache_data",
+        };
+        sqlx::query_scalar(sql).fetch_one(conn).await.unwrap()
+    }
+
+    #[rstest]
     #[tokio::test]
-    async fn detected_as_cache() {
-        let (mbt, mut conn) = cache().await;
+    async fn detected_as_cache(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
+        assert_eq!(mbt.cache_schema(&mut conn).await.unwrap(), Some(schema));
         assert!(mbt.is_cache(&mut conn).await.unwrap());
         assert_eq!(
             mbt.detect_type(&mut conn).await.unwrap(),
-            crate::MbtType::Cache
+            crate::MbtType::Cache { schema }
         );
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn set_get_roundtrip() {
-        let (mbt, mut conn) = cache().await;
-        assert!(mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().is_none());
+    async fn set_get_roundtrip(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
+        assert!(
+            mbt.get_cached(&mut conn, schema, 3, 1, 2)
+                .await
+                .unwrap()
+                .is_none()
+        );
 
         mbt.set_cached(
             &mut conn,
+            schema,
             3,
             1,
             2,
@@ -408,16 +498,32 @@ mod tests {
         )
         .await
         .unwrap();
-        let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
+        let got = mbt
+            .get_cached(&mut conn, schema, 3, 1, 2)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(got.data, b"hello");
         assert_eq!(got.expires, Some(100));
         assert_eq!(got.etag.as_deref(), Some("etag-1"));
 
         // Overwrite the same coordinate with new data/metadata.
-        mbt.set_cached(&mut conn, 3, 1, 2, b"world", CacheEntryMeta::default())
+        mbt.set_cached(
+            &mut conn,
+            schema,
+            3,
+            1,
+            2,
+            b"world",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
+        let got = mbt
+            .get_cached(&mut conn, schema, 3, 1, 2)
             .await
+            .unwrap()
             .unwrap();
-        let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
         assert_eq!(got.data, b"world");
         assert_eq!(got.expires, None);
         assert_eq!(got.etag, None);
@@ -425,19 +531,35 @@ mod tests {
 
     #[tokio::test]
     async fn blob_is_deduplicated() {
-        let (mbt, mut conn) = cache().await;
-        mbt.set_cached(&mut conn, 0, 0, 0, b"same", CacheEntryMeta::default())
-            .await
-            .unwrap();
-        mbt.set_cached(&mut conn, 1, 0, 0, b"same", CacheEntryMeta::default())
-            .await
-            .unwrap();
+        let (mbt, mut conn) = cache(Normalized).await;
+        mbt.set_cached(
+            &mut conn,
+            Normalized,
+            0,
+            0,
+            0,
+            b"same",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
+        mbt.set_cached(
+            &mut conn,
+            Normalized,
+            1,
+            0,
+            0,
+            b"same",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
 
-        let blobs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cache_data")
-            .fetch_one(&mut conn)
-            .await
-            .unwrap();
-        assert_eq!(blobs, 1, "identical blobs should share one cache_data row");
+        assert_eq!(
+            blob_count(&mut conn, Normalized).await,
+            1,
+            "identical blobs should share one cache_data row"
+        );
         let entries: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tile_cache")
             .fetch_one(&mut conn)
             .await
@@ -446,8 +568,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn flat_stores_blobs_inline() {
+        let (mbt, mut conn) = cache(Flat).await;
+        mbt.set_cached(&mut conn, Flat, 0, 0, 0, b"same", CacheEntryMeta::default())
+            .await
+            .unwrap();
+        mbt.set_cached(&mut conn, Flat, 1, 0, 0, b"same", CacheEntryMeta::default())
+            .await
+            .unwrap();
+
+        // No de-duplication: each entry stores its own copy of the blob
+        assert_eq!(blob_count(&mut conn, Flat).await, 2);
+    }
+
+    #[tokio::test]
     async fn collision_probes_next_slot_without_corrupting() {
-        let (mbt, mut conn) = cache().await;
+        let (mbt, mut conn) = cache(Normalized).await;
         let victim: &[u8] = b"the-real-tile";
         let key = super::content_key(victim);
 
@@ -461,11 +597,19 @@ mod tests {
             .unwrap();
 
         // Writing the victim must NOT overwrite the squatter; it probes to key+1.
-        mbt.set_cached(&mut conn, 4, 3, 2, victim, CacheEntryMeta::default())
-            .await
-            .unwrap();
+        mbt.set_cached(
+            &mut conn,
+            Normalized,
+            4,
+            3,
+            2,
+            victim,
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            mbt.get_cached(&mut conn, 4, 3, 2)
+            mbt.get_cached(&mut conn, Normalized, 4, 3, 2)
                 .await
                 .unwrap()
                 .unwrap()
@@ -491,107 +635,153 @@ mod tests {
 
         // Re-writing the same victim to another coord reuses key+1 (dedup after probe);
         // it must not create a third blob row.
-        mbt.set_cached(&mut conn, 5, 1, 1, victim, CacheEntryMeta::default())
-            .await
-            .unwrap();
-        let blobs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cache_data")
-            .fetch_one(&mut conn)
-            .await
-            .unwrap();
-        assert_eq!(blobs, 2, "squatter + victim only");
+        mbt.set_cached(
+            &mut conn,
+            Normalized,
+            5,
+            1,
+            1,
+            victim,
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            blob_count(&mut conn, Normalized).await,
+            2,
+            "squatter + victim only"
+        );
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn readable_via_tiles_view() {
-        let (mbt, mut conn) = cache().await;
+    async fn readable_via_tiles_view(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
         // z=1, y=0 (XYZ) => TMS tile_row = 1
-        mbt.set_cached(&mut conn, 1, 0, 0, b"viewdata", CacheEntryMeta::default())
-            .await
-            .unwrap();
+        mbt.set_cached(
+            &mut conn,
+            schema,
+            1,
+            0,
+            0,
+            b"viewdata",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
         let data = mbt.get_tile(&mut conn, 1, 0, 0).await.unwrap().unwrap();
         assert_eq!(data, b"viewdata");
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn purge_expired_removes_and_gcs() {
-        let (mbt, mut conn) = cache().await;
+    async fn purge_expired_removes_and_gcs(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
+        let stale = CacheEntryMeta {
+            expires: Some(50),
+            etag: None,
+        };
+        mbt.set_cached(&mut conn, schema, 0, 0, 0, b"stale", stale)
+            .await
+            .unwrap();
+        let fresh = CacheEntryMeta {
+            expires: Some(200),
+            etag: None,
+        };
+        mbt.set_cached(&mut conn, schema, 1, 0, 0, b"fresh", fresh)
+            .await
+            .unwrap();
         mbt.set_cached(
             &mut conn,
-            0,
-            0,
-            0,
-            b"stale",
-            CacheEntryMeta {
-                expires: Some(50),
-                etag: None,
-            },
-        )
-        .await
-        .unwrap();
-        mbt.set_cached(
-            &mut conn,
+            schema,
+            1,
             1,
             0,
-            0,
-            b"fresh",
-            CacheEntryMeta {
-                expires: Some(200),
-                etag: None,
-            },
+            b"forever",
+            CacheEntryMeta::default(),
         )
         .await
         .unwrap();
-        mbt.set_cached(&mut conn, 1, 1, 0, b"forever", CacheEntryMeta::default())
-            .await
-            .unwrap();
 
-        let removed = mbt.purge_expired(&mut conn, 100).await.unwrap();
+        let removed = mbt.purge_expired(&mut conn, schema, 100).await.unwrap();
         assert_eq!(removed, 1);
 
-        assert!(mbt.get_cached(&mut conn, 0, 0, 0).await.unwrap().is_none());
-        assert!(mbt.get_cached(&mut conn, 1, 0, 0).await.unwrap().is_some());
-        assert!(mbt.get_cached(&mut conn, 1, 1, 0).await.unwrap().is_some());
+        assert!(
+            mbt.get_cached(&mut conn, schema, 0, 0, 0)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            mbt.get_cached(&mut conn, schema, 1, 0, 0)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            mbt.get_cached(&mut conn, schema, 1, 1, 0)
+                .await
+                .unwrap()
+                .is_some()
+        );
 
-        // The orphaned blob for the purged tile should be gone too.
-        let blobs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM cache_data")
-            .fetch_one(&mut conn)
-            .await
-            .unwrap();
-        assert_eq!(blobs, 2);
+        // The purged tile's blob is gone too (GC'd from cache_data for normalized,
+        // deleted with its row for flat).
+        assert_eq!(blob_count(&mut conn, schema).await, 2);
     }
 
-    /// Count the rows of the `cache_data` blob table.
-    async fn blob_count(conn: &mut sqlx::SqliteConnection) -> i64 {
-        sqlx::query_scalar("SELECT COUNT(*) FROM cache_data")
-            .fetch_one(conn)
-            .await
-            .unwrap()
-    }
-
+    #[rstest]
     #[tokio::test]
-    async fn purge_gcs_orphan_from_overwrite() {
-        let (mbt, mut conn) = cache().await;
-        mbt.set_cached(&mut conn, 2, 1, 1, b"old", CacheEntryMeta::default())
-            .await
-            .unwrap();
-        mbt.set_cached(&mut conn, 2, 1, 1, b"new", CacheEntryMeta::default())
-            .await
-            .unwrap();
-        // The overwrite re-pointed the entry, orphaning the "old" blob.
-        assert_eq!(blob_count(&mut conn).await, 2);
+    async fn purge_gcs_orphan_from_overwrite(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
+        mbt.set_cached(
+            &mut conn,
+            schema,
+            2,
+            1,
+            1,
+            b"old",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
+        mbt.set_cached(
+            &mut conn,
+            schema,
+            2,
+            1,
+            1,
+            b"new",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
+        // Normalized: the overwrite re-pointed the entry, orphaning the "old" blob.
+        // Flat: the overwrite replaced the row in place, so there is nothing to orphan.
+        let expected_before = match schema {
+            Flat => 1,
+            Normalized => 2,
+        };
+        assert_eq!(blob_count(&mut conn, schema).await, expected_before);
 
         // Nothing is expired, so no entries are removed - but the orphan is GC'd.
-        assert_eq!(mbt.purge_expired(&mut conn, 100).await.unwrap(), 0);
-        assert_eq!(blob_count(&mut conn).await, 1);
-        let got = mbt.get_cached(&mut conn, 2, 1, 1).await.unwrap().unwrap();
+        assert_eq!(mbt.purge_expired(&mut conn, schema, 100).await.unwrap(), 0);
+        assert_eq!(blob_count(&mut conn, schema).await, 1);
+        let got = mbt
+            .get_cached(&mut conn, schema, 2, 1, 1)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(got.data, b"new");
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn update_meta_without_rewriting_blob() {
-        let (mbt, mut conn) = cache().await;
+    async fn update_meta_without_rewriting_blob(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
         mbt.set_cached(
             &mut conn,
+            schema,
             3,
             1,
             2,
@@ -616,21 +806,32 @@ mod tests {
                 .await
                 .unwrap()
         );
-        let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
+        let got = mbt
+            .get_cached(&mut conn, schema, 3, 1, 2)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(got.data, b"payload");
         assert_eq!(got.expires, Some(500));
         assert_eq!(got.etag.as_deref(), Some("etag-2"));
-        assert_eq!(blob_count(&mut conn).await, 1);
+        assert_eq!(blob_count(&mut conn, schema).await, 1);
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn empty_blob_caches_negative_response() {
-        let (mbt, mut conn) = cache().await;
-        assert!(mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().is_none());
+    async fn empty_blob_caches_negative_response(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
+        assert!(
+            mbt.get_cached(&mut conn, schema, 5, 1, 1)
+                .await
+                .unwrap()
+                .is_none()
+        );
 
         // Cached negative: Some(empty) with its own freshness metadata.
         mbt.set_cached(
             &mut conn,
+            schema,
             5,
             1,
             1,
@@ -639,21 +840,30 @@ mod tests {
         )
         .await
         .unwrap();
-        let got = mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().unwrap();
+        let got = mbt
+            .get_cached(&mut conn, schema, 5, 1, 1)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(got.data.is_empty());
         assert_eq!(got.expires, Some(60));
         assert_eq!(got.etag.as_deref(), Some("miss-etag"));
 
-        // Empty blobs de-duplicate like any other content.
-        mbt.set_cached(&mut conn, 5, 2, 2, b"", CacheEntryMeta::default())
+        // Normalized de-duplicates empty blobs like any other content; flat stores each.
+        mbt.set_cached(&mut conn, schema, 5, 2, 2, b"", CacheEntryMeta::default())
             .await
             .unwrap();
-        assert_eq!(blob_count(&mut conn).await, 1);
+        let expected = match schema {
+            Flat => 2,
+            Normalized => 1,
+        };
+        assert_eq!(blob_count(&mut conn, schema).await, expected);
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn insert_tiles_bulk_dedup() {
-        let (mbt, mut conn) = cache().await;
+    async fn insert_tiles_bulk(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
         let batch: Vec<(u8, u32, u32, Vec<u8>)> = vec![
             (1, 0, 0, b"same".to_vec()),
             (1, 1, 0, b"same".to_vec()),
@@ -661,23 +871,33 @@ mod tests {
         ];
         mbt.insert_tiles(
             &mut conn,
-            crate::MbtType::Cache,
+            crate::MbtType::Cache { schema },
             crate::CopyDuplicateMode::Override,
             &batch,
         )
         .await
         .unwrap();
 
-        assert_eq!(blob_count(&mut conn).await, 2);
-        let got = mbt.get_cached(&mut conn, 1, 1, 0).await.unwrap().unwrap();
+        // Normalized de-duplicates the two identical blobs; flat stores all three
+        let expected = match schema {
+            Flat => 3,
+            Normalized => 2,
+        };
+        assert_eq!(blob_count(&mut conn, schema).await, expected);
+        let got = mbt
+            .get_cached(&mut conn, schema, 1, 1, 0)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(got.data, b"same");
         assert_eq!(got.expires, None, "bulk-inserted tiles never expire");
         assert_eq!(got.etag, None);
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn purge_to_size_evicts_expiring_first() {
-        let (mbt, mut conn) = cache().await;
+    async fn purge_to_size_evicts_expiring_first(#[values(Flat, Normalized)] schema: CacheSchema) {
+        let (mbt, mut conn) = cache(schema).await;
         // 80 expiring + 20 never-expiring tiles, each a distinct 8 KiB blob (larger than
         // a page, so evictions free their overflow pages immediately).
         for i in 0..100u32 {
@@ -690,22 +910,40 @@ mod tests {
             } else {
                 CacheEntryMeta::default()
             };
-            mbt.set_cached(&mut conn, 9, i, 0, &data, meta)
+            mbt.set_cached(&mut conn, schema, 9, i, 0, &data, meta)
                 .await
                 .unwrap();
         }
 
         let initial = super::db_live_size(&mut conn).await.unwrap();
         let budget = initial - 300 * 1024;
-        let removed = mbt.purge_cache_to_size(&mut conn, budget).await.unwrap();
+        let removed = mbt
+            .purge_cache_to_size(&mut conn, schema, budget)
+            .await
+            .unwrap();
         assert!(removed > 0);
         assert!(super::db_live_size(&mut conn).await.unwrap() <= budget);
 
         // Soonest-expiring entries went first; never-expiring ones survived.
-        assert!(mbt.get_cached(&mut conn, 9, 0, 0).await.unwrap().is_none());
-        assert!(mbt.get_cached(&mut conn, 9, 99, 0).await.unwrap().is_some());
+        assert!(
+            mbt.get_cached(&mut conn, schema, 9, 0, 0)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            mbt.get_cached(&mut conn, schema, 9, 99, 0)
+                .await
+                .unwrap()
+                .is_some()
+        );
 
         // Already under budget: a second call is a no-op.
-        assert_eq!(mbt.purge_cache_to_size(&mut conn, budget).await.unwrap(), 0);
+        assert_eq!(
+            mbt.purge_cache_to_size(&mut conn, schema, budget)
+                .await
+                .unwrap(),
+            0
+        );
     }
 }

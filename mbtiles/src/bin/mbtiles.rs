@@ -401,19 +401,19 @@ async fn main_int() -> anyhow::Result<()> {
 async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
-    if !mbt.is_cache(&mut conn).await? {
+    let Some(schema) = mbt.cache_schema(&mut conn).await? else {
         return Err(MbtError::NotACacheFile(mbt.filepath().to_string()).into());
-    }
+    };
     let now = i64::try_from(
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs(),
     )?;
-    let removed = mbt.purge_expired(&mut conn, now).await?;
+    let removed = mbt.purge_expired(&mut conn, schema, now).await?;
     println!("Removed {removed} expired tile entries");
     if let Some(max_size_mb) = max_size_mb {
         let evicted = mbt
-            .purge_cache_to_size(&mut conn, max_size_mb * 1_000_000)
+            .purge_cache_to_size(&mut conn, schema, max_size_mb * 1_000_000)
             .await?;
         println!("Evicted {evicted} tile entries to fit under {max_size_mb} MB");
     }

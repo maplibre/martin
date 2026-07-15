@@ -97,7 +97,7 @@ where
             }
             Ok(())
         }
-        MbtType::Cache => create_cache_tables(&mut *conn, strict).await,
+        MbtType::Cache { schema } => create_cache_tables(&mut *conn, schema, strict).await,
     }
 }
 

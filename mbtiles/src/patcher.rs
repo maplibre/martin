@@ -26,7 +26,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     let mut conn = base_mbt.open().await?;
     let base_info = base_mbt.examine_diff(&mut conn).await?;
-    if base_info.mbt_type == Cache {
+    if matches!(base_info.mbt_type, Cache { .. }) {
         return Err(MbtError::UnsupportedCopyOperation {
             reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_string(),
         });
@@ -117,7 +117,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
     } else {
         match patch_type {
             // A Cache patch file is read via its `tiles` view, like Flat
-            Flat | Cache => "
+            Flat | Cache { .. } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
                 .to_string(),
@@ -180,7 +180,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
             )
         }
         // Rejected at the top of apply_patch before any SQL is built
-        Cache => unreachable!("a cache file cannot be patched in place"),
+        Cache { .. } => unreachable!("a cache file cannot be patched in place"),
     }
 }
 

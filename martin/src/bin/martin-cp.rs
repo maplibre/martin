@@ -651,7 +651,12 @@ async fn init_schema(
                     hash_view: true,
                     schema: mbtiles::NormalizedSchema::Hash,
                 },
-                MbtTypeCli::Cache => MbtType::Cache,
+                MbtTypeCli::CacheFlat => MbtType::Cache {
+                    schema: mbtiles::CacheSchema::Flat,
+                },
+                MbtTypeCli::CacheNormalized => MbtType::Cache {
+                    schema: mbtiles::CacheSchema::Normalized,
+                },
             };
             init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await

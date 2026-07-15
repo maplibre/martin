@@ -19,7 +19,7 @@ use crate::cache::MAX_KEY_PROBES;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
-    Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
+    Mbtiles, cache_tables_schema, has_tiles_with_hash, invert_y_value,
     is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
@@ -56,6 +56,47 @@ impl HashAlgorithm {
         match value.to_ascii_lowercase().as_str() {
             "md5" => Some(Self::Md5),
             _ => None,
+        }
+    }
+}
+
+/// Describes the layout used by a tile-cache `MBTiles` schema (see [`MbtType::Cache`]).
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, EnumDisplay)]
+#[enum_display(case = "Kebab")]
+pub enum CacheSchema {
+    /// A single `tile_cache` table with the tile blob stored inline.
+    /// Simpler and faster when the tileset contains few duplicate tiles.
+    Flat,
+    /// A `tile_cache` index table pointing into a de-duplicated `cache_data` blob table
+    /// keyed by the xxh3-64 hash of the blob. The best default for web-tile caches,
+    /// where identical (e.g. empty or ocean) tiles are common.
+    Normalized,
+}
+
+impl CacheSchema {
+    /// The schema-init SQL script for this cache layout.
+    #[must_use]
+    pub(crate) fn init_sql(self) -> &'static str {
+        match self {
+            Self::Flat => include_str!("../sql/init-cache-flat.sql"),
+            Self::Normalized => include_str!("../sql/init-cache-normalized.sql"),
+        }
+    }
+
+    /// `SELECT` returning `zoom_level, tile_column, tile_row, expires, etag, tile_data`
+    /// for the given database prefix - the canonical way to read cache entries with
+    /// their metadata regardless of layout.
+    #[must_use]
+    pub(crate) fn select_cached_sql(self, db_prefix: &str) -> String {
+        match self {
+            Self::Flat => format!(
+                "SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+                 FROM {db_prefix}.tile_cache"
+            ),
+            Self::Normalized => format!(
+                "SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+                 FROM {db_prefix}.tile_cache JOIN {db_prefix}.cache_data USING (tile_id)"
+            ),
         }
     }
 }
@@ -152,15 +193,16 @@ pub enum MbtType {
     },
     /// Tile-cache `MBTiles` file (non-standard)
     ///
-    /// Like [`MbtType::Normalized`], tile blobs are de-duplicated into a separate table
-    /// (`cache_data`, keyed by the xxh3-64 hash of the blob stored as an integer), and the
-    /// `tile_cache` mapping table additionally stores per-tile cache metadata (`expires`
-    /// and `etag`). A spec-compatible `tiles` view makes the file readable as a regular
+    /// A `tile_cache` table stores per-tile cache metadata (`expires` and `etag`) next to
+    /// the tile coordinates. The `schema` argument describes the layout: [`CacheSchema::Flat`]
+    /// keeps the blob inline, while [`CacheSchema::Normalized`] de-duplicates blobs into a
+    /// separate `cache_data` table keyed by the xxh3-64 hash of the blob (stored as an
+    /// integer). A spec-compatible `tiles` view makes the file readable as a regular
     /// tileset. Used as a persistent web-tile cache; see the `cache` module for the
     /// read/write API.
     ///
-    /// See <https://maplibre.org/martin/mbtiles-schema.html#cache> for the concrete schema.
-    Cache,
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#cache> for the concrete schemas.
+    Cache { schema: CacheSchema },
 }
 
 impl MbtType {
@@ -506,8 +548,8 @@ impl Mbtiles {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
             MbtType::Flat
-        } else if is_cache_tables_type(&mut *conn).await? {
-            MbtType::Cache
+        } else if let Some(schema) = cache_tables_schema(&mut *conn).await? {
+            MbtType::Cache { schema }
         } else {
             return Err(MbtError::InvalidDataFormat(self.filepath().to_string()));
         };
@@ -530,7 +572,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
-            MbtType::Cache => "tile_cache",
+            MbtType::Cache { .. } => "tile_cache",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -809,7 +851,18 @@ LIMIT 1;"
                 info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
-            MbtType::Cache => return self.check_each_cache_tile_hash(conn).await,
+            MbtType::Cache {
+                schema: CacheSchema::Flat,
+            } => {
+                info!(
+                    mbtiles.file = %self,
+                    "Skipping per-tile hash validation because this is a flat cache MBTiles file"
+                );
+                return Ok(());
+            }
+            MbtType::Cache {
+                schema: CacheSchema::Normalized,
+            } => return self.check_each_cache_tile_hash(conn).await,
         };
 
         query(sql)
@@ -1017,10 +1070,14 @@ pub(crate) mod tests {
             }
         );
 
-        let (mbt, mut conn) = anonymous_mbtiles("").await;
-        mbt.create_cache_schema(&mut conn, false).await.unwrap();
-        let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::Cache);
+        for schema in [CacheSchema::Flat, CacheSchema::Normalized] {
+            let (mbt, mut conn) = anonymous_mbtiles("").await;
+            mbt.create_cache_schema(&mut conn, schema, false)
+                .await
+                .unwrap();
+            let res = mbt.detect_type(&mut conn).await.unwrap();
+            assert_eq!(res, MbtType::Cache { schema });
+        }
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
@@ -1041,11 +1098,22 @@ pub(crate) mod tests {
         use crate::CacheEntryMeta;
         use crate::cache::content_key;
 
+        let schema = CacheSchema::Normalized;
         let (mbt, mut conn) = anonymous_mbtiles("").await;
-        mbt.create_cache_schema(&mut conn, false).await.unwrap();
-        mbt.set_cached(&mut conn, 1, 0, 0, b"data-a", CacheEntryMeta::default())
+        mbt.create_cache_schema(&mut conn, schema, false)
             .await
             .unwrap();
+        mbt.set_cached(
+            &mut conn,
+            schema,
+            1,
+            0,
+            0,
+            b"data-a",
+            CacheEntryMeta::default(),
+        )
+        .await
+        .unwrap();
 
         // A linear-probed entry (key within the probe window) is valid
         let probed: &[u8] = b"probed-data";

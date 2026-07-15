@@ -184,7 +184,7 @@ impl MbtilesPool {
     ///     MbtType::Flat => println!("Simple flat schema"),
     ///     MbtType::FlatWithHash => println!("Flat schema with hashes"),
     ///     MbtType::Normalized { .. } => println!("Normalized schema with deduplication"),
-    ///     MbtType::Cache => println!("Tile-cache schema with expires/etag metadata"),
+    ///     MbtType::Cache { .. } => println!("Tile-cache schema with expires/etag metadata"),
     /// }
     /// # Ok(())
     /// # }

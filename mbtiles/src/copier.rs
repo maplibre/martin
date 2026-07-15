@@ -21,9 +21,9 @@ use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{detach_db, init_mbtiles_schema, is_empty_database};
 use crate::{
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
-    MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite,
-    create_tiles_with_hash_view, invert_y_value, reset_db_settings,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType,
+    CacheSchema, CopyType, MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema,
+    action_with_rusqlite, create_tiles_with_hash_view, invert_y_value, reset_db_settings,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -105,7 +105,12 @@ impl MbtilesCopier {
                     hash_view: true,
                     schema: NormalizedSchema::Hash,
                 },
-                MbtTypeCli::Cache => Cache,
+                MbtTypeCli::CacheFlat => Cache {
+                    schema: CacheSchema::Flat,
+                },
+                MbtTypeCli::CacheNormalized => Cache {
+                    schema: CacheSchema::Normalized,
+                },
             })
         })
     }
@@ -252,7 +257,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if dst_type == Cache {
+        if matches!(dst_type, Cache { .. }) {
             // The inner-join `tiles` view over NOT-NULL blobs cannot represent the
             // NULL "deleted tile" markers a diff file needs.
             return Err(MbtError::UnsupportedCopyOperation {
@@ -334,7 +339,7 @@ impl MbtileCopierInt {
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
-        if dst_type == Cache {
+        if matches!(dst_type, Cache { .. }) {
             // Patched results would silently drop the source's expires/etag metadata,
             // and the patch pipeline relies on hash columns the cache schema lacks.
             return Err(MbtError::UnsupportedCopyOperation {
@@ -577,67 +582,22 @@ impl MbtileCopierInt {
     FROM ({select_from} {where_clause} {sql_cond})"
                 )
             }
-            // Blob inserts are always OR IGNORE: a `cache_data` slot is shared by every
-            // entry with identical content, so `on_duplicate` must never REPLACE it. This
-            // bulk path cannot linear-probe on an xxh3-64 collision like `set_cached`
-            // does, so a collision is detected afterwards and fails the copy.
-            Cache => {
-                let (blob_sql, verify_sql, index_sql) = if src_type == Cache {
-                    // cache -> cache: copy verbatim, preserving expires/etag and probed keys
-                    let copied_ids = format!(
-                        "SELECT tile_id FROM sourceDb.tile_cache WHERE TRUE {where_clause}"
-                    );
-                    (
-                        format!(
-                            "
-    INSERT OR IGNORE INTO cache_data (tile_id, tile_data)
-    SELECT tile_id, tile_data FROM sourceDb.cache_data
-    WHERE tile_id IN ({copied_ids})"
-                        ),
-                        format!(
-                            "SELECT 1 FROM sourceDb.cache_data AS src
-                             JOIN cache_data ON cache_data.tile_id = src.tile_id
-                             WHERE src.tile_id IN ({copied_ids})
-                               AND cache_data.tile_data != src.tile_data
-                             LIMIT 1"
-                        ),
-                        format!(
-                            "
-    INSERT {on_dupl} INTO tile_cache
-           (zoom_level, tile_column, tile_row, expires, etag, tile_id)
-    SELECT zoom_level, tile_column, tile_row, expires, etag, tile_id
-    FROM sourceDb.tile_cache WHERE TRUE {where_clause} {sql_cond}"
-                        ),
-                    )
-                } else {
-                    // other -> cache: key blobs by content; expires/etag stay NULL (never expires)
-                    (
-                        format!(
-                            "
-    INSERT OR IGNORE INTO cache_data (tile_id, tile_data)
-    SELECT xxh3_64_int(tile_data), tile_data
-    FROM ({select_from} {where_clause})"
-                        ),
-                        format!(
-                            "SELECT 1 FROM ({select_from} {where_clause}) AS src
-                             JOIN cache_data ON cache_data.tile_id = xxh3_64_int(src.tile_data)
-                             WHERE cache_data.tile_data != src.tile_data
-                             LIMIT 1"
-                        ),
-                        format!(
-                            "
-    INSERT {on_dupl} INTO tile_cache
-           (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, xxh3_64_int(tile_data)
-    FROM ({select_from} {where_clause} {sql_cond})"
-                        ),
-                    )
-                };
-                debug!("Copying to {dst_type} with {blob_sql}");
-                rusqlite_conn.execute(&blob_sql, [])?;
-                let collided = rusqlite_conn.prepare(&verify_sql)?.exists([])?;
-                if collided {
-                    return Err(MbtError::CacheCopyCollision(self.options.dst_file.clone()));
+            Cache { schema: dst_schema } => {
+                let (blob_and_verify, index_sql) = get_cache_copy_sqls(
+                    src_type,
+                    dst_schema,
+                    on_dupl,
+                    select_from,
+                    &where_clause,
+                    &sql_cond,
+                );
+                if let Some((blob_sql, verify_sql)) = blob_and_verify {
+                    debug!("Copying to {dst_type} with {blob_sql}");
+                    rusqlite_conn.execute(&blob_sql, [])?;
+                    let collided = rusqlite_conn.prepare(&verify_sql)?.exists([])?;
+                    if collided {
+                        return Err(MbtError::CacheCopyCollision(self.options.dst_file.clone()));
+                    }
                 }
                 index_sql
             }
@@ -656,7 +616,7 @@ impl MbtileCopierInt {
                 (Flat, Flat)
                 | (FlatWithHash, FlatWithHash)
                 | (Normalized { .. }, Normalized { .. })
-                | (Cache, Cache) => {}
+                | (Cache { .. }, Cache { .. }) => {}
                 (cli, dst) => {
                     return Err(MbtError::MismatchedTargetType {
                         filepath: self.options.dst_file.clone(),
@@ -734,7 +694,12 @@ impl MbtileCopierInt {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
                     Normalized { schema, .. } => (schema.map_table(), schema.tile_id_column()),
-                    Cache => ("tile_cache", "tile_id"),
+                    Cache {
+                        schema: CacheSchema::Flat,
+                    } => ("tile_cache", "tile_data"),
+                    Cache {
+                        schema: CacheSchema::Normalized,
+                    } => ("tile_cache", "tile_id"),
                 };
 
                 format!(
@@ -811,7 +776,7 @@ fn get_select_from_apply_patch(
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
                 // A Cache source/patch file is read via its `tiles` view, like Flat
-                Flat | Cache => format!(
+                Flat | Cache { .. } => format!(
                     "
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
          FROM {frm_db}.tiles)"
@@ -827,7 +792,7 @@ fn get_select_from_apply_patch(
                 } => format!("({})", schema.select_tiles_sql(frm_db, "tile_hash", "JOIN")),
             },
             // Rejected in run_with_patch/run_with_diff before any SQL is built
-            Cache => unreachable!("a cache file cannot be a patch destination"),
+            Cache { .. } => unreachable!("a cache file cannot be a patch destination"),
         }
     }
 
@@ -836,7 +801,7 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType) -> String {
             match typ {
-                Flat | Cache => {
+                Flat | Cache { .. } => {
                     format!("IIF({tbl}.tile_data ISNULL, NULL, md5_hex({tbl}.tile_data))")
                 }
                 FlatWithHash | Normalized { .. } => format!("{tbl}.tile_hash"),
@@ -900,11 +865,11 @@ fn get_select_from_with_diff(
         diff_tiles = "diffDb.tiles".to_string();
     } else {
         tile_hash_expr = match dif_type {
-            Flat | Cache => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
+            Flat | Cache { .. } => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
             FlatWithHash | Normalized { .. } => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
         };
         diff_tiles = match dif_type {
-            Flat | Cache => "diffDb.tiles".to_string(),
+            Flat | Cache { .. } => "diffDb.tiles".to_string(),
             Normalized {
                 hash_view: true,
                 schema: _,
@@ -942,17 +907,131 @@ fn get_select_from_with_diff(
     )
 }
 
+/// Build the SQL for copying tiles into a cache destination: an optional
+/// `(blob_insert, collision_check)` pair (normalized layout only) and the `tile_cache`
+/// insert statement.
+///
+/// Blob inserts are always `OR IGNORE`: a `cache_data` slot is shared by every entry
+/// with identical content, so `on_dupl` must never REPLACE it. This bulk path cannot
+/// linear-probe on an xxh3-64 collision like `set_cached` does, so the collision check
+/// runs afterwards and the copy fails if it fires.
+fn get_cache_copy_sqls(
+    src_type: MbtType,
+    dst_schema: CacheSchema,
+    on_dupl: &str,
+    select_from: &str,
+    where_clause: &str,
+    sql_cond: &str,
+) -> (Option<(String, String)>, String) {
+    // Canonical (z, x, y, expires, etag, tile_data) source: cache sources keep their
+    // per-tile metadata (whatever their layout), others get NULL expires/etag
+    // (never expires).
+    let src_select = |extra_cond: &str| {
+        if let Cache { schema: src_schema } = src_type {
+            format!(
+                "{} WHERE TRUE {where_clause} {extra_cond}",
+                src_schema.select_cached_sql("sourceDb")
+            )
+        } else {
+            format!(
+                "SELECT zoom_level, tile_column, tile_row, NULL AS expires, NULL AS etag, tile_data
+                 FROM ({select_from} {where_clause} {extra_cond})"
+            )
+        }
+    };
+
+    match dst_schema {
+        // Inline blobs: a single insert, no de-duplication involved
+        CacheSchema::Flat => (
+            None,
+            format!(
+                "
+    INSERT {on_dupl} INTO tile_cache
+           (zoom_level, tile_column, tile_row, expires, etag, tile_data)
+    SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+    FROM ({})",
+                src_select(sql_cond)
+            ),
+        ),
+        CacheSchema::Normalized => {
+            if matches!(
+                src_type,
+                Cache {
+                    schema: CacheSchema::Normalized
+                }
+            ) {
+                // normalized -> normalized: copy the blob keys verbatim, preserving any
+                // linear-probed slots
+                let copied_ids =
+                    format!("SELECT tile_id FROM sourceDb.tile_cache WHERE TRUE {where_clause}");
+                (
+                    Some((
+                        format!(
+                            "
+    INSERT OR IGNORE INTO cache_data (tile_id, tile_data)
+    SELECT tile_id, tile_data FROM sourceDb.cache_data
+    WHERE tile_id IN ({copied_ids})"
+                        ),
+                        format!(
+                            "SELECT 1 FROM sourceDb.cache_data AS src
+                             JOIN cache_data ON cache_data.tile_id = src.tile_id
+                             WHERE src.tile_id IN ({copied_ids})
+                               AND cache_data.tile_data != src.tile_data
+                             LIMIT 1"
+                        ),
+                    )),
+                    format!(
+                        "
+    INSERT {on_dupl} INTO tile_cache
+           (zoom_level, tile_column, tile_row, expires, etag, tile_id)
+    SELECT zoom_level, tile_column, tile_row, expires, etag, tile_id
+    FROM sourceDb.tile_cache WHERE TRUE {where_clause} {sql_cond}"
+                    ),
+                )
+            } else {
+                // any other source: key blobs by content
+                (
+                    Some((
+                        format!(
+                            "
+    INSERT OR IGNORE INTO cache_data (tile_id, tile_data)
+    SELECT xxh3_64_int(tile_data), tile_data
+    FROM ({})",
+                            src_select("")
+                        ),
+                        format!(
+                            "SELECT 1 FROM ({}) AS src
+                             JOIN cache_data ON cache_data.tile_id = xxh3_64_int(src.tile_data)
+                             WHERE cache_data.tile_data != src.tile_data
+                             LIMIT 1",
+                            src_select("")
+                        ),
+                    )),
+                    format!(
+                        "
+    INSERT {on_dupl} INTO tile_cache
+           (zoom_level, tile_column, tile_row, expires, etag, tile_id)
+    SELECT zoom_level, tile_column, tile_row, expires, etag, xxh3_64_int(tile_data)
+    FROM ({})",
+                        src_select(sql_cond)
+                    ),
+                )
+            }
+        }
+    }
+}
+
 fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
     // Flat and Cache destinations need no hash column: Flat stores none, and the Cache
     // copy path computes its own xxh3-64 content keys. Both read the plain `tiles` view.
-    if dst_type == Flat || dst_type == Cache {
+    if dst_type == Flat || matches!(dst_type, Cache { .. }) {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
             .to_string()
     } else {
         match src_type {
             // A Cache source has no md5 hashes, so like Flat it is read via the
             // `tiles` view with hashes computed on the fly
-            Flat | Cache => "
+            Flat | Cache { .. } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as tile_hash
         FROM sourceDb.tiles
         WHERE TRUE"
