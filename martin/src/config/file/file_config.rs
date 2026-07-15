@@ -1260,8 +1260,8 @@ mod deserialize_tests {
            ╭─[config.yaml:3:7]
          2 │   paths:
          3 │     - { not_a_path: true }
-           ·       ─┬
-           ·        ╰── unexpected event: expected string scalar
+           ·       ┬
+           ·       ╰── unexpected event: expected string scalar
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
