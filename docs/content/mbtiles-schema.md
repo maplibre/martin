@@ -68,9 +68,9 @@ In our next semver major, we plan to switch this default and produce `tiles_shal
 
 ## cache
 
-The `cache` schemas store extra cache metadata (`expires` and `etag`) alongside each tile, so a file can serve as a persistent web-tile cache.
+The `cache` schemas store extra cache metadata alongside each tile - `fetched` (when the tile was downloaded/added/last refreshed), `expires`, and `etag` - so a file can serve as a persistent web-tile cache.
 Two layouts exist, mirroring the `flat` vs `normalized` split of the regular schemas.
-Both center on a `tile_cache` table holding the tile Z,X,Y coordinates and the cache metadata, and both create a spec-compatible `tiles` view so the file can still be read by any standard MBTiles reader (the `expires`/`etag` columns are simply invisible to it).
+Both center on a `tile_cache` table holding the tile Z,X,Y coordinates and the cache metadata, and both create a spec-compatible `tiles` view so the file can still be read by any standard MBTiles reader (the extra columns are simply invisible to it).
 
 ### cache-flat
 
@@ -95,8 +95,8 @@ This is the recommended default for web-tile caches, where identical (e.g. empty
 The `mbtiles` tool treats both cache layouts as first-class schemas, with a few deliberate restrictions:
 
 * `summary`, `validate`, `meta-*`, and serving the file with `martin` all work.
-* `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `expires`/`etag` values are dropped, since standard schemas cannot store them.
-* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache-flat|cache-normalized`); the copied entries get `NULL` `expires`/`etag` (never expire). Copies between cache files - including across the two layouts - preserve `expires`/`etag`.
+* `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `fetched`/`expires`/`etag` values are dropped, since standard schemas cannot store them.
+* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache-flat|cache-normalized`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Copies between cache files - including across the two layouts - preserve all cache metadata.
 * `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob storage joined through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
 * `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.
 

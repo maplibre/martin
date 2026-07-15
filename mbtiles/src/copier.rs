@@ -923,9 +923,9 @@ fn get_cache_copy_sqls(
     where_clause: &str,
     sql_cond: &str,
 ) -> (Option<(String, String)>, String) {
-    // Canonical (z, x, y, expires, etag, tile_data) source: cache sources keep their
-    // per-tile metadata (whatever their layout), others get NULL expires/etag
-    // (never expires).
+    // Canonical (z, x, y, fetched, expires, etag, tile_data) source: cache sources keep
+    // their per-tile metadata (whatever their layout), others get NULL fetched/expires/etag
+    // (unknown fetch time, never expires) so identical copy runs stay byte-identical.
     let src_select = |extra_cond: &str| {
         if let Cache { schema: src_schema } = src_type {
             format!(
@@ -934,7 +934,7 @@ fn get_cache_copy_sqls(
             )
         } else {
             format!(
-                "SELECT zoom_level, tile_column, tile_row, NULL AS expires, NULL AS etag, tile_data
+                "SELECT zoom_level, tile_column, tile_row, NULL AS fetched, NULL AS expires, NULL AS etag, tile_data
                  FROM ({select_from} {where_clause} {extra_cond})"
             )
         }
@@ -947,8 +947,8 @@ fn get_cache_copy_sqls(
             format!(
                 "
     INSERT {on_dupl} INTO tile_cache
-           (zoom_level, tile_column, tile_row, expires, etag, tile_data)
-    SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+           (zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data)
+    SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data
     FROM ({})",
                 src_select(sql_cond)
             ),
@@ -983,8 +983,8 @@ fn get_cache_copy_sqls(
                     format!(
                         "
     INSERT {on_dupl} INTO tile_cache
-           (zoom_level, tile_column, tile_row, expires, etag, tile_id)
-    SELECT zoom_level, tile_column, tile_row, expires, etag, tile_id
+           (zoom_level, tile_column, tile_row, fetched, expires, etag, tile_id)
+    SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_id
     FROM sourceDb.tile_cache WHERE TRUE {where_clause} {sql_cond}"
                     ),
                 )
@@ -1010,8 +1010,8 @@ fn get_cache_copy_sqls(
                     format!(
                         "
     INSERT {on_dupl} INTO tile_cache
-           (zoom_level, tile_column, tile_row, expires, etag, tile_id)
-    SELECT zoom_level, tile_column, tile_row, expires, etag, xxh3_64_int(tile_data)
+           (zoom_level, tile_column, tile_row, fetched, expires, etag, tile_id)
+    SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, xxh3_64_int(tile_data)
     FROM ({})",
                         src_select(sql_cond)
                     ),

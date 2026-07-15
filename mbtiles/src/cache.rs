@@ -2,21 +2,21 @@
 //!
 //! This is a **non-standard** schema (not part of the `MBTiles` specification) built on
 //! top of the same `SQLite` file format. It stores tiles together with cache metadata
-//! (`expires` and `etag`) and de-duplicates identical tile blobs, and it is intended to
+//! (`fetched`, `expires`, and `etag`) and de-duplicates identical tile blobs, and it is intended to
 //! be embedded by other systems that need a simple on-disk tile cache.
 //!
 //! # Schemas
 //!
 //! Two layouts are supported, chosen via [`CacheSchema`]. Both center on a `tile_cache`
-//! table storing tile coordinates with `expires`/`etag` metadata, and both expose a
+//! table storing tile coordinates with `fetched`/`expires`/`etag` metadata, and both expose a
 //! spec-compatible `tiles` view so the file can still be opened by any standard
-//! `MBTiles` reader (the `expires`/`etag` columns are simply invisible to it).
+//! `MBTiles` reader (the extra cache columns are simply invisible to it).
 //!
-//! - [`CacheSchema::Flat`]: `tile_cache(zoom_level, tile_column, tile_row, expires,
-//!   etag, tile_data)` - the blob is stored inline. Simple and fast, best when few
-//!   tiles share content.
+//! - [`CacheSchema::Flat`]: `tile_cache(zoom_level, tile_column, tile_row, fetched,
+//!   expires, etag, tile_data)` - the blob is stored inline. Simple and fast, best when
+//!   few tiles share content.
 //! - [`CacheSchema::Normalized`]: `tile_cache(zoom_level, tile_column, tile_row,
-//!   expires, etag, tile_id)` (`WITHOUT ROWID`) plus `cache_data(tile_id INTEGER
+//!   fetched, expires, etag, tile_id)` (`WITHOUT ROWID`) plus `cache_data(tile_id INTEGER
 //!   PRIMARY KEY, tile_data BLOB)`. `tile_id` is the
 //!   [xxh3-64](https://github.com/Cyan4973/xxHash) hash of `tile_data`, stored as an
 //!   `INTEGER PRIMARY KEY` so it aliases the rowid (single B-tree, no secondary index).
@@ -65,6 +65,9 @@ pub(crate) const MAX_KEY_PROBES: u32 = 1024;
 pub struct CachedTile {
     /// The tile blob.
     pub data: Vec<u8>,
+    /// Unix-epoch (seconds) time the tile was downloaded/added/last refreshed, or `None`
+    /// if unknown (e.g. the entry was bulk-imported with `mbtiles copy`).
+    pub fetched: Option<i64>,
     /// Unix-epoch (seconds) expiration time, or `None` if the entry never expires.
     ///
     /// The value is returned exactly as stored; the cache does **not** filter out expired
@@ -78,6 +81,9 @@ pub struct CachedTile {
 /// Cache metadata attached to a tile when writing it with [`Mbtiles::set_cached`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CacheEntryMeta<'a> {
+    /// Unix-epoch (seconds) time the tile was downloaded/added/last refreshed, or `None`
+    /// if unknown.
+    pub fetched: Option<i64>,
     /// Unix-epoch (seconds) expiration time, or `None` for an entry that never expires.
     pub expires: Option<i64>,
     /// Upstream validator (e.g. an HTTP `ETag`), or `None`.
@@ -85,13 +91,16 @@ pub struct CacheEntryMeta<'a> {
 }
 
 impl<'a> CacheEntryMeta<'a> {
-    /// Create cache metadata with both an `expires` (Unix-epoch seconds) and an `etag`.
+    /// Create cache metadata with a `fetched` and an `expires` time (both Unix-epoch
+    /// seconds) and an `etag`.
     ///
-    /// For entries missing one or both, construct the struct directly (its fields are
-    /// public) or use [`CacheEntryMeta::default`] for "never expires, no etag".
+    /// For entries missing some of these, construct the struct directly (its fields are
+    /// public) or use [`CacheEntryMeta::default`] for "unknown fetch time, never expires,
+    /// no etag".
     #[must_use]
-    pub fn new(expires: i64, etag: &'a str) -> Self {
+    pub fn new(fetched: i64, expires: i64, etag: &'a str) -> Self {
         Self {
+            fetched: Some(fetched),
             expires: Some(expires),
             etag: Some(etag),
         }
@@ -145,7 +154,7 @@ impl Mbtiles {
 
     /// Look up a cached tile by its XYZ coordinates.
     ///
-    /// Returns the tile together with its `expires`/`etag` metadata, or `None` if there is
+    /// Returns the tile together with its `fetched`/`expires`/`etag` metadata, or `None` if there is
     /// no entry at the given coordinates. Expired entries are still returned (with their
     /// stored `expires`) so the caller can decide whether to serve stale, revalidate via
     /// `etag`, or refetch.
@@ -162,12 +171,12 @@ impl Mbtiles {
     {
         let sql = match schema {
             CacheSchema::Flat => {
-                "SELECT tile_data, expires, etag
+                "SELECT tile_data, fetched, expires, etag
                  FROM tile_cache
                  WHERE zoom_level = ?1 AND tile_column = ?2 AND tile_row = ?3"
             }
             CacheSchema::Normalized => {
-                "SELECT d.tile_data, c.expires, c.etag
+                "SELECT d.tile_data, c.fetched, c.expires, c.etag
                  FROM tile_cache c
                  JOIN cache_data d ON d.tile_id = c.tile_id
                  WHERE c.zoom_level = ?1 AND c.tile_column = ?2 AND c.tile_row = ?3"
@@ -182,12 +191,13 @@ impl Mbtiles {
 
         Ok(row.map(|row| CachedTile {
             data: row.get(0),
-            expires: row.get(1),
-            etag: row.get(2),
+            fetched: row.get(1),
+            expires: row.get(2),
+            etag: row.get(3),
         }))
     }
 
-    /// Insert or replace a cached tile, with its [`CacheEntryMeta`] (`expires`/`etag`).
+    /// Insert or replace a cached tile, with its [`CacheEntryMeta`] (`fetched`/`expires`/`etag`).
     ///
     /// With [`CacheSchema::Flat`], this is a plain upsert with the blob stored inline.
     ///
@@ -213,12 +223,13 @@ impl Mbtiles {
             // Inline blob: a plain upsert, no de-duplication or key probing involved.
             query(
                 "INSERT OR REPLACE INTO tile_cache
-                     (zoom_level, tile_column, tile_row, expires, etag, tile_data)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                     (zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             )
             .bind(z)
             .bind(x)
             .bind(invert_y_value(z, y))
+            .bind(meta.fetched)
             .bind(meta.expires)
             .bind(meta.etag)
             .bind(data)
@@ -273,16 +284,18 @@ impl Mbtiles {
         };
 
         query(
-            "INSERT INTO tile_cache (zoom_level, tile_column, tile_row, expires, etag, tile_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO tile_cache (zoom_level, tile_column, tile_row, fetched, expires, etag, tile_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(zoom_level, tile_column, tile_row)
-             DO UPDATE SET expires = excluded.expires,
+             DO UPDATE SET fetched = excluded.fetched,
+                           expires = excluded.expires,
                            etag = excluded.etag,
                            tile_id = excluded.tile_id",
         )
         .bind(z)
         .bind(x)
         .bind(invert_y_value(z, y))
+        .bind(meta.fetched)
         .bind(meta.expires)
         .bind(meta.etag)
         .bind(resolved)
@@ -296,8 +309,8 @@ impl Mbtiles {
         Ok(())
     }
 
-    /// Update only the `expires`/`etag` metadata of an existing cache entry, without
-    /// touching the tile blob.
+    /// Update only the `fetched`/`expires`/`etag` metadata of an existing cache entry,
+    /// without touching the tile blob.
     ///
     /// This is the revalidation path: after a conditional refetch (e.g. HTTP
     /// `If-None-Match` answered with `304 Not Modified`), the cached bytes are still
@@ -318,12 +331,13 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let updated = query(
-            "UPDATE tile_cache SET expires = ?4, etag = ?5
+            "UPDATE tile_cache SET fetched = ?4, expires = ?5, etag = ?6
              WHERE zoom_level = ?1 AND tile_column = ?2 AND tile_row = ?3",
         )
         .bind(z)
         .bind(x)
         .bind(invert_y_value(z, y))
+        .bind(meta.fetched)
         .bind(meta.expires)
         .bind(meta.etag)
         .execute(conn)
@@ -494,7 +508,7 @@ mod tests {
             1,
             2,
             b"hello",
-            CacheEntryMeta::new(100, "etag-1"),
+            CacheEntryMeta::new(42, 100, "etag-1"),
         )
         .await
         .unwrap();
@@ -504,6 +518,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(got.data, b"hello");
+        assert_eq!(got.fetched, Some(42));
         assert_eq!(got.expires, Some(100));
         assert_eq!(got.etag.as_deref(), Some("etag-1"));
 
@@ -525,6 +540,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(got.data, b"world");
+        assert_eq!(got.fetched, None);
         assert_eq!(got.expires, None);
         assert_eq!(got.etag, None);
     }
@@ -679,14 +695,14 @@ mod tests {
         let (mbt, mut conn) = cache(schema).await;
         let stale = CacheEntryMeta {
             expires: Some(50),
-            etag: None,
+            ..Default::default()
         };
         mbt.set_cached(&mut conn, schema, 0, 0, 0, b"stale", stale)
             .await
             .unwrap();
         let fresh = CacheEntryMeta {
             expires: Some(200),
-            etag: None,
+            ..Default::default()
         };
         mbt.set_cached(&mut conn, schema, 1, 0, 0, b"fresh", fresh)
             .await
@@ -786,13 +802,13 @@ mod tests {
             1,
             2,
             b"payload",
-            CacheEntryMeta::new(100, "etag-1"),
+            CacheEntryMeta::new(42, 100, "etag-1"),
         )
         .await
         .unwrap();
 
         // No entry at these coordinates - the caller must fall back to set_cached.
-        let missing = CacheEntryMeta::new(1, "x");
+        let missing = CacheEntryMeta::new(1, 1, "x");
         assert!(
             !mbt.update_cached_meta(&mut conn, 3, 0, 0, missing)
                 .await
@@ -800,7 +816,7 @@ mod tests {
         );
 
         // Revalidation bumps the metadata in place; the blob stays untouched.
-        let bumped = CacheEntryMeta::new(500, "etag-2");
+        let bumped = CacheEntryMeta::new(20, 500, "etag-2");
         assert!(
             mbt.update_cached_meta(&mut conn, 3, 1, 2, bumped)
                 .await
@@ -812,6 +828,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(got.data, b"payload");
+        assert_eq!(got.fetched, Some(20));
         assert_eq!(got.expires, Some(500));
         assert_eq!(got.etag.as_deref(), Some("etag-2"));
         assert_eq!(blob_count(&mut conn, schema).await, 1);
@@ -836,7 +853,7 @@ mod tests {
             1,
             1,
             b"",
-            CacheEntryMeta::new(60, "miss-etag"),
+            CacheEntryMeta::new(5, 60, "miss-etag"),
         )
         .await
         .unwrap();
@@ -846,6 +863,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(got.data.is_empty());
+        assert_eq!(got.fetched, Some(5));
         assert_eq!(got.expires, Some(60));
         assert_eq!(got.etag.as_deref(), Some("miss-etag"));
 
@@ -905,7 +923,7 @@ mod tests {
             let meta = if i < 80 {
                 CacheEntryMeta {
                     expires: Some(i64::from(i)),
-                    etag: None,
+                    ..Default::default()
                 }
             } else {
                 CacheEntryMeta::default()

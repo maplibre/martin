@@ -16,9 +16,9 @@ use crate::queries::create_schema;
 /// Detect whether the database uses one of the tile-cache schemas, and which one.
 ///
 /// Both layouts share a `tile_cache` table with `zoom_level`, `tile_column`, `tile_row`,
-/// `expires`, and `etag` columns. The sixth column decides the layout: an inline
-/// `tile_data` blob means [`CacheSchema::Flat`], while a `tile_id` integer joined to a
-/// `cache_data(tile_id, tile_data)` blob table means [`CacheSchema::Normalized`].
+/// `fetched`, `expires`, and `etag` columns. The seventh column decides the layout: an
+/// inline `tile_data` blob means [`CacheSchema::Flat`], while a `tile_id` integer joined
+/// to a `cache_data(tile_id, tile_data)` blob table means [`CacheSchema::Normalized`].
 ///
 /// This is a non-standard schema (not part of the `MBTiles` specification) used by
 /// [`crate::CachedTile`] to store tiles with expiration/etag metadata. See the
@@ -35,16 +35,17 @@ where
              WHERE name = 'tile_cache' AND type = 'table'
              --
          ) AND (
-             -- 'tile_cache' has exactly the five shared columns plus one layout column
-             SELECT COUNT(*) = 6 FROM pragma_table_info('tile_cache')
+             -- 'tile_cache' has exactly the six shared columns plus one layout column
+             SELECT COUNT(*) = 7 FROM pragma_table_info('tile_cache')
              --
          ) AND (
-             -- The five columns shared by both layouts are present with expected types
-             SELECT COUNT(*) = 5
+             -- The six columns shared by both layouts are present with expected types
+             SELECT COUNT(*) = 6
              FROM pragma_table_info('tile_cache')
              WHERE ((name = 'zoom_level' AND type LIKE '%INT%')
                  OR (name = 'tile_column' AND type LIKE '%INT%')
                  OR (name = 'tile_row' AND type LIKE '%INT%')
+                 OR (name = 'fetched' AND type LIKE '%INT%')
                  OR (name = 'expires' AND type LIKE '%INT%')
                  OR (name = 'etag' AND type = 'TEXT'))
              --

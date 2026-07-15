@@ -23,20 +23,20 @@ expression: actual_value
     - "(  \"md-same\", \"value - same\"  )"
 - type: table
   tbl_name: tile_cache
-  sql: "CREATE TABLE tile_cache (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    expires INTEGER,\n    etag TEXT,\n    tile_id INTEGER NOT NULL,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n) WITHOUT ROWID"
+  sql: "CREATE TABLE tile_cache (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    fetched INTEGER,\n    expires INTEGER,\n    etag TEXT,\n    tile_id INTEGER NOT NULL,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n) WITHOUT ROWID"
   values:
-    - "(  3, 6, 7, NULL, NULL, 746744014776526199  )"
-    - "(  5, 0, 0, NULL, NULL, -8683204914198171888  )"
-    - "(  5, 0, 1, NULL, NULL, 3244421341483603138  )"
-    - "(  5, 1, 1, NULL, NULL, 6314490279761160920  )"
-    - "(  5, 1, 2, NULL, NULL, 3244421341483603138  )"
-    - "(  5, 1, 3, NULL, NULL, 6465868677957899877  )"
-    - "(  5, 2, 2, NULL, NULL, 5516311519509283747  )"
-    - "(  5, 2, 3, NULL, NULL, 3244421341483603138  )"
-    - "(  6, 0, 3, NULL, NULL, -8683204914198171888  )"
-    - "(  6, 0, 5, NULL, NULL, -5881570752021442449  )"
-    - "(  6, 1, 4, NULL, NULL, 6314490279761160920  )"
-    - "(  6, 2, 6, NULL, NULL, -5881570752021442449  )"
+    - "(  3, 6, 7, NULL, NULL, NULL, 746744014776526199  )"
+    - "(  5, 0, 0, NULL, NULL, NULL, -8683204914198171888  )"
+    - "(  5, 0, 1, NULL, NULL, NULL, 3244421341483603138  )"
+    - "(  5, 1, 1, NULL, NULL, NULL, 6314490279761160920  )"
+    - "(  5, 1, 2, NULL, NULL, NULL, 3244421341483603138  )"
+    - "(  5, 1, 3, NULL, NULL, NULL, 6465868677957899877  )"
+    - "(  5, 2, 2, NULL, NULL, NULL, 5516311519509283747  )"
+    - "(  5, 2, 3, NULL, NULL, NULL, 3244421341483603138  )"
+    - "(  6, 0, 3, NULL, NULL, NULL, -8683204914198171888  )"
+    - "(  6, 0, 5, NULL, NULL, NULL, -5881570752021442449  )"
+    - "(  6, 1, 4, NULL, NULL, NULL, 6314490279761160920  )"
+    - "(  6, 2, 6, NULL, NULL, NULL, -5881570752021442449  )"
 - type: index
   tbl_name: metadata
   sql: ~

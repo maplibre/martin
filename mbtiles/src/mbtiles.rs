@@ -728,7 +728,7 @@ impl Mbtiles {
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
-            // Bulk-inserted cache entries get NULL expires/etag (never expire)
+            // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
             MbtType::Cache {
                 schema: CacheSchema::Flat,
             } => (
@@ -742,7 +742,7 @@ impl Mbtiles {
             // The blob insert is always OR IGNORE: a `cache_data` slot is shared by every
             // entry with the same content, so `on_duplicate` must never REPLACE it. Unlike
             // `set_cached`, this bulk path cannot linear-probe on an xxh3-64 collision
-            // (astronomically rare); `expires`/`etag` are left NULL (never expires).
+            // (astronomically rare); `fetched`/`expires`/`etag` are left NULL.
             MbtType::Cache {
                 schema: CacheSchema::Normalized,
             } => (

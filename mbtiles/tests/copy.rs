@@ -576,7 +576,7 @@ async fn copy_cache_to_cache_preserves_meta(
         .create_cache_schema(&mut src_cn, src_schema, false)
         .await
         .unwrap();
-    let meta = CacheEntryMeta::new(100, "etag-1");
+    let meta = CacheEntryMeta::new(30, 100, "etag-1");
     src_mbt
         .set_cached(&mut src_cn, src_schema, 5, 1, 2, b"expiring", meta)
         .await
@@ -615,6 +615,7 @@ async fn copy_cache_to_cache_preserves_meta(
         .unwrap()
         .unwrap();
     assert_eq!(got.data, b"expiring");
+    assert_eq!(got.fetched, Some(30));
     assert_eq!(got.expires, Some(100));
     assert_eq!(got.etag.as_deref(), Some("etag-1"));
     let got = dst_mbt
@@ -623,6 +624,7 @@ async fn copy_cache_to_cache_preserves_meta(
         .unwrap()
         .unwrap();
     assert_eq!(got.data, b"permanent");
+    assert_eq!(got.fetched, None);
     assert_eq!(got.expires, None);
     assert_eq!(got.etag, None);
 

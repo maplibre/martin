@@ -7,6 +7,7 @@ CREATE TABLE tile_cache (
     zoom_level INTEGER NOT NULL,
     tile_column INTEGER NOT NULL,
     tile_row INTEGER NOT NULL,
+    fetched INTEGER,
     expires INTEGER,
     etag TEXT,
     tile_id INTEGER NOT NULL,

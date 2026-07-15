@@ -31,8 +31,8 @@ use crate::{CacheEntryMeta, CacheSchema, CachedTile, MbtError, Mbtiles, Metadata
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let cache = MbtilesCache::open("cache.mbtiles").await?;
 ///
-/// // Store a fetched tile with its freshness metadata.
-/// cache.set_cached(3, 1, 2, b"tile-bytes", CacheEntryMeta::new(1700000000, "etag-1")).await?;
+/// // Store a downloaded tile with its fetch time and freshness metadata.
+/// cache.set_cached(3, 1, 2, b"tile-bytes", CacheEntryMeta::new(1700000000, 1700003600, "etag-1")).await?;
 ///
 /// // Later: read it back, expired entries included (freshness is the caller's call).
 /// if let Some(tile) = cache.get_cached(3, 1, 2).await? {
@@ -40,7 +40,7 @@ use crate::{CacheEntryMeta, CacheSchema, CachedTile, MbtError, Mbtiles, Metadata
 /// }
 ///
 /// // After an HTTP 304 revalidation, bump the metadata without rewriting the blob.
-/// cache.update_cached_meta(3, 1, 2, CacheEntryMeta::new(1700003600, "etag-1")).await?;
+/// cache.update_cached_meta(3, 1, 2, CacheEntryMeta::new(1700003600, 1700007200, "etag-1")).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -121,7 +121,7 @@ impl MbtilesCache {
         self.schema
     }
 
-    /// Look up a cached tile and its `expires`/`etag` metadata.
+    /// Look up a cached tile and its `fetched`/`expires`/`etag` metadata.
     ///
     /// See [`Mbtiles::get_cached`] for the semantics (expired entries are still returned).
     #[hotpath::measure]
@@ -132,7 +132,7 @@ impl MbtilesCache {
             .await
     }
 
-    /// Insert or replace a cached tile with its [`CacheEntryMeta`] (`expires`/`etag`).
+    /// Insert or replace a cached tile with its [`CacheEntryMeta`] (`fetched`/`expires`/`etag`).
     ///
     /// See [`Mbtiles::set_cached`] for de-duplication and collision behavior.
     #[hotpath::measure]
@@ -150,7 +150,7 @@ impl MbtilesCache {
             .await
     }
 
-    /// Update only the `expires`/`etag` metadata of an existing entry (revalidation).
+    /// Update only the `fetched`/`expires`/`etag` metadata of an existing entry (revalidation).
     ///
     /// Returns `false` if there is no entry at the given coordinates.
     /// See [`Mbtiles::update_cached_meta`].
@@ -228,7 +228,7 @@ mod tests {
             let cache = MbtilesCache::open_with_schema(&path, schema).await.unwrap();
             assert_eq!(cache.schema(), schema);
             cache
-                .set_cached(2, 1, 1, b"tile-a", CacheEntryMeta::new(50, "v1"))
+                .set_cached(2, 1, 1, b"tile-a", CacheEntryMeta::new(40, 50, "v1"))
                 .await
                 .unwrap();
             cache
@@ -243,6 +243,7 @@ mod tests {
         assert_eq!(cache.schema(), schema);
         let a = cache.get_cached(2, 1, 1).await.unwrap().unwrap();
         assert_eq!(a.data, b"tile-a");
+        assert_eq!(a.fetched, Some(40));
         assert_eq!(a.expires, Some(50));
         assert_eq!(a.etag.as_deref(), Some("v1"));
         assert_eq!(cache.get_tile(2, 1, 2).await.unwrap().unwrap(), b"tile-b");
@@ -250,11 +251,12 @@ mod tests {
         // Revalidate the expiring entry without rewriting its blob.
         assert!(
             cache
-                .update_cached_meta(2, 1, 1, CacheEntryMeta::new(75, "v1"))
+                .update_cached_meta(2, 1, 1, CacheEntryMeta::new(60, 75, "v1"))
                 .await
                 .unwrap()
         );
         let a = cache.get_cached(2, 1, 1).await.unwrap().unwrap();
+        assert_eq!(a.fetched, Some(60));
         assert_eq!(a.expires, Some(75));
 
         // Purge the expired entry; the permanent one survives.

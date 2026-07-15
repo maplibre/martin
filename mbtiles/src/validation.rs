@@ -83,18 +83,18 @@ impl CacheSchema {
         }
     }
 
-    /// `SELECT` returning `zoom_level, tile_column, tile_row, expires, etag, tile_data`
-    /// for the given database prefix - the canonical way to read cache entries with
-    /// their metadata regardless of layout.
+    /// `SELECT` returning `zoom_level, tile_column, tile_row, fetched, expires, etag,
+    /// tile_data` for the given database prefix - the canonical way to read cache
+    /// entries with their metadata regardless of layout.
     #[must_use]
     pub(crate) fn select_cached_sql(self, db_prefix: &str) -> String {
         match self {
             Self::Flat => format!(
-                "SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+                "SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data
                  FROM {db_prefix}.tile_cache"
             ),
             Self::Normalized => format!(
-                "SELECT zoom_level, tile_column, tile_row, expires, etag, tile_data
+                "SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data
                  FROM {db_prefix}.tile_cache JOIN {db_prefix}.cache_data USING (tile_id)"
             ),
         }
@@ -193,7 +193,7 @@ pub enum MbtType {
     },
     /// Tile-cache `MBTiles` file (non-standard)
     ///
-    /// A `tile_cache` table stores per-tile cache metadata (`expires` and `etag`) next to
+    /// A `tile_cache` table stores per-tile cache metadata (`fetched`, `expires`, and `etag`) next to
     /// the tile coordinates. The `schema` argument describes the layout: [`CacheSchema::Flat`]
     /// keeps the blob inline, while [`CacheSchema::Normalized`] de-duplicates blobs into a
     /// separate `cache_data` table keyed by the xxh3-64 hash of the blob (stored as an
