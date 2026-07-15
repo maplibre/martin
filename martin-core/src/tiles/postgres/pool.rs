@@ -207,33 +207,33 @@ impl PostgresPool {
     }
 }
 
-/// Parse the `server_version` setting reported by `PostgreSQL`.
+/// Convert the [`server_version_num`](https://pgpedia.info/s/server_version_num.html) setting into a [`Version`].
 ///
-/// The setting holds a version optionally followed by a packager suffix, e.g. `17.2 (Debian 17.2-1.pgdg120+1)`.
-/// Pre-release servers report a major version with no minor at all, e.g. `19beta1`, `19rc1` or `19devel`.
-/// `PostgreSQL` only has a Major.Minor versioning, so we use 0 for the patch version.
-fn parse_postgres_version(server_version: &str) -> Option<Version> {
-    let numeric = server_version
-        .split(|c: char| !c.is_ascii_digit() && c != '.')
-        .next()?;
-    let mut parts = numeric.split('.');
-    let major = parts.next()?.parse().ok()?;
-    let minor = match parts.next() {
-        Some(minor) if !minor.is_empty() => minor.parse().ok()?,
-        _ => 0,
+/// Since `PostgreSQL` 10 the setting is `major * 10000 + minor`, before that it was `major * 10000 + minor * 100 + patch`.
+/// Pre-release servers report the version they are heading towards, e.g. `19beta1` reports `190000` just like `19.0` will.
+fn parse_postgres_version(version_num: i32) -> Option<Version> {
+    let version_num = u32::try_from(version_num).ok()?;
+    let major = version_num / 10000;
+    let (minor, patch) = if major >= 10 {
+        (version_num % 10000, 0)
+    } else {
+        ((version_num % 10000) / 100, version_num % 100)
     };
-    Some(Version::new(major, minor, 0))
+    Some(Version::new(major.into(), minor.into(), patch.into()))
 }
 
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
 async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
-    let version: String = conn
-        .query_one("SELECT current_setting('server_version') as version;", &[])
+    let version_num: i32 = conn
+        .query_one(
+            "SELECT current_setting('server_version_num')::int as version;",
+            &[],
+        )
         .await
         .map(|row| row.get("version"))
         .map_err(|e| PostgresError(e, "querying postgres version"))?;
 
-    parse_postgres_version(&version).ok_or(BadPostgresVersion { version })
+    parse_postgres_version(version_num).ok_or(BadPostgresVersion { version_num })
 }
 
 /// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)
@@ -360,34 +360,17 @@ mod version_parsing_tests {
     use super::*;
 
     #[rstest]
-    #[case::released_with_packager_suffix(
-        "17.2 (Debian 17.2-1.pgdg120+1)",
-        Some(Version::new(17, 2, 0))
-    )]
-    #[case::released_minimum_supported(
-        "11.5 (Debian 11.5-1.pgdg90+1)",
-        Some(Version::new(11, 5, 0))
-    )]
-    #[case::released_bare("16.3", Some(Version::new(16, 3, 0)))]
-    #[case::released_double_digit_minor("17.10", Some(Version::new(17, 10, 0)))]
-    #[case::beta_with_packager_suffix(
-        "19beta1 (Debian 19~beta1-1.pgdg13+1)",
-        Some(Version::new(19, 0, 0))
-    )]
-    #[case::beta_bare("19beta1", Some(Version::new(19, 0, 0)))]
-    #[case::release_candidate("19rc1", Some(Version::new(19, 0, 0)))]
-    #[case::development("19devel", Some(Version::new(19, 0, 0)))]
-    #[case::alpha("19alpha2", Some(Version::new(19, 0, 0)))]
-    #[case::major_only("19", Some(Version::new(19, 0, 0)))]
-    #[case::legacy_three_components("9.6.24", Some(Version::new(9, 6, 0)))]
-    #[case::trailing_dot("17.", Some(Version::new(17, 0, 0)))]
-    #[case::empty("", None)]
-    #[case::non_numeric("unknown", None)]
-    #[case::suffix_only("beta1", None)]
-    #[case::dot_only(".", None)]
-    #[case::leading_space(" 17.2", None)]
-    fn parses_server_version(#[case] server_version: &str, #[case] expected: Option<Version>) {
-        assert_eq!(parse_postgres_version(server_version), expected);
+    #[case::beta_19(190_000, Some(Version::new(19, 0, 0)))]
+    #[case::released_18_4(180_004, Some(Version::new(18, 4, 0)))]
+    #[case::released_11_10(110_010, Some(Version::new(11, 10, 0)))]
+    #[case::released_17_2(170_002, Some(Version::new(17, 2, 0)))]
+    #[case::oldest_supported_11_0(110_000, Some(Version::new(11, 0, 0)))]
+    #[case::legacy_9_6_24(90_624, Some(Version::new(9, 6, 24)))]
+    #[case::legacy_9_0_0(90_000, Some(Version::new(9, 0, 0)))]
+    #[case::zero(0, Some(Version::new(0, 0, 0)))]
+    #[case::negative(-1, None)]
+    fn parses_server_version_num(#[case] version_num: i32, #[case] expected: Option<Version>) {
+        assert_eq!(parse_postgres_version(version_num), expected);
     }
 }
 
