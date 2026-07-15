@@ -540,7 +540,7 @@ prepare-sqlite: fetch install-sqlx
     done
     cd mbtiles
     mkdir -p .sqlx
-    cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests
+    cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests --features transcode
     find .sqlx -name '*.json' -type f -exec sh -c \
       'jq --sort-keys . "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
 
