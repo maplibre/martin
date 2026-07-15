@@ -69,7 +69,7 @@ approx = "0.5.1"
 async-trait = "0.1"
 backon = "1.6.0"
 base64 = "0.22.1"
-bit-set = "0.10"
+bit-set = "0.11"
 brotli = ">=5, <9"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
