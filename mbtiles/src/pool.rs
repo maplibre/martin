@@ -1,15 +1,14 @@
 use std::path::Path;
-use std::time::Duration;
 
 use martin_tile_utils::TileInfo;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Pool, Sqlite, SqlitePool};
 use tilejson::TileJSON;
 
 #[cfg(test)]
 use crate::NormalizedSchema;
 use crate::errors::MbtResult;
-use crate::{CacheEntryMeta, CachedTile, MbtType, Mbtiles, Metadata};
+use crate::{MbtType, Mbtiles, Metadata};
 
 /// Connection pool for concurrent read access to an `MBTiles` file.
 ///
@@ -313,63 +312,6 @@ impl MbtilesPool {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.contains(&mut conn, mbt_type, z, x, y).await
     }
-
-    /// Open (creating if missing) an `.mbtiles` file as a **writable** tile cache.
-    ///
-    /// Unlike [`open_readonly`](Self::open_readonly), this opens the pool read-write,
-    /// creates the file if it does not exist, enables WAL journaling and a busy timeout
-    /// (so concurrent readers and a single writer coexist), and ensures the tile-cache
-    /// schema is present. See the `cache` module for the schema details.
-    #[hotpath::measure]
-    pub async fn open_cache<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
-        let mbtiles = Mbtiles::new(filepath)?;
-        let opt = SqliteConnectOptions::new()
-            .filename(mbtiles.filepath())
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Wal)
-            .busy_timeout(Duration::from_secs(5));
-        let pool = SqlitePool::connect_with(opt).await?;
-        let mut conn = pool.acquire().await?;
-        mbtiles.create_cache_schema(&mut *conn, false).await?;
-        drop(conn);
-        Ok(Self { mbtiles, pool })
-    }
-
-    /// Look up a cached tile and its `expires`/`etag` metadata.
-    ///
-    /// See [`Mbtiles::get_cached`] for the semantics (expired entries are still returned).
-    #[hotpath::measure]
-    pub async fn get_cached(&self, z: u8, x: u32, y: u32) -> MbtResult<Option<CachedTile>> {
-        let mut conn = self.pool.acquire().await?;
-        self.mbtiles.get_cached(&mut *conn, z, x, y).await
-    }
-
-    /// Insert or replace a cached tile with its [`CacheEntryMeta`] (`expires`/`etag`).
-    ///
-    /// See [`Mbtiles::set_cached`] for de-duplication and collision behavior.
-    #[hotpath::measure]
-    pub async fn set_cached(
-        &self,
-        z: u8,
-        x: u32,
-        y: u32,
-        data: &[u8],
-        meta: CacheEntryMeta<'_>,
-    ) -> MbtResult<()> {
-        let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .set_cached(&mut conn, z, x, y, data, meta)
-            .await
-    }
-
-    /// Delete entries expired before `now` (Unix-epoch seconds) and any orphaned blobs.
-    ///
-    /// Returns the number of `tile_cache` rows removed. See [`Mbtiles::purge_expired`].
-    #[hotpath::measure]
-    pub async fn purge_expired(&self, now: i64) -> MbtResult<u64> {
-        let mut conn = self.pool.acquire().await?;
-        self.mbtiles.purge_expired(&mut conn, now).await
-    }
 }
 
 #[cfg(test)]
@@ -377,38 +319,7 @@ mod tests {
     use martin_tile_utils::{Encoding, Format};
 
     use super::*;
-    use crate::CacheEntryMeta;
     use crate::metadata::temp_named_mbtiles;
-
-    #[tokio::test]
-    async fn cache_pool_roundtrip_and_persist() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("cache.mbtiles");
-
-        // Create a fresh cache file, write two tiles (one expiring, one permanent).
-        {
-            let pool = MbtilesPool::open_cache(&path).await.unwrap();
-            pool.set_cached(2, 1, 1, b"tile-a", CacheEntryMeta::new(50, "v1"))
-                .await
-                .unwrap();
-            pool.set_cached(2, 1, 2, b"tile-b", CacheEntryMeta::default())
-                .await
-                .unwrap();
-        }
-
-        // Reopen the existing file: entries persist, and it is still a readable tileset.
-        let pool = MbtilesPool::open_cache(&path).await.unwrap();
-        let a = pool.get_cached(2, 1, 1).await.unwrap().unwrap();
-        assert_eq!(a.data, b"tile-a");
-        assert_eq!(a.expires, Some(50));
-        assert_eq!(a.etag.as_deref(), Some("v1"));
-        assert_eq!(pool.get_tile(2, 1, 2).await.unwrap().unwrap(), b"tile-b");
-
-        // Purge the expired entry; the permanent one survives.
-        assert_eq!(pool.purge_expired(100).await.unwrap(), 1);
-        assert!(pool.get_cached(2, 1, 1).await.unwrap().is_none());
-        assert!(pool.get_cached(2, 1, 2).await.unwrap().is_some());
-    }
 
     #[tokio::test]
     async fn test_metadata_invalid() {

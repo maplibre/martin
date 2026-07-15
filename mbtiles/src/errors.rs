@@ -41,6 +41,11 @@ pub enum MbtError {
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
 
+    #[error(
+        "File {0} exists but does not use the tile-cache schema, refusing to modify it. Use an empty/new file or an existing cache file"
+    )]
+    NotACacheFile(String),
+
     #[error("Integrity check failed for MBTile file {0} for the following reasons:\n    {1:?}")]
     FailedIntegrityCheck(String, Vec<String>),
 

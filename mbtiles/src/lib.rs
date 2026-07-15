@@ -7,6 +7,9 @@ pub use sqlx;
 mod cache;
 pub use cache::{CacheEntryMeta, CachedTile};
 
+mod cache_pool;
+pub use cache_pool::MbtilesCache;
+
 mod copier;
 pub use copier::{CopyDuplicateMode, MbtilesCopier};
 

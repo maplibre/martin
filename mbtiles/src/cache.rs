@@ -20,9 +20,17 @@
 //! Coordinates use the XYZ (Slippy map) scheme on the API, matching the rest of the crate;
 //! the TMS `tile_row` inversion is handled internally.
 //!
-//! See [`crate::MbtilesPool::open_cache`] for a pooled, writable entry point.
+//! # Negative caching
+//!
+//! An **empty blob** is the convention for a cached negative response (e.g. an upstream
+//! HTTP `404`/`204`): [`Mbtiles::get_cached`] returning `Some` with empty
+//! [`CachedTile::data`] means "cached as absent" (with its own `expires`/`etag`),
+//! while `None` means "not in the cache at all". Empty blobs de-duplicate into a single
+//! `cache_data` row like any other content.
+//!
+//! See [`crate::MbtilesCache`] for a pooled, writable entry point.
 
-use sqlx::{Connection as _, SqliteConnection, SqliteExecutor, query};
+use sqlx::{Connection as _, SqliteConnection, SqliteExecutor, query, query_scalar};
 use tracing::debug;
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -220,17 +228,59 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
         .bind(resolved)
         .execute(&mut *tx)
         .await?;
+        // If this overwrote an entry pointing at a different blob, that blob may now be
+        // an orphaned `cache_data` row. It is pruned at a convenient/idle time by
+        // `purge_expired` / `purge_cache_to_size`.
 
         tx.commit().await?;
         Ok(())
+    }
+
+    /// Update only the `expires`/`etag` metadata of an existing cache entry, without
+    /// touching the tile blob.
+    ///
+    /// This is the revalidation path: after a conditional refetch (e.g. HTTP
+    /// `If-None-Match` answered with `304 Not Modified`), the cached bytes are still
+    /// valid and only the freshness metadata needs a bump.
+    ///
+    /// Returns `true` if an entry existed at the given coordinates and was updated, and
+    /// `false` if there is no such entry (e.g. it was purged concurrently) - the caller
+    /// should then store the full tile with [`Mbtiles::set_cached`].
+    pub async fn update_cached_meta<T>(
+        &self,
+        conn: &mut T,
+        z: u8,
+        x: u32,
+        y: u32,
+        meta: CacheEntryMeta<'_>,
+    ) -> MbtResult<bool>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let updated = query(
+            "UPDATE tile_cache SET expires = ?4, etag = ?5
+             WHERE zoom_level = ?1 AND tile_column = ?2 AND tile_row = ?3",
+        )
+        .bind(z)
+        .bind(x)
+        .bind(invert_y_value(z, y))
+        .bind(meta.expires)
+        .bind(meta.etag)
+        .execute(conn)
+        .await?
+        .rows_affected();
+        Ok(updated > 0)
     }
 
     /// Delete all entries whose `expires` timestamp is strictly less than `now` (a Unix-epoch
     /// seconds value), then remove any blobs that are no longer referenced.
     ///
     /// Returns the number of `tile_cache` rows removed. Entries with `expires IS NULL` never
-    /// expire and are left untouched. This does not run `VACUUM`, so the file will not shrink
-    /// on disk; run `VACUUM` separately if you need to reclaim space.
+    /// expire and are left untouched. Freed pages are released back to the OS via
+    /// `PRAGMA incremental_vacuum`, which only shrinks the file when it has
+    /// `auto_vacuum` enabled (files created by [`crate::MbtilesCache::open`] do); for other
+    /// files the pages are reused by later writes, and a one-off full `VACUUM` is needed
+    /// to shrink them on disk.
     pub async fn purge_expired(&self, conn: &mut SqliteConnection, now: i64) -> MbtResult<u64> {
         let mut tx = conn.begin().await?;
         let removed = query("DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1")
@@ -242,8 +292,73 @@ WHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?",
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
+        query("PRAGMA incremental_vacuum")
+            .execute(&mut *conn)
+            .await?;
         Ok(removed)
     }
+
+    /// Evict cache entries until the database's live size is at most `max_bytes`.
+    ///
+    /// Entries are evicted soonest-expiring first (`expires` ascending); never-expiring
+    /// entries (`expires IS NULL`) are evicted last. Returns the number of `tile_cache`
+    /// rows removed.
+    ///
+    /// "Live size" is the file size minus free pages (`page_count - freelist_count`
+    /// times `page_size`). The same `PRAGMA incremental_vacuum` note as
+    /// [`Mbtiles::purge_expired`] applies: the file only shrinks on disk when it has
+    /// `auto_vacuum` enabled. An empty cache still has a fixed schema overhead, so
+    /// tiny `max_bytes` values evict everything without reaching the target.
+    pub async fn purge_cache_to_size(
+        &self,
+        conn: &mut SqliteConnection,
+        max_bytes: u64,
+    ) -> MbtResult<u64> {
+        /// How many `tile_cache` rows to evict between size re-measurements. Small enough
+        /// to not massively overshoot the target, large enough to amortize the PRAGMAs.
+        const EVICT_CHUNK: u32 = 64;
+        let mut removed = 0;
+        while db_live_size(&mut *conn).await? > max_bytes {
+            let mut tx = conn.begin().await?;
+            let evicted = query(
+                "DELETE FROM tile_cache WHERE (zoom_level, tile_column, tile_row) IN
+                     (SELECT zoom_level, tile_column, tile_row FROM tile_cache
+                      ORDER BY expires IS NULL, expires LIMIT ?1)",
+            )
+            .bind(EVICT_CHUNK)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+            query("DELETE FROM cache_data WHERE tile_id NOT IN (SELECT tile_id FROM tile_cache)")
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
+            query("PRAGMA incremental_vacuum")
+                .execute(&mut *conn)
+                .await?;
+            removed += evicted;
+            if evicted == 0 {
+                break; // the cache is empty; what remains is fixed schema overhead
+            }
+        }
+        Ok(removed)
+    }
+}
+
+/// The database size excluding free pages: `(page_count - freelist_count) * page_size`.
+async fn db_live_size(conn: &mut SqliteConnection) -> MbtResult<u64> {
+    let page_count: i64 = query_scalar("PRAGMA page_count")
+        .fetch_one(&mut *conn)
+        .await?;
+    let freelist: i64 = query_scalar("PRAGMA freelist_count")
+        .fetch_one(&mut *conn)
+        .await?;
+    let page_size: i64 = query_scalar("PRAGMA page_size")
+        .fetch_one(&mut *conn)
+        .await?;
+    let live_pages = u64::try_from((page_count - freelist).max(0)).expect("value is non-negative");
+    let page_size = u64::try_from(page_size.max(0)).expect("value is non-negative");
+    Ok(live_pages * page_size)
 }
 
 #[cfg(test)]
@@ -429,5 +544,130 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(blobs, 2);
+    }
+
+    /// Count the rows of the `cache_data` blob table.
+    async fn blob_count(conn: &mut sqlx::SqliteConnection) -> i64 {
+        sqlx::query_scalar("SELECT COUNT(*) FROM cache_data")
+            .fetch_one(conn)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn purge_gcs_orphan_from_overwrite() {
+        let (mbt, mut conn) = cache().await;
+        mbt.set_cached(&mut conn, 2, 1, 1, b"old", CacheEntryMeta::default())
+            .await
+            .unwrap();
+        mbt.set_cached(&mut conn, 2, 1, 1, b"new", CacheEntryMeta::default())
+            .await
+            .unwrap();
+        // The overwrite re-pointed the entry, orphaning the "old" blob.
+        assert_eq!(blob_count(&mut conn).await, 2);
+
+        // Nothing is expired, so no entries are removed - but the orphan is GC'd.
+        assert_eq!(mbt.purge_expired(&mut conn, 100).await.unwrap(), 0);
+        assert_eq!(blob_count(&mut conn).await, 1);
+        let got = mbt.get_cached(&mut conn, 2, 1, 1).await.unwrap().unwrap();
+        assert_eq!(got.data, b"new");
+    }
+
+    #[tokio::test]
+    async fn update_meta_without_rewriting_blob() {
+        let (mbt, mut conn) = cache().await;
+        mbt.set_cached(
+            &mut conn,
+            3,
+            1,
+            2,
+            b"payload",
+            CacheEntryMeta::new(100, "etag-1"),
+        )
+        .await
+        .unwrap();
+
+        // No entry at these coordinates - the caller must fall back to set_cached.
+        let missing = CacheEntryMeta::new(1, "x");
+        assert!(
+            !mbt.update_cached_meta(&mut conn, 3, 0, 0, missing)
+                .await
+                .unwrap()
+        );
+
+        // Revalidation bumps the metadata in place; the blob stays untouched.
+        let bumped = CacheEntryMeta::new(500, "etag-2");
+        assert!(
+            mbt.update_cached_meta(&mut conn, 3, 1, 2, bumped)
+                .await
+                .unwrap()
+        );
+        let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
+        assert_eq!(got.data, b"payload");
+        assert_eq!(got.expires, Some(500));
+        assert_eq!(got.etag.as_deref(), Some("etag-2"));
+        assert_eq!(blob_count(&mut conn).await, 1);
+    }
+
+    #[tokio::test]
+    async fn empty_blob_caches_negative_response() {
+        let (mbt, mut conn) = cache().await;
+        assert!(mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().is_none());
+
+        // Cached negative: Some(empty) with its own freshness metadata.
+        mbt.set_cached(
+            &mut conn,
+            5,
+            1,
+            1,
+            b"",
+            CacheEntryMeta::new(60, "miss-etag"),
+        )
+        .await
+        .unwrap();
+        let got = mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().unwrap();
+        assert!(got.data.is_empty());
+        assert_eq!(got.expires, Some(60));
+        assert_eq!(got.etag.as_deref(), Some("miss-etag"));
+
+        // Empty blobs de-duplicate like any other content.
+        mbt.set_cached(&mut conn, 5, 2, 2, b"", CacheEntryMeta::default())
+            .await
+            .unwrap();
+        assert_eq!(blob_count(&mut conn).await, 1);
+    }
+
+    #[tokio::test]
+    async fn purge_to_size_evicts_expiring_first() {
+        let (mbt, mut conn) = cache().await;
+        // 80 expiring + 20 never-expiring tiles, each a distinct 8 KiB blob (larger than
+        // a page, so evictions free their overflow pages immediately).
+        for i in 0..100u32 {
+            let data = vec![u8::try_from(i % 251).unwrap(); 8192];
+            let meta = if i < 80 {
+                CacheEntryMeta {
+                    expires: Some(i64::from(i)),
+                    etag: None,
+                }
+            } else {
+                CacheEntryMeta::default()
+            };
+            mbt.set_cached(&mut conn, 9, i, 0, &data, meta)
+                .await
+                .unwrap();
+        }
+
+        let initial = super::db_live_size(&mut conn).await.unwrap();
+        let budget = initial - 300 * 1024;
+        let removed = mbt.purge_cache_to_size(&mut conn, budget).await.unwrap();
+        assert!(removed > 0);
+        assert!(super::db_live_size(&mut conn).await.unwrap() <= budget);
+
+        // Soonest-expiring entries went first; never-expiring ones survived.
+        assert!(mbt.get_cached(&mut conn, 9, 0, 0).await.unwrap().is_none());
+        assert!(mbt.get_cached(&mut conn, 9, 99, 0).await.unwrap().is_some());
+
+        // Already under budget: a second call is a no-op.
+        assert_eq!(mbt.purge_cache_to_size(&mut conn, budget).await.unwrap(), 0);
     }
 }
