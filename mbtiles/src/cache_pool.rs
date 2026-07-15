@@ -16,7 +16,7 @@ use sqlx::sqlite::{SqliteAutoVacuum, SqliteConnectOptions, SqliteJournalMode};
 use sqlx::{SqlitePool, query_scalar};
 
 use crate::errors::MbtResult;
-use crate::{CacheEntryMeta, CacheSchema, CachedTile, MbtError, Mbtiles, Metadata};
+use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata};
 
 /// Connection pool for using an `.mbtiles` file as a **writable** tile cache.
 ///
@@ -48,28 +48,15 @@ use crate::{CacheEntryMeta, CacheSchema, CachedTile, MbtError, Mbtiles, Metadata
 pub struct MbtilesCache {
     mbtiles: Mbtiles,
     pool: SqlitePool,
-    schema: CacheSchema,
 }
 
 impl MbtilesCache {
-    /// Open (creating if missing) an `.mbtiles` file as a writable tile cache, using the
-    /// [`CacheSchema::Normalized`] layout (de-duplicated blobs - the best default for
-    /// web-tile caches) when creating a new file.
-    ///
-    /// See [`MbtilesCache::open_with_schema`] for the details and errors.
-    #[hotpath::measure]
-    pub async fn open<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
-        Self::open_with_schema(filepath, CacheSchema::Normalized).await
-    }
-
-    /// Open (creating if missing) an `.mbtiles` file as a writable tile cache, creating
-    /// a new file with the given [`CacheSchema`] layout.
+    /// Open (creating if missing) an `.mbtiles` file as a writable tile cache.
     ///
     /// The connection pool is read-write with WAL journaling, a 5s busy timeout, and
     /// incremental `auto_vacuum` (effective for newly created files; pre-existing files
     /// keep their mode until a full `VACUUM`). The tile-cache schema is created if the
-    /// database is empty; an existing cache file keeps its own layout, which
-    /// [`MbtilesCache::schema`] reports.
+    /// database is empty.
     ///
     /// # Errors
     ///
@@ -77,10 +64,7 @@ impl MbtilesCache {
     /// (non-cache) schema - e.g. a regular `MBTiles` tileset - to avoid silently mixing
     /// cache tables into it.
     #[hotpath::measure]
-    pub async fn open_with_schema<P: AsRef<Path>>(
-        filepath: P,
-        schema: CacheSchema,
-    ) -> MbtResult<Self> {
+    pub async fn open<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
         let opt = SqliteConnectOptions::new()
             .filename(mbtiles.filepath())
@@ -95,30 +79,12 @@ impl MbtilesCache {
         let objects: i64 = query_scalar("SELECT COUNT(*) FROM sqlite_master")
             .fetch_one(&mut *conn)
             .await?;
-        let schema = if objects == 0 {
-            mbtiles
-                .create_cache_schema(&mut *conn, schema, false)
-                .await?;
-            schema
-        } else {
-            // An existing cache file keeps its layout; the requested one is ignored
-            match mbtiles.cache_schema(&mut *conn).await? {
-                Some(existing) => existing,
-                None => return Err(MbtError::NotACacheFile(mbtiles.filepath().to_string())),
-            }
-        };
+        if objects != 0 && !mbtiles.is_cache(&mut *conn).await? {
+            return Err(MbtError::NotACacheFile(mbtiles.filepath().to_string()));
+        }
+        mbtiles.create_cache_schema(&mut *conn, false).await?;
         drop(conn);
-        Ok(Self {
-            mbtiles,
-            pool,
-            schema,
-        })
-    }
-
-    /// The [`CacheSchema`] layout of this cache file.
-    #[must_use]
-    pub fn schema(&self) -> CacheSchema {
-        self.schema
+        Ok(Self { mbtiles, pool })
     }
 
     /// Look up a cached tile and its `fetched`/`expires`/`etag` metadata.
@@ -127,9 +93,7 @@ impl MbtilesCache {
     #[hotpath::measure]
     pub async fn get_cached(&self, z: u8, x: u32, y: u32) -> MbtResult<Option<CachedTile>> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .get_cached(&mut *conn, self.schema, z, x, y)
-            .await
+        self.mbtiles.get_cached(&mut *conn, z, x, y).await
     }
 
     /// Insert or replace a cached tile with its [`CacheEntryMeta`] (`fetched`/`expires`/`etag`).
@@ -146,7 +110,7 @@ impl MbtilesCache {
     ) -> MbtResult<()> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles
-            .set_cached(&mut conn, self.schema, z, x, y, data, meta)
+            .set_cached(&mut conn, z, x, y, data, meta)
             .await
     }
 
@@ -174,9 +138,7 @@ impl MbtilesCache {
     #[hotpath::measure]
     pub async fn purge_expired(&self, now: i64) -> MbtResult<u64> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .purge_expired(&mut conn, self.schema, now)
-            .await
+        self.mbtiles.purge_expired(&mut conn, now).await
     }
 
     /// Evict entries (soonest-expiring first) until the live size is at most `max_bytes`.
@@ -185,9 +147,7 @@ impl MbtilesCache {
     #[hotpath::measure]
     pub async fn purge_cache_to_size(&self, max_bytes: u64) -> MbtResult<u64> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .purge_cache_to_size(&mut conn, self.schema, max_bytes)
-            .await
+        self.mbtiles.purge_cache_to_size(&mut conn, max_bytes).await
     }
 
     /// Read a tile through the spec-compatible `tiles` view, without cache metadata.
@@ -211,22 +171,17 @@ impl MbtilesCache {
 
 #[cfg(test)]
 mod tests {
-    use rstest::rstest;
-
     use super::*;
     use crate::CacheEntryMeta;
-    use crate::CacheSchema::{Flat, Normalized};
 
-    #[rstest]
     #[tokio::test]
-    async fn cache_roundtrip_and_persist(#[values(Flat, Normalized)] schema: CacheSchema) {
+    async fn cache_roundtrip_and_persist() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("cache.mbtiles");
 
         // Create a fresh cache file, write two tiles (one expiring, one permanent).
         {
-            let cache = MbtilesCache::open_with_schema(&path, schema).await.unwrap();
-            assert_eq!(cache.schema(), schema);
+            let cache = MbtilesCache::open(&path).await.unwrap();
             cache
                 .set_cached(2, 1, 1, b"tile-a", CacheEntryMeta::new(40, 50, "v1"))
                 .await
@@ -237,10 +192,8 @@ mod tests {
                 .unwrap();
         }
 
-        // Reopen the existing file: entries persist, the layout is detected (the default
-        // `open` ignores its normalized preference), and it is still a readable tileset.
+        // Reopen the existing file: entries persist, and it is still a readable tileset.
         let cache = MbtilesCache::open(&path).await.unwrap();
-        assert_eq!(cache.schema(), schema);
         let a = cache.get_cached(2, 1, 1).await.unwrap().unwrap();
         assert_eq!(a.data, b"tile-a");
         assert_eq!(a.fetched, Some(40));

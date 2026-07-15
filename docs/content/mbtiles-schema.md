@@ -68,38 +68,19 @@ In our next semver major, we plan to switch this default and produce `tiles_shal
 
 ## cache
 
-The `cache` schemas store extra cache metadata alongside each tile - `fetched` (when the tile was downloaded/added/last refreshed), `expires`, and `etag` - so a file can serve as a persistent web-tile cache.
-Two layouts exist, mirroring the `flat` vs `normalized` split of the regular schemas.
-Both center on a `tile_cache` table holding the tile Z,X,Y coordinates and the cache metadata, and both create a spec-compatible `tiles` view so the file can still be read by any standard MBTiles reader (the extra columns are simply invisible to it).
-
-### cache-flat
-
-The tile blob is stored inline in the `tile_cache` table.
-Simple and fast, best when few tiles share the same content.
+The `cache` schema is similar to `flat`, but stores extra cache metadata alongside each tile - `fetched` (when the tile was downloaded/added/last refreshed), `expires`, and `etag` - so a file can serve as a persistent web-tile cache.
+The `tile_cache` table holds the tile Z,X,Y coordinates, the cache metadata, and the tile blob, and a spec-compatible `tiles` view is created so the file can still be read by any standard MBTiles reader (the extra columns are simply invisible to it).
 
 ```sql
---8<-- "files/init-cache-flat.sql"
-```
-
-### cache-normalized
-
-Tile blobs are de-duplicated in the `cache_data` table, keyed by an integer `tile_id` that is the [xxh3-64](https://github.com/Cyan4973/xxHash) hash of `tile_data` (stored as an `INTEGER PRIMARY KEY`, i.e. an alias for the rowid, so identical blobs collapse to a single row).
-This is the recommended default for web-tile caches, where identical (e.g. empty or ocean) tiles are common; the `cache` CLI value is an alias for it.
-
-```sql
---8<-- "files/init-cache-normalized.sql"
+--8<-- "files/init-cache.sql"
 ```
 
 ### Supported operations
 
-The `mbtiles` tool treats both cache layouts as first-class schemas, with a few deliberate restrictions:
+The `mbtiles` tool treats `cache` as a first-class schema, with a few deliberate restrictions:
 
-* `summary`, `validate`, `meta-*`, and serving the file with `martin` all work.
+* `summary`, `validate`, `meta-*`, and serving the file with `martin` all work. Like `flat`, there are no hashes to check during per-tile validation.
 * `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `fetched`/`expires`/`etag` values are dropped, since standard schemas cannot store them.
-* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache-flat|cache-normalized`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Copies between cache files - including across the two layouts - preserve all cache metadata.
-* `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob storage joined through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
+* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
+* `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob column exposed through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
 * `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.
-
-For `cache-normalized`, per-tile validation checks foreign-key integrity (every `tile_cache.tile_id` must exist in `cache_data`) and that each blob is stored under its xxh3-64 content key, allowing for the small linear-probing window the runtime API uses on hash collisions. Unreferenced `cache_data` rows are legal - they appear when an entry is overwritten and disappear on the next purge. Like `flat`, the `cache-flat` layout has no hashes to check.
-
-Note that bulk SQL copies into a `cache-normalized` file cannot resolve xxh3-64 collisions the way the runtime `set_cached` API does (by linear probing); the copier instead verifies afterwards that no two different blobs mapped to the same key and fails the copy in that astronomically-unlikely case.

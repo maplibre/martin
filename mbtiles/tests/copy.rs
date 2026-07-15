@@ -11,10 +11,10 @@ use itertools::Itertools as _;
 use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
-use mbtiles::MbtTypeCli::{CacheFlat, CacheNormalized, Flat, FlatWithHash, Normalized};
+use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    CacheEntryMeta, CacheSchema, CopyType, MbtError, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier,
+    CacheEntryMeta, CopyType, MbtError, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier,
     PatchTypeCli, UpdateZoomType, apply_patch, init_mbtiles_schema, invert_y_value,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
@@ -94,8 +94,7 @@ fn shorten(v: MbtTypeCli) -> &'static str {
         Flat => "flat",
         FlatWithHash => "hash",
         Normalized => "norm",
-        CacheFlat => "cflat",
-        CacheNormalized => "cnorm",
+        Cache => "cache",
     }
 }
 
@@ -510,7 +509,7 @@ async fn convert(
     Ok(())
 }
 
-/// Converting to and from the cache schemas must be lossless (modulo `expires`/`etag`,
+/// Converting to and from the cache schema must be lossless (modulo the cache metadata,
 /// which the standard schemas cannot represent).
 #[rstest]
 #[trace]
@@ -518,27 +517,26 @@ async fn convert(
 #[tracing_test::traced_test]
 async fn convert_cache(
     #[values(Flat, FlatWithHash, Normalized)] other_type: MbtTypeCli,
-    #[values(CacheFlat, CacheNormalized)] cache_type: MbtTypeCli,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
-    let (other, cache) = (shorten(other_type), shorten(cache_type));
+    let other = shorten(other_type);
 
     // other -> cache; the resulting file is identical no matter the source schema
-    let (cache_mbt, mut cache_cn) = open!(convert_cache, "{other}-to-{cache}");
+    let (cache_mbt, mut cache_cn) = open!(convert_cache, "{other}-to-cache");
     copy! {
         databases.path("v1", other_type),
         path(&cache_mbt),
-        dst_type_cli => Some(cache_type),
+        dst_type_cli => Some(Cache),
     };
     let dmp = dump(&mut cache_cn).await?;
-    assert_dump!(&dmp, "v1__{cache}");
+    assert_dump!(&dmp, "v1__cache");
     let hash = cache_mbt.open_and_validate(Off, Verify).await?;
     allow_duplicates! {
         assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
     }
 
     // cache -> other: must round-trip back to the original v1 content
-    let (back_mbt, mut back_cn) = open!(convert_cache, "{other}-from-{cache}");
+    let (back_mbt, mut back_cn) = open!(convert_cache, "{other}-from-cache");
     copy! {
         path(&cache_mbt),
         path(&back_mbt),
@@ -547,44 +545,30 @@ async fn convert_cache(
     pretty_assert_eq!(
         databases.dump("v1", other_type),
         &dump(&mut back_cn).await?,
-        "Round-tripping v1 through a {cache} file back to {other} should be lossless",
+        "Round-tripping v1 through a cache file back to {other} should be lossless",
     );
 
     Ok(())
 }
 
-/// A cache source copied to any cache layout preserves the per-tile `expires`/`etag`
-/// metadata and honors filters. With no explicit destination type (the equal-layout
-/// cases below), the copy stays in the source's layout.
-#[rstest]
-#[trace]
-#[tokio::test(flavor = "multi_thread")]
+/// A cache source copied without an explicit destination type stays a cache file,
+/// preserving the per-tile `fetched`/`expires`/`etag` metadata and honoring filters.
+#[tokio::test]
 #[tracing_test::traced_test]
-async fn copy_cache_to_cache_preserves_meta(
-    #[values(CacheSchema::Flat, CacheSchema::Normalized)] src_schema: CacheSchema,
-    #[values(CacheSchema::Flat, CacheSchema::Normalized)] dst_schema: CacheSchema,
-) {
-    let dst_cli = match dst_schema {
-        CacheSchema::Flat => CacheFlat,
-        CacheSchema::Normalized => CacheNormalized,
-    };
-    let (src_mbt, mut src_cn) = open!(
-        copy_cache_to_cache_preserves_meta,
-        "{src_schema}-{dst_schema}-src"
-    );
+async fn copy_cache_to_cache_preserves_meta() {
+    let (src_mbt, mut src_cn) = open!(copy_cache_to_cache_preserves_meta, "src");
     src_mbt
-        .create_cache_schema(&mut src_cn, src_schema, false)
+        .create_cache_schema(&mut src_cn, false)
         .await
         .unwrap();
     let meta = CacheEntryMeta::new(30, 100, "etag-1");
     src_mbt
-        .set_cached(&mut src_cn, src_schema, 5, 1, 2, b"expiring", meta)
+        .set_cached(&mut src_cn, 5, 1, 2, b"expiring", meta)
         .await
         .unwrap();
     src_mbt
         .set_cached(
             &mut src_cn,
-            src_schema,
             6,
             3,
             4,
@@ -594,23 +578,10 @@ async fn copy_cache_to_cache_preserves_meta(
         .await
         .unwrap();
 
-    let (dst_mbt, mut dst_cn) = open!(
-        copy_cache_to_cache_preserves_meta,
-        "{src_schema}-{dst_schema}-dst"
-    );
-    copy! {
-        path(&src_mbt),
-        path(&dst_mbt),
-        // Same-layout copies also verify that the destination defaults to the
-        // source's layout when no type is requested
-        dst_type_cli => (src_schema != dst_schema).then_some(dst_cli),
-    };
-    assert_eq!(
-        dst_mbt.cache_schema(&mut dst_cn).await.unwrap(),
-        Some(dst_schema)
-    );
+    let (dst_mbt, mut dst_cn) = open!(copy_cache_to_cache_preserves_meta, "dst");
+    copy!(path(&src_mbt), path(&dst_mbt));
     let got = dst_mbt
-        .get_cached(&mut dst_cn, dst_schema, 5, 1, 2)
+        .get_cached(&mut dst_cn, 5, 1, 2)
         .await
         .unwrap()
         .unwrap();
@@ -619,7 +590,7 @@ async fn copy_cache_to_cache_preserves_meta(
     assert_eq!(got.expires, Some(100));
     assert_eq!(got.etag.as_deref(), Some("etag-1"));
     let got = dst_mbt
-        .get_cached(&mut dst_cn, dst_schema, 6, 3, 4)
+        .get_cached(&mut dst_cn, 6, 3, 4)
         .await
         .unwrap()
         .unwrap();
@@ -629,26 +600,22 @@ async fn copy_cache_to_cache_preserves_meta(
     assert_eq!(got.etag, None);
 
     // Zoom filters apply to cache -> cache copies as well
-    let (z6_mbt, mut z6_cn) = open!(
-        copy_cache_to_cache_preserves_meta,
-        "{src_schema}-{dst_schema}-z6"
-    );
+    let (z6_mbt, mut z6_cn) = open!(copy_cache_to_cache_preserves_meta, "z6");
     copy! {
         path(&src_mbt),
         path(&z6_mbt),
-        dst_type_cli => Some(dst_cli),
         min_zoom => Some(6),
     };
     assert!(
         z6_mbt
-            .get_cached(&mut z6_cn, dst_schema, 5, 1, 2)
+            .get_cached(&mut z6_cn, 5, 1, 2)
             .await
             .unwrap()
             .is_none()
     );
     assert!(
         z6_mbt
-            .get_cached(&mut z6_cn, dst_schema, 6, 3, 4)
+            .get_cached(&mut z6_cn, 6, 3, 4)
             .await
             .unwrap()
             .is_some()
@@ -660,19 +627,15 @@ async fn copy_cache_to_cache_preserves_meta(
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
-async fn diff_with_cache_file(
-    #[values(CacheFlat, CacheNormalized)] cache_type: MbtTypeCli,
-    #[notrace] databases: &Databases,
-) -> MbtResult<()> {
-    let cache = shorten(cache_type);
-    let (v2_cache_mbt, _v2_cache_cn) = open!(diff_with_cache_file, "v2-{cache}");
+async fn diff_with_cache_file(#[notrace] databases: &Databases) -> MbtResult<()> {
+    let (v2_cache_mbt, _v2_cache_cn) = open!(diff_with_cache_file, "v2cache");
     copy! {
         databases.path("v2", Flat),
         path(&v2_cache_mbt),
-        dst_type_cli => Some(cache_type),
+        dst_type_cli => Some(Cache),
     };
 
-    let (dif_mbt, mut dif_cn) = open!(diff_with_cache_file, "dif-{cache}");
+    let (dif_mbt, mut dif_cn) = open!(diff_with_cache_file, "dif");
     copy! {
         databases.path("v1", Flat),
         path(&dif_mbt),
@@ -699,7 +662,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
         src_file: databases.path("v1", Flat),
         dst_file: PathBuf::from("file:cache_unsupported_diff?mode=memory&cache=shared"),
         diff_with_file: Some((databases.path("v2", Flat), None)),
-        dst_type_cli: Some(CacheNormalized),
+        dst_type_cli: Some(Cache),
         ..Default::default()
     }
     .run()
@@ -715,7 +678,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
         src_file: databases.path("v1", Flat),
         dst_file: PathBuf::from("file:cache_unsupported_patch?mode=memory&cache=shared"),
         apply_patch: Some(databases.path("dif", Flat)),
-        dst_type_cli: Some(CacheFlat),
+        dst_type_cli: Some(Cache),
         ..Default::default()
     }
     .run()
@@ -728,9 +691,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
 
     // Patching a cache file in place
     let (cache_mbt, mut cache_cn) = open!(cache_unsupported_operations, "base");
-    cache_mbt
-        .create_cache_schema(&mut cache_cn, CacheSchema::Normalized, false)
-        .await?;
+    cache_mbt.create_cache_schema(&mut cache_cn, false).await?;
     let err = apply_patch(path(&cache_mbt), databases.path("dif", Flat), true)
         .await
         .unwrap_err();

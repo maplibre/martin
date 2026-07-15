@@ -116,11 +116,6 @@ pub enum MbtError {
     #[error("Could not copy MBTiles file: {reason}")]
     UnsupportedCopyOperation { reason: String },
 
-    #[error(
-        "An xxh3-64 hash collision was detected while bulk-copying into cache file {0}: two different tile blobs map to the same content key. Bulk SQL copy cannot resolve collisions; copy the affected tiles via the cache API (set_cached) instead"
-    )]
-    CacheCopyCollision(PathBuf),
-
     #[error("Unexpected duplicate tiles found when copying")]
     DuplicateValues,
 
@@ -143,11 +138,6 @@ pub enum MbtError {
 
     #[error("Invalid zoom value {0}={1}, expecting an integer between 0..{MAX_ZOOM}")]
     InvalidZoomValue(&'static str, String),
-
-    #[error(
-        "Could not find a free cache slot for tile {z}/{x}/{y} after {probes} xxh3-64 hash collisions"
-    )]
-    CacheKeyExhausted { z: u8, x: u32, y: u32, probes: u32 },
 
     #[error(
         "A file {0} does not have an {AGG_TILES_HASH} metadata entry, probably because it was not created by this tool. Use `--force` to ignore this warning, or run this to update hash value: `mbtiles validate --agg-hash update {0}`"

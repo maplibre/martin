@@ -213,7 +213,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
         let diff_tiles: String = match self.dif_type {
             // A Cache diff file is read via its `tiles` view, like Flat
-            Flat | Cache { .. } => "diffDb.tiles".to_string(),
+            Flat | Cache => "diffDb.tiles".to_string(),
             FlatWithHash
             | Normalized {
                 schema: _,
@@ -438,7 +438,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             match self.dst_type {
                 Flat =>"INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
-                v @ (Normalized { .. } | Cache { .. }) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
+                v @ (Normalized { .. } | Cache) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
         .bind(value.coord.z)
         .bind(value.coord.x)

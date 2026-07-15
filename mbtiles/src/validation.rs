@@ -15,11 +15,10 @@ use crate::MbtError::{
     InvalidTileIndex,
 };
 use crate::bindiff::get_patch_type;
-use crate::cache::MAX_KEY_PROBES;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
-    Mbtiles, cache_tables_schema, has_tiles_with_hash, invert_y_value,
+    Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
     is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
@@ -56,47 +55,6 @@ impl HashAlgorithm {
         match value.to_ascii_lowercase().as_str() {
             "md5" => Some(Self::Md5),
             _ => None,
-        }
-    }
-}
-
-/// Describes the layout used by a tile-cache `MBTiles` schema (see [`MbtType::Cache`]).
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
-pub enum CacheSchema {
-    /// A single `tile_cache` table with the tile blob stored inline.
-    /// Simpler and faster when the tileset contains few duplicate tiles.
-    Flat,
-    /// A `tile_cache` index table pointing into a de-duplicated `cache_data` blob table
-    /// keyed by the xxh3-64 hash of the blob. The best default for web-tile caches,
-    /// where identical (e.g. empty or ocean) tiles are common.
-    Normalized,
-}
-
-impl CacheSchema {
-    /// The schema-init SQL script for this cache layout.
-    #[must_use]
-    pub(crate) fn init_sql(self) -> &'static str {
-        match self {
-            Self::Flat => include_str!("../sql/init-cache-flat.sql"),
-            Self::Normalized => include_str!("../sql/init-cache-normalized.sql"),
-        }
-    }
-
-    /// `SELECT` returning `zoom_level, tile_column, tile_row, fetched, expires, etag,
-    /// tile_data` for the given database prefix - the canonical way to read cache
-    /// entries with their metadata regardless of layout.
-    #[must_use]
-    pub(crate) fn select_cached_sql(self, db_prefix: &str) -> String {
-        match self {
-            Self::Flat => format!(
-                "SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data
-                 FROM {db_prefix}.tile_cache"
-            ),
-            Self::Normalized => format!(
-                "SELECT zoom_level, tile_column, tile_row, fetched, expires, etag, tile_data
-                 FROM {db_prefix}.tile_cache JOIN {db_prefix}.cache_data USING (tile_id)"
-            ),
         }
     }
 }
@@ -193,16 +151,13 @@ pub enum MbtType {
     },
     /// Tile-cache `MBTiles` file (non-standard)
     ///
-    /// A `tile_cache` table stores per-tile cache metadata (`fetched`, `expires`, and `etag`) next to
-    /// the tile coordinates. The `schema` argument describes the layout: [`CacheSchema::Flat`]
-    /// keeps the blob inline, while [`CacheSchema::Normalized`] de-duplicates blobs into a
-    /// separate `cache_data` table keyed by the xxh3-64 hash of the blob (stored as an
-    /// integer). A spec-compatible `tiles` view makes the file readable as a regular
-    /// tileset. Used as a persistent web-tile cache; see the `cache` module for the
-    /// read/write API.
+    /// Like [`MbtType::Flat`], but the `tile_cache` table stores per-tile cache metadata
+    /// (`fetched`, `expires`, and `etag`) next to the tile coordinates and blob. A
+    /// spec-compatible `tiles` view makes the file readable as a regular tileset. Used
+    /// as a persistent web-tile cache; see the `cache` module for the read/write API.
     ///
-    /// See <https://maplibre.org/martin/mbtiles-schema.html#cache> for the concrete schemas.
-    Cache { schema: CacheSchema },
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#cache> for the concrete schema.
+    Cache,
 }
 
 impl MbtType {
@@ -548,8 +503,8 @@ impl Mbtiles {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
             MbtType::Flat
-        } else if let Some(schema) = cache_tables_schema(&mut *conn).await? {
-            MbtType::Cache { schema }
+        } else if is_cache_tables_type(&mut *conn).await? {
+            MbtType::Cache
         } else {
             return Err(MbtError::InvalidDataFormat(self.filepath().to_string()));
         };
@@ -572,7 +527,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
-            MbtType::Cache { .. } => "tile_cache",
+            MbtType::Cache => "tile_cache",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -851,18 +806,13 @@ LIMIT 1;"
                 info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
-            MbtType::Cache {
-                schema: CacheSchema::Flat,
-            } => {
+            MbtType::Cache => {
                 info!(
                     mbtiles.file = %self,
-                    "Skipping per-tile hash validation because this is a flat cache MBTiles file"
+                    "Skipping per-tile hash validation because this is a cache MBTiles file"
                 );
                 return Ok(());
             }
-            MbtType::Cache {
-                schema: CacheSchema::Normalized,
-            } => return self.check_each_cache_tile_hash(conn).await,
         };
 
         query(sql)
@@ -875,52 +825,6 @@ LIMIT 1;"
                     computed: v.get(1),
                 })
             })?;
-
-        info!(mbtiles.file = %self, "All tile hashes are valid");
-        Ok(())
-    }
-
-    /// Per-tile validation of the [`MbtType::Cache`] schema, used by [`Mbtiles::check_each_tile_hash`].
-    async fn check_each_cache_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
-    where
-        for<'e> &'e mut T: SqliteExecutor<'e>,
-    {
-        // Check that every tile_cache entry references an existing blob.
-        // Orphaned cache_data rows (unreferenced blobs) are legal - they appear
-        // after an entry is overwritten and disappear on the next purge.
-        let sql = "SELECT CAST(tc.tile_id AS TEXT)
-             FROM tile_cache tc
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM cache_data cd WHERE cd.tile_id = tc.tile_id
-             )
-             LIMIT 1;";
-        if let Some(row) = query(sql).fetch_optional(&mut *conn).await? {
-            let missing_id: String = row.get(0);
-            return Err(MbtError::MissingTileReference {
-                filepath: self.filepath().to_string(),
-                tile_id: missing_id,
-                table: "cache_data",
-            });
-        }
-
-        // Verify each blob is stored under its xxh3-64 content key, tolerating
-        // the linear-probe offsets `set_cached` uses on hash collisions (see the
-        // cache module). A key probed across i64::MAX would false-positive here;
-        // at ~2^-50 odds that is not worth complicating the query.
-        let sql = format!(
-            "SELECT CAST(tile_id AS TEXT), CAST(xxh3_64_int(tile_data) AS TEXT)
-             FROM cache_data
-             WHERE tile_id NOT BETWEEN xxh3_64_int(tile_data)
-                 AND xxh3_64_int(tile_data) + {MAX_KEY_PROBES}
-             LIMIT 1;"
-        );
-        if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
-            return Err(IncorrectTileHash {
-                filepath: self.filepath().to_string(),
-                stored: row.get(0),
-                computed: row.get(1),
-            });
-        }
 
         info!(mbtiles.file = %self, "All tile hashes are valid");
         Ok(())
@@ -1070,14 +974,10 @@ pub(crate) mod tests {
             }
         );
 
-        for schema in [CacheSchema::Flat, CacheSchema::Normalized] {
-            let (mbt, mut conn) = anonymous_mbtiles("").await;
-            mbt.create_cache_schema(&mut conn, schema, false)
-                .await
-                .unwrap();
-            let res = mbt.detect_type(&mut conn).await.unwrap();
-            assert_eq!(res, MbtType::Cache { schema });
-        }
+        let (mbt, mut conn) = anonymous_mbtiles("").await;
+        mbt.create_cache_schema(&mut conn, false).await.unwrap();
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, MbtType::Cache);
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
@@ -1091,76 +991,6 @@ pub(crate) mod tests {
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
             .await
             .unwrap();
-    }
-
-    #[actix_rt::test]
-    async fn check_tile_hash_cache() {
-        use crate::CacheEntryMeta;
-        use crate::cache::content_key;
-
-        let schema = CacheSchema::Normalized;
-        let (mbt, mut conn) = anonymous_mbtiles("").await;
-        mbt.create_cache_schema(&mut conn, schema, false)
-            .await
-            .unwrap();
-        mbt.set_cached(
-            &mut conn,
-            schema,
-            1,
-            0,
-            0,
-            b"data-a",
-            CacheEntryMeta::default(),
-        )
-        .await
-        .unwrap();
-
-        // A linear-probed entry (key within the probe window) is valid
-        let probed: &[u8] = b"probed-data";
-        let probed_key = content_key(probed) + 5;
-        query("INSERT INTO cache_data (tile_id, tile_data) VALUES (?1, ?2)")
-            .bind(probed_key)
-            .bind(probed)
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        query("INSERT INTO tile_cache (zoom_level, tile_column, tile_row, tile_id) VALUES (2, 0, 0, ?1)")
-            .bind(probed_key)
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        // An orphaned (unreferenced) blob is legal: it is pending the next purge
-        query("INSERT INTO cache_data (tile_id, tile_data) VALUES (?1, ?2)")
-            .bind(content_key(b"orphan"))
-            .bind(&b"orphan"[..])
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        mbt.check_each_tile_hash(&mut conn).await.unwrap();
-
-        // An entry referencing a missing blob fails the FK check
-        query("INSERT INTO tile_cache (zoom_level, tile_column, tile_row, tile_id) VALUES (3, 0, 0, 42)")
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        let res = mbt.check_each_tile_hash(&mut conn).await;
-        assert!(
-            matches!(res, Err(MbtError::MissingTileReference { .. })),
-            "{res:?}"
-        );
-        query("DELETE FROM tile_cache WHERE zoom_level = 3")
-            .execute(&mut conn)
-            .await
-            .unwrap();
-
-        // A blob stored under a key outside its probe window fails the hash check
-        query("UPDATE cache_data SET tile_data = cast('corrupted' AS blob) WHERE tile_id = ?1")
-            .bind(content_key(b"data-a"))
-            .execute(&mut conn)
-            .await
-            .unwrap();
-        let res = mbt.check_each_tile_hash(&mut conn).await;
-        assert!(matches!(res, Err(IncorrectTileHash { .. })), "{res:?}");
     }
 
     #[actix_rt::test]

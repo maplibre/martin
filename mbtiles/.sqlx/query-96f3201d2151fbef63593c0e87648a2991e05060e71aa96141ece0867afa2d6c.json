@@ -15,7 +15,10 @@
         "type_info": "Integer"
       }
     ],
-    "nullable": [true, true],
+    "nullable": [
+      true,
+      true
+    ],
     "parameters": {
       "Right": 0
     }

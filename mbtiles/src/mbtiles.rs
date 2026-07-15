@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CacheSchema, CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
+use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -27,9 +27,7 @@ pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     Normalized,
-    CacheFlat,
-    #[cfg_attr(feature = "cli", value(alias("cache")))]
-    CacheNormalized,
+    Cache,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -589,16 +587,8 @@ impl Mbtiles {
             } => {
                 "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
-            MbtType::Cache {
-                schema: CacheSchema::Flat,
-            } => {
+            MbtType::Cache => {
                 "SELECT tile_data, NULL AS tile_hash from tile_cache where zoom_level = ? AND tile_column = ? AND tile_row = ?"
-            }
-            // Like DedupId, the integer content keys are not md5-text hashes, so no hash is returned
-            MbtType::Cache {
-                schema: CacheSchema::Normalized,
-            } => {
-                "SELECT cache_data.tile_data, NULL AS tile_hash FROM tile_cache JOIN cache_data ON tile_cache.tile_id = cache_data.tile_id  where tile_cache.zoom_level = ? AND tile_cache.tile_column = ? AND tile_cache.tile_row = ?"
             }
         }
     }
@@ -680,7 +670,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
-            MbtType::Cache { .. } => "tile_cache",
+            MbtType::Cache => "tile_cache",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -729,9 +719,7 @@ impl Mbtiles {
                 )),
             ),
             // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
-            MbtType::Cache {
-                schema: CacheSchema::Flat,
-            } => (
+            MbtType::Cache => (
                 format!(
                     "
     INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_data)
@@ -739,32 +727,11 @@ impl Mbtiles {
                 ),
                 None,
             ),
-            // The blob insert is always OR IGNORE: a `cache_data` slot is shared by every
-            // entry with the same content, so `on_duplicate` must never REPLACE it. Unlike
-            // `set_cached`, this bulk path cannot linear-probe on an xxh3-64 collision
-            // (astronomically rare); `fetched`/`expires`/`etag` are left NULL.
-            MbtType::Cache {
-                schema: CacheSchema::Normalized,
-            } => (
-                format!(
-                    "
-    INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_id)
-    VALUES (?1, ?2, ?3, xxh3_64_int(?4));"
-                ),
-                Some(
-                    "
-    INSERT OR IGNORE INTO cache_data (tile_id, tile_data)
-    VALUES (xxh3_64_int(?1), ?1);"
-                        .to_string(),
-                ),
-            ),
         }
     }
 }
 
 pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
-    use sqlite_hashes::rusqlite::functions::FunctionFlags;
-
     let mut handle_lock = conn.lock_handle().await?;
     let handle = handle_lock.as_raw_handle().as_ptr();
     // Safety: we know that the handle is a SQLite connection is locked and is not used anywhere else.
@@ -773,14 +740,6 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     register_md5_functions(&rc)?;
     register_bsdiffraw_functions(&rc)?;
     register_gzip_functions(&rc)?;
-    // The cache schema's integer content key (see `cache::content_key`): the xxh3-64
-    // hash of the blob, bit-reinterpreted into a signed 64-bit rowid.
-    rc.create_scalar_function(
-        "xxh3_64_int",
-        1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| Ok(crate::cache::content_key(ctx.get_raw(0).as_bytes()?)),
-    )?;
     Ok(())
 }
 

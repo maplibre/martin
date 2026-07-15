@@ -1,4 +1,4 @@
  INFO Integrity check passed mbtiles.file=tests/mbtiles_temp_files/world_cities_cache.mbtiles integrity_check=Quick
  INFO All values in the `tiles` table/view are valid mbtiles.file=tests/mbtiles_temp_files/world_cities_cache.mbtiles
- INFO All tile hashes are valid mbtiles.file=tests/mbtiles_temp_files/world_cities_cache.mbtiles
+ INFO Skipping per-tile hash validation because this is a cache MBTiles file mbtiles.file=tests/mbtiles_temp_files/world_cities_cache.mbtiles
  INFO agg_tiles_hash has been verified mbtiles.file=tests/mbtiles_temp_files/world_cities_cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F

@@ -1,1 +1,0 @@
-../../../mbtiles/sql/init-cache-normalized.sql
