@@ -4,6 +4,9 @@
 pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
+mod cache;
+pub use cache::{CacheEntryMeta, CachedTile};
+
 mod copier;
 pub use copier::{CopyDuplicateMode, MbtilesCopier};
 

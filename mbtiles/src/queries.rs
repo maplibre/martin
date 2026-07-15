@@ -23,7 +23,9 @@ where
 
 /// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL:
 /// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...` (idempotent; `SQLite` strips
-/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a ` STRICT` suffix when `strict`.
+/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a `STRICT` table-option when
+/// `strict` is set. `STRICT` is comma-joined with any options already present after the closing `)`
+/// (e.g. `WITHOUT ROWID`), producing a valid `... ) STRICT, WITHOUT ROWID`.
 ///
 /// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
 /// on `;` is safe because these files are ours and contain no embedded semicolons.
@@ -39,8 +41,19 @@ where
         let mut stmt = stmt
             .replacen("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
             .replacen("CREATE VIEW ", "CREATE VIEW IF NOT EXISTS ", 1);
-        if strict && stmt.to_ascii_uppercase().starts_with("CREATE TABLE") {
-            stmt.push_str(" STRICT");
+        // `STRICT` is a table-option; comma-join it with any options (such as `WITHOUT ROWID`)
+        // already present after the table's final `)`, yielding `... ) STRICT, WITHOUT ROWID`.
+        if strict
+            && stmt.to_ascii_uppercase().starts_with("CREATE TABLE")
+            && let Some((body, options)) = stmt.rsplit_once(')')
+        {
+            let mut stmt2 = format!("{body}) STRICT");
+            let options = options.trim();
+            if !options.is_empty() {
+                stmt2.push_str(", ");
+                stmt2.push_str(options);
+            }
+            stmt = stmt2;
         }
         conn.execute(AssertSqlSafe(stmt)).await?;
     }

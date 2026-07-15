@@ -135,6 +135,11 @@ pub enum MbtError {
     InvalidZoomValue(&'static str, String),
 
     #[error(
+        "Could not find a free cache slot for tile {z}/{x}/{y} after {probes} xxh3-64 hash collisions"
+    )]
+    CacheKeyExhausted { z: u8, x: u32, y: u32, probes: u32 },
+
+    #[error(
         "A file {0} does not have an {AGG_TILES_HASH} metadata entry, probably because it was not created by this tool. Use `--force` to ignore this warning, or run this to update hash value: `mbtiles validate --agg-hash update {0}`"
     )]
     CannotDiffFileWithoutHash(String),

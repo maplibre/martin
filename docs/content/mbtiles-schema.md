@@ -7,7 +7,7 @@ tags:
 
 # MBTiles Schemas
 
-The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying three different kinds of schema for `tiles` data: `flat`, `flat-with-hash`, and `normalized`. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
+The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying different kinds of schema for `tiles` data. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
 
 ## metadata
 
@@ -65,3 +65,14 @@ Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce
 Since tile IDs are integers rather than content hashes, per-tile validation checks foreign key integrity (every `tile_data_id` in `tiles_shallow` must exist in `tiles_data`) instead of recomputing content hashes.
 When copying from this schema to a new file, the `mbtiles` tool will produce the standard `map` + `images` normalized schema in the destination.
 In our next semver major, we plan to switch this default and produce `tiles_shallow`/`tiles_data` by default as well.
+
+## cache
+
+The `cache` schema is similar to `normalized`, but stores extra cache metadata (`expires` and `etag`) alongside each tile.
+Tile blobs are de-duplicated in the `cache_data` table, keyed by an integer `tile_id` that is the [xxh3-64](https://github.com/Cyan4973/xxHash) hash of `tile_data` (stored as an `INTEGER PRIMARY KEY`, i.e. an alias for the rowid, so identical blobs collapse to a single row).
+The `tile_cache` table maps tile Z,X,Y coordinates (plus `expires`/`etag`) to a `tile_id`.
+A spec-compatible `tiles` view is also created, so the file can still be read by any standard MBTiles reader (the `expires`/`etag` columns are simply invisible to it).
+
+```sql
+--8<-- "files/init-cache.sql"
+```

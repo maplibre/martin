@@ -1,0 +1,46 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "tile_data",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "cache_data"
+          }
+        },
+        "type_info": "Blob"
+      },
+      {
+        "name": "expires",
+        "ordinal": 1,
+        "origin": {
+          "Table": {
+            "name": "expires",
+            "table": "tile_cache"
+          }
+        },
+        "type_info": "Integer"
+      },
+      {
+        "name": "etag",
+        "ordinal": 2,
+        "origin": {
+          "Table": {
+            "name": "etag",
+            "table": "tile_cache"
+          }
+        },
+        "type_info": "Text"
+      }
+    ],
+    "nullable": [true, true, true],
+    "parameters": {
+      "Right": 3
+    }
+  },
+  "hash": "15a5a69f55100eb3cd6c23e896c9cb446e7f02d70cd8a61fde66f118c8dd8a79",
+  "query": "\nSELECT d.tile_data, c.expires, c.etag\nFROM tile_cache c\nJOIN cache_data d ON d.tile_id = c.tile_id\nWHERE c.zoom_level = ? AND c.tile_column = ? AND c.tile_row = ?"
+}
