@@ -207,28 +207,33 @@ impl PostgresPool {
     }
 }
 
+/// Convert the [`server_version_num`](https://pgpedia.info/s/server_version_num.html) setting into a [`Version`].
+///
+/// Since `PostgreSQL` 10 the setting is `major * 10000 + minor`, before that it was `major * 10000 + minor * 100 + patch`.
+/// Pre-release servers report the version they are heading towards, e.g. `19beta1` reports `190000` just like `19.0` will.
+fn parse_postgres_version(version_num: i32) -> Option<Version> {
+    let version_num = u32::try_from(version_num).ok()?;
+    let major = version_num / 10000;
+    let (minor, patch) = if major >= 10 {
+        (version_num % 10000, 0)
+    } else {
+        ((version_num % 10000) / 100, version_num % 100)
+    };
+    Some(Version::new(major.into(), minor.into(), patch.into()))
+}
+
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
-/// `PostgreSQL` only has a Major.Minor versioning, so we use 0 the patch version
 async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
-    let version: String = conn
+    let version_num: i32 = conn
         .query_one(
-            r"
-SELECT (regexp_matches(
-           current_setting('server_version'),
-           '^(\d+\.\d+)',
-           'g'
-       ))[1] || '.0' as version;",
+            "SELECT current_setting('server_version_num')::int as version;",
             &[],
         )
         .await
         .map(|row| row.get("version"))
         .map_err(|e| PostgresError(e, "querying postgres version"))?;
 
-    let version: Version = version
-        .parse()
-        .map_err(|e| BadPostgresVersion(e, version))?;
-
-    Ok(version)
+    parse_postgres_version(version_num).ok_or(BadPostgresVersion { version_num })
 }
 
 /// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)
@@ -345,6 +350,27 @@ impl Drop for ActiveQueryGuard {
             .unwrap_or_else(PoisonError::into_inner)
             .tokens
             .remove(&self.id);
+    }
+}
+
+#[cfg(test)]
+mod version_parsing_tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::beta_19(190_000, Some(Version::new(19, 0, 0)))]
+    #[case::released_18_4(180_004, Some(Version::new(18, 4, 0)))]
+    #[case::released_11_10(110_010, Some(Version::new(11, 10, 0)))]
+    #[case::released_17_2(170_002, Some(Version::new(17, 2, 0)))]
+    #[case::oldest_supported_11_0(110_000, Some(Version::new(11, 0, 0)))]
+    #[case::legacy_9_6_24(90_624, Some(Version::new(9, 6, 24)))]
+    #[case::legacy_9_0_0(90_000, Some(Version::new(9, 0, 0)))]
+    #[case::zero(0, Some(Version::new(0, 0, 0)))]
+    #[case::negative(-1, None)]
+    fn parses_server_version_num(#[case] version_num: i32, #[case] expected: Option<Version>) {
+        assert_eq!(parse_postgres_version(version_num), expected);
     }
 }
 
