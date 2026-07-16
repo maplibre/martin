@@ -47,12 +47,7 @@
         "type_info": "Blob"
       }
     ],
-    "nullable": [
-      true,
-      true,
-      true,
-      true
-    ],
+    "nullable": [true, true, true, true],
     "parameters": {
       "Right": 0
     }
