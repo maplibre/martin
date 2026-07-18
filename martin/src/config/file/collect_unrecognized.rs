@@ -4,11 +4,6 @@ use std::collections::hash_map::IntoIter as HashMapIntoIter;
 use serde::{Deserialize, Serialize};
 
 /// Configuration keys that were present in a config section but not recognized by any known field.
-///
-/// Populated by `#[serde(flatten)]` capture on config structs and surfaced to the user as
-/// warnings during finalization.
-/// A newtype (rather than a bare `HashMap`) so it can carry its own `CollectUnrecognizedKeys`
-/// behavior without overlapping the generic map impl.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
