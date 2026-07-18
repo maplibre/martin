@@ -5,6 +5,12 @@ use std::str::FromStr as _;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(test)]
+#[allow(deprecated)]
+use aws_config::profile::ProfileFileRegionProvider;
+#[cfg(test)]
+#[allow(deprecated)]
+use aws_config::profile::profile_file::ProfileFiles;
 use aws_credential_types::provider::{ProvideCredentials as _, SharedCredentialsProvider};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
@@ -118,7 +124,7 @@ pub struct PmtConfig {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     #[allow(deprecated)]
-    pub(crate) aws_profile_files: Option<aws_config::profile::profile_file::ProfileFiles>,
+    pub(crate) aws_profile_files: Option<ProfileFiles>,
 }
 
 impl Default for PmtConfig {
@@ -199,11 +205,15 @@ impl PmtConfig {
             return;
         };
 
-        let loader =
-            aws_config::defaults(aws_config::BehaviorVersion::latest()).profile_name(profile);
+        let loader = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .profile_name(profile.clone());
         #[cfg(test)]
         let loader = if let Some(files) = &self.aws_profile_files {
-            loader.profile_files(files.clone())
+            let region_provider = ProfileFileRegionProvider::builder()
+                .profile_name(profile)
+                .profile_files(files.clone())
+                .build();
+            loader.profile_files(files.clone()).region(region_provider)
         } else {
             loader
         };

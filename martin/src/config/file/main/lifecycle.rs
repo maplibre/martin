@@ -56,6 +56,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
+    #[allow(clippy::too_many_lines)]
     pub async fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
