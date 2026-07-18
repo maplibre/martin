@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
+#[cfg(feature = "_tiles")]
+use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem;
