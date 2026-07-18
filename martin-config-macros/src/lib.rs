@@ -5,21 +5,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, GenericParam, Generics, parse_macro_input};
 
-/// Derives `CollectUnrecognizedKeys` for a config struct or enum.
-///
-/// Recurses into every field; `#[serde(flatten)]` fields add no path segment, `#[serde(skip)]`
-/// fields are ignored, and `#[serde(rename)]` sets a field's path segment.
-#[proc_macro_derive(CollectUnrecognizedKeys)]
-pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    expand(&input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-/// Derives an empty `ConfigurationLivecycleHooks` impl, so the type opts into the trait's default hooks.
-///
-/// Types that need custom finalization implement the trait by hand instead of deriving it.
+/// Derives an empty `ConfigurationLivecycleHooks` impl, so the type opts into the trait's default hooks
 #[proc_macro_derive(ConfigurationLivecycleHooks)]
 pub fn derive_configuration_livecycle_hooks(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -31,6 +17,20 @@ pub fn derive_configuration_livecycle_hooks(input: TokenStream) -> TokenStream {
             for #ident #ty_generics #where_clause {}
     }
     .into()
+}
+
+/// Derives `CollectUnrecognizedKeys` for a config struct or enum.
+///
+/// Recurses into every field, except:
+/// - `#[serde(flatten)]` fields add no path segment,
+/// - `#[serde(skip)]` fields are ignored, and
+/// - `#[serde(rename)]` sets a field's path segment.
+#[proc_macro_derive(CollectUnrecognizedKeys)]
+pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand(&input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
@@ -98,11 +98,11 @@ fn struct_body(fields: &Fields) -> syn::Result<TokenStream2> {
 
     let mut stmts = Vec::new();
     for field in &fields.named {
-        if has_serde_skip(&field.attrs) {
+        if serde_flag_is_set(&field.attrs, "skip") {
             continue;
         }
         let member = field.ident.as_ref().expect("named field has an ident");
-        if has_serde_flatten(&field.attrs) {
+        if serde_flag_is_set(&field.attrs, "flatten") {
             stmts.push(quote! {
                 CollectUnrecognizedKeys::collect_unrecognized(&self.#member, path, out);
             });
@@ -163,15 +163,6 @@ fn enum_body(data: &syn::DataEnum) -> TokenStream2 {
         }
     }
     quote! { match self { #(#arms)* } }
-}
-
-/// Whether a field carries `#[serde(flatten)]`, meaning its keys live at the parent level.
-fn has_serde_flatten(attrs: &[syn::Attribute]) -> bool {
-    serde_flag_is_set(attrs, "flatten")
-}
-
-fn has_serde_skip(attrs: &[syn::Attribute]) -> bool {
-    serde_flag_is_set(attrs, "skip")
 }
 
 /// Returns `true` if any `#[serde(...)]` attribute contains the bare flag `name`.
