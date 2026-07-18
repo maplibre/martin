@@ -18,9 +18,9 @@ pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    if let Some(rule) = container_rename_all(&input.attrs) {
+    if let Some(attr) = container_rename_all(&input.attrs) {
         return Err(syn::Error::new_spanned(
-            rule,
+            attr,
             "CollectUnrecognizedKeys does not support `#[serde(rename_all)]` on recursed types; \
              rename individual fields with `#[serde(rename = \"…\")]` instead",
         ));
@@ -201,24 +201,24 @@ fn serde_field_name(field: &syn::Field, member: &syn::Ident) -> String {
     member.to_string()
 }
 
-/// Returns the `rename_all` token if present, so the derive can reject it (unsupported).
-fn container_rename_all(attrs: &[syn::Attribute]) -> Option<TokenStream2> {
+/// Returns the offending `#[serde(...)]` attribute if it sets `rename_all`, so the derive can reject it (unsupported).
+fn container_rename_all(attrs: &[syn::Attribute]) -> Option<&syn::Attribute> {
     for attr in attrs {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        let mut found = None;
+        let mut found = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename_all") {
-                found = Some(quote! { rename_all });
+                found = true;
             }
             if meta.input.peek(syn::Token![=]) {
                 let _: syn::Expr = meta.value()?.parse()?;
             }
             Ok(())
         });
-        if found.is_some() {
-            return found;
+        if found {
+            return Some(attr);
         }
     }
     None
