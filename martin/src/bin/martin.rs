@@ -54,7 +54,7 @@ async fn start(args: Args) -> MartinResult<()> {
         #[cfg(feature = "postgres")]
         &env,
     )?;
-    config.finalize()?;
+    config.finalize().await?;
 
     // Snapshot the PostgreSQL config before `resolve()` rewrites its resolved tables/functions
     // back into it, so each reloader re-derives discovery from the same inputs startup used.

@@ -56,7 +56,8 @@ use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+    #[allow(clippy::too_many_lines)]
+    pub async fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
@@ -97,7 +98,7 @@ impl Config {
                 "postgres[]."
             };
             for pg in self.postgres.iter_mut() {
-                pg.finalize()?;
+                pg.finalize().await?;
                 res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
             }
         }
@@ -109,37 +110,37 @@ impl Config {
             //
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
-            self.pmtiles.finalize()?;
+            self.pmtiles.finalize().await?;
             res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
         }
 
         #[cfg(feature = "mbtiles")]
         {
-            self.mbtiles.finalize()?;
+            self.mbtiles.finalize().await?;
             res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
         }
 
         #[cfg(feature = "unstable-cog")]
         {
-            self.cog.finalize()?;
+            self.cog.finalize().await?;
             res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
         }
 
         #[cfg(feature = "geojson")]
         {
-            self.geojson.finalize()?;
+            self.geojson.finalize().await?;
             res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
         }
 
         #[cfg(feature = "sprites")]
         {
-            self.sprites.finalize()?;
+            self.sprites.finalize().await?;
             res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
         }
 
         #[cfg(feature = "styles")]
         {
-            self.styles.finalize()?;
+            self.styles.finalize().await?;
             res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
         }
 
@@ -581,10 +582,10 @@ impl Config {
 mod tests {
     use crate::config::test_helpers::render_finalize_failure;
 
-    #[test]
-    fn finalize_no_sources() {
+    #[tokio::test]
+    async fn finalize_no_sources() {
         insta::assert_snapshot!(
-            render_finalize_failure("keep_alive: 75\n"),
+            render_finalize_failure("keep_alive: 75\n").await,
             @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
         );
     }

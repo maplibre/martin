@@ -121,7 +121,14 @@ fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
-pmtiles = ["martin-core/pmtiles", "dep:object_store", "dep:xxhash-rust", "_tiles"]
+pmtiles = [
+    "martin-core/pmtiles",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+    "dep:xxhash-rust",
+    "_tiles",
+]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -174,6 +181,8 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
+aws-config = { workspace = true, optional = true }
+aws-credential-types = { workspace = true, optional = true }
 clap.workspace = true
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
@@ -232,6 +241,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
 image-compare.workspace = true

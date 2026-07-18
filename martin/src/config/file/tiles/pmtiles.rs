@@ -2,10 +2,18 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(test)]
+use aws_config::profile::ProfileFileRegionProvider;
+use aws_credential_types::provider::{ProvideCredentials as _, SharedCredentialsProvider};
+#[cfg(test)]
+use aws_runtime::env_config::file::EnvConfigFiles;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
+use object_store::aws::{AmazonS3Builder, AwsCredential, AwsCredentialProvider};
+use object_store::{CredentialProvider, ObjectStore, ObjectStoreScheme};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 use url::Url;
@@ -70,6 +78,15 @@ pub struct PmtConfig {
     )]
     pub reload_interval: Duration,
 
+    /// AWS SDK profile used for S3 credentials and region resolution.
+    #[serde(
+        default,
+        alias = "aws_profile",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub profile: Option<String>,
+
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
@@ -96,6 +113,15 @@ pub struct PmtConfig {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub pmtiles_directory_cache: PmtCache,
+
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub aws_credentials: Option<AwsCredentialProvider>,
+
+    #[cfg(test)]
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub(crate) aws_profile_files: Option<EnvConfigFiles>,
 }
 
 impl Default for PmtConfig {
@@ -103,6 +129,7 @@ impl Default for PmtConfig {
         Self {
             directory_cache: CacheSizeConfig::default(),
             reload_interval: DEFAULT_RELOAD_INTERVAL,
+            profile: None,
             options: HashMap::default(),
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: None,
@@ -110,6 +137,9 @@ impl Default for PmtConfig {
             convert_to_mvt: None,
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
+            aws_credentials: None,
+            #[cfg(test)]
+            aws_profile_files: None,
         }
     }
 }
@@ -118,6 +148,7 @@ impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         let base = self.directory_cache == other.directory_cache
             && self.reload_interval == other.reload_interval
+            && self.profile == other.profile
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -130,7 +161,7 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigurationLivecycleHooks for PmtConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
         // partition them into options and unrecognized keys
@@ -138,6 +169,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
+        self.load_aws_profile().await;
 
         Ok(())
     }
@@ -165,6 +197,118 @@ impl ConfigurationLivecycleHooks for PmtConfig {
 }
 
 impl PmtConfig {
+    async fn load_aws_profile(&mut self) {
+        let Some(profile) = self.profile.clone() else {
+            return;
+        };
+
+        let loader = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .profile_name(profile.clone());
+        #[cfg(test)]
+        let loader = if let Some(files) = &self.aws_profile_files {
+            let region_provider = ProfileFileRegionProvider::builder()
+                .profile_name(profile)
+                .profile_files(files.clone())
+                .build();
+            loader.profile_files(files.clone()).region(region_provider)
+        } else {
+            loader
+        };
+        let sdk_config = loader.load().await;
+        self.apply_aws_config(&sdk_config);
+    }
+
+    fn apply_aws_config(&mut self, sdk_config: &aws_config::SdkConfig) {
+        let region_specified_by_config = [
+            "region",
+            "aws_region",
+            "default_region",
+            "aws_default_region",
+        ]
+        .iter()
+        .any(|key| self.options.contains_key(*key));
+        if region_specified_by_config {
+            warn!(
+                "Region from pmtiles.profile is ignored in favor of explicit PMTiles region configuration."
+            );
+        } else if let Some(region) = sdk_config.region() {
+            self.options
+                .insert("region".to_string(), region.as_ref().to_string());
+        }
+
+        let has_explicit_credentials = [
+            "access_key_id",
+            "aws_access_key_id",
+            "secret_access_key",
+            "aws_secret_access_key",
+            "session_token",
+            "aws_session_token",
+            "token",
+            "aws_token",
+            "web_identity_token_file",
+            "aws_web_identity_token_file",
+            "role_arn",
+            "aws_role_arn",
+            "role_session_name",
+            "aws_role_session_name",
+            "container_credentials_relative_uri",
+            "aws_container_credentials_relative_uri",
+            "container_credentials_full_uri",
+            "aws_container_credentials_full_uri",
+            "container_authorization_token_file",
+            "aws_container_authorization_token_file",
+            "metadata_endpoint",
+            "aws_metadata_endpoint",
+            "imdsv1_fallback",
+            "aws_imdsv1_fallback",
+            "endpoint_url_sts",
+            "aws_endpoint_url_sts",
+        ]
+        .iter()
+        .any(|key| self.options.contains_key(*key));
+        let skips_signature = ["skip_signature", "aws_skip_signature"].iter().any(|key| {
+            self.options
+                .get(*key)
+                .is_some_and(|value| value.eq_ignore_ascii_case("true") || value == "1")
+        });
+
+        if has_explicit_credentials {
+            warn!(
+                "Credentials from pmtiles.profile are ignored in favor of explicit PMTiles credential-provider configuration."
+            );
+        } else if skips_signature {
+            warn!(
+                "Credentials from pmtiles.profile are ignored because request signing is disabled."
+            );
+        } else if let Some(provider) = sdk_config.credentials_provider() {
+            self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider {
+                provider: provider.clone(),
+            }));
+        }
+    }
+
+    pub(crate) fn parse_url_opts(
+        &self,
+        url: &Url,
+    ) -> object_store::Result<(Box<dyn ObjectStore>, object_store::path::Path)> {
+        let (scheme, path) = ObjectStoreScheme::parse(url)?;
+        if scheme != ObjectStoreScheme::AmazonS3 {
+            return object_store::parse_url_opts(url, &self.options);
+        }
+
+        let mut builder = self.options.iter().fold(
+            AmazonS3Builder::new().with_url(url.to_string()),
+            |builder, (key, value)| match key.parse() {
+                Ok(key) => builder.with_config(key, value),
+                Err(_) => builder,
+            },
+        );
+        if let Some(credentials) = &self.aws_credentials {
+            builder = builder.with_credentials(credentials.clone());
+        }
+        Ok((Box::new(builder.build()?), path))
+    }
+
     /// Partition options and unrecognized keys
     fn partition_options_and_unrecognized(&mut self) {
         for (key, value) in self.unrecognized.clone() {
@@ -284,12 +428,21 @@ impl PmtConfig {
                 );
             }
         }
-        if env::var("AWS_PROFILE").is_ok() {
-            warn!(
-                "Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284"
-            );
+        if let Ok(profile) = env::var("AWS_PROFILE") {
+            self.migrate_aws_profile("Environment variable", "AWS_PROFILE", profile);
         }
     }
+    fn migrate_aws_profile(&mut self, r#type: &'static str, key: &str, value: String) {
+        if self.profile.is_some() {
+            warn!("{type} {key} is ignored in favor of the configuration value pmtiles.profile.");
+        } else {
+            warn!(
+                "{type} {key} is deprecated. Please use pmtiles.profile in the configuration file instead."
+            );
+            self.profile = Some(value);
+        }
+    }
+
     fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
         let new_key_with_aws_prefix = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
@@ -344,10 +497,129 @@ impl TileSourceConfiguration for PmtConfig {
         url: Url,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        let (store, path) = object_store::parse_url_opts(&url, &self.options)
+        let (store, path) = self
+            .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
+    }
+}
+
+#[derive(Debug)]
+pub struct AwsSdkCredentialProvider {
+    provider: SharedCredentialsProvider,
+}
+
+#[async_trait::async_trait]
+impl CredentialProvider for AwsSdkCredentialProvider {
+    type Credential = AwsCredential;
+
+    async fn get_credential(&self) -> object_store::Result<Arc<Self::Credential>> {
+        let credentials = self
+            .provider
+            .provide_credentials()
+            .await
+            .map_err(|source| object_store::Error::Generic {
+                store: "S3",
+                source: Box::new(source),
+            })?;
+        Ok(Arc::new(AwsCredential {
+            key_id: credentials.access_key_id().to_string(),
+            secret_key: credentials.secret_access_key().to_string(),
+            token: credentials.session_token().map(ToString::to_string),
+        }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use aws_runtime::env_config::file::{EnvConfigFileKind, EnvConfigFiles};
+    use indoc::indoc;
+    use tempfile::tempdir;
+
+    use super::*;
+
+    fn profile_files() -> (tempfile::TempDir, EnvConfigFiles) {
+        let dir = tempdir().unwrap();
+        let credentials_path = dir.path().join("credentials");
+        let config_path = dir.path().join("config");
+        std::fs::write(
+            &credentials_path,
+            indoc! {"
+                [staging]
+                aws_access_key_id = profile-key
+                aws_secret_access_key = profile-secret
+                aws_session_token = profile-token
+            "},
+        )
+        .unwrap();
+        std::fs::write(
+            &config_path,
+            indoc! {"
+                [profile staging]
+                region = eu-west-2
+            "},
+        )
+        .unwrap();
+        let files = EnvConfigFiles::builder()
+            .with_file(EnvConfigFileKind::Credentials, credentials_path)
+            .with_file(EnvConfigFileKind::Config, config_path)
+            .build();
+        (dir, files)
+    }
+
+    #[tokio::test]
+    async fn profile_finalization_loads_credentials_and_preserves_explicit_options() {
+        let (_dir, files) = profile_files();
+        let mut profile: PmtConfig = serde_saphyr::from_str(indoc! {"
+            aws_profile: staging
+            region: eu-west-2
+            skip_signature: false
+        "})
+        .unwrap();
+        profile.aws_profile_files = Some(files.clone());
+        profile.finalize().await.unwrap();
+        assert_eq!(profile.profile.as_deref(), Some("staging"));
+        assert_eq!(
+            profile.options.get("region").map(String::as_str),
+            Some("eu-west-2")
+        );
+        let credentials = profile
+            .aws_credentials
+            .as_ref()
+            .expect("profile credentials should be configured")
+            .get_credential()
+            .await
+            .unwrap();
+        assert_eq!(credentials.key_id, "profile-key");
+        assert_eq!(credentials.secret_key, "profile-secret");
+        assert_eq!(credentials.token.as_deref(), Some("profile-token"));
+
+        for (key, value) in [
+            ("web_identity_token_file", "/tmp/token"),
+            ("metadata_endpoint", "http://169.254.169.254"),
+            ("aws_metadata_endpoint", "http://fd00:ec2::254"),
+            ("imdsv1_fallback", "true"),
+            ("aws_imdsv1_fallback", "true"),
+            ("endpoint_url_sts", "http://localhost:4566"),
+            ("aws_endpoint_url_sts", "http://localhost:4566"),
+        ] {
+            let mut explicit: PmtConfig = serde_saphyr::from_str(&format!(
+                "profile: staging\nregion: us-east-2\n{key}: {value}\n"
+            ))
+            .unwrap();
+            explicit.aws_profile_files = Some(files.clone());
+            explicit.finalize().await.unwrap();
+            assert_eq!(
+                explicit.options.get("region").map(String::as_str),
+                Some("us-east-2")
+            );
+            assert_eq!(explicit.options.get(key).map(String::as_str), Some(value));
+            assert!(
+                explicit.aws_credentials.is_none(),
+                "{key} must retain object_store credential-provider precedence"
+            );
+        }
     }
 }

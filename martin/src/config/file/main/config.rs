@@ -292,24 +292,24 @@ mod tests {
         parse_base_path("foo/bar").unwrap_err();
     }
 
-    #[test]
-    fn finalize_base_path_must_start_with_slash() {
+    #[tokio::test]
+    async fn finalize_base_path_must_start_with_slash() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc::indoc! {"
                 pmtiles: /tmp
                 base_path: not-a-path
-            "}),
+            "}).await,
             @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'not-a-path'"
         );
     }
 
-    #[test]
-    fn finalize_route_prefix_must_start_with_slash() {
+    #[tokio::test]
+    async fn finalize_route_prefix_must_start_with_slash() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc::indoc! {"
                 pmtiles: /tmp
                 route_prefix: oops
-            "}),
+            "}).await,
             @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'oops'"
         );
     }

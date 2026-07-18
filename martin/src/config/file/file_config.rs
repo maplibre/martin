@@ -38,8 +38,8 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
     /// Finalize configuration discovery and patch old values
     ///
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
-    fn finalize(&mut self) -> ConfigFileResult<()> {
-        Ok(())
+    fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
+        async { Ok(()) }
     }
 
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
@@ -239,9 +239,9 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigEnum<T> {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
-            cfg.finalize()
+            cfg.finalize().await
         } else {
             Ok(())
         }
@@ -278,8 +278,8 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
-        self.custom.finalize()
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
+        self.custom.finalize().await
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
