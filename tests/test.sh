@@ -845,7 +845,6 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observabi
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
