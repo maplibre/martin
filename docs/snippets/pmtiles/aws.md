@@ -1,7 +1,3 @@
-#### AWS specific Authentication & Credentials
-
-| configuration              | description                                                | example                                                   |
-| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
 !!! tip
     Next to the explicit configuration for auth and endpoints below, you can also use `profile` (for example `profile: staging`) to specify an [AWS SDK profile](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html).
     Explicit configuration overrides profiles.
