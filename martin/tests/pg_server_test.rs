@@ -19,7 +19,7 @@ pub use utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let cfg = mock_cfg(indoc::indoc!($sources));
+        let cfg = mock_cfg(indoc::indoc!($sources)).await;
         let state = mock_sources(cfg).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -1069,7 +1069,8 @@ tables:
     properties:
       giD: int4
       TABLE: text
-"});
+    "})
+    .await;
     let mock = mock_sources(cfg.clone()).await;
 
     let src = table(&mock, "no_id");

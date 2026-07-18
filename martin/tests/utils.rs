@@ -16,7 +16,7 @@ use martin_core::tiles::BoxedSource;
 use tracing::warn;
 
 #[must_use]
-pub fn mock_cfg(yaml: &str) -> Config {
+pub async fn mock_cfg(yaml: &str) -> Config {
     let env: FauxEnv = if let Ok(db_url) = env::var("DATABASE_URL") {
         vec![("DATABASE_URL", db_url.into())].into_iter().collect()
     } else {
@@ -25,7 +25,7 @@ pub fn mock_cfg(yaml: &str) -> Config {
     };
     let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
         .expect("source can be parsed as yaml");
-    let res = futures::executor::block_on(cfg.finalize()).expect("source can be finalized");
+    let res = cfg.finalize().await.expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
 }
@@ -74,11 +74,12 @@ pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
 
 #[cfg(feature = "test-pg")]
 #[must_use]
-pub fn mock_pgcfg(yaml: &str) -> Config {
+pub async fn mock_pgcfg(yaml: &str) -> Config {
     mock_cfg(&indoc::formatdoc! {"
         postgres:
           {}
     ", yaml.replace('\n', "\n  ")})
+    .await
 }
 
 #[cfg(feature = "test-pg")]

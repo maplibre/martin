@@ -6,12 +6,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(test)]
-#[allow(deprecated)]
 use aws_config::profile::ProfileFileRegionProvider;
-#[cfg(test)]
-#[allow(deprecated)]
-use aws_config::profile::profile_file::ProfileFiles;
 use aws_credential_types::provider::{ProvideCredentials as _, SharedCredentialsProvider};
+#[cfg(test)]
+use aws_runtime::env_config::file::EnvConfigFiles;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use object_store::aws::{AmazonS3Builder, AwsCredential, AwsCredentialProvider};
@@ -123,8 +121,7 @@ pub struct PmtConfig {
     #[cfg(test)]
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    #[allow(deprecated)]
-    pub(crate) aws_profile_files: Option<ProfileFiles>,
+    pub(crate) aws_profile_files: Option<EnvConfigFiles>,
 }
 
 impl Default for PmtConfig {
@@ -222,16 +219,19 @@ impl PmtConfig {
     }
 
     fn apply_aws_config(&mut self, sdk_config: &aws_config::SdkConfig) {
-        if ![
+        let region_specified_by_config = [
             "region",
             "aws_region",
             "default_region",
             "aws_default_region",
         ]
         .iter()
-        .any(|key| self.options.contains_key(*key))
-            && let Some(region) = sdk_config.region()
-        {
+        .any(|key| self.options.contains_key(*key));
+        if region_specified_by_config {
+            warn!(
+                "Region from pmtiles.profile is ignored in favor of explicit PMTiles region configuration."
+            );
+        } else if let Some(region) = sdk_config.region() {
             self.options
                 .insert("region".to_string(), region.as_ref().to_string());
         }
@@ -257,6 +257,12 @@ impl PmtConfig {
             "aws_container_credentials_full_uri",
             "container_authorization_token_file",
             "aws_container_authorization_token_file",
+            "metadata_endpoint",
+            "aws_metadata_endpoint",
+            "imdsv1_fallback",
+            "aws_imdsv1_fallback",
+            "endpoint_url_sts",
+            "aws_endpoint_url_sts",
         ]
         .iter()
         .any(|key| self.options.contains_key(*key));
@@ -266,10 +272,15 @@ impl PmtConfig {
                 .is_some_and(|value| value.eq_ignore_ascii_case("true") || value == "1")
         });
 
-        if !has_explicit_credentials
-            && !skips_signature
-            && let Some(provider) = sdk_config.credentials_provider()
-        {
+        if has_explicit_credentials {
+            warn!(
+                "Credentials from pmtiles.profile are ignored in favor of explicit PMTiles credential-provider configuration."
+            );
+        } else if skips_signature {
+            warn!(
+                "Credentials from pmtiles.profile are ignored because request signing is disabled."
+            );
+        } else if let Some(provider) = sdk_config.credentials_provider() {
             self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider {
                 provider: provider.clone(),
             }));
@@ -522,15 +533,14 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
-    use aws_config::profile::profile_file::{ProfileFileKind, ProfileFiles};
+    use aws_runtime::env_config::file::{EnvConfigFileKind, EnvConfigFiles};
     use indoc::indoc;
     use tempfile::tempdir;
 
     use super::*;
 
-    fn profile_files() -> (tempfile::TempDir, ProfileFiles) {
+    fn profile_files() -> (tempfile::TempDir, EnvConfigFiles) {
         let dir = tempdir().unwrap();
         let credentials_path = dir.path().join("credentials");
         let config_path = dir.path().join("config");
@@ -552,9 +562,9 @@ mod tests {
             "},
         )
         .unwrap();
-        let files = ProfileFiles::builder()
-            .with_file(ProfileFileKind::Credentials, credentials_path)
-            .with_file(ProfileFileKind::Config, config_path)
+        let files = EnvConfigFiles::builder()
+            .with_file(EnvConfigFileKind::Credentials, credentials_path)
+            .with_file(EnvConfigFileKind::Config, config_path)
             .build();
         (dir, files)
     }
@@ -586,19 +596,30 @@ mod tests {
         assert_eq!(credentials.secret_key, "profile-secret");
         assert_eq!(credentials.token.as_deref(), Some("profile-token"));
 
-        let mut explicit: PmtConfig = serde_saphyr::from_str(indoc! {"
-            profile: staging
-            region: us-east-2
-            web_identity_token_file: /tmp/token
-            role_arn: arn:aws:iam::123456789012:role/test
-        "})
-        .unwrap();
-        explicit.aws_profile_files = Some(files);
-        explicit.finalize().await.unwrap();
-        assert_eq!(
-            explicit.options.get("region").map(String::as_str),
-            Some("us-east-2")
-        );
-        assert!(explicit.aws_credentials.is_none());
+        for (key, value) in [
+            ("web_identity_token_file", "/tmp/token"),
+            ("metadata_endpoint", "http://169.254.169.254"),
+            ("aws_metadata_endpoint", "http://fd00:ec2::254"),
+            ("imdsv1_fallback", "true"),
+            ("aws_imdsv1_fallback", "true"),
+            ("endpoint_url_sts", "http://localhost:4566"),
+            ("aws_endpoint_url_sts", "http://localhost:4566"),
+        ] {
+            let mut explicit: PmtConfig = serde_saphyr::from_str(&format!(
+                "profile: staging\nregion: us-east-2\n{key}: {value}\n"
+            ))
+            .unwrap();
+            explicit.aws_profile_files = Some(files.clone());
+            explicit.finalize().await.unwrap();
+            assert_eq!(
+                explicit.options.get("region").map(String::as_str),
+                Some("us-east-2")
+            );
+            assert_eq!(explicit.options.get(key).map(String::as_str), Some(value));
+            assert!(
+                explicit.aws_credentials.is_none(),
+                "{key} must retain object_store credential-provider precedence"
+            );
+        }
     }
 }
