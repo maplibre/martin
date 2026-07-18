@@ -15,5 +15,8 @@ proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
 
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+
 [lints]
 workspace = true

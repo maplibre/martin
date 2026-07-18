@@ -1,14 +1,13 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use crate::config::file::CollectUnrecognizedKeys;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// A serde helper to store a boolean as an object.
-#[derive(
-    Clone, Debug, Default, PartialEq, Serialize, crate::config::file::CollectUnrecognizedKeys,
-)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptBoolObj<T> {

@@ -1,10 +1,4 @@
-//! Derive macro for `CollectUnrecognizedKeys`, used by Martin's config structs to report
-//! configuration keys that were present but not recognized by any known field.
-//!
-//! The derive recurses into every field (structs) or the active variant (enums), building
-//! dotted paths (`section.field`, `list[0].field`, `map.key.field`). The `unrecognized` bag
-//! field (type `UnrecognizedValues`) contributes its raw keys at the current path; every other
-//! field type routes through its own `CollectUnrecognizedKeys` impl.
+//! Derive macro for `CollectUnrecognizedKeys`.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -13,10 +7,8 @@ use syn::{Data, DeriveInput, Fields, GenericParam, Generics, parse_macro_input};
 
 /// Derives `CollectUnrecognizedKeys` for a config struct or enum.
 ///
-/// - A field of type `UnrecognizedValues` is the unrecognized-key bag and contributes its keys
-///   at the current path (no extra segment).
-/// - `#[serde(skip)]` fields are ignored (runtime state, never deserialized).
-/// - `#[serde(rename = "…")]` on a field is used for its path segment.
+/// Recurses into every field; `#[serde(flatten)]` fields add no path segment, `#[serde(skip)]`
+/// fields are ignored, and `#[serde(rename)]` sets a field's path segment.
 #[proc_macro_derive(CollectUnrecognizedKeys)]
 pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -50,19 +42,17 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     Ok(quote! {
-        #[automatically_derived]
-        #[allow(clippy::absolute_paths, unused_variables)]
-        impl #impl_generics crate::config::file::CollectUnrecognizedKeys
-            for #ident #ty_generics #where_clause
-        {
-            fn collect_unrecognized(
-                &self,
-                path: &str,
-                out: &mut crate::config::file::UnrecognizedKeys,
-            ) {
-                #body
+        const _: () = {
+            use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys};
+
+            #[automatically_derived]
+            #[allow(unused_variables)]
+            impl #impl_generics CollectUnrecognizedKeys for #ident #ty_generics #where_clause {
+                fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+                    #body
+                }
             }
-        }
+        };
     })
 }
 
@@ -70,9 +60,9 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(type_param) = param {
-            type_param.bounds.push(syn::parse_quote!(
-                crate::config::file::CollectUnrecognizedKeys
-            ));
+            type_param
+                .bounds
+                .push(syn::parse_quote!(CollectUnrecognizedKeys));
         }
     }
     generics
@@ -81,7 +71,6 @@ fn add_trait_bounds(mut generics: Generics) -> Generics {
 fn struct_body(fields: &Fields) -> syn::Result<TokenStream2> {
     let fields = match fields {
         Fields::Named(fields) => fields,
-        // A unit struct has no fields and so never carries unrecognized keys.
         Fields::Unit => return Ok(quote! {}),
         Fields::Unnamed(_) => {
             return Err(syn::Error::new_spanned(
@@ -98,19 +87,15 @@ fn struct_body(fields: &Fields) -> syn::Result<TokenStream2> {
         }
         let member = field.ident.as_ref().expect("named field has an ident");
         if has_serde_flatten(&field.attrs) {
-            // Flattened fields (the unrecognized bag, or an inlined sub-config like `custom`)
-            // live at the parent level in the config file, so they add no path segment.
             stmts.push(quote! {
-                crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
-                    &self.#member, path, out,
-                );
+                CollectUnrecognizedKeys::collect_unrecognized(&self.#member, path, out);
             });
         } else {
             let name = serde_field_name(field, member);
             stmts.push(quote! {
-                crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                CollectUnrecognizedKeys::collect_unrecognized(
                     &self.#member,
-                    &crate::config::file::join_path(path, #name),
+                    &format!("{path}{}.", #name),
                     out,
                 );
             });
@@ -131,9 +116,7 @@ fn enum_body(data: &syn::DataEnum) -> TokenStream2 {
                     .collect();
                 let recurse = bindings.iter().map(|binding| {
                     quote! {
-                        crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
-                            #binding, path, out,
-                        );
+                        CollectUnrecognizedKeys::collect_unrecognized(#binding, path, out);
                     }
                 });
                 arms.push(quote! {
@@ -150,9 +133,9 @@ fn enum_body(data: &syn::DataEnum) -> TokenStream2 {
                     let member = f.ident.as_ref().expect("named field has an ident");
                     let name = member.to_string();
                     quote! {
-                        crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                        CollectUnrecognizedKeys::collect_unrecognized(
                             #member,
-                            &crate::config::file::join_path(path, #name),
+                            &format!("{path}{}.", #name),
                             out,
                         );
                     }
@@ -186,7 +169,6 @@ fn serde_flag_is_set(attrs: &[syn::Attribute], name: &str) -> bool {
             if meta.path.is_ident(name) {
                 found = true;
             }
-            // Consume any `= value` so parsing of the remaining list continues.
             if meta.input.peek(syn::Token![=]) {
                 let _: syn::Expr = meta.value()?.parse()?;
             }

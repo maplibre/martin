@@ -4,9 +4,7 @@ use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::{
-    CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues, join_path,
-};
+use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
@@ -48,9 +46,8 @@ pub struct MvtEncoderConfig(pub serde_json::Map<String, serde_json::Value>);
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 impl CollectUnrecognizedKeys for MvtEncoderConfig {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
-        // The MVT encoder has no known knobs, so every provided key is unrecognized.
         for key in self.0.keys() {
-            out.insert(join_path(path, key));
+            out.insert(format!("{path}{key}"));
         }
     }
 }

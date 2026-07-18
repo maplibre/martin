@@ -2,14 +2,13 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::vec::IntoIter;
 
+use crate::config::file::CollectUnrecognizedKeys;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, IntoDeserializer as _, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// An enum that can hold no values, one value, or many values of type T.
-#[derive(
-    Debug, Default, Clone, PartialEq, Serialize, crate::config::file::CollectUnrecognizedKeys,
-)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptOneMany<T> {

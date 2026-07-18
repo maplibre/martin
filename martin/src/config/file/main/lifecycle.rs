@@ -64,9 +64,9 @@ impl Config {
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         {
             self.convert_to_mlt
-                .collect_unrecognized("convert_to_mlt", &mut res);
+                .collect_unrecognized("convert_to_mlt.", &mut res);
             self.convert_to_mvt
-                .collect_unrecognized("convert_to_mvt", &mut res);
+                .collect_unrecognized("convert_to_mvt.", &mut res);
         }
 
         if let Some(path) = &self.srv.route_prefix {
@@ -84,9 +84,9 @@ impl Config {
         #[cfg(feature = "postgres")]
         {
             let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres"
+                "postgres."
             } else {
-                "postgres[]"
+                "postgres[]."
             };
             for pg in self.postgres.iter_mut() {
                 pg.finalize().await?;
@@ -102,37 +102,37 @@ impl Config {
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize().await?;
-            self.pmtiles.collect_unrecognized("pmtiles", &mut res);
+            self.pmtiles.collect_unrecognized("pmtiles.", &mut res);
         }
 
         #[cfg(feature = "mbtiles")]
         {
             self.mbtiles.finalize().await?;
-            self.mbtiles.collect_unrecognized("mbtiles", &mut res);
+            self.mbtiles.collect_unrecognized("mbtiles.", &mut res);
         }
 
         #[cfg(feature = "unstable-cog")]
         {
             self.cog.finalize().await?;
-            self.cog.collect_unrecognized("cog", &mut res);
+            self.cog.collect_unrecognized("cog.", &mut res);
         }
 
         #[cfg(feature = "geojson")]
         {
             self.geojson.finalize().await?;
-            self.geojson.collect_unrecognized("geojson", &mut res);
+            self.geojson.collect_unrecognized("geojson.", &mut res);
         }
 
         #[cfg(feature = "sprites")]
         {
             self.sprites.finalize().await?;
-            self.sprites.collect_unrecognized("sprites", &mut res);
+            self.sprites.collect_unrecognized("sprites.", &mut res);
         }
 
         #[cfg(feature = "styles")]
         {
             self.styles.finalize().await?;
-            self.styles.collect_unrecognized("styles", &mut res);
+            self.styles.collect_unrecognized("styles.", &mut res);
         }
 
         // TODO: support for unrecognized fonts?
