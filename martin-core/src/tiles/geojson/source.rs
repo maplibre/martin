@@ -200,9 +200,9 @@ fn encode_features(
         if let Some(properties) = f.properties {
             add_properties(&mut feature, properties)?;
         }
-        layer = feature.finish();
+        layer = feature.end();
     }
-    Ok(layer.finish().finish())
+    Ok(layer.end().encode())
 }
 
 /// Convert a tile-space geometry whose coordinates are already floored to integer grid positions
