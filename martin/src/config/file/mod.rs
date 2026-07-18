@@ -1,6 +1,9 @@
 mod file_config;
 pub use file_config::*;
 
+mod collect_unrecognized;
+pub use collect_unrecognized::*;
+
 mod main;
 pub use main::*;
 pub mod cache;

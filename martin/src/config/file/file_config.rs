@@ -18,7 +18,7 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-use crate::config::file::{ConfigFileError, ConfigFileResult};
+use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
@@ -1138,7 +1138,6 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
     }
 }
 
-pub type UnrecognizedValues = HashMap<String, serde_json::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 
 pub fn copy_unrecognized_keys_from_config(

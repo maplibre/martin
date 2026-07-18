@@ -472,6 +472,7 @@ mod tests {
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
+        geojson: "../tests/fixtures/"
         "#);
     }
 
