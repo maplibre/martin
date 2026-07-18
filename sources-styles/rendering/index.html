@@ -12,36 +12,36 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/sources-styles/">
+        <link rel="canonical" href="https://maplibre.org/martin/sources-styles/rendering/">
       
       
-        <link rel="prev" href="../sources-sprites/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="./rendering/">
+        <link rel="next" href="../../sources-fonts/">
       
       
         
       
       
-      <link rel="icon" href="../images/favicon.ico">
+      <link rel="icon" href="../../images/favicon.ico">
       <meta name="generator" content="zensical-0.0.51">
     
     
       
-        <title>Style Sources - Martin Tile Server Documentation</title>
+        <title>Server-side raster tile rendering - Martin Tile Server Documentation</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.62c9b9cc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.62c9b9cc.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
   
@@ -125,7 +125,7 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#style-sources" class="md-skip">
+        <a href="#server-side-raster-tile-rendering" class="md-skip">
           Skip to content
         </a>
       
@@ -166,7 +166,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Style Sources
+              Server-side raster tile rendering
             
           </span>
         </div>
@@ -274,7 +274,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="./.." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   Introduction
@@ -309,7 +309,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../quick-start/" class="md-tabs__link">
+        <a href="../../quick-start/" class="md-tabs__link">
           
   
   Quick Start
@@ -326,7 +326,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../installation/" class="md-tabs__link">
+      <a href="../../installation/" class="md-tabs__link">
         
   
   Installation
@@ -363,7 +363,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../run/" class="md-tabs__link">
+        <a href="../../run/" class="md-tabs__link">
           
   
   Running
@@ -397,7 +397,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../config-file/" class="md-tabs__link">
+        <a href="../../config-file/" class="md-tabs__link">
           
   
   Configuration File
@@ -414,7 +414,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../using/" class="md-tabs__link">
+      <a href="../../using/" class="md-tabs__link">
         
   
   Available API Endpoints
@@ -449,7 +449,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../using-guides/" class="md-tabs__link">
+        <a href="../../using-guides/" class="md-tabs__link">
           
   
   Guides
@@ -485,7 +485,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../development/" class="md-tabs__link">
+        <a href="../../development/" class="md-tabs__link">
           
   
   Development
@@ -526,7 +526,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
@@ -556,7 +556,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -618,7 +618,7 @@
   
   
   
-    <a href="../quick-start/" class="md-nav__link">
+    <a href="../../quick-start/" class="md-nav__link">
       
   
   
@@ -652,7 +652,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   
@@ -716,7 +716,7 @@
   
   
   
-    <a href="../run/" class="md-nav__link">
+    <a href="../../run/" class="md-nav__link">
       
   
   
@@ -784,7 +784,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../config-file/" class="md-nav__link ">
+            <a href="../../config-file/" class="md-nav__link ">
               
   
   
@@ -870,7 +870,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../sources-tiles/" class="md-nav__link ">
+            <a href="../../sources-tiles/" class="md-nav__link ">
               
   
   
@@ -942,7 +942,7 @@
   
   
   
-    <a href="../sources-files/" class="md-nav__link">
+    <a href="../../sources-files/" class="md-nav__link">
       
   
   
@@ -1007,7 +1007,7 @@
   
   
   
-    <a href="../pg-connections/" class="md-nav__link">
+    <a href="../../pg-connections/" class="md-nav__link">
       
   
   
@@ -1042,7 +1042,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-cog-files/" class="md-nav__link">
+      <a href="../../sources-cog-files/" class="md-nav__link">
         
   
   
@@ -1071,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-geojson/" class="md-nav__link">
+      <a href="../../sources-geojson/" class="md-nav__link">
         
   
   
@@ -1100,7 +1100,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-passthrough/" class="md-nav__link">
+      <a href="../../sources-passthrough/" class="md-nav__link">
         
   
   
@@ -1129,7 +1129,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-composite/" class="md-nav__link">
+      <a href="../../sources-composite/" class="md-nav__link">
         
   
   
@@ -1231,7 +1231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-sprites/" class="md-nav__link">
+      <a href="../../sources-sprites/" class="md-nav__link">
         
   
   
@@ -1289,7 +1289,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="././" class="md-nav__link md-nav__link--active">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1308,7 +1308,7 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_5_3_2" id="__nav_5_3_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_3_2" id="__nav_5_3_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1330,10 +1330,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="./rendering/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.5 13.5 2.5 3 3.5-4.5 4.5 6H5m16 1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Server-side raster tile rendering
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1350,6 +1378,160 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#rendered-xyz-tiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rendered XYZ tiles
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Static images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#camera" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Camera
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#size-and-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size and format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overlay-body-post" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overlay body (<code>POST</code>)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overlay body (POST)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supported-style-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Supported style properties
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Out of scope
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Line
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fill
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fill-opacity-alpha-blending" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fill opacity (alpha blending)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#circle-marker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Circle (marker)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1370,7 +1552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-fonts/" class="md-nav__link">
+      <a href="../../sources-fonts/" class="md-nav__link">
         
   
   
@@ -1414,7 +1596,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../using/" class="md-nav__link">
+      <a href="../../using/" class="md-nav__link">
         
   
   
@@ -1476,7 +1658,7 @@
   
   
   
-    <a href="../using-guides/" class="md-nav__link">
+    <a href="../../using-guides/" class="md-nav__link">
       
   
   
@@ -1544,7 +1726,7 @@
   
   
   
-    <a href="../development/" class="md-nav__link">
+    <a href="../../development/" class="md-nav__link">
       
   
   
@@ -1596,7 +1778,7 @@
   
   
     <li class="md-path__item">
-      <a href="./.." class="md-path__link">
+      <a href="../.." class="md-path__link">
         
   
   <span class="md-ellipsis">
@@ -1628,7 +1810,7 @@
     
     
       <li class="md-path__item">
-        <a href="../config-file/" class="md-path__link">
+        <a href="../../config-file/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -1658,7 +1840,7 @@
     
     
       <li class="md-path__item">
-        <a href="../sources-sprites/" class="md-path__link">
+        <a href="../../sources-sprites/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -1688,7 +1870,7 @@
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -1709,7 +1891,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-styles/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-styles/rendering.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1717,24 +1899,328 @@
   
 
 
-<h1 id="style-sources">Style Sources</h1>
-<p>Martin will serve your styles as needed by MapLibre rendering libraries.</p>
-<p>To edit these styles, we recommend using <a href="https://maputnik.github.io/editor/">https://maputnik.github.io/editor/</a>.</p>
-<h3 id="api">API</h3>
-<p>Martin can serve <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style Spec</a>.
-Currently, Martin will use any valid <a href="https://json.org"><code>JSON</code></a> file as a style,
-but in the future, we may optimise Martin which may result in additional restrictions.</p>
-<p>Use the <code>/catalog</code> API to see all the <code>&lt;style_id&gt;</code>s.</p>
-<h3 id="map-style">Map Style</h3>
-<p>Use the <code>/style/&lt;style_id&gt;</code> API to get a <code>&lt;style_id&gt;</code>'s JSON content.</p>
-<p>Changes or removals of styles are reflected immediately, but additions are not.
-A restart of Martin is required to see new styles.</p>
-<h3 id="server-side-raster-tile-rendering">Server-side raster tile rendering</h3>
-<p>On Linux, Martin can also render a style server-side into raster images -
-both as XYZ tiles and as a single static image at a chosen camera, with an
-optional GeoJSON overlay.</p>
-<p>See <a href="rendering/">Server-side raster tile rendering</a> for how to
-enable it, the endpoints, and the static-image overlay API.</p>
+<h1 id="server-side-raster-tile-rendering">Server-side raster tile rendering</h1>
+<p>Martin can render a <a href="../">style</a> into raster images server-side:
+as XYZ tiles, or as a single static image at a chosen camera.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This feature is included in the default build on Linux.
+Its behaviour may change in patch releases.</p>
+<p>Limitations of our current implementation:</p>
+<ul>
+<li>Rendering support is currently only available on Linux.
+  To add support for macOS/Windows, please see <a href="https://github.com/maplibre/maplibre-native-rs">https://github.com/maplibre/maplibre-native-rs</a>.</li>
+<li>Currently, martin does not cache style rendered requests and</li>
+<li>does not support concurrency for this feature.</li>
+</ul>
+<p>We welcome contributions to help stabilise this feature!</p>
+</div>
+<p>To enable rendering, turn it on in the configuration file:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">styles</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+<h2 id="rendered-xyz-tiles">Rendered XYZ tiles</h2>
+<p>We support generating a rasterised image for an XYZ tile of a given style.</p>
+<p>After enabling rendering, you can use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>'s rendered png/jpeg content.</p>
+<h2 id="static-images">Static images</h2>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>We currently do not have the same <a href="https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images">capabilities as Tileserver-GL</a> to layout images.
+We are working on adding this feature and are very open to contributions if you want to help!</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Static rendering shares the limitations listed above (Linux only, no caching, no concurrency).
+The HTTP shape may still change in patch releases.</p>
+</div>
+<p>Martin can render a single PNG/JPEG/WebP of a style at a chosen camera.
+The same URL is served by two methods:</p>
+<div class="language-http highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="err">GET  /style/{style_id}/static/{camera}/{size}.{ext}</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="err">POST /style/{style_id}/static/{camera}/{size}.{ext}</span>
+</span></code></pre></div>
+<p><code>GET</code> returns the base map alone.
+<code>POST</code> additionally accepts a GeoJSON <code>FeatureCollection</code> in the body, with
+styling on each feature's <code>properties</code>, and overlays those features on top
+of the base style for that single render.
+An empty or missing body is equivalent to <code>GET</code>.</p>
+<h3 id="camera">Camera</h3>
+<p>The <code>{camera}</code> segment chooses what the image looks at:</p>
+<table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lon,lat,zoom</code></td>
+<td>Center at <code>(lon, lat)</code> and <code>zoom</code> (north up, flat).</td>
+</tr>
+<tr>
+<td><code>lon,lat,zoom@bearing</code></td>
+<td>Center + bearing in degrees (clockwise from north).</td>
+</tr>
+<tr>
+<td><code>lon,lat,zoom@bearing,pitch</code></td>
+<td>Center + bearing + pitch in degrees.</td>
+</tr>
+<tr>
+<td><code>minLon,minLat,maxLon,maxLat</code></td>
+<td>Fit the given bounding box to the requested size.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The image is always rendered INSIDE of the requested size.
+So if the bbox is <code>[-10°,-1°,10°,1°]</code> and size <code>500x500</code> is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at <code>1°,-1°</code>.
+We will not expand the image outside the bbox.</p>
+</div>
+<h3 id="size-and-format">Size and format</h3>
+<p><code>{size}.{ext}</code> follows the <code>WIDTHxHEIGHT[@{scale}x].{ext}</code> pattern, e.g.
+<code>800x600.png</code>, <code>400x300@2x.jpg</code>.
+Allowed extensions are <code>png</code>, <code>jpg</code>, and <code>webp</code>.
+Width and height are capped at 2048 px each; scale is capped at <code>4x</code>.</p>
+<h3 id="overlay-body-post">Overlay body (<code>POST</code>)</h3>
+<p>The overlay body is a GeoJSON <code>FeatureCollection</code>. Each feature carries its
+style on <code>properties</code> using
+<a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style Spec</a> paint/layout
+property names (<code>circle-*</code>, <code>line-*</code>, <code>fill-*</code>). Any property left unset falls
+back to MapLibre's own default.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FeatureCollection&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LineString&quot;</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">        </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">-10</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;line-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#f00&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;line-width&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;line-cap&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;round&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Point&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;circle-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#00f&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;circle-radius&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Polygon&quot;</span><span class="p">,</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">        </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[[</span><span class="mi">-5</span><span class="p">,</span><span class="mi">-5</span><span class="p">],[</span><span class="mi">5</span><span class="p">,</span><span class="mi">-5</span><span class="p">],[</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">],[</span><span class="mi">-5</span><span class="p">,</span><span class="mi">5</span><span class="p">],[</span><span class="mi">-5</span><span class="p">,</span><span class="mi">-5</span><span class="p">]]]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">      </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;fill-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#0a0&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;fill-opacity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>How features become layers:</p>
+<ul>
+<li><strong>Point / MultiPoint</strong> -&gt; one <code>circle</code> layer.</li>
+<li><strong>LineString / MultiLineString</strong> -&gt; one <code>line</code> layer.</li>
+<li><strong>Polygon / MultiPolygon</strong> -&gt; a <code>fill</code> layer (unless only <code>line-*</code>
+  properties are set), plus a <code>line</code> layer when any <code>line-*</code> property is
+  present (so a polygon with <code>line-color</code> gets an outline of <code>line-width</code>).</li>
+<li><code>GeometryCollection</code> and features with <code>geometry: null</code> are silently
+  skipped.</li>
+</ul>
+<p>Anything the server can't make sense of is rejected with <code>400 Bad
+Request</code>: a malformed body, a top-level <code>type</code> that isn't
+<code>FeatureCollection</code>, a member <code>type</code> that isn't <code>Feature</code>, an invalid CSS
+color, a non-numeric width, or an unknown <code>line-cap</code>/<code>line-join</code> enum value.
+Unknown property keys on <code>feature.properties</code> are <strong>silently ignored</strong>, so
+GeoJSON files that already carry application metadata (<code>id</code>, <code>name</code>,
+<code>title</code>, <code>description</code>, …) work without modification.</p>
+<h4 id="supported-style-properties">Supported style properties</h4>
+<p>Every property is optional; an unset property uses the
+<a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style Spec</a> default.</p>
+<table>
+<thead>
+<tr>
+<th>MapLibre property</th>
+<th>Applies to</th>
+<th>MapLibre default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>circle-color</code></td>
+<td>Point</td>
+<td><code>#000000</code></td>
+</tr>
+<tr>
+<td><code>circle-opacity</code></td>
+<td>Point</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>circle-radius</code></td>
+<td>Point</td>
+<td><code>5</code></td>
+</tr>
+<tr>
+<td><code>circle-stroke-color</code></td>
+<td>Point</td>
+<td><code>#000000</code></td>
+</tr>
+<tr>
+<td><code>circle-stroke-opacity</code></td>
+<td>Point</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>circle-stroke-width</code></td>
+<td>Point</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>line-color</code></td>
+<td>LineString / Polygon</td>
+<td><code>#000000</code></td>
+</tr>
+<tr>
+<td><code>line-opacity</code></td>
+<td>LineString / Polygon</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>line-width</code></td>
+<td>LineString / Polygon</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>line-cap</code></td>
+<td>LineString / Polygon</td>
+<td><code>butt</code></td>
+</tr>
+<tr>
+<td><code>line-join</code></td>
+<td>LineString / Polygon</td>
+<td><code>miter</code></td>
+</tr>
+<tr>
+<td><code>fill-color</code></td>
+<td>Polygon</td>
+<td><code>#000000</code></td>
+</tr>
+<tr>
+<td><code>fill-opacity</code></td>
+<td>Polygon</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>fill-outline-color</code></td>
+<td>Polygon</td>
+<td>matches <code>fill-color</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>line-cap</code> is one of <code>butt</code>, <code>round</code>, <code>square</code>; <code>line-join</code> is one of
+<code>miter</code>, <code>bevel</code>, <code>round</code>. Colors accept any CSS color string.</p>
+<p>Range checks are not enforced - <code>*-opacity</code> values outside <code>0..=1</code> and
+negative widths are passed through to MapLibre verbatim.</p>
+<h4 id="out-of-scope">Out of scope</h4>
+<ul>
+<li>Data-driven expressions on individual feature properties (each feature
+  becomes its own GeoJSON source and layer with literal paint values).</li>
+<li>Layer types beyond <code>fill</code> / <code>line</code> / <code>circle</code> (no <code>symbol</code>, <code>heatmap</code>,
+  <code>raster</code>, <code>fill-extrusion</code>).</li>
+<li>Externally-referenced GeoJSON URLs (every feature is inline).</li>
+<li>Symbol/icon markers (no <code>symbol</code> layer) - use a <code>circle</code> instead.</li>
+<li>Z-ordering relative to base style layers - all overlay layers are drawn
+  on top of the base style, in feature-array order.</li>
+</ul>
+<p>All examples below render the same camera (<code>/static/0,0,2/200x200.png</code>)
+against the <code>maplibre_demo</code> style, so the visual differences come only from
+the overlay body.</p>
+<h4 id="line">Line</h4>
+<div class="grid">
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FeatureCollection&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LineString&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">-10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">-10.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">10.0</span><span class="p">]]</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="hll"><span class="w">    </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span></span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;line-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#95BEFA&quot;</span><span class="p">,</span>
+</span></span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;line-width&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span></span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;line-cap&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;round&quot;</span><span class="p">,</span>
+</span></span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;line-join&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;round&quot;</span>
+</span></span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="hll"><span class="w">    </span><span class="p">}</span>
+</span></span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="p">}]</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><img alt="Pastel-blue diagonal stroke over the demo basemap" src="../../images/static-overlay/line_color.png" width="100%" /></p>
+</div>
+<h4 id="fill">Fill</h4>
+<div class="grid">
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FeatureCollection&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Polygon&quot;</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">        </span><span class="p">[</span><span class="mf">-10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">-10.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">-10.0</span><span class="p">],</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">        </span><span class="p">[</span><span class="mf">10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">10.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">-10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">10.0</span><span class="p">],</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="p">[</span><span class="mf">-10.0</span><span class="p">,</span><span class="w"> </span><span class="mf">-10.0</span><span class="p">]</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">      </span><span class="p">]]</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="hll"><span class="w">    </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span></span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;fill-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;red&quot;</span><span class="p">,</span>
+</span></span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;fill-opacity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span>
+</span></span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="hll"><span class="w">    </span><span class="p">}</span>
+</span></span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span><span class="p">}]</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><img alt="Filled red square polygon" src="../../images/static-overlay/fill_color.png" width="100%" /></p>
+</div>
+<h4 id="fill-opacity-alpha-blending">Fill opacity (alpha blending)</h4>
+<div class="grid">
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FeatureCollection&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">      </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Polygon&quot;</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">        </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[[</span><span class="mi">-40</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">-40</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">-40</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">]]]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="hll"><span class="w">        </span><span class="nt">&quot;fill-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#285DAA&quot;</span><span class="p">,</span>
+</span></span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="hll"><span class="w">        </span><span class="nt">&quot;fill-opacity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span>
+</span></span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="p">}</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Polygon&quot;</span><span class="p">,</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[[</span><span class="mi">-10</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">-10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">-10</span><span class="p">,</span><span class="w"> </span><span class="mi">-20</span><span class="p">]]]</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="hll"><span class="w">        </span><span class="nt">&quot;fill-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#95BEFA&quot;</span><span class="p">,</span>
+</span></span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="hll"><span class="w">        </span><span class="nt">&quot;fill-opacity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span>
+</span></span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="p">}</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><img alt="Two semi-transparent brand-color rectangles overlapping" src="../../images/static-overlay/fill_opacity.png" width="100%" /></p>
+</div>
+<h4 id="circle-marker">Circle (marker)</h4>
+<div class="grid">
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FeatureCollection&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">&quot;geometry&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Point&quot;</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">&quot;coordinates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">]</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="hll"><span class="w">    </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span></span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;circle-color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#285DAA&quot;</span><span class="p">,</span>
+</span></span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="hll"><span class="w">      </span><span class="nt">&quot;circle-radius&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span>
+</span></span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="hll"><span class="w">    </span><span class="p">}</span>
+</span></span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="p">}]</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><img alt="Primary-colored circle marker at the equator/prime meridian" src="../../images/static-overlay/circle_color.png" width="100%" /></p>
+</div>
 
 
   <nav class="md-tags" >
@@ -1744,6 +2230,13 @@ enable it, the endpoints, and the static-image overlay API.</p>
       
       
         <span class="md-tag">styles</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">rendering</span>
       
     
       
@@ -1795,7 +2288,7 @@ enable it, the endpoints, and the static-image overlay API.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../sources-sprites/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Sprites">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Style Sources">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1805,20 +2298,20 @@ enable it, the endpoints, and the static-image overlay API.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Sprites
+                Style Sources
               </div>
             </div>
           </a>
         
         
           
-          <a href="./rendering/" class="md-footer__link md-footer__link--next" aria-label="Next: Server-side raster tile rendering">
+          <a href="../../sources-fonts/" class="md-footer__link md-footer__link--next" aria-label="Next: Fonts">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Server-side raster tile rendering
+                Fonts
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1877,10 +2370,10 @@ enable it, the endpoints, and the static-image overlay API.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.b6b7e04f.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../../assets/javascripts/workers/search.b6b7e04f.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7f30b55.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7f30b55.min.js"></script>
       
     
   </body>
