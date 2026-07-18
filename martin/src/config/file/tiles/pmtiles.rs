@@ -479,6 +479,7 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
+    use aws_config::profile::ProfileFileRegionProvider;
     use aws_config::profile::profile_file::{ProfileFileKind, ProfileFiles};
     use tempfile::tempdir;
 
@@ -506,9 +507,14 @@ mod tests {
             .with_file(ProfileFileKind::Credentials, credentials_path)
             .with_file(ProfileFileKind::Config, config_path)
             .build();
+        let region_provider = ProfileFileRegionProvider::builder()
+            .profile_name("staging")
+            .profile_files(profile_files.clone())
+            .build();
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .profile_name("staging")
             .profile_files(profile_files)
+            .region(region_provider)
             .load()
             .await;
 
@@ -550,9 +556,14 @@ mod tests {
             .with_file(ProfileFileKind::Credentials, credentials_path)
             .with_file(ProfileFileKind::Config, config_path)
             .build();
+        let region_provider = ProfileFileRegionProvider::builder()
+            .profile_name("staging")
+            .profile_files(profile_files.clone())
+            .build();
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .profile_name("staging")
             .profile_files(profile_files)
+            .region(region_provider)
             .load()
             .await;
 
