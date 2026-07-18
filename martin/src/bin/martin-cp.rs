@@ -204,7 +204,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         #[cfg(feature = "postgres")]
         &env,
     )?;
-    config.finalize()?;
+    config.finalize().await?;
 
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);

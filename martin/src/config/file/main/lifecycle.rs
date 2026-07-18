@@ -56,7 +56,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+    pub async fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
@@ -103,15 +103,7 @@ impl Config {
         }
 
         #[cfg(feature = "pmtiles")]
-        {
-            // if a pmtiles source were to keep being configured like this,
-            // we would not be able to migrate defaults/deprecate settings
-            //
-            // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
-            self.pmtiles = self.pmtiles.clone().into_config();
-            self.pmtiles.finalize()?;
-            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
-        }
+        self.finalize_pmtiles(&mut res).await?;
 
         #[cfg(feature = "mbtiles")]
         {
@@ -187,6 +179,21 @@ impl Config {
         } else {
             Ok(res)
         }
+    }
+
+    #[cfg(feature = "pmtiles")]
+    async fn finalize_pmtiles(
+        &mut self,
+        unrecognized: &mut UnrecognizedKeys,
+    ) -> ConfigFileResult<()> {
+        // Resolution expects the expanded config variant so defaults and deprecated values survive.
+        self.pmtiles = self.pmtiles.clone().into_config();
+        self.pmtiles.finalize()?;
+        if let FileConfigEnum::Config(config) = &mut self.pmtiles {
+            config.custom.finalize_aws_profile().await;
+        }
+        unrecognized.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+        Ok(())
     }
 
     #[instrument(skip_all, err(Debug))]

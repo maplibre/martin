@@ -145,10 +145,15 @@ The settings available for a PMTiles source depend on the backend:
 
     ```yaml
     pmtiles:
+      profile: staging
       allow_http: true
       sources:
         tiles: s3://bucket/path/to/tiles.pmtiles
     ```
+
+    `profile` (also accepted as `aws_profile`) loads credentials and the default region
+    from the standard AWS SDK profile chain, including refreshable SSO and assumed-role
+    credentials. Explicit PMTiles credential or region settings take precedence.
 
     !!! tip
         All settings are also available under the `aws_` prefix.

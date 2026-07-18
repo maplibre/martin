@@ -485,7 +485,7 @@ mod tests {
               definitely_a_typo: 1
         "})
         .unwrap();
-        let keys = cfg.finalize().expect("finalize should not error");
+        let keys = futures::executor::block_on(cfg.finalize()).expect("finalize should not error");
         assert!(
             keys.contains("convert_to_mlt.definitely_a_typo"),
             "expected convert_to_mlt.definitely_a_typo in {keys:?}"

@@ -504,7 +504,7 @@ mod tests {
 
     pub fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        let res = config.finalize().unwrap();
+        let res = futures::executor::block_on(config.finalize()).unwrap();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
     }

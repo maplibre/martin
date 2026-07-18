@@ -25,7 +25,7 @@ pub fn mock_cfg(yaml: &str) -> Config {
     };
     let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
         .expect("source can be parsed as yaml");
-    let res = cfg.finalize().expect("source can be finalized");
+    let res = futures::executor::block_on(cfg.finalize()).expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
 }

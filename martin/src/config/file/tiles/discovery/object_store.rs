@@ -99,7 +99,7 @@ impl Discovery for ObjectStoreDiscovery {
         // Per-prefix failures are logged and skipped so a transient outage doesn't flap the catalog.
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            match list_remote_prefix(prefix, &self.config.options, &self.id_resolver).await {
+            match list_remote_prefix(prefix, &self.config, &self.id_resolver).await {
                 Ok(entries) => {
                     for (id, url, version) in entries {
                         out.insert(id, (version, url));
@@ -142,10 +142,11 @@ fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
 
 async fn list_remote_prefix(
     prefix: &Url,
-    options: &std::collections::HashMap<String, String>,
+    config: &PmtConfig,
     id_resolver: &IdResolver,
 ) -> MartinResult<Vec<(String, Url, Version)>> {
-    let (store, base) = object_store::parse_url_opts(prefix, options)
+    let (store, base) = config
+        .parse_url_opts(prefix)
         .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;
 
     let mut out = Vec::new();
