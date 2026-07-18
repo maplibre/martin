@@ -7,9 +7,11 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::args::BoundsCalcType;
+use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-use crate::config::args::{BoundsCalcType, PreferredEncoding};
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, GlobalCacheConfig, OnInvalid, UnrecognizedKeys,
 };
@@ -103,8 +105,9 @@ impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Option<T> {
 
 impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Vec<T> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        let base = path.strip_suffix('.').unwrap_or(path);
         for (index, value) in self.iter().enumerate() {
-            value.collect_unrecognized(&format!("{path}{index}."), out);
+            value.collect_unrecognized(&format!("{base}[{index}]."), out);
         }
     }
 }
@@ -153,13 +156,15 @@ impl_empty_collect_unrecognized!(
     Duration,
     serde_json::Value,
     Bounds,
-    BoundsCalcType,
     OnInvalid,
     PreferredEncoding,
     CachePolicy,
     CacheSizeConfig,
     GlobalCacheConfig,
 );
+
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+impl_empty_collect_unrecognized!(BoundsCalcType);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);

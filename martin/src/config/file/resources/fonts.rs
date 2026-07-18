@@ -10,7 +10,16 @@ use crate::config::file::{
 };
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerFontConfig {
     /// Cache configuration for fonts.
@@ -26,8 +35,6 @@ pub struct InnerFontConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-impl ConfigurationLivecycleHooks for InnerFontConfig {}
-
 pub type FontConfig = FileConfigEnum<InnerFontConfig>;
 
 impl FontConfig {

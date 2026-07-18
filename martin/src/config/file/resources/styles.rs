@@ -17,7 +17,16 @@ use crate::config::file::{
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
@@ -34,10 +43,17 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for InnerStyleConfig {}
-
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
@@ -51,9 +67,6 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-impl ConfigurationLivecycleHooks for RendererConfig {}
-
 pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
 
 impl StyleConfig {

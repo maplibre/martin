@@ -58,7 +58,16 @@ impl Default for CorsConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
     /// Sets the `Access-Control-Allow-Origin` header \[default: *\]
@@ -93,8 +102,6 @@ impl Default for CorsProperties {
         }
     }
 }
-
-impl ConfigurationLivecycleHooks for CorsProperties {}
 
 impl CorsProperties {
     pub fn validate(&self) -> ConfigFileResult<()> {

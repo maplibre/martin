@@ -16,7 +16,16 @@ pub const DEFAULT_KEEP_ALIVE: u64 = 75;
 pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
     /// Connection keep alive timeout \[default: 75\]
@@ -98,12 +107,19 @@ impl SrvConfig {
     }
 }
 
-impl ConfigurationLivecycleHooks for SrvConfig {}
-
 /// More advanced monitoring options
 #[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
@@ -114,12 +130,18 @@ pub struct ObservabilityConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-#[cfg(feature = "metrics")]
-impl ConfigurationLivecycleHooks for ObservabilityConfig {}
-
 /// Configure metrics reported under `/_/metrics`
 #[cfg(feature = "metrics")]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MetricsConfig {
     /// Add these labels to every metric
@@ -131,9 +153,6 @@ pub struct MetricsConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-
-#[cfg(feature = "metrics")]
-impl ConfigurationLivecycleHooks for MetricsConfig {}
 
 #[cfg(test)]
 mod tests {

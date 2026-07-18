@@ -22,6 +22,17 @@ use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
 #[cfg(any(
+    feature = "postgres",
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "sprites",
+    feature = "styles",
+    feature = "fonts"
+))]
+use crate::config::file::ConfigurationLivecycleHooks;
+#[cfg(any(
     feature = "pmtiles",
     feature = "sprites",
     feature = "fonts",
@@ -43,9 +54,7 @@ use crate::config::file::process::resolve_process_config;
     feature = "geojson"
 ))]
 use crate::config::file::resolve_files;
-use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-};
+use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "_tiles")]

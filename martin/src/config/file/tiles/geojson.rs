@@ -38,7 +38,15 @@ const fn is_default_buffer(buffer: &u32) -> bool {
     *buffer == default_buffer()
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
@@ -64,8 +72,6 @@ impl Default for GeoJsonConfig {
         }
     }
 }
-
-impl ConfigurationLivecycleHooks for GeoJsonConfig {}
 
 impl TileSourceConfiguration for GeoJsonConfig {
     fn parse_urls() -> bool {
@@ -100,7 +106,7 @@ mod tests {
 
     use indoc::indoc;
 
-    use crate::config::file::CollectUnrecognizedKeys;
+    use crate::config::file::CollectUnrecognizedKeys as _;
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{

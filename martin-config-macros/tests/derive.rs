@@ -33,8 +33,9 @@ mod config {
 
         impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Vec<T> {
             fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+                let base = path.strip_suffix('.').unwrap_or(path);
                 for (i, v) in self.iter().enumerate() {
-                    v.collect_unrecognized(&format!("{path}{i}."), out);
+                    v.collect_unrecognized(&format!("{base}[{i}]."), out);
                 }
             }
         }
@@ -99,11 +100,11 @@ struct WithVec {
 }
 
 #[test]
-fn vec_uses_dotted_indices() {
+fn vec_uses_bracketed_indices() {
     let value = WithVec {
         items: vec![inner(&["a"]), inner(&["b"])],
     };
-    assert_eq!(keys(&value), ["items.0.a", "items.1.b"]);
+    assert_eq!(keys(&value), ["items[0].a", "items[1].b"]);
 }
 
 #[derive(CollectUnrecognizedKeys)]

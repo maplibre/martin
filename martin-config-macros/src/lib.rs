@@ -1,4 +1,4 @@
-//! Derive macro for `CollectUnrecognizedKeys`.
+//! Derive macros for Martin's configuration types.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -15,6 +15,22 @@ pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
     expand(&input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
+}
+
+/// Derives an empty `ConfigurationLivecycleHooks` impl, so the type opts into the trait's default hooks.
+///
+/// Types that need custom finalization implement the trait by hand instead of deriving it.
+#[proc_macro_derive(ConfigurationLivecycleHooks)]
+pub fn derive_configuration_livecycle_hooks(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    quote! {
+        #[automatically_derived]
+        impl #impl_generics crate::config::file::ConfigurationLivecycleHooks
+            for #ident #ty_generics #where_clause {}
+    }
+    .into()
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {

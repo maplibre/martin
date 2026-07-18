@@ -15,7 +15,16 @@ use crate::config::file::{
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
     /// MVT->MLT encoder settings for all `MBTiles` sources.
@@ -34,8 +43,6 @@ pub struct MbtConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-
-impl ConfigurationLivecycleHooks for MbtConfig {}
 
 impl TileSourceConfiguration for MbtConfig {
     fn parse_urls() -> bool {
@@ -68,7 +75,7 @@ mod tests {
     use indoc::indoc;
     use martin_core::CacheZoomRange;
 
-    use crate::config::file::CollectUnrecognizedKeys;
+    use crate::config::file::CollectUnrecognizedKeys as _;
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{

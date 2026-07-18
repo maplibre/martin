@@ -33,6 +33,8 @@ use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
+pub use martin_config_macros::ConfigurationLivecycleHooks;
+
 /// Lifecycle hooks for configuring the application
 ///
 /// The hooks are guaranteed called in the following order:
@@ -1119,13 +1121,20 @@ mod deserialize_tests {
 
     /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
-    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, CollectUnrecognizedKeys)]
+    #[derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        PartialEq,
+        Serialize,
+        CollectUnrecognizedKeys,
+        ConfigurationLivecycleHooks,
+    )]
     struct TestCustom {
         #[serde(default)]
         flag: bool,
     }
-
-    impl ConfigurationLivecycleHooks for TestCustom {}
 
     // Failure-path tests run through the full `parse_config` pipeline using realistic
     // `Config` fields (e.g. `pmtiles:` for `FileConfigEnum`, `mbtiles.sources` for
@@ -1509,10 +1518,10 @@ mod folder_source_tests {
     /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
     const BAD_PREFIX: &str = "bad_";
 
-    #[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]
+    #[derive(
+        Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
+    )]
     struct FakeConfig;
-
-    impl ConfigurationLivecycleHooks for FakeConfig {}
 
     impl TileSourceConfiguration for FakeConfig {
         fn parse_urls() -> bool {

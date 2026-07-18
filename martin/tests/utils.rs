@@ -7,7 +7,7 @@ use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
-use martin::config::file::{CollectUnrecognizedKeys, Config, ServerState, parse_config};
+use martin::config::file::{CollectUnrecognizedKeys as _, Config, ServerState, parse_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::{Env as _, FauxEnv};

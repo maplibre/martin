@@ -149,8 +149,6 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    use crate::config::file::CollectUnrecognizedKeys;
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
