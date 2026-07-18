@@ -2,7 +2,14 @@
 
 | configuration              | description                                                | example                                                   |
 | -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
-| `profile`                  | AWS SDK profile for refreshable credentials and region     | `staging`                                                 |
+!!! tip
+    Next to the explicit configuration for auth and endpoints below, you can also use `profile` (for example `profile: staging`) to specify an [AWS SDK profile](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html).
+    Explicit configuration overrides profiles.
+
+#### AWS specific Authentication & Credentials
+
+| configuration              | description                                                | example                                                   |
+| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
 | `access_key_id`            | AWS Access Key                                             | `AKIAIOSFODNN7EXAMPLE`                                    |
 | `secret_access_key`        | Secret Access Key                                          | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`                |
 | `session_token`<br>`token` | AWS session token used for temporary credentials           | `IQoJb3JpZ2luX2VjEOr...`                                  |
