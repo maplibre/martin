@@ -408,7 +408,8 @@ mod tests {
 
     pub async fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        let res = config.finalize().await.unwrap();
+        config.finalize().await.unwrap();
+        let res = config.get_unrecognized_keys();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
     }

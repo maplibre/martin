@@ -45,30 +45,15 @@ use crate::config::file::process::resolve_process_config;
 use crate::config::file::resolve_files;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    UnrecognizedKeys, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
-#[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    #[allow(clippy::too_many_lines)]
-    pub async fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut res = self.srv.get_unrecognized_keys();
-        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
-
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            self.convert_to_mlt
-                .collect_unrecognized("convert_to_mlt.", &mut res);
-            self.convert_to_mvt
-                .collect_unrecognized("convert_to_mvt.", &mut res);
-        }
-
+    pub async fn finalize(&mut self) -> MartinResult<()> {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -82,16 +67,8 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        {
-            let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres."
-            } else {
-                "postgres[]."
-            };
-            for pg in self.postgres.iter_mut() {
-                pg.finalize().await?;
-                pg.collect_unrecognized(pg_prefix, &mut res);
-            }
+        for pg in self.postgres.iter_mut() {
+            pg.finalize().await?;
         }
 
         #[cfg(feature = "pmtiles")]
@@ -102,51 +79,25 @@ impl Config {
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize().await?;
-            self.pmtiles.collect_unrecognized("pmtiles.", &mut res);
         }
 
         #[cfg(feature = "mbtiles")]
-        {
-            self.mbtiles.finalize().await?;
-            self.mbtiles.collect_unrecognized("mbtiles.", &mut res);
-        }
+        self.mbtiles.finalize().await?;
 
         #[cfg(feature = "unstable-cog")]
-        {
-            self.cog.finalize().await?;
-            self.cog.collect_unrecognized("cog.", &mut res);
-        }
+        self.cog.finalize().await?;
 
         #[cfg(feature = "geojson")]
-        {
-            self.geojson.finalize().await?;
-            self.geojson.collect_unrecognized("geojson.", &mut res);
-        }
+        self.geojson.finalize().await?;
 
         #[cfg(feature = "sprites")]
-        {
-            self.sprites.finalize().await?;
-            self.sprites.collect_unrecognized("sprites.", &mut res);
-        }
+        self.sprites.finalize().await?;
 
         #[cfg(feature = "styles")]
-        {
-            self.styles.finalize().await?;
-            self.styles.collect_unrecognized("styles.", &mut res);
-        }
+        self.styles.finalize().await?;
 
-        // TODO: support for unrecognized fonts?
-        // #[cfg(feature = "fonts")]
-        // {
-        //     self.fonts.finalize()?;
-        //     self.fonts.collect_unrecognized("fonts", &mut res);
-        // }
-
-        for key in &res {
-            warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
-            );
-        }
+        #[cfg(feature = "fonts")]
+        self.fonts.finalize().await?;
 
         let is_empty = true;
 
@@ -177,7 +128,18 @@ impl Config {
         if is_empty {
             Err(ConfigFileError::NoSources.into())
         } else {
-            Ok(res)
+            Ok(())
+        }
+    }
+
+    /// Warn about configuration keys that were not recognized while parsing the config file.
+    ///
+    /// Call after [`Config::finalize`], which consumes and migrates the keys it recognizes.
+    pub fn warn_unrecognized_keys(&self) {
+        for key in &self.get_unrecognized_keys() {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
         }
     }
 

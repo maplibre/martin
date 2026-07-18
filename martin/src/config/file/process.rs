@@ -480,7 +480,8 @@ mod tests {
               definitely_a_typo: 1
         "})
         .unwrap();
-        let keys = cfg.finalize().await.expect("finalize should not error");
+        cfg.finalize().await.expect("finalize should not error");
+        let keys = cfg.get_unrecognized_keys();
         assert!(
             keys.contains("convert_to_mlt.definitely_a_typo"),
             "expected convert_to_mlt.definitely_a_typo in {keys:?}"
