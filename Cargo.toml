@@ -134,7 +134,9 @@ postgres = { version = "0.19", features = [
 ] }
 postgres-protocol = "0.6"
 pretty_assertions = "1"
+proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+quote = "1"
 rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
@@ -158,6 +160,7 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
+syn = { version = "2", features = ["full"] }
 tempfile = "3.21.0"
 test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }

@@ -1,22 +1,26 @@
 [package]
 name = "martin-config-macros"
 version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Derive macros for MapLibre's Martin tile server configuration types."
+keywords = ["maps", "tiles", "tileserver", "proc-macro"]
+categories = ["science::geo"]
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+homepage.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1"
-quote = "1"
-syn = { version = "2", features = ["full"] }
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
 
 [dev-dependencies]
-serde = { version = "1", features = ["derive"] }
+serde.workspace = true
 
 [lints]
 workspace = true
