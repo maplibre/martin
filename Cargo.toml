@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+members = ["martin", "martin-config-macros", "martin-core", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2024"
@@ -106,6 +106,7 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.8.5"
+martin-config-macros = { path = "./martin-config-macros", version = "0.1.0" }
 martin-core = { path = "./martin-core", version = "0.9.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
 mbtiles = { path = "./mbtiles", version = "0.18.1" }

@@ -4,7 +4,9 @@ use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::UnrecognizedValues;
+use crate::config::file::{
+    CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues, join_path,
+};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
@@ -44,10 +46,12 @@ pub type MvtProcessConfig = AutoOption<MvtEncoderConfig>;
 pub struct MvtEncoderConfig(pub serde_json::Map<String, serde_json::Value>);
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-impl MvtEncoderConfig {
-    /// Keys that were present in the config but not recognized as encoder settings.
-    pub(crate) fn unrecognized_keys(&self) -> impl Iterator<Item = &str> {
-        self.0.keys().map(String::as_str)
+impl CollectUnrecognizedKeys for MvtEncoderConfig {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        // The MVT encoder has no known knobs, so every provided key is unrecognized.
+        for key in self.0.keys() {
+            out.insert(join_path(path, key));
+        }
     }
 }
 
@@ -55,7 +59,7 @@ impl MvtEncoderConfig {
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MltEncoderConfig {
     /// Generate tessellation data for polygons and multi-polygons.
@@ -77,14 +81,6 @@ pub struct MltEncoderConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-impl MltEncoderConfig {
-    /// Keys that were present in the config but not recognized as encoder settings.
-    pub(crate) fn unrecognized_keys(&self) -> impl Iterator<Item = &str> {
-        self.unrecognized.keys().map(String::as_str)
-    }
 }
 
 /// Applies `MltEncoderConfig` overrides on top of `EncoderConfig` defaults:
@@ -156,6 +152,8 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use crate::config::file::CollectUnrecognizedKeys;
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
@@ -395,7 +393,8 @@ mod tests {
             panic!("expected explicit MltEncoderConfig");
         };
         assert_eq!(inner.tessellate, Some(true));
-        let mut keys: Vec<&str> = inner.unrecognized_keys().collect();
+        let collected = inner.get_unrecognized_keys();
+        let mut keys: Vec<&str> = collected.iter().map(String::as_str).collect();
         keys.sort_unstable();
         assert_eq!(keys, vec!["another_typo", "unknown_knob"]);
     }
@@ -412,7 +411,8 @@ mod tests {
         let MvtProcessConfig::Explicit(inner) = cfg else {
             panic!("expected explicit MvtEncoderConfig");
         };
-        let mut keys: Vec<&str> = inner.unrecognized_keys().collect();
+        let collected = inner.get_unrecognized_keys();
+        let mut keys: Vec<&str> = collected.iter().map(String::as_str).collect();
         keys.sort_unstable();
         assert_eq!(keys, vec!["anything", "else"]);
     }
@@ -432,7 +432,6 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "pmtiles"))]
     #[test]
     fn pmt_config_propagates_mlt_unrecognized_keys() {
-        use crate::config::file::ConfigurationLivecycleHooks as _;
         use crate::config::file::pmtiles::PmtConfig;
 
         let cfg: PmtConfig = serde_saphyr::from_str(indoc! {"
@@ -453,7 +452,6 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "mbtiles"))]
     #[test]
     fn mbt_config_propagates_mvt_unrecognized_keys() {
-        use crate::config::file::ConfigurationLivecycleHooks as _;
         use crate::config::file::mbtiles::MbtConfig;
 
         let cfg: MbtConfig = serde_saphyr::from_str(indoc! {"

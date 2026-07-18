@@ -44,8 +44,8 @@ use crate::config::file::process::resolve_process_config;
 ))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
-    copy_unrecognized_keys_from_config,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    UnrecognizedKeys, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
@@ -63,19 +63,10 @@ impl Config {
 
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         {
-            use crate::config::primitives::AutoOption;
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
+            self.convert_to_mlt
+                .collect_unrecognized("convert_to_mlt", &mut res);
+            self.convert_to_mvt
+                .collect_unrecognized("convert_to_mvt", &mut res);
         }
 
         if let Some(path) = &self.srv.route_prefix {
@@ -93,13 +84,13 @@ impl Config {
         #[cfg(feature = "postgres")]
         {
             let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres."
+                "postgres"
             } else {
-                "postgres[]."
+                "postgres[]"
             };
             for pg in self.postgres.iter_mut() {
                 pg.finalize().await?;
-                res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
+                pg.collect_unrecognized(pg_prefix, &mut res);
             }
         }
 
@@ -111,44 +102,44 @@ impl Config {
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize().await?;
-            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+            self.pmtiles.collect_unrecognized("pmtiles", &mut res);
         }
 
         #[cfg(feature = "mbtiles")]
         {
             self.mbtiles.finalize().await?;
-            res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
+            self.mbtiles.collect_unrecognized("mbtiles", &mut res);
         }
 
         #[cfg(feature = "unstable-cog")]
         {
             self.cog.finalize().await?;
-            res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
+            self.cog.collect_unrecognized("cog", &mut res);
         }
 
         #[cfg(feature = "geojson")]
         {
             self.geojson.finalize().await?;
-            res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
+            self.geojson.collect_unrecognized("geojson", &mut res);
         }
 
         #[cfg(feature = "sprites")]
         {
             self.sprites.finalize().await?;
-            res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
+            self.sprites.collect_unrecognized("sprites", &mut res);
         }
 
         #[cfg(feature = "styles")]
         {
             self.styles.finalize().await?;
-            res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
+            self.styles.collect_unrecognized("styles", &mut res);
         }
 
         // TODO: support for unrecognized fonts?
         // #[cfg(feature = "fonts")]
         // {
         //     self.fonts.finalize()?;
-        //     res.extend(self.fonts.get_unrecognized_keys_with_prefix("fonts."));
+        //     self.fonts.collect_unrecognized("fonts", &mut res);
         // }
 
         for key in &res {

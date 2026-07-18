@@ -1,0 +1,243 @@
+//! Derive macro for `CollectUnrecognizedKeys`, used by Martin's config structs to report
+//! configuration keys that were present but not recognized by any known field.
+//!
+//! The derive recurses into every field (structs) or the active variant (enums), building
+//! dotted paths (`section.field`, `list[0].field`, `map.key.field`). The `unrecognized` bag
+//! field (type `UnrecognizedValues`) contributes its raw keys at the current path; every other
+//! field type routes through its own `CollectUnrecognizedKeys` impl.
+
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use syn::{Data, DeriveInput, Fields, GenericParam, Generics, parse_macro_input};
+
+/// Derives `CollectUnrecognizedKeys` for a config struct or enum.
+///
+/// - A field of type `UnrecognizedValues` is the unrecognized-key bag and contributes its keys
+///   at the current path (no extra segment).
+/// - `#[serde(skip)]` fields are ignored (runtime state, never deserialized).
+/// - `#[serde(rename = "…")]` on a field is used for its path segment.
+#[proc_macro_derive(CollectUnrecognizedKeys)]
+pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand(&input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    if let Some(rule) = container_rename_all(&input.attrs) {
+        return Err(syn::Error::new_spanned(
+            rule,
+            "CollectUnrecognizedKeys does not support `#[serde(rename_all)]` on recursed types; \
+             rename individual fields with `#[serde(rename = \"…\")]` instead",
+        ));
+    }
+
+    let body = match &input.data {
+        Data::Struct(data) => struct_body(&data.fields)?,
+        Data::Enum(data) => enum_body(data),
+        Data::Union(_) => {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "CollectUnrecognizedKeys cannot be derived for unions",
+            ));
+        }
+    };
+
+    let ident = &input.ident;
+    let generics = add_trait_bounds(input.generics.clone());
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    Ok(quote! {
+        #[automatically_derived]
+        #[allow(clippy::absolute_paths, unused_variables)]
+        impl #impl_generics crate::config::file::CollectUnrecognizedKeys
+            for #ident #ty_generics #where_clause
+        {
+            fn collect_unrecognized(
+                &self,
+                path: &str,
+                out: &mut crate::config::file::UnrecognizedKeys,
+            ) {
+                #body
+            }
+        }
+    })
+}
+
+/// Adds `T: CollectUnrecognizedKeys` to every generic type parameter.
+fn add_trait_bounds(mut generics: Generics) -> Generics {
+    for param in &mut generics.params {
+        if let GenericParam::Type(type_param) = param {
+            type_param.bounds.push(syn::parse_quote!(
+                crate::config::file::CollectUnrecognizedKeys
+            ));
+        }
+    }
+    generics
+}
+
+fn struct_body(fields: &Fields) -> syn::Result<TokenStream2> {
+    let fields = match fields {
+        Fields::Named(fields) => fields,
+        // A unit struct has no fields and so never carries unrecognized keys.
+        Fields::Unit => return Ok(quote! {}),
+        Fields::Unnamed(_) => {
+            return Err(syn::Error::new_spanned(
+                fields,
+                "CollectUnrecognizedKeys cannot be derived for tuple structs; implement it manually",
+            ));
+        }
+    };
+
+    let mut stmts = Vec::new();
+    for field in &fields.named {
+        if has_serde_skip(&field.attrs) {
+            continue;
+        }
+        let member = field.ident.as_ref().expect("named field has an ident");
+        if has_serde_flatten(&field.attrs) {
+            // Flattened fields (the unrecognized bag, or an inlined sub-config like `custom`)
+            // live at the parent level in the config file, so they add no path segment.
+            stmts.push(quote! {
+                crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                    &self.#member, path, out,
+                );
+            });
+        } else {
+            let name = serde_field_name(field, member);
+            stmts.push(quote! {
+                crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                    &self.#member,
+                    &crate::config::file::join_path(path, #name),
+                    out,
+                );
+            });
+        }
+    }
+    Ok(quote! { #(#stmts)* })
+}
+
+fn enum_body(data: &syn::DataEnum) -> TokenStream2 {
+    let mut arms = Vec::new();
+    for variant in &data.variants {
+        let variant_ident = &variant.ident;
+        match &variant.fields {
+            Fields::Unit => arms.push(quote! { Self::#variant_ident => {} }),
+            Fields::Unnamed(fields) => {
+                let bindings: Vec<_> = (0..fields.unnamed.len())
+                    .map(|i| quote::format_ident!("field{i}"))
+                    .collect();
+                let recurse = bindings.iter().map(|binding| {
+                    quote! {
+                        crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                            #binding, path, out,
+                        );
+                    }
+                });
+                arms.push(quote! {
+                    Self::#variant_ident(#(#bindings),*) => { #(#recurse)* }
+                });
+            }
+            Fields::Named(fields) => {
+                let members: Vec<_> = fields
+                    .named
+                    .iter()
+                    .map(|f| f.ident.as_ref().expect("named field has an ident"))
+                    .collect();
+                let recurse = fields.named.iter().map(|f| {
+                    let member = f.ident.as_ref().expect("named field has an ident");
+                    let name = member.to_string();
+                    quote! {
+                        crate::config::file::CollectUnrecognizedKeys::collect_unrecognized(
+                            #member,
+                            &crate::config::file::join_path(path, #name),
+                            out,
+                        );
+                    }
+                });
+                arms.push(quote! {
+                    Self::#variant_ident { #(#members),* } => { #(#recurse)* }
+                });
+            }
+        }
+    }
+    quote! { match self { #(#arms)* } }
+}
+
+/// Whether a field carries `#[serde(flatten)]`, meaning its keys live at the parent level.
+fn has_serde_flatten(attrs: &[syn::Attribute]) -> bool {
+    serde_flag_is_set(attrs, "flatten")
+}
+
+fn has_serde_skip(attrs: &[syn::Attribute]) -> bool {
+    serde_flag_is_set(attrs, "skip")
+}
+
+/// Returns `true` if any `#[serde(...)]` attribute contains the bare flag `name`.
+fn serde_flag_is_set(attrs: &[syn::Attribute], name: &str) -> bool {
+    let mut found = false;
+    for attr in attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(name) {
+                found = true;
+            }
+            // Consume any `= value` so parsing of the remaining list continues.
+            if meta.input.peek(syn::Token![=]) {
+                let _: syn::Expr = meta.value()?.parse()?;
+            }
+            Ok(())
+        });
+    }
+    found
+}
+
+fn serde_field_name(field: &syn::Field, member: &syn::Ident) -> String {
+    for attr in &field.attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let mut rename = None;
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename") {
+                let value = meta.value()?;
+                let lit: syn::LitStr = value.parse()?;
+                rename = Some(lit.value());
+            } else if meta.input.peek(syn::Token![=]) {
+                let _: syn::Expr = meta.value()?.parse()?;
+            }
+            Ok(())
+        });
+        if let Some(rename) = rename {
+            return rename;
+        }
+    }
+    member.to_string()
+}
+
+/// Returns the `rename_all` token if present, so the derive can reject it (unsupported).
+fn container_rename_all(attrs: &[syn::Attribute]) -> Option<TokenStream2> {
+    for attr in attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let mut found = None;
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename_all") {
+                found = Some(quote! { rename_all });
+            }
+            if meta.input.peek(syn::Token![=]) {
+                let _: syn::Expr = meta.value()?.parse()?;
+            }
+            Ok(())
+        });
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
+}

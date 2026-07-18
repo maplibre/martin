@@ -5,7 +5,7 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A generic three-state configuration value: auto, disabled, or explicit.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, crate::config::file::CollectUnrecognizedKeys)]
 pub enum AutoOption<T> {
     /// Use the feature with its default settings.
     #[default]

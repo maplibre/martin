@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 use std::env;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -11,12 +12,12 @@ use tracing::warn;
 
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
-    UnrecognizedKeys, UnrecognizedValues,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
@@ -33,31 +34,10 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for InnerStyleConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[cfg_attr(
-            not(all(feature = "rendering", target_os = "linux")),
-            expect(unused_mut, reason = "to warn for unrecognized keys")
-        )]
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-        #[cfg(all(feature = "rendering", target_os = "linux"))]
-        if let OptBoolObj::Object(o) = &self.rendering {
-            keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("rendering.{k}")),
-            );
-        }
-        keys
-    }
-}
+impl ConfigurationLivecycleHooks for InnerStyleConfig {}
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
@@ -72,11 +52,7 @@ pub struct RendererConfig {
     pub unrecognized: UnrecognizedValues,
 }
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-impl ConfigurationLivecycleHooks for RendererConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
+impl ConfigurationLivecycleHooks for RendererConfig {}
 
 pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
 

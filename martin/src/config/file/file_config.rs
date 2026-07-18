@@ -20,7 +20,12 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
+use tilejson::Bounds;
+
+#[cfg(all(feature = "webui", not(docsrs)))]
+use crate::config::args::WebUiMode;
+use crate::config::args::{BoundsCalcType, PreferredEncoding};
+use crate::config::file::{ConfigFileError, ConfigFileResult, OnInvalid, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
@@ -35,24 +40,15 @@ use crate::{MartinError, MartinResult};
 ///
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
-/// 2. `get_unrecognized_keys`
-pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
+/// 2. [`CollectUnrecognizedKeys::get_unrecognized_keys`]
+pub trait ConfigurationLivecycleHooks:
+    CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send
+{
     /// Finalize configuration discovery and patch old values
     ///
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
     fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         async { Ok(()) }
-    }
-
-    /// Iterates over all unrecognized (present, but not expected) keys in the configuration
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
-
-    /// Returns all results of the [`Self::get_unrecognized_keys`], but with a given prefix
-    fn get_unrecognized_keys_with_prefix(&self, prefix: &str) -> UnrecognizedKeys {
-        self.get_unrecognized_keys()
-            .into_iter()
-            .map(|key| format!("{prefix}{key}"))
-            .collect()
     }
 }
 
@@ -89,7 +85,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigEnum<T> {
@@ -248,18 +244,10 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
             Ok(())
         }
     }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        if let Self::Config(cfg) = self {
-            cfg.get_unrecognized_keys()
-        } else {
-            UnrecognizedKeys::new()
-        }
-    }
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
@@ -283,35 +271,10 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         self.custom.finalize().await
     }
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
-        let mut keys = self.custom.get_unrecognized_keys();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        if let Some(sources) = &self.sources {
-            use crate::config::primitives::AutoOption;
-            for (id, src) in sources {
-                if let FileConfigSrc::Obj(obj) = src {
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mlt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mlt.{k}")),
-                        );
-                    }
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mvt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mvt.{k}")),
-                        );
-                    }
-                }
-            }
-        }
-        keys
-    }
 }
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigSrc {
@@ -400,7 +363,7 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
@@ -1142,12 +1105,201 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
 
 pub type UnrecognizedKeys = HashSet<String>;
 
+pub use martin_config_macros::CollectUnrecognizedKeys;
+
+/// Collects configuration keys that were present in a config file but not recognized by any known
+/// field, as full dotted paths from the config root.
+///
+/// Implemented for config structs/enums via `#[derive(CollectUnrecognizedKeys)]`, which recurses
+/// uniformly over fields (structs) or the active variant (enums). Leaf types (scalars, value
+/// enums) collect nothing; containers recurse into their elements.
+pub trait CollectUnrecognizedKeys {
+    /// Collects unrecognized keys under `path` into `out`.
+    ///
+    /// `path` is the dotted path to this value from the config root, empty at the root.
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys);
+
+    /// Returns all unrecognized keys as full dotted paths from the config root.
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        let mut out = UnrecognizedKeys::new();
+        self.collect_unrecognized("", &mut out);
+        out
+    }
+}
+
+/// Joins a dotted config path with a child segment: `("srv", "cors")` becomes `"srv.cors"`, and an
+/// empty parent path yields the segment unchanged.
+///
+/// Public only so `#[derive(CollectUnrecognizedKeys)]`-generated code can reach it; not part of the
+/// stable API.
+#[doc(hidden)]
+pub fn join_path(path: &str, segment: &str) -> String {
+    if path.is_empty() {
+        segment.to_owned()
+    } else {
+        format!("{path}.{segment}")
+    }
+}
+
+impl CollectUnrecognizedKeys for UnrecognizedValues {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for key in self.keys() {
+            out.insert(join_path(path, key));
+        }
+    }
+}
+
+impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Option<T> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        if let Some(value) = self {
+            value.collect_unrecognized(path, out);
+        }
+    }
+}
+
+impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Vec<T> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (index, value) in self.iter().enumerate() {
+            value.collect_unrecognized(&format!("{path}[{index}]"), out);
+        }
+    }
+}
+
+impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for HashMap<K, V, S> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (key, value) in self {
+            value.collect_unrecognized(&join_path(path, key.as_ref()), out);
+        }
+    }
+}
+
+impl<K: AsRef<str>, V: CollectUnrecognizedKeys> CollectUnrecognizedKeys for BTreeMap<K, V> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (key, value) in self {
+            value.collect_unrecognized(&join_path(path, key.as_ref()), out);
+        }
+    }
+}
+
+/// Implements `CollectUnrecognizedKeys` as a no-op for leaf types that never carry nested config.
+macro_rules! impl_empty_collect_unrecognized {
+    ($($t:ty),+ $(,)?) => {
+        $(
+            impl CollectUnrecognizedKeys for $t {
+                fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+            }
+        )+
+    };
+}
+
+impl_empty_collect_unrecognized!(
+    bool,
+    String,
+    u8,
+    u32,
+    i32,
+    u64,
+    usize,
+    f64,
+    std::num::NonZeroU32,
+    std::num::NonZeroU64,
+    std::num::NonZeroI32,
+    std::num::NonZeroUsize,
+    PathBuf,
+    Duration,
+    serde_json::Value,
+    Bounds,
+    BoundsCalcType,
+    OnInvalid,
+    PreferredEncoding,
+    CachePolicy,
+    CacheSizeConfig,
+    GlobalCacheConfig,
+);
+
+#[cfg(all(feature = "webui", not(docsrs)))]
+impl_empty_collect_unrecognized!(WebUiMode);
+
 pub fn copy_unrecognized_keys_from_config(
     result: &mut UnrecognizedKeys,
     prefix: &str,
     unrecognized: &UnrecognizedValues,
 ) {
     result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
+}
+
+#[cfg(test)]
+mod collect_unrecognized_derive_tests {
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::config::primitives::AutoOption;
+
+    #[derive(Default, Deserialize, CollectUnrecognizedKeys)]
+    struct Inner {
+        #[allow(dead_code)]
+        known: Option<bool>,
+        #[serde(flatten)]
+        unrecognized: UnrecognizedValues,
+    }
+
+    #[derive(Default, Deserialize, CollectUnrecognizedKeys)]
+    struct WithVec {
+        items: Vec<Inner>,
+    }
+
+    #[derive(Default, Deserialize, CollectUnrecognizedKeys)]
+    struct WithMap {
+        entries: BTreeMap<String, Inner>,
+    }
+
+    #[derive(Default, Deserialize, CollectUnrecognizedKeys)]
+    struct WithAuto {
+        thing: Option<AutoOption<Inner>>,
+    }
+
+    fn sorted(keys: UnrecognizedKeys) -> Vec<String> {
+        let mut keys: Vec<String> = keys.into_iter().collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    #[test]
+    fn vec_elements_use_bracket_indices() {
+        let cfg: WithVec = serde_saphyr::from_str(indoc::indoc! {"
+            items:
+              - { known: true, typo_a: 1 }
+              - { known: false, typo_b: 2 }
+        "})
+        .unwrap();
+        assert_eq!(
+            sorted(cfg.get_unrecognized_keys()),
+            vec!["items[0].typo_a", "items[1].typo_b"]
+        );
+    }
+
+    #[test]
+    fn map_entries_use_key_segments() {
+        let cfg: WithMap = serde_saphyr::from_str(indoc::indoc! {"
+            entries:
+              first: { typo_a: 1 }
+              second: { typo_b: 2 }
+        "})
+        .unwrap();
+        assert_eq!(
+            sorted(cfg.get_unrecognized_keys()),
+            vec!["entries.first.typo_a", "entries.second.typo_b"]
+        );
+    }
+
+    #[test]
+    fn auto_option_explicit_recurses_without_extra_segment() {
+        let cfg: WithAuto = serde_saphyr::from_str(indoc::indoc! {"
+            thing: { typo: 1 }
+        "})
+        .unwrap();
+        assert_eq!(sorted(cfg.get_unrecognized_keys()), vec!["thing.typo"]);
+    }
 }
 
 #[cfg(test)]
@@ -1159,17 +1311,13 @@ mod deserialize_tests {
 
     /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
-    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, CollectUnrecognizedKeys)]
     struct TestCustom {
         #[serde(default)]
         flag: bool,
     }
 
-    impl ConfigurationLivecycleHooks for TestCustom {
-        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-            UnrecognizedKeys::new()
-        }
-    }
+    impl ConfigurationLivecycleHooks for TestCustom {}
 
     // Failure-path tests run through the full `parse_config` pipeline using realistic
     // `Config` fields (e.g. `pmtiles:` for `FileConfigEnum`, `mbtiles.sources` for
@@ -1553,14 +1701,10 @@ mod folder_source_tests {
     /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
     const BAD_PREFIX: &str = "bad_";
 
-    #[derive(Clone, Debug, Default, PartialEq)]
+    #[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]
     struct FakeConfig;
 
-    impl ConfigurationLivecycleHooks for FakeConfig {
-        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-            UnrecognizedKeys::new()
-        }
-    }
+    impl ConfigurationLivecycleHooks for FakeConfig {}
 
     impl TileSourceConfiguration for FakeConfig {
         fn parse_urls() -> bool {

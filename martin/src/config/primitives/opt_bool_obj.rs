@@ -6,7 +6,9 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Serialize, crate::config::file::CollectUnrecognizedKeys,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptBoolObj<T> {

@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Add as _;
 use std::time::Duration;
@@ -15,12 +16,10 @@ use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
-    TileSourceWarning, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
@@ -43,7 +42,7 @@ pub trait PostgresInfo {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresSslCerts {
     /// Same as `PGSSLCERT` for `psql`
@@ -62,7 +61,7 @@ pub struct PostgresSslCerts {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
     /// Database connection string.
@@ -186,7 +185,7 @@ impl Default for PostgresConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
@@ -207,35 +206,10 @@ pub struct PostgresCfgPublish {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for PostgresCfgPublish {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-        match &self.functions {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("functions.{k}")),
-            ),
-        }
-        match &self.tables {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("tables.{k}")),
-            ),
-        }
-        keys
-    }
-}
+impl ConfigurationLivecycleHooks for PostgresCfgPublish {}
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
@@ -274,14 +248,10 @@ pub struct PostgresCfgPublishTables {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
+impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {}
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
@@ -302,11 +272,7 @@ pub struct PostgresCfgPublishFuncs {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
+impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {}
 
 impl PostgresConfig {
     pub async fn resolve(
@@ -405,68 +371,6 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
         }
 
         Ok(())
-    }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-
-        if let Some(ref ts) = self.tables {
-            for (k, v) in ts {
-                copy_unrecognized_keys_from_config(
-                    &mut keys,
-                    &format!("tables.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-        if let Some(ref fs) = self.functions {
-            for (k, v) in fs {
-                copy_unrecognized_keys_from_config(
-                    &mut keys,
-                    &format!("functions.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-
-        keys.extend(
-            self.ssl_certificates
-                .unrecognized
-                .keys()
-                .map(|k| format!("ssl_certificates.{k}")),
-        );
-
-        match &self.auto_publish {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("auto_publish.{k}"))
-                    .collect::<UnrecognizedKeys>(),
-            ),
-        }
-
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-
-        keys
     }
 }
 

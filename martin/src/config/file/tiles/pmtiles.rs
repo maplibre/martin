@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
@@ -21,12 +22,10 @@ use url::Url;
 use crate::MartinResult;
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::primitives::AutoOption;
 
 /// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
@@ -42,7 +41,7 @@ fn is_default_reload_interval(v: &Duration) -> bool {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
     /// Size of the directory cache (in MB).
@@ -172,27 +171,6 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         self.load_aws_profile().await;
 
         Ok(())
-    }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
-        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-        keys
     }
 }
 

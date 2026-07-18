@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -75,7 +76,7 @@ pub struct ServerState {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
     /// Cache configuration

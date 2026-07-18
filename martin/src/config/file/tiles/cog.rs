@@ -8,11 +8,11 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
     UnrecognizedValues,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CogConfig {
     #[serde(flatten, skip_serializing)]
@@ -20,11 +20,7 @@ pub struct CogConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for CogConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
+impl ConfigurationLivecycleHooks for CogConfig {}
 
 impl TileSourceConfiguration for CogConfig {
     fn parse_urls() -> bool {

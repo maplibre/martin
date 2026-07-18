@@ -7,7 +7,9 @@ use serde::de::{self, IntoDeserializer as _, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// An enum that can hold no values, one value, or many values of type T.
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Serialize, crate::config::file::CollectUnrecognizedKeys,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptOneMany<T> {
