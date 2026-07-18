@@ -11,23 +11,23 @@ tags:
 
 Martin data is available via these HTTP `GET` endpoints:
 
-| URL                                      | Description                                    |
-|------------------------------------------|------------------------------------------------|
-| `/`                                      | Web UI                                         |
-| `/catalog`                               | [List of all sources](#catalog)                |
-| `/{sourceID}`                            | [Source TileJSON](#source-tilejson)            |
-| `/{sourceID}/{z}/{x}/{y}`                | Map Tiles                                      |
-| `/{source1},…,{sourceN}`                 | [Composite Source TileJSON](#source-tilejson)  |
-| `/{source1},…,{sourceN}/{z}/{x}/{y}`     | [Composite Source Tiles](sources-composite.md) |
-| `/sprite/{spriteID}[@2x].{json,png}`     | [Sprite sources](sources-sprites.md)           |
-| `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](sources-sprites.md)       |
-| `/font/{font}/{start}-{end}`             | [Font source](sources-fonts.md)                |
-| `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
-| `/style/{style}`                         | [Style source](sources-styles/index.md)        |
-| `/style/{style}/{z}/{x}/{y}.{ext}`       | [Rendered raster tiles](sources-styles/rendering.md) (Linux) |
+| URL                                           | Description                                                        |
+|-----------------------------------------------|--------------------------------------------------------------------|
+| `/`                                           | Web UI                                                             |
+| `/catalog`                                    | [List of all sources](#catalog)                                    |
+| `/{sourceID}`                                 | [Source TileJSON](#source-tilejson)                                |
+| `/{sourceID}/{z}/{x}/{y}`                     | Map Tiles                                                          |
+| `/{source1},…,{sourceN}`                      | [Composite Source TileJSON](#source-tilejson)                      |
+| `/{source1},…,{sourceN}/{z}/{x}/{y}`          | [Composite Source Tiles](sources-composite.md)                     |
+| `/sprite/{spriteID}[@2x].{json,png}`          | [Sprite sources](sources-sprites.md)                               |
+| `/sdf_sprite/{spriteID}[@2x].{json,png}`      | [SDF Sprite sources](sources-sprites.md)                           |
+| `/font/{font}/{start}-{end}`                  | [Font source](sources-fonts.md)                                    |
+| `/font/{font1},…,{fontN}/{start}-{end}`       | [Composite Font source](sources-fonts.md)                          |
+| `/style/{style}`                              | [Style source](sources-styles/index.md)                            |
+| `/style/{style}/{z}/{x}/{y}.{ext}`            | [Rendered raster tiles](sources-styles/rendering.md) (Linux)       |
 | `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](sources-styles/rendering.md#static-images) (Linux) |
-| `/health`                                | Martin server health check: returns 200 `OK`   |
-| `/_/metrics`                             | Martin server Prometheus metrics               |
+| `/health`                                     | Martin server health check: returns 200 `OK`                       |
+| `/_/metrics`                                  | Martin server Prometheus metrics                                   |
 
 ### Postprocessing
 
