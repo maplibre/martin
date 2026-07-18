@@ -1,32 +1,15 @@
 ---
-icon: material/palette
+icon: material/image
 tags:
   - styles
+  - rendering
   - configuration
 ---
 
-# Style Sources
+# Server-side raster tile rendering
 
-Martin will serve your styles as needed by MapLibre rendering libraries.
-
-To edit these styles, we recommend using <https://maputnik.github.io/editor/>.
-
-### API
-
-Martin can serve [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/).
-Currently, Martin will use any valid [`JSON`](https://json.org) file as a style,
-but in the future, we may optimise Martin which may result in additional restrictions.
-
-Use the `/catalog` API to see all the `<style_id>`s.
-
-### Map Style
-
-Use the `/style/<style_id>` API to get a `<style_id>`'s JSON content.
-
-Changes or removals of styles are reflected immediately, but additions are not.
-A restart of Martin is required to see new styles.
-
-### Server-side raster tile rendering
+Martin can render a [style](index.md) into raster images server-side:
+as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     This feature is included in the default build on Linux.
@@ -41,18 +24,20 @@ A restart of Martin is required to see new styles.
 
     We welcome contributions to help stabilise this feature!
 
-We support generating a rasterised image for an XYZ tile of a given style.
-
-To do so, you need to enable the feature in the configuration file:
+To enable rendering, turn it on in the configuration file:
 
 ```yaml
 styles:
     rendering: true
 ```
 
-After doing so, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+## Rendered XYZ tiles
 
-### Static images
+We support generating a rasterised image for an XYZ tile of a given style.
+
+After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+
+## Static images
 
 !!! info
     We currently do not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
@@ -76,7 +61,7 @@ styling on each feature's `properties`, and overlays those features on top
 of the base style for that single render.
 An empty or missing body is equivalent to `GET`.
 
-#### Camera
+### Camera
 
 The `{camera}` segment chooses what the image looks at:
 
@@ -87,19 +72,19 @@ The `{camera}` segment chooses what the image looks at:
 | `lon,lat,zoom@bearing,pitch`    | Center + bearing + pitch in degrees.                 |
 | `minLon,minLat,maxLon,maxLat`   | Fit the given bounding box to the requested size.    |
 
-!!! important
+!!! info
     The image is always rendered INSIDE of the requested size.
     So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at `1°,-1°`.
     We will not expand the image outside the bbox.
 
-#### Size and format
+### Size and format
 
 `{size}.{ext}` follows the `WIDTHxHEIGHT[@{scale}x].{ext}` pattern, e.g.
 `800x600.png`, `400x300@2x.jpg`.
 Allowed extensions are `png`, `jpg`, and `webp`.
 Width and height are capped at 2048 px each; scale is capped at `4x`.
 
-#### Overlay body (`POST`)
+### Overlay body (`POST`)
 
 The overlay body is a GeoJSON `FeatureCollection`. Each feature carries its
 style on `properties` using
@@ -150,7 +135,7 @@ Unknown property keys on `feature.properties` are **silently ignored**, so
 GeoJSON files that already carry application metadata (`id`, `name`,
 `title`, `description`, …) work without modification.
 
-##### Supported style properties
+#### Supported style properties
 
 Every property is optional; an unset property uses the
 [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) default.
@@ -178,7 +163,7 @@ Every property is optional; an unset property uses the
 Range checks are not enforced - `*-opacity` values outside `0..=1` and
 negative widths are passed through to MapLibre verbatim.
 
-##### Out of scope
+#### Out of scope
 
 - Data-driven expressions on individual feature properties (each feature
   becomes its own GeoJSON source and layer with literal paint values).
@@ -193,7 +178,7 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`)
 against the `maplibre_demo` style, so the visual differences come only from
 the overlay body.
 
-##### Line
+#### Line
 
 <div class="grid" markdown>
 
@@ -216,11 +201,11 @@ the overlay body.
 }
 ```
 
-![Pastel-blue diagonal stroke over the demo basemap](images/static-overlay/line_color.png){ width="100%" }
+![Pastel-blue diagonal stroke over the demo basemap](../images/static-overlay/line_color.png){ width="100%" }
 
 </div>
 
-##### Fill
+#### Fill
 
 <div class="grid" markdown>
 
@@ -245,11 +230,11 @@ the overlay body.
 }
 ```
 
-![Filled red square polygon](images/static-overlay/fill_color.png){ width="100%" }
+![Filled red square polygon](../images/static-overlay/fill_color.png){ width="100%" }
 
 </div>
 
-##### Fill opacity (alpha blending)
+#### Fill opacity (alpha blending)
 
 <div class="grid" markdown>
 
@@ -279,11 +264,11 @@ the overlay body.
 }
 ```
 
-![Two semi-transparent brand-color rectangles overlapping](images/static-overlay/fill_opacity.png){ width="100%" }
+![Two semi-transparent brand-color rectangles overlapping](../images/static-overlay/fill_opacity.png){ width="100%" }
 
 </div>
 
-##### Circle (marker)
+#### Circle (marker)
 
 <div class="grid" markdown>
 
@@ -304,6 +289,6 @@ the overlay body.
 }
 ```
 
-![Primary-colored circle marker at the equator/prime meridian](images/static-overlay/circle_color.png){ width="100%" }
+![Primary-colored circle marker at the equator/prime meridian](../images/static-overlay/circle_color.png){ width="100%" }
 
 </div>

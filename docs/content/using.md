@@ -23,7 +23,9 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/sdf_sprite/{spriteID}[@2x].{json,png}` | [SDF Sprite sources](sources-sprites.md)       |
 | `/font/{font}/{start}-{end}`             | [Font source](sources-fonts.md)                |
 | `/font/{font1},…,{fontN}/{start}-{end}`  | [Composite Font source](sources-fonts.md)      |
-| `/style/{style}`                         | [Style source](sources-styles.md)              |
+| `/style/{style}`                         | [Style source](sources-styles/index.md)        |
+| `/style/{style}/{z}/{x}/{y}.{ext}`       | [Rendered raster tiles](sources-styles/rendering.md) (Linux) |
+| `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](sources-styles/rendering.md#static-images) (Linux) |
 | `/health`                                | Martin server health check: returns 200 `OK`   |
 | `/_/metrics`                             | Martin server Prometheus metrics               |
 
