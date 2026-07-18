@@ -2,6 +2,7 @@
 
 | configuration              | description                                                | example                                                   |
 | -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
+| `profile`<br>`aws_profile` | AWS SDK profile for refreshable credentials and region     | `staging`                                                 |
 | `access_key_id`            | AWS Access Key                                             | `AKIAIOSFODNN7EXAMPLE`                                    |
 | `secret_access_key`        | Secret Access Key                                          | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`                |
 | `session_token`<br>`token` | AWS session token used for temporary credentials           | `IQoJb3JpZ2luX2VjEOr...`                                  |

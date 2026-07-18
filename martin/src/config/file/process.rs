@@ -473,8 +473,8 @@ mod tests {
     /// `Config::finalize`. Needs at least one tile source so `finalize` doesn't
     /// short-circuit with `NoSources`.
     #[cfg(all(feature = "mlt", feature = "pmtiles"))]
-    #[test]
-    fn finalize_collects_global_convert_to_mlt_unrecognized() {
+    #[tokio::test]
+    async fn finalize_collects_global_convert_to_mlt_unrecognized() {
         use crate::config::file::Config;
 
         let mut cfg: Config = serde_saphyr::from_str(indoc! {"
@@ -485,7 +485,7 @@ mod tests {
               definitely_a_typo: 1
         "})
         .unwrap();
-        let keys = futures::executor::block_on(cfg.finalize()).expect("finalize should not error");
+        let keys = cfg.finalize().await.expect("finalize should not error");
         assert!(
             keys.contains("convert_to_mlt.definitely_a_typo"),
             "expected convert_to_mlt.definitely_a_typo in {keys:?}"

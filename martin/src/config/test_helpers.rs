@@ -64,11 +64,13 @@ pub(crate) fn render_failure(yaml: &str) -> String {
 }
 
 /// Run `yaml` through [`parse_config`] then [`Config::finalize`] and expect a failure
-pub(crate) fn render_finalize_failure(yaml: &str) -> String {
+pub(crate) async fn render_finalize_failure(yaml: &str) -> String {
     let env: HashMap<String, String> = HashMap::new();
     let mut config = parse_config(yaml, &env, Path::new("config.yaml"))
         .unwrap_or_else(|e| panic!("expected config to parse successfully:\n{e}"));
-    let err = futures::executor::block_on(config.finalize())
+    let err = config
+        .finalize()
+        .await
         .err()
         .unwrap_or_else(|| panic!("expected finalize to fail for:\n{yaml}"));
     err.render_diagnostic()

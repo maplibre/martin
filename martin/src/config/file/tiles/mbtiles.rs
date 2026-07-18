@@ -97,8 +97,8 @@ mod tests {
         FileConfigSrc,
     };
 
-    #[test]
-    fn parse() {
+    #[tokio::test]
+    async fn parse() {
         let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
@@ -118,7 +118,7 @@ mod tests {
                     maxzoom: 6
         "})
         .unwrap();
-        cfg.finalize().unwrap();
+        cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
         assert!(
             unrecognised.is_empty(),

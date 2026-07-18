@@ -80,6 +80,7 @@ pub struct PmtConfig {
         alias = "aws_profile",
         skip_serializing_if = "Option::is_none"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub profile: Option<String>,
 
     // if the key is the allowed set, we assume it is there for a purpose
@@ -111,7 +112,13 @@ pub struct PmtConfig {
 
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub(crate) aws_credentials: Option<AwsCredentialProvider>,
+    pub aws_credentials: Option<AwsCredentialProvider>,
+
+    #[cfg(test)]
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    #[allow(deprecated)]
+    pub(crate) aws_profile_files: Option<aws_config::profile::profile_file::ProfileFiles>,
 }
 
 impl Default for PmtConfig {
@@ -128,6 +135,8 @@ impl Default for PmtConfig {
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
             aws_credentials: None,
+            #[cfg(test)]
+            aws_profile_files: None,
         }
     }
 }
@@ -149,7 +158,7 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigurationLivecycleHooks for PmtConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
         // partition them into options and unrecognized keys
@@ -157,6 +166,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
+        self.load_aws_profile().await;
 
         Ok(())
     }
@@ -184,21 +194,32 @@ impl ConfigurationLivecycleHooks for PmtConfig {
 }
 
 impl PmtConfig {
-    pub(crate) async fn finalize_aws_profile(&mut self) {
+    async fn load_aws_profile(&mut self) {
         let Some(profile) = self.profile.clone() else {
             return;
         };
 
-        let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .profile_name(profile)
-            .load()
-            .await;
+        let loader =
+            aws_config::defaults(aws_config::BehaviorVersion::latest()).profile_name(profile);
+        #[cfg(test)]
+        let loader = if let Some(files) = &self.aws_profile_files {
+            loader.profile_files(files.clone())
+        } else {
+            loader
+        };
+        let sdk_config = loader.load().await;
         self.apply_aws_config(&sdk_config);
     }
 
     fn apply_aws_config(&mut self, sdk_config: &aws_config::SdkConfig) {
-        if !self.options.contains_key("region")
-            && !self.options.contains_key("aws_region")
+        if ![
+            "region",
+            "aws_region",
+            "default_region",
+            "aws_default_region",
+        ]
+        .iter()
+        .any(|key| self.options.contains_key(*key))
             && let Some(region) = sdk_config.region()
         {
             self.options
@@ -214,6 +235,18 @@ impl PmtConfig {
             "aws_session_token",
             "token",
             "aws_token",
+            "web_identity_token_file",
+            "aws_web_identity_token_file",
+            "role_arn",
+            "aws_role_arn",
+            "role_session_name",
+            "aws_role_session_name",
+            "container_credentials_relative_uri",
+            "aws_container_credentials_relative_uri",
+            "container_credentials_full_uri",
+            "aws_container_credentials_full_uri",
+            "container_authorization_token_file",
+            "aws_container_authorization_token_file",
         ]
         .iter()
         .any(|key| self.options.contains_key(*key));
@@ -375,18 +408,20 @@ impl PmtConfig {
             }
         }
         if let Ok(profile) = env::var("AWS_PROFILE") {
-            if self.profile.is_some() {
-                warn!(
-                    "Environment variable AWS_PROFILE is ignored in favor of the configuration value pmtiles.profile."
-                );
-            } else {
-                warn!(
-                    "Environment variable AWS_PROFILE is deprecated. Please use pmtiles.profile in the configuration file instead."
-                );
-                self.profile = Some(profile);
-            }
+            self.migrate_aws_profile("Environment variable", "AWS_PROFILE", profile);
         }
     }
+    fn migrate_aws_profile(&mut self, r#type: &'static str, key: &str, value: String) {
+        if self.profile.is_some() {
+            warn!("{type} {key} is ignored in favor of the configuration value pmtiles.profile.");
+        } else {
+            warn!(
+                "{type} {key} is deprecated. Please use pmtiles.profile in the configuration file instead."
+            );
+            self.profile = Some(value);
+        }
+    }
+
     fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
         let new_key_with_aws_prefix = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
@@ -451,7 +486,7 @@ impl TileSourceConfiguration for PmtConfig {
 }
 
 #[derive(Debug)]
-struct AwsSdkCredentialProvider {
+pub struct AwsSdkCredentialProvider {
     provider: SharedCredentialsProvider,
 }
 
@@ -479,56 +514,53 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
-    use aws_config::profile::ProfileFileRegionProvider;
     use aws_config::profile::profile_file::{ProfileFileKind, ProfileFiles};
+    use indoc::indoc;
     use tempfile::tempdir;
 
     use super::*;
 
-    #[test]
-    fn aws_profile_alias_deserializes() {
-        let config: PmtConfig = serde_saphyr::from_str("aws_profile: staging").unwrap();
-        assert_eq!(config.profile.as_deref(), Some("staging"));
-    }
-
-    #[tokio::test]
-    async fn named_profile_loads_region_and_refreshable_credentials() {
+    fn profile_files() -> (tempfile::TempDir, ProfileFiles) {
         let dir = tempdir().unwrap();
         let credentials_path = dir.path().join("credentials");
         let config_path = dir.path().join("config");
         std::fs::write(
             &credentials_path,
-            "[staging]\naws_access_key_id = profile-key\naws_secret_access_key = profile-secret\naws_session_token = profile-token\n",
+            indoc! {"
+                [staging]
+                aws_access_key_id = profile-key
+                aws_secret_access_key = profile-secret
+                aws_session_token = profile-token
+            "},
         )
         .unwrap();
-        std::fs::write(&config_path, "[profile staging]\nregion = eu-west-2\n").unwrap();
-
-        let profile_files = ProfileFiles::builder()
+        std::fs::write(
+            &config_path,
+            indoc! {"
+                [profile staging]
+                region = eu-west-2
+            "},
+        )
+        .unwrap();
+        let files = ProfileFiles::builder()
             .with_file(ProfileFileKind::Credentials, credentials_path)
             .with_file(ProfileFileKind::Config, config_path)
             .build();
-        let region_provider = ProfileFileRegionProvider::builder()
-            .profile_name("staging")
-            .profile_files(profile_files.clone())
-            .build();
-        let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .profile_name("staging")
-            .profile_files(profile_files)
-            .region(region_provider)
-            .load()
-            .await;
+        (dir, files)
+    }
 
-        let mut config = PmtConfig {
-            profile: Some("staging".to_string()),
-            ..PmtConfig::default()
-        };
-        config.apply_aws_config(&sdk_config);
-
+    #[tokio::test]
+    async fn profile_finalization_uses_public_config_api_and_preserves_explicit_options() {
+        let (_dir, files) = profile_files();
+        let mut profile: PmtConfig = serde_saphyr::from_str("aws_profile: staging").unwrap();
+        profile.aws_profile_files = Some(files.clone());
+        profile.finalize().await.unwrap();
+        assert_eq!(profile.profile.as_deref(), Some("staging"));
         assert_eq!(
-            config.options.get("region").map(String::as_str),
+            profile.options.get("region").map(String::as_str),
             Some("eu-west-2")
         );
-        let credentials = config
+        let credentials = profile
             .aws_credentials
             .as_ref()
             .expect("profile credentials should be configured")
@@ -538,52 +570,24 @@ mod tests {
         assert_eq!(credentials.key_id, "profile-key");
         assert_eq!(credentials.secret_key, "profile-secret");
         assert_eq!(credentials.token.as_deref(), Some("profile-token"));
-    }
 
-    #[tokio::test]
-    async fn explicit_s3_options_override_profile_values() {
-        let dir = tempdir().unwrap();
-        let credentials_path = dir.path().join("credentials");
-        let config_path = dir.path().join("config");
-        std::fs::write(
-            &credentials_path,
-            "[staging]\naws_access_key_id = profile-key\naws_secret_access_key = profile-secret\n",
-        )
+        let mut explicit: PmtConfig = serde_saphyr::from_str(indoc! {"
+            profile: staging
+            default_region: us-east-2
+            web_identity_token_file: /tmp/token
+            role_arn: arn:aws:iam::123456789012:role/test
+        "})
         .unwrap();
-        std::fs::write(&config_path, "[profile staging]\nregion = eu-west-2\n").unwrap();
-
-        let profile_files = ProfileFiles::builder()
-            .with_file(ProfileFileKind::Credentials, credentials_path)
-            .with_file(ProfileFileKind::Config, config_path)
-            .build();
-        let region_provider = ProfileFileRegionProvider::builder()
-            .profile_name("staging")
-            .profile_files(profile_files.clone())
-            .build();
-        let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .profile_name("staging")
-            .profile_files(profile_files)
-            .region(region_provider)
-            .load()
-            .await;
-
-        let mut config = PmtConfig {
-            profile: Some("staging".to_string()),
-            options: HashMap::from([
-                ("region".to_string(), "us-east-2".to_string()),
-                ("access_key_id".to_string(), "explicit-key".to_string()),
-            ]),
-            ..PmtConfig::default()
-        };
-        config.apply_aws_config(&sdk_config);
-
+        explicit.aws_profile_files = Some(files);
+        explicit.finalize().await.unwrap();
         assert_eq!(
-            config.options.get("region").map(String::as_str),
+            explicit.options.get("default_region").map(String::as_str),
             Some("us-east-2")
         );
         assert!(
-            config.aws_credentials.is_none(),
-            "even partial explicit credentials must not be replaced by the profile provider"
+            !explicit.options.contains_key("region"),
+            "profile region must not override an explicit default region"
         );
+        assert!(explicit.aws_credentials.is_none());
     }
 }

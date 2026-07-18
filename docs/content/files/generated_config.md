@@ -210,8 +210,6 @@ pmtiles:
     size_mb: 64
   # A list of file paths
   paths: []
-  # AWS SDK profile used for S3 credentials and region resolution.
-  profile: null
   # How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
   # Has no effect on local directories, which are watched via filesystem events.
   #

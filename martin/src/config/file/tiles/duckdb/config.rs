@@ -71,7 +71,7 @@ impl Default for DuckDbConfig {
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
             threads: self.threads,
@@ -241,8 +241,8 @@ sources:
         "#);
     }
 
-    #[test]
-    fn source_overrides_from_yaml_take_precedence_over_top_level() {
+    #[tokio::test]
+    async fn source_overrides_from_yaml_take_precedence_over_top_level() {
         let yaml = r#"
 pool_size: 8
 threads: 2
@@ -255,7 +255,7 @@ sources:
     auto_bounds: skip
 "#;
         let mut cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
-        cfg.finalize().expect("finalize duckdb config");
+        cfg.finalize().await.expect("finalize duckdb config");
 
         insta::assert_debug_snapshot!(cfg, @r#"
         DuckDbConfig {

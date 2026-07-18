@@ -395,7 +395,7 @@ impl PostgresConfig {
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
         }
@@ -502,20 +502,20 @@ mod tests {
         parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
     }
 
-    pub fn assert_config(yaml: &str, expected: &Config) {
+    pub async fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        let res = futures::executor::block_on(config.finalize()).unwrap();
+        let res = config.finalize().await.unwrap();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
     }
 
-    #[test]
-    fn finalize_postgres_missing_connection_string() {
+    #[tokio::test]
+    async fn finalize_postgres_missing_connection_string() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc! {"
                 postgres:
                   pool_size: 5
-            "}),
+            "}).await,
             @"A postgres connection string must be provided"
         );
     }
@@ -549,8 +549,8 @@ mod tests {
         assert_eq!(cfg.reload_interval, Duration::ZERO);
     }
 
-    #[test]
-    fn parse_pg_one() {
+    #[tokio::test]
+    async fn parse_pg_one() {
         assert_config(
             indoc! {"
             postgres:
@@ -564,11 +564,12 @@ mod tests {
                 }),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
-    #[test]
-    fn parse_pg_two() {
+    #[tokio::test]
+    async fn parse_pg_two() {
         assert_config(
             indoc! {"
             postgres:
@@ -594,11 +595,12 @@ mod tests {
                 ]),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
-    #[test]
-    fn parse_pg_config() {
+    #[tokio::test]
+    async fn parse_pg_config() {
         assert_config(
             indoc! {"
             postgres:
@@ -673,7 +675,8 @@ mod tests {
                 }),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
     #[test]

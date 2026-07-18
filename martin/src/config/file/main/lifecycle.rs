@@ -97,41 +97,49 @@ impl Config {
                 "postgres[]."
             };
             for pg in self.postgres.iter_mut() {
-                pg.finalize()?;
+                pg.finalize().await?;
                 res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
             }
         }
 
         #[cfg(feature = "pmtiles")]
-        self.finalize_pmtiles(&mut res).await?;
+        {
+            // if a pmtiles source were to keep being configured like this,
+            // we would not be able to migrate defaults/deprecate settings
+            //
+            // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
+            self.pmtiles = self.pmtiles.clone().into_config();
+            self.pmtiles.finalize().await?;
+            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+        }
 
         #[cfg(feature = "mbtiles")]
         {
-            self.mbtiles.finalize()?;
+            self.mbtiles.finalize().await?;
             res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
         }
 
         #[cfg(feature = "unstable-cog")]
         {
-            self.cog.finalize()?;
+            self.cog.finalize().await?;
             res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
         }
 
         #[cfg(feature = "geojson")]
         {
-            self.geojson.finalize()?;
+            self.geojson.finalize().await?;
             res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
         }
 
         #[cfg(feature = "sprites")]
         {
-            self.sprites.finalize()?;
+            self.sprites.finalize().await?;
             res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
         }
 
         #[cfg(feature = "styles")]
         {
-            self.styles.finalize()?;
+            self.styles.finalize().await?;
             res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
         }
 
@@ -179,21 +187,6 @@ impl Config {
         } else {
             Ok(res)
         }
-    }
-
-    #[cfg(feature = "pmtiles")]
-    async fn finalize_pmtiles(
-        &mut self,
-        unrecognized: &mut UnrecognizedKeys,
-    ) -> ConfigFileResult<()> {
-        // Resolution expects the expanded config variant so defaults and deprecated values survive.
-        self.pmtiles = self.pmtiles.clone().into_config();
-        self.pmtiles.finalize()?;
-        if let FileConfigEnum::Config(config) = &mut self.pmtiles {
-            config.custom.finalize_aws_profile().await;
-        }
-        unrecognized.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
-        Ok(())
     }
 
     #[instrument(skip_all, err(Debug))]
@@ -588,10 +581,10 @@ impl Config {
 mod tests {
     use crate::config::test_helpers::render_finalize_failure;
 
-    #[test]
-    fn finalize_no_sources() {
+    #[tokio::test]
+    async fn finalize_no_sources() {
         insta::assert_snapshot!(
-            render_finalize_failure("keep_alive: 75\n"),
+            render_finalize_failure("keep_alive: 75\n").await,
             @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
         );
     }

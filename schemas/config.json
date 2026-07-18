@@ -191,10 +191,6 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
-        "profile": {
-          "description": "AWS SDK profile used for S3 credentials and region resolution.",
-          "type": ["string", "null"]
-        },
         "reload_interval": {
           "description": "How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.\nHas no effect on local directories, which are watched via filesystem events.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling.",
           "examples": ["10m"],
