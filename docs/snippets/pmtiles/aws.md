@@ -38,8 +38,8 @@
 
 | configuration             | description                                                                                                         | example                                                      |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| `checksum`                | Checksum algorithm for uploads                                                                                      | `SHA256`                                                     |
-| `server_side_encryption`  | Type of server-side encryption:<br>`AES256` (SSE-S3)<br>`aws:kms` (SSE-KMS)<br>`aws:kms:dsse` (DSSE-KMS)<br>`sse-c` | `AES256`                                                     |
-| `kms_key_id`              | KMS Key ID for SSE-KMS or DSSE-KMS                                                                                  | `arn:aws:kms:us-east-1:123456789012:key/abcd-1234-efgh-5678` |
-| `bucket_key_enabled`      | Use bucket's default KMS key (`true`/`false`)                                                                       | `true`                                                       |
-| `customer_encryption_key` | Base64-encoded 256-bit key for SSE-C                                                                                | `MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=`               |
+| `checksum_algorithm`       | Checksum algorithm for uploads                                                                                     | `SHA256`                                                     |
+| `server_side_encryption`   | Type of server-side encryption:<br>`AES256` (SSE-S3)<br>`aws:kms` (SSE-KMS)<br>`aws:kms:dsse` (DSSE-KMS)<br>`sse-c` | `AES256`                                                     |
+| `sse_kms_key_id`           | KMS Key ID for SSE-KMS or DSSE-KMS                                                                                 | `arn:aws:kms:us-east-1:123456789012:key/abcd-1234-efgh-5678` |
+| `sse_bucket_key_enabled`   | Use bucket's default KMS key (`true`/`false`)                                                                      | `true`                                                       |
+| `sse_customer_key_base64`  | Base64-encoded 256-bit key for SSE-C                                                                               | `MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=`               |
