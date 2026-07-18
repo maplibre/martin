@@ -560,9 +560,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn profile_finalization_uses_public_config_api_and_preserves_explicit_options() {
+    async fn profile_finalization_loads_credentials_and_preserves_explicit_options() {
         let (_dir, files) = profile_files();
-        let mut profile: PmtConfig = serde_saphyr::from_str("aws_profile: staging").unwrap();
+        let mut profile: PmtConfig = serde_saphyr::from_str(indoc! {"
+            aws_profile: staging
+            region: eu-west-2
+            skip_signature: false
+        "})
+        .unwrap();
         profile.aws_profile_files = Some(files.clone());
         profile.finalize().await.unwrap();
         assert_eq!(profile.profile.as_deref(), Some("staging"));
@@ -583,7 +588,7 @@ mod tests {
 
         let mut explicit: PmtConfig = serde_saphyr::from_str(indoc! {"
             profile: staging
-            default_region: us-east-2
+            region: us-east-2
             web_identity_token_file: /tmp/token
             role_arn: arn:aws:iam::123456789012:role/test
         "})
@@ -591,12 +596,8 @@ mod tests {
         explicit.aws_profile_files = Some(files);
         explicit.finalize().await.unwrap();
         assert_eq!(
-            explicit.options.get("default_region").map(String::as_str),
+            explicit.options.get("region").map(String::as_str),
             Some("us-east-2")
-        );
-        assert!(
-            !explicit.options.contains_key("region"),
-            "profile region must not override an explicit default region"
         );
         assert!(explicit.aws_credentials.is_none());
     }
