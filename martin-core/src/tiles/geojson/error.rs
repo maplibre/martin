@@ -16,7 +16,7 @@ pub enum GeoJsonError {
 
     /// MVT encoding error
     #[error("MVT encoding error: {0}")]
-    MvtError(#[source] fast_mvt::MvtError),
+    MvtError(#[source] mlt_core::fast_mvt::MvtError),
 
     /// A feature property cannot be represented as an MVT value
     #[error("GeoJSON property {0} cannot be represented as an MVT value")]

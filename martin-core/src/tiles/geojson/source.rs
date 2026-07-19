@@ -3,12 +3,12 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use geo::MapCoords as _;
 use geo_index::rtree::{RTree, RTreeIndex as _};
 use geo_types::{Coord, Geometry};
 use geojson::GeoJson;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
+use mlt_core::fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use rayon::prelude::*;
 use tilejson::{Bounds, Center, TileJSON};
 use tokio::fs::{self};
