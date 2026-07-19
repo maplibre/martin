@@ -1105,7 +1105,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
   $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
 
-  # Cache schema: copy a regular tileset into a cache file, then examine, round-trip, and purge it
+  # Cache schema
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
     "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
@@ -1114,7 +1114,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_summary.txt"
   $MBTILES_BIN validate "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_validate.txt"
 
-  # A cache file works as a copy source; the flat round-trip must equal the original (empty diff)
   $MBTILES_BIN copy \
     "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
     "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
@@ -1128,7 +1127,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_summary.txt"
 
-  # Bulk-copied entries never expire, so purging removes nothing
   $MBTILES_BIN cache-purge "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_purge.txt"
   # Purging a regular (non-cache) tileset must fail
   if $MBTILES_BIN cache-purge ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/cache_purge_bad.txt"; then
