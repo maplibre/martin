@@ -260,6 +260,8 @@ fn flatten_geometry_collections<T: geo_types::CoordNum>(
 mod tests {
     use std::path::PathBuf;
 
+    use mlt_core::fast_mvt::MvtReaderRef;
+
     use super::*;
 
     fn fixtures_dir() -> PathBuf {
@@ -289,7 +291,7 @@ mod tests {
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 
-        let decoded = fast_mvt::MvtReaderRef::new(tile.as_slice())
+        let decoded = MvtReaderRef::new(tile.as_slice())
             .and_then(|r| r.to_tile())
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
