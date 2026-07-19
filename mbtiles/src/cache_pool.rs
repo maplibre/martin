@@ -16,7 +16,7 @@ use sqlx::sqlite::{SqliteAutoVacuum, SqliteConnectOptions, SqliteJournalMode};
 use sqlx::{SqlitePool, query_scalar};
 
 use crate::errors::MbtResult;
-use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata};
+use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata, UnixSeconds};
 
 /// Connection pool for using an `.mbtiles` file as a **writable** tile cache.
 ///
@@ -26,13 +26,13 @@ use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata};
 /// # Examples
 ///
 /// ```
-/// use mbtiles::{CacheEntryMeta, MbtilesCache};
+/// use mbtiles::{CacheEntryMeta, MbtilesCache, UnixSeconds};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let cache = MbtilesCache::open("cache.mbtiles").await?;
 ///
 /// // Store a downloaded tile with its fetch time and freshness metadata.
-/// cache.set_cached(3, 1, 2, b"tile-bytes", CacheEntryMeta::new(1700000000, 1700003600, "etag-1")).await?;
+/// cache.set_cached(3, 1, 2, b"tile-bytes", CacheEntryMeta::new(UnixSeconds(1700000000), UnixSeconds(1700003600), "etag-1")).await?;
 ///
 /// // Later: read it back, expired entries included (freshness is the caller's call).
 /// if let Some(tile) = cache.get_cached(3, 1, 2).await? {
@@ -40,7 +40,7 @@ use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata};
 /// }
 ///
 /// // After an HTTP 304 revalidation, bump the metadata without rewriting the blob.
-/// cache.update_cached_meta(3, 1, 2, CacheEntryMeta::new(1700003600, 1700007200, "etag-1")).await?;
+/// cache.update_cached_meta(3, 1, 2, CacheEntryMeta::new(UnixSeconds(1700003600), UnixSeconds(1700007200), "etag-1")).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -132,11 +132,11 @@ impl MbtilesCache {
             .await
     }
 
-    /// Delete entries expired before `now` (Unix-epoch seconds) and any orphaned blobs.
+    /// Delete entries expired before `now` and any orphaned blobs.
     ///
     /// Returns the number of `tile_cache` rows removed. See [`Mbtiles::purge_expired`].
     #[hotpath::measure]
-    pub async fn purge_expired(&self, now: i64) -> MbtResult<u64> {
+    pub async fn purge_expired(&self, now: UnixSeconds) -> MbtResult<u64> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.purge_expired(&mut conn, now).await
     }
@@ -183,7 +183,13 @@ mod tests {
         {
             let cache = MbtilesCache::open(&path).await.unwrap();
             cache
-                .set_cached(2, 1, 1, b"tile-a", CacheEntryMeta::new(40, 50, "v1"))
+                .set_cached(
+                    2,
+                    1,
+                    1,
+                    b"tile-a",
+                    CacheEntryMeta::new(UnixSeconds(40), UnixSeconds(50), "v1"),
+                )
                 .await
                 .unwrap();
             cache
@@ -196,24 +202,29 @@ mod tests {
         let cache = MbtilesCache::open(&path).await.unwrap();
         let a = cache.get_cached(2, 1, 1).await.unwrap().unwrap();
         assert_eq!(a.data, b"tile-a");
-        assert_eq!(a.fetched, Some(40));
-        assert_eq!(a.expires, Some(50));
+        assert_eq!(a.fetched, Some(UnixSeconds(40)));
+        assert_eq!(a.expires, Some(UnixSeconds(50)));
         assert_eq!(a.etag.as_deref(), Some("v1"));
         assert_eq!(cache.get_tile(2, 1, 2).await.unwrap().unwrap(), b"tile-b");
 
         // Revalidate the expiring entry without rewriting its blob.
         assert!(
             cache
-                .update_cached_meta(2, 1, 1, CacheEntryMeta::new(60, 75, "v1"))
+                .update_cached_meta(
+                    2,
+                    1,
+                    1,
+                    CacheEntryMeta::new(UnixSeconds(60), UnixSeconds(75), "v1")
+                )
                 .await
                 .unwrap()
         );
         let a = cache.get_cached(2, 1, 1).await.unwrap().unwrap();
-        assert_eq!(a.fetched, Some(60));
-        assert_eq!(a.expires, Some(75));
+        assert_eq!(a.fetched, Some(UnixSeconds(60)));
+        assert_eq!(a.expires, Some(UnixSeconds(75)));
 
         // Purge the expired entry; the permanent one survives.
-        assert_eq!(cache.purge_expired(100).await.unwrap(), 1);
+        assert_eq!(cache.purge_expired(UnixSeconds(100)).await.unwrap(), 1);
         assert!(cache.get_cached(2, 1, 1).await.unwrap().is_none());
         assert!(cache.get_cached(2, 1, 2).await.unwrap().is_some());
     }

@@ -5,7 +5,6 @@
 
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
@@ -13,8 +12,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UpdateZoomType, apply_patch,
-    pack, unpack,
+    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType,
+    apply_patch, pack, unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -405,8 +404,7 @@ async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()
     if !mbt.is_cache(&mut conn).await? {
         return Err(MbtError::NotACacheFile(mbt.filepath().to_string()).into());
     }
-    let now = i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?;
-    let removed = mbt.purge_expired(&mut conn, now).await?;
+    let removed = mbt.purge_expired(&mut conn, UnixSeconds::now()).await?;
     println!("Removed {removed} expired tile entries");
     if let Some(max_size_mb) = max_size_mb {
         let evicted = mbt

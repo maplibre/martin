@@ -32,20 +32,56 @@ use crate::queries::create_metadata_table;
 use crate::schemas::{create_cache_tables, is_cache_tables_type};
 use crate::{Mbtiles, invert_y_value};
 
+/// A point in time as whole seconds since the Unix epoch (1970-01-01 UTC).
+///
+/// A thin type over the `i64` stored in the cache's `INTEGER` columns. It encodes and
+/// decodes transparently as an `i64`, so it maps directly
+/// onto `SQLite` storage while keeping cache timestamps from being mixed up with arbitrary
+/// integers at the API boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, sqlx::Type)]
+#[sqlx(transparent)]
+pub struct UnixSeconds(pub i64);
+
+impl UnixSeconds {
+    /// The current wall-clock time, truncated to whole seconds since the Unix epoch.
+    ///
+    /// Never panics: a clock set before the epoch clamps to `0`, and a timestamp too
+    /// large for an `i64` clamps to [`i64::MAX`] (neither happens in practice).
+    #[must_use]
+    pub fn now() -> Self {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        Self(i64::try_from(secs).unwrap_or(i64::MAX))
+    }
+}
+
+impl From<i64> for UnixSeconds {
+    fn from(secs: i64) -> Self {
+        Self(secs)
+    }
+}
+
+impl From<UnixSeconds> for i64 {
+    fn from(value: UnixSeconds) -> Self {
+        value.0
+    }
+}
+
 /// A cached tile together with its cache metadata, as returned by [`Mbtiles::get_cached`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CachedTile {
     /// The tile blob.
     pub data: Vec<u8>,
-    /// Unix-epoch (seconds) time the tile was downloaded/added/last refreshed, or `None`
-    /// if unknown (e.g. the entry was bulk-imported with `mbtiles copy`).
-    pub fetched: Option<i64>,
-    /// Unix-epoch (seconds) expiration time, or `None` if the entry never expires.
+    /// Time the tile was downloaded/added/last refreshed, or `None` if unknown (e.g. the
+    /// entry was bulk-imported with `mbtiles copy`).
+    pub fetched: Option<UnixSeconds>,
+    /// Expiration time, or `None` if the entry never expires.
     ///
     /// The value is returned exactly as stored; the cache does **not** filter out expired
     /// entries. Callers decide how to treat them (e.g. serve-stale-while-revalidate using
     /// [`CachedTile::etag`], or refetch).
-    pub expires: Option<i64>,
+    pub expires: Option<UnixSeconds>,
     /// Upstream validator (e.g. an HTTP `ETag`) stored with the tile, if any.
     pub etag: Option<String>,
 }
@@ -53,24 +89,22 @@ pub struct CachedTile {
 /// Cache metadata attached to a tile when writing it with [`Mbtiles::set_cached`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CacheEntryMeta<'a> {
-    /// Unix-epoch (seconds) time the tile was downloaded/added/last refreshed, or `None`
-    /// if unknown.
-    pub fetched: Option<i64>,
-    /// Unix-epoch (seconds) expiration time, or `None` for an entry that never expires.
-    pub expires: Option<i64>,
+    /// Time the tile was downloaded/added/last refreshed, or `None` if unknown.
+    pub fetched: Option<UnixSeconds>,
+    /// Expiration time, or `None` for an entry that never expires.
+    pub expires: Option<UnixSeconds>,
     /// Upstream validator (e.g. an HTTP `ETag`), or `None`.
     pub etag: Option<&'a str>,
 }
 
 impl<'a> CacheEntryMeta<'a> {
-    /// Create cache metadata with a `fetched` and an `expires` time (both Unix-epoch
-    /// seconds) and an `etag`.
+    /// Create cache metadata with a `fetched` and an `expires` time and an `etag`.
     ///
     /// For entries missing some of these, construct the struct directly (its fields are
     /// public) or use [`CacheEntryMeta::default`] for "unknown fetch time, never expires,
     /// no etag".
     #[must_use]
-    pub fn new(fetched: i64, expires: i64, etag: &'a str) -> Self {
+    pub fn new(fetched: UnixSeconds, expires: UnixSeconds, etag: &'a str) -> Self {
         Self {
             fetched: Some(fetched),
             expires: Some(expires),
@@ -209,7 +243,12 @@ impl Mbtiles {
     /// `auto_vacuum` enabled (files created by [`crate::MbtilesCache::open`] do); for other
     /// files the pages are reused by later writes, and a one-off full `VACUUM` is needed
     /// to shrink them on disk.
-    pub async fn purge_expired(&self, conn: &mut SqliteConnection, now: i64) -> MbtResult<u64> {
+    pub async fn purge_expired(
+        &self,
+        conn: &mut SqliteConnection,
+        now: UnixSeconds,
+    ) -> MbtResult<u64> {
+        let now = now.0;
         let removed = query!(
             "DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1",
             now
@@ -285,7 +324,7 @@ async fn db_live_size(conn: &mut SqliteConnection) -> MbtResult<u64> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CacheEntryMeta, Mbtiles};
+    use crate::{CacheEntryMeta, Mbtiles, UnixSeconds};
 
     /// Open an in-memory cache file with the schema created.
     async fn cache() -> (Mbtiles, sqlx::SqliteConnection) {
@@ -324,14 +363,14 @@ mod tests {
             1,
             2,
             b"hello",
-            CacheEntryMeta::new(42, 100, "etag-1"),
+            CacheEntryMeta::new(UnixSeconds(42), UnixSeconds(100), "etag-1"),
         )
         .await
         .unwrap();
         let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
         assert_eq!(got.data, b"hello");
-        assert_eq!(got.fetched, Some(42));
-        assert_eq!(got.expires, Some(100));
+        assert_eq!(got.fetched, Some(UnixSeconds(42)));
+        assert_eq!(got.expires, Some(UnixSeconds(100)));
         assert_eq!(got.etag.as_deref(), Some("etag-1"));
 
         // Overwrite the same coordinate with new data/metadata.
@@ -361,14 +400,14 @@ mod tests {
     async fn purge_expired_removes() {
         let (mbt, mut conn) = cache().await;
         let stale = CacheEntryMeta {
-            expires: Some(50),
+            expires: Some(UnixSeconds(50)),
             ..Default::default()
         };
         mbt.set_cached(&mut conn, 0, 0, 0, b"stale", stale)
             .await
             .unwrap();
         let fresh = CacheEntryMeta {
-            expires: Some(200),
+            expires: Some(UnixSeconds(200)),
             ..Default::default()
         };
         mbt.set_cached(&mut conn, 1, 0, 0, b"fresh", fresh)
@@ -378,7 +417,10 @@ mod tests {
             .await
             .unwrap();
 
-        let removed = mbt.purge_expired(&mut conn, 100).await.unwrap();
+        let removed = mbt
+            .purge_expired(&mut conn, UnixSeconds(100))
+            .await
+            .unwrap();
         assert_eq!(removed, 1);
 
         assert!(mbt.get_cached(&mut conn, 0, 0, 0).await.unwrap().is_none());
@@ -387,7 +429,12 @@ mod tests {
         assert_eq!(entry_count(&mut conn).await, 2);
 
         // Nothing left to expire: a second purge is a no-op.
-        assert_eq!(mbt.purge_expired(&mut conn, 100).await.unwrap(), 0);
+        assert_eq!(
+            mbt.purge_expired(&mut conn, UnixSeconds(100))
+                .await
+                .unwrap(),
+            0
+        );
     }
 
     #[tokio::test]
@@ -399,13 +446,13 @@ mod tests {
             1,
             2,
             b"payload",
-            CacheEntryMeta::new(42, 100, "etag-1"),
+            CacheEntryMeta::new(UnixSeconds(42), UnixSeconds(100), "etag-1"),
         )
         .await
         .unwrap();
 
         // No entry at these coordinates - the caller must fall back to set_cached.
-        let missing = CacheEntryMeta::new(1, 1, "x");
+        let missing = CacheEntryMeta::new(UnixSeconds(1), UnixSeconds(1), "x");
         assert!(
             !mbt.update_cached_meta(&mut conn, 3, 0, 0, missing)
                 .await
@@ -413,7 +460,7 @@ mod tests {
         );
 
         // Revalidation bumps the metadata in place; the blob stays untouched.
-        let bumped = CacheEntryMeta::new(20, 500, "etag-2");
+        let bumped = CacheEntryMeta::new(UnixSeconds(20), UnixSeconds(500), "etag-2");
         assert!(
             mbt.update_cached_meta(&mut conn, 3, 1, 2, bumped)
                 .await
@@ -421,8 +468,8 @@ mod tests {
         );
         let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
         assert_eq!(got.data, b"payload");
-        assert_eq!(got.fetched, Some(20));
-        assert_eq!(got.expires, Some(500));
+        assert_eq!(got.fetched, Some(UnixSeconds(20)));
+        assert_eq!(got.expires, Some(UnixSeconds(500)));
         assert_eq!(got.etag.as_deref(), Some("etag-2"));
         assert_eq!(entry_count(&mut conn).await, 1);
     }
@@ -439,14 +486,14 @@ mod tests {
             1,
             1,
             b"",
-            CacheEntryMeta::new(5, 60, "miss-etag"),
+            CacheEntryMeta::new(UnixSeconds(5), UnixSeconds(60), "miss-etag"),
         )
         .await
         .unwrap();
         let got = mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().unwrap();
         assert!(got.data.is_empty());
-        assert_eq!(got.fetched, Some(5));
-        assert_eq!(got.expires, Some(60));
+        assert_eq!(got.fetched, Some(UnixSeconds(5)));
+        assert_eq!(got.expires, Some(UnixSeconds(60)));
         assert_eq!(got.etag.as_deref(), Some("miss-etag"));
     }
 
@@ -484,7 +531,7 @@ mod tests {
             let data = vec![u8::try_from(i % 251).unwrap(); 8192];
             let meta = if i < 80 {
                 CacheEntryMeta {
-                    expires: Some(i64::from(i)),
+                    expires: Some(UnixSeconds(i64::from(i))),
                     ..Default::default()
                 }
             } else {
