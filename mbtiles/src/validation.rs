@@ -18,8 +18,9 @@ use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
-    Mbtiles, has_tiles_with_hash, invert_y_value, is_dedup_id_normalized_tables_type,
-    is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
+    Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
+    is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
+    is_normalized_tables_type,
 };
 
 /// Metadata key for the aggregate tiles hash value
@@ -148,6 +149,15 @@ pub enum MbtType {
         hash_view: bool,
         schema: NormalizedSchema,
     },
+    /// Tile-cache `MBTiles` file (non-standard)
+    ///
+    /// Like [`MbtType::Flat`], but the `tile_cache` table stores per-tile cache metadata
+    /// (`fetched`, `expires`, and `etag`) next to the tile coordinates and blob. A
+    /// spec-compatible `tiles` view makes the file readable as a regular tileset. Used
+    /// as a persistent web-tile cache; see the `cache` module for the read/write API.
+    ///
+    /// See <https://maplibre.org/martin/mbtiles-schema.html#cache> for the concrete schema.
+    Cache,
 }
 
 impl MbtType {
@@ -493,6 +503,8 @@ impl Mbtiles {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
             MbtType::Flat
+        } else if is_cache_tables_type(&mut *conn).await? {
+            MbtType::Cache
         } else {
             return Err(MbtError::InvalidDataFormat(self.filepath().to_string()));
         };
@@ -515,6 +527,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
+            MbtType::Cache => "tile_cache",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -793,6 +806,13 @@ LIMIT 1;"
                 info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
+            MbtType::Cache => {
+                info!(
+                    mbtiles.file = %self,
+                    "Skipping per-tile hash validation because this is a cache MBTiles file"
+                );
+                return Ok(());
+            }
         };
 
         query(sql)
@@ -953,6 +973,11 @@ pub(crate) mod tests {
                 schema: NormalizedSchema::DedupId
             }
         );
+
+        let (mbt, mut conn) = anonymous_mbtiles("").await;
+        mbt.create_cache_schema(&mut conn, false).await.unwrap();
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(res, MbtType::Cache);
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;

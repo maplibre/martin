@@ -1,3 +1,6 @@
+mod cache;
+pub use cache::*;
+
 mod flat;
 pub use flat::*;
 

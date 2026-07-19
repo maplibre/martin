@@ -171,6 +171,11 @@ where
         let mut src_conn = src.open_readonly().await?;
         let src_type = src.detect_type(&mut src_conn).await?;
         let dst_type = self.dst_type.unwrap_or(src_type);
+        if matches!(src_type, MbtType::Cache) || matches!(dst_type, MbtType::Cache) {
+            return Err(MbtError::TranscodeError(
+                "the cache schema is not supported for transcoding; copy it to a standard schema first".to_string(),
+            ));
+        }
 
         let dst = Mbtiles::new(&self.dst_file)?;
         let mut dst_conn = dst.open_or_new().await?;
@@ -569,6 +574,7 @@ async fn write_normalized_chunk(
              FROM new_tiles n
              JOIN srcDb.{src_map} m ON m.{tile_id_col} = n.tile_id"
         ),
+        MbtType::Cache => unreachable!("cache files are rejected before transcoding starts"),
     };
 
     let mut q = sqlx::query(AssertSqlSafe(sql));
@@ -610,6 +616,7 @@ async fn general_reader(
             "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash FROM tiles_with_hash"
         }
         MbtType::Normalized { .. } => unreachable!("general_reader called with normalized source"),
+        MbtType::Cache => unreachable!("cache files are rejected before transcoding starts"),
     };
 
     let mut stream = sqlx::query(sql).fetch(&mut src_conn);

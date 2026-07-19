@@ -532,7 +532,7 @@ prepare-sqlite: fetch install-sqlx
     trap 'rm -f "$db"' EXIT
     # add every possible schema to a dummy temp file so that most queries would compile.
     # `init-flat` is listed before the view-defining layouts so `tiles` is a table.
-    for f in init-metadata init-flat init-flat-with-hash init-normalized init-normalized-dedup-id; do
+    for f in init-metadata init-flat init-flat-with-hash init-normalized init-normalized-dedup-id init-cache; do
         # it is safer to handle NULLs than to expect it to never be there
         sed -E -e 's/[[:space:]]+NOT[[:space:]]+NULL//g' \
                -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \

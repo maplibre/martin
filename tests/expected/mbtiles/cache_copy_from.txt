@@ -1,0 +1,2 @@
+ INFO Copying tests/mbtiles_temp_files/world_cities_cache.mbtiles (cache) to a new file tests/mbtiles_temp_files/world_cities_from_cache.mbtiles (flat)
+ INFO Metadata value agg_tiles_hash is already set to the correct hash mbtiles.file=tests/mbtiles_temp_files/world_cities_from_cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F
