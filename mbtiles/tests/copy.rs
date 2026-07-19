@@ -651,6 +651,7 @@ async fn diff_with_cache_file(#[notrace] databases: &Databases) -> MbtResult<()>
     Ok(())
 }
 
+#[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
