@@ -4,7 +4,7 @@
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
-use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
+use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 use geojson::{
     Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, GeometryValue as GjValue,
