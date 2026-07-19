@@ -205,6 +205,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         &env,
     )?;
     config.finalize().await?;
+    config.warn_unrecognized_keys();
 
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);

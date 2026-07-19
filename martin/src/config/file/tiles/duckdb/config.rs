@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
@@ -6,9 +7,7 @@ use crate::config::args::BoundsCalcType;
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
-use crate::config::file::{
-    ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues};
 
 const DEFAULT_POOL_SIZE: usize = 4;
 
@@ -33,7 +32,7 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
     /// Connection pool size used by DuckDB sources unless overridden per-source.
@@ -86,17 +85,9 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
 
         Ok(())
     }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
-        for (idx, source) in self.sources.iter().enumerate() {
-            keys.extend(source.get_unrecognized_keys(&format!("sources[{idx}].")));
-        }
-        keys
-    }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
     Database(DuckDbDatabaseEntry),
@@ -116,15 +107,6 @@ impl DuckDbSourceEntry {
             Self::Database(v) => v.settings.apply_defaults(defaults),
             Self::GeoParquet(v) => v.settings.apply_defaults(defaults),
         }
-    }
-
-    #[must_use]
-    pub(crate) fn get_unrecognized_keys(&self, prefix: &str) -> UnrecognizedKeys {
-        let values = match self {
-            Self::Database(v) => &v.unrecognized,
-            Self::GeoParquet(v) => &v.unrecognized,
-        };
-        values.keys().map(|k| format!("{prefix}{k}")).collect()
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 #[cfg(feature = "metrics")]
 use std::collections::HashMap;
 
@@ -6,16 +7,25 @@ use serde::{Deserialize, Serialize};
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
-use crate::config::file::{ConfigurationLivecycleHooks, UnrecognizedKeys};
 
 pub const DEFAULT_KEEP_ALIVE: u64 = 75;
 pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
     /// Connection keep alive timeout \[default: 75\]
@@ -97,33 +107,19 @@ impl SrvConfig {
     }
 }
 
-impl ConfigurationLivecycleHooks for SrvConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut unrecognized = UnrecognizedKeys::new();
-        if let Some(CorsConfig::Properties(cors)) = &self.cors {
-            unrecognized.extend(
-                cors.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("cors.{k}")),
-            );
-        }
-        #[cfg(feature = "metrics")]
-        if let Some(observability) = &self.observability {
-            unrecognized.extend(
-                observability
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("observability.{k}")),
-            );
-        }
-        unrecognized
-    }
-}
-
 /// More advanced monitoring options
 #[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
@@ -134,29 +130,18 @@ pub struct ObservabilityConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-#[cfg(feature = "metrics")]
-impl ConfigurationLivecycleHooks for ObservabilityConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-        if let Some(metrics) = &self.metrics {
-            keys.extend(
-                metrics
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("metrics.{k}")),
-            );
-        }
-        keys
-    }
-}
-
 /// Configure metrics reported under `/_/metrics`
 #[cfg(feature = "metrics")]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MetricsConfig {
     /// Add these labels to every metric
@@ -167,13 +152,6 @@ pub struct MetricsConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-#[cfg(feature = "metrics")]
-impl ConfigurationLivecycleHooks for MetricsConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
 }
 
 #[cfg(test)]

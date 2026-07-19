@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroU32;
 
@@ -23,7 +24,7 @@ pub(crate) fn bounds_world_example() -> [f64; 4] {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct TableInfo {
     /// ID of the MVT layer (optional, defaults to table name)

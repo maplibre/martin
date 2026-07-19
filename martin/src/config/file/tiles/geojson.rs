@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
@@ -9,8 +10,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
-    UnrecognizedValues,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
 };
 
 /// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
@@ -38,7 +38,15 @@ const fn is_default_buffer(buffer: &u32) -> bool {
     *buffer == default_buffer()
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
@@ -62,12 +70,6 @@ impl Default for GeoJsonConfig {
             buffer: default_buffer(),
             unrecognized: UnrecognizedValues::default(),
         }
-    }
-}
-
-impl ConfigurationLivecycleHooks for GeoJsonConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -103,6 +105,8 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
+
+    use crate::config::file::CollectUnrecognizedKeys as _;
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{

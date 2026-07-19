@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+members = [
+    "martin",
+    "martin-config-macros",
+    "martin-core",
+    "martin-tile-utils",
+    "mbtiles",
+]
 
 [workspace.package]
 edition = "2024"
@@ -106,6 +112,7 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.8.5"
+martin-config-macros = { path = "./martin-config-macros", version = "0.1.0" }
 martin-core = { path = "./martin-core", version = "0.9.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
 mbtiles = { path = "./mbtiles", version = "0.18.1" }
@@ -127,7 +134,9 @@ postgres = { version = "0.19", features = [
 ] }
 postgres-protocol = "0.6"
 pretty_assertions = "1"
+proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+quote = "1"
 rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
@@ -151,6 +160,7 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
+syn = { version = "2", features = ["full"] }
 tempfile = "3.21.0"
 test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
