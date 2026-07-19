@@ -197,7 +197,9 @@ sources:
                         ),
                         tables: None,
                         macros: None,
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
                 GeoParquet(
@@ -232,11 +234,15 @@ sources:
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }
@@ -294,11 +300,15 @@ sources:
                                 Skip,
                             ),
                         },
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }
@@ -331,13 +341,17 @@ sources:
                         auto_publish: None,
                         tables: None,
                         macros: None,
-                        unrecognized: {
-                            "geoparquet": String("/data/buildings.parquet"),
-                        },
+                        unrecognized: UnrecognizedValues(
+                            {
+                                "geoparquet": String("/data/buildings.parquet"),
+                            },
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }
