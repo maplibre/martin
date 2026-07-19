@@ -92,7 +92,6 @@ derive-debug = "0.1.2"
 duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
-fast-mvt = { version = "0.6", default-features = false, features = ["reader", "writer", "json"] }
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
@@ -118,7 +117,7 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.5" }
 mbtiles = { path = "./mbtiles", version = "0.18.1" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.12", default-features = false }
+mlt-core = { version = "0.12.3", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"

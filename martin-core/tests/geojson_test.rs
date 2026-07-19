@@ -4,7 +4,6 @@
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
-use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 use geojson::{
     Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, GeometryValue as GjValue,
@@ -13,6 +12,7 @@ use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
+use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use serde_json::{Map, json};
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------

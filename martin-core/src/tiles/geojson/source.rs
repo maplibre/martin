@@ -3,12 +3,12 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use geo::MapCoords as _;
 use geo_index::rtree::{RTree, RTreeIndex as _};
 use geo_types::{Coord, Geometry};
 use geojson::GeoJson;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
+use mlt_core::fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use rayon::prelude::*;
 use tilejson::{Bounds, Center, TileJSON};
 use tokio::fs::{self};
@@ -260,6 +260,8 @@ fn flatten_geometry_collections<T: geo_types::CoordNum>(
 mod tests {
     use std::path::PathBuf;
 
+    use mlt_core::fast_mvt::MvtReaderRef;
+
     use super::*;
 
     fn fixtures_dir() -> PathBuf {
@@ -289,7 +291,7 @@ mod tests {
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 
-        let decoded = fast_mvt::MvtReaderRef::new(tile.as_slice())
+        let decoded = MvtReaderRef::new(tile.as_slice())
             .and_then(|r| r.to_tile())
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
