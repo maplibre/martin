@@ -1,8 +1,8 @@
 File path:      tests/mbtiles_temp_files/world_cities_cache.mbtiles
 Schema:         cache
-File size:      6.65kB
+File size:      6.14kB
 SQL page size:  512B
-SQL page count: 13
+SQL page count: 12
 
  Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
     0 |         1 |     1.1kB |     1.1kB |     1.1kB | -180,-85,180,85

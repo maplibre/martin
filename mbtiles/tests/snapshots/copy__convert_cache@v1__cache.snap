@@ -12,7 +12,7 @@ expression: actual_value
     - "(  \"md-same\", \"value - same\"  )"
 - type: table
   tbl_name: tile_cache
-  sql: "CREATE TABLE tile_cache (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    fetched INTEGER,\n    expires INTEGER,\n    etag TEXT,\n    tile_data BLOB NOT NULL,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
+  sql: "CREATE TABLE tile_cache (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    fetched INTEGER,\n    expires INTEGER,\n    etag TEXT,\n    tile_data BLOB NOT NULL,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n) WITHOUT ROWID"
   values:
     - "(  3, 6, 7, NULL, NULL, NULL, blob(root)  )"
     - "(  5, 0, 0, NULL, NULL, NULL, blob(same)  )"
@@ -28,10 +28,6 @@ expression: actual_value
     - "(  6, 2, 6, NULL, NULL, NULL, blob(1-keep-1-rm)  )"
 - type: index
   tbl_name: metadata
-  sql: ~
-  values: ~
-- type: index
-  tbl_name: tile_cache
   sql: ~
   values: ~
 - type: view
