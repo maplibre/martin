@@ -14,7 +14,6 @@ pub mod process;
 pub use process::ProcessConfig;
 #[cfg(all(
     feature = "mlt",
-    feature = "_tiles",
     any(feature = "mbtiles", feature = "pmtiles", feature = "postgres")
 ))]
 pub(crate) use process::resolve_process_config;
