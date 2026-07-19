@@ -1572,6 +1572,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        cache
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cache">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#supported-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Supported operations
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1909,7 +1937,7 @@
 
 
 <h1 id="mbtiles-schemas">MBTiles Schemas</h1>
-<p>The <code>mbtiles</code> tool builds on top of the original <a href="https://github.com/mapbox/mbtiles-spec#readme">MBTiles specification</a> by specifying three different kinds of schema for <code>tiles</code> data: <code>flat</code>, <code>flat-with-hash</code>, and <code>normalized</code>. The <code>mbtiles</code> tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.</p>
+<p>The <code>mbtiles</code> tool builds on top of the original <a href="https://github.com/mapbox/mbtiles-spec#readme">MBTiles specification</a> by specifying different kinds of schema for <code>tiles</code> data. The <code>mbtiles</code> tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.</p>
 <h2 id="metadata">metadata</h2>
 <p>Every schema includes a shared <code>metadata</code> table that stores key/value pairs such as the tileset name, format, and bounds.</p>
 <div class="language-sql highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="p">(</span>
@@ -2015,6 +2043,37 @@ All <code>normalized</code> files created by the <code>mbtiles</code> tool will 
 <p>Since tile IDs are integers rather than content hashes, per-tile validation checks foreign key integrity (every <code>tile_data_id</code> in <code>tiles_shallow</code> must exist in <code>tiles_data</code>) instead of recomputing content hashes.
 When copying from this schema to a new file, the <code>mbtiles</code> tool will produce the standard <code>map</code> + <code>images</code> normalized schema in the destination.
 In our next semver major, we plan to switch this default and produce <code>tiles_shallow</code>/<code>tiles_data</code> by default as well.</p>
+<h2 id="cache">cache</h2>
+<p>The <code>cache</code> schema is similar to <code>flat</code>, but stores extra cache metadata alongside each tile - <code>fetched</code> (when the tile was downloaded/added/last refreshed), <code>expires</code>, and <code>etag</code> - so a file can serve as a persistent web-tile cache.
+The <code>tile_cache</code> table holds the tile Z,X,Y coordinates, the cache metadata, and the tile blob, and a spec-compatible <code>tiles</code> view is created so the file can still be read by any standard MBTiles reader (the extra columns are simply invisible to it).</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">tile_cache</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">zoom_level</span><span class="w"> </span><span class="nb">INTEGER</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">tile_column</span><span class="w"> </span><span class="nb">INTEGER</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">tile_row</span><span class="w"> </span><span class="nb">INTEGER</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">fetched</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="n">expires</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="n">etag</span><span class="w"> </span><span class="nb">TEXT</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="n">tile_data</span><span class="w"> </span><span class="nb">BLOB</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="w"> </span><span class="p">(</span><span class="n">zoom_level</span><span class="p">,</span><span class="w"> </span><span class="n">tile_column</span><span class="p">,</span><span class="w"> </span><span class="n">tile_row</span><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">)</span><span class="w"> </span><span class="k">WITHOUT</span><span class="w"> </span><span class="n">ROWID</span><span class="p">;</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">VIEW</span><span class="w"> </span><span class="n">tiles</span><span class="w"> </span><span class="k">AS</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="k">SELECT</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="n">zoom_level</span><span class="p">,</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="n">tile_column</span><span class="p">,</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="n">tile_row</span><span class="p">,</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">    </span><span class="n">tile_data</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="k">FROM</span><span class="w"> </span><span class="n">tile_cache</span><span class="p">;</span>
+</span></code></pre></div>
+<h3 id="supported-operations">Supported operations</h3>
+<p>The <code>mbtiles</code> tool treats <code>cache</code> as a first-class schema, with a few deliberate restrictions:</p>
+<ul>
+<li><code>summary</code>, <code>validate</code>, <code>meta-*</code>, and serving the file with <code>martin</code> all work. Like <code>flat</code>, there are no hashes to check during per-tile validation.</li>
+<li><code>copy</code> <strong>from</strong> a cache file to any schema works (reading via the <code>tiles</code> view); the per-tile <code>fetched</code>/<code>expires</code>/<code>etag</code> values are dropped, since standard schemas cannot store them.</li>
+<li><code>copy</code> <strong>into</strong> a cache file works from any schema (including <code>martin-cp --mbtiles-type cache</code>); the copied entries get <code>NULL</code> <code>fetched</code>/<code>expires</code>/<code>etag</code> (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.</li>
+<li><code>diff</code>, <code>apply-patch</code>, and bin-diff <strong>into or onto</strong> a cache file are rejected: the <code>NOT NULL</code> blob column exposed through the <code>tiles</code> view cannot represent the <code>NULL</code> "deleted tile" markers a diff needs. A cache file <em>can</em> be the compared-against or patch-source side (it is read through the view).</li>
+<li><code>cache-purge &lt;file&gt; [--max-size &lt;MB&gt;]</code> removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via <code>PRAGMA incremental_vacuum</code>.</li>
+</ul>
 
 
   <nav class="md-tags" >
