@@ -7,7 +7,7 @@ CREATE TABLE tile_cache (
     etag TEXT,
     tile_data BLOB NOT NULL,
     PRIMARY KEY (zoom_level, tile_column, tile_row)
-);
+) WITHOUT ROWID;
 
 CREATE VIEW tiles AS
 SELECT
