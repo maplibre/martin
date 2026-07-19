@@ -902,11 +902,10 @@ fn get_select_from_with_diff(
 }
 
 fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
-    // Flat and Cache destinations need no hash column: Flat stores none, and the Cache
-    // copy path computes its own xxh3-64 content keys. Both read the plain `tiles` view.
+    // Flat and Cache destinations need no hash column because they both sore directly
     if dst_type == Flat || dst_type == Cache {
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
-            .to_string()
+"SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
+.to_string()
     } else {
         match src_type {
             // A Cache source has no md5 hashes, so like Flat it is read via the
