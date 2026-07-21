@@ -1,16 +1,16 @@
-use crate::config::file::CollectUnrecognizedKeys;
 #[cfg(feature = "metrics")]
 use std::collections::HashMap;
 
+use actix_web::http::header::{HeaderValue, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
+use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks};
 
 pub const DEFAULT_KEEP_ALIVE: u64 = 75;
 pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
@@ -57,6 +57,16 @@ pub struct SrvConfig {
     /// `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
     /// Default could be different depending on Martin version.
     pub preferred_encoding: Option<PreferredEncoding>,
+    /// Set the default `Cache-Control` response header.
+    ///
+    /// The value is used for responses that do not define a more specific cache policy. For
+    /// example: `public, max-age=3600`. Endpoints with an explicit policy, such as the health
+    /// check, keep their own header.
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &"public, max-age=3600")
+    )]
+    pub cache_control: Option<String>,
     /// Enable or disable Martin web UI. \[default: disable\]
     ///
     /// At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
@@ -94,6 +104,13 @@ pub struct SrvConfig {
 }
 
 impl SrvConfig {
+    pub(crate) fn cache_control_header(&self) -> Result<Option<HeaderValue>, InvalidHeaderValue> {
+        self.cache_control
+            .as_deref()
+            .map(HeaderValue::from_str)
+            .transpose()
+    }
+
     /// The URL path prefix under which Martin is publicly served, derived from
     /// the explicit config (not request headers).
     ///
@@ -210,6 +227,33 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn parse_cache_control() {
+        let config = serde_saphyr::from_str::<SrvConfig>(indoc! {"
+            cache_control: public, max-age=3600, stale-while-revalidate=60
+        "})
+        .unwrap();
+
+        assert_eq!(
+            config.cache_control.as_deref(),
+            Some("public, max-age=3600, stale-while-revalidate=60")
+        );
+        assert_eq!(
+            config.cache_control_header().unwrap().unwrap(),
+            "public, max-age=3600, stale-while-revalidate=60"
+        );
+    }
+
+    #[test]
+    fn reject_invalid_cache_control_header() {
+        let config = SrvConfig {
+            cache_control: Some("public\nmax-age=3600".to_string()),
+            ..Default::default()
+        };
+
+        config.cache_control_header().unwrap_err();
     }
 
     #[test]
