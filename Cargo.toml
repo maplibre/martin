@@ -157,7 +157,7 @@ spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
-static-files = "0.2"
+static-files = "0.3"
 strum = { version = "0.28", features = ["derive"] }
 syn = { version = "2", features = ["full"] }
 tempfile = "3.21.0"
