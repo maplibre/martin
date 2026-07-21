@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 use std::io;
 
+use actix_web::http::header::InvalidHeaderValue;
 #[cfg(feature = "unstable-cog")]
 use martin_core::tiles::cog::CogError;
 #[cfg(feature = "geojson")]
@@ -51,6 +52,13 @@ pub enum MartinError {
 
     #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
     BasePathError(String),
+
+    #[error("Invalid Cache-Control header value '{value}': {source}")]
+    InvalidCacheControlHeader {
+        value: String,
+        #[source]
+        source: InvalidHeaderValue,
+    },
 
     #[error("Unrecognizable connection strings: {0:?}")]
     UnrecognizableConnections(Vec<String>),

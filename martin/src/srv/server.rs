@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::string::ToString as _;
 use std::time::Duration;
 
-use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::{NormalizePath, TrailingSlash};
+use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
+use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt as _;
@@ -180,12 +180,25 @@ fn register_services(
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
+fn cache_control_middleware(value: Option<HeaderValue>) -> middleware::Condition<DefaultHeaders> {
+    let enabled = value.is_some();
+    let value = value.unwrap_or_else(|| HeaderValue::from_static(""));
+    middleware::Condition::new(enabled, DefaultHeaders::new().add((CACHE_CONTROL, value)))
+}
+
 /// Create a future for an Actix web server together with the listening address.
 #[hotpath::measure]
 pub fn new_server(
     config: SrvConfig,
     #[cfg(feature = "_catalog")] state: ServerState,
 ) -> MartinResult<(Server, String)> {
+    let cache_control =
+        config
+            .cache_control_header()
+            .map_err(|source| MartinError::InvalidCacheControlHeader {
+                value: config.cache_control.clone().unwrap_or_default(),
+                source,
+            })?;
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
@@ -258,6 +271,7 @@ pub fn new_server(
         let app = app.wrap(prometheus.clone());
 
         app.wrap(TracingLogger::default())
+            .wrap(cache_control_middleware(cache_control.clone()))
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
             .configure(|c| router(c, &config))
     };
@@ -278,4 +292,57 @@ pub fn new_server(
         .err_into();
 
     Ok((Box::pin(server), listen_addresses))
+}
+
+#[cfg(test)]
+mod tests {
+    use actix_web::http::header::CACHE_CONTROL;
+    use actix_web::{App, HttpResponse, test, web};
+
+    use super::{cache_control_middleware, get_health};
+
+    async fn content() -> HttpResponse {
+        HttpResponse::Ok().finish()
+    }
+
+    #[actix_rt::test]
+    async fn configured_cache_control_is_added_to_responses() {
+        let app = test::init_service(App::new().route("/content", web::get().to(content)).wrap(
+            cache_control_middleware(Some("public, max-age=3600".parse().unwrap())),
+        ))
+        .await;
+
+        let response =
+            test::call_service(&app, test::TestRequest::get().uri("/content").to_request()).await;
+        assert_eq!(
+            response.headers().get(CACHE_CONTROL).unwrap(),
+            "public, max-age=3600"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn explicit_endpoint_policy_takes_precedence() {
+        let app = test::init_service(App::new().service(get_health).wrap(
+            cache_control_middleware(Some("public, max-age=3600".parse().unwrap())),
+        ))
+        .await;
+
+        let response =
+            test::call_service(&app, test::TestRequest::get().uri("/health").to_request()).await;
+        assert_eq!(response.headers().get(CACHE_CONTROL).unwrap(), "no-cache");
+    }
+
+    #[actix_rt::test]
+    async fn no_header_is_added_when_unconfigured() {
+        let app = test::init_service(
+            App::new()
+                .route("/content", web::get().to(content))
+                .wrap(cache_control_middleware(None)),
+        )
+        .await;
+
+        let response =
+            test::call_service(&app, test::TestRequest::get().uri("/content").to_request()).await;
+        assert!(!response.headers().contains_key(CACHE_CONTROL));
+    }
 }
