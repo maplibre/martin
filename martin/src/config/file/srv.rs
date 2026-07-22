@@ -300,6 +300,15 @@ mod tests {
     }
 
     #[test]
+    fn reject_empty_cache_control_header() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                cache_control: ""
+            "}),
+            @"");
+    }
+
+#[test]
     fn parse_config_cors() {
         assert_eq!(
             serde_saphyr::from_str::<SrvConfig>(indoc! {"
