@@ -296,7 +296,7 @@ mod tests {
             render_failure(indoc::indoc! {"
                 cache_control: max-age=invalid
             "}),
-            @r#"");
+            @"");
     }
 
     #[test]
