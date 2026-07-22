@@ -192,13 +192,7 @@ pub fn new_server(
     config: SrvConfig,
     #[cfg(feature = "_catalog")] state: ServerState,
 ) -> MartinResult<(Server, String)> {
-    let cache_control =
-        config
-            .cache_control_header()
-            .map_err(|source| MartinError::InvalidCacheControlHeader {
-                value: config.cache_control.clone().unwrap_or_default(),
-                source,
-            })?;
+    let cache_control = config.cache_control_header();
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {

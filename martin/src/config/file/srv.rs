@@ -1,8 +1,9 @@
 #[cfg(feature = "metrics")]
 use std::collections::HashMap;
+use std::fmt;
 
-use actix_web::http::header::{HeaderValue, InvalidHeaderValue};
-use serde::{Deserialize, Serialize};
+use actix_web::http::header::{CacheDirective, HeaderValue, from_comma_delimited};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
@@ -10,10 +11,56 @@ use crate::config::args::WebUiMode;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
-use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks};
+use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
 
 pub const DEFAULT_KEEP_ALIVE: u64 = 75;
 pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
+
+/// A syntactically and semantically validated `Cache-Control` header value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CacheControlHeader(HeaderValue);
+
+impl CollectUnrecognizedKeys for CacheControlHeader {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+}
+
+impl CacheControlHeader {
+    #[must_use]
+    pub(crate) fn header_value(&self) -> HeaderValue {
+        self.0.clone()
+    }
+}
+
+impl fmt::Display for CacheControlHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.0.to_str().map_err(|_| fmt::Error)?)
+    }
+}
+
+impl Serialize for CacheControlHeader {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.0.to_str().map_err(ser::Error::custom)?)
+    }
+}
+
+impl<'de> Deserialize<'de> for CacheControlHeader {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        let value = HeaderValue::from_str(&raw).map_err(de::Error::custom)?;
+        let directives: Vec<CacheDirective> = from_comma_delimited(std::iter::once(&value))
+            .map_err(|error| {
+                de::Error::custom(format_args!(
+                    "invalid Cache-Control header value '{raw}': {error}"
+                ))
+            })?;
+        if directives.is_empty() {
+            return Err(de::Error::custom(format_args!(
+                "invalid Cache-Control header value '{raw}': no valid directives"
+            )));
+        }
+        Ok(Self(value))
+    }
+}
 
 #[serde_with::skip_serializing_none]
 #[derive(
@@ -62,11 +109,8 @@ pub struct SrvConfig {
     /// The value is used for responses that do not define a more specific cache policy. For
     /// example: `public, max-age=3600`. Endpoints with an explicit policy, such as the health
     /// check, keep their own header.
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(example = &"public, max-age=3600")
-    )]
-    pub cache_control: Option<String>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
     /// Enable or disable Martin web UI. \[default: disable\]
     ///
     /// At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
@@ -104,11 +148,10 @@ pub struct SrvConfig {
 }
 
 impl SrvConfig {
-    pub(crate) fn cache_control_header(&self) -> Result<Option<HeaderValue>, InvalidHeaderValue> {
+    pub(crate) fn cache_control_header(&self) -> Option<HeaderValue> {
         self.cache_control
-            .as_deref()
-            .map(HeaderValue::from_str)
-            .transpose()
+            .as_ref()
+            .map(CacheControlHeader::header_value)
     }
 
     /// The URL path prefix under which Martin is publicly served, derived from
@@ -237,23 +280,28 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            config.cache_control.as_deref(),
-            Some("public, max-age=3600, stale-while-revalidate=60")
+            config.cache_control.as_ref().map(ToString::to_string),
+            Some("public, max-age=3600, stale-while-revalidate=60".to_string())
         );
         assert_eq!(
-            config.cache_control_header().unwrap().unwrap(),
+            config.cache_control_header().unwrap(),
             "public, max-age=3600, stale-while-revalidate=60"
         );
     }
 
     #[test]
     fn reject_invalid_cache_control_header() {
-        let config = SrvConfig {
-            cache_control: Some("public\nmax-age=3600".to_string()),
-            ..Default::default()
-        };
+        let error = serde_saphyr::from_str::<SrvConfig>(indoc! {"
+            cache_control: max-age=invalid
+        "})
+        .unwrap_err();
 
-        config.cache_control_header().unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("invalid Cache-Control header value"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]

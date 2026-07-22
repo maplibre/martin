@@ -9,6 +9,9 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
+# Set the default Cache-Control header on responses without an explicit policy.
+cache_control: public, max-age=3600
+
 # Cache configuration
 cache:
   # Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
