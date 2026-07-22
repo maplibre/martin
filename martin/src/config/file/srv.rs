@@ -308,7 +308,7 @@ mod tests {
             @"");
     }
 
-#[test]
+    #[test]
     fn parse_config_cors() {
         assert_eq!(
             serde_saphyr::from_str::<SrvConfig>(indoc! {"
