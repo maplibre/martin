@@ -296,12 +296,7 @@ mod tests {
         "})
         .unwrap_err();
 
-        assert!(
-            error
-                .to_string()
-                .contains("invalid Cache-Control header value"),
-            "unexpected error: {error}"
-        );
+        insta::assert_snapshot!(error.to_string(), @"");
     }
 
     #[test]
