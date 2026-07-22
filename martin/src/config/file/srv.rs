@@ -221,6 +221,7 @@ mod tests {
     use super::*;
     use crate::config::file::UnrecognizedValues;
     use crate::config::file::cors::CorsProperties;
+    use crate::config::test_helpers::render_failure;
 
     #[test]
     fn parse_config() {
@@ -291,12 +292,11 @@ mod tests {
 
     #[test]
     fn reject_invalid_cache_control_header() {
-        let error = serde_saphyr::from_str::<SrvConfig>(indoc! {"
-            cache_control: max-age=invalid
-        "})
-        .unwrap_err();
-
-        insta::assert_snapshot!(error.to_string(), @"");
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                cache_control: max-age=invalid
+            "}),
+            @r#"");
     }
 
     #[test]
