@@ -59,6 +59,12 @@ cache:
   # Allows overriding the size of the tile cache.
   # Defaults to `cache.size_mb` / 2
   tile_size_mb: 256
+# Set the default `Cache-Control` response header.
+#
+# The value is used for responses that do not define a more specific cache policy.
+# For example: `public, max-age=3600`.
+# Endpoints with an explicit policy, such as the health check, keep their own header.
+cache_control: null
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
 #

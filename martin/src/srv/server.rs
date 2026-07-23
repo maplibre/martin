@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::string::ToString as _;
 use std::time::Duration;
 
-use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::{NormalizePath, TrailingSlash};
+use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
+use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt as _;
@@ -180,12 +180,19 @@ fn register_services(
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
+fn cache_control_middleware(value: Option<HeaderValue>) -> middleware::Condition<DefaultHeaders> {
+    let enabled = value.is_some();
+    let value = value.unwrap_or_else(|| HeaderValue::from_static(""));
+    middleware::Condition::new(enabled, DefaultHeaders::new().add((CACHE_CONTROL, value)))
+}
+
 /// Create a future for an Actix web server together with the listening address.
 #[hotpath::measure]
 pub fn new_server(
     config: SrvConfig,
     #[cfg(feature = "_catalog")] state: ServerState,
 ) -> MartinResult<(Server, String)> {
+    let cache_control = config.cache_control_header();
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
@@ -258,6 +265,7 @@ pub fn new_server(
         let app = app.wrap(prometheus.clone());
 
         app.wrap(TracingLogger::default())
+            .wrap(cache_control_middleware(cache_control.clone()))
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
             .configure(|c| router(c, &config))
     };

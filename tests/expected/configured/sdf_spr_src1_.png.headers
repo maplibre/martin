@@ -1,3 +1,4 @@
+cache-control: public, max-age=3600
 content-length: 2464
 content-type: image/png
 etag: W/"9a0-Q1ivRfn_flNweO3XxYFpSA=="

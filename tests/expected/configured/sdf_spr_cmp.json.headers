@@ -1,3 +1,4 @@
+cache-control: public, max-age=3600
 content-encoding: br
 content-type: application/json
 etag: W/"131-s95fKXweVNtXjVXT7l2oHQ=="
