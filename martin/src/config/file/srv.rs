@@ -106,9 +106,9 @@ pub struct SrvConfig {
     pub preferred_encoding: Option<PreferredEncoding>,
     /// Set the default `Cache-Control` response header.
     ///
-    /// The value is used for responses that do not define a more specific cache policy. For
-    /// example: `public, max-age=3600`. Endpoints with an explicit policy, such as the health
-    /// check, keep their own header.
+    /// The value is used for responses that do not define a more specific cache policy.
+    /// For example: `public, max-age=3600`.
+    /// Endpoints with an explicit policy, such as the health check, keep their own header.
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
     /// Enable or disable Martin web UI. \[default: disable\]
