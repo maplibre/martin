@@ -1082,7 +1082,7 @@
       "description": "Cache configuration\nUse `cache: disable` to disable all caching entirely."
     },
     "cache_control": {
-      "description": "Set the default `Cache-Control` response header.\n\nThe value is used for responses that do not define a more specific cache policy. For\nexample: `public, max-age=3600`. Endpoints with an explicit policy, such as the health\ncheck, keep their own header.",
+      "description": "Set the default `Cache-Control` response header.\n\nThe value is used for responses that do not define a more specific cache policy.\nFor example: `public, max-age=3600`.\nEndpoints with an explicit policy, such as the health check, keep their own header.",
       "type": ["string", "null"]
     },
     "convert_to_mlt": {
