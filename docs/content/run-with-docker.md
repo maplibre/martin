@@ -36,7 +36,7 @@ You can also pass any [CLI flags](run-with-cli.md) after the image name, for exa
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.12.0 \
+  ghcr.io/maplibre/martin:1.13.0 \
   --webui enable-for-all \
   /files
 ```
