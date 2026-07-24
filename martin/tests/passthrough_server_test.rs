@@ -19,7 +19,8 @@ pub use utils::*;
 /// Builds a martin test app from a config YAML string, resolving sources first.
 macro_rules! create_app {
     ($sources:expr) => {{
-        let state = mock_sources(mock_cfg($sources)).await.0;
+        let cfg = mock_cfg($sources).await;
+        let state = mock_sources(cfg).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
@@ -108,7 +109,7 @@ async fn mvt_passes_through_unchanged() {
 }
 
 #[actix_rt::test]
-async fn quoted_upstream_etag_falls_back_to_hash() {
+async fn quoted_upstream_etag_is_normalized() {
     let server = MockServer::start().await;
     mount_mvt(&server, "\"real-etag\"", mvt_tile()).await;
 
@@ -117,10 +118,7 @@ async fn quoted_upstream_etag_falls_back_to_hash() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
 
-    assert_eq!(
-        response.headers().get(ETAG).unwrap(),
-        "\"HOYqgtryvtVnHNqNJcg5ug\""
-    );
+    assert_eq!(response.headers().get(ETAG).unwrap(), "\"real-etag\"");
 }
 
 #[actix_rt::test]

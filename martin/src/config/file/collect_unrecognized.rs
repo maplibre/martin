@@ -112,6 +112,12 @@ impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Vec<T> {
     }
 }
 
+impl<T: CollectUnrecognizedKeys> CollectUnrecognizedKeys for Box<T> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        (**self).collect_unrecognized(path, out);
+    }
+}
+
 impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for HashMap<K, V, S> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         for (key, value) in self {

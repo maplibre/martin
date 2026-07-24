@@ -429,16 +429,19 @@ fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
         .map(ToString::to_string)
 }
 
-/// Keep an upstream `ETag` header only when it is already a bare strong tag Martin can serve verbatim.
+/// Strip an upstream strong `ETag`'s wire quotes so it can be served verbatim.
 ///
-/// Martin stores etags unquoted and re-adds the quotes when serving, and the serving layer rejects
-/// any byte outside the `etag` grammar (RFC 9110: `%x21 / %x23-7E / obs-text`).
-/// A wire value that arrives quoted (`"abc"`), weak (`W/"abc"`), or otherwise outside that grammar is
-/// unusable as-is, so we drop it and let the tile be hashed instead.
+/// Weak tags (`W/"abc"`) keep their `W/` prefix, which fails the RFC 9110 `etag` grammar check
+/// below (`%x21 / %x23-7E / obs-text` excludes `"`), so those and other malformed values fall
+/// back to hashing instead.
 fn usable_strong_etag(raw: &str) -> Option<String> {
-    raw.bytes()
+    let tag = raw
+        .strip_prefix('"')
+        .and_then(|t| t.strip_suffix('"'))
+        .unwrap_or(raw);
+    tag.bytes()
         .all(|b| b == 0x21 || (0x23..=0x7e).contains(&b) || b >= 0x80)
-        .then(|| raw.to_string())
+        .then(|| tag.to_string())
 }
 
 #[cfg(test)]
@@ -483,9 +486,9 @@ mod tests {
     }
 
     #[test]
-    fn usable_strong_etag_keeps_bare_tags_and_drops_quoted_or_weak() {
+    fn usable_strong_etag_unquotes_strong_tags_and_drops_weak() {
         assert_eq!(usable_strong_etag("abc"), Some("abc".to_string()));
-        assert_eq!(usable_strong_etag("\"abc\""), None);
+        assert_eq!(usable_strong_etag("\"abc\""), Some("abc".to_string()));
         assert_eq!(usable_strong_etag("W/\"abc\""), None);
     }
 }

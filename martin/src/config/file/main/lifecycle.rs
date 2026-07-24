@@ -92,10 +92,7 @@ impl Config {
         self.mbtiles.finalize().await?;
 
         #[cfg(feature = "passthrough")]
-        res.extend(
-            self.passthrough
-                .get_unrecognized_keys_with_prefix("passthrough."),
-        );
+        self.passthrough.finalize().await?;
 
         #[cfg(feature = "unstable-cog")]
         self.cog.finalize().await?;
@@ -115,7 +112,7 @@ impl Config {
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
         } else {
-            Ok(res)
+            Ok(())
         }
     }
 
@@ -150,11 +147,7 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty {
-            Err(ConfigFileError::NoSources.into())
-        } else {
-            Ok(())
-        }
+        is_empty
     }
 
     /// Warn about configuration keys that were not recognized while parsing the config file.

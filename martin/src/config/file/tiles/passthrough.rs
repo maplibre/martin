@@ -13,13 +13,11 @@ use tracing::info;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigurationLivecycleHooks, ResolutionResult, TileSourceWarning,
-    UnrecognizedKeys, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigurationLivecycleHooks,
+    ResolutionResult, TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptOneMany};
 
 /// Default per-request timeout for upstream fetches.
@@ -53,7 +51,7 @@ fn passthrough_sources_example() -> serde_json::Value {
 /// Configuration for the `passthrough` source type: a sources map plus type-level
 /// MVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PassthroughConfig {
     /// MVT->MLT encoder settings for all passthrough sources.
@@ -139,39 +137,11 @@ impl PassthroughConfig {
     }
 }
 
-impl ConfigurationLivecycleHooks for PassthroughConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
-        if let Some(sources) = &self.sources {
-            for (id, src) in sources {
-                let PassthroughSrc::Detailed(obj) = src else {
-                    continue;
-                };
-                keys.extend(obj.unrecognized.keys().map(|k| format!("sources.{id}.{k}")));
-                #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                {
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mlt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mlt.{k}")),
-                        );
-                    }
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mvt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mvt.{k}")),
-                        );
-                    }
-                }
-            }
-        }
-        keys
-    }
-}
+impl ConfigurationLivecycleHooks for PassthroughConfig {}
 
 /// A passthrough source value: either a bare upstream URL (or list of URLs) or a full
 /// configuration object.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum PassthroughSrc {
@@ -237,7 +207,7 @@ impl<'de> Deserialize<'de> for PassthroughSrc {
 
 /// Per-source passthrough configuration object.
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PassthroughSourceConfig {
     /// Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL.
