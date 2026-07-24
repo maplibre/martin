@@ -877,6 +877,8 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config-process.yaml --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
+# Exported so the passthrough upstream URL in config-process.yaml can self-proxy this server.
+export MARTIN_PORT
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=$(jobs -p | tail -n 1)
@@ -888,6 +890,12 @@ unset DATABASE_URL
 >&2 echo "***** Test MLT postprocessing *****"
 # table_source has process.mlt=auto - should convert MVT to MLT
 test_mlt proc_mlt_table_source           table_source/0/0/0
+
+>&2 echo "***** Test passthrough source *****"
+# passthrough_table self-proxies table_source: default Accept returns the proxied MVT verbatim
+test_mvt passthrough_table               passthrough_table/0/0/0
+# with an MLT Accept header the proxied MVT is converted to MLT (global convert_to_mlt=auto)
+test_mlt passthrough_table_mlt           passthrough_table/0/0/0
 
 >&2 echo "***** Test save_config includes process blocks *****"
 test_jsn catalog_process catalog

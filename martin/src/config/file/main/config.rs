@@ -26,6 +26,8 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
+#[cfg(feature = "passthrough")]
+use crate::config::file::passthrough::PassthroughConfig;
 #[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
@@ -126,6 +128,12 @@ pub struct Config {
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
+
+    /// Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+    /// Each upstream is configured under `sources`.
+    #[cfg(feature = "passthrough")]
+    #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
+    pub passthrough: PassthroughConfig,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]

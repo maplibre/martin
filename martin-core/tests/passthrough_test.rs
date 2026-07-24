@@ -133,11 +133,11 @@ async fn uses_upstream_etag_verbatim_else_hashes() {
     let src = build("t", templates(&server, Some(Format::Mvt))).await;
 
     let with_etag = src.get_tile_with_etag(coord(1, 0, 0), None).await.unwrap();
-    assert_eq!(with_etag.etag, "\"upstream-tag\"");
+    assert_eq!(with_etag.etag, "upstream-tag");
 
     let hashed = src.get_tile_with_etag(coord(2, 0, 0), None).await.unwrap();
     assert!(!hashed.etag.is_empty());
-    assert_ne!(hashed.etag, "\"upstream-tag\"");
+    assert_ne!(hashed.etag, "upstream-tag");
 }
 
 #[tokio::test]

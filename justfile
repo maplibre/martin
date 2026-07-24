@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())

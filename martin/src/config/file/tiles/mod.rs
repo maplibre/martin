@@ -6,6 +6,8 @@ pub mod duckdb;
 pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
+#[cfg(feature = "passthrough")]
+pub mod passthrough;
 #[cfg(feature = "pmtiles")]
 pub mod pmtiles;
 #[cfg(feature = "postgres")]

@@ -38,12 +38,8 @@ impl Tile {
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        let etag_base64 = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes());
-        Self {
-            data,
-            info,
-            etag: etag_base64,
-        }
+        let etag = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes());
+        Self { data, info, etag }
     }
 
     /// Creates a new tile with the given tile data, metadata, and etag.
