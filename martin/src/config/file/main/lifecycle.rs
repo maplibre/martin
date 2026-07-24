@@ -25,6 +25,7 @@ use crate::MartinResult;
     feature = "postgres",
     feature = "pmtiles",
     feature = "mbtiles",
+    feature = "passthrough",
     feature = "unstable-cog",
     feature = "geojson",
     feature = "sprites",
