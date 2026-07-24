@@ -1,0 +1,34 @@
+name: Shear (expand)
+
+# `cargo shear --expand` compiles the whole workspace (including the bundled DuckDB
+# and maplibre-native C++ trees) under nightly to detect dependencies that are only
+# used inside macro expansions. That full build is far too slow to gate every PR, so
+# the fast compile-free `cargo shear` runs in ci.yml and this catches the rare
+# macro-only case on a schedule.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # weekly, Monday 05:00 UTC
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  shear-expand:
+    name: Lint Rust dependencies (expand)
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+        with: { toolchain: nightly-2026-07-12, tools: 'cargo-shear,just', rendering: true }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
+      - run: just shear --expand

@@ -149,7 +149,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
             - s3://{BUCKET}/
     "};
 
-    let mut config = utils::mock_cfg(&yaml);
+    let mut config = utils::mock_cfg(&yaml).await;
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
 
@@ -263,7 +263,7 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
             - s3://{BUCKET}/
     "};
 
-    let mut config = utils::mock_cfg(&yaml);
+    let mut config = utils::mock_cfg(&yaml).await;
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
 

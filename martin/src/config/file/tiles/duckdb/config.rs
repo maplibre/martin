@@ -1,13 +1,13 @@
-use serde::{Deserialize, Serialize};
+use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroUsize;
+
+use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
-use crate::config::file::{
-    ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues};
 
 const DEFAULT_POOL_SIZE: usize = 4;
 
@@ -32,7 +32,7 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
     /// Connection pool size used by DuckDB sources unless overridden per-source.
@@ -70,7 +70,7 @@ impl Default for DuckDbConfig {
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
             threads: self.threads,
@@ -85,17 +85,9 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
 
         Ok(())
     }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
-        for (idx, source) in self.sources.iter().enumerate() {
-            keys.extend(source.get_unrecognized_keys(&format!("sources[{idx}].")));
-        }
-        keys
-    }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
     Database(DuckDbDatabaseEntry),
@@ -115,15 +107,6 @@ impl DuckDbSourceEntry {
             Self::Database(v) => v.settings.apply_defaults(defaults),
             Self::GeoParquet(v) => v.settings.apply_defaults(defaults),
         }
-    }
-
-    #[must_use]
-    pub(crate) fn get_unrecognized_keys(&self, prefix: &str) -> UnrecognizedKeys {
-        let values = match self {
-            Self::Database(v) => &v.unrecognized,
-            Self::GeoParquet(v) => &v.unrecognized,
-        };
-        values.keys().map(|k| format!("{prefix}{k}")).collect()
     }
 }
 
@@ -196,7 +179,9 @@ sources:
                         ),
                         tables: None,
                         macros: None,
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
                 GeoParquet(
@@ -231,17 +216,21 @@ sources:
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }
 
-    #[test]
-    fn source_overrides_from_yaml_take_precedence_over_top_level() {
+    #[tokio::test]
+    async fn source_overrides_from_yaml_take_precedence_over_top_level() {
         let yaml = r#"
 pool_size: 8
 threads: 2
@@ -254,7 +243,7 @@ sources:
     auto_bounds: skip
 "#;
         let mut cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
-        cfg.finalize().expect("finalize duckdb config");
+        cfg.finalize().await.expect("finalize duckdb config");
 
         insta::assert_debug_snapshot!(cfg, @r#"
         DuckDbConfig {
@@ -293,11 +282,15 @@ sources:
                                 Skip,
                             ),
                         },
-                        unrecognized: {},
+                        unrecognized: UnrecognizedValues(
+                            {},
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }
@@ -330,13 +323,17 @@ sources:
                         auto_publish: None,
                         tables: None,
                         macros: None,
-                        unrecognized: {
-                            "geoparquet": String("/data/buildings.parquet"),
-                        },
+                        unrecognized: UnrecognizedValues(
+                            {
+                                "geoparquet": String("/data/buildings.parquet"),
+                            },
+                        ),
                     },
                 ),
             ],
-            unrecognized: {},
+            unrecognized: UnrecognizedValues(
+                {},
+            ),
         }
         "#);
     }

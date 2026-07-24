@@ -5,6 +5,12 @@
       {
         "name": "value",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "value",
+            "table": "metadata"
+          }
+        },
         "type_info": "Text"
       }
     ],

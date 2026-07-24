@@ -63,6 +63,19 @@ pub(crate) fn render_failure(yaml: &str) -> String {
     buf
 }
 
+/// Run `yaml` through [`parse_config`] then [`Config::finalize`] and expect a failure
+pub(crate) async fn render_finalize_failure(yaml: &str) -> String {
+    let env: HashMap<String, String> = HashMap::new();
+    let mut config = parse_config(yaml, &env, Path::new("config.yaml"))
+        .unwrap_or_else(|e| panic!("expected config to parse successfully:\n{e}"));
+    let err = config
+        .finalize()
+        .await
+        .err()
+        .unwrap_or_else(|| panic!("expected finalize to fail for:\n{yaml}"));
+    err.render_diagnostic()
+}
+
 /// Same as [`render_failure`] but routes through `MartinError::render_diagnostic_with` in
 /// JSON mode, mirroring what the binary emits when `RUST_LOG_FORMAT=json` is set.
 ///

@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::num::NonZeroU32;
 
 use itertools::Itertools as _;
@@ -9,9 +9,11 @@ use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
-    query_available_function, query_available_tables, table_to_query,
+    query_available_function, query_available_tables, query_schemas, table_to_query,
 };
-use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
+use crate::config::file::postgres::utils::{
+    find_info, find_kv_ignore_case, find_schema_info, normalize_key,
+};
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
@@ -105,7 +107,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
-            config.pool_size.unwrap_or(DEFAULT_POOL_SIZE),
+            config.pool_size.unwrap_or(DEFAULT_POOL_SIZE).get(),
         )
         .await
         .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
@@ -147,14 +149,18 @@ impl PostgresAutoDiscoveryBuilder {
     ) -> PostgresResult<(BTreeMap<String, SourceSpec>, Vec<TileSourceWarning>)> {
         let mut specs = BTreeMap::new();
         let mut warnings = Vec::new();
-        self.discover_tables(&mut specs, &mut warnings).await?;
-        self.discover_functions(&mut specs, &mut warnings).await?;
+        let all_schemas = query_schemas(&self.pool).await?;
+        self.discover_tables(&all_schemas, &mut specs, &mut warnings)
+            .await?;
+        self.discover_functions(&all_schemas, &mut specs, &mut warnings)
+            .await?;
         Ok((specs, warnings))
     }
 
     /// Catalog query + config merge + auto-publish + id resolution for tables, inserting a [`SourceSpec::Table`] per id.
     async fn discover_tables(
         &self,
+        all_schemas: &BTreeSet<String>,
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
@@ -168,7 +174,7 @@ impl PostgresAutoDiscoveryBuilder {
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
         for (id, cfg_inf) in &self.tables {
-            match self.build_one_table_info(&db_tables_info, id, cfg_inf) {
+            match self.build_one_table_info(&db_tables_info, all_schemas, id, cfg_inf) {
                 Ok(merged_inf) => {
                     if !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column)) {
                         warn!(
@@ -237,6 +243,7 @@ impl PostgresAutoDiscoveryBuilder {
     /// A function's SQL is already known at catalog time, so the spec carries it directly.
     async fn discover_functions(
         &self,
+        all_schemas: &BTreeSet<String>,
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
@@ -245,7 +252,7 @@ impl PostgresAutoDiscoveryBuilder {
         // Match configured function sources against the discovered catalog.
         let mut used = HashSet::<(String, String)>::new();
         for (id, cfg_inf) in &self.functions {
-            match Self::build_one_function_info(&db_funcs_info, id, cfg_inf) {
+            match Self::build_one_function_info(&db_funcs_info, all_schemas, id, cfg_inf) {
                 Ok((merged_inf, pg_sql_info)) => {
                     if !used.insert((cfg_inf.schema.clone(), cfg_inf.function.clone())) {
                         warn!(
@@ -344,13 +351,15 @@ impl PostgresAutoDiscoveryBuilder {
     fn build_one_table_info(
         &self,
         table_infos_from_db: &BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>,
+        all_schemas: &BTreeSet<String>,
         id: &String,
         table_info_from_config: &TableInfo,
     ) -> Result<TableInfo, String> {
-        let table_infos_for_schema = find_info(
+        let table_infos_for_schema = find_schema_info(
             table_infos_from_db,
+            all_schemas,
             &table_info_from_config.schema,
-            "schema",
+            "tables with a geometry column",
             id,
         )?;
         let table_infos_for_table = find_info(
@@ -383,21 +392,17 @@ impl PostgresAutoDiscoveryBuilder {
             String,
             BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
         >,
+        all_schemas: &BTreeSet<String>,
         id: &str,
         function_info_from_config: &FunctionInfo,
     ) -> Result<(FunctionInfo, PostgresSqlInfo), String> {
-        let function_infos_for_schema = find_info(
+        let function_infos_for_schema = find_schema_info(
             function_infos_from_db,
+            all_schemas,
             &function_info_from_config.schema,
-            "schema",
+            "tile-serving functions (z,x,y) -> bytea",
             id,
         )?;
-        if function_infos_for_schema.is_empty() {
-            return Err(format!(
-                "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
-                function_info_from_config.schema
-            ));
-        }
         let function_name = &function_info_from_config.function;
         let (function_sql_info, table_info_from_schema) =
             find_info(function_infos_for_schema, function_name, "function", id)?;
@@ -989,5 +994,64 @@ mod tests {
             warned_ids,
             HashSet::from(["nonexistent_table", "nonexistent_function"]),
         );
+    }
+
+    #[tokio::test]
+    async fn schema_errors_distinguish_missing_from_content_less_schemas() {
+        let (builder, _container, connstr) = builder_for(indoc! {r"
+            tables:
+              t_missing_schema:
+                schema: ghost_schema
+                table: whatever
+                geometry_column: geom
+                srid: 4326
+                geometry_type: POINT
+              t_schema_without_geometry:
+                schema: plain_schema
+                table: plain_table
+                geometry_column: geom
+                srid: 4326
+                geometry_type: POINT
+
+            functions:
+              f_missing_schema:
+                schema: ghost_schema
+                function: whatever
+              f_schema_without_functions:
+                schema: empty_schema
+                function: whatever
+        "})
+        .await;
+        seed(
+            &connstr,
+            "CREATE SCHEMA empty_schema;
+             CREATE SCHEMA plain_schema;
+             CREATE TABLE plain_schema.plain_table (id int);",
+        )
+        .await;
+
+        let (specs, warnings) = builder.discover().await.expect("discover failed");
+
+        assert!(specs.is_empty(), "unexpected specs: {specs:?}");
+        assert_debug_snapshot!(warnings, @r#"
+        [
+            SourceError {
+                source_id: "t_missing_schema",
+                error: "Unable to configure source t_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, pg_temp_1, pg_toast, pg_toast_temp_1, plain_schema, public, tiger, tiger_data, topology",
+            },
+            SourceError {
+                source_id: "t_schema_without_geometry",
+                error: "Unable to configure source t_schema_without_geometry because schema 'plain_schema' exists but has no tables with a geometry column.",
+            },
+            SourceError {
+                source_id: "f_missing_schema",
+                error: "Unable to configure source f_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, pg_temp_1, pg_toast, pg_toast_temp_1, plain_schema, public, tiger, tiger_data, topology",
+            },
+            SourceError {
+                source_id: "f_schema_without_functions",
+                error: "Unable to configure source f_schema_without_functions because schema 'empty_schema' exists but has no tile-serving functions (z,x,y) -> bytea.",
+            },
+        ]
+        "#);
     }
 }

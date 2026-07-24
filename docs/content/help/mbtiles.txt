@@ -12,10 +12,13 @@ Commands:
   apply-patch  Apply diff file generated from 'copy' command
   meta-update  Update metadata to match the content of the file
   validate     Validate tile data if hash of tile data exists in file
+  pack         Pack a directory tree of tiles into an MBTiles file
+  cache-purge  Remove expired entries from a tile-cache MBTiles file (see the cache schema), and optionally evict entries to bound the file size
+  unpack       Unpack an MBTiles file into a directory tree of tiles
   help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
   -V, --version  Print version
 
-Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.

@@ -4,7 +4,7 @@
 use insta::assert_snapshot;
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use mbtiles::MbtError::InvalidTileIndex;
-use mbtiles::{Mbtiles, create_metadata_table};
+use mbtiles::{Mbtiles, create_metadata_table, get_patch_type};
 use rstest::rstest;
 use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
@@ -322,8 +322,6 @@ async fn tiles_with_hash_accepts_int_type() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn patch_tables_accept_int_type() {
-    use mbtiles::get_patch_type;
-
     // Test bsdiffraw with INT-containing types
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();

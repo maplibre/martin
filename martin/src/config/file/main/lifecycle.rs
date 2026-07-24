@@ -22,6 +22,17 @@ use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
 #[cfg(any(
+    feature = "postgres",
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "sprites",
+    feature = "styles",
+    feature = "fonts"
+))]
+use crate::config::file::ConfigurationLivecycleHooks;
+#[cfg(any(
     feature = "pmtiles",
     feature = "sprites",
     feature = "fonts",
@@ -41,40 +52,15 @@ use crate::config::file::process::ProcessConfig;
     feature = "geojson"
 ))]
 use crate::config::file::resolve_files;
-use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
-    copy_unrecognized_keys_from_config,
-};
+use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
-#[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut res = self.srv.get_unrecognized_keys();
-        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
-
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            use crate::config::primitives::AutoOption;
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-
+    pub async fn finalize(&mut self) -> MartinResult<()> {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -88,16 +74,8 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        {
-            let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres."
-            } else {
-                "postgres[]."
-            };
-            for pg in self.postgres.iter_mut() {
-                pg.finalize()?;
-                res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
-            }
+        for pg in self.postgres.iter_mut() {
+            pg.finalize().await?;
         }
 
         #[cfg(feature = "pmtiles")]
@@ -107,15 +85,11 @@ impl Config {
             //
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
-            self.pmtiles.finalize()?;
-            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+            self.pmtiles.finalize().await?;
         }
 
         #[cfg(feature = "mbtiles")]
-        {
-            self.mbtiles.finalize()?;
-            res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
-        }
+        self.mbtiles.finalize().await?;
 
         #[cfg(feature = "passthrough")]
         res.extend(
@@ -124,41 +98,19 @@ impl Config {
         );
 
         #[cfg(feature = "unstable-cog")]
-        {
-            self.cog.finalize()?;
-            res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
-        }
+        self.cog.finalize().await?;
 
         #[cfg(feature = "geojson")]
-        {
-            self.geojson.finalize()?;
-            res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
-        }
+        self.geojson.finalize().await?;
 
         #[cfg(feature = "sprites")]
-        {
-            self.sprites.finalize()?;
-            res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
-        }
+        self.sprites.finalize().await?;
 
         #[cfg(feature = "styles")]
-        {
-            self.styles.finalize()?;
-            res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
-        }
+        self.styles.finalize().await?;
 
-        // TODO: support for unrecognized fonts?
-        // #[cfg(feature = "fonts")]
-        // {
-        //     self.fonts.finalize()?;
-        //     res.extend(self.fonts.get_unrecognized_keys_with_prefix("fonts."));
-        // }
-
-        for key in &res {
-            warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
-            );
-        }
+        #[cfg(feature = "fonts")]
+        self.fonts.finalize().await?;
 
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
@@ -198,7 +150,22 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        is_empty
+        if is_empty {
+            Err(ConfigFileError::NoSources.into())
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Warn about configuration keys that were not recognized while parsing the config file.
+    ///
+    /// Call after [`Config::finalize`], which consumes and migrates the keys it recognizes.
+    pub fn warn_unrecognized_keys(&self) {
+        for key in &self.get_unrecognized_keys() {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
+        }
     }
 
     #[instrument(skip_all, err(Debug))]
@@ -634,5 +601,18 @@ impl Config {
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::test_helpers::render_finalize_failure;
+
+    #[tokio::test]
+    async fn finalize_no_sources() {
+        insta::assert_snapshot!(
+            render_finalize_failure("keep_alive: 75\n").await,
+            @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+        );
     }
 }

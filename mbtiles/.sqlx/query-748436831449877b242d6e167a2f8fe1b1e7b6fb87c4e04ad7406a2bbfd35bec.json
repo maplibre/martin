@@ -5,21 +5,45 @@
       {
         "name": "zoom_level",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "zoom_level",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "tile_column",
         "ordinal": 1,
+        "origin": {
+          "Table": {
+            "name": "tile_column",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "tile_row",
         "ordinal": 2,
+        "origin": {
+          "Table": {
+            "name": "tile_row",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "tile_data",
         "ordinal": 3,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "tiles"
+          }
+        },
         "type_info": "Blob"
       }
     ],

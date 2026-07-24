@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 
 use martin_tile_utils::{Encoding, Format, TileInfo};
@@ -16,7 +17,7 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FunctionInfo {
     /// Schema name (required)

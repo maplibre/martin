@@ -39,7 +39,7 @@ runs:
         COMPONENTS: ${{ inputs.components }}
       run: rustup component add $COMPONENTS
     - if: inputs.tools != ''
-      uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
+      uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
       with: { tool: '${{ inputs.tools }}' }
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash

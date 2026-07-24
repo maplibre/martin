@@ -22,7 +22,7 @@ You may also want to generate a [config file](config-file/index.md) using `--sav
 The config file can then be used via the `--config my-config.yaml` option.
 
 !!! warning
-    Serving these files is less efficient compared to pre-calculated [PMTiles or MBTiles](sources-files.md).
+    Serving these files is less efficient compared to pre-calculated [PMTiles or MBTiles](sources-files/index.md).
     This is because to serve GeoJSON, martin needs to:
 
     - parse JSON
@@ -31,7 +31,7 @@ The config file can then be used via the `--config my-config.yaml` option.
     - encode them as MVT
 
     To improve performance, we currently assume that each file fits into RAM.
-    If you want to want and can convert your geojson files to [mbtiles/ pmtiles](sources-files.md), we recomend tooling like [`tippecanoe`](https://github.com/felt/tippecanoe).
+    If you want to want and can convert your geojson files to [mbtiles/ pmtiles](sources-files/index.md), we recomend tooling like [`tippecanoe`](https://github.com/felt/tippecanoe).
 
 ## Run Martin with configuration file
 

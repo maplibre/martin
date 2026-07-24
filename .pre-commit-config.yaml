@@ -33,6 +33,11 @@ repos:
         args: [ --fix=lf ]
       - id: trailing-whitespace
 
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.6.1
+    hooks:
+      - id: editorconfig-checker
+
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.6
     hooks:
@@ -115,12 +120,12 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.5.2"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.5.4"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.5.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.5.4" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.5.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.5.4" ]
 
   - repo: local
     hooks:

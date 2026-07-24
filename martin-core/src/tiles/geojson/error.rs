@@ -14,9 +14,13 @@ pub enum GeoJsonError {
     #[error("GeoJSON parsing error: {0}")]
     GeoJsonError(#[source] Box<geojson::errors::Error>),
 
-    /// Geozero processing error
-    #[error("Geozero processing error: {0}")]
-    GeozeroError(#[source] geozero::error::GeozeroError),
+    /// MVT encoding error
+    #[error("MVT encoding error: {0}")]
+    MvtError(#[source] mlt_core::fast_mvt::MvtError),
+
+    /// A feature property cannot be represented as an MVT value
+    #[error("GeoJSON property {0} cannot be represented as an MVT value")]
+    UnsupportedProperty(String),
 
     /// More features than can be spatially indexed
     #[error("GeoJSON has too many features to index: {0} exceeds u32::MAX")]

@@ -5,11 +5,23 @@
       {
         "name": "name",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "name",
+            "table": "metadata"
+          }
+        },
         "type_info": "Text"
       },
       {
         "name": "value",
         "ordinal": 1,
+        "origin": {
+          "Table": {
+            "name": "value",
+            "table": "metadata"
+          }
+        },
         "type_info": "Text"
       }
     ],

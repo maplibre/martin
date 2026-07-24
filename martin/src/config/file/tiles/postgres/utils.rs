@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use itertools::Itertools as _;
 use tilejson::TileJSON;
@@ -55,6 +55,35 @@ fn find_info_kv<'a, T>(
             "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
             multiple.join(", ")
         )),
+    }
+}
+
+/// Resolve a schema in the discovered map, producing a case-correct error when it is absent.
+///
+/// The discovered map only contains schemas that have tile-serving content, so a plain [`find_info`] lookup reports every content-less schema as "not found" even when it exists.
+/// `all_schemas` is every schema in the database, letting us tell a truly missing schema (list the alternatives) apart from one that exists but lacks usable content (name `missing_content`, e.g. "tables with a geometry column").
+pub fn find_schema_info<'a, T>(
+    map: &'a BTreeMap<String, T>,
+    all_schemas: &BTreeSet<String>,
+    schema: &str,
+    missing_content: &str,
+    id: &str,
+) -> Result<&'a T, String> {
+    if let Some(v) = map.get(schema) {
+        return Ok(v);
+    }
+    if let Ok(Some(resolved)) = find_kv_ignore_case(map, schema) {
+        return Ok(map.get(resolved).expect("guaranteed to be in the map"));
+    }
+    if all_schemas.iter().any(|s| s.eq_ignore_ascii_case(schema)) {
+        Err(format!(
+            "Unable to configure source {id} because schema '{schema}' exists but has no {missing_content}."
+        ))
+    } else {
+        Err(format!(
+            "Unable to configure source {id} because schema '{schema}' does not exist. Available schemas: {}",
+            all_schemas.iter().map(String::as_str).join(", ")
+        ))
     }
 }
 

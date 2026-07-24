@@ -47,7 +47,7 @@ jobs:
 
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just,oha' }
       - name: Install rendering dependencies
         run: just install-dependencies

@@ -23,7 +23,7 @@ tilejson:
     
     <img src="data:image/png;base64,iVBORw0KGgo">
     </div>
-  maxzoom: 6
+  maxzoom: 1
   minzoom: 0
   name: normalized
   version: 1.0.0

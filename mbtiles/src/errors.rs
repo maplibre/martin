@@ -41,6 +41,11 @@ pub enum MbtError {
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
 
+    #[error(
+        "File {0} exists but does not use the tile-cache schema, refusing to modify it. Use an empty/new file or an existing cache file"
+    )]
+    NotACacheFile(String),
+
     #[error("Integrity check failed for MBTile file {0} for the following reasons:\n    {1:?}")]
     FailedIntegrityCheck(String, Vec<String>),
 
@@ -85,6 +90,14 @@ pub enum MbtError {
         "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --agg-hash update {0}` to fix this."
     )]
     AggHashValueNotFound(String),
+
+    #[error(
+        "MBTiles file {filepath} declares an unsupported tile hash algorithm `{algorithm}` in its metadata. This build can only validate `md5` hashes."
+    )]
+    UnsupportedHashAlgorithm {
+        algorithm: String,
+        filepath: PathBuf,
+    },
 
     #[error(r#"Filename "{0}" passed to SQLite must be valid UTF-8"#)]
     InvalidFilenameType(PathBuf),

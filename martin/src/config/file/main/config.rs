@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -77,7 +78,7 @@ pub struct ServerState {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
     /// Cache configuration
@@ -267,6 +268,7 @@ mod tests {
     use super::*;
     use crate::MartinError;
     use crate::config::file::CachePolicy;
+    use crate::config::test_helpers::render_finalize_failure;
     use crate::logging::LogFormat;
 
     #[test]
@@ -297,6 +299,28 @@ mod tests {
     fn parse_base_path_rejects_invalid_paths() {
         parse_base_path("").unwrap_err();
         parse_base_path("foo/bar").unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn finalize_base_path_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                base_path: not-a-path
+            "}).await,
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'not-a-path'"
+        );
+    }
+
+    #[tokio::test]
+    async fn finalize_route_prefix_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                route_prefix: oops
+            "}).await,
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'oops'"
+        );
     }
 
     #[test]

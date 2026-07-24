@@ -1,0 +1,16 @@
+layer: 0
+  name: view_name_existing_two_schemas
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(3673,1911)
+    properties:
+      a_id = 2 (uint)
+      a_name = "view_point_2"
+  feature: 1
+    id: (none)
+    geometry: POINT(3673,1911)
+    properties:
+      a_id = 1 (uint)
+      a_name = "view_point_1"

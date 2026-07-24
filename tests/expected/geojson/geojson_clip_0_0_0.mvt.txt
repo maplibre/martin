@@ -1,0 +1,19 @@
+layer: 0
+  name: clip
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry:
+      RING[count=5](1365 1190,2730 1190,2730 2907,1365 2907,1365 1190)[OUTER]
+      RING[count=5](1820 2281,2275 2281,2275 1816,1820 1816,1820 2281)[INNER]
+      RING[count=5](3640 2163,3982 2163,3982 2546,3640 2546,3640 2163)[OUTER]
+    properties:
+      id = 1 (int)
+      kind = "multipolygon-with-hole"
+  feature: 1
+    id: (none)
+    geometry: RING[count=5](3185 1190,3527 1190,3527 1690,3185 1690,3185 1190)[OUTER]
+    properties:
+      id = 2 (int)
+      kind = "polygon-northeast"

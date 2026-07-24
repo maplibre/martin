@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.11.0"
+version = "1.12.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -123,7 +123,14 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 passthrough = ["martin-core/passthrough", "_tiles"]
-pmtiles = ["martin-core/pmtiles", "dep:object_store", "dep:xxhash-rust", "_tiles"]
+pmtiles = [
+    "martin-core/pmtiles",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+    "dep:xxhash-rust",
+    "_tiles",
+]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -133,7 +140,7 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles"]
+geojson = ["martin-core/geojson", "_tiles", "mlt"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -177,6 +184,8 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
+aws-config = { workspace = true, optional = true }
+aws-credential-types = { workspace = true, optional = true }
 clap.workspace = true
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
@@ -184,7 +193,7 @@ duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
 geojson = { workspace = true, optional = true }
-hotpath.workspace = true
+hotpath = { workspace = true, features = ["tokio"] }
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
 indicatif.workspace = true
@@ -192,6 +201,7 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
+martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -212,7 +222,7 @@ serde_with.workspace = true
 static-files = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { workspace = true, features = ["io-std", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-std", "rt-multi-thread", "signal"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true
@@ -235,6 +245,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
 image-compare.workspace = true

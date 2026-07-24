@@ -70,12 +70,10 @@ Tag01(
         ),
         properties: [
             Raw(
-                U64(
+                U32(
                     RawScalar {
                         name: "gid",
-                        presence: RawPresence(
-                            None,
-                        ),
+                        presence: AllPresent,
                         data: RawStream {
                             meta: StreamMeta {
                                 stream_type: Data(None),

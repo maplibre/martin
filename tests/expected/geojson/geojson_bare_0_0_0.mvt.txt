@@ -1,0 +1,8 @@
+layer: 0
+  name: bare_geometry
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: RING[count=5](2161 1816,2275 1816,2275 1934,2161 1934,2161 1816)[OUTER]
+    properties: (none)

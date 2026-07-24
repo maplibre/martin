@@ -197,8 +197,9 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case::epsg_upper("EPSG:4326", 4326)]

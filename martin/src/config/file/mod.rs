@@ -1,6 +1,9 @@
 mod file_config;
 pub use file_config::*;
 
+mod collect_unrecognized;
+pub use collect_unrecognized::*;
+
 mod main;
 pub use main::*;
 pub mod cache;
@@ -12,7 +15,10 @@ pub use error::{ConfigFileError, ConfigFileResult};
 
 pub mod process;
 pub use process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(all(
+    feature = "mlt",
+    any(feature = "mbtiles", feature = "pmtiles", feature = "postgres")
+))]
 pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};

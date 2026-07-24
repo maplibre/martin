@@ -28,7 +28,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just' }
       - run: npm clean-install --no-fund
         working-directory: martin/martin-ui
@@ -60,7 +60,7 @@ jobs:
           key: ${{ matrix.os }}
       - name: Install uv
         if: runner.os == 'Linux'
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - name: Run cargo test
         run: just test-packages-ci
@@ -119,25 +119,23 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just' }
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: just test-schemas
   lint-rust-dependencies:
     name: Lint Rust dependencies
     permissions:
       contents: read
-    needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { toolchain: nightly, tools: 'cargo-shear,just', rendering: true }
+        with: { tools: 'cargo-shear,just' }
       - run: just shear
   build-aarch64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
@@ -198,8 +196,8 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
-        with: { tool: sqlx-cli }
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
+        with: { tool: 'just,sqlx-cli,fast-mvt' }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -211,7 +209,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@0234bb73ccb40f0c430b795634f9247e2b5c2d23 # v5.2.0
+        uses: docker/setup-docker-action@6d7cfa65f60a9dda7b46e5513fa982536f3c9877 # v5.3.0
         with:
           daemon-config: |
             {
@@ -220,13 +218,13 @@ jobs:
               }
             }
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
-      - name: Set up gdal-bin and sqlite3-tools
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Set up sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-gnu
@@ -263,7 +261,7 @@ jobs:
           echo "short_tag=${TAG#martin-v}" >> "$GITHUB_OUTPUT"
       - name: Docker meta
         id: docker_meta
-        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         # https://github.com/docker/metadata-action
         with:
           images: ghcr.io/${{ github.repository }}
@@ -299,7 +297,7 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
       - name: Build linux/arm64,linux/amd64 Docker image
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         # https://github.com/docker/build-push-action
         with:
           provenance: mode=max
@@ -348,7 +346,7 @@ jobs:
 
       - name: Login to GitHub Docker registry
         if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         # https://github.com/docker/login-action
         with:
           registry: ghcr.io
@@ -358,7 +356,7 @@ jobs:
       - name: Push the Docker image
         id: docker_push
         if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           provenance: mode=max
           sbom: true
@@ -372,7 +370,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - name: Attest
         if: github.event_name == 'push' || github.event_name == 'release'
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         id: attest
         with:
           subject-name: ghcr.io/${{ github.repository }}
@@ -426,7 +424,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -462,12 +460,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - name: Set up gdal-bin and sqlite3-tools
+      - name: Set up sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
-        if: matrix.os == 'ubuntu-latest'
-        with: { tool: 'just,mlt' }
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
+        with: { tool: 'just,mlt,fast-mvt' }
       - name: Install rendering dependencies
         if: matrix.os == 'ubuntu-latest'
         run: just install-dependencies
@@ -779,10 +776,10 @@ jobs:
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
-      - name: Set up gdal-bin and sqlite3-tools
-        run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
-        with: { tool: 'just' }
+      - name: Set up sqlite3-tools
+        run: sudo apt update && sudo apt-get install -y sqlite3-tools
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
+        with: { tool: 'just,fast-mvt' }
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Integration Tests
@@ -870,7 +867,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just' }
       - parallel:
           - name: Download build artifact build-aarch64-apple-darwin
@@ -930,7 +927,7 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}

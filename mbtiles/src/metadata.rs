@@ -10,8 +10,8 @@ use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::{info, warn};
 
 use crate::MbtError::InvalidZoomValue;
-use crate::Mbtiles;
 use crate::errors::MbtResult;
+use crate::{Mbtiles, compute_min_max_zoom};
 
 /// Tileset metadata combining [MBTiles](https://github.com/mapbox/mbtiles-spec)
 /// and [TileJSON](https://github.com/mapbox/tilejson-spec) specifications.
@@ -252,6 +252,12 @@ impl Mbtiles {
         // Need to drop rows in order to re-borrow connection reference as mutable
         drop(rows);
 
+        // the metadata zoom range can claim more than the tiles table actually
+        // holds (#1791), so reconcile it against the real extent.
+        if let Some((min_zoom, max_zoom)) = compute_min_max_zoom(&mut *conn).await? {
+            reconcile_zoom_levels(&mut tj, min_zoom, max_zoom);
+        }
+
         Ok(Metadata {
             id: self.filename().to_string(),
             tilejson: tj,
@@ -341,6 +347,43 @@ impl Mbtiles {
         }
 
         Ok(())
+    }
+}
+
+/// reconcile a declared `(minzoom, maxzoom)` against the `[tile_min, tile_max]`
+/// the tiles actually cover (#1791) - a missing value just falls back to the extent.
+///
+/// ```text
+/// minzoom = min(tile_min, declared_max, declared_min)
+/// maxzoom = min(tile_max, max(tile_min, declared_max, declared_min))
+/// ```
+fn reconciled_zoom_range(
+    declared_min: Option<u8>,
+    declared_max: Option<u8>,
+    tile_min: u8,
+    tile_max: u8,
+) -> (u8, u8) {
+    let declared_min = declared_min.unwrap_or(tile_min);
+    let declared_max = declared_max.unwrap_or(tile_max);
+    let minzoom = tile_min.min(declared_max).min(declared_min);
+    let maxzoom = tile_max.min(tile_min.max(declared_max).max(declared_min));
+    (minzoom, maxzoom)
+}
+
+/// apply [`reconciled_zoom_range`] to the tilejson's top-level zoom and to every
+/// vector layer.
+fn reconcile_zoom_levels(tj: &mut TileJSON, tile_min: u8, tile_max: u8) {
+    let (minzoom, maxzoom) = reconciled_zoom_range(tj.minzoom, tj.maxzoom, tile_min, tile_max);
+    tj.minzoom = Some(minzoom);
+    tj.maxzoom = Some(maxzoom);
+
+    if let Some(vector_layers) = tj.vector_layers.as_mut() {
+        for layer in vector_layers {
+            let (minzoom, maxzoom) =
+                reconciled_zoom_range(layer.minzoom, layer.maxzoom, tile_min, tile_max);
+            layer.minzoom = Some(minzoom);
+            layer.maxzoom = Some(maxzoom);
+        }
     }
 }
 
@@ -559,6 +602,91 @@ mod tests {
             tile_info,
             Some(TileInfo::new(Format::Mlt, Encoding::Internal))
         );
+    }
+
+    /// flat-schema in-memory mbtiles: the given `metadata` rows plus one dummy
+    /// tile at each of `tile_zooms`.
+    fn zoom_fixture_script(metadata: &[(&str, &str)], tile_zooms: &[u8]) -> String {
+        use std::fmt::Write as _;
+
+        let mut script = String::from(
+            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);\n\
+             CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);\n",
+        );
+        for (name, value) in metadata {
+            let value = value.replace('\'', "''");
+            writeln!(script, "INSERT INTO metadata VALUES('{name}', '{value}');").unwrap();
+        }
+        for z in tile_zooms {
+            writeln!(script, "INSERT INTO tiles VALUES({z}, 0, 0, X'00');").unwrap();
+        }
+        script
+    }
+
+    #[actix_rt::test]
+    async fn metadata_zoom_clamps_overclaimed_maxzoom() {
+        // claims z14 but only ships z0-z2 -> maxzoom gets capped to 2.
+        let script = zoom_fixture_script(
+            &[
+                ("minzoom", "0"),
+                ("maxzoom", "14"),
+                (
+                    "json",
+                    r#"{"vector_layers":[{"id":"a","fields":{},"minzoom":0,"maxzoom":14}]}"#,
+                ),
+            ],
+            &[0, 1, 2],
+        );
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        assert_eq!(meta.tilejson.minzoom, Some(0));
+        assert_eq!(meta.tilejson.maxzoom, Some(2));
+        let layers = meta.tilejson.vector_layers.unwrap();
+        assert_eq!(layers[0].minzoom, Some(0));
+        assert_eq!(layers[0].maxzoom, Some(2));
+    }
+
+    #[actix_rt::test]
+    async fn metadata_zoom_expands_to_lower_tiles() {
+        // says minzoom=2 but there are tiles down at z0 -> pull minzoom down so
+        // we don't hide them.
+        let script =
+            zoom_fixture_script(&[("minzoom", "2"), ("maxzoom", "5")], &[0, 1, 2, 3, 4, 5]);
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        assert_eq!(meta.tilejson.minzoom, Some(0));
+        assert_eq!(meta.tilejson.maxzoom, Some(5));
+    }
+
+    #[actix_rt::test]
+    async fn metadata_zoom_populated_when_absent() {
+        // no zoom metadata at all -> derive it from the tiles.
+        let script = zoom_fixture_script(&[("name", "no-zoom")], &[2, 3]);
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        assert_eq!(meta.tilejson.minzoom, Some(2));
+        assert_eq!(meta.tilejson.maxzoom, Some(3));
+    }
+
+    #[actix_rt::test]
+    async fn metadata_zoom_preserves_declared_min_within_range() {
+        // declares 0-6 but ships only a z6 tile -> minzoom stays 0 (we never
+        // raise it). same shape as the zoomed_world_cities fixture.
+        let script = zoom_fixture_script(&[("minzoom", "0"), ("maxzoom", "6")], &[6]);
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        assert_eq!(meta.tilejson.minzoom, Some(0));
+        assert_eq!(meta.tilejson.maxzoom, Some(6));
+    }
+
+    #[actix_rt::test]
+    async fn metadata_zoom_untouched_without_tiles() {
+        // empty tileset -> nothing to reconcile against, leave metadata alone.
+        let script = zoom_fixture_script(&[("minzoom", "0"), ("maxzoom", "9")], &[]);
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        assert_eq!(meta.tilejson.minzoom, Some(0));
+        assert_eq!(meta.tilejson.maxzoom, Some(9));
     }
 
     #[actix_rt::test]

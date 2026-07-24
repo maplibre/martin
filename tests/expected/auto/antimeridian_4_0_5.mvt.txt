@@ -1,0 +1,14 @@
+layer: 0
+  name: antimeridian
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: RING[count=5](546 1460,546 868,1456 868,1456 1460,546 1460)[OUTER]
+    properties:
+      gid = 1 (uint)
+  feature: 1
+    id: (none)
+    geometry: RING[count=5](4160 868,4160 1460,546 1460,546 868,4160 868)[OUTER]
+    properties:
+      gid = 2 (uint)

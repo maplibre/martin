@@ -61,10 +61,7 @@ impl CacheKey for TileCacheKey {
                 crate::metrics::ZOOM_LABELS[self.xyz.z as usize],
             ])
             .inc();
-        #[expect(
-            clippy::if_same_then_else,
-            reason = "hotpath::gauge! requires a literal name argument"
-        )]
+        #[allow(clippy::if_same_then_else)]
         if hit {
             hotpath::gauge!("tile_cache_hits").inc(1.0);
         } else {

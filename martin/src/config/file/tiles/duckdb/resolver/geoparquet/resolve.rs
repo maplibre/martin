@@ -3,15 +3,14 @@ use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use tracing::debug;
 
+use super::introspect::{geoparquet_from_expr, introspect};
+use super::metadata::build_tilejson;
+use super::sql::build_mvt_sql;
 use crate::config::args::BoundsCalcType;
 use crate::config::file::CachePolicy;
 use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
 use crate::config::file::tiles::duckdb::resolver::errors::GeoparquetResult;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
-
-use super::introspect::{geoparquet_from_expr, introspect};
-use super::metadata::build_tilejson;
-use super::sql::build_mvt_sql;
 
 /// Introspects geometry metadata, resolves SRID, and builds a tile-ready `DuckDBSource`.
 pub async fn resolve_geoparquet_source(

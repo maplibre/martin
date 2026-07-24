@@ -1,0 +1,54 @@
+layer: 0
+  name: table_source
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(3356,842)
+    properties:
+      gid = 19 (uint)
+  feature: 1
+    id: (none)
+    geometry: POINT(322,2749)
+    properties:
+      gid = 20 (uint)
+  feature: 2
+    id: (none)
+    geometry: POINT(3128,2547)
+    properties:
+      gid = 21 (uint)
+  feature: 3
+    id: (none)
+    geometry: POINT(3519,4080)
+    properties:
+      gid = 22 (uint)
+  feature: 4
+    id: (none)
+    geometry: POINT(2222,1246)
+    properties:
+      gid = 23 (uint)
+  feature: 5
+    id: (none)
+    geometry: POINT(2151,1929)
+    properties:
+      gid = 24 (uint)
+  feature: 6
+    id: (none)
+    geometry: POINT(1856,3728)
+    properties:
+      gid = 25 (uint)
+  feature: 7
+    id: (none)
+    geometry: POINT(513,2164)
+    properties:
+      gid = 26 (uint)
+  feature: 8
+    id: (none)
+    geometry: POINT(662,771)
+    properties:
+      gid = 27 (uint)
+  feature: 9
+    id: (none)
+    geometry: POINT(3569,26)
+    properties:
+      gid = 28 (uint)

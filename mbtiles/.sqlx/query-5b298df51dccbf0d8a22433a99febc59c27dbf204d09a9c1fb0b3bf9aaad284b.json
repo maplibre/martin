@@ -5,16 +5,34 @@
       {
         "name": "tile_column",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "tile_column",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "tile_row",
         "ordinal": 1,
+        "origin": {
+          "Table": {
+            "name": "tile_row",
+            "table": "tiles"
+          }
+        },
         "type_info": "Integer"
       },
       {
         "name": "tile_data",
         "ordinal": 2,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "tiles"
+          }
+        },
         "type_info": "Blob"
       }
     ],

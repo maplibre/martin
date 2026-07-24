@@ -1,0 +1,154 @@
+layer: 0
+  name: points3857
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(3673,1911)
+    properties:
+      gid = 3 (uint)
+  feature: 1
+    id: (none)
+    geometry: POINT(3673,1911)
+    properties:
+      gid = 1 (uint)
+  feature: 2
+    id: (none)
+    geometry: POINT(3673,1911)
+    properties:
+      gid = 2 (uint)
+  feature: 3
+    id: (none)
+    geometry: POINT(2266,1910)
+    properties:
+      gid = 21 (uint)
+  feature: 4
+    id: (none)
+    geometry: POINT(2767,1732)
+    properties:
+      gid = 10 (uint)
+  feature: 5
+    id: (none)
+    geometry: POINT(3567,1407)
+    properties:
+      gid = 12 (uint)
+  feature: 6
+    id: (none)
+    geometry: POINT(3029,393)
+    properties:
+      gid = 25 (uint)
+  feature: 7
+    id: (none)
+    geometry: POINT(4011,186)
+    properties:
+      gid = 17 (uint)
+  feature: 8
+    id: (none)
+    geometry: POINT(2602,887)
+    properties:
+      gid = 27 (uint)
+  feature: 9
+    id: (none)
+    geometry: POINT(2375,801)
+    properties:
+      gid = 11 (uint)
+  feature: 10
+    id: (none)
+    geometry: POINT(2161,880)
+    properties:
+      gid = 24 (uint)
+  feature: 11
+    id: (none)
+    geometry: POINT(1405,99)
+    properties:
+      gid = 23 (uint)
+  feature: 12
+    id: (none)
+    geometry: POINT(1250,1115)
+    properties:
+      gid = 19 (uint)
+  feature: 13
+    id: (none)
+    geometry: POINT(648,700)
+    properties:
+      gid = 16 (uint)
+  feature: 14
+    id: (none)
+    geometry: POINT(257,1505)
+    properties:
+      gid = 6 (uint)
+  feature: 15
+    id: (none)
+    geometry: POINT(716,1924)
+    properties:
+      gid = 9 (uint)
+  feature: 16
+    id: (none)
+    geometry: POINT(886,2053)
+    properties:
+      gid = 14 (uint)
+  feature: 17
+    id: (none)
+    geometry: POINT(1384,2573)
+    properties:
+      gid = 13 (uint)
+  feature: 18
+    id: (none)
+    geometry: POINT(1653,3503)
+    properties:
+      gid = 20 (uint)
+  feature: 19
+    id: (none)
+    geometry: POINT(1345,3743)
+    properties:
+      gid = 18 (uint)
+  feature: 20
+    id: (none)
+    geometry: POINT(514,3503)
+    properties:
+      gid = 8 (uint)
+  feature: 21
+    id: (none)
+    geometry: POINT(212,2509)
+    properties:
+      gid = 26 (uint)
+  feature: 22
+    id: (none)
+    geometry: POINT(3997,2951)
+    properties:
+      gid = 29 (uint)
+  feature: 23
+    id: (none)
+    geometry: POINT(3948,3285)
+    properties:
+      gid = 22 (uint)
+  feature: 24
+    id: (none)
+    geometry: POINT(3587,3027)
+    properties:
+      gid = 4 (uint)
+  feature: 25
+    id: (none)
+    geometry: POINT(2499,3538)
+    properties:
+      gid = 28 (uint)
+  feature: 26
+    id: (none)
+    geometry: POINT(2873,2678)
+    properties:
+      gid = 5 (uint)
+  feature: 27
+    id: (none)
+    geometry: POINT(2672,2505)
+    properties:
+      gid = 30 (uint)
+  feature: 28
+    id: (none)
+    geometry: POINT(3316,2074)
+    properties:
+      gid = 15 (uint)
+  feature: 29
+    id: (none)
+    geometry: POINT(2226,2888)
+    properties:
+      gid = 7 (uint)

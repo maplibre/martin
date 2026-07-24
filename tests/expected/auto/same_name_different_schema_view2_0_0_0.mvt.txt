@@ -1,0 +1,10 @@
+layer: 0
+  name: view_name_existing_two_schemas.1
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: RING[count=5](2162 1816,2276 1551,2503 1551,2389 1934,2162 1816)[OUTER]
+    properties:
+      b_id = 1 (uint)
+      b_info = "view_polygon_1"

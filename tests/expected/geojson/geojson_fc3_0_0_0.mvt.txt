@@ -1,0 +1,19 @@
+layer: 0
+  name: feature_collection_3
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: RING[count=5](2195 1424,2230 1424,2230 1458,2195 1458,2195 1424)[OUTER]
+    properties:
+      id = 0 (int)
+  feature: 1
+    id: (none)
+    geometry: RING[count=5](910 1390,1194 1390,1194 1690,910 1690,910 1390)[OUTER]
+    properties:
+      id = 1 (int)
+  feature: 2
+    id: (none)
+    geometry: RING[count=5](1763 1390,2332 1390,2332 2707,1763 2707,1763 1390)[OUTER]
+    properties:
+      id = 3 (int)

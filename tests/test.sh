@@ -28,12 +28,12 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
-  if ! command -v ogrmerge.py > /dev/null; then
-  echo "gdal-bin is required for testing"
-  echo "See https://gdal.org/en/stable/download.html#binaries"
+if ! command -v mvt > /dev/null; then
+  echo "the 'mvt' CLI is required for testing (used to dump vector tiles)"
+  echo "Install it with one of these:"
+  echo "   cargo binstall fast-mvt"
+  echo "   cargo install fast-mvt --features=cli"
   exit 1
-  fi
 fi
 
 if sed --version > /dev/null 2>&1; then
@@ -61,7 +61,10 @@ if [[ -z "${CURL_BIN:-}" ]]; then
   echo 'On macOS, install it with: brew install curl'
   exit 1
 fi
-CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
+# --connect-timeout keeps the wait_for retry loop snappy when the server is not up yet;
+# --max-time caps a wedged response so a single hung request fails the job in minutes
+# instead of running into the 6h CI ceiling (see the maplibre-native render-deadlock).
+CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed --connect-timeout 10 --max-time 120}"
 
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
@@ -145,26 +148,19 @@ test_metrics() {
   $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
-test_pbf() {
-  FILENAME="$TEST_OUT_DIR/$1.pbf"
+test_mvt() {
+  FILENAME="$TEST_OUT_DIR/$1.mvt"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 
-  if [[ $OSTYPE == linux* ]]; then
-    ./tests/fixtures/vtzero-check "$FILENAME"
-  elif [[ $OSTYPE == darwin* ]]; then
-    ./tests/fixtures/vtzero-check-darwin "$FILENAME"
-  else
-    return 0
-  fi
-
-  # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
-  ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-  cat "$FILENAME.geojson" | cleanup_json_ints '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) |' > "$FILENAME.sorted.geojson"
-  mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
+  # Dump the vector tile into a human-readable, diffable text form. `mvt dump` parses the tile, so
+  # it also validates the protobuf (it exits non-zero on a malformed tile). Only the dump is kept
+  # under version control - the raw .mvt is a build artifact and is removed.
+  mvt dump "$FILENAME" > "$FILENAME.txt"
+  rm "$FILENAME"
 }
 
 test_png() {
@@ -488,23 +484,23 @@ test_jsn catalog_auto catalog
 
 >&2 echo "***** Test server response for table source *****"
 test_jsn table_source             table_source
-test_pbf tbl_0_0_0                table_source/0/0/0
-test_pbf tbl_6_57_29              table_source/6/57/29
-test_pbf tbl_12_3673_1911         table_source/12/3673/1911
-test_pbf tbl_13_7346_3822         table_source/13/7346/3822
-test_pbf tbl_14_14692_7645        table_source/14/14692/7645
-test_pbf tbl_17_117542_61161      table_source/17/117542/61161
-test_pbf tbl_18_235085_122323     table_source/18/235085/122323
+test_mvt tbl_0_0_0                table_source/0/0/0
+test_mvt tbl_6_57_29              table_source/6/57/29
+test_mvt tbl_12_3673_1911         table_source/12/3673/1911
+test_mvt tbl_13_7346_3822         table_source/13/7346/3822
+test_mvt tbl_14_14692_7645        table_source/14/14692/7645
+test_mvt tbl_17_117542_61161      table_source/17/117542/61161
+test_mvt tbl_18_235085_122323     table_source/18/235085/122323
 
 >&2 echo "***** Test server response for composite source *****"
 test_jsn cmp                      table_source,points1,points2
-test_pbf cmp_0_0_0                table_source,points1,points2/0/0/0
-test_pbf cmp_6_57_29              table_source,points1,points2/6/57/29
-test_pbf cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
-test_pbf cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
-test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
-test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
-test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
+test_mvt cmp_0_0_0                table_source,points1,points2/0/0/0
+test_mvt cmp_6_57_29              table_source,points1,points2/6/57/29
+test_mvt cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
+test_mvt cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
+test_mvt cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
+test_mvt cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
+test_mvt cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
 >&2 echo "***** Test header effects on tilejson *****"
 test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
@@ -535,41 +531,41 @@ test_json_with_header relative_style_urls_with_forwarded_host    style/relative_
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
-test_pbf fnc_0_0_0                function_zxy_query/0/0/0
-test_pbf fnc_6_57_29              function_zxy_query/6/57/29
-test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
-test_pbf fnc_13_7346_3822         function_zxy_query/13/7346/3822
-test_pbf fnc_14_14692_7645        function_zxy_query/14/14692/7645
-test_pbf fnc_17_117542_61161      function_zxy_query/17/117542/61161
-test_pbf fnc_18_235085_122323     function_zxy_query/18/235085/122323
+test_mvt fnc_0_0_0                function_zxy_query/0/0/0
+test_mvt fnc_6_57_29              function_zxy_query/6/57/29
+test_mvt fnc_12_3673_1911         function_zxy_query/12/3673/1911
+test_mvt fnc_13_7346_3822         function_zxy_query/13/7346/3822
+test_mvt fnc_14_14692_7645        function_zxy_query/14/14692/7645
+test_mvt fnc_17_117542_61161      function_zxy_query/17/117542/61161
+test_mvt fnc_18_235085_122323     function_zxy_query/18/235085/122323
 
 test_jsn fnc_token                function_zxy_query_test
-test_pbf fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
+test_mvt fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
 
 test_jsn fnc_b                    function_zxy_query_jsonb
-test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
+test_mvt fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
 test_jsn fnc_raster               function_zxy_raster
 test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
 
 >&2 echo "***** Test server response for different function call types *****"
-test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
-test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29
-test_pbf fnc_zxy2_6_57_29         function_zxy2/6/57/29
-test_pbf fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
-test_pbf fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
-test_pbf fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
-test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
+test_mvt fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
+test_mvt fnc_zxy_6_57_29          function_zxy/6/57/29
+test_mvt fnc_zxy2_6_57_29         function_zxy2/6/57/29
+test_mvt fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
+test_mvt fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
+test_mvt fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
+test_mvt fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 
 >&2 echo "***** Test server response for table source with different SRID *****"
 test_jsn points3857_srid          points3857
-test_pbf points3857_srid_0_0_0    points3857/0/0/0
+test_mvt points3857_srid_0_0_0    points3857/0/0/0
 
 >&2 echo "***** Test server response for PMTiles source *****"
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
-test_pbf s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
+test_mvt s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
 >&2 echo "***** Test server response for Mbtiles source *****"
 test_jsn mb_jpg       geography-class-jpg
@@ -579,7 +575,7 @@ test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_dedup_id       normalized-dedup-id
 test_jpg mb_dedup_id_0_0_0 normalized-dedup-id/0/0/0
 test_jsn mb_mvt       world_cities
-test_pbf mb_mvt_2_3_1 world_cities/2/3/1
+test_mvt mb_mvt_2_3_1 world_cities/2/3/1
 
 # TODO: enable below once unstable-cog is stable
 #>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
@@ -598,11 +594,11 @@ test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 #test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
-test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
+test_mvt points_empty_srid_0_0_0  points_empty_srid/0/0/0
 
 >&2 echo "***** Test server response for table source with antimeridian geometries *****"
-test_pbf antimeridian_4_0_4 antimeridian/4/0/4
-test_pbf antimeridian_4_0_5 antimeridian/4/0/5
+test_mvt antimeridian_4_0_4 antimeridian/4/0/4
+test_mvt antimeridian_4_0_5 antimeridian/4/0/5
 
 >&2 echo "***** Test server response for comments *****"
 test_jsn tbl_comment              MixPoints
@@ -610,21 +606,21 @@ test_jsn fnc_comment              function_Mixed_Name
 
 >&2 echo "***** Test server response for materialized view *****"
 test_jsn mv_comment               mat_view
-test_pbf mv_comment_0_0_0         mat_view/0/0/0
+test_mvt mv_comment_0_0_0         mat_view/0/0/0
 
 >&2 echo "***** Test server response for the same name in different schemas *****"
 test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
-test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
+test_mvt same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
 test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
-test_pbf same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
+test_mvt same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
 test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
-test_pbf same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
+test_mvt same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
 test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
-test_pbf same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
+test_mvt same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
 test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
-test_pbf table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
+test_mvt table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
 test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
-test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
+test_mvt table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
@@ -722,10 +718,10 @@ test_jsn catalog_cfg  catalog
 test_jsn cmp          table_source,points1,points2
 
 # Test tile sources
-test_pbf tbl_0_0_0    table_source/0/0/0
-test_pbf cmp_0_0_0    points1,points2/0/0/0
-test_pbf fnc_0_0_0    function_zxy_query/0/0/0
-test_pbf fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
+test_mvt tbl_0_0_0    table_source/0/0/0
+test_mvt cmp_0_0_0    points1,points2/0/0/0
+test_mvt fnc_0_0_0    function_zxy_query/0/0/0
+test_mvt fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
 test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
@@ -849,7 +845,6 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observabi
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
@@ -931,34 +926,34 @@ test_jsn catalog_geojson catalog
 >&2 echo "***** Test GeoJSON input forms *****"
 # FeatureCollection (.geojson)
 test_jsn geojson_fc1       feature_collection_1
-test_pbf geojson_fc1_0_0_0 feature_collection_1/0/0/0
+test_mvt geojson_fc1_0_0_0 feature_collection_1/0/0/0
 # FeatureCollection of mixed Point/LineString/Polygon
 test_jsn geojson_fc2       feature_collection_2
-test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
+test_mvt geojson_fc2_0_0_0 feature_collection_2/0/0/0
 # FeatureCollection from a .json (not .geojson) file
 test_jsn geojson_fc3       feature_collection_3
-test_pbf geojson_fc3_0_0_0 feature_collection_3/0/0/0
+test_mvt geojson_fc3_0_0_0 feature_collection_3/0/0/0
 # A single top-level Feature
 test_jsn geojson_f1        feature_1
-test_pbf geojson_f1_0_0_0  feature_1/0/0/0
+test_mvt geojson_f1_0_0_0  feature_1/0/0/0
 # A bare top-level Geometry (no Feature/FeatureCollection wrapper)
 test_jsn geojson_bare       bare_geometry
-test_pbf geojson_bare_0_0_0 bare_geometry/0/0/0
+test_mvt geojson_bare_0_0_0 bare_geometry/0/0/0
 
 >&2 echo "***** Test GeoJSON geometry types (MultiPoint, MultiLineString, MultiPolygon, GeometryCollection) *****"
 test_jsn geojson_multi       multi_geometries
-test_pbf geojson_multi_0_0_0 multi_geometries/0/0/0
+test_mvt geojson_multi_0_0_0 multi_geometries/0/0/0
 
 >&2 echo "***** Test GeoJSON property value types (string/int/uint/float/bool/array/object, null omitted) *****"
 test_jsn geojson_props       properties
-test_pbf geojson_props_0_0_0 properties/0/0/0
+test_mvt geojson_props_0_0_0 properties/0/0/0
 
 >&2 echo "***** Test GeoJSON clipping, spatial index and tile-coordinate transform at zoom > 0 *****"
-test_pbf geojson_clip_0_0_0 clip/0/0/0
-test_pbf geojson_clip_1_0_0 clip/1/0/0
-test_pbf geojson_clip_1_1_0 clip/1/1/0
-test_pbf geojson_clip_1_0_1 clip/1/0/1
-test_pbf geojson_clip_1_1_1 clip/1/1/1
+test_mvt geojson_clip_0_0_0 clip/0/0/0
+test_mvt geojson_clip_1_0_0 clip/1/0/0
+test_mvt geojson_clip_1_1_0 clip/1/1/0
+test_mvt geojson_clip_1_0_1 clip/1/0/1
+test_mvt geojson_clip_1_1_1 clip/1/1/1
 
 >&2 echo "***** Test GeoJSON empty tile returns 204 No Content *****"
 EMPTY_TILE_CODE=$($CURL --output /dev/null --write-out '%{http_code}' "$MARTIN_URL/feature_1/1/0/1")
@@ -1118,6 +1113,35 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
   $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
 
+  # Cache schema
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
+    --mbtiles-type cache \
+    2>&1 | tee "$TEST_OUT_DIR/cache_copy_to.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_summary.txt"
+  $MBTILES_BIN validate "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_validate.txt"
+
+  $MBTILES_BIN copy \
+    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
+    --mbtiles-type flat \
+    2>&1 | tee "$TEST_OUT_DIR/cache_copy_from.txt"
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --diff-with-file "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_diff.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_summary.txt"
+
+  $MBTILES_BIN cache-purge "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_purge.txt"
+  # Purging a regular (non-cache) tileset must fail
+  if $MBTILES_BIN cache-purge ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/cache_purge_bad.txt"; then
+    echo "ERROR: cache-purge on a non-cache file should have failed"
+    exit 1
+  fi
+
   # Create diff file
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
@@ -1219,7 +1243,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   # so the work happens in a temp dir rather than $TEST_OUT_DIR.
   PU_DIR="$(mktemp -d "$TEST_TEMP_DIR/pack_unpack.XXXXXX")"
 
-  >&2 echo "Test pack/unpack: PBF tile tree round-trips through gzip compression"
+  >&2 echo "Test pack/unpack: MVT tile tree round-trips through gzip compression"
   $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_xyz"
   # unpack names files with the metadata format extension and the xyz scheme by default
   if [[ ! -f "$PU_DIR/wc_xyz/0/0/0.pbf" ]]; then

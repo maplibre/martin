@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(feature = "_tiles")]
+use std::collections::HashMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem;
@@ -18,7 +20,9 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-use crate::config::file::{ConfigFileError, ConfigFileResult};
+use crate::config::file::{
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
@@ -29,28 +33,21 @@ use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
+pub use martin_config_macros::ConfigurationLivecycleHooks;
+
 /// Lifecycle hooks for configuring the application
 ///
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
-/// 2. `get_unrecognized_keys`
-pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
+/// 2. [`CollectUnrecognizedKeys::get_unrecognized_keys`]
+pub trait ConfigurationLivecycleHooks:
+    CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send
+{
     /// Finalize configuration discovery and patch old values
     ///
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
-    fn finalize(&mut self) -> ConfigFileResult<()> {
-        Ok(())
-    }
-
-    /// Iterates over all unrecognized (present, but not expected) keys in the configuration
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
-
-    /// Returns all results of the [`Self::get_unrecognized_keys`], but with a given prefix
-    fn get_unrecognized_keys_with_prefix(&self, prefix: &str) -> UnrecognizedKeys {
-        self.get_unrecognized_keys()
-            .into_iter()
-            .map(|key| format!("{prefix}{key}"))
-            .collect()
+    fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
+        async { Ok(()) }
     }
 }
 
@@ -87,7 +84,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigEnum<T> {
@@ -239,25 +236,17 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigEnum<T> {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
-            cfg.finalize()
+            cfg.finalize().await
         } else {
             Ok(())
-        }
-    }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        if let Self::Config(cfg) = self {
-            cfg.get_unrecognized_keys()
-        } else {
-            UnrecognizedKeys::new()
         }
     }
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
@@ -278,38 +267,13 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
-        self.custom.finalize()
-    }
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
-        let mut keys = self.custom.get_unrecognized_keys();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        if let Some(sources) = &self.sources {
-            use crate::config::primitives::AutoOption;
-            for (id, src) in sources {
-                if let FileConfigSrc::Obj(obj) = src {
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mlt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mlt.{k}")),
-                        );
-                    }
-                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mvt.as_ref() {
-                        keys.extend(
-                            cfg.unrecognized_keys()
-                                .map(|k| format!("sources.{id}.convert_to_mvt.{k}")),
-                        );
-                    }
-                }
-            }
-        }
-        keys
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
+        self.custom.finalize().await
     }
 }
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigSrc {
@@ -398,7 +362,7 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
@@ -1138,7 +1102,6 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
     }
 }
 
-pub type UnrecognizedValues = HashMap<String, serde_json::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 
 pub fn copy_unrecognized_keys_from_config(
@@ -1158,16 +1121,19 @@ mod deserialize_tests {
 
     /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
-    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+    #[derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        PartialEq,
+        Serialize,
+        CollectUnrecognizedKeys,
+        ConfigurationLivecycleHooks,
+    )]
     struct TestCustom {
         #[serde(default)]
         flag: bool,
-    }
-
-    impl ConfigurationLivecycleHooks for TestCustom {
-        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-            UnrecognizedKeys::new()
-        }
     }
 
     // Failure-path tests run through the full `parse_config` pipeline using realistic
@@ -1260,8 +1226,8 @@ mod deserialize_tests {
            ╭─[config.yaml:3:7]
          2 │   paths:
          3 │     - { not_a_path: true }
-           ·       ─┬
-           ·        ╰── unexpected event: expected string scalar
+           ·       ┬
+           ·       ╰── unexpected event: expected string scalar
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1552,14 +1518,10 @@ mod folder_source_tests {
     /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
     const BAD_PREFIX: &str = "bad_";
 
-    #[derive(Clone, Debug, Default, PartialEq)]
+    #[derive(
+        Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
+    )]
     struct FakeConfig;
-
-    impl ConfigurationLivecycleHooks for FakeConfig {
-        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-            UnrecognizedKeys::new()
-        }
-    }
 
     impl TileSourceConfiguration for FakeConfig {
         fn parse_urls() -> bool {

@@ -1,0 +1,19 @@
+layer: 0
+  name: MixedCase.function_Mixed_Name
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(1614,3539)
+    properties:
+      Gid = 1 (uint)
+  feature: 1
+    id: (none)
+    geometry: POINT(1613,3539)
+    properties:
+      Gid = 3 (uint)
+  feature: 2
+    id: (none)
+    geometry: POINT(1614,3540)
+    properties:
+      Gid = 2 (uint)

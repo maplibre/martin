@@ -1,0 +1,72 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "zoom",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "zoom_level",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Integer"
+      },
+      {
+        "name": "count",
+        "ordinal": 1,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "smallest",
+        "ordinal": 2,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "largest",
+        "ordinal": 3,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "average",
+        "ordinal": 4,
+        "origin": "Expression",
+        "type_info": "Float"
+      },
+      {
+        "name": "min_tile_x",
+        "ordinal": 5,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "min_tile_y",
+        "ordinal": 6,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "max_tile_x",
+        "ordinal": 7,
+        "origin": "Expression",
+        "type_info": "Integer"
+      },
+      {
+        "name": "max_tile_y",
+        "ordinal": 8,
+        "origin": "Expression",
+        "type_info": "Integer"
+      }
+    ],
+    "nullable": [true, false, true, true, true, true, true, true, true],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "0e8de7a941dbf9de7c5cbc0794b4598d6f209a1dcc560cc0b4e4f8c11351ebc1",
+  "query": "\n    SELECT zoom_level             AS zoom,\n           count()                AS count,\n           min(length(tile_data)) AS smallest,\n           max(length(tile_data)) AS largest,\n           cast(avg(length(tile_data)) AS REAL) AS average,\n           min(tile_column)       AS min_tile_x,\n           min(tile_row)          AS min_tile_y,\n           max(tile_column)       AS max_tile_x,\n           max(tile_row)          AS max_tile_y\n    FROM tiles\n    GROUP BY zoom_level"
+}

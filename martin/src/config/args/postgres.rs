@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use tracing::{info, warn};
 
 use super::bounds::BoundsCalcType;
@@ -23,7 +25,7 @@ pub struct PostgresArgs {
     #[arg(short, long)]
     pub default_srid: Option<i32>,
     #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
-    pub pool_size: Option<usize>,
+    pub pool_size: Option<NonZeroUsize>,
     /// Limit the number of geo features per tile.
     ///
     /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.

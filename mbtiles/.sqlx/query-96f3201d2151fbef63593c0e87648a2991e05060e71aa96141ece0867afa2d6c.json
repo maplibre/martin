@@ -5,11 +5,13 @@
       {
         "name": "min_zoom",
         "ordinal": 0,
+        "origin": "Expression",
         "type_info": "Integer"
       },
       {
         "name": "max_zoom",
         "ordinal": 1,
+        "origin": "Expression",
         "type_info": "Integer"
       }
     ],

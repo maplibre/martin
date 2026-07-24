@@ -5,6 +5,12 @@
       {
         "name": "tile_data",
         "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "tiles"
+          }
+        },
         "type_info": "Blob"
       }
     ],

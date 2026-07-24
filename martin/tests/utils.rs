@@ -7,7 +7,7 @@ use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
-use martin::config::file::{Config, ServerState, parse_config};
+use martin::config::file::{CollectUnrecognizedKeys as _, Config, ServerState, parse_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::{Env as _, FauxEnv};
@@ -16,7 +16,7 @@ use martin_core::tiles::BoxedSource;
 use tracing::warn;
 
 #[must_use]
-pub fn mock_cfg(yaml: &str) -> Config {
+pub async fn mock_cfg(yaml: &str) -> Config {
     let env: FauxEnv = if let Ok(db_url) = env::var("DATABASE_URL") {
         vec![("DATABASE_URL", db_url.into())].into_iter().collect()
     } else {
@@ -25,7 +25,8 @@ pub fn mock_cfg(yaml: &str) -> Config {
     };
     let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
         .expect("source can be parsed as yaml");
-    let res = cfg.finalize().expect("source can be finalized");
+    cfg.finalize().await.expect("source can be finalized");
+    let res = cfg.get_unrecognized_keys();
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
 }
@@ -74,11 +75,12 @@ pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
 
 #[cfg(feature = "test-pg")]
 #[must_use]
-pub fn mock_pgcfg(yaml: &str) -> Config {
+pub async fn mock_pgcfg(yaml: &str) -> Config {
     mock_cfg(&indoc::formatdoc! {"
         postgres:
           {}
     ", yaml.replace('\n', "\n  ")})
+    .await
 }
 
 #[cfg(feature = "test-pg")]
