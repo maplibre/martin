@@ -239,10 +239,12 @@ build-deb output: fetch (cargo-install 'cargo-deb')
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
+# -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
+# Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-musl target: fetch
     rustup target add {{target}}
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
 
 # Move build artifacts to target_releases directory
