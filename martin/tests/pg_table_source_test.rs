@@ -8,7 +8,7 @@ pub use utils::*;
 
 #[actix_rt::test]
 async fn table_source() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     insta::with_settings!({sort_maps => true}, {
     assert_yaml_snapshot!(mock.0.tile_manager.tile_sources().get_catalog(), @r#"
     "-function.withweired---_-characters":
@@ -168,7 +168,7 @@ async fn table_source() {
 
 #[actix_rt::test]
 async fn tables_tilejson() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "table_source");
     assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
@@ -190,7 +190,7 @@ async fn tables_tilejson() {
 
 #[actix_rt::test]
 async fn tables_tile_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let tile = source(&mock, "table_source")
         .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
         .await
@@ -201,10 +201,13 @@ async fn tables_tile_ok() {
 
 #[actix_rt::test]
 async fn tables_srid_ok() {
-    let mock = mock_sources(mock_pgcfg(indoc! {"
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
         connection_string: $DATABASE_URL
         default_srid: 900913
-    "}))
+    "})
+        .await,
+    )
     .await;
 
     let source = table(&mock, "points1");
@@ -222,7 +225,7 @@ async fn tables_srid_ok() {
 
 #[actix_rt::test]
 async fn tables_multiple_geom_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
 
     let source = table(&mock, "table_source_multiple_geom");
     assert_eq!(source.geometry_column, "geom1");
@@ -239,7 +242,8 @@ async fn table_source_schemas() {
           tables:
             from_schemas: MixedCase
           functions: false
-    "});
+    "})
+    .await;
     let sources = mock_sources(cfg).await.0;
     assert_yaml_snapshot!(sources.tile_manager.tile_sources().get_catalog(), @r"
     MixPoints:
@@ -250,7 +254,7 @@ async fn table_source_schemas() {
 
 #[actix_rt::test]
 async fn table_bounds_linestring_horizontal_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "linestring_bounds");
     assert_yaml_snapshot!(source, @"
     schema: public
@@ -270,7 +274,7 @@ async fn table_bounds_linestring_horizontal_ok() {
 
 #[actix_rt::test]
 async fn table_bounds_linestring_vertical_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "linestring_bounds_vertical");
     assert_yaml_snapshot!(source, @"
     schema: public
@@ -290,7 +294,7 @@ async fn table_bounds_linestring_vertical_ok() {
 
 #[actix_rt::test]
 async fn table_bounds_single_point_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "point_bounds");
     assert_yaml_snapshot!(source, @r"
     schema: public
@@ -310,7 +314,7 @@ async fn table_bounds_single_point_ok() {
 
 #[actix_rt::test]
 async fn table_bounds_empty_table_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "empty_bounds");
     assert_yaml_snapshot!(source, @r"
     schema: public

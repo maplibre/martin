@@ -9,7 +9,7 @@ pub use utils::*;
 
 #[actix_rt::test]
 async fn function_source_tilejson() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "function_zxy_query");
     assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
@@ -22,7 +22,7 @@ async fn function_source_tilejson() {
 
 #[actix_rt::test]
 async fn function_source_tile() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "function_zxy_query");
     let tile = src
         .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
@@ -46,7 +46,8 @@ async fn function_source_schemas() {
           tables: false
           functions:
             from_schemas: MixedCase
-    "});
+    "})
+    .await;
     let sources = mock_sources(cfg).await.0.tile_manager.tile_sources();
     assert_yaml_snapshot!(sources.get_catalog(), @r"
     function_Mixed_Name:
@@ -57,7 +58,7 @@ async fn function_source_schemas() {
 
 #[actix_rt::test]
 async fn function_source_raster_content_type() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "function_zxy_raster");
     // The content_type from the SQL comment should set the tile info to PNG
     let tile_info = src.get_tile_info();

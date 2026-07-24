@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -8,16 +9,22 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
-    UnrecognizedValues,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::primitives::AutoOption;
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
     /// MVT->MLT encoder settings for all `MBTiles` sources.
@@ -35,29 +42,6 @@ pub struct MbtConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigurationLivecycleHooks for MbtConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
-        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-        keys
-    }
 }
 
 impl TileSourceConfiguration for MbtConfig {
@@ -91,14 +75,16 @@ mod tests {
     use indoc::indoc;
     use martin_core::CacheZoomRange;
 
+    use crate::config::file::CollectUnrecognizedKeys as _;
+
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
         CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
         FileConfigSrc,
     };
 
-    #[test]
-    fn parse() {
+    #[tokio::test]
+    async fn parse() {
         let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
@@ -118,7 +104,7 @@ mod tests {
                     maxzoom: 6
         "})
         .unwrap();
-        cfg.finalize().unwrap();
+        cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
         assert!(
             unrecognised.is_empty(),

@@ -22,6 +22,18 @@ use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
 #[cfg(any(
+    feature = "postgres",
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "passthrough",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "sprites",
+    feature = "styles",
+    feature = "fonts"
+))]
+use crate::config::file::ConfigurationLivecycleHooks;
+#[cfg(any(
     feature = "pmtiles",
     feature = "sprites",
     feature = "fonts",
@@ -34,8 +46,6 @@ use crate::config::file::FileConfigSrc;
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "postgres", feature = "mlt"))]
-use crate::config::file::process::resolve_process_config;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -43,40 +53,15 @@ use crate::config::file::process::resolve_process_config;
     feature = "geojson"
 ))]
 use crate::config::file::resolve_files;
-use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
-    copy_unrecognized_keys_from_config,
-};
+use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
-#[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut res = self.srv.get_unrecognized_keys();
-        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
-
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            use crate::config::primitives::AutoOption;
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                res.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-
+    pub async fn finalize(&mut self) -> MartinResult<()> {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -90,16 +75,8 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        {
-            let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres."
-            } else {
-                "postgres[]."
-            };
-            for pg in self.postgres.iter_mut() {
-                pg.finalize()?;
-                res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
-            }
+        for pg in self.postgres.iter_mut() {
+            pg.finalize().await?;
         }
 
         #[cfg(feature = "pmtiles")]
@@ -109,53 +86,39 @@ impl Config {
             //
             // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
-            self.pmtiles.finalize()?;
-            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+            self.pmtiles.finalize().await?;
         }
 
         #[cfg(feature = "mbtiles")]
-        {
-            self.mbtiles.finalize()?;
-            res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
-        }
+        self.mbtiles.finalize().await?;
+
+        #[cfg(feature = "passthrough")]
+        self.passthrough.finalize().await?;
 
         #[cfg(feature = "unstable-cog")]
-        {
-            self.cog.finalize()?;
-            res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
-        }
+        self.cog.finalize().await?;
 
         #[cfg(feature = "geojson")]
-        {
-            self.geojson.finalize()?;
-            res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
-        }
+        self.geojson.finalize().await?;
 
         #[cfg(feature = "sprites")]
-        {
-            self.sprites.finalize()?;
-            res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
-        }
+        self.sprites.finalize().await?;
 
         #[cfg(feature = "styles")]
-        {
-            self.styles.finalize()?;
-            res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
+        self.styles.finalize().await?;
+
+        #[cfg(feature = "fonts")]
+        self.fonts.finalize().await?;
+
+        if self.has_no_sources() {
+            Err(ConfigFileError::NoSources.into())
+        } else {
+            Ok(())
         }
+    }
 
-        // TODO: support for unrecognized fonts?
-        // #[cfg(feature = "fonts")]
-        // {
-        //     self.fonts.finalize()?;
-        //     res.extend(self.fonts.get_unrecognized_keys_with_prefix("fonts."));
-        // }
-
-        for key in &res {
-            warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
-            );
-        }
-
+    /// Returns `true` when no source of any enabled kind has been configured.
+    fn has_no_sources(&self) -> bool {
         let is_empty = true;
 
         #[cfg(feature = "postgres")]
@@ -166,6 +129,9 @@ impl Config {
 
         #[cfg(feature = "mbtiles")]
         let is_empty = is_empty && self.mbtiles.is_empty();
+
+        #[cfg(feature = "passthrough")]
+        let is_empty = is_empty && self.passthrough.is_empty();
 
         #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
@@ -182,10 +148,17 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty {
-            Err(ConfigFileError::NoSources.into())
-        } else {
-            Ok(res)
+        is_empty
+    }
+
+    /// Warn about configuration keys that were not recognized while parsing the config file.
+    ///
+    /// Call after [`Config::finalize`], which consumes and migrates the keys it recognizes.
+    pub fn warn_unrecognized_keys(&self) {
+        for key in &self.get_unrecognized_keys() {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
         }
     }
 
@@ -371,6 +344,7 @@ impl Config {
             feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
+            feature = "passthrough",
             feature = "unstable-cog",
             feature = "geojson"
         )),
@@ -389,6 +363,7 @@ impl Config {
                 feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
+                feature = "passthrough",
                 feature = "unstable-cog",
                 feature = "geojson"
             )),
@@ -427,6 +402,12 @@ impl Config {
             sources_and_warnings.push(Box::pin(val));
         }
 
+        #[cfg(feature = "passthrough")]
+        if !self.passthrough.is_empty() {
+            let val = self.passthrough.resolve(idr, self.cache.policy());
+            sources_and_warnings.push(Box::pin(val));
+        }
+
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
@@ -461,7 +442,12 @@ impl Config {
 
         #[cfg(all(
             feature = "mlt",
-            any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")
+            any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "passthrough"
+            )
         ))]
         {
             let global = ProcessConfig {
@@ -476,28 +462,24 @@ impl Config {
                     convert_to_mvt: pg.convert_to_mvt.clone(),
                 };
                 if let Some(tables) = &pg.tables {
-                    for (id, info) in tables {
-                        let per_source = ProcessConfig {
+                    Self::insert_source_configs(&mut map, &global, &source_type, tables, |info| {
+                        ProcessConfig {
                             convert_to_mlt: info.convert_to_mlt.clone(),
                             convert_to_mvt: info.convert_to_mvt.clone(),
-                        };
-                        map.insert(
-                            id.clone(),
-                            resolve_process_config(&global, &source_type, &per_source),
-                        );
-                    }
+                        }
+                    });
                 }
                 if let Some(functions) = &pg.functions {
-                    for (id, info) in functions {
-                        let per_source = ProcessConfig {
+                    Self::insert_source_configs(
+                        &mut map,
+                        &global,
+                        &source_type,
+                        functions,
+                        |info| ProcessConfig {
                             convert_to_mlt: info.convert_to_mlt.clone(),
                             convert_to_mvt: info.convert_to_mvt.clone(),
-                        };
-                        map.insert(
-                            id.clone(),
-                            resolve_process_config(&global, &source_type, &per_source),
-                        );
-                    }
+                        },
+                    );
                 }
             }
 
@@ -512,6 +494,25 @@ impl Config {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
             });
+
+            #[cfg(feature = "passthrough")]
+            if let Some(sources) = &self.passthrough.sources {
+                use crate::config::file::passthrough::PassthroughSrc;
+
+                let source_type = ProcessConfig {
+                    convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
+                    convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
+                };
+                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
+                    match src {
+                        PassthroughSrc::Detailed(obj) => ProcessConfig {
+                            convert_to_mlt: obj.convert_to_mlt.clone(),
+                            convert_to_mvt: obj.convert_to_mvt.clone(),
+                        },
+                        PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
+                    }
+                });
+            }
         }
 
         // COG sources produce raster tiles (TIFF), not vector tiles (MVT),
@@ -519,6 +520,34 @@ impl Config {
         // They fall through to the global default, which is a no-op for raster formats.
 
         map
+    }
+
+    /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
+    /// per-source settings over the source-type and global defaults.
+    #[cfg(all(
+        feature = "mlt",
+        any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "passthrough"
+        )
+    ))]
+    fn insert_source_configs<'a, S: 'a>(
+        map: &mut HashMap<String, ProcessConfig>,
+        global: &ProcessConfig,
+        source_type: &ProcessConfig,
+        sources: impl IntoIterator<Item = (&'a String, &'a S)>,
+        get_per_source_pc: impl Fn(&S) -> ProcessConfig,
+    ) {
+        use crate::config::file::process::resolve_process_config;
+
+        for (id, src) in sources {
+            map.insert(
+                id.clone(),
+                resolve_process_config(global, source_type, &get_per_source_pc(src)),
+            );
+        }
     }
 
     /// Helper to resolve process configs for file-based source types (pmtiles, mbtiles).
@@ -529,24 +558,16 @@ impl Config {
         file_cfg: &FileConfigEnum<T>,
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
     ) {
-        use crate::config::file::process::resolve_process_config;
-
         if let FileConfigEnum::Config(cfg) = file_cfg {
             let source_type = get_source_type_pc(&cfg.custom);
             if let Some(sources) = &cfg.sources {
-                for (id, src) in sources {
-                    let per_source = match src {
-                        FileConfigSrc::Obj(obj) => ProcessConfig {
-                            convert_to_mlt: obj.convert_to_mlt.clone(),
-                            convert_to_mvt: obj.convert_to_mvt.clone(),
-                        },
-                        FileConfigSrc::Path(_) => ProcessConfig::default(),
-                    };
-                    map.insert(
-                        id.clone(),
-                        resolve_process_config(global, &source_type, &per_source),
-                    );
-                }
+                Self::insert_source_configs(map, global, &source_type, sources, |src| match src {
+                    FileConfigSrc::Obj(obj) => ProcessConfig {
+                        convert_to_mlt: obj.convert_to_mlt.clone(),
+                        convert_to_mvt: obj.convert_to_mvt.clone(),
+                    },
+                    FileConfigSrc::Path(_) => ProcessConfig::default(),
+                });
             }
         }
     }
@@ -581,10 +602,10 @@ impl Config {
 mod tests {
     use crate::config::test_helpers::render_finalize_failure;
 
-    #[test]
-    fn finalize_no_sources() {
+    #[tokio::test]
+    async fn finalize_no_sources() {
         insta::assert_snapshot!(
-            render_finalize_failure("keep_alive: 75\n"),
+            render_finalize_failure("keep_alive: 75\n").await,
             @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
         );
     }

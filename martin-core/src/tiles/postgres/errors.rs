@@ -81,8 +81,11 @@ pub enum PostgresError {
     BadPostgisVersion(#[source] semver::Error, String),
 
     /// Cannot parse `PostgreSQL` version.
-    #[error("Unable to parse PostgreSQL version {1}: {0}")]
-    BadPostgresVersion(#[source] semver::Error, String),
+    #[error("Unable to parse PostgreSQL version {version_num}")]
+    BadPostgresVersion {
+        /// The `server_version_num` setting reported by the server.
+        version_num: i32,
+    },
 
     /// `PostGIS` version too old.
     #[error("PostGIS version {current} is too old, minimum required is {minimum}")]

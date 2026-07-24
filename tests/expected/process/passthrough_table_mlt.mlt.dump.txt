@@ -1,0 +1,74 @@
+=== Layer 0 ===
+Tag01(
+    Layer01 {
+        name: "table_source",
+        extent: Extent(
+            4096,
+        ),
+        id: None,
+        geometry: Raw(
+            RawGeometry {
+                meta: RawStream {
+                    meta: StreamMeta {
+                        stream_type: Length(VarBinary),
+                        encoding: IntEncoding { logical: None, physical: VarInt },
+                        num_values: 28,
+                    },
+                    data: [0x00020001010000000000000000000000010101040104020503030502; 28],
+                },
+                items: [
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Geometries),
+                            encoding: IntEncoding { logical: Delta, physical: VarInt },
+                            num_values: 6,
+                        },
+                        data: [0x040000040003; 6],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Parts),
+                            encoding: IntEncoding { logical: Delta, physical: VarInt },
+                            num_values: 7,
+                        },
+                        data: [0x04010000020102; 7],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Rings),
+                            encoding: IntEncoding { logical: None, physical: VarInt },
+                            num_values: 20,
+                        },
+                        data: [0x4F04021F03022704160203040404030503030403; 20],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Data(Vertex),
+                            encoding: IntEncoding { logical: ComponentwiseDelta, physical: FastPFor256 },
+                            num_values: 490,
+                        },
+                        data: [0x00000100000000199210A59200921121C12812400181141214014018201401440120124192092012050450445105005090480500048048048825805882982A82284282E00599ED761209D6E0202602A08620428224024044C128024041411801000001AB0000000000000021000C1E03140602016E3C2315A0979689A4A3A2A1A8A7A6A5AFAEADACECEBEAB7000000ED000001000000001E0813F5FA00404020080202018040100802020100402008080201008060100802000003F980AE94076783458015852A8334865F82AD959687828C80AD8288808282828084828480848282828482828284848C8C84888282828482828482808482848088828280968284808481828084818283888184818481828184838483828182838281ADADAD81C3AE808084C480808C828280848182808481828082818080808788808080828180818281808082838081828580818187C4D9AE856480C4DB63816B812A84118181638085816482168163817C8345816C8164816B834684117E8163806B8345856C852A81F284378138F1816345816B841C841183861B8086128164806C8162846781648115852983128164826C8162846781648107834583048438815E825583F18345826483678080810081816281722D8161F51C8346858216F2816383318037871A81F2816B84834684118253810E816281080000817C; 504],
+                    },
+                ],
+            },
+        ),
+        properties: [
+            Raw(
+                U32(
+                    RawScalar {
+                        name: "gid",
+                        presence: AllPresent,
+                        data: RawStream {
+                            meta: StreamMeta {
+                                stream_type: Data(None),
+                                encoding: IntEncoding { logical: Delta, physical: VarInt },
+                                num_values: 28,
+                            },
+                            data: [0x041E1F041A060202020202020202022D020316060705070A05020609; 28],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)

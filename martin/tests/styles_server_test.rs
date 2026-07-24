@@ -12,7 +12,7 @@ pub use utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let state = mock_sources(mock_cfg($sources)).await.0;
+        let state = mock_sources(mock_cfg($sources).await).await.0;
         let app = ::actix_web::App::new()
             .app_data(::actix_web::web::Data::new(
                 ::martin::srv::Catalog::new(

@@ -254,7 +254,7 @@ impl PassthroughSource {
             });
         }
 
-        let etag = header_str(response.headers(), &ETAG);
+        let etag = header_str(response.headers(), &ETAG).and_then(|raw| usable_strong_etag(&raw));
         let content_type = header_str(response.headers(), &CONTENT_TYPE);
         let content_encoding = header_str(response.headers(), &CONTENT_ENCODING);
         let data = response.bytes().await?.to_vec();
@@ -429,6 +429,21 @@ fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
         .map(ToString::to_string)
 }
 
+/// Strip an upstream strong `ETag`'s wire quotes so it can be served verbatim.
+///
+/// Weak tags (`W/"abc"`) keep their `W/` prefix, which fails the RFC 9110 `etag` grammar check
+/// below (`%x21 / %x23-7E / obs-text` excludes `"`), so those and other malformed values fall
+/// back to hashing instead.
+fn usable_strong_etag(raw: &str) -> Option<String> {
+    let tag = raw
+        .strip_prefix('"')
+        .and_then(|t| t.strip_suffix('"'))
+        .unwrap_or(raw);
+    tag.bytes()
+        .all(|b| b == 0x21 || (0x23..=0x7e).contains(&b) || b >= 0x80)
+        .then(|| tag.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -468,5 +483,12 @@ mod tests {
             err,
             PassthroughError::InvalidHeaderValue { name, .. } if name == "x-key"
         ));
+    }
+
+    #[test]
+    fn usable_strong_etag_unquotes_strong_tags_and_drops_weak() {
+        assert_eq!(usable_strong_etag("abc"), Some("abc".to_string()));
+        assert_eq!(usable_strong_etag("\"abc\""), Some("abc".to_string()));
+        assert_eq!(usable_strong_etag("W/\"abc\""), None);
     }
 }

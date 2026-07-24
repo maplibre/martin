@@ -204,7 +204,8 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         #[cfg(feature = "postgres")]
         &env,
     )?;
-    config.finalize()?;
+    config.finalize().await?;
+    config.warn_unrecognized_keys();
 
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
@@ -650,6 +651,7 @@ async fn init_schema(
                     hash_view: true,
                     schema: mbtiles::NormalizedSchema::Hash,
                 },
+                MbtTypeCli::Cache => MbtType::Cache,
             };
             init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await

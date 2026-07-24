@@ -1,9 +1,9 @@
-use fast_mvt::{MvtFeatureBuilder, MvtValue};
 use geo::{BoundingRect as _, MapCoords as _};
 use geo_index::rtree::sort::HilbertSort;
 use geo_index::rtree::{RTree, RTreeBuilder};
 use geojson::{GeoJson, JsonValue};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
+use mlt_core::fast_mvt::{MvtFeatureBuilder, MvtValue};
 use serde_json::Map;
 
 use crate::tiles::geojson::error::GeoJsonError;

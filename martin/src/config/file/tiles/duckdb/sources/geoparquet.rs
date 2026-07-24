@@ -1,13 +1,14 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::file::UnrecognizedValues;
 use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
-use crate::config::file::{ConfigurationLivecycleHooks, UnrecognizedKeys, UnrecognizedValues};
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoParquetEntry {
     /// Local path or remote URL of the GeoParquet source.
@@ -56,12 +57,6 @@ impl GeoParquetEntry {
             // Treat non-positive values as "unset" so SRID falls back to auto-detection.
             self.srid = None;
         }
-    }
-}
-
-impl ConfigurationLivecycleHooks for GeoParquetEntry {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
     }
 }
 

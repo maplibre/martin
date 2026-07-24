@@ -42,7 +42,7 @@ just bless
 
 ## Key Rules
 
-- **CI warnings = errors**: `RUSTFLAGS='-D warnings'` in CI. ALL warnings must be fixed.
+- **CI warnings = errors**: set env var `CARGO_BUILD_WARNINGS=deny`. ALL warnings must be fixed.
 - **Clippy pedantic** enabled workspace-wide. Avoid `unwrap`/`panic` in non-test code; prefer `expect` with a clear message or proper error handling. `unwrap`/`panic` may be acceptable in tests/examples when appropriate.
 - **Integration tests**: compare output against `tests/expected/`. `just bless-int` to update.
 - **Frontend-only changes** `martin-ui/` use `npm run dev` to view changes

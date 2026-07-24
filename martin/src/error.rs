@@ -7,6 +7,8 @@ use martin_core::tiles::cog::CogError;
 use martin_core::tiles::geojson::GeoJsonError;
 #[cfg(feature = "mbtiles")]
 use martin_core::tiles::mbtiles::MbtilesError;
+#[cfg(feature = "passthrough")]
+use martin_core::tiles::passthrough::PassthroughError;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtilesError;
 #[cfg(feature = "postgres")]
@@ -66,6 +68,10 @@ pub enum MartinError {
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
     MbtilesError(#[from] MbtilesError),
+
+    #[cfg(feature = "passthrough")]
+    #[error(transparent)]
+    PassthroughError(#[from] PassthroughError),
 
     #[cfg(feature = "unstable-cog")]
     #[error(transparent)]

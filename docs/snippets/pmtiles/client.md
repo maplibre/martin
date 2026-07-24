@@ -13,6 +13,7 @@
 | `user_agent`                  | User-Agent header to be used by this client                                                                        | `martin 1.0.0` |
 | `randomize_addresses`         | Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers. | `true`         |
 | `connect_timeout`             | Timeout for only the connect phase of a Client                                                                     | `5s`           |
+| `read_timeout`                | Timeout for each read operation, reset after every successful read.<br>Useful for detecting stalled connections when the response size is unknown.<br>Disabled by default; timeout errors are retried | `30s`          |
 | `timeout`                     | The timeout is applied from when the request starts connecting until the response body has finished                | `10s`          |
 | `pool_idle_timeout`           | The pool max idle timeout                                                                                          | `5m`           |
 | `pool_max_idle_per_host`      | maximum number of idle connections per host                                                                        | `10`           |

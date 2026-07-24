@@ -30,16 +30,16 @@ default = [
     "geojson",
 ]
 geojson = [
-    "dep:geojson",
-    "dep:geo-index",
-    "dep:fast-mvt",
-    "dep:geo-types",
+    "_tiles",
     "dep:geo",
+    "dep:geo-index",
+    "dep:geo-types",
+    "dep:geojson",
+    "dep:mlt-core",
     "dep:rayon",
     "dep:serde_json",
     "dep:tokio",
     "tokio/fs",
-    "_tiles",
 ]
 metrics = ["dep:prometheus"]
 postgres = [
@@ -110,7 +110,6 @@ deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
 duckdb = { workspace = true, optional = true }
-fast-mvt = { workspace = true, optional = true }
 flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
@@ -121,6 +120,7 @@ hotpath.workspace = true
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
@@ -159,7 +159,6 @@ backon.workspace = true
 bytes.workspace = true
 criterion = { workspace = true }
 env_logger.workspace = true
-fast-mvt.workspace = true
 futures.workspace = true
 image.workspace = true
 image-compare.workspace = true

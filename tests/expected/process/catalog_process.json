@@ -6,6 +6,9 @@
   "sprites": {},
   "styles": {},
   "tiles": {
+    "passthrough_table": {
+      "content_type": "application/x-protobuf"
+    },
     "points1": {
       "content_type": "application/x-protobuf",
       "description": "public.points1.geom"

@@ -845,7 +845,6 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observabi
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
@@ -878,6 +877,8 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--config tests/config-process.yaml --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
 export DATABASE_URL="$MARTIN_DATABASE_URL"
+# Exported so the passthrough upstream URL in config-process.yaml can self-proxy this server.
+export MARTIN_PORT
 set -x
 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=$(jobs -p | tail -n 1)
@@ -889,6 +890,12 @@ unset DATABASE_URL
 >&2 echo "***** Test MLT postprocessing *****"
 # table_source has process.mlt=auto - should convert MVT to MLT
 test_mlt proc_mlt_table_source           table_source/0/0/0
+
+>&2 echo "***** Test passthrough source *****"
+# passthrough_table self-proxies table_source: default Accept returns the proxied MVT verbatim
+test_mvt passthrough_table               passthrough_table/0/0/0
+# with an MLT Accept header the proxied MVT is converted to MLT (global convert_to_mlt=auto)
+test_mlt passthrough_table_mlt           passthrough_table/0/0/0
 
 >&2 echo "***** Test save_config includes process blocks *****"
 test_jsn catalog_process catalog
@@ -1105,6 +1112,35 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
   $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
   $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
+
+  # Cache schema
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
+    --mbtiles-type cache \
+    2>&1 | tee "$TEST_OUT_DIR/cache_copy_to.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_summary.txt"
+  $MBTILES_BIN validate "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_validate.txt"
+
+  $MBTILES_BIN copy \
+    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
+    --mbtiles-type flat \
+    2>&1 | tee "$TEST_OUT_DIR/cache_copy_from.txt"
+  $MBTILES_BIN copy \
+    ./tests/fixtures/mbtiles/world_cities.mbtiles \
+    --diff-with-file "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
+    "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_diff.txt"
+  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
+    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_summary.txt"
+
+  $MBTILES_BIN cache-purge "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_purge.txt"
+  # Purging a regular (non-cache) tileset must fail
+  if $MBTILES_BIN cache-purge ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/cache_purge_bad.txt"; then
+    echo "ERROR: cache-purge on a non-cache file should have failed"
+    exit 1
+  fi
 
   # Create diff file
   $MBTILES_BIN copy \

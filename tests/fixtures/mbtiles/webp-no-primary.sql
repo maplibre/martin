@@ -12,7 +12,7 @@ INSERT INTO metadata VALUES
 ('center','0,0,0'),
 ('minzoom','0'),
 ('maxzoom','0');
-CREATE TABLE IF NOT EXISTS "tiles"(
+CREATE TABLE "tiles"(
     zoom_level int,
     tile_column int,
     tile_row int,

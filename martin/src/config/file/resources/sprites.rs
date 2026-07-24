@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 
 use martin_core::sprites::SpriteSources;
@@ -6,7 +7,7 @@ use tracing::warn;
 
 use crate::config::file::{
     CacheSizeConfig, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
-    UnrecognizedKeys, UnrecognizedValues,
+    UnrecognizedValues,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
@@ -46,7 +47,16 @@ impl SpriteConfig {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerSpriteConfig {
     /// Cache configuration for sprites.
@@ -61,10 +71,4 @@ pub struct InnerSpriteConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigurationLivecycleHooks for InnerSpriteConfig {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
 }

@@ -38,6 +38,15 @@ pub enum ConfigFileError {
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
+    #[cfg(feature = "passthrough")]
+    #[error(
+        "Passthrough source {source_id} has an unknown tile format {tile_format:?}; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif"
+    )]
+    InvalidPassthroughFormat {
+        source_id: String,
+        tile_format: String,
+    },
+
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
 
@@ -225,6 +234,8 @@ impl Diagnostic for ConfigFileError {
             Self::InvalidSourceUrl(..) => "martin::config::invalid_source_url",
             Self::PathNotConvertibleToUrl(_) => "martin::config::path_not_url",
             Self::InvalidSourceFilePath(..) => "martin::config::invalid_source_file_path",
+            #[cfg(feature = "passthrough")]
+            Self::InvalidPassthroughFormat { .. } => "martin::config::passthrough::invalid_format",
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",

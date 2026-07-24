@@ -146,7 +146,7 @@ impl Mbtiles {
            count()                AS count,
            min(length(tile_data)) AS smallest,
            max(length(tile_data)) AS largest,
-           avg(length(tile_data)) AS average,
+           cast(avg(length(tile_data)) AS REAL) AS average,
            min(tile_column)       AS min_tile_x,
            min(tile_row)          AS min_tile_y,
            max(tile_column)       AS max_tile_x,

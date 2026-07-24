@@ -86,7 +86,7 @@ async fn pg_startup_catalog_is_static_without_reloader() {
             from_schemas: public
     "};
 
-    let mut config = utils::mock_cfg(&yaml);
+    let mut config = utils::mock_cfg(&yaml).await;
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
 

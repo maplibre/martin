@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -25,6 +26,8 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
+#[cfg(feature = "passthrough")]
+use crate::config::file::passthrough::PassthroughConfig;
 #[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
@@ -75,7 +78,7 @@ pub struct ServerState {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
     /// Cache configuration
@@ -125,6 +128,12 @@ pub struct Config {
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
+
+    /// Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+    /// Each upstream is configured under `sources`.
+    #[cfg(feature = "passthrough")]
+    #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
+    pub passthrough: PassthroughConfig,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
@@ -292,24 +301,24 @@ mod tests {
         parse_base_path("foo/bar").unwrap_err();
     }
 
-    #[test]
-    fn finalize_base_path_must_start_with_slash() {
+    #[tokio::test]
+    async fn finalize_base_path_must_start_with_slash() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc::indoc! {"
                 pmtiles: /tmp
                 base_path: not-a-path
-            "}),
+            "}).await,
             @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'not-a-path'"
         );
     }
 
-    #[test]
-    fn finalize_route_prefix_must_start_with_slash() {
+    #[tokio::test]
+    async fn finalize_route_prefix_must_start_with_slash() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc::indoc! {"
                 pmtiles: /tmp
                 route_prefix: oops
-            "}),
+            "}).await,
             @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'oops'"
         );
     }

@@ -11,7 +11,7 @@ pub use utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{
-        let cfg = mock_cfg($sources);
+        let cfg = mock_cfg($sources).await;
         let state = mock_sources(cfg.clone()).await.0;
         let srv_config = cfg.srv;
         let cors_middleware = srv_config

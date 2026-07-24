@@ -27,7 +27,7 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
   - [MBTiles](https://github.com/mapbox/mbtiles-spec) files
   - [GeoJSON](https://geojson.org/) files
 - [Combine](sources-composite.md) multiple tile sources into one
-- Serve [styles](sources-styles.md) and generate [sprites](sources-sprites.md) and [font glyphs](sources-fonts.md) on the fly
+- Serve [styles](sources-styles/index.md) and generate [sprites](sources-sprites.md) and [font glyphs](sources-fonts.md) on the fly
 - Generate tiles in bulk into an MBTiles archive with [martin-cp](martin-cp.md)
 - Examine, copy, validate, compare, and apply diffs between MBTiles files with [mbtiles](tools.md#mbtiles)
 

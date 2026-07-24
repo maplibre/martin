@@ -1,0 +1,24 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "sql",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "sql",
+            "table": "sqlite_master"
+          }
+        },
+        "type_info": "Text"
+      }
+    ],
+    "nullable": [true],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "f89ff275050a89869db12dfe7579fca1a743870926607180a558277e70f43196",
+  "query": "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?"
+}

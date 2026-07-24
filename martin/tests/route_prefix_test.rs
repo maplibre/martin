@@ -12,7 +12,7 @@ pub use utils::*;
 
 macro_rules! create_app_with_prefix {
     ($sources:expr, $srv_config:expr) => {{
-        let state = mock_sources(mock_cfg($sources)).await.0;
+        let state = mock_sources(mock_cfg($sources).await).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(

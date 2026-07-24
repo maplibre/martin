@@ -30,6 +30,17 @@ docker run \
   /files
 ```
 
+You can also pass any [CLI flags](run-with-cli.md) after the image name, for example `--webui enable-for-all` to serve the built-in web UI (disabled by default):
+
+```bash
+docker run \
+  -p 3000:3000 \
+  -v /path/to/local/files:/files \
+  ghcr.io/maplibre/martin:1.12.0 \
+  --webui enable-for-all \
+  /files
+```
+
 ### Accessing Local PostgreSQL on Linux
 
 If you are running PostgreSQL instance on `localhost`, you have to change network settings to allow the Docker container

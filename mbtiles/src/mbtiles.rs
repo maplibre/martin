@@ -27,6 +27,7 @@ pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     Normalized,
+    Cache,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -471,8 +472,10 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let y = invert_y_value(z, y);
-        let query = query! {"SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?", z, x, y};
+        let query = query! {
+            "SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?",
+            z, x, invert_y_value(z, y),
+        };
         let row = query.fetch_optional(conn).await?;
         if let Some(row) = row
             && let Some(tile_data) = row.tile_data
@@ -584,6 +587,9 @@ impl Mbtiles {
             } => {
                 "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
+            MbtType::Cache => {
+                "SELECT tile_data, NULL AS tile_hash from tile_cache where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+            }
         }
     }
 
@@ -634,11 +640,10 @@ impl Mbtiles {
         }
         let sql1 = tx.prepare(to_sql_str(sql1)).await?;
         for (z, x, y, tile_data) in batch {
-            let y = invert_y_value(*z, *y);
             sql1.query()
                 .bind(z)
                 .bind(x)
-                .bind(y)
+                .bind(invert_y_value(*z, *y))
                 .bind(tile_data.as_ref())
                 .execute(&mut *tx)
                 .await?;
@@ -665,6 +670,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { schema, .. } => schema.map_table(),
+            MbtType::Cache => "tile_cache",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -711,6 +717,15 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO images (tile_id, tile_data)
     VALUES (md5_hex(?1), ?1);"
                 )),
+            ),
+            // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
+            MbtType::Cache => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_data)
+    VALUES (?1, ?2, ?3, ?4);"
+                ),
+                None,
             ),
         }
     }

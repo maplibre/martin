@@ -14,7 +14,7 @@ use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, SqliteExecu
 use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
 use crate::{MbtError, MbtResult, MbtType, Mbtiles};
 
@@ -212,7 +212,8 @@ impl BinDiffDiffer {
 impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
         let diff_tiles: String = match self.dif_type {
-            Flat => "diffDb.tiles".to_string(),
+            // A Cache diff file is read via its `tiles` view, like Flat
+            Flat | Cache => "diffDb.tiles".to_string(),
             FlatWithHash
             | Normalized {
                 schema: _,
@@ -437,7 +438,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             match self.dst_type {
                 Flat =>"INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
-                v @ Normalized { .. } => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
+                v @ (Normalized { .. } | Cache) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
         .bind(value.coord.z)
         .bind(value.coord.x)

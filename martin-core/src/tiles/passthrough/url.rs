@@ -10,12 +10,12 @@ use xxhash_rust::xxh3::Xxh3;
 
 use crate::tiles::passthrough::PassthroughError;
 
-/// A validated `{z}/{x}/{y}` tile-URL template, guaranteed to contain all three placeholders.
+/// A validated `{z}/{x}/{y}` tile-URL template, guaranteed to contain at least one placeholder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UrlTemplate(String);
 
 impl UrlTemplate {
-    /// Wrap a raw template string, rejecting one that is missing any of `{z}`, `{x}` or `{y}`.
+    /// Wrap a raw template string, rejecting one that contains none of `{z}`, `{x}` or `{y}`.
     pub fn new(url: String) -> Result<Self, PassthroughError> {
         if is_template(&url) {
             Ok(Self(url))
@@ -31,9 +31,9 @@ impl UrlTemplate {
     }
 }
 
-/// Returns `true` if `url` contains all of the `{z}`, `{x}` and `{y}` placeholders.
+/// Returns `true` if `url` contains any of the `{z}`, `{x}` or `{y}` placeholders.
 pub(crate) fn is_template(url: &str) -> bool {
-    url.contains("{z}") && url.contains("{x}") && url.contains("{y}")
+    url.contains("{z}") || url.contains("{x}") || url.contains("{y}")
 }
 
 /// Substitute the `{z}`, `{x}` and `{y}` placeholders in a template with concrete coordinates.
@@ -99,8 +99,8 @@ mod tests {
 
     #[rstest]
     #[case::full("https://e.com/{z}/{x}/{y}.pbf", true)]
-    #[case::missing_y("https://e.com/{z}/{x}.pbf", false)]
-    #[case::tilejson("https://e.com/tiles.json", false)]
+    #[case::partial("https://e.com/{z}/{x}.pbf", true)]
+    #[case::no_placeholders("https://e.com/tiles.json", false)]
     fn url_template_validates_placeholders(#[case] url: &str, #[case] ok: bool) {
         let parsed = UrlTemplate::new(url.to_string());
         assert_eq!(parsed.is_ok(), ok);

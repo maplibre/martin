@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Add as _;
 use std::time::Duration;
@@ -15,12 +16,10 @@ use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
-    TileSourceWarning, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
@@ -43,7 +42,7 @@ pub trait PostgresInfo {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresSslCerts {
     /// Same as `PGSSLCERT` for `psql`
@@ -62,7 +61,7 @@ pub struct PostgresSslCerts {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
     /// Database connection string.
@@ -186,7 +185,16 @@ impl Default for PostgresConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
@@ -207,35 +215,17 @@ pub struct PostgresCfgPublish {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for PostgresCfgPublish {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-        match &self.functions {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("functions.{k}")),
-            ),
-        }
-        match &self.tables {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("tables.{k}")),
-            ),
-        }
-        keys
-    }
-}
-
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
@@ -274,14 +264,17 @@ pub struct PostgresCfgPublishTables {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
-
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
@@ -300,12 +293,6 @@ pub struct PostgresCfgPublishFuncs {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
 }
 
 impl PostgresConfig {
@@ -395,7 +382,7 @@ impl PostgresConfig {
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {
-    fn finalize(&mut self) -> ConfigFileResult<()> {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
         }
@@ -405,68 +392,6 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
         }
 
         Ok(())
-    }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-
-        if let Some(ref ts) = self.tables {
-            for (k, v) in ts {
-                copy_unrecognized_keys_from_config(
-                    &mut keys,
-                    &format!("tables.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-        if let Some(ref fs) = self.functions {
-            for (k, v) in fs {
-                copy_unrecognized_keys_from_config(
-                    &mut keys,
-                    &format!("functions.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-
-        keys.extend(
-            self.ssl_certificates
-                .unrecognized
-                .keys()
-                .map(|k| format!("ssl_certificates.{k}")),
-        );
-
-        match &self.auto_publish {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("auto_publish.{k}"))
-                    .collect::<UnrecognizedKeys>(),
-            ),
-        }
-
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        {
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mlt.{k}")),
-                );
-            }
-            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
-                keys.extend(
-                    cfg.unrecognized_keys()
-                        .map(|k| format!("convert_to_mvt.{k}")),
-                );
-            }
-        }
-
-        keys
     }
 }
 
@@ -502,20 +427,21 @@ mod tests {
         parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
     }
 
-    pub fn assert_config(yaml: &str, expected: &Config) {
+    pub async fn assert_config(yaml: &str, expected: &Config) {
         let mut config = parse_cfg(yaml);
-        let res = config.finalize().unwrap();
+        config.finalize().await.unwrap();
+        let res = config.get_unrecognized_keys();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
     }
 
-    #[test]
-    fn finalize_postgres_missing_connection_string() {
+    #[tokio::test]
+    async fn finalize_postgres_missing_connection_string() {
         insta::assert_snapshot!(
             render_finalize_failure(indoc! {"
                 postgres:
                   pool_size: 5
-            "}),
+            "}).await,
             @"A postgres connection string must be provided"
         );
     }
@@ -549,8 +475,8 @@ mod tests {
         assert_eq!(cfg.reload_interval, Duration::ZERO);
     }
 
-    #[test]
-    fn parse_pg_one() {
+    #[tokio::test]
+    async fn parse_pg_one() {
         assert_config(
             indoc! {"
             postgres:
@@ -564,11 +490,12 @@ mod tests {
                 }),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
-    #[test]
-    fn parse_pg_two() {
+    #[tokio::test]
+    async fn parse_pg_two() {
         assert_config(
             indoc! {"
             postgres:
@@ -594,11 +521,12 @@ mod tests {
                 ]),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
-    #[test]
-    fn parse_pg_config() {
+    #[tokio::test]
+    async fn parse_pg_config() {
         assert_config(
             indoc! {"
             postgres:
@@ -673,7 +601,8 @@ mod tests {
                 }),
                 ..Default::default()
             },
-        );
+        )
+        .await;
     }
 
     #[test]

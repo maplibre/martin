@@ -1,3 +1,4 @@
+use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt;
 
 use actix_http::Method;
@@ -7,12 +8,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
 };
 use crate::{MartinError, MartinResult};
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum CorsConfig {
@@ -58,7 +58,16 @@ impl Default for CorsConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
     /// Sets the `Access-Control-Allow-Origin` header \[default: *\]
@@ -91,12 +100,6 @@ impl Default for CorsProperties {
             max_age: None,
             unrecognized: UnrecognizedValues::default(),
         }
-    }
-}
-
-impl ConfigurationLivecycleHooks for CorsProperties {
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
     }
 }
 

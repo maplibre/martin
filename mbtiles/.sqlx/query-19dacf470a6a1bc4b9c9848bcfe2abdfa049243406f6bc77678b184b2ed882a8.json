@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "19dacf470a6a1bc4b9c9848bcfe2abdfa049243406f6bc77678b184b2ed882a8",
+  "query": "DELETE FROM tile_cache WHERE (zoom_level, tile_column, tile_row) IN\n                     (SELECT zoom_level, tile_column, tile_row FROM tile_cache\n                      ORDER BY expires IS NULL, expires LIMIT ?1)"
+}

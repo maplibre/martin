@@ -105,6 +105,7 @@ default = [
     "lambda",
     "mbtiles",
     "metrics",
+    "passthrough",
     "pmtiles",
     "postgres",
     "rendering",
@@ -121,7 +122,15 @@ fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
-pmtiles = ["martin-core/pmtiles", "dep:object_store", "dep:xxhash-rust", "_tiles"]
+passthrough = ["martin-core/passthrough", "_tiles"]
+pmtiles = [
+    "martin-core/pmtiles",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+    "dep:xxhash-rust",
+    "_tiles",
+]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -131,7 +140,7 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles"]
+geojson = ["martin-core/geojson", "_tiles", "mlt"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -146,6 +155,7 @@ unstable-schemas = [
     "mbtiles",
     "metrics",
     "mlt",
+    "passthrough",
     "pmtiles",
     "postgres",
     "sprites",
@@ -174,6 +184,8 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
+aws-config = { workspace = true, optional = true }
+aws-credential-types = { workspace = true, optional = true }
 clap.workspace = true
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
@@ -189,6 +201,7 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
+martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -232,6 +245,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
 image-compare.workspace = true
@@ -243,6 +257,7 @@ test_each_file.workspace = true
 testcontainers-modules.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tracing-test.workspace = true
+wiremock.workspace = true
 
 [lints]
 workspace = true

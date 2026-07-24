@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [],
+    "nullable": [],
+    "parameters": {
+      "Right": 1
+    }
+  },
+  "hash": "03e1f7e5f6e87322d15ed1528445acacf09f7d29f2fddd0732c9b51e2e1972d7",
+  "query": "DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1"
+}

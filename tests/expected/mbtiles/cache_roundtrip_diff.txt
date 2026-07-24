@@ -1,0 +1,2 @@
+ INFO Comparing ./tests/fixtures/mbtiles/world_cities.mbtiles (flat) and tests/mbtiles_temp_files/world_cities_from_cache.mbtiles (flat) into a new file tests/mbtiles_temp_files/world_cities_cache_rt_diff.mbtiles (flat)
+ INFO Adding a new metadata value agg_tiles_hash mbtiles.file=tests/mbtiles_temp_files/world_cities_cache_rt_diff.mbtiles agg_tiles_hash=D41D8CD98F00B204E9800998ECF8427E
