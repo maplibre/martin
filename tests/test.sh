@@ -893,7 +893,7 @@ test_mlt proc_mlt_table_source           table_source/0/0/0
 
 >&2 echo "***** Test passthrough source *****"
 # passthrough_table self-proxies table_source: default Accept returns the proxied MVT verbatim
-test_pbf passthrough_table               passthrough_table/0/0/0
+test_mvt passthrough_table               passthrough_table/0/0/0
 # with an MLT Accept header the proxied MVT is converted to MLT (global convert_to_mlt=auto)
 test_mlt passthrough_table_mlt           passthrough_table/0/0/0
 
