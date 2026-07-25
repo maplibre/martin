@@ -24,7 +24,8 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
 
 [dev-dependencies]
-insta = { workspace = true, features = ["json"] }
+insta = { workspace = true, features = ["filters", "json"] }
+pbf_font_tools.workspace = true
 rstest.workspace = true
 
 [lints]
