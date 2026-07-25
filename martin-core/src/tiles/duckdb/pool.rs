@@ -169,7 +169,7 @@ impl DuckDBPoolManager {
 
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
         // File-backed pools are opened read-only. In-memory GeoParquet pools cannot use
-        // AccessMode::ReadOnly — DuckDB rejects "in-memory database in read-only mode".
+        // AccessMode::ReadOnly - DuckDB rejects "in-memory database in read-only mode".
         let config = match &self.target {
             DuckDBPoolTarget::DatabaseFile { .. } => Config::default()
                 .access_mode(AccessMode::ReadOnly)
