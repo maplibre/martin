@@ -66,8 +66,8 @@ async fn auto_configured_minimal() {
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(martin.redact(&saved), @r"
-    listen_addresses: localhost:[PORT]
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
     pmtiles:
       paths: tests/fixtures/pmtiles2
       sources:

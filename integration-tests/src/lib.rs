@@ -7,7 +7,6 @@
 use std::env;
 use std::ffi::OsString;
 use std::io::{self, Read as _};
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
@@ -25,7 +24,6 @@ use tokio::time::{sleep, timeout};
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
-const PORT_RETRIES: usize = 5;
 
 const ALLOWED_LOG_LINES: &[&str] = &[
     "Margin parameter in ST_TileEnvelope is not supported",
@@ -69,14 +67,6 @@ fn martin_command() -> Command {
     Command::new(bin)
 }
 
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .expect("failed to bind an ephemeral port")
-        .local_addr()
-        .expect("failed to read the bound address")
-        .port()
-}
-
 /// Why [`MartinBuilder::start`] failed.
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
@@ -84,8 +74,8 @@ pub enum StartError {
     Spawn(#[source] io::Error),
     #[error("martin exited during startup with {status}; log:\n{log}")]
     EarlyExit { status: ExitStatus, log: String },
-    #[error("martin did not become ready at {url} within {}s; log:\n{log}", READY_TIMEOUT.as_secs())]
-    ReadyTimeout { url: String, log: String },
+    #[error("martin did not become ready within {}s; log:\n{log}", READY_TIMEOUT.as_secs())]
+    ReadyTimeout { log: String },
 }
 
 /// Builder for a [`Martin`] subprocess.
@@ -112,23 +102,9 @@ impl MartinBuilder {
 
     /// Spawn martin and wait until it responds over HTTP.
     ///
-    /// Picking a port and martin binding it are not atomic; when another
-    /// process wins the race in between, martin fails to bind and the start
-    /// is retried on a different port.
+    /// Martin binds port 0, letting the OS assign a free port; the harness
+    /// reads the resolved address back from martin's startup log line.
     pub async fn start(self) -> Result<Martin, StartError> {
-        let mut attempt = 0;
-        loop {
-            attempt += 1;
-            match self.try_start().await {
-                Err(StartError::EarlyExit { log, .. })
-                    if attempt < PORT_RETRIES && log.contains("Unable to bind to") => {}
-                result => return result,
-            }
-        }
-    }
-
-    async fn try_start(&self) -> Result<Martin, StartError> {
-        let port = free_port();
         let mut cmd = martin_command();
         cmd.current_dir(workspace_root())
             // The environment `tests/test.sh` runs under (via the justfile).
@@ -138,7 +114,7 @@ impl MartinBuilder {
             .env("AWS_SKIP_CREDENTIALS", "1")
             .env("AWS_REGION", "eu-central-1")
             .arg("--listen-addresses")
-            .arg(format!("localhost:{port}"))
+            .arg("127.0.0.1:0")
             .args(&self.args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -165,7 +141,7 @@ impl MartinBuilder {
 
         let mut martin = Martin {
             child,
-            port,
+            addr: String::new(),
             client,
             log,
             readers,
@@ -192,7 +168,9 @@ fn spawn_log_reader(
 #[derive(Debug)]
 pub struct Martin {
     child: Child,
-    port: u16,
+    /// The resolved `host:port` martin listens on, parsed from its startup
+    /// log line; set by `wait_ready` before `start` returns.
+    addr: String,
     client: Client,
     log: Arc<Mutex<Vec<String>>>,
     readers: Vec<JoinHandle<()>>,
@@ -206,52 +184,72 @@ impl Martin {
         MartinBuilder::default()
     }
 
-    /// The ephemeral port this instance listens on.
+    /// The resolved `host:port` this instance listens on.
     #[must_use]
-    pub fn port(&self) -> u16 {
-        self.port
+    pub fn addr(&self) -> &str {
+        &self.addr
     }
 
-    /// Replace this instance's `localhost:<port>` with a stable placeholder
-    /// so the value can be snapshotted.
+    /// Replace this instance's `host:port` with a stable placeholder so the
+    /// value can be snapshotted.
     #[must_use]
     pub fn redact(&self, text: &str) -> String {
-        text.replace(&format!("localhost:{}", self.port), "localhost:[PORT]")
+        text.replace(&self.addr, "[ADDR]")
     }
 
-    /// Ready means any HTTP response, whatever its status: martin only binds
-    /// its socket once all sources are configured, so a response proves
-    /// startup finished. This stays correct when `--route-prefix` (as an
-    /// argument or through a config file) moves the endpoints around.
+    /// Ready means the startup log announced the listen address (martin only
+    /// binds its socket once all sources are configured) and any HTTP
+    /// response arrived on it, whatever its status. This stays correct when
+    /// `--route-prefix` (as an argument or through a config file) moves the
+    /// endpoints around.
     async fn wait_ready(&mut self) -> Result<(), StartError> {
-        let url = format!("http://localhost:{}/health", self.port);
+        let announced =
+            Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
         let deadline = Instant::now() + READY_TIMEOUT;
         loop {
-            if self.client.get(&url).send().await.is_ok() {
-                return Ok(());
+            let addr = self
+                .log
+                .lock()
+                .expect("log lock poisoned")
+                .iter()
+                .find_map(|line| Some(announced.captures(line)?.get(1)?.as_str().to_owned()));
+            if let Some(addr) = addr {
+                self.addr = addr;
+                break;
             }
-            if let Some(status) = self.child.try_wait().expect("failed to poll martin") {
-                self.drain_readers().await;
-                return Err(StartError::EarlyExit {
-                    status,
-                    log: self.raw_log(),
-                });
-            }
-            if Instant::now() >= deadline {
-                return Err(StartError::ReadyTimeout {
-                    url,
-                    log: self.raw_log(),
-                });
-            }
-            sleep(READY_POLL_INTERVAL).await;
+            self.poll_startup(deadline).await?;
         }
+        let url = format!("http://{}/health", self.addr);
+        while self.client.get(&url).send().await.is_err() {
+            self.poll_startup(deadline).await?;
+        }
+        Ok(())
+    }
+
+    /// One startup poll step: fail if martin exited or `deadline` passed,
+    /// otherwise sleep one poll interval.
+    async fn poll_startup(&mut self, deadline: Instant) -> Result<(), StartError> {
+        if let Some(status) = self.child.try_wait().expect("failed to poll martin") {
+            self.drain_readers().await;
+            return Err(StartError::EarlyExit {
+                status,
+                log: self.raw_log(),
+            });
+        }
+        if Instant::now() >= deadline {
+            return Err(StartError::ReadyTimeout {
+                log: self.raw_log(),
+            });
+        }
+        sleep(READY_POLL_INTERVAL).await;
+        Ok(())
     }
 
     /// Perform a GET request, advertising `Accept-Encoding: br, gzip` like the
     /// curl invocation in `tests/test.sh`; the body is transparently
     /// decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
-        let url = format!("http://localhost:{}{path}", self.port);
+        let url = format!("http://{}{path}", self.addr);
         let response = self
             .client
             .get(&url)
@@ -475,6 +473,32 @@ mod tests {
     fn decompress_passes_through_unencoded_bodies() {
         assert_eq!(decompress(b"plain", None), b"plain");
         assert_eq!(decompress(b"plain", Some("identity")), b"plain");
+    }
+
+    #[test]
+    fn start_errors_explain_themselves() {
+        let spawn = StartError::Spawn(io::Error::new(io::ErrorKind::NotFound, "no such file"));
+        assert_eq!(spawn.to_string(), "failed to spawn martin: no such file");
+
+        let early_exit = StartError::EarlyExit {
+            status: ExitStatus::default(),
+            log: "some log".to_owned(),
+        };
+        assert!(
+            early_exit
+                .to_string()
+                .starts_with("martin exited during startup with "),
+            "unexpected message: {early_exit}"
+        );
+        assert!(early_exit.to_string().ends_with("; log:\nsome log"));
+
+        let timeout = StartError::ReadyTimeout {
+            log: "some log".to_owned(),
+        };
+        assert_eq!(
+            timeout.to_string(),
+            "martin did not become ready within 60s; log:\nsome log"
+        );
     }
 
     #[test]
