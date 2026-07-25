@@ -1,21 +1,34 @@
-//! Tests for the harness's own failure reporting - the part a contributor
-//! depends on when their martin subprocess misbehaves.
+//! Tests for the harness's own failure reporting.
 
-use martin_integration_tests::Martin;
+#![allow(clippy::panic, reason = "tests fail by panicking")]
 
-/// A martin that exits during startup (unknown CLI flag) must be reported
-/// with the captured log instead of hanging until the readiness timeout.
-#[test]
-#[should_panic(expected = "martin exited during startup")]
-fn startup_failure_reports_exit_and_log() {
-    let _martin = Martin::builder().arg("--no-such-flag").start();
+use martin_integration_tests::{Martin, StartError};
+
+#[tokio::test]
+async fn startup_failure_reports_exit_and_log() {
+    let error = Martin::builder()
+        .arg("--no-such-flag")
+        .start()
+        .await
+        .expect_err("martin must fail to start with an unknown flag");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("unexpected argument '--no-such-flag'"),
+        "log must contain the CLI error; log:\n{log}"
+    );
 }
 
-/// A missing expected log line must fail the test, not pass silently.
-#[test]
+#[tokio::test]
 #[should_panic(expected = "log does not contain")]
-fn missing_log_line_fails() {
-    let mut martin = Martin::builder().arg("tests/fixtures/pmtiles2").start();
-    martin.stop();
+async fn missing_log_line_fails() {
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
+    martin.stop().await;
     martin.assert_log_contains("this text never appears in martin's log");
 }

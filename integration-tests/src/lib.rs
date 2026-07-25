@@ -1,9 +1,6 @@
 //! Test harness that runs the `martin` binary as a subprocess and lets tests
-//! assert on its HTTP responses and log output.
-//!
-//! The harness deliberately uses no internal martin APIs: it exercises the
-//! same compiled binary and HTTP surface that users see. Each [`Martin`]
-//! instance picks a free port, so tests can run in parallel.
+//! assert on its HTTP responses and log output. Each [`Martin`] instance runs
+//! on its own port, so tests can run in parallel.
 
 #![allow(
     clippy::panic,
@@ -12,42 +9,39 @@
 
 use std::env;
 use std::ffi::OsString;
-use std::io::{BufRead as _, BufReader, Read};
+use std::io::{self, Read as _};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use regex::Regex;
-use reqwest::blocking::Client;
+use reqwest::Client;
+use tokio::io::{AsyncBufReadExt as _, AsyncRead, BufReader};
+use tokio::process::{Child, Command};
+use tokio::task::JoinHandle;
+use tokio::time::{sleep, timeout};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+const PORT_RETRIES: usize = 5;
 
 /// Log lines which are known to be acceptable in any test.
-///
-/// Mirrors `validate_log` in `tests/test.sh`.
 const ALLOWED_LOG_LINES: &[&str] = &[
     "Margin parameter in ST_TileEnvelope is not supported",
     "PostgreSQL is older than the recommended minimum 12.0.0",
     "In the used version, some geometry may be hidden on some zoom levels.",
     "Unable to deserialize SQL comment on public.points2 as tilejson",
-    "Environment variable AWS_PROFILE not supported anymore",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
 ];
 
-/// The workspace root, i.e. the parent directory of this crate.
-///
-/// Martin subprocesses run with this as their working directory so that
-/// relative fixture paths (`tests/fixtures/...`) behave exactly like they do
-/// in `tests/test.sh`, and so that paths in logs and `--save-config` output
-/// are stable.
+/// The workspace root. Martin subprocesses run with this as their working
+/// directory, so relative fixture paths and the paths in logs are stable.
 #[must_use]
 pub fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -56,10 +50,8 @@ pub fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Resolve the martin binary the same way `tests/test.sh` does:
 /// `MARTIN_BIN` may hold a program plus leading arguments (e.g. a
-/// `docker run ...` invocation) and is split on whitespace; otherwise the
-/// debug binary from the workspace target directory is used.
+/// `docker run ...` invocation); without it, the debug binary is used.
 fn martin_command() -> Command {
     if let Ok(bin) = env::var("MARTIN_BIN") {
         let mut parts = bin.split_whitespace();
@@ -89,12 +81,22 @@ fn free_port() -> u16 {
         .port()
 }
 
+/// Why [`MartinBuilder::start`] failed.
+#[derive(Debug, thiserror::Error)]
+pub enum StartError {
+    #[error("failed to spawn martin: {0}")]
+    Spawn(#[source] io::Error),
+    #[error("martin exited during startup with {status}; log:\n{log}")]
+    EarlyExit { status: ExitStatus, log: String },
+    #[error("martin did not become ready at {url} within {}s; log:\n{log}", READY_TIMEOUT.as_secs())]
+    ReadyTimeout { url: String, log: String },
+}
+
 /// Builder for a [`Martin`] subprocess.
 #[derive(Debug, Default)]
 pub struct MartinBuilder {
     args: Vec<OsString>,
     envs: Vec<(String, String)>,
-    readiness_path: Option<String>,
 }
 
 impl MartinBuilder {
@@ -112,28 +114,28 @@ impl MartinBuilder {
         self
     }
 
-    /// Path polled until it responds with a success status (default `/health`).
-    /// Needed when `--route-prefix` moves the health endpoint.
-    #[must_use]
-    pub fn readiness_path(mut self, path: &str) -> Self {
-        self.readiness_path = Some(path.to_owned());
-        self
+    /// Spawn martin and wait until it responds over HTTP.
+    ///
+    /// Picking a port and martin binding it are not atomic; when another
+    /// process wins the race in between, martin fails to bind and the start
+    /// is retried on a different port.
+    pub async fn start(self) -> Result<Martin, StartError> {
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            match self.try_start().await {
+                Err(StartError::EarlyExit { log, .. })
+                    if attempt < PORT_RETRIES && log.contains("Unable to bind to") => {}
+                result => return result,
+            }
+        }
     }
 
-    /// Spawn martin and wait until it is ready to serve requests.
-    ///
-    /// # Panics
-    /// Panics if the process cannot be spawned, exits early, or does not
-    /// become ready within the timeout. The captured log is included in the
-    /// panic message.
-    #[must_use]
-    pub fn start(self) -> Martin {
+    async fn try_start(&self) -> Result<Martin, StartError> {
         let port = free_port();
         let mut cmd = martin_command();
         cmd.current_dir(workspace_root())
-            // The same environment `tests/test.sh` runs under (via the justfile),
-            // set explicitly so the tests behave identically with plain `cargo test`
-            // and regardless of what the developer's shell exports.
+            // The environment `tests/test.sh` runs under (via the justfile).
             .env_remove("DATABASE_URL")
             .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
@@ -144,18 +146,20 @@ impl MartinBuilder {
             .args(&self.args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
         for (key, value) in &self.envs {
             cmd.env(key, value);
         }
 
-        let mut child = cmd.spawn().expect("failed to spawn martin");
+        let mut child = cmd.spawn().map_err(StartError::Spawn)?;
         let log = Arc::new(Mutex::new(Vec::new()));
-        let mut readers = Vec::new();
         let stdout = child.stdout.take().expect("stdout must be piped");
-        readers.push(spawn_log_reader(Box::new(stdout), Arc::clone(&log)));
         let stderr = child.stderr.take().expect("stderr must be piped");
-        readers.push(spawn_log_reader(Box::new(stderr), Arc::clone(&log)));
+        let readers = vec![
+            spawn_log_reader(stdout, Arc::clone(&log)),
+            spawn_log_reader(stderr, Arc::clone(&log)),
+        ];
 
         let client = Client::builder()
             .timeout(Duration::from_mins(2))
@@ -171,21 +175,25 @@ impl MartinBuilder {
             readers,
             log_lines: None,
         };
-        let readiness_path = self.readiness_path.as_deref().unwrap_or("/health");
-        martin.wait_ready(readiness_path);
-        martin
+        martin.wait_ready().await?;
+        Ok(martin)
     }
 }
 
-fn spawn_log_reader(pipe: Box<dyn Read + Send>, log: Arc<Mutex<Vec<String>>>) -> JoinHandle<()> {
-    thread::spawn(move || {
-        for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+fn spawn_log_reader(
+    pipe: impl AsyncRead + Unpin + Send + 'static,
+    log: Arc<Mutex<Vec<String>>>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(pipe).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
             log.lock().expect("log lock poisoned").push(line);
         }
     })
 }
 
 /// A running (or stopped) martin subprocess.
+#[derive(Debug)]
 pub struct Martin {
     child: Child,
     port: u16,
@@ -208,54 +216,52 @@ impl Martin {
         self.port
     }
 
-    /// Replace this instance's ephemeral `localhost:<port>` with a stable
-    /// placeholder so the value can be snapshotted.
+    /// Replace this instance's `localhost:<port>` with a stable placeholder
+    /// so the value can be snapshotted.
     #[must_use]
     pub fn redact(&self, text: &str) -> String {
         text.replace(&format!("localhost:{}", self.port), "localhost:[PORT]")
     }
 
-    fn wait_ready(&mut self, path: &str) {
-        let url = format!("http://localhost:{}{path}", self.port);
+    /// Ready means any HTTP response, whatever its status: martin only binds
+    /// its socket once all sources are configured, so a response proves
+    /// startup finished. This stays correct when `--route-prefix` (as an
+    /// argument or through a config file) moves the endpoints around.
+    async fn wait_ready(&mut self) -> Result<(), StartError> {
+        let url = format!("http://localhost:{}/health", self.port);
         let deadline = Instant::now() + READY_TIMEOUT;
         loop {
-            if self
-                .client
-                .get(&url)
-                .send()
-                .is_ok_and(|response| response.status().is_success())
-            {
-                return;
+            if self.client.get(&url).send().await.is_ok() {
+                return Ok(());
             }
-            let early_exit = self.child.try_wait().expect("failed to poll martin");
-            assert!(
-                early_exit.is_none(),
-                "martin exited during startup with {}; log:\n{}",
-                early_exit.map_or_else(String::new, |status| status.to_string()),
-                self.raw_log()
-            );
-            assert!(
-                Instant::now() < deadline,
-                "martin did not become ready at {url} within {READY_TIMEOUT:?}; log:\n{}",
-                self.raw_log()
-            );
-            thread::sleep(READY_POLL_INTERVAL);
+            if let Some(status) = self.child.try_wait().expect("failed to poll martin") {
+                self.drain_readers().await;
+                return Err(StartError::EarlyExit {
+                    status,
+                    log: self.raw_log(),
+                });
+            }
+            if Instant::now() >= deadline {
+                return Err(StartError::ReadyTimeout {
+                    url,
+                    log: self.raw_log(),
+                });
+            }
+            sleep(READY_POLL_INTERVAL).await;
         }
     }
 
-    /// Perform a GET request against this instance.
-    ///
-    /// Requests advertise `Accept-Encoding: br, gzip` like the curl invocation
-    /// in `tests/test.sh`; the response body is transparently decompressed
-    /// while the raw headers (including `content-encoding`) stay observable.
-    #[must_use]
-    pub fn get(&self, path: &str) -> TestResponse {
+    /// Perform a GET request, advertising `Accept-Encoding: br, gzip` like the
+    /// curl invocation in `tests/test.sh`; the body is transparently
+    /// decompressed while the raw headers stay observable.
+    pub async fn get(&self, path: &str) -> TestResponse {
         let url = format!("http://localhost:{}{path}", self.port);
         let response = self
             .client
             .get(&url)
             .header("accept-encoding", "br, gzip")
             .send()
+            .await
             .unwrap_or_else(|e| panic!("GET {url} failed: {e}"));
         let status = response.status().as_u16();
         let headers = response
@@ -270,6 +276,7 @@ impl Martin {
             .collect::<Vec<_>>();
         let raw = response
             .bytes()
+            .await
             .unwrap_or_else(|e| panic!("failed to read the body of {url}: {e}"))
             .to_vec();
         let encoding = headers
@@ -286,7 +293,7 @@ impl Martin {
 
     /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and
     /// collect its log for the `assert_log_*` methods. Idempotent.
-    pub fn stop(&mut self) {
+    pub async fn stop(&mut self) {
         if self.log_lines.is_some() {
             return;
         }
@@ -297,32 +304,20 @@ impl Martin {
             .is_none()
         {
             terminate(&self.child);
-            let deadline = Instant::now() + STOP_TIMEOUT;
-            while self
-                .child
-                .try_wait()
-                .expect("failed to poll martin")
-                .is_none()
-            {
-                if Instant::now() >= deadline {
-                    self.child.kill().expect("failed to kill martin");
-                    break;
+            match timeout(STOP_TIMEOUT, self.child.wait()).await {
+                Ok(status) => {
+                    status.expect("failed to wait for martin");
                 }
-                thread::sleep(Duration::from_millis(50));
+                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
             }
-            let _ = self.child.wait();
         }
-        for reader in self.readers.drain(..) {
-            let _ = reader.join();
-        }
+        self.drain_readers().await;
         let lines = self.log.lock().expect("log lock poisoned").clone();
         self.log_lines = Some(lines);
     }
 
     /// Assert that at least one log line contains `needle`, and consume every
-    /// matching line. Mirrors `test_log_has_str` in `tests/test.sh`.
-    ///
-    /// Must be called after [`Martin::stop`].
+    /// matching line. Must be called after [`Martin::stop`].
     pub fn assert_log_contains(&mut self, needle: &str) {
         let lines = self
             .log_lines
@@ -338,11 +333,8 @@ impl Martin {
     }
 
     /// Assert that no unexpected `WARN` or `ERROR` lines remain in the log
-    /// after known-acceptable lines are removed. Mirrors `validate_log` in
-    /// `tests/test.sh`.
-    ///
-    /// Must be called after [`Martin::stop`] and any [`Martin::assert_log_contains`]
-    /// calls that consume expected warnings.
+    /// after [`ALLOWED_LOG_LINES`] and the lines already consumed by
+    /// [`Martin::assert_log_contains`]. Must be called after [`Martin::stop`].
     pub fn assert_log_clean(&mut self) {
         let lines = self
             .log_lines
@@ -366,25 +358,25 @@ impl Martin {
         );
     }
 
+    /// Wait for the log readers to reach EOF so the log is complete.
+    async fn drain_readers(&mut self) {
+        for reader in self.readers.drain(..) {
+            let _ = reader.await;
+        }
+    }
+
     fn raw_log(&self) -> String {
         self.log.lock().expect("log lock poisoned").join("\n")
     }
 }
 
-impl Drop for Martin {
-    fn drop(&mut self) {
-        if self.child.try_wait().is_ok_and(|status| status.is_none()) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
-    }
-}
-
 #[cfg(unix)]
 fn terminate(child: &Child) {
-    let pid = i32::try_from(child.id()).expect("pid does not fit into i32");
+    let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) else {
+        return;
+    };
     // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
-    // process already exited) are handled by the caller's wait loop.
+    // process already exited) are handled by the caller's wait.
     unsafe {
         libc::kill(pid, libc::SIGTERM);
     }
@@ -392,7 +384,7 @@ fn terminate(child: &Child) {
 
 #[cfg(not(unix))]
 fn terminate(child: &Child) {
-    // No SIGTERM on this platform; the caller's wait loop falls back to kill().
+    // No SIGTERM on this platform; the caller falls back to kill().
     let _ = child;
 }
 

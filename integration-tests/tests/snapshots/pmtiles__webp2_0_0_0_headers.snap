@@ -1,8 +1,0 @@
----
-source: integration-tests/tests/pmtiles.rs
-expression: tile.headers_snapshot()
----
-content-length: 11586
-content-type: image/webp
-etag: "wutUPc_mx5TO8aNmMnsK8A"
-vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
