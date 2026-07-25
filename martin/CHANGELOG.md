@@ -9,12 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.13.0](https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0) - 2026-07-25
 
+### Passthrough sources: config-file wiring
+
+`1.12.0` introduced passthrough sources at the `martin-core` level; this release finishes the job by wiring them into `martin`'s config file.
+This adds a dedicated typed config section, clearer errors for unrecognized keys, and correct etag-suffixing so cached passthrough tiles don't collide with tiles from other sources.
+Done in [#2910](https://github.com/maplibre/martin/pull/2910).
+
+### New `cache` MBTiles schema
+
+MBTiles files can now use a `cache` schema: like `flat`, but with `fetched`, `expires` and `etag` columns stored alongside each tile, so a `.mbtiles` file can double as a persistent, inspectable web-tile cache.
+It still exposes a spec-compatible `tiles` view, so any standard MBTiles reader (including `martin` itself) can serve a cache file unmodified.
+The `mbtiles` CLI gained a matching `cache-purge <file> [--max-size <MB>]` subcommand to evict expired (and, if needed, soonest-expiring) entries and reclaim space.
+Done in [#3009](https://github.com/maplibre/martin/pull/3009).
+
+### `martin-cp` now responds to Ctrl+C when copying from PostgreSQL
+
+Previously, interrupting a `martin-cp` run against PostgreSQL could hang instead of exiting.
+In-flight Postgres queries are now tracked and cancelled on interrupt, and the copier drains already-queued tiles instead of getting stuck.
+Done in [#2901](https://github.com/maplibre/martin/pull/2901).
+
 ### Added
 
-- *(martin)* passthrough tile source configuration ([#2910](https://github.com/maplibre/martin/pull/2910))
-- *(mbtiles)* add a new cache schema ([#3009](https://github.com/maplibre/martin/pull/3009))
-- propagate cancellation to postgres #2646 ([#2901](https://github.com/maplibre/martin/pull/2901))
-- *(mbtiles)* read and validate the hash_algorithm metadata key ([#2985](https://github.com/maplibre/martin/pull/2985))
+- *(mbtiles)* read and validate the `hash_algorithm` metadata key, so files hashed with an algorithm other than MD5 (e.g. by `tippecanoe`) report a clear "unsupported algorithm" error instead of a misleading hash mismatch during validation ([#2985](https://github.com/maplibre/martin/pull/2985))
 
 ### Fixed
 
