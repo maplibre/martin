@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0](https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0) - 2026-07-25
+
+### Passthrough sources: config-file wiring
+
+`1.12.0` introduced passthrough sources at the `martin-core` level; this release finishes the job by wiring them into `martin`'s config file.
+This adds a dedicated typed config section, clearer errors for unrecognized keys, and correct etag-suffixing so cached passthrough tiles don't collide with tiles from other sources.
+Done in [#2910](https://github.com/maplibre/martin/pull/2910).
+
+### New `cache` MBTiles schema
+
+MBTiles files can now use a `cache` schema: like `flat`, but with `fetched`, `expires` and `etag` columns stored alongside each tile, so a `.mbtiles` file can double as a persistent, inspectable web-tile cache.
+It still exposes a spec-compatible `tiles` view, so any standard MBTiles reader (including `martin` itself) can serve a cache file unmodified.
+The `mbtiles` CLI gained a matching `cache-purge <file> [--max-size <MB>]` subcommand to evict expired (and, if needed, soonest-expiring) entries and reclaim space.
+Done in [#3009](https://github.com/maplibre/martin/pull/3009).
+
+### `martin-cp` now responds to Ctrl+C when copying from PostgreSQL
+
+Previously, interrupting a `martin-cp` run against PostgreSQL could hang instead of exiting.
+In-flight Postgres queries are now tracked and cancelled on interrupt, and the copier drains already-queued tiles instead of getting stuck.
+Done in [#2901](https://github.com/maplibre/martin/pull/2901).
+
+### Added
+
+- *(mbtiles)* read and validate the `hash_algorithm` metadata key, so files hashed with an algorithm other than MD5 (e.g. by `tippecanoe`) report a clear "unsupported algorithm" error instead of a misleading hash mismatch during validation ([#2985](https://github.com/maplibre/martin/pull/2985))
+
+### Fixed
+
+- *(pmtiles)* restore AWS profile support ([#3029](https://github.com/maplibre/martin/pull/3029))
+- *(deps)* update npm dependencies ([#3012](https://github.com/maplibre/martin/pull/3012))
+- *(martin-ui)* center tile inspect map on tileset bounds, not 0/0/0 ([#3002](https://github.com/maplibre/martin/pull/3002))
+- *(postgres)* clearer error when a source schema exists but has no tile sources ([#2979](https://github.com/maplibre/martin/pull/2979))
+- *(martin-ui)* match metric endpoints when a route_prefix is set ([#2986](https://github.com/maplibre/martin/pull/2986))
+- connect to prerelease PostgreSQL versions ([#3024](https://github.com/maplibre/martin/pull/3024))
+- *(postgres)* honor sslmode=verify-ca by skipping only the hostname check ([#2987](https://github.com/maplibre/martin/pull/2987))
+- *(mbtiles)* validate min/max zoom metadata against actual tiles ([#2983](https://github.com/maplibre/martin/pull/2983))
+
+### Other
+
+- *(deps)* Bump the npm_and_yarn group across 2 directories with 1 update ([#3045](https://github.com/maplibre/martin/pull/3045))
+- *(deps)* update dependency postcss to v8.5.18 [security] ([#3044](https://github.com/maplibre/martin/pull/3044))
+- *(deps)* autoupdate pre-commit ([#3040](https://github.com/maplibre/martin/pull/3040))
+- use re-exported mvt from mlt ([#3037](https://github.com/maplibre/martin/pull/3037))
+- derive CollectUnrecognizedKeys instead of hand-written impls ([#3031](https://github.com/maplibre/martin/pull/3031))
+- make UnrecognizedValues a newtype ([#3030](https://github.com/maplibre/martin/pull/3030))
+- *(deps)* update cargo dependencies ([#3011](https://github.com/maplibre/martin/pull/3011))
+- *(deps)* update dependency pbf to v5.1.1 ([#3020](https://github.com/maplibre/martin/pull/3020))
+- *(deps)* update dependency @types/node to v26.1.1 ([#3019](https://github.com/maplibre/martin/pull/3019))
+- add render_finalize_failure helper and snapshot tests ([#3000](https://github.com/maplibre/martin/pull/3000))
+- *(deps)* autoupdate pre-commit ([#2998](https://github.com/maplibre/martin/pull/2998))
+- *(postgres)* use NonZeroUsize for pool_size ([#2996](https://github.com/maplibre/martin/pull/2996))
+- run `just fmt` ([#2981](https://github.com/maplibre/martin/pull/2981))
+- *(deps)* lock file maintenance ([#2961](https://github.com/maplibre/martin/pull/2961))
+- split file sources into MBTiles and PMTiles subpages ([#2978](https://github.com/maplibre/martin/pull/2978))
+- update fast-mvt and other deps ([#3028](https://github.com/maplibre/martin/pull/3028))
+- update sqlite queries ([#3003](https://github.com/maplibre/martin/pull/3003))
+- address feedback from fast-mvt migration ([#2993](https://github.com/maplibre/martin/pull/2993))
+- migrate geozero to fast-mvt, make duckdb non-dflt ([#2991](https://github.com/maplibre/martin/pull/2991))
+- fix clippy lints for 1.97 release ([#2989](https://github.com/maplibre/martin/pull/2989))
+- more sqlx precompiled stmts ([#3010](https://github.com/maplibre/martin/pull/3010))
+- cleanup normalized-dedup sql ([#2990](https://github.com/maplibre/martin/pull/2990))
+- reuse .sql schema files in code ([#2988](https://github.com/maplibre/martin/pull/2988))
+- *(mbtiles)* refactor schemas to individual files ([#2982](https://github.com/maplibre/martin/pull/2982))
+
 ## [1.12.0](https://github.com/maplibre/martin/compare/martin-v1.11.0...martin-v1.12.0) - 2026-07-07
 
 ### GeoJSON tile source
