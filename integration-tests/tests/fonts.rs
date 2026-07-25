@@ -1,38 +1,10 @@
 //! Font glyph ranges rendered from `.ttf`/`.otf` files.
 
 use martin_integration_tests::{Martin, fixture};
+use rstest::rstest;
 
 const REGULAR: &str = "Overpass%20Mono%20Regular";
 const LIGHT: &str = "Overpass%20Mono%20Light";
-
-/// Every rejected range, as `(request, response body, error logged by the font source)`.
-const INVALID_RANGES: &[(&str, &str, &str)] = &[
-    (
-        "255-0",
-        "Font range start (255) must be <= end (0)",
-        "error=InvalidFontRangeStartEnd { start: 255, end: 0 }",
-    ),
-    (
-        "10-265",
-        "Font range start (10) must be multiple of 256 (e.g. 0, 256, 512, ...)",
-        "error=InvalidFontRangeStart(10)",
-    ),
-    (
-        "0-100",
-        "Font range end (100) must be multiple of 256 - 1 (e.g. 255, 511, 767, ...)",
-        "error=InvalidFontRangeEnd(100)",
-    ),
-    (
-        "0-511",
-        "Given font range 0-511 is invalid. It must be 256 characters long (e.g. 0-255, 256-511, ...)",
-        "error=InvalidFontRange(0, 511)",
-    ),
-    (
-        "1114112-1114367",
-        "Font range start (1114112) must be <= end (1114367)",
-        "error=InvalidFontRangeStartEnd { start: 1114112, end: 1114367 }",
-    ),
-];
 
 async fn martin_with_font_dir() -> Martin {
     Martin::builder()
@@ -104,11 +76,15 @@ async fn a_single_font_file_publishes_only_that_font() {
     martin.assert_log_clean();
 }
 
+#[rstest]
+#[case::first_range("0-255")]
+#[case::latin_supplement("256-511")]
+#[case::range_the_font_has_no_glyphs_for("65280-65535")]
 #[tokio::test]
-async fn a_glyph_range_is_served_as_compressed_protobuf() {
+async fn a_glyph_range_is_served_as_compressed_protobuf(#[case] range: &str) {
     let mut martin = martin_with_font_dir().await;
 
-    let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
+    let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 200);
     assert_eq!(
         response.header("content-type"),
@@ -116,15 +92,7 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
     );
     assert_eq!(response.header("content-encoding"), Some("br"));
     assert_body_contains(response.body(), "Overpass Mono Regular");
-    assert_body_contains(response.body(), "0-255");
-
-    let higher = martin.get(&format!("/font/{REGULAR}/256-511")).await;
-    assert_eq!(higher.status(), 200);
-    assert_body_contains(higher.body(), "256-511");
-
-    let unmapped = martin.get(&format!("/font/{REGULAR}/65280-65535")).await;
-    assert_eq!(unmapped.status(), 200);
-    assert_body_contains(unmapped.body(), "65280-65535");
+    assert_body_contains(response.body(), range);
 
     martin.stop().await;
     martin.assert_log_clean();
@@ -157,19 +125,16 @@ async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
     martin.assert_log_clean();
 }
 
+#[rstest]
+#[case::on_its_own("Nonexistent")]
+#[case::inside_a_fontstack("Overpass%20Mono%20Regular,Nonexistent")]
 #[tokio::test]
-async fn an_unknown_font_is_not_found() {
+async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
     let mut martin = martin_with_font_dir().await;
 
-    let missing = martin.get("/font/Nonexistent/0-255").await;
-    assert_eq!(missing.status(), 404);
-    assert_eq!(missing.text(), "Font Nonexistent not found");
-
-    let in_stack = martin
-        .get(&format!("/font/{REGULAR},Nonexistent/0-255"))
-        .await;
-    assert_eq!(in_stack.status(), 404);
-    assert_eq!(in_stack.text(), "Font Nonexistent not found");
+    let response = martin.get(&format!("/font/{fontstack}/0-255")).await;
+    assert_eq!(response.status(), 404);
+    assert_eq!(response.text(), "Font Nonexistent not found");
 
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Nonexistent")"#);
@@ -177,21 +142,47 @@ async fn an_unknown_font_is_not_found() {
     martin.assert_log_clean();
 }
 
+#[rstest]
+#[case::start_after_end(
+    "255-0",
+    "Font range start (255) must be <= end (0)",
+    "error=InvalidFontRangeStartEnd { start: 255, end: 0 }"
+)]
+#[case::unaligned_start(
+    "10-265",
+    "Font range start (10) must be multiple of 256 (e.g. 0, 256, 512, ...)",
+    "error=InvalidFontRangeStart(10)"
+)]
+#[case::unaligned_end(
+    "0-100",
+    "Font range end (100) must be multiple of 256 - 1 (e.g. 255, 511, 767, ...)",
+    "error=InvalidFontRangeEnd(100)"
+)]
+#[case::span_wider_than_256(
+    "0-511",
+    "Given font range 0-511 is invalid. It must be 256 characters long (e.g. 0-255, 256-511, ...)",
+    "error=InvalidFontRange(0, 511)"
+)]
+#[case::past_the_last_codepoint(
+    "1114112-1114367",
+    "Font range start (1114112) must be <= end (1114367)",
+    "error=InvalidFontRangeStartEnd { start: 1114112, end: 1114367 }"
+)]
 #[tokio::test]
-async fn a_range_outside_the_256_codepoint_grid_is_rejected() {
+async fn a_range_outside_the_256_codepoint_grid_is_rejected(
+    #[case] range: &str,
+    #[case] message: &str,
+    #[case] logged: &str,
+) {
     let mut martin = martin_with_font_dir().await;
 
-    for (range, message, _) in INVALID_RANGES {
-        let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
-        assert_eq!(response.status(), 400, "range {range} must be rejected");
-        assert_eq!(response.text(), *message);
-    }
+    let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
+    assert_eq!(response.status(), 400);
+    assert_eq!(response.text(), message);
 
     martin.stop().await;
-    for (_, message, logged) in INVALID_RANGES {
-        martin.assert_log_contains(logged);
-        martin.assert_log_contains(&format!("error={message:?}"));
-    }
+    martin.assert_log_contains(logged);
+    martin.assert_log_contains(&format!("error={message:?}"));
     martin.assert_log_clean();
 }
 

@@ -25,6 +25,7 @@ tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
 
 [dev-dependencies]
 insta = { workspace = true, features = ["json"] }
+rstest.workspace = true
 
 [lints]
 workspace = true
