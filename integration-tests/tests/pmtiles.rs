@@ -29,7 +29,6 @@ async fn auto_configured_minimal() {
         .expect("catalog is a json object")
         .remove("settings")
         .expect("catalog has a settings key");
-    // The `rendering` flag in `settings` only exists in Linux builds.
     #[cfg(target_os = "linux")]
     assert_eq!(settings, serde_json::json!({ "rendering": false }));
     #[cfg(not(target_os = "linux"))]
