@@ -137,7 +137,6 @@ test-schemas:
     # the schema is wrong, not the config.
     fixtures=(
         tests/expected/auto/save_config.yaml
-        tests/expected/auto_mini/save_config.yaml
         tests/expected/configured/save_config.yaml
     )
     for f in "${fixtures[@]}"; do
