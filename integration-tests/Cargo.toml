@@ -17,12 +17,13 @@ flate2.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
 
 [dev-dependencies]
 insta = { workspace = true, features = ["json"] }
-tempfile.workspace = true
 
 [lints]
 workspace = true

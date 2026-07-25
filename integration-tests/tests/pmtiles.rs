@@ -1,6 +1,8 @@
+//! `PMTiles` sources, both configured up front and served from a watched directory.
+
 use std::fs;
 
-use martin_integration_tests::Martin;
+use martin_integration_tests::{Martin, WatchedDir, fixture};
 
 #[tokio::test]
 async fn auto_configured_minimal() {
@@ -77,9 +79,7 @@ async fn auto_configured_minimal() {
     ");
 
     martin.stop().await;
-    martin.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
-    martin.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
-    martin.assert_log_contains("Environment variable AWS_REGION is deprecated");
+    martin.assert_startup_warnings();
     martin.assert_log_clean();
 }
 
@@ -102,8 +102,82 @@ async fn route_prefix_keeps_root_health() {
     assert_eq!(prefixed.text(), "OK");
 
     martin.stop().await;
-    martin.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
-    martin.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
-    martin.assert_log_contains("Environment variable AWS_REGION is deprecated");
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn reload_adds_updates_and_removes_a_source() {
+    let watched = WatchedDir::new();
+    let mut martin = Martin::builder()
+        .arg(watched.dir())
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.json()["tiles"], serde_json::json!({}));
+    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    content-encoding: br
+    content-type: application/json
+    transfer-encoding: chunked
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    ");
+    assert_eq!(martin.get("/png/0/0/0").await.status(), 404);
+
+    watched.install(fixture("pmtiles/png.pmtiles"), "png.pmtiles");
+    martin.wait_for_source("png").await;
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "png": {
+        "content_type": "image/png",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/png/0/0/0").await;
+    assert_eq!(tile.status(), 200);
+    assert!(
+        tile.body().starts_with(b"\x89PNG"),
+        "expected a png tile body"
+    );
+
+    watched.touch("png.pmtiles");
+    martin.wait_for_log("Updated source source.id=png").await;
+
+    watched.remove("png.pmtiles");
+    martin.wait_for_source_removed("png").await;
+    assert_eq!(martin.get("/png/0/0/0").await.status(), 404);
+
+    martin.stop().await;
+    martin.assert_log_contains("Added source source.id=png");
+    martin.assert_log_contains("Updated source source.id=png");
+    martin.assert_log_contains("Removed source source.id=png");
+    martin.assert_log_contains(r#"ERROR error="Source png does not exist""#);
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn reload_removes_a_source_present_at_startup() {
+    let watched = WatchedDir::new();
+    watched.seed(fixture("pmtiles/png.pmtiles"), "png.pmtiles");
+
+    let mut martin = Martin::builder()
+        .arg(watched.dir())
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    martin.wait_for_source("png").await;
+    assert_eq!(martin.get("/png/0/0/0").await.status(), 200);
+
+    watched.remove("png.pmtiles");
+    martin.wait_for_source_removed("png").await;
+
+    martin.stop().await;
+    martin.assert_log_contains("Removed source source.id=png");
+    martin.assert_startup_warnings();
     martin.assert_log_clean();
 }

@@ -631,6 +631,12 @@ test-packages-ci: fetch
     else
         cargo test --package martin
     fi
+    {{just}} test-e2e
+
+# Run the end-to-end tests that drive the compiled martin binary over HTTP
+test-e2e *args: fetch
+    cargo build --package martin
+    cargo test --package martin-integration-tests {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch

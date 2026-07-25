@@ -6,16 +6,20 @@
 
 use std::env;
 use std::ffi::OsString;
+use std::fs::{self, File};
 use std::io::{self, Read as _};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use regex::Regex;
 use reqwest::Client;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{AssertSqlSafe, Connection as _, SqliteConnection};
+use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, BufReader};
 use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
@@ -24,6 +28,9 @@ use tokio::time::{sleep, timeout};
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long [`Martin::wait_for_log`] and the catalog waits give the reload watcher to catch up.
+const WATCH_TIMEOUT: Duration = Duration::from_secs(30);
+const WATCH_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 const ALLOWED_LOG_LINES: &[&str] = &[
     "Margin parameter in ST_TileEnvelope is not supported",
@@ -285,6 +292,55 @@ impl Martin {
         }
     }
 
+    /// Wait until some log line contains `needle`, while martin keeps running.
+    /// The line stays in the log, so [`Martin::assert_log_contains`] still sees it after [`Martin::stop`].
+    pub async fn wait_for_log(&self, needle: &str) {
+        self.wait_until(&format!("{needle:?} in the log"), async || {
+            self.log
+                .lock()
+                .expect("log lock poisoned")
+                .iter()
+                .any(|line| line.contains(needle))
+        })
+        .await;
+    }
+
+    /// Wait until the catalog lists `id` as a tile source.
+    pub async fn wait_for_source(&self, id: &str) {
+        self.wait_until(&format!("source {id:?} in the catalog"), async || {
+            self.catalog_has_source(id).await
+        })
+        .await;
+    }
+
+    /// Wait until the catalog no longer lists `id` as a tile source.
+    pub async fn wait_for_source_removed(&self, id: &str) {
+        self.wait_until(&format!("source {id:?} to leave the catalog"), async || {
+            !self.catalog_has_source(id).await
+        })
+        .await;
+    }
+
+    async fn catalog_has_source(&self, id: &str) -> bool {
+        self.get("/catalog").await.json()["tiles"].get(id).is_some()
+    }
+
+    async fn wait_until(&self, expectation: &str, mut is_met: impl AsyncFnMut() -> bool) {
+        let deadline = Instant::now() + WATCH_TIMEOUT;
+        loop {
+            if is_met().await {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "timed out after {}s waiting for {expectation}; log:\n{}",
+                WATCH_TIMEOUT.as_secs(),
+                self.raw_log()
+            );
+            sleep(WATCH_POLL_INTERVAL).await;
+        }
+    }
+
     /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and
     /// collect its log for the `assert_log_*` methods. Idempotent.
     pub async fn stop(&mut self) {
@@ -324,6 +380,15 @@ impl Martin {
             "log does not contain {needle:?}; log:\n{}",
             lines.join("\n")
         );
+    }
+
+    /// Assert the warnings every martin start emits under this harness: `pmtiles.allow_http`
+    /// defaults, plus the deprecation of the two `AWS_*` variables [`MartinBuilder::start`] sets.
+    /// Must be called after [`Martin::stop`].
+    pub fn assert_startup_warnings(&mut self) {
+        self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
+        self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
+        self.assert_log_contains("Environment variable AWS_REGION is deprecated");
     }
 
     /// Assert that no unexpected `WARN` or `ERROR` lines remain in the log
@@ -380,6 +445,125 @@ fn terminate(child: &Child) {
 fn terminate(child: &Child) {
     // No SIGTERM on this platform; the caller falls back to kill().
     let _ = child;
+}
+
+/// Path of a checked-in fixture, relative to `tests/fixtures`.
+#[must_use]
+pub fn fixture(relative: &str) -> PathBuf {
+    workspace_root().join("tests/fixtures").join(relative)
+}
+
+/// A temporary directory for martin to watch for hot reload.
+///
+/// The watched directory sits one level below the root, leaving a sibling directory
+/// for [`WatchedDir::install`] to stage fixtures in.
+#[derive(Debug)]
+pub struct WatchedDir {
+    root: TempDir,
+}
+
+impl Default for WatchedDir {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WatchedDir {
+    #[must_use]
+    pub fn new() -> Self {
+        let root = tempfile::tempdir().expect("failed to create a temp dir");
+        fs::create_dir(root.path().join("watch")).expect("failed to create the watched directory");
+        Self { root }
+    }
+
+    /// The directory to hand to martin.
+    #[must_use]
+    pub fn dir(&self) -> PathBuf {
+        self.root.path().join("watch")
+    }
+
+    /// A path next to the watched directory, for files martin must not pick up.
+    #[must_use]
+    pub fn outside(&self, name: &str) -> PathBuf {
+        self.root.path().join(name)
+    }
+
+    /// Copy `src` into the watched directory as `name`, appearing in a single step.
+    ///
+    /// Copying straight into place lets the reload watcher read a half-written file.
+    /// Staging inside the watched directory is not enough either: the watcher observes the staging
+    /// file and warns when it is renamed away mid-scan.
+    /// The staging path is therefore a sibling of the watched directory, which shares its
+    /// filesystem, so the rename into it is atomic.
+    pub fn install(&self, src: impl AsRef<Path>, name: &str) {
+        let src = src.as_ref();
+        let staging = self.outside(&format!("{name}.staging"));
+        fs::copy(src, &staging).unwrap_or_else(|e| {
+            panic!(
+                "failed to stage {} at {}: {e}",
+                src.display(),
+                staging.display()
+            )
+        });
+        let dest = self.dir().join(name);
+        fs::rename(&staging, &dest).unwrap_or_else(|e| {
+            panic!(
+                "failed to move {} into {}: {e}",
+                staging.display(),
+                dest.display()
+            )
+        });
+    }
+
+    /// Copy `src` into the watched directory as `name` before martin is started, so the file is
+    /// picked up by config resolution rather than by a watcher event.
+    pub fn seed(&self, src: impl AsRef<Path>, name: &str) {
+        let (src, dest) = (src.as_ref(), self.dir().join(name));
+        fs::copy(src, &dest).unwrap_or_else(|e| {
+            panic!(
+                "failed to seed {} with {}: {e}",
+                dest.display(),
+                src.display()
+            )
+        });
+    }
+
+    /// Bump the modification time of a watched file, as `touch` does.
+    pub fn touch(&self, name: &str) {
+        let path = self.dir().join(name);
+        File::options()
+            .write(true)
+            .open(&path)
+            .and_then(|file| file.set_modified(SystemTime::now()))
+            .unwrap_or_else(|e| panic!("failed to touch {}: {e}", path.display()));
+    }
+
+    pub fn remove(&self, name: &str) {
+        let path = self.dir().join(name);
+        fs::remove_file(&path)
+            .unwrap_or_else(|e| panic!("failed to remove {}: {e}", path.display()));
+    }
+}
+
+/// Build an `.mbtiles` file at `dest` from an `.sql` dump.
+/// The fixtures are checked in as SQL text because `*.mbtiles` is git-ignored.
+pub async fn mbtiles_from_sql(sql: impl AsRef<Path>, dest: impl AsRef<Path>) {
+    let sql = sql.as_ref();
+    let script =
+        fs::read_to_string(sql).unwrap_or_else(|e| panic!("failed to read {}: {e}", sql.display()));
+    let options = SqliteConnectOptions::new()
+        .filename(dest.as_ref())
+        .create_if_missing(true);
+    let mut conn = SqliteConnection::connect_with(&options)
+        .await
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", dest.as_ref().display()));
+    sqlx::raw_sql(AssertSqlSafe(script))
+        .execute(&mut conn)
+        .await
+        .unwrap_or_else(|e| panic!("failed to run {}: {e}", sql.display()));
+    conn.close()
+        .await
+        .expect("failed to close the mbtiles file");
 }
 
 fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
