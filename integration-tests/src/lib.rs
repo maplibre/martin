@@ -459,3 +459,53 @@ impl TestResponse {
         lines.join("\n")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write as _;
+
+    use super::*;
+
+    #[test]
+    fn decompress_brotli_body() {
+        let mut compressed = Vec::new();
+        brotli::CompressorWriter::new(&mut compressed, 4096, 5, 22)
+            .write_all(b"tile bytes")
+            .expect("failed to compress");
+        assert_eq!(decompress(&compressed, Some("br")), b"tile bytes");
+    }
+
+    #[test]
+    fn decompress_gzip_body() {
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(b"tile bytes").expect("failed to write");
+        let compressed = encoder.finish().expect("failed to compress");
+        assert_eq!(decompress(&compressed, Some("gzip")), b"tile bytes");
+    }
+
+    #[test]
+    fn decompress_passes_through_unencoded_bodies() {
+        assert_eq!(decompress(b"plain", None), b"plain");
+        assert_eq!(decompress(b"plain", Some("identity")), b"plain");
+    }
+
+    #[test]
+    fn headers_snapshot_sorts_and_drops_date() {
+        let response = TestResponse {
+            status: 200,
+            headers: vec![
+                (
+                    "date".to_owned(),
+                    "Fri, 25 Jul 2026 00:00:00 GMT".to_owned(),
+                ),
+                ("content-type".to_owned(), "application/json".to_owned()),
+                ("content-encoding".to_owned(), "br".to_owned()),
+            ],
+            body: Vec::new(),
+        };
+        assert_eq!(
+            response.headers_snapshot(),
+            "content-encoding: br\ncontent-type: application/json"
+        );
+    }
+}
