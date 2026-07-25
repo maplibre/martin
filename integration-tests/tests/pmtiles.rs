@@ -36,9 +36,7 @@ async fn auto_configured_minimal() {
     #[cfg(not(target_os = "linux"))]
     assert_eq!(settings, serde_json::json!({}));
 
-    let mut insta_settings = insta::Settings::clone_current();
-    insta_settings.set_sort_maps(true);
-    insta_settings.bind(|| {
+    insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog_json, @r#"
         {
           "fonts": {},

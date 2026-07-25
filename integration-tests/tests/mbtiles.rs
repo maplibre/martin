@@ -36,7 +36,17 @@ async fn reload_adds_and_updates_a_source() {
 
     let tile = martin.get("/world_cities/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    assert!(!tile.body().is_empty(), "expected a vector tile body");
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-encoding: gzip
+    content-length: 1107
+    content-type: application/x-protobuf
+    etag: "fZ_WrS_v5P9bJuL6UuRBQQ"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    let layers = tile.mvt().layers;
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name, "cities");
+    assert_eq!(layers[0].features.len(), 68);
 
     watched.install(&modified, "world_cities.mbtiles");
     martin

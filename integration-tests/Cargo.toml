@@ -14,6 +14,7 @@ libc = "0.2"
 [dependencies]
 brotli.workspace = true
 flate2.workspace = true
+mlt-core.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true

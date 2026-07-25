@@ -5262,6 +5262,7 @@ dependencies = [
  "flate2",
  "insta",
  "libc",
+ "mlt-core",
  "regex",
  "reqwest 0.13.4",
  "serde_json",

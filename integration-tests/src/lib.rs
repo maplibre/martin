@@ -15,6 +15,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
+use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use regex::Regex;
 use reqwest::Client;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -613,6 +614,15 @@ impl TestResponse {
     #[must_use]
     pub fn json(&self) -> serde_json::Value {
         serde_json::from_slice(&self.body).expect("response body is not valid json")
+    }
+
+    /// Decompressed response body decoded as a vector tile.
+    #[must_use]
+    pub fn mvt(&self) -> MvtTile {
+        MvtReaderRef::new(&self.body)
+            .expect("response body is not a vector tile")
+            .to_tile()
+            .expect("response body is not a decodable vector tile")
     }
 
     /// Headers as sorted `name: value` lines with nondeterministic headers

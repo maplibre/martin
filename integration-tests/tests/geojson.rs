@@ -31,7 +31,17 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     let tile = martin.get("/feature_collection_1/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    assert!(!tile.body().is_empty(), "expected a vector tile body");
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-encoding: gzip
+    content-length: 143
+    content-type: application/x-protobuf
+    etag: "Wtlvu7ZHlUF7ibfKmKKoag"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    let layers = tile.mvt().layers;
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name, "feature_collection_1");
+    assert_eq!(layers[0].features.len(), 3);
 
     watched.touch("feature_collection_1.geojson");
     martin

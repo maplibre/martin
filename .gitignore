@@ -2,6 +2,7 @@
 #### This must match .dockerignore ####
 ####
 
+**/*.pending-snap
 **/*.rs.bk
 **/dist/
 **/node_modules/
