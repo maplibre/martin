@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "integration-tests",
     "martin",
     "martin-config-macros",
     "martin-core",

@@ -5255,6 +5255,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "brotli 8.0.4",
+ "flate2",
+ "insta",
+ "libc",
+ "regex",
+ "reqwest 0.13.4",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "martin-tile-utils"
 version = "0.7.5"
 dependencies = [
@@ -7295,6 +7309,7 @@ checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2 0.4.15",

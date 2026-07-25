@@ -1,0 +1,8 @@
+---
+source: integration-tests/tests/pmtiles.rs
+expression: catalog.headers_snapshot()
+---
+content-encoding: br
+content-type: application/json
+transfer-encoding: chunked
+vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
