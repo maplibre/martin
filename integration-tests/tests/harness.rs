@@ -1,6 +1,6 @@
 //! Tests for the harness's own failure reporting.
 
-#![allow(clippy::panic, reason = "tests fail by panicking")]
+#![expect(clippy::panic, reason = "tests fail by panicking")]
 
 use martin_integration_tests::{Martin, StartError};
 
