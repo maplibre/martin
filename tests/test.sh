@@ -343,7 +343,6 @@ validate_log() {
   remove_lines "$LOG_FILE" 'PostgreSQL is older than the recommended minimum 12.0.0'
   remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
-  remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
   # Debug builds are slower; table discovery may exceed the default bounds timeout on slow runners
   remove_lines "$LOG_FILE" 'Discovering tables in PostgreSQL database .* is taking too long'
   # Tables/views without a usable spatial index or statistics fall back from the quick ST_EstimatedExtent to the exact bounds calculation
@@ -640,61 +639,6 @@ test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is depre
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-echo "::endgroup::"
-
-echo "::group::Test minimum auto configured Martin"
-TEST_NAME="auto_mini"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-mkdir -p "$TEST_OUT_DIR"
-
-ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/pmtiles2)
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test catalog"
-test_jsn catalog_auto catalog
-
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-echo "::group::Test route prefix health endpoint availability"
-TEST_NAME="route_prefix_health"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-mkdir -p "$TEST_OUT_DIR"
-
-ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
-set -x
-MSYS_NO_PATHCONV=1 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
-if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
-  echo "ERROR: Failed to reach /health when --route-prefix is set"
-  exit 1
-fi
-if [ "$ROOT_HEALTH" != "OK" ]; then
-  echo "ERROR: Expected /health to return OK when --route-prefix is set"
-  exit 1
-fi
-
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
 echo "::endgroup::"
 
 echo "::group::Test pre-configured Martin"

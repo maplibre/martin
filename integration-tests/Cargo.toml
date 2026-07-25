@@ -1,0 +1,28 @@
+[package]
+name = "martin-integration-tests"
+version = "0.0.0"
+description = "End-to-end tests that run the martin binary as a subprocess and assert on its HTTP responses and logs"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dependencies]
+brotli.workspace = true
+flate2.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
+
+[dev-dependencies]
+insta = { workspace = true, features = ["json"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

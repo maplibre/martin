@@ -5255,6 +5255,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "brotli 8.0.4",
+ "flate2",
+ "insta",
+ "libc",
+ "regex",
+ "reqwest 0.13.4",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
 name = "martin-tile-utils"
 version = "0.7.5"
 dependencies = [
