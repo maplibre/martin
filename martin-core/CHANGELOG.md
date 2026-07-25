@@ -11,12 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(martin)* passthrough tile source configuration ([#2910](https://github.com/maplibre/martin/pull/2910))
 - propagate cancellation to postgres #2646 ([#2901](https://github.com/maplibre/martin/pull/2901))
 
 ### Fixed
 
-- connect to prerelease PostgreSQL versions ([#3024](https://github.com/maplibre/martin/pull/3024))
+- Allow connecting to prerelease PostgreSQL versions ([#3024](https://github.com/maplibre/martin/pull/3024))
 - *(postgres)* honor sslmode=verify-ca by skipping only the hostname check ([#2987](https://github.com/maplibre/martin/pull/2987))
 
 ### Other
