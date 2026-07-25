@@ -144,7 +144,6 @@ impl MartinBuilder {
         let client = Client::builder()
             .timeout(Duration::from_mins(2))
             .connect_timeout(Duration::from_secs(10))
-            // Redirects are a tested behaviour, so they are returned to the caller.
             .redirect(redirect::Policy::none())
             .build()
             .expect("failed to build the http client");
@@ -262,7 +261,6 @@ impl Martin {
         self.get_with_headers(path, &[]).await
     }
 
-    /// Perform a GET request with additional request headers.
     pub async fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         let url = format!("http://{}{path}", self.addr);
         let mut request = self.client.get(&url).header("accept-encoding", "br, gzip");
