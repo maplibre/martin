@@ -2,11 +2,6 @@
 //! assert on its HTTP responses and log output. Each [`Martin`] instance runs
 //! on its own port, so tests can run in parallel.
 
-#![expect(
-    clippy::panic,
-    reason = "panicking with rich context is this test harness's failure-reporting mechanism"
-)]
-
 use std::env;
 use std::ffi::OsString;
 use std::io::{self, Read as _};
