@@ -14,12 +14,12 @@ libc = "0.2"
 [dependencies]
 brotli.workspace = true
 flate2.workspace = true
-insta = { workspace = true, features = ["json"] }
 regex.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 serde_json.workspace = true
 
 [dev-dependencies]
+insta = { workspace = true, features = ["json"] }
 tempfile.workspace = true
 
 [lints]
