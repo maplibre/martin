@@ -615,6 +615,12 @@ test-pg: fetch start
 test-minio: fetch
     cargo test --features test-minio --no-default-features --test pmt_minio_test
 
+# Run DuckDB/GeoParquet cargo tests only (no shell E2E)
+test-duckdb: fetch
+    cargo test -p martin --features test-duckdb --no-default-features --lib
+    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
+    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
+
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
     cargo test {{args}}

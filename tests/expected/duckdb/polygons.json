@@ -1,0 +1,25 @@
+{
+  "bounds": [
+    -50,
+    20,
+    5,
+    30
+  ],
+  "description": "GeoParquet (tests/fixtures/duckdb/geoparquet_polygons.parquet)",
+  "maxzoom": 14,
+  "minzoom": 0,
+  "name": "polygons",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/polygons/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "id": "INTEGER",
+        "name": "VARCHAR"
+      },
+      "id": "polygons"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "settings": {},
+  "tiles": {
+    "polygons": {
+      "content_type": "application/x-protobuf",
+      "description": "GeoParquet (tests/fixtures/duckdb/geoparquet_polygons.parquet)"
+    }
+  }
+}

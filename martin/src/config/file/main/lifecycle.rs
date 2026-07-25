@@ -27,6 +27,7 @@ use crate::MartinResult;
     feature = "mbtiles",
     feature = "passthrough",
     feature = "unstable-cog",
+    feature = "unstable-duckdb",
     feature = "geojson",
     feature = "sprites",
     feature = "styles",
@@ -98,6 +99,9 @@ impl Config {
         #[cfg(feature = "unstable-cog")]
         self.cog.finalize().await?;
 
+        #[cfg(feature = "unstable-duckdb")]
+        self.duckdb.finalize().await?;
+
         #[cfg(feature = "geojson")]
         self.geojson.finalize().await?;
 
@@ -135,6 +139,9 @@ impl Config {
 
         #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
+
+        #[cfg(feature = "unstable-duckdb")]
+        let is_empty = is_empty && self.duckdb.is_empty();
 
         #[cfg(feature = "geojson")]
         let is_empty = is_empty && self.geojson.is_empty();
@@ -346,12 +353,10 @@ impl Config {
             feature = "mbtiles",
             feature = "passthrough",
             feature = "unstable-cog",
+            feature = "unstable-duckdb",
             feature = "geojson"
         )),
-        expect(
-            unused_variables,
-            reason = "idr is only consumed by the non-duckdb tile backends"
-        )
+        expect(unused_variables, reason = "idr is only consumed by tile backends")
     )]
     async fn resolve_tile_sources(
         &mut self,
@@ -365,12 +370,10 @@ impl Config {
                 feature = "mbtiles",
                 feature = "passthrough",
                 feature = "unstable-cog",
+                feature = "unstable-duckdb",
                 feature = "geojson"
             )),
-            expect(
-                unused_mut,
-                reason = "the non-duckdb tile backends push resolved sources here"
-            )
+            expect(unused_mut, reason = "tile backends push resolved sources here")
         )]
         let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
 
@@ -412,6 +415,12 @@ impl Config {
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy());
+            sources_and_warnings.push(Box::pin(val));
+        }
+
+        #[cfg(feature = "unstable-duckdb")]
+        if !self.duckdb.is_empty() {
+            let val = self.duckdb.resolve(idr.clone(), self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 

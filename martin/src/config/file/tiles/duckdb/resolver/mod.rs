@@ -1,6 +1,7 @@
 pub mod bounds;
 pub mod errors;
 pub mod geoparquet;
+mod resolve;
 
 pub use bounds::bounds_with_auto;
 pub use errors::{BoundsError, BoundsResult, GeoparquetError, GeoparquetResult};
