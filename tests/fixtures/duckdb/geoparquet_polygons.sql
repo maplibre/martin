@@ -1,7 +1,9 @@
 -- Deterministic WGS84 polygon fixture for DuckDB GeoParquet E2E.
 -- `boundary_span` crosses lon=0 so it intersects both z1 tiles 1/0/0 and 1/1/0.
 -- `inside_west` sits wholly inside tile 1/0/0 so that tile's MVT has two features.
---
+
+-- sqlfluff:dialect:duckdb
+
 -- Regenerate geoparquet_polygons.parquet (from repo root):
 --   duckdb -c "INSTALL spatial; LOAD spatial;" \
 --          -c "$(cat tests/fixtures/duckdb/geoparquet_polygons.sql)" \
