@@ -30,7 +30,6 @@ const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const PORT_RETRIES: usize = 5;
 
-/// Log lines which are known to be acceptable in any test.
 const ALLOWED_LOG_LINES: &[&str] = &[
     "Margin parameter in ST_TileEnvelope is not supported",
     "PostgreSQL is older than the recommended minimum 12.0.0",
@@ -40,8 +39,8 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "ST_EstimatedExtent on",
 ];
 
-/// The workspace root. Martin subprocesses run with this as their working
-/// directory, so relative fixture paths and the paths in logs are stable.
+/// Martin subprocesses run with this as their working directory,
+/// so relative fixture paths and the paths in logs are stable.
 #[must_use]
 pub fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
