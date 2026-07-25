@@ -446,7 +446,7 @@ impl TestResponse {
     }
 
     /// Headers as sorted `name: value` lines with nondeterministic headers
-    /// removed — mirrors `clean_headers_dump` in `tests/test.sh`.
+    /// removed - mirrors `clean_headers_dump` in `tests/test.sh`.
     #[must_use]
     pub fn headers_snapshot(&self) -> String {
         let mut lines = self
