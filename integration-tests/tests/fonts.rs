@@ -1,6 +1,8 @@
 //! Font glyph ranges rendered from `.ttf`/`.otf` files.
 
-use martin_integration_tests::{Martin, fixture};
+use martin_integration_tests::{Martin, TestResponse, fixture};
+use pbf_font_tools::prost::Message as _;
+use pbf_font_tools::{Fontstack, Glyphs};
 use rstest::rstest;
 
 const REGULAR: &str = "Overpass%20Mono%20Regular";
@@ -15,9 +17,13 @@ async fn martin_with_font_dir() -> Martin {
         .expect("failed to start martin")
 }
 
-fn assert_body_contains(body: &[u8], needle: &str) {
-    let found = body.windows(needle.len()).any(|w| w == needle.as_bytes());
-    assert!(found, "glyph range does not embed {needle:?}");
+fn fontstack(response: &TestResponse) -> Fontstack {
+    Glyphs::decode(response.body())
+        .expect("response body is not a glyphs protobuf")
+        .stacks
+        .into_iter()
+        .next()
+        .expect("glyphs protobuf carries no fontstack")
 }
 
 #[tokio::test]
@@ -76,23 +82,43 @@ async fn a_single_font_file_publishes_only_that_font() {
     martin.assert_log_clean();
 }
 
-#[rstest]
-#[case::first_range("0-255")]
-#[case::latin_supplement("256-511")]
-#[case::range_the_font_has_no_glyphs_for("65280-65535")]
 #[tokio::test]
-async fn a_glyph_range_is_served_as_compressed_protobuf(#[case] range: &str) {
+async fn a_glyph_range_is_served_as_compressed_protobuf() {
+    let mut martin = martin_with_font_dir().await;
+
+    let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
+    assert_eq!(response.status(), 200);
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        content-encoding: br
+        content-type: application/x-protobuf
+        etag: [ETAG]
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
+    assert_eq!(fontstack(&response).name, "Overpass Mono Regular");
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[rstest]
+#[case::first_range("0-255", 192)]
+#[case::latin_extended_a("256-511", 144)]
+#[case::codepoints_the_font_lacks("65280-65535", 0)]
+#[tokio::test]
+async fn a_glyph_range_carries_every_codepoint_the_font_covers(
+    #[case] range: &str,
+    #[case] glyphs: usize,
+) {
     let mut martin = martin_with_font_dir().await;
 
     let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("content-type"),
-        Some("application/x-protobuf")
-    );
-    assert_eq!(response.header("content-encoding"), Some("br"));
-    assert_body_contains(response.body(), "Overpass Mono Regular");
-    assert_body_contains(response.body(), range);
+    let stack = fontstack(&response);
+    assert_eq!(stack.range, range);
+    assert_eq!(stack.glyphs.len(), glyphs);
 
     martin.stop().await;
     martin.assert_log_clean();
@@ -102,23 +128,15 @@ async fn a_glyph_range_is_served_as_compressed_protobuf(#[case] range: &str) {
 async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
     let mut martin = martin_with_font_dir().await;
 
-    let regular = martin.get(&format!("/font/{REGULAR}/0-255")).await;
-    let light = martin.get(&format!("/font/{LIGHT}/0-255")).await;
-    let stack = martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await;
+    let regular = fontstack(&martin.get(&format!("/font/{REGULAR}/0-255")).await);
+    let light = fontstack(&martin.get(&format!("/font/{LIGHT}/0-255")).await);
+    let stack = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
 
-    assert_eq!(stack.status(), 200);
-    assert_body_contains(stack.body(), "Overpass Mono Regular, Overpass Mono Light");
-    assert!(
-        stack.body().len() > regular.body().len(),
-        "a fontstack must carry more than the first font's glyphs: {} vs {}",
-        stack.body().len(),
-        regular.body().len()
-    );
-    assert!(
-        stack.body().len() > light.body().len(),
-        "a fontstack must carry more than the second font's glyphs: {} vs {}",
-        stack.body().len(),
-        light.body().len()
+    assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
+    assert_eq!(stack.range, "0-255");
+    assert_eq!(
+        stack.glyphs.len(),
+        regular.glyphs.len() + light.glyphs.len()
     );
 
     martin.stop().await;
@@ -135,6 +153,15 @@ async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
     let response = martin.get(&format!("/font/{fontstack}/0-255")).await;
     assert_eq!(response.status(), 404);
     assert_eq!(response.text(), "Font Nonexistent not found");
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(response.headers_snapshot(), @r#"
+        content-encoding: br
+        content-type: text/plain; charset=utf-8
+        etag: W/"1a-v2HxsjSSPxQe7xjbF9rAaw=="
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        "#);
+    }
 
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Nonexistent")"#);
@@ -201,7 +228,7 @@ async fn a_glyph_range_answers_conditional_requests() {
         .get_with_headers(&path, &[("if-none-match", &etag)])
         .await;
     assert_eq!(cached.status(), 304);
-    assert!(cached.body().is_empty(), "a 304 must not carry a body");
+    assert!(cached.body().is_empty());
 
     let stale = martin
         .get_with_headers(
@@ -222,10 +249,11 @@ async fn the_plural_fonts_path_redirects() {
 
     let response = martin.get(&format!("/fonts/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 301);
-    assert_eq!(
-        response.header("location"),
-        Some("/font/Overpass Mono Regular/0-255")
-    );
+    insta::assert_snapshot!(response.headers_snapshot(), @r"
+    content-length: 0
+    location: /font/Overpass Mono Regular/0-255
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    ");
     assert_eq!(
         martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
         200
