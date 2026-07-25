@@ -594,12 +594,13 @@ jobs:
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+          # DuckDB snapshots are produced only by MARTIN_TEST_DUCKDB=1 (test-duckdb job).
+          if ! diff --brief --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
             echo ""
             echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
+            diff --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected | head -n 100 | cat -v
             echo "::endgroup::"
             exit 1
           else

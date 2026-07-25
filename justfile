@@ -203,9 +203,19 @@ bless-insta *args:  fetch (cargo-install 'cargo-insta')
 
 # Bless integration tests
 bless-int: start install-mvt
+    #!/usr/bin/env bash
+    set -euo pipefail
     rm -rf tests/temp
     tests/test.sh
+    # DuckDB expected output is owned by MARTIN_TEST_DUCKDB=1; keep it across a normal bless.
+    if [[ -d tests/expected/duckdb ]]; then
+      mkdir -p tests/temp
+      mv tests/expected/duckdb tests/temp/duckdb-expected
+    fi
     rm -rf tests/expected && mv tests/output tests/expected
+    if [[ -d tests/temp/duckdb-expected ]]; then
+      mv tests/temp/duckdb-expected tests/expected/duckdb
+    fi
 
 bless-pg: fetch start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
@@ -653,12 +663,13 @@ test-int: clean-test install-sqlx start-pmtiles-server install-mvt
     set -euo pipefail
     tests/test.sh
     echo "** Comparing actual output with expected output..."
-    if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+    # DuckDB snapshots are produced only by MARTIN_TEST_DUCKDB=1 (just test-duckdb / CI test-duckdb).
+    if ! diff --brief --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected; then
         echo "** Expected output does not match actual output"
         echo "** If this is expected, run 'just bless' to update expected output"
         echo ""
         echo "::group::Resulting diff (max 100 lines)"
-        diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
+        diff --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected | head -n 100 | cat -v
         echo "::endgroup::"
         exit 1
     else
