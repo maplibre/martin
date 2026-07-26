@@ -47,14 +47,20 @@ pub fn decode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 }
 
 pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    encode_brotli_with_quality(data, 11)
+    let mut encoder = hotpath::io!(
+        brotli::CompressorReader::new(data, 4096, 11, 22),
+        label = "encode_brotli"
+    );
+    let mut compressed = Vec::new();
+    encoder.read_to_end(&mut compressed)?;
+    Ok(compressed)
 }
 
 /// Encodes with the given Brotli quality, clamped to the valid `0..=11` range.
 pub fn encode_brotli_with_quality(data: &[u8], quality: u32) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = hotpath::io!(
         brotli::CompressorReader::new(data, 4096, quality.min(11), 22),
-        label = "encode_brotli"
+        label = "encode_brotli_with_quality"
     );
     let mut compressed = Vec::new();
     encoder.read_to_end(&mut compressed)?;

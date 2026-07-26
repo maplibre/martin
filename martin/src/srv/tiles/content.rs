@@ -651,7 +651,8 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
-/// Brotli quality for on-the-fly response compression; q10+ is orders of magnitude slower.
+/// Brotli quality level for on-the-fly response compression; levels 10 and
+/// above are orders of magnitude slower to encode.
 const BROTLI_ENCODE_QUALITY: u32 = 4;
 
 #[hotpath::measure]
