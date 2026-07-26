@@ -16,6 +16,7 @@ use std::time::{Duration, Instant, SystemTime};
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
+use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
 use sqlx::sqlite::SqliteConnectOptions;
@@ -268,7 +269,11 @@ impl Martin {
     /// Perform a HEAD request. Routes list their methods one by one, so a route
     /// that answers `GET` does not necessarily answer `HEAD`.
     pub async fn head(&self, path: &str) -> TestResponse {
-        self.request(Method::HEAD, path, &[]).await
+        self.head_with_headers(path, &[]).await
+    }
+
+    pub async fn head_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
+        self.request(Method::HEAD, path, headers).await
     }
 
     async fn request(&self, method: Method, path: &str, headers: &[(&str, &str)]) -> TestResponse {
@@ -652,6 +657,26 @@ impl TestResponse {
             .expect("response body is not a vector tile")
             .to_tile()
             .expect("response body is not a decodable vector tile")
+    }
+
+    /// Decompressed response body decoded as a `MapLibre` tile.
+    #[must_use]
+    pub fn mlt(&self) -> Vec<TileLayer> {
+        let mut parser = Parser::default();
+        let mut decoder = Decoder::default();
+        parser
+            .parse_layers(&self.body)
+            .expect("response body is not a maplibre tile")
+            .into_iter()
+            .map(|layer| {
+                let Layer::Tag01(layer) = layer else {
+                    panic!("response body has a layer that is not MVT-compatible");
+                };
+                layer
+                    .into_tile(&mut decoder)
+                    .expect("response body has an undecodable layer")
+            })
+            .collect()
     }
 
     /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
