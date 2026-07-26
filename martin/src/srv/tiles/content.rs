@@ -13,7 +13,7 @@ use futures::future::try_join_all;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
-    encode_brotli, encode_gzip, encode_zlib, encode_zstd,
+    encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::{instrument, warn};
@@ -651,13 +651,16 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
+/// Brotli quality level for on-the-fly response compression
+const BROTLI_ENCODE_QUALITY: u32 = 6;
+
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     hotpath::dbg!("encode", enc);
     let etag = tile.etag;
     Ok(match enc {
         ContentEncoding::Brotli => Tile::new_with_etag(
-            encode_brotli(&tile.data)?,
+            encode_brotli_with_quality(&tile.data, BROTLI_ENCODE_QUALITY)?,
             tile.info.encoding(Encoding::Brotli),
             etag,
         ),
@@ -888,7 +891,7 @@ mod tests {
     fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
         match encoding {
             Encoding::Gzip => encode_gzip(data).unwrap(),
-            Encoding::Brotli => encode_brotli(data).unwrap(),
+            Encoding::Brotli => encode_brotli_with_quality(data, BROTLI_ENCODE_QUALITY).unwrap(),
             Encoding::Zlib => encode_zlib(data).unwrap(),
             Encoding::Zstd => encode_zstd(data).unwrap(),
             _ => panic!("compress_with: unsupported encoding {encoding:?}"),
