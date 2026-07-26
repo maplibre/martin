@@ -278,8 +278,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         }
         let new_tile_hash = xxh3_64(&new_tile);
         let data = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
-        // Stored in the output mbtiles, so prefer ratio over encode speed.
-        let data = encode_brotli(&data, 11)?;
+        let data = encode_brotli(&data)?;
 
         Ok(DifferAfter {
             coord: value.coord,
