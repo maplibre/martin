@@ -651,9 +651,8 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
-/// Brotli quality level for on-the-fly response compression; levels 10 and
-/// above are orders of magnitude slower to encode.
-const BROTLI_ENCODE_QUALITY: u32 = 4;
+/// Brotli quality level for on-the-fly response compression
+const BROTLI_ENCODE_QUALITY: u32 = 6;
 
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
