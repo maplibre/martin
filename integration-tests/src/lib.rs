@@ -654,6 +654,15 @@ impl TestResponse {
             .expect("response body is not a decodable vector tile")
     }
 
+    /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
+    #[must_use]
+    pub fn mvt_dump(&self) -> String {
+        format!(
+            "{:?}",
+            MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
+        )
+    }
+
     /// Headers as sorted `name: value` lines with nondeterministic headers
     /// removed - mirrors `clean_headers_dump` in `tests/test.sh`.
     #[must_use]
