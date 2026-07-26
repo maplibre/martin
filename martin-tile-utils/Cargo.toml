@@ -18,6 +18,7 @@ homepage.workspace = true
 [dependencies]
 brotli.workspace = true
 flate2.workspace = true
+hotpath.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
