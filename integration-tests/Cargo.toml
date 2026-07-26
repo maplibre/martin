@@ -1,7 +1,7 @@
 [package]
 name = "martin-integration-tests"
 version = "0.0.0"
-description = "End-to-end tests that run the martin binary as a subprocess and assert on its HTTP responses and logs"
+description = "End-to-end tests that run the martin and mbtiles binaries as subprocesses and assert on their output"
 publish = false
 edition.workspace = true
 license.workspace = true
