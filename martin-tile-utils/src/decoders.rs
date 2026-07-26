@@ -46,9 +46,9 @@ pub fn decode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     Ok(decompressed)
 }
 
-pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+pub fn encode_brotli(data: &[u8], quality: u32) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = hotpath::io!(
-        brotli::CompressorReader::new(data, 4096, 11, 22),
+        brotli::CompressorReader::new(data, 4096, quality, 22),
         label = "encode_brotli"
     );
     let mut compressed = Vec::new();

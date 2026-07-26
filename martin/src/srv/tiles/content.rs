@@ -651,13 +651,16 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
+/// Brotli quality for on-the-fly response compression; q10+ is orders of magnitude slower.
+const BROTLI_ENCODE_QUALITY: u32 = 4;
+
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     hotpath::dbg!("encode", enc);
     let etag = tile.etag;
     Ok(match enc {
         ContentEncoding::Brotli => Tile::new_with_etag(
-            encode_brotli(&tile.data)?,
+            encode_brotli(&tile.data, BROTLI_ENCODE_QUALITY)?,
             tile.info.encoding(Encoding::Brotli),
             etag,
         ),
@@ -888,7 +891,7 @@ mod tests {
     fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
         match encoding {
             Encoding::Gzip => encode_gzip(data).unwrap(),
-            Encoding::Brotli => encode_brotli(data).unwrap(),
+            Encoding::Brotli => encode_brotli(data, BROTLI_ENCODE_QUALITY).unwrap(),
             Encoding::Zlib => encode_zlib(data).unwrap(),
             Encoding::Zstd => encode_zstd(data).unwrap(),
             _ => panic!("compress_with: unsupported encoding {encoding:?}"),
