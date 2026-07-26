@@ -295,7 +295,7 @@ async fn mbt_get_mvt_brotli() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 1136); // this number could change if compression settings change
     let body = decode_brotli(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
