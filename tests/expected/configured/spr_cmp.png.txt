@@ -1,1 +1,0 @@
-tests/output/configured/spr_cmp.png: PNG image data, 50 x 31, 8-bit/color RGBA, non-interlaced
