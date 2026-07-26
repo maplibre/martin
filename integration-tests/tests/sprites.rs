@@ -246,9 +246,10 @@ async fn an_unknown_sprite_source_is_not_found(#[case] path: &str) {
 async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location: &str) {
     let mut martin = martin_with_sprite_dirs().await;
 
-    let response = martin.get(path).await;
-    assert_eq!(response.status(), 301);
-    assert_eq!(response.header("location"), Some(location));
+    for response in [martin.get(path).await, martin.head(path).await] {
+        assert_eq!(response.status(), 301);
+        assert_eq!(response.header("location"), Some(location));
+    }
     assert_eq!(martin.get(location).await.status(), 200);
 
     martin.stop().await;

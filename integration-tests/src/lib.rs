@@ -17,7 +17,7 @@ use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use regex::Regex;
-use reqwest::{Client, redirect};
+use reqwest::{Client, Method, redirect};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{AssertSqlSafe, Connection as _, SqliteConnection};
 use tempfile::TempDir;
@@ -262,15 +262,28 @@ impl Martin {
     }
 
     pub async fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
+        self.request(Method::GET, path, headers).await
+    }
+
+    /// Perform a HEAD request. Routes list their methods one by one, so a route
+    /// that answers `GET` does not necessarily answer `HEAD`.
+    pub async fn head(&self, path: &str) -> TestResponse {
+        self.request(Method::HEAD, path, &[]).await
+    }
+
+    async fn request(&self, method: Method, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         let url = format!("http://{}{path}", self.addr);
-        let mut request = self.client.get(&url).header("accept-encoding", "br, gzip");
+        let mut request = self
+            .client
+            .request(method.clone(), &url)
+            .header("accept-encoding", "br, gzip");
         for (name, value) in headers {
             request = request.header(*name, *value);
         }
         let response = request
             .send()
             .await
-            .unwrap_or_else(|e| panic!("GET {url} failed: {e}"));
+            .unwrap_or_else(|e| panic!("{method} {url} failed: {e}"));
         let status = response.status().as_u16();
         let headers = response
             .headers()
