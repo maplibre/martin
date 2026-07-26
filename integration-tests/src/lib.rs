@@ -594,6 +594,9 @@ pub async fn mbtiles_from_sql(sql: impl AsRef<Path>, dest: impl AsRef<Path>) {
 
 fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
     let mut body = Vec::new();
+    if raw.is_empty() {
+        return body;
+    }
     match encoding {
         Some("br") => {
             Decompressor::new(raw, 4096)
@@ -730,6 +733,12 @@ mod tests {
     fn decompress_passes_through_unencoded_bodies() {
         assert_eq!(decompress(b"plain", None), b"plain");
         assert_eq!(decompress(b"plain", Some("identity")), b"plain");
+    }
+
+    #[test]
+    fn decompress_passes_through_an_empty_body() {
+        assert_eq!(decompress(b"", Some("br")), b"");
+        assert_eq!(decompress(b"", Some("gzip")), b"");
     }
 
     #[test]
