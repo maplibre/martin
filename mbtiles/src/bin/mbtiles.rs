@@ -798,7 +798,7 @@ mod tests {
     }
 
     // Behavioural pack/unpack coverage (round-trips, scheme flips, compression, metadata,
-    // and CLI error paths) lives in the integration suite `tests/test.sh`, which drives the
+    // and CLI error paths) lives in `integration-tests/tests/mbtiles_cli.rs`, which drives the
     // real binary against fixture MBTiles. The unit tests below only cover argument parsing;
     // the `pack`/`unpack` logic and its `tile_coords` parser are tested in the `mbtiles::pack`
     // module.
