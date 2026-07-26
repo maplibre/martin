@@ -5260,6 +5260,7 @@ dependencies = [
 name = "martin-integration-tests"
 version = "0.0.0"
 dependencies = [
+ "approx",
  "brotli 8.0.4",
  "flate2",
  "insta",
