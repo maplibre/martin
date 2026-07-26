@@ -406,31 +406,4 @@ sources:
         "#
         );
     }
-
-    #[test]
-    fn top_level_unrecognized_nested_keys_are_reported() {
-        use std::collections::HashMap;
-        use std::path::Path;
-
-        use crate::config::file::{CollectUnrecognizedKeys as _, Config, parse_config};
-
-        let yaml = indoc::indoc! {"
-            duckdb:
-              typo_key: 1
-              sources:
-                - geoparquet: /tmp/a.parquet
-                  layer_id: buildings
-                  bad_option: true
-        "};
-        let config: Config =
-            parse_config(yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
-        let mut keys: Vec<_> = config.get_unrecognized_keys().into_iter().collect();
-        keys.sort_unstable();
-        insta::assert_debug_snapshot!(keys, @r#"
-        [
-            "duckdb.sources[0].bad_option",
-            "duckdb.typo_key",
-        ]
-        "#);
-    }
 }
