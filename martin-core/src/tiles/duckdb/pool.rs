@@ -251,7 +251,6 @@ impl Manager for DuckDBPoolManager {
         conn: &mut Self::Type,
         _metrics: &Metrics,
     ) -> RecycleResult<Self::Error> {
-        // Lightweight sync health check; avoid `block_in_place` so this works on actix's per-worker runtimes.
         conn.execute_batch("SELECT 1").map_err(|source| {
             HealthCheck {
                 source: source.into(),
