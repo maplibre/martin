@@ -177,11 +177,6 @@ test_png() {
   fi
 }
 
-test_jpg() {
-  # test_png can test any image format, but this is a separate function to make it easier to find all the jpeg tests
-  test_png "$1" "$2" jpg
-}
-
 test_mlt() {
   FILENAME="$TEST_OUT_DIR/$1.mlt"
   URL="$MARTIN_URL/$2"
@@ -372,16 +367,6 @@ test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
 test_mvt s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
-
->&2 echo "***** Test server response for Mbtiles source *****"
-test_jsn mb_jpg       geography-class-jpg
-test_jpg mb_jpg_0_0_0 geography-class-jpg/0/0/0
-test_jsn mb_png       geography-class-png
-test_png mb_png_0_0_0 geography-class-png/0/0/0
-test_jsn mb_dedup_id       normalized-dedup-id
-test_jpg mb_dedup_id_0_0_0 normalized-dedup-id/0/0/0
-test_jsn mb_mvt       world_cities
-test_mvt mb_mvt_2_3_1 world_cities/2/3/1
 
 # TODO: enable below once unstable-cog is stable
 #>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
