@@ -1,5 +1,4 @@
-//! Sources martin discovers by itself in a `PostgreSQL` database: tables, views, materialized
-//! views and functions, the ids it gives them, and the tiles they serve.
+//! Sources martin discovers by itself in a `PostgreSQL` database
 
 #![cfg(feature = "test-pg")]
 
@@ -8,41 +7,24 @@ use std::io::Cursor;
 use martin_integration_tests::{Martin, TestResponse};
 use serde_json::Value;
 
-/// The zoom levels `tests/test.sh` asked every vector source for, from the whole world down to
-/// the one tile that holds the fixture data.
-const ZOOMS: [&str; 7] = [
-    "0/0/0",
-    "6/57/29",
-    "12/3673/1911",
-    "13/7346/3822",
-    "14/14692/7645",
-    "17/117542/61161",
-    "18/235085/122323",
-];
-
 /// A server that publishes everything it finds in the fixture database.
-///
-/// `--default-srid` adopts the tables whose geometry column has SRID 0, and `--auto-bounds calc`
-/// makes martin measure the bounds it reports, so the catalog matches what `tests/test.sh` drove.
-/// The pool is deliberately small: every test here starts its own server, and the default of 20
-/// connections each is more than the database allows once they run in parallel.
 async fn martin_with_postgres() -> Martin {
     Martin::builder()
         .with_postgres()
-        .arg("--default-srid")
+        // also adopt tables whose geometry column has SRID 0
+        .arg("--default-srid") 
         .arg("900913")
+        // no fuzzy estimated bounds
         .arg("--auto-bounds")
         .arg("calc")
+        // to not exhaust the global pool
         .arg("--pool-size")
-        .arg("2")
+        .arg("1")
         .start()
         .await
         .expect("failed to start martin")
 }
 
-/// `tests/test.sh` rounded every float in a JSON body to ten decimal digits before comparing it,
-/// because the last digits of a reprojected bound differ between machines. These snapshots cut
-/// the same digits, and drop the etag with them: it is computed over the untruncated body.
 fn json_filters() -> Vec<(&'static str, &'static str)> {
     vec![
         (r"(-?\d+\.\d{10})\d+", "$1"),
@@ -50,8 +32,6 @@ fn json_filters() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
-/// The warnings auto-discovery emits for this database however it is started: three tables that
-/// have no spatial index, and the six ids it had to rename to keep them unique and printable.
 fn assert_discovery_warnings(martin: &mut Martin) {
     for warning in [
         "Table public.mat_view has no spatial index on column geom",
@@ -89,7 +69,15 @@ async fn tile_dump(martin: &Martin, path: &str) -> String {
 
 /// Ask `source` for every zoom level in [`ZOOMS`] and snapshot each tile.
 async fn assert_tiles_across_zooms(martin: &Martin, source: &str, snapshot_prefix: &str) {
-    for zxy in ZOOMS {
+    for zxy in [
+        "0/0/0",
+        "6/57/29",
+        "12/3673/1911",
+        "13/7346/3822",
+        "14/14692/7645",
+        "17/117542/61161",
+        "18/235085/122323",
+    ] {
         let dump = tile_dump(martin, &format!("/{source}/{zxy}")).await;
         insta::assert_snapshot!(format!("{snapshot_prefix}_{}", zxy.replace('/', "_")), dump);
     }
