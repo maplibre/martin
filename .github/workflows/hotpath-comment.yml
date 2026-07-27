@@ -11,6 +11,10 @@ on:
     types:
       - completed
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: ${{ github.event.workflow_run.head_branch != 'main' }}
+
 defaults:
   run:
     shell: bash

@@ -8,6 +8,10 @@ on:
   pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [labeled]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions: {}
 
 jobs:
