@@ -652,7 +652,7 @@ test-e2e *args: fetch
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start
     cargo build --package martin --package mbtiles
-    cargo test --package martin-integration-tests --features test-pg --test martin_cp {{args}}
+    cargo test --package martin-integration-tests --features test-pg --test martin_cp --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
