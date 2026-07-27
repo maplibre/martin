@@ -8,7 +8,7 @@ use std::process::{ExitStatus, Stdio};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{AssertSqlSafe, Connection as _, SqliteConnection};
 
-use crate::{binary_command, workspace_root};
+use crate::{binary_command, display_args, workspace_root};
 
 /// One run of the `mbtiles` CLI binary.
 #[derive(Debug)]
@@ -34,49 +34,61 @@ impl MbtilesCli {
 
     /// Run the command, require it to succeed, and return its output.
     pub async fn run(self) -> String {
-        let (status, output) = self.output().await;
+        let (status, stdout, stderr) = self.output().await;
+        let output = stdout + &stderr;
         assert!(
             status.success(),
             "`mbtiles {}` failed with {status}; output:\n{output}",
-            self.display_args()
+            display_args(&self.args)
         );
         output
+    }
+
+    /// Run the command, require it to succeed, and parse what it printed as JSON.
+    /// The CLI logs to stderr, leaving stdout to the reported document alone.
+    pub async fn run_json(self) -> serde_json::Value {
+        let (status, stdout, stderr) = self.output().await;
+        assert!(
+            status.success(),
+            "`mbtiles {}` failed with {status}; output:\n{stdout}{stderr}",
+            display_args(&self.args)
+        );
+        serde_json::from_str(&stdout).unwrap_or_else(|e| {
+            panic!(
+                "`mbtiles {}` did not print json: {e}; output:\n{stdout}",
+                display_args(&self.args)
+            )
+        })
     }
 
     /// Run the command, require it to fail, and return its output.
     pub async fn run_failing(self) -> String {
-        let (status, output) = self.output().await;
+        let (status, stdout, stderr) = self.output().await;
+        let output = stdout + &stderr;
         assert!(
             !status.success(),
             "`mbtiles {}` succeeded; output:\n{output}",
-            self.display_args()
+            display_args(&self.args)
         );
         output
     }
 
-    /// Run the command and return its exit status together with its stdout followed by its stderr,
-    /// which is where the CLI logs errors.
-    async fn output(&self) -> (ExitStatus, String) {
+    /// Run the command and return its exit status, its stdout and its stderr,
+    /// which is where the CLI logs.
+    async fn output(&self) -> (ExitStatus, String, String) {
         let mut cmd = binary_command("MBTILES_BIN", "mbtiles");
         cmd.current_dir(workspace_root())
             .env("RUST_LOG_FORMAT", "bare")
             .args(&self.args)
             .stdin(Stdio::null());
-        let output = cmd
-            .output()
-            .await
-            .unwrap_or_else(|e| panic!("failed to run `mbtiles {}`: {e}", self.display_args()));
-        let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
-        text.push_str(&String::from_utf8_lossy(&output.stderr));
-        (output.status, text)
-    }
-
-    fn display_args(&self) -> String {
-        self.args
-            .iter()
-            .map(|arg| arg.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join(" ")
+        let output = cmd.output().await.unwrap_or_else(|e| {
+            panic!("failed to run `mbtiles {}`: {e}", display_args(&self.args))
+        });
+        (
+            output.status,
+            String::from_utf8_lossy(&output.stdout).into_owned(),
+            String::from_utf8_lossy(&output.stderr).into_owned(),
+        )
     }
 }
 
