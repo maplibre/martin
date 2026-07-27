@@ -83,6 +83,27 @@ async fn bsdiff_rows(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>, i64)> {
     rows
 }
 
+/// The same idea as [`redact`], for the reported document: the file lives in a temp directory,
+/// its page geometry depends on the sqlite build, and the bounding box is computed by
+/// trigonometry, so its last digits differ between machines.
+fn summary_filters() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (r#""file_path": "[^"]*""#, r#""file_path": "[TMP]""#),
+        (r#""(file_size|page_size|page_count)": \d+"#, r#""$1": 0"#),
+        (r"(-?\d+\.\d{10})\d+", "$1"),
+    ]
+}
+
+/// A run's output with the parts that are not the same on every machine replaced, so that it can
+/// be snapshotted: this run's temp directory, and the number of cpus the bindiff pass found.
+fn redact(dir: &TempDir, output: &str) -> String {
+    let output = output.replace(&dir.path().display().to_string(), "[TMP]");
+    Regex::new(r"bindiff\.cpus=\d+")
+        .expect("the pattern is valid")
+        .replace_all(&output, "bindiff.cpus=[CPUS]")
+        .into_owned()
+}
+
 async fn metadata(path: &Path) -> BTreeMap<String, String> {
     let mut conn = open(path, true).await;
     let rows: Vec<(String, String)> = sqlx::query_as("SELECT name, value FROM metadata")
@@ -127,8 +148,10 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
         .arg("cache")
         .run()
         .await;
-    assert!(output.contains("(flat) to a new file"), "{output}");
-    assert!(output.contains("(cache)"), "{output}");
+    insta::assert_snapshot!(redact(&dir, &output), @"
+    INFO Copying [TMP]/world_cities.mbtiles (flat) to a new file [TMP]/cache.mbtiles (cache)
+    INFO Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
+    ");
 
     let summary = MbtilesCli::new("summary")
         .arg("--format")
@@ -136,8 +159,9 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
         .arg(&cache)
         .run_json()
         .await;
-    assert_eq!(summary["mbt_type"], "Cache");
-    assert_eq!(summary["tile_count"], 8);
+    insta::with_settings!({filters => summary_filters()}, {
+        insta::assert_json_snapshot!("the_summary_of_the_cache_copy", summary);
+    });
 
     MbtilesCli::new("copy")
         .arg(&cache)
@@ -203,14 +227,12 @@ async fn validating_a_cache_file_skips_the_per_tile_hashes() {
         .await;
     let output = MbtilesCli::new("validate").arg(&cache).run().await;
 
-    assert!(
-        output.contains("Skipping per-tile hash validation because this is a cache MBTiles file"),
-        "{output}"
-    );
-    assert!(
-        output.contains("agg_tiles_hash has been verified"),
-        "{output}"
-    );
+    insta::assert_snapshot!(redact(&dir, &output), @"
+    INFO Integrity check passed mbtiles.file=[TMP]/cache.mbtiles integrity_check=Quick
+    INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/cache.mbtiles
+    INFO Skipping per-tile hash validation because this is a cache MBTiles file mbtiles.file=[TMP]/cache.mbtiles
+    INFO agg_tiles_hash has been verified mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F
+    ");
 }
 
 #[tokio::test]
@@ -228,10 +250,7 @@ async fn purging_a_cache_keeps_the_entries_that_have_not_expired() {
         .await;
     let output = MbtilesCli::new("cache-purge").arg(&cache).run().await;
 
-    assert!(
-        output.contains("Removed 0 expired tile entries"),
-        "{output}"
-    );
+    insta::assert_snapshot!(redact(&dir, &output), @"Removed 0 expired tile entries");
     assert_eq!(tiles(&cache).await.len(), 8);
 }
 
@@ -246,10 +265,7 @@ async fn purging_refuses_a_tileset_that_is_not_a_cache() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("does not use the tile-cache schema, refusing to modify it"),
-        "{output}"
-    );
+    insta::assert_snapshot!(redact(&dir, &output), @"ERROR File [TMP]/world_cities.mbtiles exists but does not use the tile-cache schema, refusing to modify it. Use an empty/new file or an existing cache file");
     assert_eq!(before, tiles(&source).await, "the file must be left alone");
 }
 
@@ -411,18 +427,16 @@ async fn applying_a_patch_announces_the_hashes_it_expects() {
         .run()
         .await;
 
-    assert!(
-        output.contains(
-            "expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, \
-             and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying"
-        ),
-        "{output}"
-    );
-    // Re-gzip-ing may change the bytes, so the resulting hash is deliberately not checked.
-    assert!(
-        output.contains("Skipping agg_tiles_hash_after_apply validation"),
-        "{output}"
-    );
+    // Re-gzip-ing may change the bytes, so the resulting hash is deliberately not validated,
+    // and the run says so.
+    insta::assert_snapshot!(redact(&dir, &output), @"
+    INFO The patch file [TMP]/patch.mbtiles expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying
+    INFO Applying patch from [TMP]/patch.mbtiles (flat) to [TMP]/world_cities.mbtiles (flat) into a new file [TMP]/applied.mbtiles (flat) with bin-diff on gzip-ed tiles
+    INFO Processing bindiff patches bindiff.cpus=[CPUS]
+    INFO Finished processing bindiff tiles bindiff.inserted=0
+    INFO Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/applied.mbtiles agg_tiles_hash=72D8C992AF67EC97093B0087933FA160
+    INFO Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value
+    ");
 }
 
 #[tokio::test]
@@ -432,8 +446,6 @@ async fn bin_diff_reports_how_many_workers_it_used() {
     let modified = mbtiles_fixture(dir.path(), "world_cities_modified").await;
     let patch = dir.path().join("patch.mbtiles");
     let applied = dir.path().join("applied.mbtiles");
-    let workers = Regex::new(r"Processing bindiff patches bindiff\.cpus=[1-9][0-9]*")
-        .expect("the pattern is valid");
 
     // Both cutting and applying a bin-diff run the parallel bindiff pass and say so.
     let cutting = MbtilesCli::new("copy")
@@ -445,7 +457,7 @@ async fn bin_diff_reports_how_many_workers_it_used() {
         .arg("bin-diff-gz")
         .run()
         .await;
-    assert!(workers.is_match(&cutting), "{cutting}");
+    insta::assert_snapshot!("cutting_a_bin_diff", redact(&dir, &cutting));
 
     let applying = MbtilesCli::new("copy")
         .arg(&source)
@@ -454,9 +466,5 @@ async fn bin_diff_reports_how_many_workers_it_used() {
         .arg(&applied)
         .run()
         .await;
-    assert!(workers.is_match(&applying), "{applying}");
-    assert!(
-        applying.contains("Finished processing bindiff tiles bindiff.inserted=0"),
-        "{applying}"
-    );
+    insta::assert_snapshot!("applying_a_bin_diff", redact(&dir, &applying));
 }
