@@ -1,5 +1,6 @@
 //! The `martin` server subprocess and the responses it answers with.
 
+use std::env;
 use std::ffi::OsString;
 use std::io::{self, Read as _};
 use std::process::{ExitStatus, Stdio};
@@ -55,6 +56,7 @@ pub enum StartError {
 pub struct MartinBuilder {
     args: Vec<OsString>,
     envs: Vec<(String, String)>,
+    database_url: Option<String>,
 }
 
 impl MartinBuilder {
@@ -69,6 +71,15 @@ impl MartinBuilder {
     #[must_use]
     pub fn env(mut self, key: &str, value: &str) -> Self {
         self.envs.push((key.to_owned(), value.to_owned()));
+        self
+    }
+
+    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at.
+    #[must_use]
+    pub fn with_postgres(mut self) -> Self {
+        let url = env::var("DATABASE_URL")
+            .expect("DATABASE_URL must point at the test database; start it with `just start`");
+        self.database_url = Some(url);
         self
     }
 
@@ -94,6 +105,9 @@ impl MartinBuilder {
             .kill_on_drop(true);
         for (key, value) in &self.envs {
             cmd.env(key, value);
+        }
+        if let Some(url) = &self.database_url {
+            cmd.env("DATABASE_URL", url);
         }
 
         let mut child = cmd.spawn().map_err(StartError::Spawn)?;
