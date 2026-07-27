@@ -1,27 +1,34 @@
+---
+source: integration-tests/tests/mbtiles_diff.rs
+assertion_line: 163
+expression: summary
+---
 {
   "avg_tile_size": 202.625,
   "bbox": [
-    -180,
-    -85.051129,
-    180,
-    85.051129
+    -180.0,
+    -85.0511287798,
+    180.0000000000,
+    85.0511287798
   ],
-  "file_path": "./tests/fixtures/mbtiles/world_cities.mbtiles",
+  "file_path": "[TMP]",
+  "file_size": 0,
   "max_tile_size": 1107,
   "max_zoom": 6,
-  "mbt_type": "Flat",
+  "mbt_type": "Cache",
   "min_tile_size": 20,
   "min_zoom": 0,
-  "page_size": 4096,
+  "page_count": 0,
+  "page_size": 0,
   "tile_count": 8,
   "zoom_info": [
     {
-      "avg_tile_size": 1107,
+      "avg_tile_size": 1107.0,
       "bbox": [
-        -180,
-        -85.051129,
-        180,
-        85.051129
+        -180.0,
+        -85.0511287798,
+        180.0,
+        85.0511287798
       ],
       "max_tile_size": 1107,
       "min_tile_size": 1107,
@@ -29,12 +36,12 @@
       "zoom": 0
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 20.0,
       "bbox": [
-        -180,
-        -85.051129,
-        0,
-        0
+        -180.0,
+        -85.0511287798,
+        0.0,
+        0.0
       ],
       "max_tile_size": 20,
       "min_tile_size": 20,
@@ -42,12 +49,12 @@
       "zoom": 1
     },
     {
-      "avg_tile_size": 207,
+      "avg_tile_size": 207.0,
       "bbox": [
-        90,
-        -66.51326,
-        180,
-        66.51326
+        90.0000000000,
+        -66.5132604431,
+        180.0000000000,
+        66.5132604431
       ],
       "max_tile_size": 263,
       "min_tile_size": 151,
@@ -55,12 +62,12 @@
       "zoom": 2
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 20.0,
       "bbox": [
-        135,
-        -40.979898,
-        180,
-        0
+        134.9999999999,
+        -40.9798980696,
+        179.9999999999,
+        0.0
       ],
       "max_tile_size": 20,
       "min_tile_size": 20,
@@ -68,12 +75,12 @@
       "zoom": 3
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 20.0,
       "bbox": [
-        -22.5,
-        0,
-        -0,
-        21.943046
+        -22.5000000000,
+        0.0000000000,
+        -0.0000000000,
+        21.9430455334
       ],
       "max_tile_size": 20,
       "min_tile_size": 20,
@@ -81,12 +88,12 @@
       "zoom": 4
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 20.0,
       "bbox": [
-        0,
-        40.979898,
+        0.0,
+        40.9798980696,
         11.25,
-        48.922499
+        48.9224992637
       ],
       "max_tile_size": 20,
       "min_tile_size": 20,
@@ -94,12 +101,12 @@
       "zoom": 5
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 20.0,
       "bbox": [
-        73.125,
-        27.059126,
-        78.75,
-        31.952162
+        73.1250000000,
+        27.0591257843,
+        78.7500000000,
+        31.9521622380
       ],
       "max_tile_size": 20,
       "min_tile_size": 20,

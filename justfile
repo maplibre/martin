@@ -783,9 +783,6 @@ validate-tools:
     if ! command -v sqlite3 >/dev/null 2>&1; then
         missing_tools+=("sqlite3")
     fi
-    if ! command -v sqldiff >/dev/null 2>&1; then
-        missing_tools+=("sqldiff")
-    fi
     # `mvt` dumps vector tiles to a readable form in the integration tests. Install it with
     # `just install-mvt` (or `cargo install fast-mvt --features=cli`).
     if ! command -v mvt >/dev/null 2>&1; then
