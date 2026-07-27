@@ -28,18 +28,6 @@ fn redacted_json(martin: &Martin, response: &TestResponse) -> Value {
     serde_json::from_str(&martin.redact(&response.text())).expect("response body is not valid json")
 }
 
-fn urls_in(style: &Value) -> Vec<String> {
-    [
-        &style["glyphs"],
-        &style["sprite"],
-        &style["sources"]["from_tiles"]["tiles"][0],
-        &style["sources"]["from_url"]["url"],
-    ]
-    .into_iter()
-    .map(|url| url.as_str().expect("the style is missing a url").to_owned())
-    .collect()
-}
-
 #[tokio::test]
 async fn styles_are_discovered_from_files_and_directories() {
     let mut martin = martin_with_styles().await;
@@ -85,17 +73,18 @@ async fn a_style_is_served_as_json() {
 }
 
 #[rstest]
-#[case::a_file_source("maplibre_demo")]
-#[case::a_directory_source("maptiler_basic")]
-#[case::a_hyphenated_id("osm-liberty-lite")]
+#[case::a_file_source("maplibre_demo", "styles/maplibre_demo.json")]
+#[case::a_directory_source("maptiler_basic", "styles/src2/maptiler_basic.json")]
+#[case::a_hyphenated_id("osm-liberty-lite", "styles/src2/osm-liberty-lite.json")]
 #[tokio::test]
-async fn the_json_suffix_is_optional(#[case] style_id: &str) {
+async fn the_json_suffix_is_optional(#[case] style_id: &str, #[case] fixture_path: &str) {
     let mut martin = martin_with_styles().await;
 
     let bare = martin.get(&format!("/style/{style_id}")).await;
     let suffixed = martin.get(&format!("/style/{style_id}.json")).await;
     assert_eq!(bare.status(), 200);
     assert_eq!(suffixed.status(), 200);
+    assert_eq!(bare.json(), fixture_json(fixture_path));
     assert_eq!(bare.body(), suffixed.body());
 
     martin.stop().await;
@@ -103,7 +92,7 @@ async fn the_json_suffix_is_optional(#[case] style_id: &str) {
 }
 
 #[tokio::test]
-async fn relative_urls_expand_against_the_requested_server() {
+async fn relative_urls_expand_against_the_listen_address() {
     let mut martin = martin_with_styles().await;
 
     let response = martin.get("/style/relative_urls").await;
@@ -142,48 +131,304 @@ async fn relative_urls_expand_against_the_requested_server() {
     martin.assert_log_clean();
 }
 
-#[rstest]
-#[case::the_listen_address(&[], "http://[ADDR]")]
-#[case::the_host_header(&[("Host", "example.com")], "http://example.com")]
-#[case::a_host_with_a_port(&[("Host", "example.com:6000")], "http://example.com:6000")]
-#[case::a_forwarded_host(&[("X-Forwarded-Host", "tiles.example.com")], "http://tiles.example.com")]
-#[case::a_forwarded_prefix(&[("X-Forwarded-Prefix", "/tiles")], "http://[ADDR]/tiles")]
-#[case::a_forwarded_prefix_without_its_trailing_slash(&[("X-Forwarded-Prefix", "/tiles/")], "http://[ADDR]/tiles")]
 #[tokio::test]
-async fn the_expansion_base_follows_the_request(
-    #[case] headers: &[(&str, &str)],
-    #[case] base: &str,
-) {
+async fn relative_urls_expand_against_the_host_header() {
     let mut martin = martin_with_styles().await;
 
     let response = martin
-        .get_with_headers("/style/relative_urls", headers)
+        .get_with_headers("/style/relative_urls", &[("Host", "example.com")])
         .await;
     assert_eq!(response.status(), 200);
-    for url in urls_in(&redacted_json(&martin, &response)) {
-        assert!(
-            url.starts_with(&format!("{base}/")),
-            "{url} is not under {base}"
-        );
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://example.com/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://example.com/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://example.com/table_source"
+        }
+      },
+      "sprite": "http://example.com/sprite/src1",
+      "version": 8
     }
+    "##);
 
     martin.stop().await;
     martin.assert_log_clean();
 }
 
-#[rstest]
-#[case::a_forwarded_for("X-Forwarded-For", "forwarded-for.example.com")]
-#[case::a_rewritten_url("X-Rewrite-URL", "/footiles/style/relative_urls")]
 #[tokio::test]
-async fn the_expansion_base_ignores(#[case] header: &str, #[case] value: &str) {
+async fn relative_urls_expand_against_a_host_with_a_port() {
     let mut martin = martin_with_styles().await;
 
-    let plain = martin.get("/style/relative_urls").await;
-    let with_header = martin
-        .get_with_headers("/style/relative_urls", &[(header, value)])
+    let response = martin
+        .get_with_headers("/style/relative_urls", &[("Host", "example.com:6000")])
         .await;
-    assert_eq!(with_header.status(), 200);
-    assert_eq!(with_header.body(), plain.body());
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://example.com:6000/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://example.com:6000/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://example.com:6000/table_source"
+        }
+      },
+      "sprite": "http://example.com:6000/sprite/src1",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn relative_urls_expand_against_a_forwarded_host() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers(
+            "/style/relative_urls",
+            &[("X-Forwarded-Host", "tiles.example.com")],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://tiles.example.com/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://tiles.example.com/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://tiles.example.com/table_source"
+        }
+      },
+      "sprite": "http://tiles.example.com/sprite/src1",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn relative_urls_expand_against_a_forwarded_prefix() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers("/style/relative_urls", &[("X-Forwarded-Prefix", "/tiles")])
+        .await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://[ADDR]/tiles/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://[ADDR]/tiles/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://[ADDR]/tiles/table_source"
+        }
+      },
+      "sprite": "http://[ADDR]/tiles/sprite/src1",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn relative_urls_expand_against_a_forwarded_prefix_without_its_trailing_slash() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers("/style/relative_urls", &[("X-Forwarded-Prefix", "/tiles/")])
+        .await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://[ADDR]/tiles/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://[ADDR]/tiles/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://[ADDR]/tiles/table_source"
+        }
+      },
+      "sprite": "http://[ADDR]/tiles/sprite/src1",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn relative_urls_ignore_a_forwarded_for() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers(
+            "/style/relative_urls",
+            &[("X-Forwarded-For", "forwarded-for.example.com")],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://[ADDR]/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://[ADDR]/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://[ADDR]/table_source"
+        }
+      },
+      "sprite": "http://[ADDR]/sprite/src1",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn relative_urls_ignore_a_rewritten_url() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers(
+            "/style/relative_urls",
+            &[("X-Rewrite-URL", "/footiles/style/relative_urls")],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    {
+      "glyphs": "http://[ADDR]/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "background",
+          "paint": {
+            "background-color": "#000"
+          },
+          "type": "background"
+        }
+      ],
+      "name": "Relative URLs Test",
+      "sources": {
+        "from_tiles": {
+          "tiles": [
+            "http://[ADDR]/points1/{z}/{x}/{y}"
+          ],
+          "type": "vector"
+        },
+        "from_url": {
+          "type": "vector",
+          "url": "http://[ADDR]/table_source"
+        }
+      },
+      "sprite": "http://[ADDR]/sprite/src1",
+      "version": 8
+    }
+    "##);
 
     martin.stop().await;
     martin.assert_log_clean();
@@ -216,7 +461,9 @@ async fn the_plural_styles_path_redirects() {
         assert_eq!(response.status(), 301);
         assert_eq!(response.header("location"), Some("/style/maplibre_demo"));
     }
-    assert_eq!(martin.get("/style/maplibre_demo").await.status(), 200);
+    let target = martin.get("/style/maplibre_demo").await;
+    assert_eq!(target.status(), 200);
+    assert_eq!(target.json(), fixture_json("styles/maplibre_demo.json"));
 
     martin.stop().await;
     martin.assert_log_clean();
