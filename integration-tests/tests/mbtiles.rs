@@ -4,11 +4,7 @@ use martin_integration_tests::{Martin, WatchedDir, fixture, mbtiles_fixture, mbt
 use rstest::rstest;
 use tempfile::TempDir;
 
-async fn martin_serving(names: &[&str]) -> (TempDir, Martin) {
-    martin_serving_with(names, &[]).await
-}
-
-async fn martin_serving_with(names: &[&str], args: &[&str]) -> (TempDir, Martin) {
+async fn martin_serving(args: &[&str], names: &[&str]) -> (TempDir, Martin) {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let mut builder = Martin::builder();
     for arg in args {
@@ -29,7 +25,7 @@ async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&["geography-class-jpg"]).await;
+    let (_dir, mut martin) = martin_serving(&[], &["geography-class-jpg"]).await;
 
     let response = martin.get("/geography-class-jpg").await;
     assert_eq!(response.status(), 200);
@@ -80,7 +76,7 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn a_png_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&["geography-class-png"]).await;
+    let (_dir, mut martin) = martin_serving(&[], &["geography-class-png"]).await;
 
     insta::assert_json_snapshot!(tilejson(&martin, "geography-class-png").await, @r#"
     {
@@ -124,7 +120,7 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&["world_cities"]).await;
+    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
 
     insta::assert_json_snapshot!(tilejson(&martin, "world_cities").await, @r#"
     {
@@ -169,7 +165,7 @@ async fn an_mvt_source_serves_its_tilejson() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_a_decodable_tile() {
-    let (_dir, mut martin) = martin_serving(&["world_cities"]).await;
+    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
 
     let tile = martin.get("/world_cities/2/3/1").await;
     assert_eq!(tile.status(), 200);
@@ -253,7 +249,7 @@ async fn an_mvt_source_serves_a_decodable_tile() {
 
 #[tokio::test]
 async fn a_normalized_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&["normalized-dedup-id"]).await;
+    let (_dir, mut martin) = martin_serving(&[], &["normalized-dedup-id"]).await;
 
     insta::assert_json_snapshot!(tilejson(&martin, "normalized-dedup-id").await, @r#"
     {
@@ -301,7 +297,8 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
     #[case] y: u32,
     #[case] expected: &[u8],
 ) {
-    let (_dir, mut martin) = martin_serving(&["normalized-dedup-id", "geography-class-jpg"]).await;
+    let (_dir, mut martin) =
+        martin_serving(&[], &["normalized-dedup-id", "geography-class-jpg"]).await;
 
     let deduplicated = martin
         .get(&format!("/normalized-dedup-id/{z}/{x}/{y}"))
@@ -329,7 +326,7 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
 #[tokio::test]
 async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] query: &str) {
     let (_dir, mut martin) =
-        martin_serving_with(&[id], &["--tilejson-url-version-param", "version"]).await;
+        martin_serving(&["--tilejson-url-version-param", "version"], &[id]).await;
 
     assert_eq!(
         tilejson(&martin, id).await["tiles"][0],
