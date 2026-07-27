@@ -15,7 +15,6 @@ MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 
 # Using direct compiler output paths to avoid extra log entries
 MARTIN_BIN="${MARTIN_BIN:-target/debug/martin} ${MARTIN_ARGS}"
-MARTIN_CP_BIN="${MARTIN_CP_BIN:-target/debug/martin-cp}"
 MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
 TEST_OUT_BASE_DIR="$(dirname "$0")/output"
@@ -259,29 +258,6 @@ test_log_has_str() {
   fi
 }
 
-test_martin_cp() {
-  TEST_NAME="$1"
-  ARG=("${@:2}")
-
-  LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-  SAVE_CONFIG_FILE="${TEST_OUT_DIR}/${TEST_NAME}_save_config.yaml"
-  SUMMARY_FILE="$TEST_OUT_DIR/${TEST_NAME}_summary.txt"
-  TEST_FILE="${TEST_TEMP_DIR}/cp_${TEST_NAME}.mbtiles"
-  ARG_EXTRAS=(--output-file "$TEST_FILE" --save-config "$SAVE_CONFIG_FILE")
-
-  set -x
-  $MARTIN_CP_BIN "${ARG[@]}" "${ARG_EXTRAS[@]}" 2>&1 | tee "$LOG_FILE"
-  $MBTILES_BIN validate --agg-hash off "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_validate.txt"
-  $MBTILES_BIN summary "$TEST_FILE" 2>&1 | tee "$SUMMARY_FILE"
-  $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
-  { set +x; } 2> /dev/null
-
-  remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
-  # These tend to vary between runs. In theory, vacuuming might make it the same.
-  remove_lines "$SUMMARY_FILE" "File size: "
-  remove_lines "$SUMMARY_FILE" "SQL page count: "
-}
-
 validate_log() {
   LOG_FILE="$1"
   >&2 echo "Validating log file $LOG_FILE"
@@ -361,7 +337,7 @@ grep --version | head -1
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
-  rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+  rm -rf "$MARTIN_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
   echo "::endgroup::"
 fi
@@ -670,50 +646,6 @@ test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on 
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
-
-if [[ "$MARTIN_CP_BIN" != "-" ]]; then
-  echo "::group::Test martin-cp"
-  TEST_NAME="martin-cp"
-  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-  mkdir -p "$TEST_OUT_DIR"
-
-  export DATABASE_URL="$MARTIN_DATABASE_URL"
-  CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
-
-  test_martin_cp "flat" "${CFG[@]}" \
-      --source table_source --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-  test_martin_cp "flat-with-hash" "${CFG[@]}" \
-      --source function_zxy_query_test --url-query 'foo=bar&token=martin' --encoding 'identity' --mbtiles-type flat-with-hash --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-  test_martin_cp "normalized" "${CFG[@]}" \
-      --source geography-class-png --mbtiles-type normalized --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
-
-  test_martin_cp "composite" "${CFG[@]}" \
-      --source table_source,function_zxy_query_test --url-query 'foo=bar&token=martin' --mbtiles-type normalized --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
-
-  test_martin_cp "no-bbox" ./tests/fixtures/mbtiles/world_cities.mbtiles \
-          --source table_source --mbtiles-type flat --concurrency 3 \
-          --min-zoom 0 --max-zoom 6 \
-          --set-meta "generator=martin-cp v0.0.0"
-
-  unset DATABASE_URL
-
-  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
-      --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-
-  echo "::endgroup::"
-else
-  echo "Skipping martin-cp tests"
-fi
 
 # If we don't do this, rounding differences on CI and local machines are a problem
 echo "::group::redact unnecessary precision in *_config.yaml and *.json"
