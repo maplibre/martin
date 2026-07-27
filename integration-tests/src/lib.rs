@@ -17,7 +17,7 @@ use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use regex::Regex;
-use reqwest::Client;
+use reqwest::{Client, redirect};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{AssertSqlSafe, Connection as _, SqliteConnection};
 use tempfile::TempDir;
@@ -144,6 +144,7 @@ impl MartinBuilder {
         let client = Client::builder()
             .timeout(Duration::from_mins(2))
             .connect_timeout(Duration::from_secs(10))
+            .redirect(redirect::Policy::none())
             .build()
             .expect("failed to build the http client");
 
@@ -257,11 +258,16 @@ impl Martin {
     /// curl invocation in `tests/test.sh`; the body is transparently
     /// decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
+        self.get_with_headers(path, &[]).await
+    }
+
+    pub async fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         let url = format!("http://{}{path}", self.addr);
-        let response = self
-            .client
-            .get(&url)
-            .header("accept-encoding", "br, gzip")
+        let mut request = self.client.get(&url).header("accept-encoding", "br, gzip");
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+        let response = request
             .send()
             .await
             .unwrap_or_else(|e| panic!("GET {url} failed: {e}"));
@@ -383,8 +389,9 @@ impl Martin {
         );
     }
 
-    /// Assert the warnings every martin start emits under this harness: `pmtiles.allow_http`
-    /// defaults, plus the deprecation of the two `AWS_*` variables [`MartinBuilder::start`] sets.
+    /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
+    /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the two `AWS_*` variables
+    /// [`MartinBuilder::start`] sets.
     /// Must be called after [`Martin::stop`].
     pub fn assert_startup_warnings(&mut self) {
         self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
@@ -596,6 +603,15 @@ impl TestResponse {
     #[must_use]
     pub fn status(&self) -> u16 {
         self.status
+    }
+
+    /// The value of the first header named `name`, matched case-insensitively.
+    #[must_use]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(header, _)| header.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
     }
 
     /// Decompressed response body.

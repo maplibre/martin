@@ -184,15 +184,6 @@ test_jpg() {
   test_png "$1" "$2" jpg
 }
 
-test_font() {
-  FILENAME="$TEST_OUT_DIR/$1.pbf"
-  URL="$MARTIN_URL/$2"
-
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-}
-
 test_json_with_header() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
@@ -687,11 +678,6 @@ test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
 test_jsn style_maplibre_demo          style/maplibre
 test_jsn style_maplibre_demo.1        style/maplibre.json
 
-# Test fonts
-test_font font_1      font/Overpass%20Mono%20Light/0-255
-test_font font_2      font/Overpass%20Mono%20Regular/0-255
-test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
-
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
@@ -732,7 +718,6 @@ test_redirect sprites/src1.json     /sprite/src1.json
 test_redirect sprites/src1.png      /sprite/src1.png
 test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
 test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
-test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
 
 # Test tile format suffix redirects
 test_redirect table_source/0/0/0.pbf /table_source/0/0/0
