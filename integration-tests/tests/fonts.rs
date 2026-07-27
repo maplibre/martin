@@ -247,13 +247,17 @@ async fn a_glyph_range_answers_conditional_requests() {
 async fn the_plural_fonts_path_redirects() {
     let mut martin = martin_with_font_dir().await;
 
-    let response = martin.get(&format!("/fonts/{REGULAR}/0-255")).await;
-    assert_eq!(response.status(), 301);
-    insta::assert_snapshot!(response.headers_snapshot(), @r"
-    content-length: 0
-    location: /font/Overpass Mono Regular/0-255
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-    ");
+    let path = format!("/fonts/{REGULAR}/0-255");
+    for response in [martin.get(&path).await, martin.head(&path).await] {
+        assert_eq!(response.status(), 301);
+        insta::allow_duplicates! {
+            insta::assert_snapshot!(response.headers_snapshot(), @r"
+            content-length: 0
+            location: /font/Overpass Mono Regular/0-255
+            vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+            ");
+        }
+    }
     assert_eq!(
         martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
         200
