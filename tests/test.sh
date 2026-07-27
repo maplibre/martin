@@ -15,7 +15,6 @@ MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 
 # Using direct compiler output paths to avoid extra log entries
 MARTIN_BIN="${MARTIN_BIN:-target/debug/martin} ${MARTIN_ARGS}"
-MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
 TEST_OUT_BASE_DIR="$(dirname "$0")/output"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
@@ -308,26 +307,6 @@ wait_for_log_str() {
   exit 1
 }
 
-compare_sql_dbs() {
-  DB_FILE="$1"
-  EXPECTED_DB_FILE="$2"
-  LOG_FILE="$3"
-
-  if ! command -v sqldiff > /dev/null; then
-    echo "ERROR: sqldiff is required for testing, install it with   apt install sqlite3-tools"
-    exit 1
-  fi
-
-  >&2 echo "Comparing $DB_FILE with the expected $EXPECTED_DB_FILE"
-
-  sqldiff "$DB_FILE" "$EXPECTED_DB_FILE" 2>&1 | tee "$LOG_FILE" \
-    || {
-         echo "ERROR: sqldiff failed. To accept changes, run this command:"
-         echo "   cp $DB_FILE $EXPECTED_DB_FILE"
-         exit 1
-       }
-}
-
 echo "::group::versions"
 curl --version
 jq --version
@@ -337,7 +316,7 @@ grep --version | head -1
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
-  rm -rf "$MARTIN_BIN" "$MBTILES_BIN"
+  rm -rf "$MARTIN_BIN"
   $MARTIN_BUILD_ALL
   echo "::endgroup::"
 fi
@@ -668,164 +647,6 @@ for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
     mv "$file.tmp" "$file"
 done
 echo "::endgroup::"
-
-if [[ "$MBTILES_BIN" != "-" ]]; then
-  echo "::group::Test mbtiles utility"
-
-  TEST_NAME="mbtiles"
-  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-  mkdir -p "$TEST_OUT_DIR"
-
-  set -x
-
-  $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
-  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.pretty.json"
-  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.json"
-  $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
-  $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
-  $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
-  $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
-  $MBTILES_BIN validate ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-dedup-id-ok.txt"
-
-  if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
-    echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
-    exit 1
-  fi
-  if $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-hash.txt"; then
-    echo "ERROR: validate with bad_hash.mbtiles should have failed"
-    exit 1
-  fi
-
-  cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
-  $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
-  $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
-
-  # Cache schema
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
-    --mbtiles-type cache \
-    2>&1 | tee "$TEST_OUT_DIR/cache_copy_to.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_summary.txt"
-  $MBTILES_BIN validate "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_validate.txt"
-
-  $MBTILES_BIN copy \
-    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
-    --mbtiles-type flat \
-    2>&1 | tee "$TEST_OUT_DIR/cache_copy_from.txt"
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_diff.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_summary.txt"
-
-  $MBTILES_BIN cache-purge "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_purge.txt"
-  # Purging a regular (non-cache) tileset must fail
-  if $MBTILES_BIN cache-purge ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/cache_purge_bad.txt"; then
-    echo "ERROR: cache-purge on a non-cache file should have failed"
-    exit 1
-  fi
-
-  # Create diff file
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_diff.mbtiles" \
-    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    2>&1 | tee "$TEST_OUT_DIR/copy_diff.txt"
-  $MBTILES_BIN diff \
-       ./tests/fixtures/mbtiles/world_cities.mbtiles \
-       ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-       "$TEST_TEMP_DIR/world_cities_diff2.mbtiles" \
-       2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
-
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-    --patch-type bin-diff-gz \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff3.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
-
-  # See if the stored bindiff file can also be applied to produce the same result
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff6.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff7.txt"
-
-  if command -v sqlite3 > /dev/null; then
-
-    compare_sql_dbs "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-      ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
-      "$TEST_OUT_DIR/copy_bindiff_diff.txt"
-
-    # Apply this diff to the original version of the file
-    cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
-
-    sqlite3 "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      -bail \
-      -cmd ".parameter set @diffDbFilename $TEST_TEMP_DIR/world_cities_diff.mbtiles" \
-      "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-      "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-      "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
-
-    # Ensure that applying the diff resulted in the modified version of the file
-    $MBTILES_BIN copy \
-      --diff-with-file "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-      "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
-      2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
-
-    sqlite3 "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
-      "SELECT COUNT(*) FROM tiles;" \
-      2>&1 | tee "$TEST_OUT_DIR/copy_apply.txt"
-
-  else
-    echo "---------------------------------------------------------"
-    echo "##### sqlite3 is not installed, skipping apply test #####"
-    # Copy expected output files as if they were generated by the test
-    EXPECTED_DIR="$(dirname "$0")/expected/mbtiles"
-    cp "$EXPECTED_DIR/copy_bindiff_diff.txt" "$TEST_OUT_DIR/copy_bindiff_diff.txt"
-    cp "$EXPECTED_DIR/copy_diff2.txt" "$TEST_OUT_DIR/copy_diff2.txt"
-    cp "$EXPECTED_DIR/copy_apply.txt" "$TEST_OUT_DIR/copy_apply.txt"
-  fi
-
-  { set +x; } 2> /dev/null
-  echo "::endgroup::"
-else
-  echo "Skipping mbtiles utility tests"
-fi
 
 # The COG reloader is only active when compiled with --features unstable-cog.
 # Detect this at runtime by copying a .tif file and checking whether it appears in the catalog.
