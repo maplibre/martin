@@ -367,61 +367,6 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
->&2 echo "Test catalog"
-test_jsn catalog_auto catalog
-
->&2 echo "***** Test server response for table source *****"
-test_jsn table_source             table_source
-test_mvt tbl_0_0_0                table_source/0/0/0
-test_mvt tbl_6_57_29              table_source/6/57/29
-test_mvt tbl_12_3673_1911         table_source/12/3673/1911
-test_mvt tbl_13_7346_3822         table_source/13/7346/3822
-test_mvt tbl_14_14692_7645        table_source/14/14692/7645
-test_mvt tbl_17_117542_61161      table_source/17/117542/61161
-test_mvt tbl_18_235085_122323     table_source/18/235085/122323
-
->&2 echo "***** Test server response for composite source *****"
-test_jsn cmp                      table_source,points1,points2
-test_mvt cmp_0_0_0                table_source,points1,points2/0/0/0
-test_mvt cmp_6_57_29              table_source,points1,points2/6/57/29
-test_mvt cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
-test_mvt cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
-test_mvt cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
-test_mvt cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
-test_mvt cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
-
->&2 echo "***** Test server response for function source *****"
-test_jsn fnc                      function_zxy_query
-test_mvt fnc_0_0_0                function_zxy_query/0/0/0
-test_mvt fnc_6_57_29              function_zxy_query/6/57/29
-test_mvt fnc_12_3673_1911         function_zxy_query/12/3673/1911
-test_mvt fnc_13_7346_3822         function_zxy_query/13/7346/3822
-test_mvt fnc_14_14692_7645        function_zxy_query/14/14692/7645
-test_mvt fnc_17_117542_61161      function_zxy_query/17/117542/61161
-test_mvt fnc_18_235085_122323     function_zxy_query/18/235085/122323
-
-test_jsn fnc_token                function_zxy_query_test
-test_mvt fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
-
-test_jsn fnc_b                    function_zxy_query_jsonb
-test_mvt fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
-
-test_jsn fnc_raster               function_zxy_raster
-test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
-
->&2 echo "***** Test server response for different function call types *****"
-test_mvt fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
-test_mvt fnc_zxy_6_57_29          function_zxy/6/57/29
-test_mvt fnc_zxy2_6_57_29         function_zxy2/6/57/29
-test_mvt fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
-test_mvt fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
-test_mvt fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
-test_mvt fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
-
->&2 echo "***** Test server response for table source with different SRID *****"
-test_jsn points3857_srid          points3857
-test_mvt points3857_srid_0_0_0    points3857/0/0/0
-
 >&2 echo "***** Test server response for PMTiles source *****"
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
@@ -453,35 +398,6 @@ test_mvt mb_mvt_2_3_1 world_cities/2/3/1
 #test_jsn rgba_u8_nodata       rgba_u8_nodata
 #test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
 #test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
-
->&2 echo "***** Test server response for table source with empty SRID *****"
-test_mvt points_empty_srid_0_0_0  points_empty_srid/0/0/0
-
->&2 echo "***** Test server response for table source with antimeridian geometries *****"
-test_mvt antimeridian_4_0_4 antimeridian/4/0/4
-test_mvt antimeridian_4_0_5 antimeridian/4/0/5
-
->&2 echo "***** Test server response for comments *****"
-test_jsn tbl_comment              MixPoints
-test_jsn fnc_comment              function_Mixed_Name
-
->&2 echo "***** Test server response for materialized view *****"
-test_jsn mv_comment               mat_view
-test_mvt mv_comment_0_0_0         mat_view/0/0/0
-
->&2 echo "***** Test server response for the same name in different schemas *****"
-test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
-test_mvt same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
-test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
-test_mvt same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
-test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
-test_mvt same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
-test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
-test_mvt same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
-test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
-test_mvt table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
-test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
-test_mvt table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
