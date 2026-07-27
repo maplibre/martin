@@ -11,6 +11,10 @@ on:
     - cron: "0 5 * * 1" # weekly, Monday 05:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 defaults:
   run:
     shell: bash
