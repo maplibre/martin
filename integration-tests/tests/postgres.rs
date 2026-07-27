@@ -12,7 +12,7 @@ async fn martin_with_postgres() -> Martin {
     Martin::builder()
         .with_postgres()
         // also adopt tables whose geometry column has SRID 0
-        .arg("--default-srid") 
+        .arg("--default-srid")
         .arg("900913")
         // no fuzzy estimated bounds
         .arg("--auto-bounds")
