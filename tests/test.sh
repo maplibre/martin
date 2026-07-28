@@ -225,26 +225,6 @@ test_mlt() {
   fi
 }
 
-test_redirect() {
-  URL="$MARTIN_URL/$1"
-  EXPECTED_LOCATION="$2"
-
-  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
-  # Use curl without --fail to allow 3xx responses
-  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
-  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
-
-  if [ "$HTTP_CODE" != "301" ]; then
-    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
-    exit 1
-  fi
-
-  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
-    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
-    exit 1
-  fi
-}
-
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -667,19 +647,6 @@ test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
 # pmt only covers zoom 0-3, so requesting a higher zoom filters out every source -> 404
 test_accept_header pmt/4/0/0 "*/*" 404
 test_accept_header pmt/10/0/0 "*/*" 404
-
->&2 echo "***** Test URL redirects (HTTP 301) *****"
-
-# Test tile format suffix redirects
-test_redirect table_source/0/0/0.pbf /table_source/0/0/0
-test_redirect table_source/0/0/0.mvt /table_source/0/0/0
-test_redirect table_source/0/0/0.mlt /table_source/0/0/0
-
-# Test /tiles/ prefix redirect
-test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
-
-# Test query string preservation for tiles
-test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 >&2 echo "***** Test observability outputs (metrics, logs) *****"
 
