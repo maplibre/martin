@@ -59,7 +59,7 @@ assets = [
   ],
     [
     "../debian/config.yaml",
-    "/usr/local/etc/martin/config.yaml",
+    "/etc/martin/config.yaml",
     "644",
   ],
 ]
