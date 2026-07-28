@@ -5,17 +5,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_integration_tests::{MbtilesCli, mbtiles_fixture};
+use martin_integration_tests::{GZIP_MAGIC, MbtilesCli, mbtiles_fixture, temp_dir, tiles};
 use rstest::rstest;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, SqliteConnection};
-use tempfile::TempDir;
-
-const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
-
-fn temp_dir() -> TempDir {
-    tempfile::tempdir().expect("failed to create a temp dir")
-}
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     let mut tree = BTreeMap::new();
@@ -59,21 +50,6 @@ fn flip_y(path: &Path) -> PathBuf {
     let y: u32 = y.parse().expect("a y file name is numeric");
     let flipped = (1 << zoom) - 1 - y;
     Path::new(z).join(x).join(format!("{flipped}.{extension}"))
-}
-
-async fn tiles(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>)> {
-    let options = SqliteConnectOptions::new().filename(path).read_only(true);
-    let mut conn = SqliteConnection::connect_with(&options)
-        .await
-        .expect("failed to open an mbtiles file");
-    let rows = sqlx::query_as(
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-    )
-    .fetch_all(&mut conn)
-    .await
-    .expect("failed to read the tiles table");
-    conn.close().await.expect("failed to close an mbtiles file");
-    rows
 }
 
 #[tokio::test]

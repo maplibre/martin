@@ -1,61 +1,25 @@
 //! `summary`, `meta-all`, `meta-get` and `validate` in the `mbtiles` CLI.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
-use martin_integration_tests::{MbtilesCli, fixture, mbtiles_fixture, mbtiles_from_sql};
+use martin_integration_tests::{
+    MbtilesCli, fixture, mbtiles_fixture, mbtiles_from_sql, metadata, summary, summary_filters,
+    temp_dir,
+};
 use regex::Regex;
 use rstest::rstest;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, SqliteConnection};
 use tempfile::TempDir;
 
 /// The hash `bad_hash.mbtiles` claims in its metadata, and the one its tiles actually add up to.
 const STALE_AGG_HASH: &str = "CAFEC0DEDEADBEEFDEADBEEFDEADBEEF";
 const REAL_AGG_HASH: &str = "E89600605FA137D684A10EE91463CEE0";
 
-fn temp_dir() -> TempDir {
-    tempfile::tempdir().expect("failed to create a temp dir")
-}
-
 /// Build one of the deliberately broken fixtures from `tests/fixtures/files` into `dir`.
 async fn broken_fixture(dir: &Path, name: &str) -> PathBuf {
     let dest = dir.join(format!("{name}.mbtiles"));
     mbtiles_from_sql(fixture(&format!("files/{name}.sql")), &dest).await;
     dest
-}
-
-/// Every row of the `metadata` table, read straight from the file.
-async fn metadata(path: &Path) -> BTreeMap<String, String> {
-    let options = SqliteConnectOptions::new().filename(path).read_only(true);
-    let mut conn = SqliteConnection::connect_with(&options)
-        .await
-        .expect("failed to open an mbtiles file");
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT name, value FROM metadata")
-        .fetch_all(&mut conn)
-        .await
-        .expect("failed to read the metadata table");
-    conn.close().await.expect("failed to close an mbtiles file");
-    rows.into_iter().collect()
-}
-
-fn summary(source: &Path) -> MbtilesCli {
-    MbtilesCli::new("summary")
-        .arg("--format")
-        .arg("json")
-        .arg(source)
-}
-
-/// The same idea as [`redact`], for the reported document: the file lives in a temp directory,
-/// its page geometry depends on the sqlite build, and the bounding box is computed by
-/// trigonometry, so its last digits differ between machines.
-fn summary_filters() -> Vec<(&'static str, &'static str)> {
-    vec![
-        (r#""file_path": "[^"]*""#, r#""file_path": "[TMP]""#),
-        (r#""(file_size|page_size|page_count)": \d+"#, r#""$1": 0"#),
-        (r"(-?\d+\.\d{10})\d+", "$1"),
-    ]
 }
 
 /// A run's output with the parts that are not the same on every machine replaced, so that it can

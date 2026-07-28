@@ -1,47 +1,16 @@
 //! `copy`, `diff`, `apply-patch` and `cache-purge` in the `mbtiles` CLI: moving a tileset
 //! between schemas, and the patch files that turn one tileset into another.
 
-use std::collections::BTreeMap;
 use std::fs;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
-use flate2::read::GzDecoder;
-use martin_integration_tests::{MbtilesCli, mbtiles_fixture};
+use martin_integration_tests::{
+    MbtilesCli, Tile, gunzip, mbtiles_fixture, metadata, open_read_only, open_read_write,
+    patch_tiles, summary, summary_filters, temp_dir, tiles,
+};
 use regex::Regex;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, SqliteConnection};
+use sqlx::Connection as _;
 use tempfile::TempDir;
-
-const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
-
-/// A row of a `tiles` table. A patch file stores deletions as a `NULL` tile.
-type Tile = (i64, i64, i64, Option<Vec<u8>>);
-
-fn temp_dir() -> TempDir {
-    tempfile::tempdir().expect("failed to create a temp dir")
-}
-
-async fn open(path: &Path, read_only: bool) -> SqliteConnection {
-    let options = SqliteConnectOptions::new()
-        .filename(path)
-        .read_only(read_only);
-    SqliteConnection::connect_with(&options)
-        .await
-        .expect("failed to open an mbtiles file")
-}
-
-async fn tiles(path: &Path) -> Vec<Tile> {
-    let mut conn = open(path, true).await;
-    let rows = sqlx::query_as(
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-    )
-    .fetch_all(&mut conn)
-    .await
-    .expect("failed to read the tiles table");
-    conn.close().await.expect("failed to close an mbtiles file");
-    rows
-}
 
 /// The tiles of `path` with any gzip wrapper taken off.
 ///
@@ -51,19 +20,8 @@ async fn plain_tiles(path: &Path) -> Vec<Tile> {
     tiles(path)
         .await
         .into_iter()
-        .map(|(z, x, y, data)| (z, x, y, data.as_deref().map(gunzip)))
+        .map(|(z, x, y, data)| (z, x, y, gunzip(&data)))
         .collect()
-}
-
-fn gunzip(data: &[u8]) -> Vec<u8> {
-    if !data.starts_with(&GZIP_MAGIC) {
-        return data.to_vec();
-    }
-    let mut plain = Vec::new();
-    GzDecoder::new(data)
-        .read_to_end(&mut plain)
-        .expect("failed to decompress a tile");
-    plain
 }
 
 /// The bsdiff payloads of a bin-diff patch file.
@@ -71,7 +29,7 @@ fn gunzip(data: &[u8]) -> Vec<u8> {
 /// Modified tiles travel here rather than in `tiles`, so a patch comparison that
 /// stops at `tiles` and `metadata` would miss them.
 async fn bsdiff_rows(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>, i64)> {
-    let mut conn = open(path, true).await;
+    let mut conn = open_read_only(path).await;
     let rows = sqlx::query_as(
         "SELECT zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash \
          FROM bsdiffrawgz ORDER BY 1, 2, 3",
@@ -83,17 +41,6 @@ async fn bsdiff_rows(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>, i64)> {
     rows
 }
 
-/// The same idea as [`redact`], for the reported document: the file lives in a temp directory,
-/// its page geometry depends on the sqlite build, and the bounding box is computed by
-/// trigonometry, so its last digits differ between machines.
-fn summary_filters() -> Vec<(&'static str, &'static str)> {
-    vec![
-        (r#""file_path": "[^"]*""#, r#""file_path": "[TMP]""#),
-        (r#""(file_size|page_size|page_count)": \d+"#, r#""$1": 0"#),
-        (r"(-?\d+\.\d{10})\d+", "$1"),
-    ]
-}
-
 /// A run's output with the parts that are not the same on every machine replaced, so that it can
 /// be snapshotted: this run's temp directory, and the number of cpus the bindiff pass found.
 fn redact(dir: &TempDir, output: &str) -> String {
@@ -102,16 +49,6 @@ fn redact(dir: &TempDir, output: &str) -> String {
         .expect("the pattern is valid")
         .replace_all(&output, "bindiff.cpus=[CPUS]")
         .into_owned()
-}
-
-async fn metadata(path: &Path) -> BTreeMap<String, String> {
-    let mut conn = open(path, true).await;
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT name, value FROM metadata")
-        .fetch_all(&mut conn)
-        .await
-        .expect("failed to read the metadata table");
-    conn.close().await.expect("failed to close an mbtiles file");
-    rows.into_iter().collect()
 }
 
 /// Build `world_cities` and `world_cities_modified` in `dir` and cut a patch between them.
@@ -153,12 +90,7 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
     INFO Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
     ");
 
-    let summary = MbtilesCli::new("summary")
-        .arg("--format")
-        .arg("json")
-        .arg(&cache)
-        .run_json()
-        .await;
+    let summary = summary(&cache).run_json().await;
     insta::with_settings!({filters => summary_filters()}, {
         insta::assert_json_snapshot!("the_summary_of_the_cache_copy", summary);
     });
@@ -204,7 +136,7 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
         .run()
         .await;
 
-    assert!(tiles(&patch).await.is_empty());
+    assert!(patch_tiles(&patch).await.is_empty());
     // The hash of an empty tileset, which is how the differ reports "no changes".
     assert_eq!(
         metadata(&patch).await["agg_tiles_hash"],
@@ -291,8 +223,11 @@ async fn diff_and_copy_with_diff_with_file_write_the_same_patch() {
         .run()
         .await;
 
-    assert!(!tiles(&from_copy).await.is_empty(), "the patch is empty");
-    assert_eq!(tiles(&from_copy).await, tiles(&from_diff).await);
+    assert!(
+        !patch_tiles(&from_copy).await.is_empty(),
+        "the patch is empty"
+    );
+    assert_eq!(patch_tiles(&from_copy).await, patch_tiles(&from_diff).await);
     assert_eq!(metadata(&from_copy).await, metadata(&from_diff).await);
 }
 
@@ -320,7 +255,7 @@ async fn a_patch_applied_as_plain_sql_reproduces_the_modified_tileset() {
 
     // A plain diff is meant to be applicable without the CLI: deletions are NULL tiles,
     // everything else is an upsert.
-    let mut conn = open(&applied, false).await;
+    let mut conn = open_read_write(&applied).await;
     sqlx::query("ATTACH DATABASE ? AS diffDb")
         .bind(patch.to_str().expect("a temp path is utf-8"))
         .execute(&mut conn)
@@ -408,7 +343,7 @@ async fn a_freshly_cut_bin_diff_matches_the_checked_in_one() {
     let (_, _, cut) = patch_fixtures(dir.path(), &["--patch-type", "bin-diff-gz"]).await;
     let checked_in = mbtiles_fixture(dir.path(), "world_cities_bindiff").await;
 
-    assert_eq!(tiles(&cut).await, tiles(&checked_in).await);
+    assert_eq!(patch_tiles(&cut).await, patch_tiles(&checked_in).await);
     assert_eq!(bsdiff_rows(&cut).await, bsdiff_rows(&checked_in).await);
     assert_eq!(metadata(&cut).await, metadata(&checked_in).await);
 }
