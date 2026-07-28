@@ -16,6 +16,20 @@ async fn martin_with_geojson_dir() -> Martin {
         .expect("failed to start martin")
 }
 
+/// Rounds the last digits of a web mercator round-trip away, since each platform's libm lands on its own.
+fn round_coordinates(value: &mut Value) {
+    match value {
+        Value::Number(number) if number.is_f64() => {
+            let coordinate = number.as_f64().expect("the number is a float");
+            *number = serde_json::Number::from_f64((coordinate * 1e6).round() / 1e6)
+                .expect("a rounded coordinate is not finite");
+        }
+        Value::Array(items) => items.iter_mut().for_each(round_coordinates),
+        Value::Object(entries) => entries.values_mut().for_each(round_coordinates),
+        _ => {}
+    }
+}
+
 /// Web mercator round-trips the bounds, so their last digits are noise.
 fn assert_bounds(tilejson: &Value, expected: [f64; 4]) {
     let bounds = tilejson["bounds"]
@@ -125,8 +139,9 @@ async fn a_tilejson_points_back_at_the_source() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let tilejson = serde_json::from_str::<Value>(&martin.redact(&response.text()))
+    let mut tilejson = serde_json::from_str::<Value>(&martin.redact(&response.text()))
         .expect("response body is not valid json");
+    round_coordinates(&mut tilejson);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "bounds": [
