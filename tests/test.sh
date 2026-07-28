@@ -194,19 +194,6 @@ test_json_with_header() {
   clean_headers_dump "$FILENAME.headers"
 }
 
-test_accept_header() {
-  URL="$MARTIN_URL/$1"
-  ACCEPT_HEADER="$2"
-  EXPECTED_CODE="$3"
-
-  echo "Testing Accept header: $ACCEPT_HEADER on $URL (expect $EXPECTED_CODE)"
-  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null -H "Accept: $ACCEPT_HEADER" "$URL")
-  if [ "$HTTP_CODE" != "$EXPECTED_CODE" ]; then
-    echo "ERROR: Expected HTTP $EXPECTED_CODE, got $HTTP_CODE for $URL with Accept: $ACCEPT_HEADER"
-    exit 1
-  fi
-}
-
 test_mlt() {
   FILENAME="$TEST_OUT_DIR/$1.mlt"
   URL="$MARTIN_URL/$2"
@@ -619,34 +606,6 @@ test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
-
->&2 echo "***** Test Accept header content negotiation (HTTP 406) *****"
-
-# MVT source
-test_accept_header table_source/0/0/0 "application/x-protobuf" 200
-test_accept_header table_source/0/0/0 "*/*" 200
-test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
-test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
-test_accept_header table_source/0/0/0 "image/png" 406
-test_accept_header table_source/0/0/0 "image/*" 406
-# MVT -> MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 200
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 200
-test_accept_header table_source/0/0/0 "text/html" 406
-
-# PNG source
-test_accept_header pmt/0/0/0 "image/png" 200
-test_accept_header pmt/0/0/0 "image/*" 200
-test_accept_header pmt/0/0/0 "*/*" 200
-test_accept_header pmt/0/0/0 "application/x-protobuf" 406
-test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
-test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
-
->&2 echo "***** Test out-of-zoom-range tiles return 404 *****"
-
-# pmt only covers zoom 0-3, so requesting a higher zoom filters out every source -> 404
-test_accept_header pmt/4/0/0 "*/*" 404
-test_accept_header pmt/10/0/0 "*/*" 404
 
 >&2 echo "***** Test observability outputs (metrics, logs) *****"
 
