@@ -19,7 +19,7 @@ pub async fn resolve_geoparquet_source(
     pool: DuckDBPool,
     cache: CachePolicy,
 ) -> GeoparquetResult<BoxedSource> {
-    let (from_expr, source_label) = geoparquet_from_expr(entry)?;
+    let (from_expr, source_label) = geoparquet_from_expr(entry);
     let introspection = introspect(&pool, &from_expr, &source_label, entry).await?;
     debug!(
         source.id = %source_id,

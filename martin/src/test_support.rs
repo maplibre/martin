@@ -130,10 +130,4 @@ pub(crate) mod duckdb {
                 .expect("read-only DuckDB pool")
         }
     }
-
-    /// Path to the committed polygon GeoParquet fixture shared by unit tests and the shell E2E.
-    pub(crate) fn polygons_parquet_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../tests/fixtures/duckdb/geoparquet_polygons.parquet")
-    }
 }

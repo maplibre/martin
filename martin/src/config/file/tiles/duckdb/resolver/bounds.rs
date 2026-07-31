@@ -247,11 +247,11 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn bounds_with_auto_over_read_parquet() {
+        use std::path::PathBuf;
+
         use martin_core::tiles::duckdb::DuckDBPool;
 
-        use crate::test_support::duckdb::polygons_parquet_path;
-
-        let path = polygons_parquet_path();
+        let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
         let pool = DuckDBPool::new_local_geoparquet(
             "bounds-parquet".to_string(),
             path.clone(),

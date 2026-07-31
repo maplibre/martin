@@ -15,15 +15,17 @@ pub struct GeoParquetIntrospection {
     pub property_columns: BTreeMap<String, String>,
 }
 
-pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> GeoparquetResult<(String, String)> {
-    let path_or_url = entry
-        .geoparquet
-        .to_str()
-        .ok_or_else(|| GeoparquetError::NonUtf8Path(entry.geoparquet.clone()))?;
-    Ok((
-        format!("read_parquet({})", escape_sql_string(path_or_url)),
-        path_or_url.to_string(),
-    ))
+/// Builds the DuckDB `FROM` expression from the finalized location.
+pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
+    let source = entry
+        .location
+        .as_ref()
+        .expect("GeoParquetEntry must be finalized before resolve")
+        .to_source_string();
+    (
+        format!("read_parquet({})", escape_sql_string(&source)),
+        entry.geoparquet.clone(),
+    )
 }
 
 pub(crate) async fn introspect(

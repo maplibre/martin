@@ -1,49 +1,19 @@
-use std::path::{Path, PathBuf};
-
-use futures::future::{BoxFuture, join_all};
+use futures::future::{BoxFuture, join_all, ready};
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::info;
-use url::Url;
 
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
-use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, GeoParquetEntry};
+use crate::config::file::tiles::duckdb::sources::{
+    DuckDbDatabaseEntry, GeoParquetEntry, GeoParquetLocation,
+};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
 use crate::config::file::{CachePolicy, ResolutionResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
-// One resolved DuckDB source entry: a live source, or a per-source warning.
+/// One resolved DuckDB source entry: a live source, or a per-source warning.
 type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>;
-
-enum GeoParquetLocation { 
-    Local(PathBuf),
-    Remote(Url),
-}
-
-fn classify_geoparquet_path(path: &Path) -> Result<GeoParquetLocation, String> {
-    let Some(raw) = path.to_str() else {
-        return Err(format!(
-            "GeoParquet path is not valid UTF-8: {}",
-            path.display()
-        ));
-    };
-
-    if let Ok(url) = Url::parse(raw)
-        && matches!(url.scheme(), "http" | "https")
-    {
-        return Ok(GeoParquetLocation::Remote(url));
-    }
-
-    path.canonicalize()
-        .map(GeoParquetLocation::Local)
-        .map_err(|error| {
-            format!(
-                "Failed to canonicalize GeoParquet path '{}': {error}",
-                path.display()
-            )
-        })
-}
 
 fn resolve_database_entry(entry: &DuckDbDatabaseEntry, id_resolver: &IdResolver) -> ResolvedSource {
     let name = entry
@@ -52,13 +22,10 @@ fn resolve_database_entry(entry: &DuckDbDatabaseEntry, id_resolver: &IdResolver)
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
         .unwrap_or("duckdb");
-    let source_id = id_resolver.resolve(
-        name,
-        entry.database.to_string_lossy().into_owned(),
-    );
-    Box::pin(std::future::ready(Err(TileSourceWarning::SourceError {
+    let source_id = id_resolver.resolve(name, entry.database.to_string_lossy().into_owned());
+    Box::pin(ready(Err(TileSourceWarning::SourceError {
         source_id,
-        error: "DuckDB database sources are not yet supported; entry skipped".to_string(),
+        error: "DuckDB database sources are not yet supported; entry skipped".into(),
     })))
 }
 
@@ -67,52 +34,32 @@ fn resolve_geoparquet_entry(
     id_resolver: &IdResolver,
     default_cache: CachePolicy,
 ) -> ResolvedSource {
+    let location = entry
+        .location
+        .as_ref()
+        .expect("GeoParquetEntry must be finalized before resolve");
     let name = entry
         .layer_id
         .clone()
-        .unwrap_or_else(|| {
-            entry
-                .geoparquet
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .filter(|value| !value.is_empty())
-                .unwrap_or("duckdb")
-                .to_string()
-        });
-    let location = match classify_geoparquet_path(&entry.geoparquet) {
-        Ok(location) => location,
-        Err(error) => {
-            // Reserve the ID before returning so collision suffixes stay deterministic.
-            let source_id = id_resolver.resolve(&name, entry.geoparquet.to_string_lossy().into_owned());
-            return Box::pin(std::future::ready(Err(TileSourceWarning::SourceError {
-                source_id,
-                error,
-            })));
-        }
-    };
-    let source_id = id_resolver.resolve(
-        &name,
-        match &location {
-            GeoParquetLocation::Local(path) => path.to_string_lossy().into_owned(),
-            GeoParquetLocation::Remote(url) => url.to_string(),
-        },
-    );
+        .unwrap_or_else(|| location.stem());
+    let source_id = id_resolver.resolve(&name, location.to_source_string());
     let pool_size = entry
         .settings
         .pool_size
         .expect("pool_size must be set by DuckDbConfig::finalize")
         .get();
+
     let pool = match location {
         GeoParquetLocation::Local(path) => DuckDBPool::new_local_geoparquet(
             source_id.clone(),
-            path,
+            path.clone(),
             pool_size,
             entry.settings.threads,
             entry.settings.memory_limit_mb,
         ),
         GeoParquetLocation::Remote(url) => DuckDBPool::new_remote_geoparquet(
             source_id.clone(),
-            url,
+            url.clone(),
             pool_size,
             entry.settings.threads,
             entry.settings.memory_limit_mb,
@@ -121,7 +68,7 @@ fn resolve_geoparquet_entry(
     let pool = match pool {
         Ok(pool) => pool,
         Err(error) => {
-            return Box::pin(std::future::ready(Err(TileSourceWarning::SourceError {
+            return Box::pin(ready(Err(TileSourceWarning::SourceError {
                 source_id,
                 error: error.to_string(),
             })));
@@ -129,9 +76,8 @@ fn resolve_geoparquet_entry(
     };
 
     let entry = entry.clone();
-    let source_id_for_resolve = source_id.clone();
     Box::pin(async move {
-        match resolve_geoparquet_source(source_id_for_resolve, &entry, pool, default_cache).await {
+        match resolve_geoparquet_source(source_id.clone(), &entry, pool, default_cache).await {
             Ok(source) => {
                 info!(source.id = %source_id, "Configured DuckDB GeoParquet source");
                 Ok(source)
@@ -180,7 +126,6 @@ mod tests {
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
     use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, GeoParquetEntry};
-    use crate::test_support::duckdb::polygons_parquet_path;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn colliding_stems_get_suffixes_even_when_the_entries_fail_to_resolve() {
@@ -226,12 +171,7 @@ mod tests {
                     ..DuckDbDatabaseEntry::default()
                 }),
                 DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
-                    geoparquet: polygons_parquet_path(),
-                    srid: Some(4326),
-                    ..GeoParquetEntry::default()
-                }),
-                DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
-                    geoparquet: "/no/such/file.parquet".into(),
+                    geoparquet: "../tests/fixtures/duckdb/geoparquet_polygons.parquet".into(),
                     srid: Some(4326),
                     ..GeoParquetEntry::default()
                 }),
@@ -247,6 +187,24 @@ mod tests {
 
         assert_eq!(sources.len(), 1);
         assert_eq!(Source::get_id(sources[0].as_ref()), "geoparquet_polygons");
-        assert_eq!(warnings.len(), 2);
+        assert_eq!(warnings.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn missing_geoparquet_file_fails_finalize() {
+        let mut cfg = DuckDbConfig {
+            sources: vec![DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+                geoparquet: "/no/such/file.parquet".into(),
+                srid: Some(4326),
+                ..GeoParquetEntry::default()
+            })],
+            ..DuckDbConfig::default()
+        };
+        let err = cfg.finalize().await.expect_err("missing file");
+        assert!(
+            err.to_string().contains("no/such/file.parquet")
+                || err.to_string().contains("No such file"),
+            "unexpected error: {err}"
+        );
     }
 }
