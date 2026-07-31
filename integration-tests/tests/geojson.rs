@@ -158,9 +158,50 @@ async fn a_tilejson_points_back_at_the_source() {
       "tilejson": "3.0.0",
       "tiles": [
         "http://[ADDR]/feature_collection_1/{z}/{x}/{y}"
+      ],
+      "vector_layers": [
+        {
+          "fields": {
+            "id": "Number"
+          },
+          "id": "feature_collection_1"
+        }
       ]
     }
     "#);
+
+    martin.stop().await;
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[rstest]
+#[case::one_source("feature_collection_1")]
+#[case::a_composite_of_two_sources("feature_collection_1,properties")]
+#[tokio::test]
+async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &str) {
+    let mut martin = martin_with_geojson_dir().await;
+
+    let advertised = martin.get(&format!("/{source_ids}")).await.json()["vector_layers"]
+        .as_array()
+        .expect("the tilejson has no vector_layers")
+        .iter()
+        .map(|layer| {
+            layer["id"]
+                .as_str()
+                .expect("a layer id is not a string")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    let served = martin
+        .get(&format!("/{source_ids}/0/0/0"))
+        .await
+        .mvt()
+        .layers
+        .iter()
+        .map(|layer| layer.name.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(advertised, served);
 
     martin.stop().await;
     martin.assert_startup_warnings();
