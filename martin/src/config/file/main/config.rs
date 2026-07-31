@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -20,6 +19,8 @@ use tracing::{error, instrument, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::duckdb::DuckDbConfig;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
 #[cfg(feature = "geojson")]
@@ -39,7 +40,7 @@ use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "styles")]
 use crate::config::file::styles::StyleConfig;
-use crate::config::file::{GlobalCacheConfig, UnrecognizedValues};
+use crate::config::file::{CollectUnrecognizedKeys, GlobalCacheConfig, UnrecognizedValues};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
@@ -138,6 +139,11 @@ pub struct Config {
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<CogConfig>,
+
+    /// Publish DuckDB / GeoParquet sources (unstable)
+    #[cfg(feature = "unstable-duckdb")]
+    #[serde(default, skip_serializing_if = "DuckDbConfig::is_empty")]
+    pub duckdb: DuckDbConfig,
 
     /// Publish `GeoJSON` files as vector tile sources
     #[cfg(feature = "geojson")]

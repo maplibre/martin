@@ -202,6 +202,8 @@ bless-insta *args:  fetch (cargo-install 'cargo-insta')
 
 # Bless integration tests
 bless-int: start install-mvt
+    #!/usr/bin/env bash
+    set -euo pipefail
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
@@ -614,6 +616,14 @@ test-pg: fetch start
 # Run MinIO/S3-requiring tests only (Docker required)
 test-minio: fetch
     cargo test --features test-minio --no-default-features --test pmt_minio_test
+
+# Run DuckDB/GeoParquet tests only, including the end-to-end ones
+test-duckdb: fetch
+    cargo test -p martin --features test-duckdb --no-default-features --lib
+    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
+    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
+    cargo build --package martin --no-default-features --features unstable-duckdb
+    cargo test --package martin-integration-tests --features test-duckdb --test test-duckdb
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch

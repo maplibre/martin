@@ -69,6 +69,24 @@ jobs:
       - name: Run cargo test
         run: just test-packages-ci
       - run: just test-doc
+  test-duckdb:
+    name: DuckDB GeoParquet tests
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
+        with: { tool: 'just' }
+      - name: Run DuckDB tests
+        run: just test-duckdb
   lint-rust:
     name: Lint the Rust code
     permissions:

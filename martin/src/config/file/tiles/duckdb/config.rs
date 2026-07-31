@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
@@ -7,7 +6,9 @@ use crate::config::args::BoundsCalcType;
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
-use crate::config::file::{ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues};
+use crate::config::file::{
+    CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
+};
 
 const DEFAULT_POOL_SIZE: usize = 4;
 
@@ -69,6 +70,13 @@ impl Default for DuckDbConfig {
     }
 }
 
+impl DuckDbConfig {
+    /// Returns `true` when no sources are configured.
+    pub fn is_empty(&self) -> bool {
+        self.sources.is_empty()
+    }
+}
+
 impl ConfigurationLivecycleHooks for DuckDbConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         let defaults = DuckDbSourceDefaults {
@@ -79,7 +87,7 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
         };
 
         for source in &mut self.sources {
-            source.finalize();
+            source.finalize()?;
             source.apply_defaults(defaults);
         }
 
@@ -95,9 +103,12 @@ pub enum DuckDbSourceEntry {
 }
 
 impl DuckDbSourceEntry {
-    pub(crate) fn finalize(&mut self) {
+    pub(crate) fn finalize(&mut self) -> ConfigFileResult<()> {
         match self {
-            Self::Database(v) => v.finalize(),
+            Self::Database(v) => {
+                v.finalize();
+                Ok(())
+            }
             Self::GeoParquet(v) => v.finalize(),
         }
     }
@@ -132,6 +143,9 @@ impl schemars::JsonSchema for DuckDbSourceEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::file::tiles::duckdb::GeoParquetLocation;
+
+    const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
     #[test]
     fn source_list_may_mix_database_and_geoparquet() {
@@ -187,6 +201,7 @@ sources:
                 GeoParquet(
                     GeoParquetEntry {
                         geoparquet: "/data/buildings.parquet",
+                        location: None,
                         layer_id: Some(
                             "buildings",
                         ),
@@ -231,65 +246,42 @@ sources:
 
     #[tokio::test]
     async fn source_overrides_from_yaml_take_precedence_over_top_level() {
-        let yaml = r#"
-pool_size: 8
-threads: 2
-memory_limit_mb: 1024
-auto_bounds: quick
-sources:
-  - geoparquet: /tmp/a.parquet
-    pool_size: 3
-    memory_limit_mb: 256
-    auto_bounds: skip
-"#;
-        let mut cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+        let yaml = indoc::formatdoc! {"
+            pool_size: 8
+            threads: 2
+            memory_limit_mb: 1024
+            auto_bounds: quick
+            sources:
+              - geoparquet: {GEOPARQUET_FIXTURE}
+                pool_size: 3
+                memory_limit_mb: 256
+                auto_bounds: skip
+        "};
+        let mut cfg: DuckDbConfig = serde_saphyr::from_str(&yaml).expect("duckdb config");
         cfg.finalize().await.expect("finalize duckdb config");
 
-        insta::assert_debug_snapshot!(cfg, @r#"
-        DuckDbConfig {
-            pool_size: 8,
+        assert_eq!(cfg.pool_size.get(), 8);
+        assert_eq!(cfg.threads.map(NonZeroUsize::get), Some(2));
+        assert_eq!(cfg.memory_limit_mb.map(NonZeroUsize::get), Some(1024));
+
+        let DuckDbSourceEntry::GeoParquet(entry) = &cfg.sources[0] else {
+            panic!("expected geoparquet entry");
+        };
+        assert_eq!(entry.geoparquet, GEOPARQUET_FIXTURE);
+        assert!(matches!(entry.location, Some(GeoParquetLocation::Local(_))));
+        insta::assert_debug_snapshot!(entry.settings, @r#"
+        DuckDbSourceSettings {
+            pool_size: Some(
+                3,
+            ),
             threads: Some(
                 2,
             ),
             memory_limit_mb: Some(
-                1024,
+                256,
             ),
-            auto_bounds: Quick,
-            sources: [
-                GeoParquet(
-                    GeoParquetEntry {
-                        geoparquet: "/tmp/a.parquet",
-                        layer_id: None,
-                        id_column: None,
-                        geometry_column: None,
-                        srid: None,
-                        minzoom: None,
-                        maxzoom: None,
-                        extent: None,
-                        buffer: None,
-                        clip_geom: None,
-                        settings: DuckDbSourceSettings {
-                            pool_size: Some(
-                                3,
-                            ),
-                            threads: Some(
-                                2,
-                            ),
-                            memory_limit_mb: Some(
-                                256,
-                            ),
-                            auto_bounds: Some(
-                                Skip,
-                            ),
-                        },
-                        unrecognized: UnrecognizedValues(
-                            {},
-                        ),
-                    },
-                ),
-            ],
-            unrecognized: UnrecognizedValues(
-                {},
+            auto_bounds: Some(
+                Skip,
             ),
         }
         "#);
@@ -349,6 +341,53 @@ sources:
         assert!(
             err.to_string()
                 .contains("data did not match any variant of untagged enum DuckDbSourceEntry")
+        );
+    }
+
+    #[tokio::test]
+    async fn top_level_config_finalizes_defaults_and_serializes() {
+        use std::collections::HashMap;
+        use std::path::Path;
+
+        use crate::config::file::{Config, parse_config};
+
+        let yaml = indoc::formatdoc! {"
+            duckdb:
+              pool_size: 8
+              threads: 2
+              memory_limit_mb: 1024
+              sources:
+                - geoparquet: {GEOPARQUET_FIXTURE}
+                  layer_id: buildings
+                - geoparquet: {GEOPARQUET_FIXTURE}
+                  pool_size: 3
+                  memory_limit_mb: 256
+                  auto_bounds: skip
+        "};
+        let mut config: Config =
+            parse_config(&yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
+        config.finalize().await.expect("finalize");
+
+        insta::assert_snapshot!(
+            serde_saphyr::to_string(&config).expect("serialize config"),
+            @r#"
+        duckdb:
+          pool_size: 8
+          threads: 2
+          memory_limit_mb: 1024
+          sources:
+          - geoparquet: ../tests/fixtures/duckdb/geoparquet_polygons.parquet
+            layer_id: buildings
+            pool_size: 8
+            threads: 2
+            memory_limit_mb: 1024
+            auto_bounds: quick
+          - geoparquet: ../tests/fixtures/duckdb/geoparquet_polygons.parquet
+            pool_size: 3
+            threads: 2
+            memory_limit_mb: 256
+            auto_bounds: skip
+        "#
         );
     }
 }

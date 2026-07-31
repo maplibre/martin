@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use duckdb::Error as DuckdbError;
 use martin_core::tiles::duckdb::DuckDBError;
 
@@ -42,10 +40,6 @@ pub enum GeoparquetError {
     /// The configured id column does not exist.
     #[error("GeoParquet id_column '{0}' was not found")]
     IdColumnNotFound(String),
-
-    /// A local GeoParquet path cannot be represented as UTF-8 for SQL usage.
-    #[error("GeoParquet path is not valid UTF-8: {0:?}")]
-    NonUtf8Path(PathBuf),
 
     /// `ST_CRS` returned no CRS for the geometry column.
     #[error("Unable to determine SRID for GeoParquet geometry column '{0}'")]

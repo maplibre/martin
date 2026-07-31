@@ -125,7 +125,9 @@ WHERE out_box IS NOT NULL;"
 
     let query = format!(
         r"WITH real_bounds AS (
-    SELECT ST_Extent({escaped_geom_col}::GEOMETRY) AS ext
+    SELECT
+        ST_Extent(ST_Extent_Agg({escaped_geom_col}::GEOMETRY)) AS ext,
+        ST_Extent(ST_Extent_Agg(ST_Buffer({escaped_geom_col}::GEOMETRY, 1))) AS buffered_ext
     FROM {from_sql}
 )
 SELECT
@@ -136,15 +138,13 @@ SELECT
 FROM (
     SELECT ST_Transform(
         CASE
-            WHEN (SELECT ST_XMin(ext) = ST_XMax(ext) OR ST_YMin(ext) = ST_YMax(ext)
-                  FROM real_bounds LIMIT 1)
-            THEN ST_Extent(ST_Buffer({escaped_geom_col}::GEOMETRY, 1))
-            ELSE (SELECT ext FROM real_bounds LIMIT 1)
+            WHEN ST_XMin(ext) = ST_XMax(ext) OR ST_YMin(ext) = ST_YMax(ext)
+            THEN buffered_ext
+            ELSE ext
         END,
         {source_crs}, {target_crs}, always_xy := true
     ) AS box
-    FROM {from_sql}
-    LIMIT 1
+    FROM real_bounds
 ) AS t;"
     );
 
@@ -247,23 +247,28 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn bounds_with_auto_over_read_parquet() {
-        use crate::test_support::duckdb::TestGeoParquet;
+        use std::path::PathBuf;
 
-        let fixture = TestGeoParquet::from_sql(
-            "bounds.parquet",
-            include_str!("../../../../../../../tests/fixtures/duckdb/geoparquet_points.sql"),
-            "points",
-        );
-        let pool = fixture.query_pool("bounds-parquet", 1);
+        use martin_core::tiles::duckdb::DuckDBPool;
+
+        let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
+        let pool = DuckDBPool::new_local_geoparquet(
+            "bounds-parquet".to_string(),
+            path.clone(),
+            1,
+            None,
+            None,
+        )
+        .expect("local GeoParquet pool");
         let from_expr = format!(
             "read_parquet('{}')",
-            fixture.path().to_str().expect("utf-8 parquet path")
+            path.to_str().expect("utf-8 parquet path")
         );
 
         let bounds = bounds_with_auto(
             &pool,
             &from_expr,
-            "points.parquet",
+            "geoparquet_polygons.parquet",
             "geom",
             4326,
             BoundsCalcType::Calc,
@@ -271,6 +276,6 @@ mod tests {
         .await
         .expect("parquet bounds");
 
-        assert_eq!(bounds, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
+        assert_eq!(bounds, Some(Bounds::new(-50.0, 20.0, 5.0, 30.0)));
     }
 }

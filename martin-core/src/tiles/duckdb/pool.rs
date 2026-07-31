@@ -168,12 +168,19 @@ impl DuckDBPoolManager {
     }
 
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
-        let config = Config::default()
-            .access_mode(AccessMode::ReadOnly)
-            .map_err(|source| Open {
-                source: source.into(),
-                target: self.target.clone().into(),
-            })
+        // File-backed pools are opened read-only. In-memory GeoParquet pools cannot use
+        // AccessMode::ReadOnly - DuckDB rejects "in-memory database in read-only mode".
+        let config = match &self.target {
+            DuckDBPoolTarget::DatabaseFile { .. } => Config::default()
+                .access_mode(AccessMode::ReadOnly)
+                .map_err(|source| Open {
+                    source: source.into(),
+                    target: self.target.clone().into(),
+                })?,
+            DuckDBPoolTarget::GeoParquetLocal { .. }
+            | DuckDBPoolTarget::GeoParquetRemote { .. } => Config::default(),
+        };
+        let config = Ok(config)
             .and_then(|cfg| match self.threads {
                 None => Ok(cfg),
                 Some(threads_val) => {
@@ -244,14 +251,12 @@ impl Manager for DuckDBPoolManager {
         conn: &mut Self::Type,
         _metrics: &Metrics,
     ) -> RecycleResult<Self::Error> {
-        let target = self.target.clone();
-        tokio::task::block_in_place(|| conn.execute_batch("SELECT 1")).map_err(|source| {
+        conn.execute_batch("SELECT 1").map_err(|source| {
             HealthCheck {
                 source: source.into(),
-                target: target.into(),
+                target: self.target.clone().into(),
             }
-        })?;
-
-        Ok(())
+            .into()
+        })
     }
 }
