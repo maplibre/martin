@@ -9,7 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-duckdb = []
+test-duckdb = []
 test-pg = []
 
 [target.'cfg(unix)'.dependencies]
