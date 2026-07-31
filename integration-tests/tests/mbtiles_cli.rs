@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_integration_tests::{MbtilesCli, fixture, mbtiles_from_sql};
+use martin_integration_tests::{MbtilesCli, mbtiles_fixture};
 use rstest::rstest;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Connection as _, SqliteConnection};
@@ -15,12 +15,6 @@ const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
 
 fn temp_dir() -> TempDir {
     tempfile::tempdir().expect("failed to create a temp dir")
-}
-
-async fn fixture_mbtiles(dir: &TempDir, name: &str) -> PathBuf {
-    let dest = dir.path().join(format!("{name}.mbtiles"));
-    mbtiles_from_sql(fixture(&format!("mbtiles/{name}.sql")), &dest).await;
-    dest
 }
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -85,7 +79,7 @@ async fn tiles(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>)> {
 #[tokio::test]
 async fn unpack_names_tiles_after_the_stored_format() {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "world_cities").await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
 
     MbtilesCli::new("unpack")
@@ -111,7 +105,7 @@ async fn unpack_names_tiles_after_the_stored_format() {
 #[tokio::test]
 async fn pack_unpack_round_trips_a_vector_tile_tree() {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "world_cities").await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
     let packed = dir.path().join("repacked.mbtiles");
     let repacked_tree_dir = dir.path().join("xyz_again");
@@ -138,7 +132,7 @@ async fn pack_unpack_round_trips_a_vector_tile_tree() {
 #[tokio::test]
 async fn unpack_with_the_tms_scheme_flips_the_y_coordinate() {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "world_cities").await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let xyz_dir = dir.path().join("xyz");
     let tms_dir = dir.path().join("tms");
 
@@ -170,7 +164,7 @@ async fn unpack_with_the_tms_scheme_flips_the_y_coordinate() {
 #[tokio::test]
 async fn packing_without_compression_round_trips_a_vector_tile_tree() {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "world_cities").await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
     let packed = dir.path().join("raw.mbtiles");
     let unpacked_dir = dir.path().join("raw_out");
@@ -205,7 +199,7 @@ async fn pack_gzips_vector_tiles_unless_compression_is_disabled(
     #[case] gzipped: bool,
 ) {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "world_cities").await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
     let packed = dir.path().join("packed.mbtiles");
 
@@ -238,7 +232,7 @@ async fn pack_gzips_vector_tiles_unless_compression_is_disabled(
 #[tokio::test]
 async fn uncompressed_image_tiles_round_trip_byte_for_byte(#[case] scheme: &str) {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "webp-no-primary").await;
+    let source = mbtiles_fixture(dir.path(), "webp-no-primary").await;
     let tree_dir = dir.path().join(scheme);
     let packed = dir.path().join(format!("{scheme}.mbtiles"));
 
@@ -281,7 +275,7 @@ async fn unpack_fails_on_a_missing_file() {
 #[tokio::test]
 async fn unpack_fails_when_the_metadata_has_no_format() {
     let dir = temp_dir();
-    let source = fixture_mbtiles(&dir, "geography-class-png").await;
+    let source = mbtiles_fixture(dir.path(), "geography-class-png").await;
 
     let output = MbtilesCli::new("unpack")
         .arg(&source)

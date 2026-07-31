@@ -6,9 +6,11 @@
 #![expect(clippy::panic, reason = "tests fail by panicking")]
 
 mod martin;
+mod martin_cp;
 mod mbtiles;
 
 use std::env;
+use std::ffi::OsString;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -17,6 +19,7 @@ use tempfile::TempDir;
 use tokio::process::Command;
 
 pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
+pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{MbtilesCli, mbtiles_from_sql};
 
 /// Martin subprocesses run with this as their working directory,
@@ -59,6 +62,21 @@ fn binary_command(env_var: &str, name: &str) -> Command {
 #[must_use]
 pub fn fixture(relative: &str) -> PathBuf {
     workspace_root().join("tests/fixtures").join(relative)
+}
+
+/// Build the `tests/fixtures/mbtiles/{name}.sql` fixture into `dir` and return the file's path.
+pub async fn mbtiles_fixture(dir: impl AsRef<Path>, name: &str) -> PathBuf {
+    let dest = dir.as_ref().join(format!("{name}.mbtiles"));
+    mbtiles_from_sql(fixture(&format!("mbtiles/{name}.sql")), &dest).await;
+    dest
+}
+
+/// A command line rendered back for an assertion message.
+fn display_args(args: &[OsString]) -> String {
+    args.iter()
+        .map(|arg| arg.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// A temporary directory for martin to watch for hot reload.
