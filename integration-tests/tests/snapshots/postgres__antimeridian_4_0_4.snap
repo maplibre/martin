@@ -1,0 +1,13 @@
+---
+source: integration-tests/tests/postgres.rs
+expression: "tile_dump(&martin, \"/antimeridian/4/0/4\").await"
+---
+layer: 0
+  name: antimeridian
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: RING[count=5](3641 1896,3641 2648,2731 2648,2731 1896,3641 1896)[OUTER]
+    properties:
+      gid = 3 (uint)

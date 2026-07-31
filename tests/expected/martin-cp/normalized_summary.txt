@@ -1,9 +1,0 @@
-File path:      tests/mbtiles_temp_files/cp_normalized.mbtiles
-Schema:         normalized
-SQL page size:  512B
-
- Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
-    0 |         1 |        9B |        9B |        9B | -180,-85,180,85
-    1 |         4 |        9B |        9B |        9B | -180,-85,180,85
-  all |         5 |        9B |        9B |        9B | -180,-85,180,85
-

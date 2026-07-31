@@ -611,6 +611,7 @@ test-pg: fetch start
     cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
+    {{just}} test-e2e-pg
 
 # Run MinIO/S3-requiring tests only (Docker required)
 test-minio: fetch
@@ -643,10 +644,15 @@ test-packages-ci: fetch
     fi
     {{just}} test-e2e
 
-# Run the end-to-end tests that drive the compiled martin binary over HTTP
+# Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch
-    cargo build --package martin
+    cargo build --package martin --package mbtiles
     cargo test --package martin-integration-tests {{args}}
+
+# Run the end-to-end tests that need the PostgreSQL database
+test-e2e-pg *args: fetch start
+    cargo build --package martin --package mbtiles
+    cargo test --package martin-integration-tests --features test-pg --test martin_cp {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
@@ -786,9 +792,6 @@ validate-tools:
     fi
     if ! command -v sqlite3 >/dev/null 2>&1; then
         missing_tools+=("sqlite3")
-    fi
-    if ! command -v sqldiff >/dev/null 2>&1; then
-        missing_tools+=("sqldiff")
     fi
     # `mvt` dumps vector tiles to a readable form in the integration tests. Install it with
     # `just install-mvt` (or `cargo install fast-mvt --features=cli`).

@@ -1,0 +1,8 @@
+---
+source: integration-tests/tests/mbtiles_inspect.rs
+expression: "redact(&dir, &output)"
+---
+ INFO Integrity check passed mbtiles.file=[TMP]/zoomed_world_cities.mbtiles integrity_check=Quick
+ INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/zoomed_world_cities.mbtiles
+ INFO All tile hashes are valid mbtiles.file=[TMP]/zoomed_world_cities.mbtiles
+ INFO agg_tiles_hash has been verified mbtiles.file=[TMP]/zoomed_world_cities.mbtiles agg_tiles_hash=AC15E26A1FCF82FDB6D0E8F43EE37821

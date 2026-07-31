@@ -15,8 +15,6 @@ MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
 
 # Using direct compiler output paths to avoid extra log entries
 MARTIN_BIN="${MARTIN_BIN:-target/debug/martin} ${MARTIN_ARGS}"
-MARTIN_CP_BIN="${MARTIN_CP_BIN:-target/debug/martin-cp}"
-MBTILES_BIN="${MBTILES_BIN:-target/debug/mbtiles}"
 
 TEST_OUT_BASE_DIR="$(dirname "$0")/output"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
@@ -184,16 +182,6 @@ test_jpg() {
   test_png "$1" "$2" jpg
 }
 
-test_json_with_header() {
-  FILENAME="$TEST_OUT_DIR/$1.json"
-  URL="$MARTIN_URL/$2"
-  HEADER="$3"
-
-  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
-  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-}
-
 test_mlt() {
   FILENAME="$TEST_OUT_DIR/$1.mlt"
   URL="$MARTIN_URL/$2"
@@ -269,29 +257,6 @@ test_log_has_str() {
   fi
 }
 
-test_martin_cp() {
-  TEST_NAME="$1"
-  ARG=("${@:2}")
-
-  LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-  SAVE_CONFIG_FILE="${TEST_OUT_DIR}/${TEST_NAME}_save_config.yaml"
-  SUMMARY_FILE="$TEST_OUT_DIR/${TEST_NAME}_summary.txt"
-  TEST_FILE="${TEST_TEMP_DIR}/cp_${TEST_NAME}.mbtiles"
-  ARG_EXTRAS=(--output-file "$TEST_FILE" --save-config "$SAVE_CONFIG_FILE")
-
-  set -x
-  $MARTIN_CP_BIN "${ARG[@]}" "${ARG_EXTRAS[@]}" 2>&1 | tee "$LOG_FILE"
-  $MBTILES_BIN validate --agg-hash off "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_validate.txt"
-  $MBTILES_BIN summary "$TEST_FILE" 2>&1 | tee "$SUMMARY_FILE"
-  $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
-  { set +x; } 2> /dev/null
-
-  remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
-  # These tend to vary between runs. In theory, vacuuming might make it the same.
-  remove_lines "$SUMMARY_FILE" "File size: "
-  remove_lines "$SUMMARY_FILE" "SQL page count: "
-}
-
 validate_log() {
   LOG_FILE="$1"
   >&2 echo "Validating log file $LOG_FILE"
@@ -342,26 +307,6 @@ wait_for_log_str() {
   exit 1
 }
 
-compare_sql_dbs() {
-  DB_FILE="$1"
-  EXPECTED_DB_FILE="$2"
-  LOG_FILE="$3"
-
-  if ! command -v sqldiff > /dev/null; then
-    echo "ERROR: sqldiff is required for testing, install it with   apt install sqlite3-tools"
-    exit 1
-  fi
-
-  >&2 echo "Comparing $DB_FILE with the expected $EXPECTED_DB_FILE"
-
-  sqldiff "$DB_FILE" "$EXPECTED_DB_FILE" 2>&1 | tee "$LOG_FILE" \
-    || {
-         echo "ERROR: sqldiff failed. To accept changes, run this command:"
-         echo "   cp $DB_FILE $EXPECTED_DB_FILE"
-         exit 1
-       }
-}
-
 echo "::group::versions"
 curl --version
 jq --version
@@ -371,7 +316,7 @@ grep --version | head -1
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
-  rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+  rm -rf "$MARTIN_BIN"
   $MARTIN_BUILD_ALL
   echo "::endgroup::"
 fi
@@ -422,78 +367,6 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
->&2 echo "Test catalog"
-test_jsn catalog_auto catalog
-
->&2 echo "***** Test server response for table source *****"
-test_jsn table_source             table_source
-test_mvt tbl_0_0_0                table_source/0/0/0
-test_mvt tbl_6_57_29              table_source/6/57/29
-test_mvt tbl_12_3673_1911         table_source/12/3673/1911
-test_mvt tbl_13_7346_3822         table_source/13/7346/3822
-test_mvt tbl_14_14692_7645        table_source/14/14692/7645
-test_mvt tbl_17_117542_61161      table_source/17/117542/61161
-test_mvt tbl_18_235085_122323     table_source/18/235085/122323
-
->&2 echo "***** Test server response for composite source *****"
-test_jsn cmp                      table_source,points1,points2
-test_mvt cmp_0_0_0                table_source,points1,points2/0/0/0
-test_mvt cmp_6_57_29              table_source,points1,points2/6/57/29
-test_mvt cmp_12_3673_1911         table_source,points1,points2/12/3673/1911
-test_mvt cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
-test_mvt cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
-test_mvt cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
-test_mvt cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
-
->&2 echo "***** Test header effects on tilejson *****"
-test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
-test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
-test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
-test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
-
-test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
-test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
-
-test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
-
-test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
-test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
-test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
-test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
-test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
-
->&2 echo "***** Test server response for function source *****"
-test_jsn fnc                      function_zxy_query
-test_mvt fnc_0_0_0                function_zxy_query/0/0/0
-test_mvt fnc_6_57_29              function_zxy_query/6/57/29
-test_mvt fnc_12_3673_1911         function_zxy_query/12/3673/1911
-test_mvt fnc_13_7346_3822         function_zxy_query/13/7346/3822
-test_mvt fnc_14_14692_7645        function_zxy_query/14/14692/7645
-test_mvt fnc_17_117542_61161      function_zxy_query/17/117542/61161
-test_mvt fnc_18_235085_122323     function_zxy_query/18/235085/122323
-
-test_jsn fnc_token                function_zxy_query_test
-test_mvt fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
-
-test_jsn fnc_b                    function_zxy_query_jsonb
-test_mvt fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
-
-test_jsn fnc_raster               function_zxy_raster
-test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
-
->&2 echo "***** Test server response for different function call types *****"
-test_mvt fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
-test_mvt fnc_zxy_6_57_29          function_zxy/6/57/29
-test_mvt fnc_zxy2_6_57_29         function_zxy2/6/57/29
-test_mvt fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
-test_mvt fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
-test_mvt fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
-test_mvt fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
-
->&2 echo "***** Test server response for table source with different SRID *****"
-test_jsn points3857_srid          points3857
-test_mvt points3857_srid_0_0_0    points3857/0/0/0
-
 >&2 echo "***** Test server response for PMTiles source *****"
 test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
 test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
@@ -525,35 +398,6 @@ test_mvt mb_mvt_2_3_1 world_cities/2/3/1
 #test_jsn rgba_u8_nodata       rgba_u8_nodata
 #test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
 #test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
-
->&2 echo "***** Test server response for table source with empty SRID *****"
-test_mvt points_empty_srid_0_0_0  points_empty_srid/0/0/0
-
->&2 echo "***** Test server response for table source with antimeridian geometries *****"
-test_mvt antimeridian_4_0_4 antimeridian/4/0/4
-test_mvt antimeridian_4_0_5 antimeridian/4/0/5
-
->&2 echo "***** Test server response for comments *****"
-test_jsn tbl_comment              MixPoints
-test_jsn fnc_comment              function_Mixed_Name
-
->&2 echo "***** Test server response for materialized view *****"
-test_jsn mv_comment               mat_view
-test_mvt mv_comment_0_0_0         mat_view/0/0/0
-
->&2 echo "***** Test server response for the same name in different schemas *****"
-test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
-test_mvt same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
-test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
-test_mvt same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
-test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
-test_mvt same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
-test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
-test_mvt same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
-test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
-test_mvt table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
-test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
-test_mvt table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
@@ -698,50 +542,6 @@ validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
 
-if [[ "$MARTIN_CP_BIN" != "-" ]]; then
-  echo "::group::Test martin-cp"
-  TEST_NAME="martin-cp"
-  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-  mkdir -p "$TEST_OUT_DIR"
-
-  export DATABASE_URL="$MARTIN_DATABASE_URL"
-  CFG=(--default-srid 900913 --auto-bounds calc tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/pmtiles2)
-
-  test_martin_cp "flat" "${CFG[@]}" \
-      --source table_source --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-  test_martin_cp "flat-with-hash" "${CFG[@]}" \
-      --source function_zxy_query_test --url-query 'foo=bar&token=martin' --encoding 'identity' --mbtiles-type flat-with-hash --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-  test_martin_cp "normalized" "${CFG[@]}" \
-      --source geography-class-png --mbtiles-type normalized --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
-
-  test_martin_cp "composite" "${CFG[@]}" \
-      --source table_source,function_zxy_query_test --url-query 'foo=bar&token=martin' --mbtiles-type normalized --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
-
-  test_martin_cp "no-bbox" ./tests/fixtures/mbtiles/world_cities.mbtiles \
-          --source table_source --mbtiles-type flat --concurrency 3 \
-          --min-zoom 0 --max-zoom 6 \
-          --set-meta "generator=martin-cp v0.0.0"
-
-  unset DATABASE_URL
-
-  test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
-      --mbtiles-type flat --concurrency 3 \
-      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0"
-
-  echo "::endgroup::"
-else
-  echo "Skipping martin-cp tests"
-fi
-
 # If we don't do this, rounding differences on CI and local machines are a problem
 echo "::group::redact unnecessary precision in *_config.yaml and *.json"
 for file in $(find ./tests/output/ ./tests/expected/ -name "*_config.yaml" -type f); do
@@ -763,263 +563,6 @@ for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
     mv "$file.tmp" "$file"
 done
 echo "::endgroup::"
-
-if [[ "$MBTILES_BIN" != "-" ]]; then
-  echo "::group::Test mbtiles utility"
-
-  TEST_NAME="mbtiles"
-  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-  mkdir -p "$TEST_OUT_DIR"
-
-  set -x
-
-  $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
-  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.pretty.json"
-  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.json"
-  $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
-  $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
-  $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
-  $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
-  $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
-  $MBTILES_BIN validate ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-dedup-id-ok.txt"
-
-  if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
-    echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
-    exit 1
-  fi
-  if $MBTILES_BIN validate ./tests/fixtures/files/bad_hash.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-hash.txt"; then
-    echo "ERROR: validate with bad_hash.mbtiles should have failed"
-    exit 1
-  fi
-
-  cp ./tests/fixtures/files/bad_hash.mbtiles "$TEST_TEMP_DIR/fix_bad_hash.mbtiles"
-  $MBTILES_BIN validate --agg-hash update "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix.txt"
-  $MBTILES_BIN validate "$TEST_TEMP_DIR/fix_bad_hash.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/validate-fix2.txt"
-
-  # Cache schema
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
-    --mbtiles-type cache \
-    2>&1 | tee "$TEST_OUT_DIR/cache_copy_to.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_summary.txt"
-  $MBTILES_BIN validate "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_validate.txt"
-
-  $MBTILES_BIN copy \
-    "$TEST_TEMP_DIR/world_cities_cache.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
-    --mbtiles-type flat \
-    2>&1 | tee "$TEST_OUT_DIR/cache_copy_from.txt"
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_from_cache.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_diff.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_cache_rt_diff.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/cache_roundtrip_summary.txt"
-
-  $MBTILES_BIN cache-purge "$TEST_TEMP_DIR/world_cities_cache.mbtiles" 2>&1 | tee "$TEST_OUT_DIR/cache_purge.txt"
-  # Purging a regular (non-cache) tileset must fail
-  if $MBTILES_BIN cache-purge ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/cache_purge_bad.txt"; then
-    echo "ERROR: cache-purge on a non-cache file should have failed"
-    exit 1
-  fi
-
-  # Create diff file
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_diff.mbtiles" \
-    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    2>&1 | tee "$TEST_OUT_DIR/copy_diff.txt"
-  $MBTILES_BIN diff \
-       ./tests/fixtures/mbtiles/world_cities.mbtiles \
-       ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-       "$TEST_TEMP_DIR/world_cities_diff2.mbtiles" \
-       2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
-
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --diff-with-file ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-    --patch-type bin-diff-gz \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff3.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff4.txt"
-
-  # See if the stored bindiff file can also be applied to produce the same result
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities.mbtiles \
-    --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
-    "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches bindiff.cpus=.*'
-
-  # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
-  $MBTILES_BIN copy \
-    ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-    --diff-with-file "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
-    "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff6.txt"
-  $MBTILES_BIN summary "$TEST_TEMP_DIR/world_cities_bindiff_modified2.mbtiles" \
-    2>&1 | tee "$TEST_OUT_DIR/copy_bindiff7.txt"
-
-  if command -v sqlite3 > /dev/null; then
-
-    compare_sql_dbs "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
-      ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
-      "$TEST_OUT_DIR/copy_bindiff_diff.txt"
-
-    # Apply this diff to the original version of the file
-    cp ./tests/fixtures/mbtiles/world_cities.mbtiles "$TEST_TEMP_DIR/world_cities_copy.mbtiles"
-
-    sqlite3 "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      -bail \
-      -cmd ".parameter set @diffDbFilename $TEST_TEMP_DIR/world_cities_diff.mbtiles" \
-      "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-      "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-      "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
-
-    # Ensure that applying the diff resulted in the modified version of the file
-    $MBTILES_BIN copy \
-      --diff-with-file "$TEST_TEMP_DIR/world_cities_copy.mbtiles" \
-      ./tests/fixtures/mbtiles/world_cities_modified.mbtiles \
-      "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
-      2>&1 | tee "$TEST_OUT_DIR/copy_diff2.txt"
-
-    sqlite3 "$TEST_TEMP_DIR/world_cities_diff_modified.mbtiles" \
-      "SELECT COUNT(*) FROM tiles;" \
-      2>&1 | tee "$TEST_OUT_DIR/copy_apply.txt"
-
-  else
-    echo "---------------------------------------------------------"
-    echo "##### sqlite3 is not installed, skipping apply test #####"
-    # Copy expected output files as if they were generated by the test
-    EXPECTED_DIR="$(dirname "$0")/expected/mbtiles"
-    cp "$EXPECTED_DIR/copy_bindiff_diff.txt" "$TEST_OUT_DIR/copy_bindiff_diff.txt"
-    cp "$EXPECTED_DIR/copy_diff2.txt" "$TEST_OUT_DIR/copy_diff2.txt"
-    cp "$EXPECTED_DIR/copy_apply.txt" "$TEST_OUT_DIR/copy_apply.txt"
-  fi
-
-  { set +x; } 2> /dev/null
-  echo "::endgroup::"
-
-  echo "::group::Test mbtiles pack/unpack"
-  set -x
-
-  # pack / unpack round-trip coverage. These verify themselves inline (no golden
-  # files) by comparing the regenerated tile tree / tiles table against the input,
-  # so the work happens in a temp dir rather than $TEST_OUT_DIR.
-  PU_DIR="$(mktemp -d "$TEST_TEMP_DIR/pack_unpack.XXXXXX")"
-
-  >&2 echo "Test pack/unpack: MVT tile tree round-trips through gzip compression"
-  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_xyz"
-  # unpack names files with the metadata format extension and the xyz scheme by default
-  if [[ ! -f "$PU_DIR/wc_xyz/0/0/0.pbf" ]]; then
-    echo "ERROR: unpack did not write the expected 0/0/0.pbf tile"
-    exit 1
-  fi
-  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_repacked.mbtiles"
-  $MBTILES_BIN unpack "$PU_DIR/wc_repacked.mbtiles" "$PU_DIR/wc_xyz_again"
-  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_xyz_again"; then
-    echo "ERROR: PBF pack -> unpack round-trip changed the tile tree"
-    exit 1
-  fi
-
-  >&2 echo "Test pack/unpack: --scheme flips the y coordinate"
-  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_tms" --scheme tms
-  ( cd "$PU_DIR/wc_xyz" && find . -type f | sort ) > "$PU_DIR/xyz.list"
-  ( cd "$PU_DIR/wc_tms" && find . -type f | sort ) > "$PU_DIR/tms.list"
-  if diff --brief "$PU_DIR/xyz.list" "$PU_DIR/tms.list" > /dev/null; then
-    echo "ERROR: xyz and tms unpack produced identical file names; --scheme had no effect"
-    exit 1
-  fi
-
-  >&2 echo "Test pack/unpack: --compress none round-trips and stores vector tiles as-is"
-  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_default.mbtiles"
-  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw.mbtiles" --compress none
-  $MBTILES_BIN unpack "$PU_DIR/wc_raw.mbtiles" "$PU_DIR/wc_raw_out"
-  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw_out"; then
-    echo "ERROR: --compress none pack -> unpack round-trip changed the tile tree"
-    exit 1
-  fi
-
-  >&2 echo "Test pack/unpack: unpack fails on a nonexistent file and on metadata without a format"
-  if $MBTILES_BIN unpack "$PU_DIR/does-not-exist.mbtiles" "$PU_DIR/missing_out" 2>&1; then
-    echo "ERROR: unpack of a nonexistent file should have failed"
-    exit 1
-  fi
-  if $MBTILES_BIN unpack ./tests/fixtures/mbtiles/geography-class-png.mbtiles "$PU_DIR/noformat_out" 2>&1; then
-    echo "ERROR: unpack should fail when the metadata table has no format"
-    exit 1
-  fi
-  if $MBTILES_BIN pack "$PU_DIR/does-not-exist-dir" "$PU_DIR/from_missing.mbtiles" 2>&1; then
-    echo "ERROR: pack of a nonexistent directory should have failed"
-    exit 1
-  fi
-
-  >&2 echo "Test pack/unpack: pack rejects unsupported extensions and inconsistent formats"
-  mkdir -p "$PU_DIR/bad_ext/0/0"
-  echo nope > "$PU_DIR/bad_ext/0/0/0.txt"
-  if $MBTILES_BIN pack "$PU_DIR/bad_ext" "$PU_DIR/bad_ext.mbtiles" 2>&1; then
-    echo "ERROR: pack of an unsupported file extension should have failed"
-    exit 1
-  fi
-  mkdir -p "$PU_DIR/mixed/0/0" "$PU_DIR/mixed/1/0"
-  cp "$PU_DIR/wc_xyz/0/0/0.pbf" "$PU_DIR/mixed/0/0/0.pbf"
-  echo raster > "$PU_DIR/mixed/1/0/0.png"
-  if $MBTILES_BIN pack "$PU_DIR/mixed" "$PU_DIR/mixed.mbtiles" 2>&1; then
-    echo "ERROR: pack of a directory with inconsistent tile formats should have failed"
-    exit 1
-  fi
-
-  if command -v sqlite3 > /dev/null; then
-    DUMP_TILES="SELECT zoom_level, tile_column, tile_row, hex(tile_data) FROM tiles ORDER BY 1, 2, 3;"
-
-    >&2 echo "Test pack/unpack: uncompressed image tiles round-trip byte-for-byte in both schemes"
-    sqlite3 ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$DUMP_TILES" > "$PU_DIR/webp_src.dump"
-    for scheme in xyz tms; do
-      $MBTILES_BIN unpack ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$PU_DIR/webp_$scheme" --scheme "$scheme"
-      $MBTILES_BIN pack "$PU_DIR/webp_$scheme" "$PU_DIR/webp_$scheme.mbtiles" --scheme "$scheme"
-      sqlite3 "$PU_DIR/webp_$scheme.mbtiles" "$DUMP_TILES" > "$PU_DIR/webp_$scheme.dump"
-      if ! diff "$PU_DIR/webp_src.dump" "$PU_DIR/webp_$scheme.dump"; then
-        echo "ERROR: webp pack/unpack ($scheme) did not reproduce the original tiles"
-        exit 1
-      fi
-    done
-
-    >&2 echo "Test pack/unpack: default gzips vector tiles while --compress none leaves them raw"
-    DEFAULT_GZ=$(sqlite3 "$PU_DIR/wc_default.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
-    RAW_GZ=$(sqlite3 "$PU_DIR/wc_raw.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
-    if [[ "$DEFAULT_GZ" -eq 0 || "$RAW_GZ" -ne 0 ]]; then
-      echo "ERROR: expected default pack to gzip vector tiles ($DEFAULT_GZ gzipped) and --compress none not to ($RAW_GZ gzipped)"
-      exit 1
-    fi
-  fi
-
-  # sudo fallback: the Docker image runs mbtiles as root, leaving root-owned dirs.
-  rm -rf "$PU_DIR" 2> /dev/null || sudo rm -rf "$PU_DIR"
-
-  { set +x; } 2> /dev/null
-  echo "::endgroup::"
-else
-  echo "Skipping mbtiles utility tests"
-fi
 
 # The COG reloader is only active when compiled with --features unstable-cog.
 # Detect this at runtime by copying a .tif file and checking whether it appears in the catalog.
