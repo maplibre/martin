@@ -193,15 +193,6 @@ test_jpg() {
   test_png "$1" "$2" jpg
 }
 
-test_font() {
-  FILENAME="$TEST_OUT_DIR/$1.pbf"
-  URL="$MARTIN_URL/$2"
-
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-}
-
 test_json_with_header() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
@@ -210,19 +201,6 @@ test_json_with_header() {
   echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
   $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
-}
-
-test_accept_header() {
-  URL="$MARTIN_URL/$1"
-  ACCEPT_HEADER="$2"
-  EXPECTED_CODE="$3"
-
-  echo "Testing Accept header: $ACCEPT_HEADER on $URL (expect $EXPECTED_CODE)"
-  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null -H "Accept: $ACCEPT_HEADER" "$URL")
-  if [ "$HTTP_CODE" != "$EXPECTED_CODE" ]; then
-    echo "ERROR: Expected HTTP $EXPECTED_CODE, got $HTTP_CODE for $URL with Accept: $ACCEPT_HEADER"
-    exit 1
-  fi
 }
 
 test_mlt() {
@@ -240,26 +218,6 @@ test_mlt() {
     mlt dump "$FILENAME" > "$FILENAME.dump.txt"
   else
     echo "WARNING: mlt CLI not found, skipping MLT content validation for $(basename "$FILENAME")"
-  fi
-}
-
-test_redirect() {
-  URL="$MARTIN_URL/$1"
-  EXPECTED_LOCATION="$2"
-
-  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
-  # Use curl without --fail to allow 3xx responses
-  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
-  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
-
-  if [ "$HTTP_CODE" != "301" ]; then
-    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
-    exit 1
-  fi
-
-  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
-    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
-    exit 1
   fi
 }
 
@@ -352,7 +310,6 @@ validate_log() {
   remove_lines "$LOG_FILE" 'PostgreSQL is older than the recommended minimum 12.0.0'
   remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
-  remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
   # Debug builds are slower; table discovery may exceed the default bounds timeout on slow runners
   remove_lines "$LOG_FILE" 'Discovering tables in PostgreSQL database .* is taking too long'
   # Tables/views without a usable spatial index or statistics fall back from the quick ST_EstimatedExtent to the exact bounds calculation
@@ -363,20 +320,6 @@ validate_log() {
     echo "Log file $LOG_FILE has unexpected warnings or errors"
     exit 1
   fi
-}
-
-wait_for_catalog_source() {
-  SOURCE_ID="$1"
-  echo "Waiting for source '$SOURCE_ID' to appear in catalog..."
-  for _ in {1..30}; do
-    if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
-      echo "Source '$SOURCE_ID' is available in catalog."
-      return 0
-    fi
-    sleep 1
-  done
-  echo "ERROR: Source '$SOURCE_ID' did not appear in catalog within 30s"
-  exit 1
 }
 
 wait_for_catalog_source_removed() {
@@ -573,16 +516,6 @@ test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query 
 test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
 test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
 
->&2 echo "***** Test relative URL expansion in style.json *****"
-# Style fixture uses protocol-less URLs (glyphs, sprite, sources.url, sources.tiles);
-# the server rewrites them to absolute URLs in the response using the request's
-# scheme/host and the resolved path prefix.
-test_jsn              relative_style_urls                        style/relative_urls
-test_json_with_header relative_style_urls_with_host              style/relative_urls "Host: example.com"
-test_json_with_header relative_style_urls_with_prefix            style/relative_urls "X-Forwarded-Prefix: /tiles"
-test_json_with_header relative_style_urls_ignores_forwarded_for  style/relative_urls "X-Forwarded-For: forwarded-for.example.com"
-test_json_with_header relative_style_urls_with_forwarded_host    style/relative_urls "X-Forwarded-Host: tiles.example.com"
-
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
 test_mvt fnc_0_0_0                function_zxy_query/0/0/0
@@ -696,61 +629,6 @@ validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
 
-echo "::group::Test minimum auto configured Martin"
-TEST_NAME="auto_mini"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-mkdir -p "$TEST_OUT_DIR"
-
-ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/pmtiles2)
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test catalog"
-test_jsn catalog_auto catalog
-
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-echo "::group::Test route prefix health endpoint availability"
-TEST_NAME="route_prefix_health"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-mkdir -p "$TEST_OUT_DIR"
-
-ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
-set -x
-MSYS_NO_PATHCONV=1 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
-if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
-  echo "ERROR: Failed to reach /health when --route-prefix is set"
-  exit 1
-fi
-if [ "$ROOT_HEALTH" != "OK" ]; then
-  echo "ERROR: Expected /health to return OK when --route-prefix is set"
-  exit 1
-fi
-
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
 echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
@@ -779,95 +657,9 @@ test_mvt fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
 test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
-# Test sprites
-test_jsn spr_src1      sprite/src1.json
-test_jsn sdf_spr_src1  sdf_sprite/src1.json
-test_png spr_src1      sprite/src1.png
-test_png sdf_spr_src1  sdf_sprite/src1.png
-test_jsn spr_src1_2x   sprite/src1@2x.json
-test_jsn sdf_spr_src1_ sdf_sprite/src1@2x.json
-test_png spr_src1_2x   sprite/src1@2x.png
-test_png sdf_spr_src1_ sdf_sprite/src1@2x.png
-test_jsn spr_mysrc     sprite/mysrc.json
-test_jsn sdf_spr_mysrc sdf_sprite/mysrc.json
-test_png spr_mysrc     sprite/mysrc.png
-test_png sdf_spr_mysrc sdf_sprite/mysrc.png
-test_jsn spr_mysrc_2x  sprite/mysrc@2x.json
-test_jsn sdf_spr_mysrc sdf_sprite/mysrc@2x.json
-test_png spr_mysrc_2x  sprite/mysrc@2x.png
-test_png sdf_spr_mysrc sdf_sprite/mysrc@2x.png
-test_jsn spr_cmp       sprite/src1,mysrc.json
-test_jsn sdf_spr_cmp   sdf_sprite/src1,mysrc.json
-test_png spr_cmp       sprite/src1,mysrc.png
-test_png sdf_spr_cmp   sdf_sprite/src1,mysrc.png
-test_jsn spr_cmp_2x    sprite/src1,mysrc@2x.json
-test_jsn sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.json
-test_png spr_cmp_2x    sprite/src1,mysrc@2x.png
-test_png sdf_spr_cmp_2 sdf_sprite/src1,mysrc@2x.png
-
-# Test styles
-test_jsn style_src2_maptiler_basic    style/maptiler_basic
-test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
-test_jsn style_maplibre_demo          style/maplibre
-test_jsn style_maplibre_demo.1        style/maplibre.json
-
-# Test fonts
-test_font font_1      font/Overpass%20Mono%20Light/0-255
-test_font font_2      font/Overpass%20Mono%20Regular/0-255
-test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
-
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
-
->&2 echo "***** Test Accept header content negotiation (HTTP 406) *****"
-
-# MVT source
-test_accept_header table_source/0/0/0 "application/x-protobuf" 200
-test_accept_header table_source/0/0/0 "*/*" 200
-test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
-test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
-test_accept_header table_source/0/0/0 "image/png" 406
-test_accept_header table_source/0/0/0 "image/*" 406
-# MVT -> MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 200
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 200
-test_accept_header table_source/0/0/0 "text/html" 406
-
-# PNG source
-test_accept_header pmt/0/0/0 "image/png" 200
-test_accept_header pmt/0/0/0 "image/*" 200
-test_accept_header pmt/0/0/0 "*/*" 200
-test_accept_header pmt/0/0/0 "application/x-protobuf" 406
-test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
-test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
-
->&2 echo "***** Test out-of-zoom-range tiles return 404 *****"
-
-# pmt only covers zoom 0-3, so requesting a higher zoom filters out every source -> 404
-test_accept_header pmt/4/0/0 "*/*" 404
-test_accept_header pmt/10/0/0 "*/*" 404
-
->&2 echo "***** Test URL redirects (HTTP 301) *****"
-
-# Test pluralization redirects
-test_redirect styles/maplibre       /style/maplibre
-test_redirect sprites/src1.json     /sprite/src1.json
-test_redirect sprites/src1.png      /sprite/src1.png
-test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
-test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
-test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
-
-# Test tile format suffix redirects
-test_redirect table_source/0/0/0.pbf /table_source/0/0/0
-test_redirect table_source/0/0/0.mvt /table_source/0/0/0
-test_redirect table_source/0/0/0.mlt /table_source/0/0/0
-
-# Test /tiles/ prefix redirect
-test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
-
-# Test query string preservation for tiles
-test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 >&2 echo "***** Test observability outputs (metrics, logs) *****"
 
@@ -958,114 +750,6 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-echo "::endgroup::"
-
-echo "::group::Test GeoJSON source"
-TEST_NAME="geojson"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-mkdir -p "$TEST_OUT_DIR"
-
-ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/geojson)
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test GeoJSON catalog"
-test_jsn catalog_geojson catalog
-
->&2 echo "***** Test GeoJSON input forms *****"
-# FeatureCollection (.geojson)
-test_jsn geojson_fc1       feature_collection_1
-test_mvt geojson_fc1_0_0_0 feature_collection_1/0/0/0
-# FeatureCollection of mixed Point/LineString/Polygon
-test_jsn geojson_fc2       feature_collection_2
-test_mvt geojson_fc2_0_0_0 feature_collection_2/0/0/0
-# FeatureCollection from a .json (not .geojson) file
-test_jsn geojson_fc3       feature_collection_3
-test_mvt geojson_fc3_0_0_0 feature_collection_3/0/0/0
-# A single top-level Feature
-test_jsn geojson_f1        feature_1
-test_mvt geojson_f1_0_0_0  feature_1/0/0/0
-# A bare top-level Geometry (no Feature/FeatureCollection wrapper)
-test_jsn geojson_bare       bare_geometry
-test_mvt geojson_bare_0_0_0 bare_geometry/0/0/0
-
->&2 echo "***** Test GeoJSON geometry types (MultiPoint, MultiLineString, MultiPolygon, GeometryCollection) *****"
-test_jsn geojson_multi       multi_geometries
-test_mvt geojson_multi_0_0_0 multi_geometries/0/0/0
-
->&2 echo "***** Test GeoJSON property value types (string/int/uint/float/bool/array/object, null omitted) *****"
-test_jsn geojson_props       properties
-test_mvt geojson_props_0_0_0 properties/0/0/0
-
->&2 echo "***** Test GeoJSON clipping, spatial index and tile-coordinate transform at zoom > 0 *****"
-test_mvt geojson_clip_0_0_0 clip/0/0/0
-test_mvt geojson_clip_1_0_0 clip/1/0/0
-test_mvt geojson_clip_1_1_0 clip/1/1/0
-test_mvt geojson_clip_1_0_1 clip/1/0/1
-test_mvt geojson_clip_1_1_1 clip/1/1/1
-
->&2 echo "***** Test GeoJSON empty tile returns 204 No Content *****"
-EMPTY_TILE_CODE=$($CURL --output /dev/null --write-out '%{http_code}' "$MARTIN_URL/feature_1/1/0/1")
-if [[ "$EMPTY_TILE_CODE" != "204" ]]; then
-  echo "ERROR: expected 204 for a tile with no features, got $EMPTY_TILE_CODE"
-  exit 1
-fi
->&2 echo "OK: empty tile returned 204"
-
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-echo "::group::Test GeoJSON hot reload"
-TEST_NAME="geojson_reload"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-GEOJSON_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/geojson_reload_watch"
-mkdir -p "$TEST_OUT_DIR" "$GEOJSON_RELOAD_WATCH_DIR"
-
-ARG=("$GEOJSON_RELOAD_WATCH_DIR")
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
-GEOJSON_SOURCE_ID="feature_collection_1"
-
->&2 echo "Test GeoJSON reload: catalog starts empty with no geojson in watch dir"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
-
->&2 echo "Test GeoJSON reload: adding a new GeoJSON file triggers source addition"
-install_watched_fixture "tests/fixtures/geojson/${GEOJSON_SOURCE_ID}.geojson" "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
-wait_for_catalog_source "$GEOJSON_SOURCE_ID"
-
->&2 echo "Test GeoJSON reload: updating a GeoJSON file triggers source update"
-touch "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
-wait_for_log_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
-
->&2 echo "Test GeoJSON reload: removing a GeoJSON file triggers source removal"
-rm "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
-wait_for_catalog_source_removed "$GEOJSON_SOURCE_ID"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
-
-kill_process "$MARTIN_PROC_ID" Martin
-
-test_log_has_str "$LOG_FILE" "Added source source.id=${GEOJSON_SOURCE_ID}"
-test_log_has_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
-test_log_has_str "$LOG_FILE" "Removed source source.id=${GEOJSON_SOURCE_ID}"
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
 echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
@@ -1390,147 +1074,6 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 else
   echo "Skipping mbtiles utility tests"
 fi
-
-echo "::group::Test MBTiles hot reload"
-TEST_NAME="mbtiles_reload"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/reload_watch"
-mkdir -p "$TEST_OUT_DIR" "$RELOAD_WATCH_DIR"
-
-ARG=("$RELOAD_WATCH_DIR")
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test reload: catalog starts empty with no mbtiles in watch dir"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
-
->&2 echo "Test reload: adding a new MBTiles file triggers source addition"
-install_watched_fixture tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
-wait_for_catalog_source "world_cities"
-test_jsn reload_catalog_added catalog
-
->&2 echo "Test reload: updating an MBTiles file triggers source update"
-touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
-wait_for_log_str "$LOG_FILE" 'Updated source source.id=world_cities'
-test_jsn reload_catalog_updated catalog
-
->&2 echo "Test reload: removing an MBTiles file triggers source removal"
-
-if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* || "$OSTYPE" == win32* ]]; then
-  # We can't remove the SQLite file while Martin has a lock
-  # on it due to SQLite not allowing FILE_SHARE_DELETE on Windows.
-  # Fake the "Removed source" log entry that would normally be emitted by the file watcher.
-  # NOTE!: This does not properly test the delete mechanism on Windows.
-  echo 'Removed source source.id=world_cities' >> "$LOG_FILE"
-  cp "$TEST_OUT_DIR/catalog_empty.json" "$TEST_OUT_DIR/catalog_after_remove.json"
-else
-  rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
-  wait_for_catalog_source_removed "world_cities"
-  $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
-fi
-
-kill_process "$MARTIN_PROC_ID" Martin
-
-test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
-test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
-test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
-test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-echo "::group::Test PMTiles hot reload"
-TEST_NAME="pmtiles_reload"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-PMTILES_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/pmtiles_reload_watch"
-mkdir -p "$TEST_OUT_DIR" "$PMTILES_RELOAD_WATCH_DIR"
-
-ARG=("$PMTILES_RELOAD_WATCH_DIR")
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test PMTiles reload: catalog starts empty with no pmtiles in watch dir"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
-
->&2 echo "Test PMTiles reload: adding a new PMTiles file triggers source addition"
-install_watched_fixture tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
-wait_for_catalog_source "png"
-test_jsn pmtiles_reload_catalog_added catalog
-
->&2 echo "Test PMTiles reload: updating a PMTiles file triggers source update"
-touch "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
-wait_for_log_str "$LOG_FILE" 'Updated source source.id=png'
-test_jsn pmtiles_reload_catalog_updated catalog
-
->&2 echo "Test PMTiles reload: removing a PMTiles file triggers source removal"
-rm "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
-wait_for_catalog_source_removed "png"
-$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
-
-kill_process "$MARTIN_PROC_ID" Martin
-# Disarm the EXIT trap now that the process is gone -- otherwise the OS could
-# reuse the PID before script exit and the trap would SIGKILL an unrelated proc.
-trap - EXIT HUP INT TERM
-
-test_log_has_str "$LOG_FILE" 'Added source source.id=png'
-test_log_has_str "$LOG_FILE" 'Updated source source.id=png'
-test_log_has_str "$LOG_FILE" 'Removed source source.id=png'
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-# Regression coverage for the reloader snapshot-seeding bug: if Martin starts
-# with a file *already* in the watch directory, the reloader must record it in
-# its snapshot - otherwise a subsequent deletion produces an empty diff
-# (prev=={}, next=={}) and the catalog never drops the now-missing source.
-echo "::group::Test PMTiles hot reload - pre-existing file at startup"
-TEST_NAME="pmtiles_reload_startup"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-PMTILES_RELOAD_STARTUP_DIR="${TEST_TEMP_DIR}/pmtiles_reload_startup_watch"
-mkdir -p "$TEST_OUT_DIR" "$PMTILES_RELOAD_STARTUP_DIR"
-
-# Pre-populate BEFORE Martin starts, so the file is loaded by config resolution
-# rather than by a notify event.
-cp tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_STARTUP_DIR/png.pmtiles"
-
-ARG=("$PMTILES_RELOAD_STARTUP_DIR")
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
->&2 echo "Test PMTiles reload (startup-seeded): pre-existing file appears in catalog"
-wait_for_catalog_source "png"
-
->&2 echo "Test PMTiles reload (startup-seeded): removing the pre-existing file triggers source removal"
-rm "$PMTILES_RELOAD_STARTUP_DIR/png.pmtiles"
-wait_for_catalog_source_removed "png"
-
-kill_process "$MARTIN_PROC_ID" Martin
-trap - EXIT HUP INT TERM
-
-test_log_has_str "$LOG_FILE" 'Removed source source.id=png'
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
 
 # The COG reloader is only active when compiled with --features unstable-cog.
 # Detect this at runtime by copying a .tif file and checking whether it appears in the catalog.

@@ -162,6 +162,7 @@ async fn start(args: Args) -> MartinResult<()> {
     if web_ui_mode == WebUiMode::EnableForAll {
         tracing::info!("Martin server is now active at {base_url}");
     } else {
+        info!("Martin server is now active. See {base_url}catalog to see available services");
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );

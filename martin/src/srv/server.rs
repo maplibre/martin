@@ -270,7 +270,14 @@ pub fn new_server(
 
     let server = HttpServer::new(factory)
         .bind(listen_addresses.clone())
-        .map_err(|e| MartinError::BindingError(e, listen_addresses.clone()))?
+        .map_err(|e| MartinError::BindingError(e, listen_addresses.clone()))?;
+
+    let listen_addresses = server
+        .addrs()
+        .first()
+        .map_or(listen_addresses, ToString::to_string);
+
+    let server = server
         .keep_alive(keep_alive)
         .shutdown_timeout(0)
         .workers(worker_processes)

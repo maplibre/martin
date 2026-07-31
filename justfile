@@ -137,7 +137,6 @@ test-schemas:
     # the schema is wrong, not the config.
     fixtures=(
         tests/expected/auto/save_config.yaml
-        tests/expected/auto_mini/save_config.yaml
         tests/expected/configured/save_config.yaml
     )
     for f in "${fixtures[@]}"; do
@@ -648,6 +647,12 @@ test-packages-ci: fetch
     else
         cargo test --package martin
     fi
+    {{just}} test-e2e
+
+# Run the end-to-end tests that drive the compiled martin binary over HTTP
+test-e2e *args: fetch
+    cargo build --package martin
+    cargo test --package martin-integration-tests {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch

@@ -3869,6 +3869,15 @@ version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "902f40dea4993d99db66732fddd9143e92657f1d47a642395f92b339b1375659"
 dependencies = [
+ "hotpath-macros 0.21.5",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66750a77f4f6b408a148be5102ef1f3ba7172def7ee92b1cfc75d9f7a3870453"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -3879,7 +3888,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros",
+ "hotpath-macros 0.22.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -3902,6 +3911,12 @@ name = "hotpath-macros"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "191f6e3b11c1f817e5c3737158812bc8d3a383e9d9d89526703ea6dc1e9fe647"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afe0e1900d2dbe2e2df8e9522b97ebd7a5598ba18478f57e247957022dffedbe"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3910,15 +3925,15 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.21.5"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604e1929e4e069ce456916d2bb267ddd2b7d680bfb5b89abca06a9b6d3fe50a7"
+checksum = "21f2f70b29b6f42311acd2fb0b2f91a34d9a573c76fb8a7f51970670a1673a49"
 
 [[package]]
 name = "hotpath-meta"
-version = "0.21.5"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c1f5d817c1a70efc3aa66d27909e86878ea22991c0b6fc5f36d6dbd26856a3"
+checksum = "8b771f77b2f409086bb40ff029f850ce99d17118d4e207df0f28cb32bd7568c7"
 dependencies = [
  "hotpath-macros-meta",
 ]
@@ -4495,8 +4510,10 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
+ "regex",
  "serde",
  "similar",
+ "strip-ansi-escapes",
  "tempfile",
  "toml_edit",
  "toml_writer",
@@ -5123,7 +5140,7 @@ dependencies = [
  "enum-display",
  "futures",
  "geojson",
- "hotpath",
+ "hotpath 0.22.0",
  "humantime-serde",
  "image",
  "image-compare",
@@ -5208,7 +5225,7 @@ dependencies = [
  "geo-index",
  "geo-types",
  "geojson",
- "hotpath",
+ "hotpath 0.22.0",
  "image",
  "image-compare",
  "insta",
@@ -5255,12 +5272,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "approx",
+ "brotli 8.0.4",
+ "flate2",
+ "insta",
+ "libc",
+ "mlt-core",
+ "pbf_font_tools",
+ "png 0.18.1",
+ "regex",
+ "reqwest 0.13.4",
+ "rstest",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
 name = "martin-tile-utils"
 version = "0.7.5"
 dependencies = [
  "approx",
  "brotli 8.0.4",
  "flate2",
+ "hotpath 0.22.0",
  "rstest",
  "serde",
  "serde_json",
@@ -5306,7 +5346,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
- "hotpath",
+ "hotpath 0.22.0",
  "insta",
  "itertools 0.15.0",
  "martin-tile-utils",
@@ -5472,7 +5512,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.21.5",
  "integer-encoding",
  "num-traits",
  "num_enum",
@@ -8606,6 +8646,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strip-ansi-escapes"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a8f8038e7e7969abb3f1b7c2a811225e9296da208539e0f79c5251d6cac0025"
+dependencies = [
+ "vte 0.14.1",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8796,7 +8845,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
@@ -9909,7 +9958,16 @@ checksum = "054ff75fb8fa83e609e685106df4faeffdf3a735d3c74ebce97ec557d5d36fd9"
 dependencies = [
  "itoa",
  "unicode-width 0.2.2",
- "vte",
+ "vte 0.15.0",
+]
+
+[[package]]
+name = "vte"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "231fdcd7ef3037e8330d8e17e61011a2c244126acc0a982f4040ac3f9f0bc077"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

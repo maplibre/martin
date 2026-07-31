@@ -10,6 +10,10 @@ on:
   push:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 # Declare default permissions as read only.
 permissions: read-all
 

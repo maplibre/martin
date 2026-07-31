@@ -15,6 +15,7 @@ demo/
 #### This must match .gitignore ####
 ####
 
+**/*.pending-snap
 **/*.rs.bk
 **/dist/
 **/node_modules/
