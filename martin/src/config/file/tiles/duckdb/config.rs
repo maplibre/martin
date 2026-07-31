@@ -145,9 +145,7 @@ mod tests {
     use super::*;
     use crate::config::file::tiles::duckdb::GeoParquetLocation;
 
-
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
-
 
     #[test]
     fn source_list_may_mix_database_and_geoparquet() {
@@ -270,10 +268,7 @@ sources:
             panic!("expected geoparquet entry");
         };
         assert_eq!(entry.geoparquet, GEOPARQUET_FIXTURE);
-        assert!(matches!(
-            entry.location,
-            Some(GeoParquetLocation::Local(_))
-        ));
+        assert!(matches!(entry.location, Some(GeoParquetLocation::Local(_))));
         insta::assert_debug_snapshot!(entry.settings, @r#"
         DuckDbSourceSettings {
             pool_size: Some(

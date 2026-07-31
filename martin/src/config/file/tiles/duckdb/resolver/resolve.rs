@@ -38,10 +38,7 @@ fn resolve_geoparquet_entry(
         .location
         .as_ref()
         .expect("GeoParquetEntry must be finalized before resolve");
-    let name = entry
-        .layer_id
-        .clone()
-        .unwrap_or_else(|| location.stem());
+    let name = entry.layer_id.clone().unwrap_or_else(|| location.stem());
     let source_id = id_resolver.resolve(&name, location.to_source_string());
     let pool_size = entry
         .settings

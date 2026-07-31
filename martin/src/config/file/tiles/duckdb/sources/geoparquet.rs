@@ -146,10 +146,7 @@ mod tests {
         assert_eq!(entry.layer_id, None);
         assert_eq!(entry.id_column, None);
         assert_eq!(entry.geometry_column, None);
-        assert!(matches!(
-            entry.location,
-            Some(GeoParquetLocation::Local(_))
-        ));
+        assert!(matches!(entry.location, Some(GeoParquetLocation::Local(_))));
     }
 
     #[test]
