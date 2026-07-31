@@ -623,7 +623,7 @@ test-duckdb: fetch
     cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
     cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
     cargo build --package martin --no-default-features --features unstable-duckdb
-    cargo test --package martin-integration-tests --features duckdb --test duckdb
+    cargo test --package martin-integration-tests --features duckdb --test test-duckdb
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
