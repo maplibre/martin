@@ -1,10 +1,8 @@
 //! `GeoParquet` sources served through `DuckDB`, configured from a config file in a temp dir.
 //!
-//! The martin binary under test must be built with `unstable-duckdb`, which this crate's `duckdb` feature signals.
-//! Martin canonicalizes `geoparquet` paths against its working directory, which the harness sets to the workspace root.
-//! Fixture paths therefore stay relative, and read back unchanged in the catalog, the tilejson and the saved config.
+//! Binary has to be buld with `unstable-duckdb`.
 
-#![cfg(feature = "duckdb")]
+#![cfg(feature = "test-duckdb")]
 
 use std::fs;
 
