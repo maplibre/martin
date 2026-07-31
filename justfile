@@ -633,9 +633,9 @@ test-packages-ci: fetch
     fi
     {{just}} test-e2e
 
-# Run the end-to-end tests that drive the compiled martin binary over HTTP
+# Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch
-    cargo build --package martin
+    cargo build --package martin --package mbtiles
     cargo test --package martin-integration-tests {{args}}
 
 # Run Rust doc tests
