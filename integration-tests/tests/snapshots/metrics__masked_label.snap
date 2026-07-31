@@ -1,0 +1,38 @@
+---
+source: integration-tests/tests/metrics.rs
+expression: scrape
+---
+# HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests
+# TYPE martin_http_requests_duration_seconds histogram
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.005"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.01"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.025"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.05"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.1"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.25"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="0.5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="1"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="2.5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="10"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="/health",method="GET",status="200",le="+Inf"} 1
+martin_http_requests_duration_seconds_sum{endpoint="/health",method="GET",status="200"} [SECONDS]
+martin_http_requests_duration_seconds_count{endpoint="/health",method="GET",status="200"} 1
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.005"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.01"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.025"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.05"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.1"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.25"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="0.5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="1"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="2.5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="5"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="10"} [COUNT]
+martin_http_requests_duration_seconds_bucket{endpoint="UNKNOWN",method="GET",status="404",le="+Inf"} 2
+martin_http_requests_duration_seconds_sum{endpoint="UNKNOWN",method="GET",status="404"} [SECONDS]
+martin_http_requests_duration_seconds_count{endpoint="UNKNOWN",method="GET",status="404"} 2
+# HELP martin_http_requests_total Total number of HTTP requests
+# TYPE martin_http_requests_total counter
+martin_http_requests_total{endpoint="/health",method="GET",status="200"} 1
+martin_http_requests_total{endpoint="UNKNOWN",method="GET",status="404"} 2
