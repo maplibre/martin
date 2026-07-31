@@ -206,15 +206,7 @@ bless-int: start install-mvt
     set -euo pipefail
     rm -rf tests/temp
     tests/test.sh
-    # DuckDB expected output is owned by MARTIN_TEST_DUCKDB=1; keep it across a normal bless.
-    if [[ -d tests/expected/duckdb ]]; then
-      mkdir -p tests/temp
-      mv tests/expected/duckdb tests/temp/duckdb-expected
-    fi
     rm -rf tests/expected && mv tests/output tests/expected
-    if [[ -d tests/temp/duckdb-expected ]]; then
-      mv tests/temp/duckdb-expected tests/expected/duckdb
-    fi
 
 bless-pg: fetch start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
@@ -624,11 +616,13 @@ test-pg: fetch start
 test-minio: fetch
     cargo test --features test-minio --no-default-features --test pmt_minio_test
 
-# Run DuckDB/GeoParquet cargo tests only (no shell E2E)
+# Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
     cargo test -p martin --features test-duckdb --no-default-features --lib
     cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
     cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
+    cargo build --package martin --no-default-features --features unstable-duckdb
+    cargo test --package martin-integration-tests --features duckdb --test duckdb
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
@@ -668,13 +662,12 @@ test-int: clean-test install-sqlx start-pmtiles-server install-mvt
     set -euo pipefail
     tests/test.sh
     echo "** Comparing actual output with expected output..."
-    # DuckDB snapshots are produced only by MARTIN_TEST_DUCKDB=1 (just test-duckdb / CI test-duckdb).
-    if ! diff --brief --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected; then
+    if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
         echo "** Expected output does not match actual output"
         echo "** If this is expected, run 'just bless' to update expected output"
         echo ""
         echo "::group::Resulting diff (max 100 lines)"
-        diff --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected | head -n 100 | cat -v
+        diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
         echo "::endgroup::"
         exit 1
     else

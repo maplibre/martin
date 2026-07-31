@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# Run the DuckDB/GeoParquet tests. The martin binary they drive must be built with `unstable-duckdb`.
+duckdb = []
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

@@ -85,41 +85,8 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
       - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just' }
-      - name: Install mvt CLI
-        run: just install-mvt
-      - name: Run DuckDB cargo tests
+      - name: Run DuckDB tests
         run: just test-duckdb
-      - name: Build DuckDB-enabled Martin
-        run: cargo build -p martin --no-default-features --features unstable-duckdb
-      - name: DuckDB E2E
-        run: |
-          rm -rf tests/output/duckdb
-          MARTIN_TEST_DUCKDB=1 \
-            MARTIN_BUILD_ALL=- \
-            MARTIN_BIN=target/debug/martin \
-            tests/test.sh
-      - name: Compare DuckDB E2E output
-        run: |
-          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output/duckdb tests/expected/duckdb; then
-            echo "** Expected DuckDB output does not match actual output"
-            echo "** If this is expected, update tests/expected/duckdb"
-            echo ""
-            echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output/duckdb tests/expected/duckdb | head -n 100 | cat -v
-            echo "::endgroup::"
-            exit 1
-          else
-            echo "** Expected DuckDB output matches actual output"
-          fi
-      - name: Save DuckDB test output (on error)
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: failed-duckdb-test-output
-          path: |
-            tests/output/duckdb/*
-            target/test_logs/*
-          retention-days: 5
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -598,13 +565,12 @@ jobs:
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          # DuckDB snapshots are produced only by MARTIN_TEST_DUCKDB=1 (test-duckdb job).
-          if ! diff --brief --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected; then
+          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
             echo ""
             echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' --exclude='duckdb' tests/output tests/expected | head -n 100 | cat -v
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
             echo "::endgroup::"
             exit 1
           else

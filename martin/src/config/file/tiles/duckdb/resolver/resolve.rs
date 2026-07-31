@@ -187,10 +187,8 @@ mod tests {
     use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, GeoParquetEntry};
     use crate::test_support::duckdb::polygons_parquet_path;
 
-    // IDs are assigned in config order, and colliding stems get deterministic suffixes even
-    // when the entries themselves fail to resolve.
     #[tokio::test(flavor = "multi_thread")]
-    async fn assigns_deterministic_ids_in_config_order() {
+    async fn colliding_stems_get_suffixes_even_when_the_entries_fail_to_resolve() {
         let mut cfg = DuckDbConfig {
             sources: vec![
                 DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
@@ -224,10 +222,8 @@ mod tests {
         );
     }
 
-    // A per-source failure produces a warning without discarding a valid sibling, and
-    // resolution still returns `Ok` (leaving `on_invalid` as the final policy gate).
     #[tokio::test(flavor = "multi_thread")]
-    async fn warnings_do_not_discard_valid_sibling() {
+    async fn a_failing_entry_warns_and_leaves_its_valid_siblings_resolved() {
         let mut cfg = DuckDbConfig {
             sources: vec![
                 DuckDbSourceEntry::Database(DuckDbDatabaseEntry {

@@ -7,15 +7,6 @@ unset DATABASE_URL
 export RUST_LOG_FORMAT=bare
 
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
-MARTIN_TEST_DUCKDB="${MARTIN_TEST_DUCKDB:-0}"
-
-case "$MARTIN_TEST_DUCKDB" in
-  0|1) ;;
-  *)
-    echo "ERROR: MARTIN_TEST_DUCKDB must be 0 or 1 (got '$MARTIN_TEST_DUCKDB')"
-    exit 1
-    ;;
-esac
 
 STATICS_URL="${STATICS_URL:-http://localhost:5412}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
@@ -371,45 +362,6 @@ compare_sql_dbs() {
        }
 }
 
-# DuckDB / GeoParquet public-API E2E (gated by MARTIN_TEST_DUCKDB=1).
-# Exercises catalog, TileJSON, MVT dump, save-config, and on_invalid:warn for a bad sibling.
-test_duckdb_e2e() {
-  echo "::group::DuckDB GeoParquet E2E"
-  TEST_NAME=duckdb
-  TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-  rm -rf "$TEST_OUT_DIR"
-  mkdir -p "$TEST_OUT_DIR"
-  LOG_FILE="${LOG_DIR}/martin_${TEST_NAME}.log"
-
-  ARG=(--config tests/config-duckdb.yaml --save-config "${TEST_OUT_DIR}/save_config.yaml")
-  $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-  MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-
-  trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-  wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
-  >&2 echo "***** DuckDB catalog / TileJSON / MVT *****"
-  test_jsn catalog catalog
-  test_jsn polygons polygons
-  # z1 tile west of lon=0: boundary-spanning polygon is clipped and inside_west is whole
-  test_mvt polygons_1_0_0 polygons/1/0/0
-
-  if $CURL "$MARTIN_URL/catalog" | jq -e '.tiles | has("polygons_bad")' > /dev/null; then
-    echo "ERROR: invalid polygons_bad source must not appear in the catalog"
-    exit 1
-  fi
-  if ! $CURL "$MARTIN_URL/catalog" | jq -e '.tiles | has("polygons")' > /dev/null; then
-    echo "ERROR: valid polygons source must appear in the catalog"
-    exit 1
-  fi
-
-  test_log_has_str "$LOG_FILE" "GeoParquet geometry column 'nonexistent' was not found"
-
-  kill_process "$MARTIN_PROC_ID" Martin
-  trap - EXIT HUP INT TERM
-  echo "::endgroup::"
-}
-
 echo "::group::versions"
 curl --version
 jq --version
@@ -422,12 +374,6 @@ if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
   echo "::endgroup::"
-fi
-
-# DuckDB-only mode: skip statics-server / MBTiles / Postgres / PMTiles / reload sections.
-if [[ "$MARTIN_TEST_DUCKDB" == "1" ]]; then
-  test_duckdb_e2e
-  exit 0
 fi
 
 echo "::group::Check HTTP server is running"
