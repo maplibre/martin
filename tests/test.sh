@@ -331,8 +331,6 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "***** Test server response for PMTiles source *****"
-test_jsn pmt         stamen_toner__raster_CC-BY-ODbL_z3
-test_png pmt_3_4_2   stamen_toner__raster_CC-BY-ODbL_z3/3/4/2
 test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
 test_mvt s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
@@ -397,7 +395,6 @@ test_mvt tbl_0_0_0    table_source/0/0/0
 test_mvt cmp_0_0_0    points1,points2/0/0/0
 test_mvt fnc_0_0_0    function_zxy_query/0/0/0
 test_mvt fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
-test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
 # Test comments override

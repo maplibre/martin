@@ -1,8 +1,35 @@
 //! `PMTiles` sources, both configured up front and served from a watched directory.
 
 use std::fs;
+use std::io::Cursor;
 
-use martin_integration_tests::{Martin, WatchedDir, fixture};
+use martin_integration_tests::{Martin, TestResponse, WatchedDir, fixture};
+
+/// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
+/// that has to be derived from a file name carrying characters a URL cannot.
+async fn martin_with_the_pmtiles_dir() -> Martin {
+    Martin::builder()
+        .arg("tests/fixtures/pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin")
+}
+
+/// Every start on that directory warns about the `+` in `stamen_toner__raster_CC-BY+ODbL_z3.pmtiles`,
+/// which martin replaces with a `-` to keep the source id url-safe.
+fn assert_the_file_name_was_sanitized_into_the_source_id(martin: &mut Martin) {
+    martin.assert_log_contains(
+        "Source was renamed: ID may only contain alpha-numeric characters or `._-` source.id.old=stamen_toner__raster_CC-BY+ODbL_z3 source.id.new=stamen_toner__raster_CC-BY-ODbL_z3",
+    );
+}
+
+fn png_size(response: &TestResponse) -> (u32, u32) {
+    let reader = png::Decoder::new(Cursor::new(response.body()))
+        .read_info()
+        .expect("response body is not a png");
+    let info = reader.info();
+    (info.width, info.height)
+}
 
 #[tokio::test]
 async fn auto_configured_minimal() {
@@ -75,6 +102,139 @@ async fn auto_configured_minimal() {
     mbtiles: tests/fixtures/pmtiles2
     geojson: tests/fixtures/pmtiles2
     ");
+
+    martin.stop().await;
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
+    let mut martin = martin_with_the_pmtiles_dir().await;
+
+    let catalog = martin.get("/catalog").await;
+    insta::with_settings!({sort_maps => true}, {
+        insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+        {
+          "png": {
+            "content_type": "image/png",
+            "name": "ne2sr"
+          },
+          "stamen_toner__raster_CC-BY-ODbL_z3": {
+            "content_type": "image/png"
+          }
+        }
+        "#);
+    });
+
+    martin.stop().await;
+    assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_raster_source_serves_its_tilejson() {
+    let mut martin = martin_with_the_pmtiles_dir().await;
+
+    let response = martin.get("/stamen_toner__raster_CC-BY-ODbL_z3").await;
+    assert_eq!(response.status(), 200);
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        content-encoding: br
+        content-type: application/json
+        etag: [ETAG]
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
+    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
+        .expect("response body is not valid json");
+    insta::assert_json_snapshot!(tilejson, @r#"
+    {
+      "bounds": [
+        -180.0,
+        -85.0,
+        180.0,
+        85.0
+      ],
+      "center": [
+        0.0,
+        0.0,
+        0
+      ],
+      "maxzoom": 3,
+      "minzoom": 0,
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/stamen_toner__raster_CC-BY-ODbL_z3/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+
+    martin.stop().await;
+    assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_raster_source_serves_png_tiles() {
+    let mut martin = martin_with_the_pmtiles_dir().await;
+
+    let tile = martin
+        .get("/stamen_toner__raster_CC-BY-ODbL_z3/3/4/2")
+        .await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-length: 24475
+    content-type: image/png
+    etag: "I1fhCKy04n2xAQpEk2ESig"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    assert_eq!(png_size(&tile), (256, 256));
+
+    martin.stop().await;
+    assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_configured_source_serves_tiles_under_the_id_it_was_given() {
+    let mut martin = Martin::builder()
+        .config(
+            "
+pmtiles:
+  sources:
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "pmt": {
+        "content_type": "image/png"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/pmt/0/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-length: 18404
+    content-type: image/png
+    etag: "aKKkpu0hTRlf8joPaDt3Ug"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    assert_eq!(png_size(&tile), (256, 256));
 
     martin.stop().await;
     martin.assert_startup_warnings();
