@@ -1,1 +1,0 @@
-tests/output/auto/webp2_1_0_0.png: RIFF (little-endian) data, Web/P image, VP8 encoding, 512x512, Scaling: [none]x[none], YUV color, decoders should clamp

@@ -8,6 +8,7 @@
 mod martin;
 mod martin_cp;
 mod mbtiles;
+mod statics;
 
 use std::env;
 use std::ffi::OsString;
@@ -24,6 +25,7 @@ pub use crate::mbtiles::{
     GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, open_read_only,
     open_read_write, patch_tiles, summary, summary_filters, tiles,
 };
+pub use crate::statics::StaticFiles;
 
 /// A temporary directory for a test to build its fixtures and outputs in.
 #[must_use]

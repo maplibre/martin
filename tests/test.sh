@@ -8,7 +8,6 @@ export RUST_LOG_FORMAT=bare
 
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
 
-STATICS_URL="${STATICS_URL:-http://localhost:5412}"
 MARTIN_PORT="${MARTIN_PORT:-3111}"
 MARTIN_URL="http://localhost:${MARTIN_PORT}"
 MARTIN_ARGS="${MARTIN_ARGS:---listen-addresses localhost:${MARTIN_PORT}}"
@@ -284,14 +283,6 @@ if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
   echo "::endgroup::"
 fi
 
-echo "::group::Check HTTP server is running"
-if ! $CURL --head "$STATICS_URL/webp2.pmtiles"; then
-    echo "ERROR: pmtiles fileserver is not reachable at $STATICS_URL."
-    echo "       Start it with 'just start-pmtiles-server' before running this script."
-    exit 1
-fi
-echo "::endgroup::"
-
 # Prepare MBTiles from SQL fixtures
 echo "::group::Prepare .mbtiles fixtures from .sql"
 FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
@@ -319,7 +310,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -329,10 +320,6 @@ MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
-
->&2 echo "***** Test server response for PMTiles source *****"
-test_png webp2_1_0_0 webp2/1/0/0  # HTTP pmtiles
-test_mvt s3_1_0_0    cb_2018_us_zcta510_500k/1/0/0  # HTTP pmtiles via s3
 
 # TODO: enable below once unstable-cog is stable
 #>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
@@ -395,7 +382,6 @@ test_mvt tbl_0_0_0    table_source/0/0/0
 test_mvt cmp_0_0_0    points1,points2/0/0/0
 test_mvt fnc_0_0_0    function_zxy_query/0/0/0
 test_mvt fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
-test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints

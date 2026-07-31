@@ -1,9 +1,10 @@
-//! `PMTiles` sources, both configured up front and served from a watched directory.
+//! `PMTiles` sources: configured up front, discovered in a watched directory, or read from a
+//! remote store over HTTP or S3.
 
 use std::fs;
 use std::io::Cursor;
 
-use martin_integration_tests::{Martin, TestResponse, WatchedDir, fixture};
+use martin_integration_tests::{Martin, StaticFiles, TestResponse, WatchedDir, fixture};
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
 /// that has to be derived from a file name carrying characters a URL cannot.
@@ -238,6 +239,143 @@ pmtiles:
 
     martin.stop().await;
     martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+/// A server holding the one fixture the remote tests read, under `name`.
+async fn statics_serving(name: &str) -> StaticFiles {
+    StaticFiles::serving(&[(name, fixture("pmtiles2/webp2.pmtiles"))]).await
+}
+
+#[tokio::test]
+async fn a_source_url_is_read_over_http() {
+    let statics = statics_serving("webp2.pmtiles").await;
+    let mut martin = Martin::builder()
+        .arg(statics.url("webp2.pmtiles"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "webp2": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/webp2/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-length: 10658
+    content-type: image/webp
+    etag: "YQCG8_HEN_sExq050B7MCQ"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    assert!(
+        tile.body().starts_with(b"RIFF"),
+        "expected a webp (RIFF) tile body"
+    );
+
+    martin.stop().await;
+    insta::assert_snapshot!(statics.request_log().await, @"
+    GET /webp2.pmtiles bytes=0-16383
+    GET /webp2.pmtiles bytes=171-314
+    GET /webp2.pmtiles bytes=11901-22558
+    ");
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_configured_source_url_is_read_over_http() {
+    let statics = statics_serving("webp2.pmtiles").await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "
+pmtiles:
+  sources:
+    pmt2: {}
+",
+            statics.url("webp2.pmtiles")
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/pmt2/0/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-length: 11586
+    content-type: image/webp
+    etag: "wutUPc_mx5TO8aNmMnsK8A"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+
+    martin.stop().await;
+    insta::assert_snapshot!(statics.request_log().await, @"
+    GET /webp2.pmtiles bytes=0-16383
+    GET /webp2.pmtiles bytes=171-314
+    GET /webp2.pmtiles bytes=315-11900
+    ");
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+/// The `s3://` scheme reaches [`StaticFiles`] rather than AWS: path-style addressing turns the
+/// bucket into the first path segment, and unsigned requests keep credentials out of it.
+#[tokio::test]
+async fn a_configured_source_is_read_from_an_s3_bucket() {
+    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "
+pmtiles:
+  aws_endpoint: {}
+  aws_region: eu-central-1
+  skip_signature: true
+  allow_http: true
+  virtual_hosted_style_request: false
+  sources:
+    s3: s3://pmtilestest/webp2.pmtiles
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "s3": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/s3/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-length: 10658
+    content-type: image/webp
+    etag: "YQCG8_HEN_sExq050B7MCQ"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+
+    martin.stop().await;
+    insta::assert_snapshot!(statics.request_log().await, @"
+    GET /pmtilestest/webp2.pmtiles bytes=0-16383
+    GET /pmtilestest/webp2.pmtiles bytes=171-314
+    GET /pmtilestest/webp2.pmtiles bytes=11901-22558
+    ");
+    martin.assert_log_contains(
+        "Environment variable AWS_SKIP_CREDENTIALS is ignored in favor of the new configuration value pmtiles.skip_signature.",
+    );
+    martin.assert_log_contains(
+        "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
+    );
     martin.assert_log_clean();
 }
 
