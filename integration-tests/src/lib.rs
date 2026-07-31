@@ -20,7 +20,16 @@ use tokio::process::Command;
 
 pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
 pub use crate::martin_cp::MartinCp;
-pub use crate::mbtiles::{MbtilesCli, mbtiles_from_sql};
+pub use crate::mbtiles::{
+    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, open_read_only,
+    open_read_write, patch_tiles, summary, summary_filters, tiles,
+};
+
+/// A temporary directory for a test to build its fixtures and outputs in.
+#[must_use]
+pub fn temp_dir() -> TempDir {
+    tempfile::tempdir().expect("failed to create a temp dir")
+}
 
 /// Martin subprocesses run with this as their working directory,
 /// so relative fixture paths and the paths in logs are stable.

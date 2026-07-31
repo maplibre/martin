@@ -1,3 +1,7 @@
+---
+source: integration-tests/tests/mbtiles_inspect.rs
+expression: "redact(&dir, &output)"
+---
 id: world_cities
 layer_type: overlay
 tilejson:

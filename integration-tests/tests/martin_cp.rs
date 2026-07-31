@@ -1,50 +1,18 @@
 //! The `martin-cp` bulk tile copier.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use martin_integration_tests::{MartinCp, MbtilesCli, mbtiles_fixture};
+use martin_integration_tests::{
+    MartinCp, MbtilesCli, mbtiles_fixture, metadata, summary, temp_dir,
+};
 use rstest::rstest;
 use serde_json::{Value, json};
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, SqliteConnection};
-use tempfile::TempDir;
 
 const GENERATOR: &str = "generator=martin-cp v0.0.0";
 
-fn temp_dir() -> TempDir {
-    tempfile::tempdir().expect("failed to create a temp dir")
-}
-
-async fn connect(path: &Path) -> SqliteConnection {
-    let options = SqliteConnectOptions::new().filename(path).read_only(true);
-    SqliteConnection::connect_with(&options)
-        .await
-        .expect("failed to open an mbtiles file")
-}
-
-async fn summary(path: &Path) -> Value {
-    MbtilesCli::new("summary")
-        .arg("--format")
-        .arg("json")
-        .arg(path)
-        .run_json()
-        .await
-}
-
 async fn validate(path: &Path) {
     MbtilesCli::new("validate").arg(path).run().await;
-}
-
-async fn metadata(path: &Path) -> BTreeMap<String, String> {
-    let mut conn = connect(path).await;
-    let rows: Vec<(String, String)> = sqlx::query_as("SELECT name, value FROM metadata")
-        .fetch_all(&mut conn)
-        .await
-        .expect("failed to read the metadata table");
-    conn.close().await.expect("failed to close an mbtiles file");
-    rows.into_iter().collect()
 }
 
 #[tokio::test]
@@ -69,7 +37,7 @@ async fn copies_the_only_source_when_none_is_named() {
         .run()
         .await;
 
-    let summary = summary(&output).await;
+    let summary = summary(&output).run_json().await;
     assert_eq!(summary["tile_count"], 8);
     assert_eq!(summary["min_zoom"], 0);
     assert_eq!(summary["max_zoom"], 6);
@@ -107,7 +75,7 @@ async fn writes_the_requested_schema(#[case] mbtiles_type: &str, #[case] expecte
         .run()
         .await;
 
-    assert_eq!(summary(&output).await["mbt_type"], expected);
+    assert_eq!(summary(&output).run_json().await["mbt_type"], expected);
     validate(&output).await;
 }
 
@@ -136,7 +104,7 @@ async fn copies_a_raster_source() {
         .run()
         .await;
 
-    assert_eq!(summary(&output).await["tile_count"], 6);
+    assert_eq!(summary(&output).run_json().await["tile_count"], 6);
 
     let metadata = metadata(&output).await;
     assert_eq!(metadata["format"], "png");
@@ -178,18 +146,15 @@ async fn saves_the_resolved_config() {
 #[cfg(feature = "test-pg")]
 mod postgres {
     use std::fs;
-    use std::io::Read as _;
     use std::path::Path;
 
-    use flate2::read::GzDecoder;
-    use martin_integration_tests::MartinCp;
+    use martin_integration_tests::{
+        GZIP_MAGIC, MartinCp, gunzip, metadata, summary, temp_dir, tiles,
+    };
     use mlt_core::fast_mvt::MvtReaderRef;
     use serde_json::json;
-    use sqlx::Connection as _;
 
-    use crate::{GENERATOR, connect, metadata, summary, temp_dir, validate};
-
-    const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
+    use crate::{GENERATOR, validate};
 
     /// The arguments shared by every copy from the test database.
     fn copy(output: &Path) -> MartinCp {
@@ -205,18 +170,6 @@ mod postgres {
             .arg(GENERATOR)
     }
 
-    async fn tiles(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>)> {
-        let mut conn = connect(path).await;
-        let rows = sqlx::query_as(
-            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-        )
-        .fetch_all(&mut conn)
-        .await
-        .expect("failed to read the tiles table");
-        conn.close().await.expect("failed to close an mbtiles file");
-        rows
-    }
-
     async fn lowest_zoom_tile(path: &Path) -> Vec<u8> {
         let (_, _, _, data) = tiles(path)
             .await
@@ -224,14 +177,6 @@ mod postgres {
             .next()
             .expect("the copy wrote no tiles");
         data
-    }
-
-    fn gunzip(data: &[u8]) -> Vec<u8> {
-        let mut plain = Vec::new();
-        GzDecoder::new(data)
-            .read_to_end(&mut plain)
-            .expect("failed to decompress a tile");
-        plain
     }
 
     fn layer_names(tile: &[u8]) -> Vec<String> {
@@ -263,7 +208,7 @@ mod postgres {
             .run()
             .await;
 
-        let summary = summary(&output).await;
+        let summary = summary(&output).run_json().await;
         assert_eq!(summary["mbt_type"], json!("Flat"));
         assert_eq!(summary["tile_count"], 127);
         assert_eq!(summary["max_zoom"], 6);
@@ -301,7 +246,10 @@ mod postgres {
             .run()
             .await;
 
-        assert_eq!(summary(&output).await["mbt_type"], json!("FlatWithHash"));
+        assert_eq!(
+            summary(&output).run_json().await["mbt_type"],
+            json!("FlatWithHash")
+        );
 
         let metadata = metadata(&output).await;
         assert_eq!(metadata["name"], "function_zxy_query_test");
