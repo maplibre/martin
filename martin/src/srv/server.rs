@@ -1,6 +1,5 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::string::ToString as _;
 use std::time::Duration;
 
 use actix_web::http::header::CACHE_CONTROL;
