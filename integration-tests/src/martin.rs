@@ -3,13 +3,14 @@
 use std::env;
 use std::ffi::OsString;
 use std::fs;
-use std::io::{self, Read as _};
+use std::io::{self, Cursor, Read as _};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
+use image::ImageReader;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
@@ -573,6 +574,19 @@ impl TestResponse {
             "{:?}",
             MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
         )
+    }
+
+    /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
+    ///
+    /// The format is read out of the bytes themselves, so this panics on a body that is not a
+    /// PNG, JPEG or WebP whatever the `content-type` header says.
+    #[must_use]
+    pub fn image_size(&self) -> (u32, u32) {
+        ImageReader::new(Cursor::new(&self.body))
+            .with_guessed_format()
+            .expect("reading from memory cannot fail")
+            .into_dimensions()
+            .expect("response body is not a raster image")
     }
 
     /// Headers as sorted `name: value` lines with nondeterministic headers

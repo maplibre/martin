@@ -2087,6 +2087,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "countio"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9702aee5d1d744c01d82f6915644f950f898e014903385464c773b96fefdecb"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5264,11 +5270,12 @@ dependencies = [
  "approx",
  "brotli 8.0.4",
  "flate2",
+ "image",
  "insta",
  "libc",
  "mlt-core",
  "pbf_font_tools",
- "png 0.18.1",
+ "pmtiles",
  "regex",
  "reqwest 0.13.4",
  "rstest",
@@ -6410,13 +6417,16 @@ checksum = "5eb69814c9ebfb2a75b55d5523501020a2ff53e97a9fa11c90398240d3419ad5"
 dependencies = [
  "async-compression",
  "bytes",
+ "countio",
  "fast_hilbert",
+ "flate2",
  "object_store",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
  "tilejson",
  "tokio",
+ "twox-hash",
  "varint-rs",
 ]
 
@@ -9537,6 +9547,12 @@ checksum = "5be21190ff5d38e8b4a2d3b6a3ae57f612cc39c96e83cedeaf7abc338a8bac4a"
 dependencies = [
  "core_maths",
 ]
+
+[[package]]
+name = "twox-hash"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8464ec13c3691491391d9fce00f6416c9a48e46972f72d7865688be2080192c9"
 
 [[package]]
 name = "typenum"

@@ -2,9 +2,8 @@
 //! remote store over HTTP or S3.
 
 use std::fs;
-use std::io::Cursor;
 
-use martin_integration_tests::{Martin, StaticFiles, TestResponse, WatchedDir, fixture};
+use martin_integration_tests::{Martin, StaticFiles, WatchedDir, fixture, vector_pmtiles};
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
 /// that has to be derived from a file name carrying characters a URL cannot.
@@ -22,14 +21,6 @@ fn assert_the_file_name_was_sanitized_into_the_source_id(martin: &mut Martin) {
     martin.assert_log_contains(
         "Source was renamed: ID may only contain alpha-numeric characters or `._-` source.id.old=stamen_toner__raster_CC-BY+ODbL_z3 source.id.new=stamen_toner__raster_CC-BY-ODbL_z3",
     );
-}
-
-fn png_size(response: &TestResponse) -> (u32, u32) {
-    let reader = png::Decoder::new(Cursor::new(response.body()))
-        .read_info()
-        .expect("response body is not a png");
-    let info = reader.info();
-    (info.width, info.height)
 }
 
 #[tokio::test]
@@ -88,10 +79,7 @@ async fn auto_configured_minimal() {
     etag: "wutUPc_mx5TO8aNmMnsK8A"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
-    assert!(
-        tile.body().starts_with(b"RIFF"),
-        "expected a webp (RIFF) tile body"
-    );
+    assert_eq!(tile.image_size(), (512, 512));
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::assert_snapshot!(saved, @r"
@@ -193,7 +181,7 @@ async fn a_raster_source_serves_png_tiles() {
     etag: "I1fhCKy04n2xAQpEk2ESig"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
-    assert_eq!(png_size(&tile), (256, 256));
+    assert_eq!(tile.image_size(), (256, 256));
 
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
@@ -235,7 +223,7 @@ pmtiles:
     etag: "aKKkpu0hTRlf8joPaDt3Ug"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
-    assert_eq!(png_size(&tile), (256, 256));
+    assert_eq!(tile.image_size(), (256, 256));
 
     martin.stop().await;
     martin.assert_startup_warnings();
@@ -273,10 +261,7 @@ async fn a_source_url_is_read_over_http() {
     etag: "YQCG8_HEN_sExq050B7MCQ"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
-    assert!(
-        tile.body().starts_with(b"RIFF"),
-        "expected a webp (RIFF) tile body"
-    );
+    assert_eq!(tile.image_size(), (512, 512));
 
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
@@ -312,6 +297,7 @@ pmtiles:
     etag: "wutUPc_mx5TO8aNmMnsK8A"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
+    assert_eq!(tile.image_size(), (512, 512));
 
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
@@ -323,14 +309,12 @@ pmtiles:
     martin.assert_log_clean();
 }
 
-/// The `s3://` scheme reaches [`StaticFiles`] rather than AWS: path-style addressing turns the
-/// bucket into the first path segment, and unsigned requests keep credentials out of it.
-#[tokio::test]
-async fn a_configured_source_is_read_from_an_s3_bucket() {
-    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
-    let mut martin = Martin::builder()
-        .config(&format!(
-            "
+/// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
+/// path-style addressing turns the bucket into the first path segment, and unsigned requests keep
+/// credentials out of it.
+fn s3_config(statics: &StaticFiles, id: &str, file: &str) -> String {
+    format!(
+        "
 pmtiles:
   aws_endpoint: {}
   aws_region: eu-central-1
@@ -338,10 +322,29 @@ pmtiles:
   allow_http: true
   virtual_hosted_style_request: false
   sources:
-    s3: s3://pmtilestest/webp2.pmtiles
+    {id}: s3://pmtilestest/{file}
 ",
-            statics.base_url()
-        ))
+        statics.base_url()
+    )
+}
+
+/// The two `AWS_*` variables [`Martin::builder`] sets, which an `s3_config` overrides.
+fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
+    martin.assert_log_contains(
+        "Environment variable AWS_SKIP_CREDENTIALS is ignored in favor of the new configuration value pmtiles.skip_signature.",
+    );
+    martin.assert_log_contains(
+        "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
+    );
+}
+
+/// The `s3://` scheme reaches [`StaticFiles`] rather than AWS: path-style addressing turns the
+/// bucket into the first path segment, and unsigned requests keep credentials out of it.
+#[tokio::test]
+async fn a_configured_source_is_read_from_an_s3_bucket() {
+    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
+    let mut martin = Martin::builder()
+        .config(&s3_config(&statics, "s3", "webp2.pmtiles"))
         .start()
         .await
         .expect("failed to start martin");
@@ -363,6 +366,7 @@ pmtiles:
     etag: "YQCG8_HEN_sExq050B7MCQ"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
+    assert_eq!(tile.image_size(), (512, 512));
 
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
@@ -370,12 +374,87 @@ pmtiles:
     GET /pmtilestest/webp2.pmtiles bytes=171-314
     GET /pmtilestest/webp2.pmtiles bytes=11901-22558
     ");
-    martin.assert_log_contains(
-        "Environment variable AWS_SKIP_CREDENTIALS is ignored in favor of the new configuration value pmtiles.skip_signature.",
-    );
-    martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
-    );
+    assert_the_aws_environment_was_overridden(&mut martin);
+    martin.assert_log_clean();
+}
+
+/// The remote-store tests above read a raster archive, whose tiles travel uncompressed. A vector
+/// archive stores its tiles gzipped, and martin hands those to the client still gzipped rather
+/// than recompressing them.
+#[tokio::test]
+async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let archive = vector_pmtiles(
+        fixture("mbtiles/world_cities.mbtiles"),
+        tmp.path().join("world_cities.pmtiles"),
+    )
+    .await;
+    let statics = StaticFiles::serving(&[("pmtilestest/world_cities.pmtiles", archive)]).await;
+    let mut martin = Martin::builder()
+        .config(&s3_config(&statics, "cities", "world_cities.pmtiles"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "cities": {
+        "content_encoding": "gzip",
+        "content_type": "application/x-protobuf",
+        "description": "Major cities from Natural Earth data",
+        "name": "Major cities from Natural Earth data"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/cities/2/3/2").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-encoding: gzip
+    content-length: 151
+    content-type: application/x-protobuf
+    etag: "6ytE8xWaxj7fMiMIkSSO6Q"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: cities
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(630,-59)
+        properties:
+          name = "Singapore"
+      feature: 1
+        id: (none)
+        geometry: POINT(765,281)
+        properties:
+          name = "Jakarta"
+      feature: 2
+        id: (none)
+        geometry: POINT(2501,1861)
+        properties:
+          name = "Melbourne"
+      feature: 3
+        id: (none)
+        geometry: POINT(2784,1642)
+        properties:
+          name = "Sydney"
+      feature: 4
+        id: (none)
+        geometry: POINT(3857,1806)
+        properties:
+          name = "Auckland"
+    "#);
+
+    martin.stop().await;
+    insta::assert_snapshot!(statics.request_log().await, @"
+    GET /pmtilestest/world_cities.pmtiles bytes=0-16383
+    GET /pmtilestest/world_cities.pmtiles bytes=16384-17147
+    GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
+    ");
+    assert_the_aws_environment_was_overridden(&mut martin);
     martin.assert_log_clean();
 }
 
@@ -434,10 +513,7 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     let tile = martin.get("/png/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    assert!(
-        tile.body().starts_with(b"\x89PNG"),
-        "expected a png tile body"
-    );
+    assert_eq!(tile.image_size(), (512, 512));
 
     watched.touch("png.pmtiles");
     martin.wait_for_log("Updated source source.id=png").await;
