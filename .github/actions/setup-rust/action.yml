@@ -43,11 +43,6 @@ runs:
       env:
         COMPONENTS: ${{ inputs.components }}
       run: rustup component add $COMPONENTS
-    # Runs after the toolchain install because the cache key hashes `rustc -vV`.
-    # Only main writes: a cache saved on a PR ref can only ever be restored by that
-    # same PR, so those scratch copies scale with the number of open PRs and evict
-    # the shared entries every PR restores from. The key already carries the job id
-    # and the runner's OS/arch, which is the granularity we want.
     - if: inputs.cache == 'true' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:

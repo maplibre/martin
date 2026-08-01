@@ -49,9 +49,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # No build cache here: this job only runs on pull_request, so it can never
-      # populate an entry on main, and it runs `cargo clean` before building the
-      # base commit anyway.
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
         with: { tool: 'just,oha' }
