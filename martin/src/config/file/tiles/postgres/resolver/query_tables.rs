@@ -250,7 +250,7 @@ FROM (
 "
     )
     .trim()
-    .to_string();
+    .to_owned();
 
     Ok((
         id,

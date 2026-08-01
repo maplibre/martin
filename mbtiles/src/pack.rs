@@ -230,7 +230,7 @@ pub async fn unpack(
     };
     let extension = Format::parse(format_str)
         .ok_or_else(|| MbtError::UnknownFormatInMetadata {
-            format: format_str.to_string(),
+            format: format_str.to_owned(),
             path: input_file.to_path_buf(),
         })?
         .metadata_format_value();

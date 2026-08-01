@@ -259,7 +259,7 @@ impl Mbtiles {
         }
 
         Ok(Metadata {
-            id: self.filename().to_string(),
+            id: self.filename().to_owned(),
             tilejson: tj,
             layer_type,
             json,
@@ -482,8 +482,8 @@ mod tests {
         assert_eq!(
             tj.vector_layers,
             Some(vec![VectorLayer {
-                id: "cities".to_string(),
-                fields: vec![("name".to_string(), "String".to_string())]
+                id: "cities".to_owned(),
+                fields: vec![("name".to_owned(), "String".to_owned())]
                     .into_iter()
                     .collect(),
                 description: Some(String::new()),
@@ -493,7 +493,7 @@ mod tests {
             }])
         );
         assert_eq!(meta.id, ":memory:");
-        assert_eq!(meta.layer_type, Some("overlay".to_string()));
+        assert_eq!(meta.layer_type, Some("overlay".to_owned()));
     }
 
     #[actix_rt::test]

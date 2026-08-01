@@ -506,7 +506,7 @@ impl Mbtiles {
         } else if is_cache_tables_type(&mut *conn).await? {
             MbtType::Cache
         } else {
-            return Err(MbtError::InvalidDataFormat(self.filepath().to_string()));
+            return Err(MbtError::InvalidDataFormat(self.filepath().to_owned()));
         };
 
         self.check_for_uniqueness_constraint(&mut *conn, typ)
@@ -549,9 +549,9 @@ impl Mbtiles {
 
             if unique_idx_cols
                 .symmetric_difference(&HashSet::from([
-                    "zoom_level".to_string(),
-                    "tile_column".to_string(),
-                    "tile_row".to_string(),
+                    "zoom_level".to_owned(),
+                    "tile_column".to_owned(),
+                    "tile_row".to_owned(),
                 ]))
                 .collect::<Vec<_>>()
                 .is_empty()
@@ -560,9 +560,7 @@ impl Mbtiles {
             }
         }
 
-        Err(MbtError::NoUniquenessConstraint(
-            self.filepath().to_string(),
-        ))
+        Err(MbtError::NoUniquenessConstraint(self.filepath().to_owned()))
     }
 
     /// Perform `SQLite` internal integrity check
@@ -593,11 +591,11 @@ impl Mbtiles {
 
         if result.len() > 1
             || result.first().ok_or(FailedIntegrityCheck(
-                self.filepath().to_string(),
-                vec!["SQLite could not perform integrity check".to_string()],
+                self.filepath().to_owned(),
+                vec!["SQLite could not perform integrity check".to_owned()],
             ))? != "ok"
         {
-            return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
+            return Err(FailedIntegrityCheck(self.filepath().to_owned(), result));
         }
 
         info!(
@@ -638,7 +636,7 @@ LIMIT 1;"
                 use sqlx::ValueRef as _;
                 let raw = row.try_get_raw(idx)?;
                 if raw.is_null() {
-                    res.push("NULL".to_string());
+                    res.push("NULL".to_owned());
                 } else if let Ok(v) = row.try_get::<String, _>(idx) {
                     res.push(format!(r#""{v}" (TEXT)"#));
                 } else if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
@@ -658,7 +656,7 @@ LIMIT 1;"
             let [tile_row, tile_column, zoom_level]: [String; 3] =
                 res.try_into().expect("res should contain exactly 3 items");
             return Err(InvalidTileIndex {
-                filepath: self.filepath().to_string(),
+                filepath: self.filepath().to_owned(),
                 zoom_level,
                 tile_column,
                 tile_row,
@@ -675,14 +673,14 @@ LIMIT 1;"
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
-            return Err(AggHashValueNotFound(self.filepath().to_string()));
+            return Err(AggHashValueNotFound(self.filepath().to_owned()));
         };
         // bail if the stored hash used an algorithm we can't recompute - else comparing
         // md5 against, say, fnv1a shows up as a confusing `AggHashMismatch` (#1086).
         let HashAlgorithm::Md5 = self.get_hash_algorithm(&mut *conn).await?;
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
-            let file = self.filepath().to_string();
+            let file = self.filepath().to_owned();
             return Err(AggHashMismatch {
                 computed,
                 stored,
@@ -776,7 +774,7 @@ LIMIT 1;"
                 if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
                     let missing_id: String = row.get(0);
                     return Err(MbtError::MissingTileReference {
-                        filepath: self.filepath().to_string(),
+                        filepath: self.filepath().to_owned(),
                         tile_id: missing_id,
                         table: data_table,
                     });
@@ -796,7 +794,7 @@ LIMIT 1;"
                     );
                     if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
                         return Err(IncorrectTileHash {
-                            filepath: self.filepath().to_string(),
+                            filepath: self.filepath().to_owned(),
                             stored: row.get(0),
                             computed: row.get(1),
                         });
@@ -820,7 +818,7 @@ LIMIT 1;"
             .await?
             .map_or(Ok(()), |v| {
                 Err(IncorrectTileHash {
-                    filepath: self.filepath().to_string(),
+                    filepath: self.filepath().to_owned(),
                     stored: v.get(0),
                     computed: v.get(1),
                 })
@@ -850,7 +848,7 @@ LIMIT 1;"
         if info.agg_tiles_hash.is_none() {
             if !force {
                 return Err(MbtError::CannotDiffFileWithoutHash(
-                    self.filepath().to_string(),
+                    self.filepath().to_owned(),
                 ));
             }
             warn!(
@@ -860,7 +858,7 @@ LIMIT 1;"
             || info.agg_tiles_hash_after_apply.is_some()
         {
             if !force {
-                return Err(MbtError::DiffingDiffFile(self.filepath().to_string()));
+                return Err(MbtError::DiffingDiffFile(self.filepath().to_owned()));
             }
             warn!(
                 "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
@@ -882,7 +880,7 @@ LIMIT 1;"
             (None, Some(_)) => {
                 if !force {
                     return Err(MbtError::PatchFileHasNoBeforeHash(
-                        self.filepath().to_string(),
+                        self.filepath().to_owned(),
                     ));
                 }
                 warn!(
@@ -891,7 +889,7 @@ LIMIT 1;"
             }
             _ => {
                 if !force {
-                    return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_string()));
+                    return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_owned()));
                 }
                 warn!(
                     "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."

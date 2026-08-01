@@ -145,7 +145,7 @@ mod tests {
         fn new(id: impl Into<String>) -> Self {
             Self {
                 id: id.into(),
-                tj: tilejson! { tiles: vec!["https://example.com".to_string()] },
+                tj: tilejson! { tiles: vec!["https://example.com".to_owned()] },
             }
         }
     }
@@ -199,7 +199,7 @@ mod tests {
     fn snapshot(entries: &[(&str, Version)]) -> Snapshot {
         entries
             .iter()
-            .map(|(id, v)| ((*id).to_string(), (*v, ())))
+            .map(|(id, v)| ((*id).to_owned(), (*v, ())))
             .collect()
     }
 
@@ -307,7 +307,7 @@ mod tests {
     }
 
     fn ids(v: &[&str]) -> Vec<String> {
-        v.iter().map(|s| (*s).to_string()).collect()
+        v.iter().map(|s| (*s).to_owned()).collect()
     }
 
     /// One tick diffs the seeded baseline against the next discovery and applies a single advisory.

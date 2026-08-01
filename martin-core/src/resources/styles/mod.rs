@@ -237,15 +237,15 @@ mod tests {
 
         let mut styles = StyleSources::default();
         styles.add_style(
-            "maplibre_demo".to_string(),
+            "maplibre_demo".to_owned(),
             style_dir.join("maplibre_demo.json"),
         );
         styles.add_style(
-            "maptiler_basic".to_string(),
+            "maptiler_basic".to_owned(),
             style_dir.join("src2").join("maptiler_basic.json"),
         );
         styles.add_style(
-            "osm-liberty-lite".to_string(),
+            "osm-liberty-lite".to_owned(),
             style_dir.join("src2").join("osm-liberty-lite.json"),
         );
         assert_eq!(styles.sources.len(), 3);

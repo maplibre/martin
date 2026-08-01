@@ -242,7 +242,7 @@ fn migrate_json_key(
     for &segment in parents {
         if !current.contains_key(segment) {
             current.insert(
-                segment.to_string(),
+                segment.to_owned(),
                 serde_json::Value::Object(serde_json::Map::default()),
             );
         }
@@ -262,7 +262,7 @@ fn migrate_json_key(
              Please remove `{old_key}` from your configuration"
         );
     } else {
-        current.insert((*leaf).to_string(), old_value);
+        current.insert((*leaf).to_owned(), old_value);
     }
 }
 
@@ -294,7 +294,7 @@ mod tests {
     fn props(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         pairs
             .iter()
-            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect()
     }
 

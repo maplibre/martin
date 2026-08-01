@@ -150,20 +150,20 @@ mod tests {
         let reserved = ["reserved"];
         let r = IdResolver::new(&reserved);
 
-        assert_eq!(r.resolve("a", "a".to_string()), "a");
-        assert_eq!(r.resolve("a", "a".to_string()), "a");
-        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
-        assert_eq!(r.resolve("a", "b".to_string()), "a.1");
-        assert_eq!(r.resolve("b", "a".to_string()), "b");
-        assert_eq!(r.resolve("b", "a".to_string()), "b");
+        assert_eq!(r.resolve("a", "a".to_owned()), "a");
+        assert_eq!(r.resolve("a", "a".to_owned()), "a");
+        assert_eq!(r.resolve("a", "b".to_owned()), "a.1");
+        assert_eq!(r.resolve("a", "b".to_owned()), "a.1");
+        assert_eq!(r.resolve("b", "a".to_owned()), "b");
+        assert_eq!(r.resolve("b", "a".to_owned()), "b");
         // reserved
-        assert_eq!(r.resolve("reserved", "a".to_string()), "reserved.1");
-        assert_eq!(r.resolve("reserved", "a".to_string()), "reserved.1");
-        assert_eq!(r.resolve("reserved", "b".to_string()), "reserved.2");
+        assert_eq!(r.resolve("reserved", "a".to_owned()), "reserved.1");
+        assert_eq!(r.resolve("reserved", "a".to_owned()), "reserved.1");
+        assert_eq!(r.resolve("reserved", "b".to_owned()), "reserved.2");
         // special characters
-        assert_eq!(r.resolve("a.1", "a".to_string()), "a.1.1");
-        assert_eq!(r.resolve("a.1", "b".to_string()), "a.1");
-        assert_eq!(r.resolve("a b", "a b".to_string()), "a-b");
-        assert_eq!(r.resolve("a b", "ab2".to_string()), "a-b.1");
+        assert_eq!(r.resolve("a.1", "a".to_owned()), "a.1.1");
+        assert_eq!(r.resolve("a.1", "b".to_owned()), "a.1");
+        assert_eq!(r.resolve("a b", "a b".to_owned()), "a-b");
+        assert_eq!(r.resolve("a b", "ab2".to_owned()), "a-b.1");
     }
 }

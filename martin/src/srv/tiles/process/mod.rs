@@ -239,7 +239,7 @@ mod tests {
         let tile = Tile::new_with_etag(
             mvt_with_feature_bytes(),
             TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-            "upstream-etag".to_string(),
+            "upstream-etag".to_owned(),
         );
         let mlt =
             apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();

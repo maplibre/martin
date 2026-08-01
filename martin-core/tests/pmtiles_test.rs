@@ -38,15 +38,9 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
     let path = object_store::path::Path::from_filesystem_path(&path)
         .expect("Failed to convert filesystem path");
 
-    PmtilesSource::new(
-        cache,
-        id.to_string(),
-        store,
-        path,
-        CacheZoomRange::default(),
-    )
-    .await
-    .expect("Failed to create PMTiles source")
+    PmtilesSource::new(cache, id.to_owned(), store, path, CacheZoomRange::default())
+        .await
+        .expect("Failed to create PMTiles source")
 }
 
 fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
@@ -113,7 +107,7 @@ async fn nonexistent_file_returns_error() {
 
     let result = PmtilesSource::new(
         cache,
-        "invalid".to_string(),
+        "invalid".to_owned(),
         store,
         path,
         CacheZoomRange::default(),
@@ -446,7 +440,7 @@ async fn source_returns_error_after_object_store_update() {
     let cache = test_cache_bytes(0);
     let source = PmtilesSource::new(
         cache,
-        "source_modified_test".to_string(),
+        "source_modified_test".to_owned(),
         Box::new(store.clone()),
         path.clone(),
         CacheZoomRange::default(),

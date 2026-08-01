@@ -536,7 +536,7 @@ mod tests {
             .expect("tempfile");
         std::fs::write(file.path(), b"{}").expect("write style");
         let mut styles = StyleSources::default();
-        styles.add_style("s".to_string(), file.path().to_path_buf());
+        styles.add_style("s".to_owned(), file.path().to_path_buf());
         (styles, file)
     }
 

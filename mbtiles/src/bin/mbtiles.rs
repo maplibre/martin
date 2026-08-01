@@ -402,7 +402,7 @@ async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
     if !mbt.is_cache(&mut conn).await? {
-        return Err(MbtError::NotACacheFile(mbt.filepath().to_string()).into());
+        return Err(MbtError::NotACacheFile(mbt.filepath().to_owned()).into());
     }
     let removed = mbt.purge_expired(&mut conn, UnixSeconds::now()).await?;
     println!("Removed {removed} expired tile entries");
@@ -720,7 +720,7 @@ mod tests {
                 verbose: false,
                 command: MetaGetValue {
                     file: PathBuf::from("src_file"),
-                    key: "key".to_string(),
+                    key: "key".to_owned(),
                 }
             }
         );
@@ -744,7 +744,7 @@ mod tests {
                 verbose: false,
                 command: MetaSetValue {
                     file: PathBuf::from("src_file"),
-                    key: "key".to_string(),
+                    key: "key".to_owned(),
                     value: None
                 }
             }
@@ -759,8 +759,8 @@ mod tests {
                 verbose: false,
                 command: MetaSetValue {
                     file: PathBuf::from("src_file"),
-                    key: "key".to_string(),
-                    value: Some("value".to_string())
+                    key: "key".to_owned(),
+                    value: Some("value".to_owned())
                 }
             }
         );

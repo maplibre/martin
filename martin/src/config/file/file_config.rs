@@ -595,7 +595,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 continue;
             }
             let id = path.file_stem().map_or_else(
-                || "_unknown".to_string(),
+                || "_unknown".to_owned(),
                 |s| s.to_string_lossy().to_string(),
             );
             let id = idr.resolve(&id, can.to_string_lossy().to_string());
@@ -684,7 +684,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
         return Ok(None);
     }
     path.to_str()
-        .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_string())))
+        .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_owned())))
         .transpose()
 }
 
@@ -1480,7 +1480,7 @@ mod mbtiles_tests {
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
         file_sources.insert(
-            "test_source".to_string(),
+            "test_source".to_owned(),
             FileConfigSrc::Path(invalid_source.clone()),
         );
         let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
@@ -1609,7 +1609,7 @@ mod folder_source_tests {
                 .expect("resolve_files always returns Ok; OnInvalid decides fatality");
 
         let prefix = dir.path().to_string_lossy().to_string();
-        let mut ids: Vec<String> = sources.iter().map(|s| s.get_id().to_string()).collect();
+        let mut ids: Vec<String> = sources.iter().map(|s| s.get_id().to_owned()).collect();
         ids.sort();
         let mut msgs: Vec<String> = warnings
             .iter()
@@ -1681,7 +1681,7 @@ mod pmtiles_tests {
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();
         file_sources.insert(
-            "test_source".to_string(),
+            "test_source".to_owned(),
             FileConfigSrc::Path(invalid_source.clone()),
         );
         let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {

@@ -247,12 +247,12 @@ impl OnInvalid {
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {
     if !path.starts_with('/') {
-        return Err(MartinError::BasePathError(path.to_string()));
+        return Err(MartinError::BasePathError(path.to_owned()));
     }
     if let Ok(uri) = path.parse::<actix_web::http::Uri>() {
-        return Ok(uri.path().trim_end_matches('/').to_string());
+        return Ok(uri.path().trim_end_matches('/').to_owned());
     }
-    Err(MartinError::BasePathError(path.to_string()))
+    Err(MartinError::BasePathError(path.to_owned()))
 }
 
 pub fn init_aws_lc_tls() {
@@ -282,7 +282,7 @@ mod tests {
         // For errors that don't carry source location info, JSON mode still emits a JSON
         // document so downstream tools can keep parsing rather than choking on a free-form
         // log line.
-        let envelope = MartinError::BasePathError("not-a-path".to_string())
+        let envelope = MartinError::BasePathError("not-a-path".to_owned())
             .render_diagnostic_with(LogFormat::Json);
         let parsed: serde_json::Value =
             serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));

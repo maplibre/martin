@@ -56,7 +56,7 @@ fn mvt_tile() -> Vec<u8> {
         let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
         feature.id(Some(1));
         feature
-            .property(name_key, PropValue::Str(Some("hello".to_string())))
+            .property(name_key, PropValue::Str(Some("hello".to_owned())))
             .expect("set property");
         feature.finish().expect("finish feature");
     }

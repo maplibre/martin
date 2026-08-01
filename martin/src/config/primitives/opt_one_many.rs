@@ -204,13 +204,13 @@ mod tests {
     #[test]
     fn deserialize_string_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("hello");
-        assert_eq!(cfg, One("hello".to_string()));
+        assert_eq!(cfg, One("hello".to_owned()));
     }
 
     #[test]
     fn deserialize_quoted_string_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("\"hello world\"");
-        assert_eq!(cfg, One("hello world".to_string()));
+        assert_eq!(cfg, One("hello world".to_owned()));
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn deserialize_singleton_seq_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("[only]");
-        assert_eq!(cfg, One("only".to_string()));
+        assert_eq!(cfg, One("only".to_owned()));
     }
 
     #[test]
@@ -230,7 +230,7 @@ mod tests {
         let cfg = parse_yaml::<OptOneMany<String>>("[a, b, c]");
         assert_eq!(
             cfg,
-            Many(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+            Many(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()])
         );
     }
 

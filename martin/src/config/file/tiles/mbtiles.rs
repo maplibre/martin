@@ -126,11 +126,11 @@ mod tests {
             cfg.sources,
             Some(BTreeMap::from_iter(vec![
                 (
-                    "pm-src1".to_string(),
+                    "pm-src1".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
                 ),
                 (
-                    "pm-src2".to_string(),
+                    "pm-src2".to_owned(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -141,11 +141,11 @@ mod tests {
                     })
                 ),
                 (
-                    "pm-src3".to_string(),
+                    "pm-src3".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
                 ),
                 (
-                    "pm-src4".to_string(),
+                    "pm-src4".to_owned(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -156,7 +156,7 @@ mod tests {
                     })
                 ),
                 (
-                    "pm-src5".to_string(),
+                    "pm-src5".to_owned(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]

@@ -132,7 +132,7 @@ fn jsonb_to_vec(jsonb: Option<Value>) -> Option<Vec<String>> {
             .map(|v| {
                 v.as_str()
                     .expect("each function parameter name should be a JSON string")
-                    .to_string()
+                    .to_owned()
             })
             .collect()
     })

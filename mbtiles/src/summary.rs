@@ -193,7 +193,7 @@ impl Mbtiles {
             .sum::<f64>();
 
         Ok(Summary {
-            file_path: self.filepath().to_string(),
+            file_path: self.filepath().to_owned(),
             file_size,
             mbt_type,
             page_size,

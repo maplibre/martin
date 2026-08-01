@@ -132,7 +132,7 @@ impl PostgresArgs {
     fn extract_conn_strings(cli_strings: &mut Arguments, env: &impl Env) -> Vec<String> {
         let mut connections = cli_strings.process(|v| {
             if is_postgres_connection_string(v) {
-                Take(v.to_string())
+                Take(v.to_owned())
             } else {
                 Ignore
             }
@@ -209,9 +209,9 @@ mod tests {
     #[test]
     fn test_extract_conn_strings() {
         let mut args = Arguments::new(vec![
-            "postgresql://localhost:5432".to_string(),
-            "postgres://localhost:5432".to_string(),
-            "mysql://localhost:3306".to_string(),
+            "postgresql://localhost:5432".to_owned(),
+            "postgres://localhost:5432".to_owned(),
+            "mysql://localhost:3306".to_owned(),
         ]);
         assert_eq!(
             PostgresArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
@@ -239,12 +239,12 @@ mod tests {
 
     #[test]
     fn test_merge_into_config() {
-        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_string()]);
+        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
         let config = PostgresArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 ..Default::default()
             })
         );
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 default_srid: Some(10),
                 ssl_certificates: PostgresSslCerts {
                     ssl_root_cert: Some(PathBuf::from("file")),
@@ -301,7 +301,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 default_srid: Some(20),
                 ssl_certificates: PostgresSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),

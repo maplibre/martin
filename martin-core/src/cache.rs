@@ -102,7 +102,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     /// Eviction is asynchronous.
     /// Flush the cache via [`Self::run_pending_tasks`].
     pub fn invalidate_source(&self, source_id: &str) {
-        let source_id_owned = source_id.to_string();
+        let source_id_owned = source_id.to_owned();
         self.inner
             .invalidate_entries_if(move |key, _| key.matches_source(&source_id_owned))
             .expect("invalidate_entries_if predicate should not error");
@@ -184,7 +184,7 @@ mod tests {
     impl TestKey {
         fn new(ids: &str) -> Self {
             Self {
-                ids: ids.to_string(),
+                ids: ids.to_owned(),
             }
         }
     }

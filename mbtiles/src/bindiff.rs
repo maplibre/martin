@@ -213,12 +213,12 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
         let diff_tiles: String = match self.dif_type {
             // A Cache diff file is read via its `tiles` view, like Flat
-            Flat | Cache => "diffDb.tiles".to_string(),
+            Flat | Cache => "diffDb.tiles".to_owned(),
             FlatWithHash
             | Normalized {
                 schema: _,
                 hash_view: true,
-            } => "diffDb.tiles_with_hash".to_string(),
+            } => "diffDb.tiles_with_hash".to_owned(),
             Normalized {
                 schema,
                 hash_view: false,

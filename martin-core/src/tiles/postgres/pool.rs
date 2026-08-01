@@ -131,10 +131,9 @@ impl PostgresPool {
     ) -> PostgresResult<(String, Manager, PgTlsConnector)> {
         let (pg_cfg, ssl_mode) = parse_conn_str(connection_string)?;
 
-        let id = pg_cfg.get_dbname().map_or_else(
-            || format!("{:?}", pg_cfg.get_hosts()[0]),
-            ToString::to_string,
-        );
+        let id = pg_cfg
+            .get_dbname()
+            .map_or_else(|| format!("{:?}", pg_cfg.get_hosts()[0]), str::to_owned);
 
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,

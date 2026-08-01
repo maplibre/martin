@@ -87,7 +87,7 @@ mod tests {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let config = PostgresConfig {
             // Never connected to in the disabled case; only reached if a driver actually spawns.
-            connection_string: Some("postgres://nope@127.0.0.1:1/none".to_string()),
+            connection_string: Some("postgres://nope@127.0.0.1:1/none".to_owned()),
             reload_interval: interval,
             ..Default::default()
         };

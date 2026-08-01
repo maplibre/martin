@@ -47,7 +47,7 @@ impl TileSourceManager {
         let map: DashMap<String, (BoxedSource, ProcessConfig)> = sources
             .into_iter()
             .flatten()
-            .map(|(src, pc)| (src.get_id().to_string(), (src, pc)))
+            .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -192,9 +192,9 @@ mod tests {
 
     fn new_source(name: &str) -> NewSource {
         NewSource {
-            id: name.to_string(),
+            id: name.to_owned(),
             source: Ok(Box::new(TestSource {
-                id: name.to_string(),
+                id: name.to_owned(),
                 tj: tilejson! { tiles: vec![] },
             })),
             process: ProcessConfig::default(),
@@ -236,7 +236,7 @@ mod tests {
 
         let mut removals = std::collections::BTreeSet::new();
         removals.insert(DeletedSource {
-            id: "src_a".to_string(),
+            id: "src_a".to_owned(),
         });
         let remove = ReloadAdvisory {
             removals,
@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn from_sources_populates_map() {
         let src = Box::new(TestSource {
-            id: "x".to_string(),
+            id: "x".to_owned(),
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
         let mgr = TileSourceManager::from_sources(
@@ -326,7 +326,7 @@ mod tests {
                     .path()
                     .file_stem()
                     .and_then(|s| s.to_str())
-                    .map(str::to_string)
+                    .map(str::to_owned)
                     .expect("file stem is valid utf-8");
                 out.insert(id, 1);
             }

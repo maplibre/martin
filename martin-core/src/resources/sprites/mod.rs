@@ -173,7 +173,7 @@ impl SpriteSources {
     fn get(&self, id: &str) -> Result<SpriteSource, SpriteError> {
         match self.0.get(id) {
             Some(v) => Ok(v.clone()),
-            None => Err(SpriteError::SpriteNotFound(id.to_string())),
+            None => Err(SpriteError::SpriteNotFound(id.to_owned())),
         }
     }
 }
@@ -260,11 +260,11 @@ mod tests {
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
         sprites.add_source(
-            "src1".to_string(),
+            "src1".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
         );
         sprites.add_source(
-            "src2".to_string(),
+            "src2".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src2"),
         );
 
@@ -307,13 +307,13 @@ mod tests {
         symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
 
         let mut sprites = SpriteSources::default();
-        sprites.add_source("foobar".to_string(), root.to_path_buf());
+        sprites.add_source("foobar".to_owned(), root.to_path_buf());
 
         let catalog = sprites.get_catalog().expect("catalog");
         let entry = catalog.get("foobar").expect("foobar source registered");
         assert_eq!(
             entry.images,
-            vec!["bar".to_string(), "foo".to_string()],
+            vec!["bar".to_owned(), "foo".to_owned()],
             "expected plain sprite names without dotfile directory prefixes"
         );
     }
@@ -325,7 +325,7 @@ mod tests {
         std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
 
         let mut sprites = SpriteSources::default();
-        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+        sprites.add_source("bad".to_owned(), tmp.path().to_path_buf());
 
         let source = sprites.get("bad").expect("source registered");
         let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
@@ -347,7 +347,7 @@ mod tests {
         let filename = if generate_sdf {
             format!("{filename}_sdf")
         } else {
-            filename.to_string()
+            filename.to_owned()
         };
         insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();

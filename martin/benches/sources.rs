@@ -22,7 +22,7 @@ mod sources {
     impl NullSource {
         pub fn new() -> Self {
             Self {
-                tilejson: tilejson! { "https://example.org/".to_string() },
+                tilejson: tilejson! { "https://example.org/".to_owned() },
             }
         }
     }
@@ -74,7 +74,7 @@ mod sources {
     impl ErrorSource {
         pub fn new() -> Self {
             Self {
-                tilejson: tilejson! { "https://example.org/".to_string() },
+                tilejson: tilejson! { "https://example.org/".to_owned() },
             }
         }
     }
@@ -110,7 +110,7 @@ mod sources {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            let error = std::io::Error::other("some error".to_string());
+            let error = std::io::Error::other("some error".to_owned());
             Err(MartinCoreError::OtherError(Box::new(error)))
         }
 

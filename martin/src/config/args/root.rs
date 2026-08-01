@@ -325,13 +325,13 @@ mod tests {
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
             postgres: OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://connection".to_string()),
+                connection_string: Some("postgres://connection".to_owned()),
                 ..Default::default()
             }),
             ..Default::default()
         };
         let meta = MetaArgs {
-            connection: vec!["postgres://connection".to_string()],
+            connection: vec!["postgres://connection".to_owned()],
             ..Default::default()
         };
         assert_eq!(args, (cfg, meta));
@@ -421,7 +421,7 @@ mod tests {
                 &FauxEnv::default(),
             )
             .unwrap_err();
-        let bad = vec!["foobar".to_string()];
+        let bad = vec!["foobar".to_owned()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 

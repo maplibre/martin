@@ -179,7 +179,7 @@ impl Mbtiles {
             filepath: path
                 .to_str()
                 .ok_or_else(|| MbtError::UnsupportedCharsInFilepath(path.to_path_buf()))?
-                .to_string(),
+                .to_owned(),
             filename: path
                 .file_stem()
                 .unwrap_or_else(|| OsStr::new("unknown"))

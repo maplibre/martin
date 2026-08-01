@@ -151,7 +151,7 @@ impl Default for CopyArgs {
             output_file: PathBuf::new(),
             mbt_type: None,
             url_query: None,
-            encoding: "gzip".to_string(),
+            encoding: "gzip".to_owned(),
             on_duplicate: None,
             concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
@@ -174,7 +174,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
     if key.is_empty() || value.is_empty() {
         Err(format!("Invalid key=value pair: {s}"))
     } else {
-        Ok((key.to_string(), value.to_string()))
+        Ok((key.to_owned(), value.to_owned()))
     }
 }
 
@@ -658,11 +658,11 @@ async fn init_schema(
                 .map_err(MbtilesError::from)?;
             let mut tj = merge_tilejson(sources, String::new());
             tj.other.insert(
-                "format".to_string(),
-                serde_json::Value::String(tile_info.format.metadata_format_value().to_string()),
+                "format".to_owned(),
+                serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
             );
             tj.other.insert(
-                "generator".to_string(),
+                "generator".to_owned(),
                 serde_json::Value::String(format!("martin-cp v{VERSION}")),
             );
             let zooms = get_zooms(args);
@@ -902,11 +902,11 @@ mod tests {
 
     #[rstest]
     #[case("-180.0,-85.05112877980659,180.0,85.0511287798066", Ok(Bounds::MAX_TILED.to_string()))]
-    #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
-    #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
-    #[case("-120.0,30.0,190.0,40.0", Err("longitude".to_string()))]
-    #[case("-120.0,-90.0,-110.0,40.0", Err("latitude".to_string()))]
-    #[case("-120.0,30.0,-110.0,90.0", Err("latitude".to_string()))]
+    #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_owned()))]
+    #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_owned()))]
+    #[case("-120.0,30.0,190.0,40.0", Err("longitude".to_owned()))]
+    #[case("-120.0,-90.0,-110.0,40.0", Err("latitude".to_owned()))]
+    #[case("-120.0,30.0,-110.0,90.0", Err("latitude".to_owned()))]
     fn test_check_bboxes(#[case] bbox_str: &str, #[case] expected: Result<String, String>) {
         use std::str::FromStr as _;
 
@@ -976,7 +976,7 @@ mod tests {
         let status = "status";
         let expected_status = "completed";
         let args = CopyArgs {
-            source: Some("test_source".to_string()),
+            source: Some("test_source".to_owned()),
             output_file: output_file.clone(),
             max_zoom: Some(0),
             min_zoom: Some(0),
@@ -1011,7 +1011,7 @@ mod tests {
         let status = "status";
         let expected_status = "interruption";
         let args = CopyArgs {
-            source: Some("test_source".to_string()),
+            source: Some("test_source".to_owned()),
             output_file: output_file.clone(),
             max_zoom: Some(0),
             min_zoom: Some(0),

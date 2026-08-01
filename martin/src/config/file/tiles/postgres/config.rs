@@ -484,7 +484,7 @@ mod tests {
         "},
             &Config {
                 postgres: One(PostgresConfig {
-                    connection_string: Some("postgresql://postgres@localhost/db".to_string()),
+                    connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
                 }),
@@ -505,15 +505,13 @@ mod tests {
             &Config {
                 postgres: Many(vec![
                     PostgresConfig {
-                        connection_string: Some(
-                            "postgres://postgres@localhost:5432/db".to_string(),
-                        ),
+                        connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
                     PostgresConfig {
                         connection_string: Some(
-                            "postgresql://postgres@localhost:5433/db".to_string(),
+                            "postgresql://postgres@localhost:5433/db".to_owned(),
                         ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
@@ -562,36 +560,36 @@ mod tests {
         "},
             &Config {
                 postgres: One(PostgresConfig {
-                    connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
+                    connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                     default_srid: Some(4326),
                     pool_size: NonZeroUsize::new(20),
                     max_feature_count: Some(100),
                     tables: Some(BTreeMap::from([(
-                        "table_source".to_string(),
+                        "table_source".to_owned(),
                         TableInfo {
-                            schema: "public".to_string(),
-                            table: "table_source".to_string(),
+                            schema: "public".to_owned(),
+                            table: "table_source".to_owned(),
                             srid: 4326,
-                            geometry_column: "geom".to_string(),
+                            geometry_column: "geom".to_owned(),
                             minzoom: Some(0),
                             maxzoom: Some(30),
                             bounds: Some([-180, -90, 180, 90].into()),
                             extent: NonZeroU32::new(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
-                            geometry_type: Some("GEOMETRY".to_string()),
+                            geometry_type: Some("GEOMETRY".to_owned()),
                             properties: Some(BTreeMap::from([(
-                                "gid".to_string(),
-                                "int4".to_string(),
+                                "gid".to_owned(),
+                                "int4".to_owned(),
                             )])),
                             ..Default::default()
                         },
                     )])),
                     functions: Some(BTreeMap::from([(
-                        "function_zxy_query".to_string(),
+                        "function_zxy_query".to_owned(),
                         FunctionInfo::new_extended(
-                            "public".to_string(),
-                            "function_zxy_query".to_string(),
+                            "public".to_owned(),
+                            "function_zxy_query".to_owned(),
                             0,
                             30,
                             Bounds::MAX,

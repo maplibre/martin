@@ -173,7 +173,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 ..Default::default()
             }
@@ -188,7 +188,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
                 ..Default::default()
@@ -204,7 +204,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
                 ..Default::default()
@@ -224,7 +224,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::SimpleFlag(false)),
                 ..Default::default()
@@ -240,7 +240,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::SimpleFlag(true)),
                 ..Default::default()
@@ -259,12 +259,12 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::Properties(CorsProperties {
                     origin: vec![
-                        "https://martin.maplibre.org".to_string(),
-                        "https://example.org".to_string()
+                        "https://martin.maplibre.org".to_owned(),
+                        "https://example.org".to_owned()
                     ],
                     max_age: None,
                     unrecognized: UnrecognizedValues::default()

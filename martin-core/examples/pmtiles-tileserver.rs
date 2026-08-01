@@ -91,7 +91,7 @@ async fn main() -> std::io::Result<()> {
     let cache = PmtCacheInstance::new(0, PmtCache::default());
     let source = PmtilesSource::new(
         cache,
-        "webp2".to_string(),
+        "webp2".to_owned(),
         store,
         path,
         CacheZoomRange::default(),

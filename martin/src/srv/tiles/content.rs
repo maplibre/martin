@@ -289,7 +289,7 @@ impl<'a> DynTileSource<'a> {
                         (Some(lo), Some(hi)) => format!("{id} supports zoom {lo}-{hi}"),
                         (Some(lo), None) => format!("{id} supports zoom {lo} and above"),
                         (None, Some(hi)) => format!("{id} supports zoom up to {hi}"),
-                        (None, None) => id.to_string(),
+                        (None, None) => id.to_owned(),
                     })
                 })
                 .collect::<Vec<_>>()
@@ -433,7 +433,7 @@ impl<'a> DynTileSource<'a> {
                 warn!(source.id = s.get_id(), "Source modified; reloading");
                 let advisory = ReloadAdvisory {
                     updates: vec![NewSource {
-                        id: s.get_id().to_string(),
+                        id: s.get_id().to_owned(),
                         source: Ok(fresh_src.clone_source()),
                         process: pc.clone(),
                     }],
@@ -461,7 +461,7 @@ impl<'a> DynTileSource<'a> {
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z);
-        let src_id = s.get_id().to_string();
+        let src_id = s.get_id().to_owned();
         let src = s.clone_source();
         let compute = || async move {
             let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
@@ -480,7 +480,7 @@ impl<'a> DynTileSource<'a> {
                     martin_core::tiles::TileCacheKey::new(
                         src_id,
                         xyz,
-                        self.query_str.map(ToString::to_string),
+                        self.query_str.map(str::to_owned),
                         self.accepted_format,
                     ),
                     compute,
@@ -793,9 +793,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
-    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())])), None)]
-    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
+    #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())])), None)]
+    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_owned())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
     #[actix_rt::test]
     async fn test_etag(
         #[case] expected_status: u16,

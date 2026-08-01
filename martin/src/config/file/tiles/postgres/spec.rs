@@ -92,9 +92,9 @@ mod tests {
 
     fn table(schema: &str, table: &str) -> TableInfo {
         TableInfo {
-            schema: schema.to_string(),
-            table: table.to_string(),
-            geometry_column: "geom".to_string(),
+            schema: schema.to_owned(),
+            table: table.to_owned(),
+            geometry_column: "geom".to_owned(),
             srid: 4326,
             ..Default::default()
         }
@@ -103,19 +103,19 @@ mod tests {
     /// A table info with every fingerprinted (included) field set, so a test can flip exactly one field and observe the effect.
     fn full_table() -> TableInfo {
         TableInfo {
-            layer_id: Some("layer".to_string()),
-            schema: "public".to_string(),
-            table: "roads".to_string(),
+            layer_id: Some("layer".to_owned()),
+            schema: "public".to_owned(),
+            table: "roads".to_owned(),
             srid: 4326,
-            geometry_column: "geom".to_string(),
-            id_column: Some("gid".to_string()),
+            geometry_column: "geom".to_owned(),
+            id_column: Some("gid".to_owned()),
             minzoom: Some(0),
             maxzoom: Some(14),
             extent: NonZeroU32::new(4096),
             buffer: Some(64),
             clip_geom: Some(true),
-            geometry_type: Some("LINESTRING".to_string()),
-            properties: Some(BTreeMap::from([("name".to_string(), "text".to_string())])),
+            geometry_type: Some("LINESTRING".to_owned()),
+            properties: Some(BTreeMap::from([("name".to_owned(), "text".to_owned())])),
             tilejson: Some(serde_json::json!({ "attribution": "abc" })),
             ..Default::default()
         }
@@ -133,24 +133,24 @@ mod tests {
     }
 
     #[rstest]
-    #[case::layer_id(|t: &mut TableInfo|t.layer_id = Some("other".to_string()))]
-    #[case::schema(|t: &mut TableInfo|t.schema = "other".to_string())]
-    #[case::table(|t: &mut TableInfo|t.table = "other".to_string())]
+    #[case::layer_id(|t: &mut TableInfo|t.layer_id = Some("other".to_owned()))]
+    #[case::schema(|t: &mut TableInfo|t.schema = "other".to_owned())]
+    #[case::table(|t: &mut TableInfo|t.table = "other".to_owned())]
     #[case::srid(|t: &mut TableInfo|t.srid = 3857)]
-    #[case::geometry_column(|t: &mut TableInfo|t.geometry_column = "shape".to_string())]
-    #[case::id_column(|t: &mut TableInfo|t.id_column = Some("fid".to_string()))]
+    #[case::geometry_column(|t: &mut TableInfo|t.geometry_column = "shape".to_owned())]
+    #[case::id_column(|t: &mut TableInfo|t.id_column = Some("fid".to_owned()))]
     #[case::minzoom(|t: &mut TableInfo|t.minzoom = Some(2))]
     #[case::maxzoom(|t: &mut TableInfo|t.maxzoom = Some(18))]
     #[case::extent(|t: &mut TableInfo|t.extent = NonZeroU32::new(2048))]
     #[case::buffer(|t: &mut TableInfo|t.buffer = Some(128))]
     #[case::clip_geom(|t: &mut TableInfo|t.clip_geom = Some(false))]
-    #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_string()))]
+    #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_owned()))]
     #[case::properties(|t: &mut TableInfo|{
-        t.properties = Some(BTreeMap::from([("kind".to_string(), "text".to_string())]));
+        t.properties = Some(BTreeMap::from([("kind".to_owned(), "text".to_owned())]));
     })]
     #[case::prop_mapping(|t: &mut TableInfo|{
         t.prop_mapping
-            .insert("name".to_string(), "name_col".to_string());
+            .insert("name".to_owned(), "name_col".to_owned());
     })]
     #[case::tilejson(|t: &mut TableInfo|{
         t.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
@@ -172,8 +172,8 @@ mod tests {
     #[case::cache(|t: &mut TableInfo|t.cache = Some(CachePolicy::disabled()))]
     #[case::unrecognized(|t: &mut TableInfo|{
         t.unrecognized.insert(
-            "extra".to_string(),
-            serde_json::Value::String("v".to_string()),
+            "extra".to_owned(),
+            serde_json::Value::String("v".to_owned()),
         );
     })]
     fn flipping_an_excluded_field_keeps_fingerprint(#[case] mutate: TableMutator) {
@@ -202,17 +202,17 @@ mod tests {
 
     fn full_function() -> (FunctionInfo, PostgresSqlInfo) {
         let info = FunctionInfo {
-            schema: "public".to_string(),
-            function: "tiles".to_string(),
+            schema: "public".to_owned(),
+            function: "tiles".to_owned(),
             minzoom: Some(0),
             maxzoom: Some(14),
             tilejson: Some(serde_json::json!({ "attribution": "abc" })),
             ..Default::default()
         };
         let sql = PostgresSqlInfo::new(
-            "SELECT mvt FROM public.tiles($1, $2, $3)".to_string(),
+            "SELECT mvt FROM public.tiles($1, $2, $3)".to_owned(),
             false,
-            "public.tiles(integer,integer,integer)".to_string(),
+            "public.tiles(integer,integer,integer)".to_owned(),
         );
         (info, sql)
     }
@@ -229,15 +229,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case::schema(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.schema = "other".to_string())]
-    #[case::function(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.function = "other".to_string())]
+    #[case::schema(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.schema = "other".to_owned())]
+    #[case::function(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.function = "other".to_owned())]
     #[case::minzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.minzoom = Some(3))]
     #[case::maxzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.maxzoom = Some(20))]
     #[case::tilejson(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|{
         f.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
     })]
-    #[case::sql_query(|_: &mut FunctionInfo, s: &mut PostgresSqlInfo|s.sql_query = "SELECT 1".to_string())]
-    #[case::signature(|_: &mut FunctionInfo, s: &mut PostgresSqlInfo|s.signature = "public.tiles(text)".to_string())]
+    #[case::sql_query(|_: &mut FunctionInfo, s: &mut PostgresSqlInfo|s.sql_query = "SELECT 1".to_owned())]
+    #[case::signature(|_: &mut FunctionInfo, s: &mut PostgresSqlInfo|s.signature = "public.tiles(text)".to_owned())]
     fn flipping_an_included_function_field_changes_fingerprint(#[case] mutate: FunctionMutator) {
         let (base_info, base_sql) = full_function();
         let base = ffp(base_info, base_sql);
@@ -255,8 +255,8 @@ mod tests {
     #[case::cache(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.cache = Some(CachePolicy::disabled()))]
     #[case::unrecognized(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|{
         f.unrecognized.insert(
-            "extra".to_string(),
-            serde_json::Value::String("v".to_string()),
+            "extra".to_owned(),
+            serde_json::Value::String("v".to_owned()),
         );
     })]
     fn flipping_an_excluded_function_field_keeps_fingerprint(#[case] mutate: FunctionMutator) {
@@ -277,7 +277,7 @@ mod tests {
         let (info, sql) = full_function();
         let function = SourceSpec::Function(
             FunctionInfo {
-                function: "tiles".to_string(),
+                function: "tiles".to_owned(),
                 ..info
             },
             sql,

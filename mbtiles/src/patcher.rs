@@ -28,7 +28,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let base_info = base_mbt.examine_diff(&mut conn).await?;
     if matches!(base_info.mbt_type, Cache) {
         return Err(MbtError::UnsupportedCopyOperation {
-            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_string(),
+            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_owned(),
         });
     }
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
@@ -37,9 +37,9 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     match (force, base_hash, patch_info.agg_tiles_hash_before_apply) {
         (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
             return Err(MbtError::AggHashMismatchWithDiff {
-                patch_file: patch_mbt.filepath().to_string(),
+                patch_file: patch_mbt.filepath().to_owned(),
                 before_apply_hash: expected_hash,
-                file: base_mbt.filepath().to_string(),
+                file: base_mbt.filepath().to_owned(),
                 agg_hash: base_hash,
             });
         }
@@ -113,14 +113,14 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
 fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
     if src_type == Flat {
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_string()
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_owned()
     } else {
         match patch_type {
             // A Cache patch file is read via its `tiles` view, like Flat
             Flat | Cache => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
-                .to_string(),
+                .to_owned(),
             FlatWithHash
             | Normalized {
                 schema: _,
@@ -128,7 +128,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
             } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"
-                .to_string(),
+                .to_owned(),
             Normalized {
                 schema,
                 hash_view: false,
@@ -140,7 +140,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
 fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Option<String>) {
     match src_type {
         Flat => (
-            "tiles".to_string(),
+            "tiles".to_owned(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
@@ -149,7 +149,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
             None,
         ),
         FlatWithHash => (
-            "tiles_with_hash".to_string(),
+            "tiles_with_hash".to_owned(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
@@ -164,7 +164,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
                 schema.tile_id_column(),
             );
             (
-                map.to_string(),
+                map.to_owned(),
                 format!(
                     "
     INSERT OR REPLACE INTO {map} (zoom_level, tile_column, tile_row, {id})

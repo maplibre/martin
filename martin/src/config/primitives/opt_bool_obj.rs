@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(
             cfg,
             OptBoolObj::Object(Sample {
-                name: "hello".to_string(),
+                name: "hello".to_owned(),
                 size: 7,
             })
         );

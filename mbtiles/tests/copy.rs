@@ -1012,7 +1012,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                                 out
                                             })
                                         },
-                                        ToString::to_string,
+                                        str::to_owned,
                                     )
                                 )
                             }),
@@ -1025,7 +1025,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                 panic!("Unknown column type: {typ}")
                             }
                         })
-                        .unwrap_or("NULL".to_string())
+                        .unwrap_or("NULL".to_owned())
                     })
                     .join(", ");
                 format!("(  {val}  )")

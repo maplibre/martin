@@ -136,7 +136,7 @@ impl StyleConfig {
                     .to_string_lossy()
                     .trim_end_matches(".json")
                     .trim()
-                    .to_string();
+                    .to_owned();
                 results.add_style(style_id, path);
                 paths_with_names.push(base_path.clone());
             }
@@ -271,7 +271,7 @@ mod tests {
         );
         let configs = configs
             .into_iter()
-            .map(|(k, v)| (k.to_string(), FileConfigSrc::Path(v)))
+            .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
         let mut cfg = StyleConfig::new_extended(vec![], configs, InnerStyleConfig::default());
 

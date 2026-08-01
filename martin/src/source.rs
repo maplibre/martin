@@ -49,7 +49,7 @@ impl TileSources {
             sources
                 .into_iter()
                 .flatten()
-                .map(|(src, pc)| (src.get_id().to_string(), (src, pc)))
+                .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
                 .collect(),
         ))
     }

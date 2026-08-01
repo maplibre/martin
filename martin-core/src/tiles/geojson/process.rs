@@ -83,7 +83,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
             if let Some(field_type) = field_type(value) {
                 fields
                     .entry(key.clone())
-                    .or_insert_with(|| field_type.to_string());
+                    .or_insert_with(|| field_type.to_owned());
             }
         }
         let (min, max) = (bbox.min(), bbox.max());

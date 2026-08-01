@@ -96,7 +96,7 @@ fn cors_origin_example() -> Vec<String> {
 impl Default for CorsProperties {
     fn default() -> Self {
         Self {
-            origin: vec!["*".to_string()],
+            origin: vec!["*".to_owned()],
             max_age: None,
             unrecognized: UnrecognizedValues::default(),
         }
@@ -154,7 +154,7 @@ impl CorsConfig {
 
         // allow any origin by default
         // this returns the value of the requests `ORIGIN` header in `Access-Control-Allow-Origin`
-        if properties.origin.contains(&"*".to_string()) {
+        if properties.origin.contains(&"*".to_owned()) {
             cors = cors.allow_any_origin();
         } else {
             for origin in &properties.origin {
@@ -208,7 +208,7 @@ mod tests {
         let CorsConfig::Properties(props) = cfg else {
             panic!("expected Properties variant");
         };
-        assert_eq!(props.origin, vec!["https://example.org".to_string()]);
+        assert_eq!(props.origin, vec!["https://example.org".to_owned()]);
         assert_eq!(props.max_age, Some(3600));
     }
 
@@ -303,7 +303,7 @@ mod tests {
         .unwrap();
 
         if let CorsConfig::Properties(settings) = config {
-            assert_eq!(settings.origin, vec!["https://example.org".to_string()]);
+            assert_eq!(settings.origin, vec!["https://example.org".to_owned()]);
             assert_eq!(settings.max_age, Some(3600));
         } else {
             panic!("Expected Settings variant for detailed config");
@@ -327,8 +327,8 @@ mod tests {
             assert_eq!(
                 settings.origin,
                 vec![
-                    "https://example.org".to_string(),
-                    "https://martin.maplibre.org".to_string(),
+                    "https://example.org".to_owned(),
+                    "https://martin.maplibre.org".to_owned(),
                 ]
             );
             assert_eq!(settings.max_age, Some(3600));
@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn test_cors_with_valid_properties() {
         let properties = CorsProperties {
-            origin: vec!["https://example.org".to_string()],
+            origin: vec!["https://example.org".to_owned()],
             max_age: Some(3600),
             unrecognized: UnrecognizedValues::default(),
         };
@@ -393,7 +393,7 @@ mod tests {
     #[test]
     fn test_cors_with_wildcard_origin() {
         let properties = CorsProperties::default();
-        assert_eq!(properties.origin, vec!["*".to_string()]);
+        assert_eq!(properties.origin, vec!["*".to_owned()]);
         properties.validate().unwrap();
 
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();

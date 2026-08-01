@@ -215,7 +215,7 @@ impl FontSources {
             .split(',')
             .map(|id| {
                 if self.fonts.get(id).is_none() {
-                    return Err(FontError::FontNotFound(id.to_string()));
+                    return Err(FontError::FontNotFound(id.to_owned()));
                 }
 
                 Ok(id)
@@ -235,7 +235,7 @@ impl FontSources {
             };
 
             if stack.name.is_empty() {
-                stack.name = id.to_string();
+                stack.name = id.to_owned();
             } else {
                 let name = &mut stack.name;
                 name.push_str(", ");
