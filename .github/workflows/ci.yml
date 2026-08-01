@@ -57,11 +57,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { rendering: true }
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        with:
-          key: ${{ matrix.os }}
+        with: { rendering: true, cache: true }
       - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -81,10 +77,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-      - uses: taiki-e/install-action@5ebac0d9522d786674368e47e92963ba13f2c376 # v2.82.11
-        with: { tool: 'just' }
+        with: { cache: true }
       - name: Run DuckDB tests
         run: just test-duckdb
   lint-rust:
@@ -97,9 +90,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { components: clippy rustfmt, rendering: true }
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        with: { components: clippy rustfmt, rendering: true, cache: true }
       - run: just clippy
       - run: just check-doc
   check-features:
@@ -121,9 +112,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { rendering: true }
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        with: { rendering: true, cache: true }
       - run: just check --partition ${{ matrix.partition }}
   validate-schemas:
     name: Validate generated config + OpenAPI schemas
