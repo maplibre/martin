@@ -86,13 +86,8 @@ repos:
           bash -c '
             VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker-compose.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-nginx.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/installation.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/run-with-lambda.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" demo/docker-compose.yml
+            grep -rl "ghcr.io/maplibre/martin:" docs demo justfile \
+              | xargs -r sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%"
             echo "Synced version to $VERSION"
           '
         language: system
