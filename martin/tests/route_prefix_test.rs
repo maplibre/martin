@@ -66,7 +66,11 @@ async fn config(
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_basic_endpoints() {
+#[expect(
+    clippy::too_many_lines,
+    reason = "Integration test setup covers multiple endpoints"
+)]
+async fn route_prefix_basic_endpoints() {
     let (config, _conns) = config("test_route_prefix_basic").await;
     let srv_config = SrvConfig {
         route_prefix: Some("/tiles".to_owned()),
