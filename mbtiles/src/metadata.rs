@@ -103,7 +103,7 @@ impl Mbtiles {
     {
         self.get_metadata_value(conn, zoom_name)
             .await?
-            .map(|v| v.parse().map_err(|_| InvalidZoomValue(zoom_name, v)))
+            .map(|v| v.parse().map_err(|_err| InvalidZoomValue(zoom_name, v)))
             .transpose()
     }
 

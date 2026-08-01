@@ -59,7 +59,7 @@ impl TileSourceManager {
     /// Returns a [`TileSources`] view for read-only tile serving.
     #[must_use]
     pub fn tile_sources(&self) -> TileSources {
-        TileSources::from_dashmap(self.tile_sources.clone())
+        TileSources::from_dashmap(Arc::clone(&self.tile_sources))
     }
 
     /// Returns a reference to the optional tile cache.
@@ -319,7 +319,7 @@ mod tests {
         fn scan(dir: &Path) -> BTreeMap<String, u64> {
             let mut out = BTreeMap::new();
             for entry in std::fs::read_dir(dir).expect("read tempdir").flatten() {
-                if !entry.file_type().is_ok_and(|t| t.is_file()) {
+                if !entry.file_type().is_ok_and(|t| !t.is_dir()) {
                     continue;
                 }
                 let id = entry

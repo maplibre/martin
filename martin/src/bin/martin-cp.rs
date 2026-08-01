@@ -866,7 +866,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_tile_ranges() {
+    fn computes_tile_ranges() {
         let world = Bounds::MAX_TILED;
         let bbox_ca = Bounds::from_str("-124.482,32.5288,-114.1307,42.0095").unwrap();
         let bbox_ca_south = Bounds::from_str("-118.6681,32.5288,-114.1307,34.8233").unwrap();

@@ -268,14 +268,14 @@ mod tests {
     // ----- Existing behavior tests -----
 
     #[test]
-    fn test_one_or_many_new() {
+    fn one_or_many_new() {
         assert_eq!(OptOneMany::new(vec![1, 2, 3]), Many(vec![1, 2, 3]));
         assert_eq!(OptOneMany::new(vec![1]), One(1));
         assert_eq!(OptOneMany::new(Vec::<i32>::new()), NoVals);
     }
 
     #[test]
-    fn test_one_or_many_iter() {
+    fn one_or_many_iter() {
         let mut noval: OptOneMany<i32> = NoVals;
         let mut one = One(1);
         let mut many = Many(vec![1, 2, 3]);
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn test_one_or_many_as_slice() {
+    fn one_or_many_as_slice() {
         let noval: OptOneMany<i32> = NoVals;
         assert_eq!(noval.as_slice(), Vec::<i32>::new().as_slice());
         assert_eq!(One(1).as_slice(), &[1]);

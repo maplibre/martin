@@ -187,7 +187,7 @@ mod tests {
     use crate::config::file::FileConfigSrc;
 
     #[test]
-    fn test_styles_parse_paths_only_without_rendering_field() {
+    fn styles_parse_paths_only_without_rendering_field() {
         let yaml = indoc! {"
             paths:
               - /data
@@ -203,7 +203,7 @@ mod tests {
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[test]
-    fn test_renderer_config_parses_workers() {
+    fn renderer_config_parses_workers() {
         use std::num::NonZeroUsize;
         let yaml = indoc! {"
             rendering:
@@ -221,7 +221,7 @@ mod tests {
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[test]
-    fn test_renderer_config_rejects_zero_workers() {
+    fn renderer_config_rejects_zero_workers() {
         let yaml = indoc! {"
             rendering:
               enabled: true
@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_styles_resolve_paths() {
+    fn styles_resolve_paths() {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_styles_resolve_sources() {
+    fn styles_resolve_sources() {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn test_style_external() {
+    fn style_external() {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_contained_files() {
+    fn lists_contained_files() {
         use std::fs::File;
         let dir = tempfile::tempdir().unwrap();
 
@@ -328,12 +328,12 @@ mod tests {
         File::create(&hidden_file2).unwrap();
 
         let subdir = dir.path().join("subdir");
-        std::fs::create_dir(&subdir).unwrap();
+        std::fs::create_dir_all(&subdir).unwrap();
         let subdir_file2 = subdir.join("file2.txt");
         File::create(&subdir_file2).unwrap();
 
         let hidden_subdir2 = dir.path().join(".subdir2");
-        std::fs::create_dir(&hidden_subdir2).unwrap();
+        std::fs::create_dir_all(&hidden_subdir2).unwrap();
         let transitively_hidden_file3 = hidden_subdir2.join("file3.txt");
         File::create(&transitively_hidden_file3).unwrap();
 
@@ -343,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_contained_files_error() {
+    fn list_contained_files_error() {
         let result = list_contained_files(Path::new("/non_existent"), "txt");
         result.unwrap_err();
     }

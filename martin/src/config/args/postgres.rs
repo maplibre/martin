@@ -207,7 +207,7 @@ mod tests {
     use crate::config::primitives::env::FauxEnv;
 
     #[test]
-    fn test_extract_conn_strings() {
+    fn extracts_conn_strings() {
         let mut args = Arguments::new(vec![
             "postgresql://localhost:5432".to_owned(),
             "postgres://localhost:5432".to_owned(),
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_conn_strings_from_env() {
+    fn extract_conn_strings_from_env() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![(
@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config() {
+    fn merge_into_config() {
         let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
         let config = PostgresArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config2() {
+    fn merge_into_config2() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config3() {
+    fn merge_into_config3() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![

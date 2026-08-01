@@ -1475,7 +1475,7 @@ mod mbtiles_tests {
 
     #[tokio::test]
     #[tracing_test::traced_test]
-    async fn test_invalid_path_warns_instead_of_failing() {
+    async fn invalid_path_warns_instead_of_failing() {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
@@ -1676,7 +1676,7 @@ mod pmtiles_tests {
 
     #[tokio::test]
     #[tracing_test::traced_test]
-    async fn test_invalid_path_warns_instead_of_failing() {
+    async fn invalid_path_warns_instead_of_failing() {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();

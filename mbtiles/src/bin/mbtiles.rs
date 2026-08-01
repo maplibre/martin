@@ -467,7 +467,7 @@ mod tests {
     use crate::{Args, IntegrityCheckType};
 
     #[test]
-    fn test_copy_no_arguments() {
+    fn copy_no_arguments() {
         assert_eq!(
             Args::try_parse_from(["mbtiles", "copy"])
                 .unwrap_err()
@@ -477,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_minimal_arguments() {
+    fn copy_minimal_arguments() {
         assert_eq!(
             Args::parse_from(["mbtiles", "copy", "src_file", "dst_file"]),
             Args {
@@ -492,7 +492,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_min_max_zoom_arguments() {
+    fn copy_min_max_zoom_arguments() {
         let args = Args::parse_from([
             "mbtiles",
             "copy",
@@ -522,7 +522,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_strict_argument() {
+    fn copy_strict_argument() {
         assert_eq!(
             Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--strict"]),
             Args {
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_min_max_zoom_no_arguments() {
+    fn copy_min_max_zoom_no_arguments() {
         assert_eq!(
             Args::try_parse_from([
                 "mbtiles",
@@ -558,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_min_max_zoom_with_zoom_levels_arguments() {
+    fn copy_min_max_zoom_with_zoom_levels_arguments() {
         assert_eq!(
             Args::try_parse_from([
                 "mbtiles",
@@ -579,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_zoom_levels_arguments() {
+    fn copy_zoom_levels_arguments() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -605,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_diff_with_file_arguments() {
+    fn copy_diff_with_file_arguments() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -628,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_diff_with_override_copy_duplicate_mode() {
+    fn copy_diff_with_override_copy_duplicate_mode() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -654,7 +654,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_limit() {
+    fn copy_limit() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"
@@ -675,7 +675,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diff() {
+    fn diff() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -703,7 +703,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_get_no_arguments() {
+    fn meta_get_no_arguments() {
         assert_eq!(
             Args::try_parse_from(["mbtiles", "meta-get"])
                 .unwrap_err()
@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_get_with_arguments() {
+    fn meta_get_with_arguments() {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-get", "src_file", "key"]),
             Args {
@@ -727,7 +727,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_set_no_arguments() {
+    fn meta_set_no_arguments() {
         assert_eq!(
             Args::try_parse_from(["mbtiles", "meta-get"])
                 .unwrap_err()
@@ -737,7 +737,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_set_no_value_argument() {
+    fn meta_set_no_value_argument() {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-set", "src_file", "key"]),
             Args {
@@ -752,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_get_with_all_arguments() {
+    fn meta_get_with_all_arguments() {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-set", "src_file", "key", "value"]),
             Args {
@@ -767,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_diff_with_arguments() {
+    fn apply_diff_with_arguments() {
         assert_eq!(
             Args::parse_from(["mbtiles", "apply-diff", "src_file", "diff_file"]),
             Args {
@@ -782,7 +782,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate() {
+    fn validate() {
         assert_eq!(
             Args::parse_from(["mbtiles", "validate", "src_file", "--agg-hash", "off"]),
             Args {
@@ -804,7 +804,7 @@ mod tests {
     // module.
 
     #[test]
-    fn test_pack_defaults() {
+    fn pack_defaults() {
         assert_eq!(
             Args::parse_from(["mbtiles", "pack", "src_dir", "out.mbtiles"]),
             Args {
@@ -820,7 +820,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pack_tms_uncompressed() {
+    fn pack_tms_uncompressed() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",
@@ -845,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pack_compress_gzip_alias() {
+    fn pack_compress_gzip_alias() {
         let Pack { compress, .. } =
             Args::parse_from(["mbtiles", "pack", "src", "out.mbtiles", "--compress", "gz"]).command
         else {
@@ -855,7 +855,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unpack_scheme() {
+    fn unpack_scheme() {
         assert_eq!(
             Args::parse_from([
                 "mbtiles",

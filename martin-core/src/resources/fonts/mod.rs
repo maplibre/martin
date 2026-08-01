@@ -235,7 +235,7 @@ impl FontSources {
             };
 
             if stack.name.is_empty() {
-                stack.name = id.to_owned();
+                id.clone_into(&mut stack.name);
             } else {
                 let name = &mut stack.name;
                 name.push_str(", ");
@@ -429,7 +429,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let root = tmp.path();
         let real_dir = root.join("..2024_05_17_17_57_51.390489675");
-        std::fs::create_dir(&real_dir).unwrap();
+        std::fs::create_dir_all(&real_dir).unwrap();
         let font_src =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts2/u+3320.ttf");
         std::fs::copy(&font_src, real_dir.join("u3320.ttf")).unwrap();
@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_available_codepoints() {
+    fn available_codepoints() {
         let lib = Library::init().unwrap();
 
         // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES

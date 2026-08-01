@@ -209,14 +209,14 @@ mod tests {
     }
 
     #[test]
-    fn test_len() {
+    fn len() {
         assert_eq!(1, TileRect::new(0, 0, 0, 0, 0).size());
         assert_eq!(4, TileRect::new(0, 0, 0, 1, 1).size());
         assert_eq!(15, TileRect::new(0, 2, 3, 4, 7).size());
     }
 
     #[test]
-    fn test_tile_range_is_overlapping() {
+    fn tile_range_is_overlapping() {
         let r1 = TileRect::new(0, 0, 0, 0, 0);
         let r2 = TileRect::new(0, 0, 0, 0, 0);
         assert!(r1.is_overlapping(&r2));
@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append_single() {
+    fn append_single() {
         let mut rectangles = Vec::new();
         append(&mut rectangles, TileRect::new(0, 0, 0, 0, 0));
         assert_eq!(rectangles, vec![TileRect::new(0, 0, 0, 0, 0)]);
@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append_multiple() {
+    fn append_multiple() {
         let mut rectangles = Vec::new();
         append(&mut rectangles, TileRect::new(0, 2, 2, 4, 4));
         assert_eq!(rectangles, vec![TileRect::new(0, 2, 2, 4, 4)]);

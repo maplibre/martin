@@ -232,7 +232,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_style_external() {
+    fn style_external() {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
         let mut styles = StyleSources::default();

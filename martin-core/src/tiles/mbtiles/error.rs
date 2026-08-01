@@ -8,7 +8,7 @@ use std::path::PathBuf;
 pub enum MbtilesError {
     /// Failed to acquire database connection to `MBTiles` file.
     #[error(r"Unable to acquire connection to file: {0}")]
-    AcquireConnError(String),
+    AcquireConnError(String, #[source] Box<mbtiles::MbtError>),
 
     /// Wrapper for underlying mbtiles library errors.
     #[error(transparent)]

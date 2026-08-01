@@ -323,7 +323,7 @@ mod tests {
     use crate::metadata::temp_named_mbtiles;
 
     #[tokio::test]
-    async fn test_metadata_invalid() {
+    async fn metadata_invalid() {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
 
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_contains_invalid() {
+    async fn contains_invalid() {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
@@ -383,7 +383,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_invalid_type() {
+    async fn invalid_type() {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_invalid_type", script).await;
 
@@ -419,7 +419,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_metadata_normalized() {
+    async fn metadata_normalized() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_normalized", script).await;
 
@@ -452,7 +452,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_contains_normalized() {
+    async fn contains_normalized() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_normalized", script).await;
 
@@ -484,7 +484,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_normalized() {
+    async fn normalized() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized", script).await;
 
@@ -539,7 +539,7 @@ mod tests {
 
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
-    async fn test_metadata_flat_with_hash() {
+    async fn metadata_flat_with_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_flat_with_hash", script).await;
 
@@ -665,7 +665,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_contains_flat_with_hash() {
+    async fn contains_flat_with_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_flat_with_hash", script).await;
 
@@ -689,7 +689,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_flat_with_hash() {
+    async fn flat_with_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_flat_with_hash", script).await;
 

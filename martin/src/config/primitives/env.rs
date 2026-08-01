@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_env_str() {
+    fn get_env_str() {
         let env = FauxEnv::default();
         assert_eq!(env.get_env_str("FOO"), None);
 
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
-    fn test_bad_os_str() {
+    fn bad_os_str() {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt as _;
 

@@ -96,7 +96,7 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_shared_dict,
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
-            unrecognized: _,
+            unrecognized: _unrecognized,
         } = src;
 
         let mut cfg = Self::default();

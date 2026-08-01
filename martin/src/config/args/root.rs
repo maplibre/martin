@@ -361,7 +361,7 @@ mod tests {
 
     #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
-    fn test_is_file_scheme_uri() {
+    fn detects_file_scheme_uri() {
         // Valid file scheme URIs
         assert!(is_file_scheme_uri("file:test.mbtiles", &["mbtiles"]));
         assert!(is_file_scheme_uri(

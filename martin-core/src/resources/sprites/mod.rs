@@ -257,7 +257,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_sprites() {
+    async fn sprites() {
         let mut sprites = SpriteSources::default();
         sprites.add_source(
             "src1".to_owned(),
@@ -292,13 +292,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_yield_clean_sprite_names() {
-        use std::fs::{create_dir, write};
+        use std::fs::{create_dir_all, write};
         use std::os::unix::fs::symlink;
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let root = tmp.path();
         let real_dir = root.join("..2024_05_17_17_57_51.390489675");
-        create_dir(&real_dir).unwrap();
+        create_dir_all(&real_dir).unwrap();
         let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
         write(real_dir.join("foo.svg"), svg).unwrap();
         write(real_dir.join("bar.svg"), svg).unwrap();

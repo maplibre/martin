@@ -528,7 +528,7 @@ mod tests {
 
     /// Test detection of compressed content (JSON, MLT, MVT)
     #[test]
-    fn test_compressed_json_gzip() {
+    fn compressed_json_gzip() {
         let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
         let compressed = encode_gzip(json_data).unwrap();
         let result = TileInfo::detect(&compressed);
@@ -536,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compressed_json_zlib() {
+    fn compressed_json_zlib() {
         use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
@@ -551,7 +551,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raw_mlt_encoding_internal() {
+    fn raw_mlt_encoding_internal() {
         // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
         // to prevent the serve path from applying heavyweight gzip/brotli on top.
         let mlt_data = &[0x02, 0x01];
@@ -560,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compressed_mlt_gzip() {
+    fn compressed_mlt_gzip() {
         // MLT tile: length=2 (0x02), version=1 (0x01)
         let mlt_data = &[0x02, 0x01];
         let compressed = encode_gzip(mlt_data).unwrap();
@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compressed_mlt_zlib() {
+    fn compressed_mlt_zlib() {
         use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
@@ -585,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compressed_mvt_gzip_fallback() {
+    fn compressed_mvt_gzip_fallback() {
         // Random data that doesn't match any known format => should be detected as MVT
         let random_data = &[0x1a, 0x2b, 0x3c, 0x4d];
         let compressed = encode_gzip(random_data).unwrap();
@@ -594,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compressed_mvt_zlib_fallback() {
+    fn compressed_mvt_zlib_fallback() {
         use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
@@ -610,7 +610,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_json_in_gzip() {
+    fn invalid_json_in_gzip() {
         // Data that looks like JSON but isn't valid => should fall back to MVT
         let invalid_json = b"{this is not valid json}";
         let compressed = encode_gzip(invalid_json).unwrap();
@@ -808,7 +808,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_coord_zoom_range() {
+    fn tile_coord_zoom_range() {
         for z in 0..=MAX_ZOOM {
             assert!(TileCoord::is_possible_on_zoom_level(z, 0, 0));
             assert_eq!(
@@ -821,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_coord_new_checked_xy_for_zoom() {
+    fn tile_coord_new_checked_xy_for_zoom() {
         assert!(TileCoord::is_possible_on_zoom_level(5, 0, 0));
         assert_eq!(
             TileCoord::new_checked(5, 0, 0),
@@ -842,7 +842,7 @@ mod tests {
     /// Any (u8, u32, u32) values can be put inside [`TileCoord`], of course, but some
     /// functions may panic at runtime (e.g. [`mbtiles::invert_y_value`]) if they are impossible,
     /// so let's not do that.
-    fn test_tile_coord_new_unchecked() {
+    fn tile_coord_new_unchecked() {
         assert_eq!(
             TileCoord::new_unchecked(u8::MAX, u32::MAX, u32::MAX),
             TileCoord {

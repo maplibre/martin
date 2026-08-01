@@ -12,7 +12,7 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmerc
 use mlt_core::fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use rayon::prelude::*;
 use tilejson::{Bounds, Center, TileJSON, VectorLayer};
-use tokio::fs::{self};
+use tokio::fs;
 use tracing::trace;
 
 use crate::CacheZoomRange;
@@ -295,7 +295,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_tile() {
+    async fn get_tile() {
         let path = fixtures_dir().join("feature_collection_1.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let geojson_source = GeoJsonSource::new(

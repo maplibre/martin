@@ -282,7 +282,7 @@ impl PmtConfig {
             },
         );
         if let Some(credentials) = &self.aws_credentials {
-            builder = builder.with_credentials(credentials.clone());
+            builder = builder.with_credentials(Arc::clone(credentials));
         }
         Ok((Box::new(builder.build()?), path))
     }

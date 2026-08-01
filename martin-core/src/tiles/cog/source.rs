@@ -10,7 +10,7 @@ use martin_tile_utils::{
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::Tag::{self};
+use tiff::tags::Tag;
 use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
@@ -409,8 +409,10 @@ fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option
     let tile_size_mercator_metres = f64::from(tile_size) * resolution;
     let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).round();
     let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).round();
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     let tile_origin_x =
         (xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX)).then_some(xf as u32)?;
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     let tile_origin_y =
         (yf.is_finite() && yf >= 0.0 && yf <= f64::from(u32::MAX)).then_some(yf as u32)?;
 

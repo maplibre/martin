@@ -216,7 +216,7 @@ pub mod tests {
     use crate::srv::tiles::tests::TestSource;
 
     #[test]
-    fn test_merge_tilejson() {
+    fn merges_tilejson() {
         let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_owned();
         let src1 = TestSource {
             id: "id",

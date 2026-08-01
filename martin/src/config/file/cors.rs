@@ -266,7 +266,7 @@ mod tests {
     // ----- Existing behavior tests (default values, validation, middleware) -----
 
     #[test]
-    fn test_cors_config_default() {
+    fn cors_config_default() {
         let config = CorsConfig::default();
         let middleware = config.make_cors_middleware();
         assert!(middleware.is_some());
@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_properties_default_values() {
+    fn cors_properties_default_values() {
         let default_props = CorsProperties::default();
         assert_eq!(default_props.origin, vec!["*"]);
         assert_eq!(default_props.max_age, None);
@@ -288,13 +288,13 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_middleware_disabled() {
+    fn cors_middleware_disabled() {
         let config = CorsConfig::SimpleFlag(false);
         assert!(config.make_cors_middleware().is_none());
     }
 
     #[test]
-    fn test_cors_yaml_parsing() {
+    fn cors_yaml_parsing() {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"
             origin:
               - https://example.org
@@ -338,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_validation() {
+    fn cors_validation() {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_validation_error_empty_origin() {
+    fn cors_validation_error_empty_origin() {
         let properties = CorsProperties {
             origin: vec![],
             max_age: Some(3600),
@@ -377,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_with_valid_properties() {
+    fn cors_with_valid_properties() {
         let properties = CorsProperties {
             origin: vec!["https://example.org".to_owned()],
             max_age: Some(3600),
@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cors_with_wildcard_origin() {
+    fn cors_with_wildcard_origin() {
         let properties = CorsProperties::default();
         assert_eq!(properties.origin, vec!["*".to_owned()]);
         properties.validate().unwrap();
