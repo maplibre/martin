@@ -20,6 +20,7 @@ quote.workspace = true
 syn.workspace = true
 
 [dev-dependencies]
+rstest.workspace = true
 serde.workspace = true
 
 [lints]

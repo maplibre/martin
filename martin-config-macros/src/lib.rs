@@ -230,3 +230,104 @@ fn container_rename_all(attrs: &[syn::Attribute]) -> Option<&syn::Attribute> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use syn::parse::Parser as _;
+    use syn::{DeriveInput, Field};
+
+    use crate::{expand, serde_field_name, serde_flag_is_set};
+
+    fn parse_field(src: &str) -> Field {
+        Field::parse_named.parse_str(src).expect("field parses")
+    }
+
+    #[rstest]
+    #[case::rename_all_on_struct(
+        r#"#[serde(rename_all = "kebab-case")] struct S { a: bool }"#,
+        "does not support `#[serde(rename_all)]`"
+    )]
+    #[case::rename_all_on_enum(
+        r#"#[serde(rename_all = "kebab-case")] enum E { A }"#,
+        "does not support `#[serde(rename_all)]`"
+    )]
+    #[case::rename_all_beside_other_options(
+        r#"#[serde(deny_unknown_fields, rename_all = "kebab-case")] struct S { a: bool }"#,
+        "does not support `#[serde(rename_all)]`"
+    )]
+    #[case::rename_all_in_a_second_attribute(
+        r#"#[serde(default)] #[serde(rename_all = "kebab-case")] struct S { a: bool }"#,
+        "does not support `#[serde(rename_all)]`"
+    )]
+    #[case::union("union U { a: bool }", "cannot be derived for unions")]
+    #[case::tuple_struct("struct S(bool);", "cannot be derived for tuple structs")]
+    #[case::newtype_struct("struct S(Inner);", "cannot be derived for tuple structs")]
+    fn expand_rejects(#[case] src: &str, #[case] expected: &str) {
+        let input: DeriveInput = syn::parse_str(src).expect("input parses");
+        let err = expand(&input).expect_err("input is rejected").to_string();
+        assert!(err.contains(expected), "unexpected error: {err}");
+    }
+
+    #[rstest]
+    #[case::unit_struct("struct S;")]
+    #[case::empty_struct("struct S {}")]
+    #[case::rename_all_fields_is_a_different_option(
+        r#"#[serde(rename_all_fields = "kebab-case")] enum E { A { b: bool } }"#
+    )]
+    #[case::rename_all_on_a_variant(
+        r#"enum E { #[serde(rename_all = "kebab-case")] A { b: bool } }"#
+    )]
+    #[case::non_serde_rename_all(r#"#[schemars(rename_all = "kebab-case")] struct S { a: bool }"#)]
+    fn expand_accepts(#[case] src: &str) {
+        let input: DeriveInput = syn::parse_str(src).expect("input parses");
+        expand(&input).expect("input is accepted");
+    }
+
+    #[rstest]
+    #[case::no_attributes("a: bool", "a")]
+    #[case::rename(r#"#[serde(rename = "renamed")] a: bool"#, "renamed")]
+    #[case::rename_after_a_valued_option(
+        r#"#[serde(default = "d", rename = "renamed")] a: bool"#,
+        "renamed"
+    )]
+    #[case::rename_after_a_bare_flag(r#"#[serde(default, rename = "renamed")] a: bool"#, "renamed")]
+    #[case::rename_in_a_second_attribute(
+        r#"#[serde(default)] #[serde(rename = "renamed")] a: bool"#,
+        "renamed"
+    )]
+    #[case::rename_without_a_value("#[serde(rename)] a: bool", "a")]
+    #[case::rename_with_a_non_string_value("#[serde(rename = 7)] a: bool", "a")]
+    #[case::other_namespace(r#"#[schemars(rename = "renamed")] a: bool"#, "a")]
+    #[case::unrelated_option(r#"#[serde(alias = "renamed")] a: bool"#, "a")]
+    fn field_name(#[case] src: &str, #[case] expected: &str) {
+        let field = parse_field(src);
+        let ident = field.ident.clone().expect("field is named");
+        assert_eq!(serde_field_name(&field, &ident), expected);
+    }
+
+    #[rstest]
+    #[case::bare_flag("#[serde(flatten)] a: bool", "flatten", true)]
+    #[case::flag_after_a_valued_option(
+        r#"#[serde(default = "d", flatten)] a: bool"#,
+        "flatten",
+        true
+    )]
+    #[case::flag_before_a_valued_option(
+        r#"#[serde(flatten, default = "d")] a: bool"#,
+        "flatten",
+        true
+    )]
+    #[case::flag_in_a_second_attribute("#[serde(default)] #[serde(skip)] a: bool", "skip", true)]
+    #[case::absent("#[serde(default)] a: bool", "flatten", false)]
+    #[case::prefix_of_another_option(
+        r#"#[serde(skip_serializing_if = "f")] a: bool"#,
+        "skip",
+        false
+    )]
+    #[case::other_namespace("#[schemars(flatten)] a: bool", "flatten", false)]
+    #[case::no_attributes("a: bool", "flatten", false)]
+    fn flag_is_set(#[case] src: &str, #[case] name: &str, #[case] expected: bool) {
+        assert_eq!(serde_flag_is_set(&parse_field(src).attrs, name), expected);
+    }
+}
