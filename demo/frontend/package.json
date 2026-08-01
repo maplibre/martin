@@ -10,12 +10,12 @@
     "debounce": "3.0.0",
     "maplibre-gl": "^5.23.0",
     "normalize.css": "8.0.1",
-    "react": "19.2.7",
+    "react": "19.2.8",
     "react-day-picker": "^10.0.1",
-    "react-dom": "19.2.7",
+    "react-dom": "19.2.8",
     "react-map-gl": "^8.1.1",
     "react-scroll-parallax": "3.5.0",
-    "styled-components": "6.4.3"
+    "styled-components": "6.4.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
