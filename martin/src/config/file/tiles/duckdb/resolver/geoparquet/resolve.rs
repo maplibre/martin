@@ -43,7 +43,7 @@ pub async fn resolve_geoparquet_source(
     let tilejson = build_tilejson(&introspection, entry, &source_id, &source_label, bounds);
     let source = DuckDBSource::new(
         source_id,
-        DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_string()),
+        DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_owned()),
         tilejson,
         pool,
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),

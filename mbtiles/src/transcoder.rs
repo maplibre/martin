@@ -33,9 +33,9 @@ const DEFAULT_CACHE_MAX_BYTES: u64 = 2 * 1024 * 1024;
 const DEFAULT_CHANNEL_BUFFER: usize = 4;
 
 /// Maximum time between forced flushes in the writer.
-const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
+const FLUSH_INTERVAL: Duration = Duration::from_mins(1);
 
-/// Conservative cap on bound parameters per statement. SQLite's default is
+/// Conservative cap on bound parameters per statement. `SQLite`'s default is
 /// 32766, but older builds capped at 999 - staying under that is free safety.
 const SQLITE_MAX_PARAMS: usize = 900;
 
@@ -173,7 +173,7 @@ where
         let dst_type = self.dst_type.unwrap_or(src_type);
         if matches!(src_type, MbtType::Cache) || matches!(dst_type, MbtType::Cache) {
             return Err(MbtError::TranscodeError(
-                "the cache schema is not supported for transcoding; copy it to a standard schema first".to_string(),
+                "the cache schema is not supported for transcoding; copy it to a standard schema first".to_owned(),
             ));
         }
 
@@ -229,8 +229,8 @@ where
     ///
     /// Each unique payload is encoded exactly once, then the writer streams
     /// directly into the destination - no staging temp table. For Flat /
-    /// FlatWithHash destinations, each insert joins against the source map
-    /// (via the attached `srcDb`) so SQLite expands one encoded tile to all
+    /// `FlatWithHash` destinations, each insert joins against the source map
+    /// (via the attached `srcDb`) so `SQLite` expands one encoded tile to all
     /// its (z, x, y) destinations in a single statement.
     async fn run_normalized_path(
         self,
@@ -428,7 +428,7 @@ where
 /// references it.
 ///
 /// For Flat/FlatWithHash destinations we bind each batch as a values-list CTE
-/// and JOIN it against `srcDb.<map>` in a single statement, letting SQLite do
+/// and JOIN it against `srcDb.<map>` in a single statement, letting `SQLite` do
 /// the fan-out without materializing intermediate rows.
 async fn normalized_writer(
     dst_conn: &mut SqliteConnection,
@@ -517,7 +517,7 @@ async fn normalized_writer(
 /// Write a single chunk of encoded unique tiles to the destination.
 ///
 /// Builds one multi-row INSERT for the chunk; for Flat/FlatWithHash the unique
-/// tiles are wrapped in a CTE and joined against the source map so SQLite does
+/// tiles are wrapped in a CTE and joined against the source map so `SQLite` does
 /// the fan-out as part of the same statement.
 async fn write_normalized_chunk(
     tx: &mut SqliteConnection,
@@ -742,9 +742,7 @@ where
     let entry = cache
         .entry(key)
         .or_try_insert_with(
-            || -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
-                Ok((transform)(data)?)
-            },
+            || -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> { (transform)(data) },
         )
         .inspect_err(|e| warn!(tile.coord = %coord, error = ?e, "Skipping tile"))
         .ok()?;
@@ -845,7 +843,7 @@ mod tests {
         (stats, conn, dst_file)
     }
 
-    /// Helper for tests needing a real source file (e.g. DedupId with
+    /// Helper for tests needing a real source file (e.g. `DedupId` with
     /// `WITHOUT ROWID` tables that conflict with shared-cache locking).
     async fn transcode_identity_file(
         src_script: &str,

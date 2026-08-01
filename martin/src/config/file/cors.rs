@@ -90,7 +90,7 @@ pub struct CorsProperties {
 
 #[cfg(feature = "unstable-schemas")]
 fn cors_origin_example() -> Vec<String> {
-    vec!["https://example.org".to_string()]
+    vec!["https://example.org".to_owned()]
 }
 
 impl Default for CorsProperties {

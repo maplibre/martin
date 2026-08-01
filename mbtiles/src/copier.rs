@@ -776,8 +776,7 @@ fn get_select_from_apply_patch(
          FROM {frm_db}.tiles)"
                 ),
                 Normalized {
-                    hash_view: true,
-                    schema: _,
+                    hash_view: true, ..
                 }
                 | FlatWithHash => format!("{frm_db}.tiles_with_hash"),
                 Normalized {
@@ -865,8 +864,7 @@ fn get_select_from_with_diff(
         diff_tiles = match dif_type {
             Flat | Cache => "diffDb.tiles".to_owned(),
             Normalized {
-                hash_view: true,
-                schema: _,
+                hash_view: true, ..
             }
             | FlatWithHash => "diffDb.tiles_with_hash".to_owned(),
             Normalized {

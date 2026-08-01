@@ -77,7 +77,7 @@ CREATE TABLE mvt_points (
 //creates a duckdb file pool for testing
 fn create_file_pool(path: &Path, pool_size: usize) -> DuckDBPool {
     DuckDBPool::new_database_file(
-        POOL_ID.to_string(),
+        POOL_ID.to_owned(),
         path.to_path_buf(),
         pool_size,
         NonZeroUsize::new(4),
@@ -87,7 +87,7 @@ fn create_file_pool(path: &Path, pool_size: usize) -> DuckDBPool {
 }
 //duckdb tile error helper function
 fn map_duckdb_error(e: duckdb::Error) -> DuckDBError {
-    DuckDBError::GetTileError(Box::new(e), POOL_ID.to_string(), XYZ)
+    DuckDBError::GetTileError(Box::new(e), POOL_ID.to_owned(), XYZ)
 }
 
 // a simple query for testing purposes
@@ -99,13 +99,13 @@ fn row_count(conn: &mut Connection) -> DuckDBResult<i64> {
 // creates a duckdb file source for testing
 fn create_source(path: &Path, sql_query: &str) -> DuckDBSource {
     DuckDBSource::new(
-        SOURCE_ID.to_string(),
-        DuckDBSqlInfo::new(sql_query.to_string(), false, "z, x, y".to_string()),
+        SOURCE_ID.to_owned(),
+        DuckDBSqlInfo::new(sql_query.to_owned(), false, "z, x, y".to_owned()),
         tilejson! {
-            "http://example.test/tiles/{z}/{x}/{y}.mvt".to_string(),
+            "http://example.test/tiles/{z}/{x}/{y}.mvt".to_owned(),
             minzoom: 1,
             maxzoom: 10,
-            name: "DuckDB Test".to_string(),
+            name: "DuckDB Test".to_owned(),
         },
         create_file_pool(path, 2),
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),

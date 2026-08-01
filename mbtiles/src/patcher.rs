@@ -123,8 +123,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
                 .to_owned(),
             FlatWithHash
             | Normalized {
-                schema: _,
-                hash_view: true,
+                hash_view: true, ..
             } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"

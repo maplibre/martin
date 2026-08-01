@@ -140,7 +140,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<CogConfig>,
 
-    /// Publish DuckDB / GeoParquet sources (unstable)
+    /// Publish `DuckDB` / `GeoParquet` sources (unstable)
     #[cfg(feature = "unstable-duckdb")]
     #[serde(default, skip_serializing_if = "DuckDbConfig::is_empty")]
     pub duckdb: DuckDbConfig,

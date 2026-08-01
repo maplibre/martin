@@ -92,7 +92,7 @@ pub(crate) mod pg {
     }
 }
 
-/// DuckDB shared test helpers.
+/// `DuckDB` shared test helpers.
 ///
 /// Creates a writable temp database file before opening the read-only [`DuckDBPool`]
 #[cfg(feature = "unstable-duckdb")]
@@ -126,7 +126,7 @@ pub(crate) mod duckdb {
 
         /// Opens a read-only pool against the prepared database file.
         pub(crate) fn read_only_pool(&self, id: &str, pool_size: usize) -> DuckDBPool {
-            DuckDBPool::new_database_file(id.to_string(), self.path.clone(), pool_size, None, None)
+            DuckDBPool::new_database_file(id.to_owned(), self.path.clone(), pool_size, None, None)
                 .expect("read-only DuckDB pool")
         }
     }

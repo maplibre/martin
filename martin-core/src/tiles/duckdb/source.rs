@@ -134,7 +134,7 @@ fn execute_tile_query(
         .prepare_cached(sql)
         .map_err(|source| PrepareQueryError {
             source: source.into(),
-            source_id: source_id.to_string(),
+            source_id: source_id.to_owned(),
             signature: info.signature.clone(),
             query: info.sql_query.clone(),
         })?;
@@ -146,7 +146,7 @@ fn execute_tile_query(
             |row| row.get::<_, Option<TileData>>(0),
         )
         .optional()
-        .map_err(|e| GetTileError(e.into(), source_id.to_string(), xyz))?
+        .map_err(|e| GetTileError(e.into(), source_id.to_owned(), xyz))?
         .flatten()
         .unwrap_or_default();
 

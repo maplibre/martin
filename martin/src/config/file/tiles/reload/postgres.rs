@@ -199,7 +199,7 @@ mod e2e {
     fn published(tsm: &TileSourceManager) -> bool {
         tsm.tile_sources()
             .source_names()
-            .contains(&"reload_e2e".to_string())
+            .contains(&"reload_e2e".to_owned())
     }
 
     /// The fields the published source advertises (its table's non-geometry columns).

@@ -8,7 +8,7 @@ use url::Url;
 use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
 use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
 
-/// Resolved GeoParquet location after finalize: a concrete local file or an http(s) URL.
+/// Resolved `GeoParquet` location after finalize: a concrete local file or an http(s) URL.
 ///
 /// Directories are not represented here; discovery (later) must expand them into
 /// [`GeoParquetLocation::Local`] file entries before resolve/SQL.
@@ -37,7 +37,7 @@ impl GeoParquetLocation {
         Ok(Self::Local(canonical))
     }
 
-    /// Canonical path or URL string for IdResolver keys and `read_parquet`.
+    /// Canonical path or URL string for `IdResolver` keys and `read_parquet`.
     #[must_use]
     pub fn to_source_string(&self) -> String {
         match self {
@@ -59,7 +59,7 @@ impl GeoParquetLocation {
         };
         stem.filter(|value| !value.is_empty())
             .unwrap_or("duckdb")
-            .to_string()
+            .to_owned()
     }
 }
 
@@ -67,7 +67,7 @@ impl GeoParquetLocation {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoParquetEntry {
-    /// Local path or remote URL of the GeoParquet source (wire / saved-config form).
+    /// Local path or remote URL of the `GeoParquet` source (wire / saved-config form).
     pub geoparquet: String,
     /// Typed location filled by [`GeoParquetEntry::finalize`]. Not serialized.
     #[serde(skip)]
