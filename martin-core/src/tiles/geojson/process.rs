@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use geo::{BoundingRect as _, MapCoords as _};
 use geo_index::rtree::sort::HilbertSort;
 use geo_index::rtree::{RTree, RTreeBuilder};
@@ -20,19 +22,36 @@ pub(crate) struct PreparedFeature<T: geo_types::CoordNum = f64> {
     pub(crate) properties: Option<Map<String, JsonValue>>,
 }
 
-/// Features ready to serve, their spatial index, and the data bounding box in Web Mercator
-/// (`None` when no feature contributed a geometry).
-type Preprocessed = (
-    Vec<PreparedFeature>,
-    RTree<f64>,
-    Option<geo_types::Rect<f64>>,
-);
+/// A `GeoJSON` document turned into everything the source needs to answer tile and `TileJSON` requests.
+pub(crate) struct Preprocessed {
+    /// Features ready to serve, in Web Mercator.
+    pub(crate) features: Vec<PreparedFeature>,
+    /// Spatial index over every feature's bounding box.
+    pub(crate) rtree: RTree<f64>,
+    /// The data bounding box in Web Mercator, `None` when no feature contributed a geometry.
+    pub(crate) bounds: Option<geo_types::Rect<f64>>,
+    /// Every property name the features carry, mapped to the MVT type it encodes as.
+    pub(crate) fields: BTreeMap<String, String>,
+}
+
+/// The MVT value type `value` encodes as, in the vocabulary `TileJSON`'s `vector_layers[].fields` uses.
+/// `None` for a null, which [`add_properties`] omits from the tile.
+fn field_type(value: &JsonValue) -> Option<&'static str> {
+    match value {
+        JsonValue::Null => None,
+        JsonValue::Bool(_) => Some("Boolean"),
+        JsonValue::Number(_) => Some("Number"),
+        // Arrays and objects are serialized to a JSON string, matching `add_properties`.
+        JsonValue::String(_) | JsonValue::Array(_) | JsonValue::Object(_) => Some("String"),
+    }
+}
 
 /// Preprocess a parsed `GeoJSON` document into features ready to serve.
 ///
 /// 1. Keep only features that carry a geometry.
 /// 2. Reproject geometries from WGS84 to Web Mercator.
 /// 3. Index every geometry's bounding box in a packed Hilbert R-tree.
+/// 4. Collect the property names across all features, so `TileJSON` can advertise them.
 pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError> {
     let raw = match geojson {
         GeoJson::FeatureCollection(fc) => fc
@@ -46,6 +65,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
 
     let mut features = Vec::with_capacity(raw.len());
     let mut bboxes = Vec::with_capacity(raw.len());
+    let mut fields = BTreeMap::new();
     for (geometry, properties) in raw {
         let geom = geo_types::Geometry::<f64>::try_from(geometry.value)
             .map_err(|e| GeoJsonError::GeoJsonError(Box::new(e)))?;
@@ -57,6 +77,15 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
         let Some(bbox) = geom.bounding_rect() else {
             continue;
         };
+        // GeoJSON does not constrain a property to one type across features, so the first
+        // feature that carries a non-null value decides the type advertised for it.
+        for (key, value) in properties.iter().flatten() {
+            if let Some(field_type) = field_type(value) {
+                fields
+                    .entry(key.clone())
+                    .or_insert_with(|| field_type.to_string());
+            }
+        }
         let (min, max) = (bbox.min(), bbox.max());
         bboxes.push([min.x, min.y, max.x, max.y]);
         features.push(PreparedFeature { geom, properties });
@@ -89,7 +118,12 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
             )
         });
 
-    Ok((features, tree, data_bounds))
+    Ok(Preprocessed {
+        features,
+        rtree: tree,
+        bounds: data_bounds,
+        fields,
+    })
 }
 
 pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {

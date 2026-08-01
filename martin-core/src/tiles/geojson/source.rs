@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::num::NonZeroU32;
 use std::path::PathBuf;
@@ -10,13 +11,15 @@ use geojson::GeoJson;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
 use mlt_core::fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use rayon::prelude::*;
-use tilejson::{Bounds, Center, TileJSON};
+use tilejson::{Bounds, Center, TileJSON, VectorLayer};
 use tokio::fs::{self};
 use tracing::trace;
 
 use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::geojson::process::{PreparedFeature, add_properties, preprocess_geojson};
+use crate::tiles::geojson::process::{
+    PreparedFeature, Preprocessed, add_properties, preprocess_geojson,
+};
 use crate::tiles::geojson::rect::Rect;
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
@@ -62,7 +65,24 @@ impl GeoJsonSource {
             .parse::<GeoJson>()
             .map_err(|err| GeoJsonError::GeoJsonError(Box::new(err)))?;
 
-        let (features, rtree, bounds) = preprocess_geojson(geojson)?;
+        let Preprocessed {
+            features,
+            rtree,
+            bounds,
+            fields,
+        } = preprocess_geojson(geojson)?;
+
+        // Every tile is encoded as a single layer named after the source, so that is the one
+        // vector layer to advertise. Clients such as maplibre-gl-inspect build their layers
+        // purely from this list and render nothing when it is absent.
+        let layer = VectorLayer {
+            id: id.clone(),
+            fields,
+            description: None,
+            maxzoom: None,
+            minzoom: None,
+            other: BTreeMap::default(),
+        };
 
         // The data bounding box is in Web Mercator; reproject its corners back to WGS84
         // so TileJSON advertises the area covered. An empty source has no bounds.
@@ -71,6 +91,7 @@ impl GeoJsonSource {
             let (max_lng, max_lat) = webmercator_to_wgs84(bounds.max().x, bounds.max().y);
             tilejson::tilejson! {
                 tiles: vec![],
+                vector_layers: vec![layer],
                 bounds: Bounds::new(min_lng, min_lat, max_lng, max_lat),
                 center: Center {
                     longitude: f64::midpoint(min_lng, max_lng),
@@ -81,6 +102,7 @@ impl GeoJsonSource {
         } else {
             tilejson::tilejson! {
                 tiles: vec![],
+                vector_layers: vec![layer],
             }
         };
 
@@ -258,6 +280,7 @@ fn flatten_geometry_collections<T: geo_types::CoordNum>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     use mlt_core::fast_mvt::MvtReaderRef;
@@ -338,11 +361,98 @@ mod tests {
         assert_eq!(center.zoom, 0);
     }
 
+    #[tokio::test]
+    async fn tilejson_advertises_the_layer_named_after_the_source() {
+        let path = fixtures_dir().join("feature_collection_1.geojson");
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let source = GeoJsonSource::new(
+            "test-source-1".to_string(),
+            path,
+            CacheZoomRange::default(),
+            extent,
+            64,
+        )
+        .await
+        .unwrap();
+
+        let layers = source
+            .get_tilejson()
+            .vector_layers
+            .as_ref()
+            .expect("vector_layers should be set");
+        assert_eq!(layers.len(), 1);
+        assert_eq!(layers[0].id, "test-source-1");
+        assert_eq!(
+            layers[0].fields,
+            BTreeMap::from([("id".to_string(), "Number".to_string())])
+        );
+    }
+
+    #[tokio::test]
+    async fn tilejson_fields_name_every_property_type() {
+        let path = fixtures_dir().join("properties.geojson");
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let source = GeoJsonSource::new(
+            "props".to_string(),
+            path,
+            CacheZoomRange::default(),
+            extent,
+            64,
+        )
+        .await
+        .unwrap();
+
+        let layers = source
+            .get_tilejson()
+            .vector_layers
+            .as_ref()
+            .expect("vector_layers should be set");
+        assert_eq!(
+            layers[0].fields,
+            BTreeMap::from([
+                ("prop_array".to_string(), "String".to_string()),
+                ("prop_bool_false".to_string(), "Boolean".to_string()),
+                ("prop_bool_true".to_string(), "Boolean".to_string()),
+                ("prop_float".to_string(), "Number".to_string()),
+                ("prop_int_negative".to_string(), "Number".to_string()),
+                ("prop_object".to_string(), "String".to_string()),
+                ("prop_string".to_string(), "String".to_string()),
+                ("prop_uint_large".to_string(), "Number".to_string()),
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn tilejson_advertises_a_layer_even_without_features() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let path = dir.path().join("empty.geojson");
+        std::fs::write(&path, r#"{"type":"FeatureCollection","features":[]}"#)
+            .expect("the fixture is written");
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let source = GeoJsonSource::new(
+            "empty".to_string(),
+            path,
+            CacheZoomRange::default(),
+            extent,
+            64,
+        )
+        .await
+        .unwrap();
+
+        let layers = source
+            .get_tilejson()
+            .vector_layers
+            .as_ref()
+            .expect("vector_layers should be set");
+        assert_eq!(layers.len(), 1);
+        assert_eq!(layers[0].id, "empty");
+        assert!(layers[0].fields.is_empty());
+    }
+
     #[test]
     fn empty_feature_collection_has_no_bounds() {
         // No feature contributes a geometry, so there is no extent to advertise.
         let geojson = r#"{"type":"FeatureCollection","features":[]}"#.parse::<GeoJson>().unwrap();
-        let (_features, _rtree, bounds) = preprocess_geojson(geojson).unwrap();
-        assert!(bounds.is_none());
+        assert!(preprocess_geojson(geojson).unwrap().bounds.is_none());
     }
 }
