@@ -125,9 +125,7 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
-          # rust-cache keys on the job id, not on matrix values, so without this
-          # all four partitions share one entry and restore each other's artifacts.
-          key: ${{ matrix.partition }}
+          key: check-${{ matrix.partition }}
       - run: just check --partition ${{ matrix.partition }}
   validate-schemas:
     name: Validate generated config + OpenAPI schemas
