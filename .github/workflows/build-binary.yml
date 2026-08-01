@@ -62,6 +62,11 @@ jobs:
       # We cannot cache the others as well because we only have 10GB of cache
       - if: inputs.use_cache
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          # The key carries the runner's OS/arch and the (shared) reusable-workflow
+          # job id, so the several targets built on Linux x64 need the triple to
+          # tell their caches apart.
+          key: ${{ inputs.target }}
       - name: Rust Versions
         run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows

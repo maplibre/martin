@@ -34,5 +34,5 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
         with: { toolchain: nightly-2026-07-12, tools: 'cargo-shear,just', rendering: true }
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       - run: just shear --expand
