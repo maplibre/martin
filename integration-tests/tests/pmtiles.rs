@@ -237,8 +237,12 @@ async fn statics_serving(name: &str) -> StaticFiles {
 
 #[tokio::test]
 async fn a_source_url_is_read_over_http() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = tmp.path().join("save_config.yaml");
     let statics = statics_serving("webp2.pmtiles").await;
     let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
         .arg(statics.url("webp2.pmtiles"))
         .start()
         .await
@@ -252,6 +256,16 @@ async fn a_source_url_is_read_over_http() {
       }
     }
     "#);
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::with_settings!({filters => vec![(r"http://127\.0\.0\.1:\d+", "http://[STATICS]")]}, {
+        insta::assert_snapshot!(saved, @r"
+        listen_addresses: 127.0.0.1:0
+        pmtiles:
+          sources:
+            webp2: http://[STATICS]/webp2.pmtiles
+        ");
+    });
 
     let tile = martin.get("/webp2/1/0/0").await;
     assert_eq!(tile.status(), 200);
@@ -458,7 +472,11 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
 
 #[tokio::test]
 async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = tmp.path().join("save_config.yaml");
     let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
         .arg("s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles")
         .start()
         .await
@@ -488,6 +506,14 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name, "zcta");
     assert_eq!(layers[0].features.len(), 6523);
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
+    pmtiles:
+      sources:
+        cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
+    ");
 
     martin.stop().await;
     martin.assert_startup_warnings();
