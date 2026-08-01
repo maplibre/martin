@@ -160,7 +160,7 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 tempfile = "3.21.0"
 test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
