@@ -338,8 +338,6 @@ fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
     );
 }
 
-/// The `s3://` scheme reaches [`StaticFiles`] rather than AWS: path-style addressing turns the
-/// bucket into the first path segment, and unsigned requests keep credentials out of it.
 #[tokio::test]
 async fn a_configured_source_is_read_from_an_s3_bucket() {
     let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
@@ -455,6 +453,44 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
+    let mut martin = Martin::builder()
+        .arg("s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "cb_2018_us_zcta510_500k": {
+        "content_encoding": "gzip",
+        "content_type": "application/x-protobuf",
+        "description": "cb_2018_us_zcta510_500k.mbtiles",
+        "name": "cb_2018_us_zcta510_500k.mbtiles"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/cb_2018_us_zcta510_500k/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    content-encoding: gzip
+    content-length: 215320
+    content-type: application/x-protobuf
+    etag: "5_Cffo9I87z38gagDXRhRA"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    let layers = tile.mvt().layers;
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name, "zcta");
+    assert_eq!(layers[0].features.len(), 6523);
+
+    martin.stop().await;
+    martin.assert_startup_warnings();
     martin.assert_log_clean();
 }
 
