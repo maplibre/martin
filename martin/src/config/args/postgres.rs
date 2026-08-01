@@ -155,17 +155,17 @@ impl PostgresArgs {
         if self.default_srid.is_some() {
             return self.default_srid;
         }
-        env.get_env_str("DEFAULT_SRID")
-            .and_then(|srid| match srid.parse::<i32>() {
-                Ok(v) => {
-                    info!("Using env var DEFAULT_SRID={v} to set default SRID");
-                    Some(v)
-                }
-                Err(v) => {
-                    warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
-                    None
-                }
-            })
+        let srid = env.get_env_str("DEFAULT_SRID")?;
+        match srid.parse::<i32>() {
+            Ok(v) => {
+                info!("Using env var DEFAULT_SRID={v} to set default SRID");
+                Some(v)
+            }
+            Err(v) => {
+                warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
+                None
+            }
+        }
     }
 
     fn get_certs(&self, env: &impl Env) -> PostgresSslCerts {

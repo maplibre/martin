@@ -354,19 +354,17 @@ impl Mbtiles {
         let filepath = self.filepath.clone();
 
         Box::pin(stream.map(move |result| {
-            result.map_err(MbtError::from).and_then(|row| {
-                let z = row.zoom_level;
-                let x = row.tile_column;
-                let y = row.tile_row;
-                let coord =
-                    parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
-                        filepath: filepath.clone(),
-                        zoom_level: format!("{z:?}"),
-                        tile_column: format!("{x:?}"),
-                        tile_row: format!("{y:?}"),
-                    })?;
-                Ok(coord)
-            })
+            let row = result.map_err(MbtError::from)?;
+            let z = row.zoom_level;
+            let x = row.tile_column;
+            let y = row.tile_row;
+            let coord = parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
+                filepath: filepath.clone(),
+                zoom_level: format!("{z:?}"),
+                tile_column: format!("{x:?}"),
+                tile_row: format!("{y:?}"),
+            })?;
+            Ok(coord)
         }))
     }
 
@@ -395,19 +393,17 @@ impl Mbtiles {
         let filepath = self.filepath.clone();
 
         Box::pin(stream.map(move |result| {
-            result.map_err(MbtError::from).and_then(|row| {
-                let z = row.zoom_level;
-                let x = row.tile_column;
-                let y = row.tile_row;
-                let coord =
-                    parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
-                        filepath: filepath.clone(),
-                        zoom_level: format!("{z:?}"),
-                        tile_column: format!("{x:?}"),
-                        tile_row: format!("{y:?}"),
-                    })?;
-                Ok((coord, row.tile_data))
-            })
+            let row = result.map_err(MbtError::from)?;
+            let z = row.zoom_level;
+            let x = row.tile_column;
+            let y = row.tile_row;
+            let coord = parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
+                filepath: filepath.clone(),
+                zoom_level: format!("{z:?}"),
+                tile_column: format!("{x:?}"),
+                tile_row: format!("{y:?}"),
+            })?;
+            Ok((coord, row.tile_data))
         }))
     }
 
