@@ -168,11 +168,11 @@ mod tests {
         Ok(Box::new(TestSource {
             id,
             tj: tilejson! {
-                tilejson: "3.0.0".to_string(),
-                tiles: vec!["https://maplibre.org".to_string()],
+                tilejson: "3.0.0".to_owned(),
+                tiles: vec!["https://maplibre.org".to_owned()],
                 attribution: String::new(),
-                name: "test_json".to_string(),
-                scheme: "xyz".to_string(),
+                name: "test_json".to_owned(),
+                scheme: "xyz".to_owned(),
             },
         }))
     }

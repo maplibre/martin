@@ -83,7 +83,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
             if let Some(field_type) = field_type(value) {
                 fields
                     .entry(key.clone())
-                    .or_insert_with(|| field_type.to_string());
+                    .or_insert_with(|| field_type.to_owned());
             }
         }
         let (min, max) = (bbox.min(), bbox.max());
@@ -91,8 +91,8 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
         features.push(PreparedFeature { geom, properties });
     }
 
-    let feature_count =
-        u32::try_from(features.len()).map_err(|_| GeoJsonError::TooManyFeatures(features.len()))?;
+    let feature_count = u32::try_from(features.len())
+        .map_err(|_err| GeoJsonError::TooManyFeatures(features.len()))?;
     let mut builder = RTreeBuilder::<f64>::new(feature_count);
     for bbox in &bboxes {
         builder.add(bbox[0], bbox[1], bbox[2], bbox[3]);

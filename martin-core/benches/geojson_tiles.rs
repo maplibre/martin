@@ -74,7 +74,7 @@ fn bench_geojson(c: &mut Criterion) {
     c.bench_function("build_source", |b| {
         b.to_async(&rt).iter(|| async {
             let source = GeoJsonSource::new(
-                "bench".to_string(),
+                "bench".to_owned(),
                 path.clone(),
                 CacheZoomRange::default(),
                 extent,
@@ -89,7 +89,7 @@ fn bench_geojson(c: &mut Criterion) {
     // Fetch path: source built once, so only `get_tile` (search + clip + transform + encode) is timed.
     let source = rt
         .block_on(GeoJsonSource::new(
-            "bench".to_string(),
+            "bench".to_owned(),
             path.clone(),
             CacheZoomRange::default(),
             extent,

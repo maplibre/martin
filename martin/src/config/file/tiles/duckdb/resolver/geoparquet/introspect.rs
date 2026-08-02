@@ -7,7 +7,7 @@ use crate::config::file::tiles::duckdb::resolver::errors::{GeoparquetError, Geop
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sql_string};
 
-/// Column metadata discovered from a GeoParquet file.
+/// Column metadata discovered from a `GeoParquet` file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GeoParquetIntrospection {
     pub geometry_column: String,
@@ -15,7 +15,7 @@ pub struct GeoParquetIntrospection {
     pub property_columns: BTreeMap<String, String>,
 }
 
-/// Builds the DuckDB `FROM` expression from the finalized location.
+/// Builds the `DuckDB` `FROM` expression from the finalized location.
 pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
     let source = entry
         .location
@@ -42,10 +42,10 @@ pub(crate) async fn introspect(
         .collect::<Vec<_>>();
     let geometry_column = select_geometry_column(entry, &geometry_columns, &all_columns)?;
 
-    if let Some(id_column) = &entry.id_column {
-        if !all_columns.contains_key(id_column) {
-            return Err(GeoparquetError::IdColumnNotFound(id_column.clone()));
-        }
+    if let Some(id_column) = &entry.id_column
+        && !all_columns.contains_key(id_column)
+    {
+        return Err(GeoparquetError::IdColumnNotFound(id_column.clone()));
     }
 
     let property_columns = all_columns
@@ -61,7 +61,7 @@ pub(crate) async fn introspect(
         Some(srid) => NonZeroI32::new(srid).ok_or_else(|| {
             GeoparquetError::SridNonPositive(
                 geometry_column.clone(),
-                "(configuration)".to_string(),
+                "(configuration)".to_owned(),
                 srid,
             )
         })?,
@@ -112,14 +112,14 @@ async fn query_columns(
 ) -> GeoparquetResult<BTreeMap<String, String>> {
     let query = format!("DESCRIBE SELECT * FROM {from_expr}");
     let query_for_error = query.clone();
-    let source_label = source_label.to_string();
+    let source_label = source_label.to_owned();
 
     pool.generate_tile(move |conn| {
         Ok(conn.prepare(&query).and_then(|mut stmt| {
-            stmt.query_map([], |row| {
+            let rows = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            })?;
+            rows.collect::<Result<Vec<_>, _>>()
         }))
     })
     .await?
@@ -143,8 +143,8 @@ async fn query_srid(
          LIMIT 1"
     );
     let query_for_error = query.clone();
-    let source_label = source_label.to_string();
-    let geometry_column = geometry_column.to_string();
+    let source_label = source_label.to_owned();
+    let geometry_column = geometry_column.to_owned();
 
     let crs = pool
         .generate_tile(move |conn| {
@@ -166,10 +166,10 @@ async fn query_srid(
 }
 
 pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetResult<NonZeroI32> {
-    let geometry_column = geometry_column.to_string();
+    let geometry_column = geometry_column.to_owned();
     let crs = crs.trim();
     if crs.is_empty() {
-        return Err(GeoparquetError::SridEmpty(geometry_column, crs.to_string()));
+        return Err(GeoparquetError::SridEmpty(geometry_column, crs.to_owned()));
     }
 
     if crs.eq_ignore_ascii_case("OGC:CRS84") {
@@ -182,17 +182,17 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
     else {
         return Err(GeoparquetError::SridUnsupportedCrs(
             geometry_column,
-            crs.to_string(),
+            crs.to_owned(),
         ));
     };
 
     let srid = auth_code.parse::<i32>().map_err(|_| {
-        GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_string())
+        GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_owned())
     })?;
 
     NonZeroI32::new(srid).ok_or(GeoparquetError::SridNonPositive(
         geometry_column,
-        crs.to_string(),
+        crs.to_owned(),
         srid,
     ))
 }

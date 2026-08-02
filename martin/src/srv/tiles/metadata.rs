@@ -61,7 +61,7 @@ pub async fn get_source_info(
             .or(req.headers().get("X-Forwarded-Prefix"))
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
-            .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
+            .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
     };
 
     let version_param = &srv_config.tilejson_url_version_param;
@@ -86,7 +86,7 @@ pub async fn get_source_info(
         None
     };
     let query_string = req.query_string();
-    let mut query = form_urlencoded::Serializer::new(query_string.to_string());
+    let mut query = form_urlencoded::Serializer::new(query_string.to_owned());
     if let Some((k, v)) = versions {
         query.append_pair(k, &v);
     }
@@ -216,20 +216,20 @@ pub mod tests {
     use crate::srv::tiles::tests::TestSource;
 
     #[test]
-    fn test_merge_tilejson() {
-        let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_string();
+    fn merges_tilejson() {
+        let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_owned();
         let src1 = TestSource {
             id: "id",
             tj: tilejson! {
                 tiles: vec![],
-                name: "layer1".to_string(),
+                name: "layer1".to_owned(),
                 minzoom: 5,
                 maxzoom: 10,
                 bounds: Bounds::new(-10.0, -20.0, 10.0, 20.0),
                 vector_layers: vec![
-                    VectorLayer::new("layer1".to_string(),
+                    VectorLayer::new("layer1".to_owned(),
                     BTreeMap::from([
-                        ("a".to_string(), "x1".to_string()),
+                        ("a".to_owned(), "x1".to_owned()),
                     ]))
                 ],
             },
@@ -249,14 +249,14 @@ pub mod tests {
             id: "id",
             tj: tilejson! {
                 tiles: vec![],
-                name: "layer2".to_string(),
+                name: "layer2".to_owned(),
                 minzoom: 7,
                 maxzoom: 12,
                 bounds: Bounds::new(-20.0, -5.0, 5.0, 50.0),
                 vector_layers: vec![
-                    VectorLayer::new("layer2".to_string(),
+                    VectorLayer::new("layer2".to_owned(),
                     BTreeMap::from([
-                        ("b".to_string(), "x2".to_string()),
+                        ("b".to_owned(), "x2".to_owned()),
                     ]))
                 ],
             },
@@ -266,7 +266,7 @@ pub mod tests {
 
         let tj = merge_tilejson(&[Box::new(src1.clone()), Box::new(src2)], url.clone());
         assert_eq!(tj.tiles, vec![url]);
-        assert_eq!(tj.name, Some("layer1,layer2".to_string()));
+        assert_eq!(tj.name, Some("layer1,layer2".to_owned()));
         assert_eq!(tj.minzoom, Some(5));
         assert_eq!(tj.maxzoom, Some(12));
         assert_eq!(tj.bounds, Some(Bounds::new(-20.0, -20.0, 10.0, 50.0)));
@@ -274,12 +274,12 @@ pub mod tests {
             tj.vector_layers,
             Some(vec![
                 VectorLayer::new(
-                    "layer1".to_string(),
-                    BTreeMap::from([("a".to_string(), "x1".to_string())])
+                    "layer1".to_owned(),
+                    BTreeMap::from([("a".to_owned(), "x1".to_owned())])
                 ),
                 VectorLayer::new(
-                    "layer2".to_string(),
-                    BTreeMap::from([("b".to_string(), "x2".to_string())])
+                    "layer2".to_owned(),
+                    BTreeMap::from([("b".to_owned(), "x2".to_owned())])
                 ),
             ])
         );

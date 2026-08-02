@@ -10,7 +10,7 @@ use martin_tile_utils::{
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::Tag::{self};
+use tiff::tags::Tag;
 use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
@@ -162,10 +162,10 @@ impl CogSource {
         };
         tilejson
             .other
-            .insert("tileSize".to_string(), Value::from(tile_size));
+            .insert("tileSize".to_owned(), Value::from(tile_size));
         tilejson
             .other
-            .insert("format".to_string(), Value::from(output_format.to_string()));
+            .insert("format".to_owned(), Value::from(output_format.to_string()));
 
         Ok(Self {
             id,
@@ -340,13 +340,13 @@ fn verify_requirements(
              =>
         {
             if pixel_scale.len() != 3 {
-                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of pixel scale should be 3".to_string()))
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of pixel scale should be 3".to_owned()))
             }
             else if (pixel_scale[0].abs() - pixel_scale[1].abs()).abs() > 0.01{
                 Err(CogError::NonSquaredImage(path.to_path_buf(), pixel_scale[0], pixel_scale[1]))
             }
             else if tie_points.len() % 6 != 0 {
-                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of tie points should be a multiple of 6".to_string()))
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The count of tie points should be a multiple of 6".to_owned()))
             }else{
                 Ok(())
             }
@@ -356,16 +356,16 @@ fn verify_requirements(
             if matrix.len() == 16 {
                 Ok(())
             } else {
-                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_string()))
+                Err(CogError::InvalidGeoInformation(path.to_path_buf(), "The length of matrix should be 16".to_owned()))
             }
         },
-            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_string())),
+            _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_owned())),
     }?;
 
     if model.projected_crs.is_none_or(|crs| crs != 3857u16) {
         return Err(CogError::InvalidGeoInformation(
             path.to_path_buf(),
-            "The projected coordinate reference system must be EPSG:3857".to_string(),
+            "The projected coordinate reference system must be EPSG:3857".to_owned(),
         ));
     }
 
@@ -409,18 +409,12 @@ fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option
     let tile_size_mercator_metres = f64::from(tile_size) * resolution;
     let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).round();
     let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).round();
-    let tile_origin_x = if xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX) {
-        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        Some(xf as u32)
-    } else {
-        None
-    }?;
-    let tile_origin_y = if yf.is_finite() && yf >= 0.0 && yf <= f64::from(u32::MAX) {
-        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        Some(yf as u32)
-    } else {
-        None
-    }?;
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+    let tile_origin_x =
+        (xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX)).then_some(xf as u32)?;
+    #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+    let tile_origin_y =
+        (yf.is_finite() && yf >= 0.0 && yf <= f64::from(u32::MAX)).then_some(yf as u32)?;
 
     Some((tile_origin_x, tile_origin_y))
 }
@@ -583,7 +577,7 @@ mod tests {
     use crate::tiles::cog::CogSource;
 
     #[rstest]
-    #[case("usda_naip_256_lzw_z3".to_string(), Center {
+    #[case("usda_naip_256_lzw_z3".to_owned(), Center {
         longitude: -121.346_740_722_656_22,
         latitude: 41.967_659_203_678_16,
         zoom: 17,
@@ -593,7 +587,7 @@ mod tests {
         right: -121.343_994_140_624_97,
         bottom: 41.963_574_782_225_15,
     }, 16, 18, 256, "png")]
-    #[case("usda_naip_512_deflate_z2".to_string(), Center {
+    #[case("usda_naip_512_deflate_z2".to_owned(), Center {
         longitude: -121.346_740_722_656_22,
         latitude: 41.967_659_203_678_16,
         zoom: 16,
@@ -603,7 +597,7 @@ mod tests {
         right: -121.343_994_140_624_97,
         bottom: 41.963_574_782_225_15,
     }, 16, 17, 512, "png")]
-    #[case("usda_naip_512_jpeg_z5".to_string(), Center {
+    #[case("usda_naip_512_jpeg_z5".to_owned(), Center {
         longitude: -121.354_980_468_749_96,
         latitude: 41.967_659_203_678_146,
         zoom: 15,
@@ -613,7 +607,7 @@ mod tests {
         right: -121.333_007_812_499_96,
         bottom: 41.934_976_500_546_576,
     }, 13, 17, 512, "jpeg")]
-    #[case("usda_naip_512_webp_z5".to_string(), Center {
+    #[case("usda_naip_512_webp_z5".to_owned(), Center {
         longitude: -121.354_980_468_749_96,
         latitude: 41.967_659_203_678_146,
         zoom: 15,
@@ -623,7 +617,7 @@ mod tests {
         right: -121.333_007_812_499_96,
         bottom: 41.934_976_500_546_576,
     }, 13, 17, 512, "webp")]
-    #[case("usda_naip_128_none_z2".to_string(), Center {
+    #[case("usda_naip_128_none_z2".to_owned(), Center {
         longitude: -121.343_650_817_871_05,
         latitude: 41.968_680_268_127_26,
         zoom: 18,

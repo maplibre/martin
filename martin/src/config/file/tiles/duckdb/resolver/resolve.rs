@@ -12,7 +12,7 @@ use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
 use crate::config::file::{CachePolicy, ResolutionResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
-/// One resolved DuckDB source entry: a live source, or a per-source warning.
+/// One resolved `DuckDB` source entry: a live source, or a per-source warning.
 type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>;
 
 fn resolve_database_entry(entry: &DuckDbDatabaseEntry, id_resolver: &IdResolver) -> ResolvedSource {
@@ -101,7 +101,7 @@ fn resolve_source_entry(
 }
 
 impl DuckDbConfig {
-    /// Resolve configured DuckDB sources into live tile sources.
+    /// Resolve configured `DuckDB` sources into live tile sources.
     pub async fn resolve(
         &mut self,
         id_resolver: IdResolver,

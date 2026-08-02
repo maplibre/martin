@@ -15,7 +15,7 @@ pub(crate) fn build_tilejson(
     let layer_id = entry
         .layer_id
         .clone()
-        .unwrap_or_else(|| source_id.to_string());
+        .unwrap_or_else(|| source_id.to_owned());
 
     let layer = VectorLayer {
         id: layer_id,
@@ -29,7 +29,7 @@ pub(crate) fn build_tilejson(
     let mut tilejson = tilejson! {
         tiles: vec![],
         vector_layers: vec![layer],
-        name: source_id.to_string(),
+        name: source_id.to_owned(),
         description: format!("GeoParquet ({source_label})"),
     };
     tilejson.minzoom = entry.minzoom;

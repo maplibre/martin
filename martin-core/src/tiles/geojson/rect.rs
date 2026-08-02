@@ -183,7 +183,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_transform_to_tile_coordinates() {
+    fn transform_to_tile_coordinates() {
         let point = [1_962_772.0, 6_300_000.0];
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let mut rect = Rect::from_xyz(70, 43, 7, extent, 256);

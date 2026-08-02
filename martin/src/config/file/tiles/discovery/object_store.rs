@@ -117,7 +117,7 @@ impl Discovery for ObjectStoreDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
         self.config
-            .new_sources_url(id.to_string(), args.clone(), CachePolicy::default())
+            .new_sources_url(id.to_owned(), args.clone(), CachePolicy::default())
             .await
     }
 

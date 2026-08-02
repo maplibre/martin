@@ -65,24 +65,24 @@ impl FromStr for CameraRequest {
                 .next()
                 .ok_or("missing lon")?
                 .parse()
-                .map_err(|_| "lon")?;
+                .map_err(|_err| "lon")?;
             let lat: f64 = parts
                 .next()
                 .ok_or("missing lat")?
                 .parse()
-                .map_err(|_| "lat")?;
+                .map_err(|_err| "lat")?;
             let zoom: f64 = parts
                 .next()
                 .ok_or("missing zoom")?
                 .parse()
-                .map_err(|_| "zoom")?;
+                .map_err(|_err| "zoom")?;
             let (bearing, pitch) = if let Some((b, p)) = after_at.split_once(',') {
                 (
-                    b.parse::<f64>().map_err(|_| "bearing")?,
-                    p.parse::<f64>().map_err(|_| "pitch")?,
+                    b.parse::<f64>().map_err(|_err| "bearing")?,
+                    p.parse::<f64>().map_err(|_err| "pitch")?,
                 )
             } else {
-                (after_at.parse::<f64>().map_err(|_| "bearing")?, 0.0)
+                (after_at.parse::<f64>().map_err(|_err| "bearing")?, 0.0)
             };
             return Ok(Self::Center {
                 lon,
@@ -95,17 +95,17 @@ impl FromStr for CameraRequest {
         let parts: Vec<&str> = s.split(',').collect();
         match parts.len() {
             3 => Ok(Self::Center {
-                lon: parts[0].parse().map_err(|_| "lon")?,
-                lat: parts[1].parse().map_err(|_| "lat")?,
-                zoom: parts[2].parse().map_err(|_| "zoom")?,
+                lon: parts[0].parse().map_err(|_err| "lon")?,
+                lat: parts[1].parse().map_err(|_err| "lat")?,
+                zoom: parts[2].parse().map_err(|_err| "zoom")?,
                 bearing: 0.0,
                 pitch: 0.0,
             }),
             4 => Ok(Self::BoundingBox {
-                min_lon: parts[0].parse().map_err(|_| "min_lon")?,
-                min_lat: parts[1].parse().map_err(|_| "min_lat")?,
-                max_lon: parts[2].parse().map_err(|_| "max_lon")?,
-                max_lat: parts[3].parse().map_err(|_| "max_lat")?,
+                min_lon: parts[0].parse().map_err(|_err| "min_lon")?,
+                min_lat: parts[1].parse().map_err(|_err| "min_lat")?,
+                max_lon: parts[2].parse().map_err(|_err| "max_lon")?,
+                max_lat: parts[3].parse().map_err(|_err| "max_lat")?,
             }),
             _ => Err("expected lon,lat,zoom[@bearing[,pitch]] or minLon,minLat,maxLon,maxLat"),
         }
@@ -194,14 +194,14 @@ impl FromStr for SizeRequest {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (dims, scale) = if let Some((dims, scale_str)) = s.split_once('@') {
             let scale_str = scale_str.strip_suffix('x').unwrap_or(scale_str);
-            let scale: f32 = scale_str.parse().map_err(|_| "scale")?;
+            let scale: f32 = scale_str.parse().map_err(|_err| "scale")?;
             (dims, scale)
         } else {
             (s, 1.0)
         };
         let (w_str, h_str) = dims.split_once('x').ok_or("expected WIDTHxHEIGHT")?;
-        let width: u32 = w_str.parse().map_err(|_| "width")?;
-        let height: u32 = h_str.parse().map_err(|_| "height")?;
+        let width: u32 = w_str.parse().map_err(|_err| "width")?;
+        let height: u32 = h_str.parse().map_err(|_err| "height")?;
         Ok(Self {
             width,
             height,
@@ -536,7 +536,7 @@ mod tests {
             .expect("tempfile");
         std::fs::write(file.path(), b"{}").expect("write style");
         let mut styles = StyleSources::default();
-        styles.add_style("s".to_string(), file.path().to_path_buf());
+        styles.add_style("s".to_owned(), file.path().to_path_buf());
         (styles, file)
     }
 

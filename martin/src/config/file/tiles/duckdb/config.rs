@@ -36,17 +36,17 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
-    /// Connection pool size used by DuckDB sources unless overridden per-source.
+    /// Connection pool size used by `DuckDB` sources unless overridden per-source.
     #[serde(
         default = "default_pool_size",
         skip_serializing_if = "is_default_pool_size"
     )]
     pub pool_size: NonZeroUsize,
-    /// Optional DuckDB execution thread count for each connection.
+    /// Optional `DuckDB` execution thread count for each connection.
     pub threads: Option<NonZeroUsize>,
-    /// Optional DuckDB memory limit in megabytes for each connection.
+    /// Optional `DuckDB` memory limit in megabytes for each connection.
     pub memory_limit_mb: Option<NonZeroUsize>,
-    /// Bounds behavior for auto-generated TileJSON bounds.
+    /// Bounds behavior for auto-generated `TileJSON` bounds.
     #[serde(default, skip_serializing_if = "is_default_auto_bounds")]
     pub auto_bounds: BoundsCalcType,
     /// Ordered source definitions.
@@ -72,6 +72,7 @@ impl Default for DuckDbConfig {
 
 impl DuckDbConfig {
     /// Returns `true` when no sources are configured.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
@@ -149,7 +150,7 @@ mod tests {
 
     #[test]
     fn source_list_may_mix_database_and_geoparquet() {
-        let yaml = r#"
+        let yaml = r"
 pool_size: 4
 auto_bounds: quick
 sources:
@@ -165,7 +166,7 @@ sources:
     maxzoom: 14
     extent: 4096
     buffer: 64
-"#;
+";
         let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
 
         insta::assert_debug_snapshot!(cfg, @r#"
@@ -289,11 +290,11 @@ sources:
 
     #[test]
     fn source_entry_with_both_keys_deserializes_as_database() {
-        let yaml = r#"
+        let yaml = r"
 sources:
   - database: /data/tiles.duckdb
     geoparquet: /data/buildings.parquet
-"#;
+";
         let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
 
         insta::assert_debug_snapshot!(cfg, @r#"
@@ -332,11 +333,11 @@ sources:
 
     #[test]
     fn source_entry_rejects_missing_database_and_geoparquet() {
-        let yaml = r#"
+        let yaml = r"
 sources:
   - layer_id: buildings
     srid: 4326
-"#;
+";
         let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("missing entry keys");
         assert!(
             err.to_string()

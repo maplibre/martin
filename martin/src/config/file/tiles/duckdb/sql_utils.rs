@@ -1,4 +1,4 @@
-/// Double-quote a DuckDB identifier and escape embedded quotes.
+/// Double-quote a `DuckDB` identifier and escape embedded quotes.
 #[must_use]
 pub fn escape_identifier(s: &str) -> String {
     format!("\"{}\"", s.replace('"', "\"\""))
@@ -10,13 +10,13 @@ pub fn escape_sql_string(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
-/// Format an EPSG SRID as a DuckDB CRS string literal (e.g. `'EPSG:4326'`).
+/// Format an EPSG SRID as a `DuckDB` CRS string literal (e.g. `'EPSG:4326'`).
 #[must_use]
 pub fn epsg_crs(srid: i32) -> String {
     escape_sql_string(&format!("EPSG:{srid}"))
 }
 
-/// Escape a DuckDB relation name (e.g. `"schema.table"`).
+/// Escape a `DuckDB` relation name (e.g. `"schema.table"`).
 #[must_use]
 pub fn escape_relation(relation: &str) -> String {
     relation

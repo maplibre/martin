@@ -64,7 +64,7 @@ async fn catalog_tiles(
 /// Asserts the current (no-reloader) behavior: tables that exist at startup are published, but
 /// tables created out-of-band after `resolve()` are NOT picked up without a restart.
 ///
-/// When PR #2841 (PostgresReloader) lands, the negative assertions here should flip to positive.
+/// When PR #2841 (`PostgresReloader`) lands, the negative assertions here should flip to positive.
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pg_startup_catalog_is_static_without_reloader() {
@@ -125,7 +125,7 @@ async fn pg_startup_catalog_is_static_without_reloader() {
     let tiles = catalog_tiles(&app).await;
     let managed: BTreeMap<String, Value> = ["reload_alpha", "reload_beta"]
         .into_iter()
-        .filter_map(|id| tiles.get(id).map(|v| (id.to_string(), v.clone())))
+        .filter_map(|id| tiles.get(id).map(|v| (id.to_owned(), v.clone())))
         .collect();
     assert_yaml_snapshot!(managed, @r"
     reload_alpha:

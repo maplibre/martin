@@ -248,7 +248,7 @@ pub fn make_connector(
     }
 
     let roots = Arc::new(roots);
-    let builder = rustls::ClientConfig::builder().with_root_certificates(roots.clone());
+    let builder = rustls::ClientConfig::builder().with_root_certificates(Arc::clone(&roots));
 
     let mut builder = if let (Some(cert), Some(key)) = (ssl_cert, ssl_key) {
         match rustls_pemfile::read_one(&mut cert_reader(key)?) {
@@ -292,9 +292,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_conn_str() {
+    fn parses_conn_str() {
         let (cfg, mode) = parse_conn_str("postgres://user:password@localhost:5432/dbname").unwrap();
-        assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_string())]);
+        assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_owned())]);
         assert_eq!(cfg.get_ports(), &vec![5432]);
         assert_eq!(cfg.get_user(), Some("user"));
         assert_eq!(cfg.get_dbname(), Some("dbname"));

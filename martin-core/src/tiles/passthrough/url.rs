@@ -75,7 +75,7 @@ pub(crate) fn derive_format(
     cfg_format
         .or_else(|| extension_format(url_for_ext))
         .or_else(|| tilejson_format.and_then(Format::parse))
-        .ok_or_else(|| PassthroughError::FormatUndeterminable(id.to_string()))
+        .ok_or_else(|| PassthroughError::FormatUndeterminable(id.to_owned()))
 }
 
 /// Extract a [`Format`] from the file extension of the last path segment of `url`, if any.
@@ -102,7 +102,7 @@ mod tests {
     #[case::partial("https://e.com/{z}/{x}.pbf", true)]
     #[case::no_placeholders("https://e.com/tiles.json", false)]
     fn url_template_validates_placeholders(#[case] url: &str, #[case] ok: bool) {
-        let parsed = UrlTemplate::new(url.to_string());
+        let parsed = UrlTemplate::new(url.to_owned());
         assert_eq!(parsed.is_ok(), ok);
         if ok {
             assert_eq!(parsed.unwrap().as_str(), url);
@@ -129,9 +129,9 @@ mod tests {
     #[test]
     fn select_url_is_deterministic_and_in_range() {
         let urls = vec![
-            "https://a/{z}/{x}/{y}".to_string(),
-            "https://b/{z}/{x}/{y}".to_string(),
-            "https://c/{z}/{x}/{y}".to_string(),
+            "https://a/{z}/{x}/{y}".to_owned(),
+            "https://b/{z}/{x}/{y}".to_owned(),
+            "https://c/{z}/{x}/{y}".to_owned(),
         ];
         let first = select_url(&urls, coord(5, 10, 20));
         assert_eq!(first, select_url(&urls, coord(5, 10, 20)));
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn single_url_always_selected() {
-        let urls = vec!["https://only/{z}/{x}/{y}".to_string()];
+        let urls = vec!["https://only/{z}/{x}/{y}".to_owned()];
         assert_eq!(select_url(&urls, coord(7, 3, 9)), urls[0]);
     }
 

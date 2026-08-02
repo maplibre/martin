@@ -190,7 +190,7 @@ async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &
             layer["id"]
                 .as_str()
                 .expect("a layer id is not a string")
-                .to_string()
+                .to_owned()
         })
         .collect::<Vec<_>>();
     let served = martin

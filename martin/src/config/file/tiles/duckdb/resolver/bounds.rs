@@ -13,7 +13,7 @@ enum BoundsCalcMode {
     /// Exact `ST_Extent` over the whole relation. Accurate, but potentially slow on large tables.
     Exact,
     /// Per-row `ST_Extent_Approx` using cached geometry bounding boxes, falling back to
-    /// [`Self::Exact`] when unavailable. Unlike PostGIS `ST_EstimatedExtent`, this still scans
+    /// [`Self::Exact`] when unavailable. Unlike `PostGIS` `ST_EstimatedExtent`, this still scans
     /// the relation but is cheaper per row.
     Estimate,
 }
@@ -24,8 +24,8 @@ async fn fetch_bounds(
     query: String,
     signature: &str,
 ) -> BoundsResult<Option<Bounds>> {
-    let relation = relation.to_string();
-    let signature = signature.to_string();
+    let relation = relation.to_owned();
+    let signature = signature.to_owned();
     let query_for_error = query.clone();
 
     pool.generate_tile(move |conn| {
@@ -165,7 +165,7 @@ pub async fn bounds_with_auto(
             calc_bounds(pool, from_sql, label, geom_col, srid, BoundsCalcMode::Exact).await
         }
         BoundsCalcType::Quick => {
-            match timeout(
+            if let Ok(bounds) = timeout(
                 DEFAULT_BOUNDS_TIMEOUT,
                 calc_bounds(
                     pool,
@@ -178,13 +178,12 @@ pub async fn bounds_with_auto(
             )
             .await
             {
-                Ok(bounds) => bounds,
-                Err(_) => {
-                    warn!(
-                        "Timeout computing bounds for {label}, aborting query. Use --auto-bounds=calc to wait until complete."
-                    );
-                    Ok(None)
-                }
+                bounds
+            } else {
+                warn!(
+                    "Timeout computing bounds for {label}, aborting query. Use --auto-bounds=calc to wait until complete."
+                );
+                Ok(None)
             }
         }
     }
@@ -253,7 +252,7 @@ mod tests {
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
         let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet".to_string(),
+            "bounds-parquet".to_owned(),
             path.clone(),
             1,
             None,

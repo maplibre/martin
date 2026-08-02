@@ -272,7 +272,7 @@ mod tests {
     }
 
     fn expanded(url: &str, base: &str) -> String {
-        let mut s = url.to_string();
+        let mut s = url.to_owned();
         expand_if_relative_url(&mut s, base);
         s
     }

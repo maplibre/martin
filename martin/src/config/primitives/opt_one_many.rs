@@ -204,13 +204,13 @@ mod tests {
     #[test]
     fn deserialize_string_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("hello");
-        assert_eq!(cfg, One("hello".to_string()));
+        assert_eq!(cfg, One("hello".to_owned()));
     }
 
     #[test]
     fn deserialize_quoted_string_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("\"hello world\"");
-        assert_eq!(cfg, One("hello world".to_string()));
+        assert_eq!(cfg, One("hello world".to_owned()));
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn deserialize_singleton_seq_is_one() {
         let cfg = parse_yaml::<OptOneMany<String>>("[only]");
-        assert_eq!(cfg, One("only".to_string()));
+        assert_eq!(cfg, One("only".to_owned()));
     }
 
     #[test]
@@ -230,7 +230,7 @@ mod tests {
         let cfg = parse_yaml::<OptOneMany<String>>("[a, b, c]");
         assert_eq!(
             cfg,
-            Many(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+            Many(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()])
         );
     }
 
@@ -268,14 +268,14 @@ mod tests {
     // ----- Existing behavior tests -----
 
     #[test]
-    fn test_one_or_many_new() {
+    fn one_or_many_new() {
         assert_eq!(OptOneMany::new(vec![1, 2, 3]), Many(vec![1, 2, 3]));
         assert_eq!(OptOneMany::new(vec![1]), One(1));
         assert_eq!(OptOneMany::new(Vec::<i32>::new()), NoVals);
     }
 
     #[test]
-    fn test_one_or_many_iter() {
+    fn one_or_many_iter() {
         let mut noval: OptOneMany<i32> = NoVals;
         let mut one = One(1);
         let mut many = Many(vec![1, 2, 3]);
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn test_one_or_many_as_slice() {
+    fn one_or_many_as_slice() {
         let noval: OptOneMany<i32> = NoVals;
         assert_eq!(noval.as_slice(), Vec::<i32>::new().as_slice());
         assert_eq!(One(1).as_slice(), &[1]);

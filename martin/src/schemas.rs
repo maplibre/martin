@@ -309,10 +309,8 @@ mod config_doc {
     }
 
     fn first_example(schema: &Value) -> Option<&Value> {
-        schema
-            .get("examples")
-            .and_then(Value::as_array)
-            .and_then(|a| a.first())
+        let a = schema.get("examples").and_then(Value::as_array)?;
+        a.first()
     }
 
     /// Pick the first non-null type when `type` is an array (e.g. `["string", "null"]`).

@@ -77,8 +77,8 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
         let (tx_ins, rx_ins) = bounded::<T>(num_cpus::get() * 3);
 
         {
-            let has_errors = has_errors.clone();
-            let patcher = patcher.clone();
+            let has_errors = Arc::clone(&has_errors);
+            let patcher = Arc::clone(&patcher);
             tokio::spawn(async move {
                 if let Err(e) = patcher.query(sql_where, tx_wrk).await {
                     error!("Failed to query bindiff data: {e}");
@@ -87,7 +87,12 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
             });
         }
 
-        start_processor_threads(patcher.clone(), rx_wrk, tx_ins, has_errors.clone());
+        start_processor_threads(
+            Arc::clone(&patcher),
+            rx_wrk,
+            tx_ins,
+            Arc::clone(&has_errors),
+        );
         recv_and_insert(patcher, conn, rx_ins).await?;
 
         if has_errors.load(Relaxed) {
@@ -143,8 +148,8 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
     (0..cpus).for_each(|_| {
         let rx_wrk = rx_wrk.clone();
         let tx_ins = tx_ins.clone();
-        let has_errors = has_errors.clone();
-        let patcher = patcher.clone();
+        let has_errors = Arc::clone(&has_errors);
+        let patcher = Arc::clone(&patcher);
         tokio::spawn(async move {
             while let Ok(wrk) = rx_wrk.recv_async().await {
                 if match patcher.process(wrk) {
@@ -213,12 +218,11 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
         let diff_tiles: String = match self.dif_type {
             // A Cache diff file is read via its `tiles` view, like Flat
-            Flat | Cache => "diffDb.tiles".to_string(),
+            Flat | Cache => "diffDb.tiles".to_owned(),
             FlatWithHash
             | Normalized {
-                schema: _,
-                hash_view: true,
-            } => "diffDb.tiles_with_hash".to_string(),
+                hash_view: true, ..
+            } => "diffDb.tiles_with_hash".to_owned(),
             Normalized {
                 schema,
                 hash_view: false,

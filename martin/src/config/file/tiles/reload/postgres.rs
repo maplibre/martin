@@ -87,7 +87,7 @@ mod tests {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let config = PostgresConfig {
             // Never connected to in the disabled case; only reached if a driver actually spawns.
-            connection_string: Some("postgres://nope@127.0.0.1:1/none".to_string()),
+            connection_string: Some("postgres://nope@127.0.0.1:1/none".to_owned()),
             reload_interval: interval,
             ..Default::default()
         };
@@ -199,7 +199,7 @@ mod e2e {
     fn published(tsm: &TileSourceManager) -> bool {
         tsm.tile_sources()
             .source_names()
-            .contains(&"reload_e2e".to_string())
+            .contains(&"reload_e2e".to_owned())
     }
 
     /// The fields the published source advertises (its table's non-geometry columns).

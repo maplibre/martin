@@ -80,7 +80,7 @@ impl MbtilesCache {
             .fetch_one(&mut *conn)
             .await?;
         if objects != 0 && !mbtiles.is_cache(&mut *conn).await? {
-            return Err(MbtError::NotACacheFile(mbtiles.filepath().to_string()));
+            return Err(MbtError::NotACacheFile(mbtiles.filepath().to_owned()));
         }
         mbtiles.create_cache_schema(&mut *conn, false).await?;
         drop(conn);

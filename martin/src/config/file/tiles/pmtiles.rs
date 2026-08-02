@@ -211,7 +211,7 @@ impl PmtConfig {
             );
         } else if let Some(region) = sdk_config.region() {
             self.options
-                .insert("region".to_string(), region.as_ref().to_string());
+                .insert("region".to_owned(), region.as_ref().to_owned());
         }
 
         let has_explicit_credentials = [
@@ -282,7 +282,7 @@ impl PmtConfig {
             },
         );
         if let Some(credentials) = &self.aws_credentials {
-            builder = builder.with_credentials(credentials.clone());
+            builder = builder.with_credentials(Arc::clone(credentials));
         }
         Ok((Box::new(builder.build()?), path))
     }
@@ -332,7 +332,7 @@ impl PmtConfig {
                 "Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security."
             );
             self.options
-                .insert("allow_http".to_string(), true.to_string());
+                .insert("allow_http".to_owned(), true.to_string());
         }
 
         // below: AWS -> object_store
@@ -435,7 +435,7 @@ impl PmtConfig {
             warn!(
                 "{type} {key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
             );
-            self.options.insert(new_key.to_string(), value);
+            self.options.insert(new_key.to_owned(), value);
         }
     }
 }
@@ -503,9 +503,9 @@ impl CredentialProvider for AwsSdkCredentialProvider {
                 source: Box::new(source),
             })?;
         Ok(Arc::new(AwsCredential {
-            key_id: credentials.access_key_id().to_string(),
-            secret_key: credentials.secret_access_key().to_string(),
-            token: credentials.session_token().map(ToString::to_string),
+            key_id: credentials.access_key_id().to_owned(),
+            secret_key: credentials.secret_access_key().to_owned(),
+            token: credentials.session_token().map(str::to_owned),
         }))
     }
 }

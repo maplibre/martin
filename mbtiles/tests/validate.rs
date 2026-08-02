@@ -127,7 +127,7 @@ async fn tile_data() {
 }
 
 #[test]
-fn test_box() {
+fn bounding_box() {
     fn tst(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> String {
         let (x0, y0, x1, y1) = bbox_to_xyz(left, bottom, right, top, zoom);
         format!("({x0}, {y0}, {x1}, {y1})")

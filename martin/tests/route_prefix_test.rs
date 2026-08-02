@@ -66,10 +66,10 @@ async fn config(
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_basic_endpoints() {
+async fn route_prefix_basic_endpoints() {
     let (config, _conns) = config("test_route_prefix_basic").await;
     let srv_config = SrvConfig {
-        route_prefix: Some("/tiles".to_string()),
+        route_prefix: Some("/tiles".to_owned()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
@@ -104,10 +104,10 @@ async fn test_route_prefix_basic_endpoints() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_tile_endpoints() {
+async fn route_prefix_tile_endpoints() {
     let (config, _conns) = config("test_route_prefix_tiles").await;
     let srv_config = SrvConfig {
-        route_prefix: Some("/tiles".to_string()),
+        route_prefix: Some("/tiles".to_owned()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
@@ -145,10 +145,10 @@ async fn test_route_prefix_tile_endpoints() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_pbf_redirect_location() {
+async fn route_prefix_pbf_redirect_location() {
     let (config, _conns) = config("test_route_prefix_pbf_redirect").await;
     let srv_config = SrvConfig {
-        route_prefix: Some("/geotile".to_string()),
+        route_prefix: Some("/geotile".to_owned()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
@@ -169,11 +169,11 @@ async fn test_route_prefix_pbf_redirect_location() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_base_path_overrides_route_prefix() {
+async fn base_path_overrides_route_prefix() {
     let (config, _conns) = config("test_base_path_override").await;
     let srv_config = SrvConfig {
-        route_prefix: Some("/tiles".to_string()),
-        base_path: Some("/custom".to_string()),
+        route_prefix: Some("/tiles".to_owned()),
+        base_path: Some("/custom".to_owned()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
@@ -195,10 +195,10 @@ async fn test_base_path_overrides_route_prefix() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_nested_route_prefix() {
+async fn nested_route_prefix() {
     let (config, _conns) = config("test_nested_prefix").await;
     let srv_config = SrvConfig {
-        route_prefix: Some("/api/v1/tiles".to_string()),
+        route_prefix: Some("/api/v1/tiles".to_owned()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
@@ -231,7 +231,7 @@ async fn test_nested_route_prefix() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_root_path() {
+async fn route_prefix_root_path() {
     let (config, _conns) = config("test_root_path").await;
     // Setting route_prefix to "/" should be treated as no prefix after normalization
     let srv_config = SrvConfig {

@@ -173,7 +173,7 @@ impl SpriteSources {
     fn get(&self, id: &str) -> Result<SpriteSource, SpriteError> {
         match self.0.get(id) {
             Some(v) => Ok(v.clone()),
-            None => Err(SpriteError::SpriteNotFound(id.to_string())),
+            None => Err(SpriteError::SpriteNotFound(id.to_owned())),
         }
     }
 }
@@ -257,14 +257,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_sprites() {
+    async fn sprites() {
         let mut sprites = SpriteSources::default();
         sprites.add_source(
-            "src1".to_string(),
+            "src1".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
         );
         sprites.add_source(
-            "src2".to_string(),
+            "src2".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src2"),
         );
 
@@ -292,13 +292,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_yield_clean_sprite_names() {
-        use std::fs::{create_dir, write};
+        use std::fs::{create_dir_all, write};
         use std::os::unix::fs::symlink;
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let root = tmp.path();
         let real_dir = root.join("..2024_05_17_17_57_51.390489675");
-        create_dir(&real_dir).unwrap();
+        create_dir_all(&real_dir).unwrap();
         let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
         write(real_dir.join("foo.svg"), svg).unwrap();
         write(real_dir.join("bar.svg"), svg).unwrap();
@@ -307,13 +307,13 @@ mod tests {
         symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
 
         let mut sprites = SpriteSources::default();
-        sprites.add_source("foobar".to_string(), root.to_path_buf());
+        sprites.add_source("foobar".to_owned(), root.to_path_buf());
 
         let catalog = sprites.get_catalog().expect("catalog");
         let entry = catalog.get("foobar").expect("foobar source registered");
         assert_eq!(
             entry.images,
-            vec!["bar".to_string(), "foo".to_string()],
+            vec!["bar".to_owned(), "foo".to_owned()],
             "expected plain sprite names without dotfile directory prefixes"
         );
     }
@@ -325,7 +325,7 @@ mod tests {
         std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
 
         let mut sprites = SpriteSources::default();
-        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+        sprites.add_source("bad".to_owned(), tmp.path().to_path_buf());
 
         let source = sprites.get("bad").expect("source registered");
         let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
@@ -347,7 +347,7 @@ mod tests {
         let filename = if generate_sdf {
             format!("{filename}_sdf")
         } else {
-            filename.to_string()
+            filename.to_owned()
         };
         insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
         let png = sprites.encode_png().unwrap();

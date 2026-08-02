@@ -51,13 +51,13 @@ impl Transport {
         for (name, value) in headers {
             let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
                 PassthroughError::InvalidHeaderName {
-                    name: name.to_string(),
+                    name: name.to_owned(),
                     source,
                 }
             })?;
             let header_value = HeaderValue::from_str(value).map_err(|source| {
                 PassthroughError::InvalidHeaderValue {
-                    name: name.to_string(),
+                    name: name.to_owned(),
                     source,
                 }
             })?;
@@ -205,7 +205,7 @@ impl PassthroughSource {
 
         let (urls, tilejson, tile_info) = match &upstream {
             Upstream::Templates(set) => {
-                let urls: Vec<String> = set.urls().iter().map(|t| t.as_str().to_string()).collect();
+                let urls: Vec<String> = set.urls().iter().map(|t| t.as_str().to_owned()).collect();
                 let tilejson = build_template_tilejson(&urls, set.meta());
                 (urls, tilejson, TileInfo::from(set.format()))
             }
@@ -354,13 +354,13 @@ async fn fetch_tilejson(client: &reqwest::Client, url: &str) -> Result<TileJSON,
             .send()
             .await
             .map_err(|source| PassthroughError::TileJsonFetch {
-                url: url.to_string(),
+                url: url.to_owned(),
                 source,
             })?;
     let status = response.status();
     if !status.is_success() {
         return Err(PassthroughError::TileJsonStatus {
-            url: url.to_string(),
+            url: url.to_owned(),
             status: status.as_u16(),
         });
     }
@@ -368,11 +368,11 @@ async fn fetch_tilejson(client: &reqwest::Client, url: &str) -> Result<TileJSON,
         .bytes()
         .await
         .map_err(|source| PassthroughError::TileJsonFetch {
-            url: url.to_string(),
+            url: url.to_owned(),
             source,
         })?;
     serde_json::from_slice(&bytes).map_err(|source| PassthroughError::TileJsonParse {
-        url: url.to_string(),
+        url: url.to_owned(),
         source,
     })
 }
@@ -426,7 +426,7 @@ fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
     headers
         .get(name)
         .and_then(|value| value.to_str().ok())
-        .map(ToString::to_string)
+        .map(str::to_owned)
 }
 
 /// Strip an upstream strong `ETag`'s wire quotes so it can be served verbatim.
@@ -441,7 +441,7 @@ fn usable_strong_etag(raw: &str) -> Option<String> {
         .unwrap_or(raw);
     tag.bytes()
         .all(|b| b == 0x21 || (0x23..=0x7e).contains(&b) || b >= 0x80)
-        .then(|| tag.to_string())
+        .then(|| tag.to_owned())
 }
 
 #[cfg(test)]
@@ -487,8 +487,8 @@ mod tests {
 
     #[test]
     fn usable_strong_etag_unquotes_strong_tags_and_drops_weak() {
-        assert_eq!(usable_strong_etag("abc"), Some("abc".to_string()));
-        assert_eq!(usable_strong_etag("\"abc\""), Some("abc".to_string()));
+        assert_eq!(usable_strong_etag("abc"), Some("abc".to_owned()));
+        assert_eq!(usable_strong_etag("\"abc\""), Some("abc".to_owned()));
         assert_eq!(usable_strong_etag("W/\"abc\""), None);
     }
 }

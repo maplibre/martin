@@ -12,7 +12,7 @@ pub fn normalize_key<T>(
     id: &str,
 ) -> Option<String> {
     find_info_kv(map, key, info, id)
-        .map(|(k, _)| k.to_string())
+        .map(|(k, _)| k.to_owned())
         .ok()
 }
 

@@ -230,7 +230,7 @@ pub async fn unpack(
     };
     let extension = Format::parse(format_str)
         .ok_or_else(|| MbtError::UnknownFormatInMetadata {
-            format: format_str.to_string(),
+            format: format_str.to_owned(),
             path: input_file.to_path_buf(),
         })?
         .metadata_format_value();
@@ -317,7 +317,7 @@ mod tests {
     use super::tile_coords;
 
     #[test]
-    fn test_tile_coords() {
+    fn tile_coords_from_path() {
         // `{z}/{x}/{y}.{ext}`, with the extension ignored.
         assert_eq!(tile_coords(Path::new("0/0/0.png")), Some((0, 0, 0)));
         assert_eq!(

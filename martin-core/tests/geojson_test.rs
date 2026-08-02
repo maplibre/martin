@@ -100,7 +100,7 @@ async fn source_with(id: &str, gj: &GeoJson, extent: NonZeroU32, buffer: u32) ->
     tmp.flush().unwrap();
     // `new` reads the file to completion during this await, so `tmp` may drop afterwards.
     GeoJsonSource::new(
-        id.to_string(),
+        id.to_owned(),
         tmp.path().to_path_buf(),
         CacheZoomRange::default(),
         extent,
@@ -300,7 +300,7 @@ async fn geometry_collection_flattens_sharing_properties() {
         geometries: vec![gj_square(10.0, 10.0, 20.0, 20.0), gj_point(15.0, 15.0)],
     });
     let mut props = Map::new();
-    props.insert("name".to_string(), json!("shared"));
+    props.insert("name".to_owned(), json!("shared"));
 
     let src = source("gc", &GeoJson::Feature(feature(gc, Some(props)))).await;
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
@@ -324,14 +324,14 @@ async fn geometry_collection_flattens_sharing_properties() {
 #[tokio::test]
 async fn property_types_round_trip_and_null_is_omitted() {
     let mut props = Map::new();
-    props.insert("s".to_string(), json!("hi"));
-    props.insert("i".to_string(), json!(-7));
-    props.insert("big".to_string(), json!(u64::MAX));
-    props.insert("f".to_string(), json!(1.5));
-    props.insert("b".to_string(), json!(true));
-    props.insert("arr".to_string(), json!([1, 2]));
-    props.insert("obj".to_string(), json!({"k": 1}));
-    props.insert("nil".to_string(), serde_json::Value::Null);
+    props.insert("s".to_owned(), json!("hi"));
+    props.insert("i".to_owned(), json!(-7));
+    props.insert("big".to_owned(), json!(u64::MAX));
+    props.insert("f".to_owned(), json!(1.5));
+    props.insert("b".to_owned(), json!(true));
+    props.insert("arr".to_owned(), json!([1, 2]));
+    props.insert("obj".to_owned(), json!({"k": 1}));
+    props.insert("nil".to_owned(), serde_json::Value::Null);
 
     let src = source(
         "props",
@@ -460,7 +460,7 @@ async fn subpixel_polygon_is_dropped() {
 #[tokio::test]
 async fn decoded_tile_snapshot() {
     let mut props = Map::new();
-    props.insert("kind".to_string(), json!("poly"));
+    props.insert("kind".to_owned(), json!("poly"));
     let gj = collection(vec![
         feature(gj_square(10.0, 10.0, 20.0, 20.0), Some(props)),
         feature(gj_point(15.0, 15.0), None),

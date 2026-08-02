@@ -12,7 +12,7 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmerc
 use mlt_core::fast_mvt::{MvtExtent, MvtGeometry, MvtTileBuilder};
 use rayon::prelude::*;
 use tilejson::{Bounds, Center, TileJSON, VectorLayer};
-use tokio::fs::{self};
+use tokio::fs;
 use tracing::trace;
 
 use crate::CacheZoomRange;
@@ -295,11 +295,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_tile() {
+    async fn get_tile() {
         let path = fixtures_dir().join("feature_collection_1.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let geojson_source = GeoJsonSource::new(
-            "test-source-1".to_string(),
+            "test-source-1".to_owned(),
             path,
             CacheZoomRange::default(),
             extent,
@@ -340,7 +340,7 @@ mod tests {
         let path = fixtures_dir().join("bare_geometry.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let source = GeoJsonSource::new(
-            "bare".to_string(),
+            "bare".to_owned(),
             path,
             CacheZoomRange::default(),
             extent,
@@ -366,7 +366,7 @@ mod tests {
         let path = fixtures_dir().join("feature_collection_1.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let source = GeoJsonSource::new(
-            "test-source-1".to_string(),
+            "test-source-1".to_owned(),
             path,
             CacheZoomRange::default(),
             extent,
@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(layers[0].id, "test-source-1");
         assert_eq!(
             layers[0].fields,
-            BTreeMap::from([("id".to_string(), "Number".to_string())])
+            BTreeMap::from([("id".to_owned(), "Number".to_owned())])
         );
     }
 
@@ -393,7 +393,7 @@ mod tests {
         let path = fixtures_dir().join("properties.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let source = GeoJsonSource::new(
-            "props".to_string(),
+            "props".to_owned(),
             path,
             CacheZoomRange::default(),
             extent,
@@ -410,14 +410,14 @@ mod tests {
         assert_eq!(
             layers[0].fields,
             BTreeMap::from([
-                ("prop_array".to_string(), "String".to_string()),
-                ("prop_bool_false".to_string(), "Boolean".to_string()),
-                ("prop_bool_true".to_string(), "Boolean".to_string()),
-                ("prop_float".to_string(), "Number".to_string()),
-                ("prop_int_negative".to_string(), "Number".to_string()),
-                ("prop_object".to_string(), "String".to_string()),
-                ("prop_string".to_string(), "String".to_string()),
-                ("prop_uint_large".to_string(), "Number".to_string()),
+                ("prop_array".to_owned(), "String".to_owned()),
+                ("prop_bool_false".to_owned(), "Boolean".to_owned()),
+                ("prop_bool_true".to_owned(), "Boolean".to_owned()),
+                ("prop_float".to_owned(), "Number".to_owned()),
+                ("prop_int_negative".to_owned(), "Number".to_owned()),
+                ("prop_object".to_owned(), "String".to_owned()),
+                ("prop_string".to_owned(), "String".to_owned()),
+                ("prop_uint_large".to_owned(), "Number".to_owned()),
             ])
         );
     }
@@ -430,7 +430,7 @@ mod tests {
             .expect("the fixture is written");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
         let source = GeoJsonSource::new(
-            "empty".to_string(),
+            "empty".to_owned(),
             path,
             CacheZoomRange::default(),
             extent,

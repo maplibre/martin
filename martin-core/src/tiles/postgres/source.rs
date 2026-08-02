@@ -140,7 +140,10 @@ impl Source for PostgresSource {
         };
 
         let tile = tile
-            .map(|row| row.and_then(|r| r.get::<_, Option<TileData>>(0)))
+            .map(|row| {
+                let r = row?;
+                r.get::<_, Option<TileData>>(0)
+            })
             .map_err(|e| {
                 if self.support_url_query() {
                     GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())

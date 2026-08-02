@@ -164,11 +164,7 @@ impl PostgresAutoDiscoveryBuilder {
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
-        let restrict_to_tables = if self.auto_tables.is_none() {
-            Some(self.configured_tables())
-        } else {
-            None
-        };
+        let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
         let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
 
         // Match configured table sources against the discovered catalog.
@@ -320,7 +316,7 @@ impl PostgresAutoDiscoveryBuilder {
         match spec {
             SourceSpec::Table(info) => {
                 let (id, pg_sql, info) = table_to_query(
-                    id.to_string(),
+                    id.to_owned(),
                     info,
                     self.pool.clone(),
                     self.auto_bounds,
@@ -335,7 +331,7 @@ impl PostgresAutoDiscoveryBuilder {
             SourceSpec::Function(info, pg_sql) => {
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
                 let cache = info.cache.unwrap_or_default();
-                let source = self.build_source(id.to_string(), &info, pg_sql.clone(), cache);
+                let source = self.build_source(id.to_owned(), &info, pg_sql.clone(), cache);
                 Ok((source, SourceSpec::Function(info, pg_sql)))
             }
         }
@@ -530,9 +526,10 @@ fn calc_auto(
     Option<PostgresAutoDiscoveryBuilderTables>,
     Option<PostgresAutoDiscoveryBuilderFunctions>,
 ) {
-    let auto_tables = if use_auto_publish(config, false) {
+    let auto_tables = use_auto_publish(config, false).then(|| {
         let schemas = get_auto_schemas!(config, tables);
-        let bld = if let Object(PostgresCfgPublish {
+
+        if let Object(PostgresCfgPublish {
             tables: Object(v), ..
         }) = &config.auto_publish
         {
@@ -542,7 +539,7 @@ fn calc_auto(
                     .source_id_format
                     .as_deref()
                     .unwrap_or("{table}")
-                    .to_string(),
+                    .to_owned(),
                 id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
@@ -551,17 +548,14 @@ fn calc_auto(
         } else {
             PostgresAutoDiscoveryBuilderTables {
                 schemas,
-                source_id_format: "{table}".to_string(),
+                source_id_format: "{table}".to_owned(),
                 ..Default::default()
             }
-        };
-        Some(bld)
-    } else {
-        None
-    };
+        }
+    });
 
-    let auto_functions = if use_auto_publish(config, true) {
-        Some(PostgresAutoDiscoveryBuilderFunctions {
+    let auto_functions =
+        use_auto_publish(config, true).then(|| PostgresAutoDiscoveryBuilderFunctions {
             schemas: get_auto_schemas!(config, functions),
             source_id_format: if let Object(PostgresCfgPublish {
                 functions:
@@ -574,12 +568,9 @@ fn calc_auto(
             {
                 v.clone()
             } else {
-                "{function}".to_string()
+                "{function}".to_owned()
             },
-        })
-    } else {
-        None
-    };
+        });
 
     (auto_tables, auto_functions)
 }

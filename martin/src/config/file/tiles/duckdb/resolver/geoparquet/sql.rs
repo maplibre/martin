@@ -96,11 +96,11 @@ mod tests {
 
     fn introspection_with_srid(srid: i32) -> GeoParquetIntrospection {
         GeoParquetIntrospection {
-            geometry_column: "geom".to_string(),
+            geometry_column: "geom".to_owned(),
             srid: NonZeroI32::new(srid).expect("test srid is non-zero"),
             property_columns: BTreeMap::from([
-                ("name".to_string(), "VARCHAR".to_string()),
-                ("category".to_string(), "VARCHAR".to_string()),
+                ("name".to_owned(), "VARCHAR".to_owned()),
+                ("category".to_owned(), "VARCHAR".to_owned()),
             ]),
         }
     }

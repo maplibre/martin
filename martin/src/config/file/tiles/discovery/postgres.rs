@@ -107,7 +107,7 @@ mod tests {
 
     fn discovery_for(connection_string: &str) -> PostgresDiscovery {
         let config = PostgresConfig {
-            connection_string: Some(connection_string.to_string()),
+            connection_string: Some(connection_string.to_owned()),
             ..Default::default()
         };
         PostgresDiscovery::new(

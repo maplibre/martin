@@ -181,9 +181,7 @@ impl<'de> Deserialize<'de> for PassthroughSrc {
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<PassthroughSrc, E> {
-                Ok(PassthroughSrc::Shorthand(OptOneMany::One(
-                    value.to_string(),
-                )))
+                Ok(PassthroughSrc::Shorthand(OptOneMany::One(value.to_owned())))
             }
 
             fn visit_string<E: de::Error>(self, value: String) -> Result<PassthroughSrc, E> {
@@ -295,7 +293,7 @@ impl PassthroughSourceConfig {
             Some(value) => Some(Format::parse(value).ok_or_else(|| {
                 ConfigFileError::InvalidPassthroughFormat {
                     source_id: id.clone(),
-                    tile_format: value.to_string(),
+                    tile_format: value.to_owned(),
                 }
             })?),
             None => None,
@@ -338,7 +336,7 @@ mod tests {
         assert_eq!(
             src,
             &PassthroughSrc::Shorthand(OptOneMany::One(
-                "https://tiles.example.com/{z}/{x}/{y}.pbf".to_string()
+                "https://tiles.example.com/{z}/{x}/{y}.pbf".to_owned()
             ))
         );
     }
@@ -378,7 +376,7 @@ mod tests {
         };
         assert_eq!(
             obj.url,
-            OptOneMany::One("https://api.example.com/v1/{z}/{x}/{y}.mvt".to_string())
+            OptOneMany::One("https://api.example.com/v1/{z}/{x}/{y}.mvt".to_owned())
         );
         assert_eq!(obj.headers["Authorization"], "Bearer token");
         assert_eq!(obj.timeout, Duration::from_secs(45));

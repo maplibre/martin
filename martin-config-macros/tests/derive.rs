@@ -63,7 +63,7 @@ mod config {
 }
 
 fn bag(keys: &[&str]) -> Bag {
-    Bag(keys.iter().map(|k| ((*k).to_string(), 0)).collect())
+    Bag(keys.iter().map(|k| ((*k).to_owned(), 0)).collect())
 }
 
 fn keys(value: &impl CollectUnrecognizedKeys) -> Vec<String> {
@@ -126,7 +126,7 @@ struct WithMap {
 
 #[test]
 fn map_uses_key_segments() {
-    let entries = std::collections::BTreeMap::from([("first".to_string(), inner(&["a"]))]);
+    let entries = std::collections::BTreeMap::from([("first".to_owned(), inner(&["a"]))]);
     assert_eq!(keys(&WithMap { entries }), ["entries.first.a"]);
 }
 

@@ -107,7 +107,8 @@ impl WatchedDir {
     #[must_use]
     pub fn new() -> Self {
         let root = tempfile::tempdir().expect("failed to create a temp dir");
-        fs::create_dir(root.path().join("watch")).expect("failed to create the watched directory");
+        fs::create_dir_all(root.path().join("watch"))
+            .expect("failed to create the watched directory");
         Self { root }
     }
 

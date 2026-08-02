@@ -102,13 +102,13 @@ pub async fn get_style_json(
 /// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
 fn path_prefix(req: &HttpRequest, srv_config: &SrvConfig) -> String {
     if let Some(prefix) = srv_config.public_path_prefix() {
-        prefix.to_string()
+        prefix.to_owned()
     } else {
         req.headers()
             .get("X-Forwarded-Prefix")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
-            .map(|v| v.path().trim_end_matches('/').to_string())
+            .map(|v| v.path().trim_end_matches('/').to_owned())
             .unwrap_or_default()
     }
 }
@@ -140,8 +140,8 @@ mod tests {
 
     fn cfg(base_path: Option<&str>, route_prefix: Option<&str>) -> SrvConfig {
         SrvConfig {
-            base_path: base_path.map(ToString::to_string),
-            route_prefix: route_prefix.map(ToString::to_string),
+            base_path: base_path.map(str::to_owned),
+            route_prefix: route_prefix.map(str::to_owned),
             ..Default::default()
         }
     }

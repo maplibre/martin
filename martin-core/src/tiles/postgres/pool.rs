@@ -131,10 +131,9 @@ impl PostgresPool {
     ) -> PostgresResult<(String, Manager, PgTlsConnector)> {
         let (pg_cfg, ssl_mode) = parse_conn_str(connection_string)?;
 
-        let id = pg_cfg.get_dbname().map_or_else(
-            || format!("{:?}", pg_cfg.get_hosts()[0]),
-            ToString::to_string,
-        );
+        let id = pg_cfg
+            .get_dbname()
+            .map_or_else(|| format!("{:?}", pg_cfg.get_hosts()[0]), str::to_owned);
 
         let mgr_config = ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
@@ -473,7 +472,7 @@ mod tests {
 
         let server_key = KeyPair::generate().unwrap();
         let mut server_params =
-            CertificateParams::new(vec!["postgres.internal".to_string()]).unwrap();
+            CertificateParams::new(vec!["postgres.internal".to_owned()]).unwrap();
         server_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
         let server_cert = server_params.signed_by(&server_key, &issuer).unwrap();
 
@@ -504,15 +503,15 @@ mod tests {
                 .with_name("postgis/postgis")
                 .with_tag("11-3.0")
                 .with_copy_to(
-                    "/certs/server.crt".to_string(),
+                    "/certs/server.crt".to_owned(),
                     certs.server_cert_pem.clone().into_bytes(),
                 )
                 .with_copy_to(
-                    "/certs/server.key".to_string(),
+                    "/certs/server.key".to_owned(),
                     certs.server_key_pem.clone().into_bytes(),
                 )
                 .with_copy_to(
-                    "/docker-entrypoint-initdb.d/00-ssl.sh".to_string(),
+                    "/docker-entrypoint-initdb.d/00-ssl.sh".to_owned(),
                     init_script.as_bytes().to_vec(),
                 )
                 .start()
@@ -603,7 +602,7 @@ mod tests {
     /// `sslmode=require`); falls back to a local non-SSL URL.
     fn test_database_url() -> String {
         std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://postgres:postgres@localhost:5411/db?sslmode=disable".to_string()
+            "postgres://postgres:postgres@localhost:5411/db?sslmode=disable".to_owned()
         })
     }
 

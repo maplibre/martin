@@ -54,7 +54,7 @@ async fn start_minio() -> (ContainerAsync<MinIO>, String) {
 
 fn s3_options(endpoint: &str) -> HashMap<String, String> {
     let mut o = HashMap::new();
-    o.insert("aws_endpoint".into(), endpoint.to_string());
+    o.insert("aws_endpoint".into(), endpoint.to_owned());
     o.insert("aws_access_key_id".into(), "minioadmin".into());
     o.insert("aws_secret_access_key".into(), "minioadmin".into());
     o.insert("aws_region".into(), "us-east-1".into());

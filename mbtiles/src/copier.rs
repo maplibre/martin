@@ -256,7 +256,7 @@ impl MbtileCopierInt {
             // The inner-join `tiles` view over NOT-NULL blobs cannot represent the
             // NULL "deleted tile" markers a diff file needs.
             return Err(MbtError::UnsupportedCopyOperation {
-                reason: "a cache file cannot store a tile diff because tile deletion markers cannot be represented; use --dst-type flat, flat-with-hash, or normalized".to_string(),
+                reason: "a cache file cannot store a tile diff because tile deletion markers cannot be represented; use --dst-type flat, flat-with-hash, or normalized".to_owned(),
             });
         }
         if patch_type.is_some() && matches!(dst_type, Normalized { .. }) {
@@ -338,7 +338,7 @@ impl MbtileCopierInt {
             // Patched results would silently drop the source's expires/etag metadata,
             // and the patch pipeline relies on hash columns the cache schema lacks.
             return Err(MbtError::UnsupportedCopyOperation {
-                reason: "applying a patch into a cache file is not supported; use --dst-type flat, flat-with-hash, or normalized".to_string(),
+                reason: "applying a patch into a cache file is not supported; use --dst-type flat, flat-with-hash, or normalized".to_owned(),
             });
         }
         if dif_info.patch_type.is_some() && matches!(dst_type, Normalized { .. }) {
@@ -394,9 +394,9 @@ impl MbtileCopierInt {
                 match (dif_info.agg_tiles_hash_after_apply, new_hash) {
                     (Some(expected), Some(actual)) if expected != actual => {
                         let err = MbtError::AggHashMismatchAfterApply {
-                            patch_file: dif_mbt.filepath().to_string(),
+                            patch_file: dif_mbt.filepath().to_owned(),
                             after_apply_hash: expected,
-                            file: self.dst_mbt.filepath().to_string(),
+                            file: self.dst_mbt.filepath().to_owned(),
                             agg_hash: actual,
                         };
                         if !self.options.force {
@@ -776,8 +776,7 @@ fn get_select_from_apply_patch(
          FROM {frm_db}.tiles)"
                 ),
                 Normalized {
-                    hash_view: true,
-                    schema: _,
+                    hash_view: true, ..
                 }
                 | FlatWithHash => format!("{frm_db}.tiles_with_hash"),
                 Normalized {
@@ -856,19 +855,18 @@ fn get_select_from_with_diff(
     let diff_tiles: String;
     if dst_type == Flat {
         tile_hash_expr = "";
-        diff_tiles = "diffDb.tiles".to_string();
+        diff_tiles = "diffDb.tiles".to_owned();
     } else {
         tile_hash_expr = match dif_type {
             Flat | Cache => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
             FlatWithHash | Normalized { .. } => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
         };
         diff_tiles = match dif_type {
-            Flat | Cache => "diffDb.tiles".to_string(),
+            Flat | Cache => "diffDb.tiles".to_owned(),
             Normalized {
-                hash_view: true,
-                schema: _,
+                hash_view: true, ..
             }
-            | FlatWithHash => "diffDb.tiles_with_hash".to_string(),
+            | FlatWithHash => "diffDb.tiles_with_hash".to_owned(),
             Normalized {
                 hash_view: false,
                 schema,
@@ -905,7 +903,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
     // Flat and Cache destinations need no hash column because they both sore directly
     if dst_type == Flat || dst_type == Cache {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
-            .to_string()
+            .to_owned()
     } else {
         match src_type {
             // A Cache source has no md5 hashes, so like Flat it is read via the
@@ -914,12 +912,12 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as tile_hash
         FROM sourceDb.tiles
         WHERE TRUE"
-                .to_string(),
+                .to_owned(),
             FlatWithHash => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash
         FROM sourceDb.tiles_with_hash
         WHERE TRUE"
-                .to_string(),
+                .to_owned(),
             Normalized { schema, .. } => {
                 let (map, img, id) = (
                     schema.map_table(),

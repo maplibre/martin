@@ -1,6 +1,5 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::string::ToString as _;
 use std::time::Duration;
 
 use actix_web::http::header::CACHE_CONTROL;
@@ -191,7 +190,7 @@ pub fn new_server(
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
             format!("{prefix}/_/metrics")
         } else {
-            "/_/metrics".to_string()
+            "/_/metrics".to_owned()
         };
         actix_web_prom::PrometheusMetricsBuilder::new("martin")
             .registry(prometheus::default_registry().clone())
@@ -220,7 +219,7 @@ pub fn new_server(
     let listen_addresses = config
         .listen_addresses
         .clone()
-        .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_string());
+        .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_owned());
 
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;

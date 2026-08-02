@@ -16,10 +16,10 @@ pub enum BoundsError {
     Pool(#[from] DuckDBError),
 }
 
-/// Errors raised while resolving GeoParquet tile sources.
+/// Errors raised while resolving `GeoParquet` tile sources.
 #[derive(thiserror::Error, Debug)]
 pub enum GeoparquetError {
-    /// No geometry column was found in the GeoParquet file.
+    /// No geometry column was found in the `GeoParquet` file.
     #[error("GeoParquet source has no geometry column")]
     NoGeometryColumn,
 
@@ -84,7 +84,7 @@ impl GeoparquetError {
         Self::IntrospectionQuery(
             source.to_string(),
             source_label,
-            signature.to_string(),
+            signature.to_owned(),
             query,
         )
     }

@@ -207,7 +207,7 @@ mod tests {
     fn new_skips_remote_individually_configured_sources() {
         let mut sources: BTreeMap<String, FileConfigSrc> = BTreeMap::new();
         sources.insert(
-            "remote_a".to_string(),
+            "remote_a".to_owned(),
             FileConfigSrc::Obj(FileConfigSource {
                 path: PathBuf::from("s3://bucket/file.pmtiles"),
                 cache: CachePolicy::default(),

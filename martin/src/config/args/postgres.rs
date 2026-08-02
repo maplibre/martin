@@ -132,7 +132,7 @@ impl PostgresArgs {
     fn extract_conn_strings(cli_strings: &mut Arguments, env: &impl Env) -> Vec<String> {
         let mut connections = cli_strings.process(|v| {
             if is_postgres_connection_string(v) {
-                Take(v.to_string())
+                Take(v.to_owned())
             } else {
                 Ignore
             }
@@ -155,17 +155,17 @@ impl PostgresArgs {
         if self.default_srid.is_some() {
             return self.default_srid;
         }
-        env.get_env_str("DEFAULT_SRID")
-            .and_then(|srid| match srid.parse::<i32>() {
-                Ok(v) => {
-                    info!("Using env var DEFAULT_SRID={v} to set default SRID");
-                    Some(v)
-                }
-                Err(v) => {
-                    warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
-                    None
-                }
-            })
+        let srid = env.get_env_str("DEFAULT_SRID")?;
+        match srid.parse::<i32>() {
+            Ok(v) => {
+                info!("Using env var DEFAULT_SRID={v} to set default SRID");
+                Some(v)
+            }
+            Err(v) => {
+                warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
+                None
+            }
+        }
     }
 
     fn get_certs(&self, env: &impl Env) -> PostgresSslCerts {
@@ -207,11 +207,11 @@ mod tests {
     use crate::config::primitives::env::FauxEnv;
 
     #[test]
-    fn test_extract_conn_strings() {
+    fn extracts_conn_strings() {
         let mut args = Arguments::new(vec![
-            "postgresql://localhost:5432".to_string(),
-            "postgres://localhost:5432".to_string(),
-            "mysql://localhost:3306".to_string(),
+            "postgresql://localhost:5432".to_owned(),
+            "postgres://localhost:5432".to_owned(),
+            "mysql://localhost:3306".to_owned(),
         ]);
         assert_eq!(
             PostgresArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_conn_strings_from_env() {
+    fn extract_conn_strings_from_env() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![(
@@ -238,13 +238,13 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config() {
-        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_string()]);
+    fn merge_into_config() {
+        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
         let config = PostgresArgs::default().into_config(&mut args, &FauxEnv::default());
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 ..Default::default()
             })
         );
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config2() {
+    fn merge_into_config2() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 default_srid: Some(10),
                 ssl_certificates: PostgresSslCerts {
                     ssl_root_cert: Some(PathBuf::from("file")),
@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_into_config3() {
+    fn merge_into_config3() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
             vec![
@@ -301,7 +301,7 @@ mod tests {
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
-                connection_string: Some("postgres://localhost:5432".to_string()),
+                connection_string: Some("postgres://localhost:5432".to_owned()),
                 default_srid: Some(20),
                 ssl_certificates: PostgresSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),

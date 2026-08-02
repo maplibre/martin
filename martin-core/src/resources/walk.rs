@@ -19,6 +19,10 @@ pub fn walk_files(dir: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, walkd
         // Recursing into the bookkeeping dir would surface each file 3x
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e))
         .filter_map(|entry| match entry {
+            #[expect(
+                clippy::filetype_is_file,
+                reason = "only regular files are resources; sockets and fifos must not be picked up"
+            )]
             Ok(e) if has_matching_extension(e.path(), extensions) && e.file_type().is_file() => {
                 Some(Ok(e.into_path()))
             }
@@ -48,13 +52,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_yield_each_file_once() {
-        use std::fs::{create_dir, write};
+        use std::fs::{create_dir_all, write};
         use std::os::unix::fs::symlink;
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let root = tmp.path();
         let real_dir = root.join("..2024_05_17_17_57_51.390489675");
-        create_dir(&real_dir).unwrap();
+        create_dir_all(&real_dir).unwrap();
         write(real_dir.join("foo.svg"), b"<svg/>").unwrap();
         write(real_dir.join("bar.svg"), b"<svg/>").unwrap();
         symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();

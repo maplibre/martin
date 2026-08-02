@@ -892,7 +892,7 @@ async fn patch_on_copy(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "this test is for debugging only, and should be disabled"]
 #[tracing_test::traced_test]
-async fn test_one() {
+async fn one() {
     // This will cause an error if ran together with other tests
     let db = databases();
     // let db = Databases::default();
@@ -1012,7 +1012,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                                 out
                                             })
                                         },
-                                        ToString::to_string,
+                                        str::to_owned,
                                     )
                                 )
                             }),
@@ -1025,7 +1025,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                 panic!("Unknown column type: {typ}")
                             }
                         })
-                        .unwrap_or("NULL".to_string())
+                        .unwrap_or("NULL".to_owned())
                     })
                     .join(", ");
                 format!("(  {val}  )")

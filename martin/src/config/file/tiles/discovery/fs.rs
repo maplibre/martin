@@ -133,7 +133,7 @@ impl Discovery for FsDiscovery {
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
-        (self.build)(id.to_string(), args.0.clone(), args.1).await
+        (self.build)(id.to_owned(), args.0.clone(), args.1).await
     }
 
     fn process(&self) -> ProcessConfig {
@@ -189,7 +189,7 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 
     Some(ResolvedEntry {
         path: path.clone(),
-        stem: stem.to_string(),
+        stem: stem.to_owned(),
         path_str,
         modified_ms,
     })

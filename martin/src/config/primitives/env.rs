@@ -58,7 +58,7 @@ impl Env for FauxEnv {
     fn as_property_map(&self) -> HashMap<String, String> {
         self.0
             .iter()
-            .filter_map(|(k, v)| v.to_str().map(|s| ((*k).to_string(), s.to_string())))
+            .filter_map(|(k, v)| v.to_str().map(|s| ((*k).to_owned(), s.to_owned())))
             .collect()
     }
 }
@@ -68,17 +68,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_env_str() {
+    fn get_env_str() {
         let env = FauxEnv::default();
         assert_eq!(env.get_env_str("FOO"), None);
 
         let env: FauxEnv = vec![("FOO", OsString::from("bar"))].into_iter().collect();
-        assert_eq!(env.get_env_str("FOO"), Some("bar".to_string()));
+        assert_eq!(env.get_env_str("FOO"), Some("bar".to_owned()));
     }
 
     #[test]
     #[cfg(unix)]
-    fn test_bad_os_str() {
+    fn bad_os_str() {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt as _;
 

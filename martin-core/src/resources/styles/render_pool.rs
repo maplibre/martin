@@ -236,11 +236,11 @@ impl<W: Worker> RenderPool<W> {
             .requests
             .send_async(Msg::Render(request, response_tx))
             .await
-            .map_err(|_| StyleError::FailedToSendRequest)?;
+            .map_err(|_err| StyleError::FailedToSendRequest)?;
 
         response_rx
             .await
-            .map_err(|_| StyleError::FailedToReceiveResponse)?
+            .map_err(|_err| StyleError::FailedToReceiveResponse)?
     }
 }
 

@@ -135,7 +135,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| MbtilesError::AcquireConnError(self.id.clone()))?
+            .map_err(|e| MbtilesError::AcquireConnError(self.id.clone(), Box::new(e)))?
         {
             Ok(tile)
         } else {
