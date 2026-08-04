@@ -1,0 +1,5 @@
+---
+source: integration-tests/tests/rendering.rs
+expression: "fetched.join(\"\\n\")"
+---
+GET /tiles/0/0/0.pbf
