@@ -614,6 +614,13 @@ test-pg: fetch start
 test-minio: fetch
     cargo test --features test-minio --no-default-features --test pmt_minio_test
 
+# Run COG/GeoTIFF tests only, including the end-to-end ones
+test-cog: fetch
+    cargo test -p martin --features unstable-cog --no-default-features --lib
+    cargo test -p martin-core --features unstable-cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features unstable-cog
+    cargo test --package martin-integration-tests --features test-cog --test cog
+
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
     cargo test -p martin --features test-duckdb --no-default-features --lib

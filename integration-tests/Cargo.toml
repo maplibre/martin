@@ -9,6 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
+test-cog = []
 test-duckdb = []
 test-pg = []
 
