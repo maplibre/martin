@@ -18,7 +18,8 @@ use crate::workspace_root;
 /// One directory per upstream host, each mirroring the paths that host serves.
 const CASSETTE_DIR: &str = "tests/fixtures/render_cassette";
 
-/// The recorded responses of one upstream host, served over HTTP.
+/// The recorded responses of the upstream hosts a style fetches from, served over HTTP under
+/// `/{host}/{path}`, the layout [`CASSETTE_DIR`] holds them in.
 ///
 /// [`Cassette::style`] points a style fixture at it, and [`Cassette::assert_no_misses`] reports
 /// what the recordings did not cover.
@@ -36,21 +37,21 @@ pub struct Cassette {
 }
 
 impl Cassette {
-    /// Start serving the recordings of `host`, e.g. `demotiles.maplibre.org`, recording what they
+    /// Start serving the recordings of `hosts`, e.g. `demotiles.maplibre.org`, recording what they
     /// do not cover unless this is CI.
-    pub async fn serving(host: &str) -> Self {
-        Self::start(host, std::env::var_os("CI").is_none()).await
+    pub async fn serving(hosts: &[&str]) -> Self {
+        Self::start(hosts, std::env::var_os("CI").is_none()).await
     }
 
-    /// Start serving the recordings of `host` and nothing else.
+    /// Start serving the recordings of `hosts` and nothing else.
     #[cfg(test)]
-    async fn replaying(host: &str) -> Self {
-        Self::start(host, false).await
+    async fn replaying(hosts: &[&str]) -> Self {
+        Self::start(hosts, false).await
     }
 
-    async fn start(host: &str, records: bool) -> Self {
+    async fn start(hosts: &[&str], records: bool) -> Self {
         let server = MockServer::start().await;
-        let tape = Arc::new(Tape::new(host, &server.uri(), records));
+        let tape = Arc::new(Tape::new(hosts, &server.uri(), records));
         let responder = Arc::clone(&tape);
         Mock::given(method("GET"))
             .respond_with(move |request: &Request| responder.respond(request.url.path()))
@@ -63,7 +64,7 @@ impl Cassette {
         }
     }
 
-    /// Copy the style at `path` with its URLs on the recorded host pointed here, and return the
+    /// Copy the style at `path` with its URLs on the recorded hosts pointed here, and return the
     /// copy's path.
     #[must_use]
     pub fn style(&self, path: impl AsRef<Path>) -> PathBuf {
@@ -105,27 +106,34 @@ impl Cassette {
 /// The recordings the [`Cassette`] answers from, and where new ones go.
 #[derive(Debug)]
 struct Tape {
-    host: String,
-    /// `tests/fixtures/render_cassette/{host}`.
+    /// The hosts served, in the order [`Tape::rewrite`] substitutes them.
+    hosts: Vec<String>,
+    /// [`CASSETTE_DIR`], resolved.
     dir: PathBuf,
-    /// The recorded body of each path, keyed as the path appears in a URL.
+    /// The recorded body of each `/{host}/{path}`, keyed as it appears in this cassette's URLs.
     responses: RwLock<HashMap<String, Vec<u8>>>,
-    /// Whether a path missing from `responses` is fetched from the upstream and written to `dir`.
+    /// Whether a path missing from `responses` is fetched from its upstream and written to `dir`.
     records: bool,
-    /// The upstream to record from, spawned on the first miss.
+    /// The upstreams to record from, spawned on the first miss.
     upstream: OnceLock<Mutex<Upstream>>,
-    /// The URL of the [`Cassette`], substituted for the upstream in the bodies naming it.
+    /// The URL of the [`Cassette`], substituted for the upstreams in the bodies naming them.
     base_url: String,
     /// The paths answered with a 404.
     misses: Mutex<Vec<String>>,
 }
 
 impl Tape {
-    fn new(host: &str, base_url: &str, records: bool) -> Self {
-        let dir = workspace_root().join(CASSETTE_DIR).join(host);
+    fn new(hosts: &[&str], base_url: &str, records: bool) -> Self {
+        let dir = workspace_root().join(CASSETTE_DIR);
+        let mut responses = HashMap::new();
+        for host in hosts {
+            for (path, body) in read_dir(&dir.join(host)) {
+                responses.insert(format!("/{host}{path}"), body);
+            }
+        }
         Self {
-            host: host.to_owned(),
-            responses: RwLock::new(read_dir(&dir)),
+            hosts: hosts.iter().map(|host| (*host).to_owned()).collect(),
+            responses: RwLock::new(responses),
             records,
             upstream: OnceLock::new(),
             dir,
@@ -134,9 +142,26 @@ impl Tape {
         }
     }
 
-    /// Point the URLs on the recorded host in `body` at the [`Cassette`].
+    /// Point the URLs on the recorded hosts in `body` at the [`Cassette`].
     fn rewrite(&self, body: &str) -> String {
-        body.replace(&format!("https://{}", self.host), &self.base_url)
+        let mut body = body.to_owned();
+        for host in &self.hosts {
+            body = body.replace(
+                &format!("https://{host}"),
+                &format!("{}/{host}", self.base_url),
+            );
+        }
+        body
+    }
+
+    /// The upstream URL `path` stands for, e.g. `/a.example/tiles/0/0/0.pbf` for
+    /// `https://a.example/tiles/0/0/0.pbf`.
+    fn upstream_url(&self, path: &str) -> Option<String> {
+        let (host, rest) = path.trim_start_matches('/').split_once('/')?;
+        self.hosts
+            .iter()
+            .any(|served| served == host)
+            .then(|| format!("https://{host}/{rest}"))
     }
 
     fn respond(&self, path: &str) -> ResponseTemplate {
@@ -174,12 +199,13 @@ impl Tape {
         if !self.records {
             return None;
         }
+        let url = self.upstream_url(path)?;
         let body = self
             .upstream
-            .get_or_init(|| Mutex::new(Upstream::fetching_from(&self.host)))
+            .get_or_init(|| Mutex::new(Upstream::fetching()))
             .lock()
             .expect("cassette lock poisoned")
-            .get(path)?;
+            .get(&url)?;
         write(&self.dir.join(path.trim_start_matches('/')), &body);
         self.responses
             .write()
@@ -199,28 +225,27 @@ struct Upstream {
 }
 
 impl Upstream {
-    fn fetching_from(host: &str) -> Self {
+    fn fetching() -> Self {
         let (requests, incoming) = channel::<(String, Sender<Option<Vec<u8>>>)>();
-        let host = host.to_owned();
         thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("failed to build the recording runtime");
             let client = Client::new();
-            for (path, reply) in incoming {
-                let body = runtime.block_on(fetch(&client, &format!("https://{host}{path}")));
+            for (url, reply) in incoming {
+                let body = runtime.block_on(fetch(&client, &url));
                 reply.send(body).expect("the cassette outlives its fetches");
             }
         });
         Self { requests }
     }
 
-    /// The live body of `path`, or `None` if the upstream does not serve it.
-    fn get(&self, path: &str) -> Option<Vec<u8>> {
+    /// The live body of `url`, or `None` if the upstream does not serve it.
+    fn get(&self, url: &str) -> Option<Vec<u8>> {
         let (reply, response) = channel();
         self.requests
-            .send((path.to_owned(), reply))
+            .send((url.to_owned(), reply))
             .expect("the recording thread outlives the cassette");
         response.recv().expect("the recording thread answers")
     }
@@ -311,8 +336,8 @@ mod tests {
     use crate::fixture;
 
     const HOST: &str = "demotiles.maplibre.org";
-    const RECORDED: &str = "/tiles/0/0/0.pbf";
-    const UNRECORDED: &str = "/tiles/9/9/9.pbf";
+    const RECORDED: &str = "/demotiles.maplibre.org/tiles/0/0/0.pbf";
+    const UNRECORDED: &str = "/demotiles.maplibre.org/tiles/9/9/9.pbf";
 
     async fn get(cassette: &Cassette, path: &str) -> Response {
         Client::new()
@@ -324,7 +349,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_recorded_path_is_served_with_its_bytes_and_content_type() {
-        let cassette = Cassette::replaying(HOST).await;
+        let cassette = Cassette::replaying(&[HOST]).await;
 
         let response = get(&cassette, RECORDED).await;
         assert_eq!(response.status(), 200);
@@ -332,7 +357,6 @@ mod tests {
         let served = response.bytes().await.expect("a body").to_vec();
         let recording = workspace_root()
             .join(CASSETTE_DIR)
-            .join(HOST)
             .join(RECORDED.trim_start_matches('/'));
         assert_eq!(served, fs::read(recording).expect("the recording"));
 
@@ -342,13 +366,16 @@ mod tests {
 
     #[tokio::test]
     async fn a_json_recording_points_its_urls_at_the_cassette() {
-        let cassette = Cassette::replaying("tiles.openfreemap.org").await;
+        let cassette = Cassette::replaying(&["tiles.openfreemap.org"]).await;
 
-        let response = get(&cassette, "/planet").await;
+        let response = get(&cassette, "/tiles.openfreemap.org/planet").await;
         assert_eq!(response.headers()["content-type"], "application/json");
         let tilejson = response.text().await.expect("a body");
         assert!(
-            tilejson.contains(&format!("{}/planet/", cassette.server.uri())),
+            tilejson.contains(&format!(
+                "{}/tiles.openfreemap.org/planet/",
+                cassette.server.uri()
+            )),
             "the tile urls still point elsewhere: {tilejson:.200}"
         );
         assert!(!tilejson.contains("https://tiles.openfreemap.org"));
@@ -358,27 +385,29 @@ mod tests {
 
     #[tokio::test]
     async fn a_style_is_copied_with_its_urls_pointed_at_the_cassette() {
-        let cassette = Cassette::replaying(HOST).await;
+        let cassette = Cassette::replaying(&[HOST]).await;
 
         let copy = cassette.style(fixture("styles/maplibre_demo.json"));
         let style = fs::read_to_string(copy).expect("the copied style");
-        assert!(style.contains(&format!("{}/tiles/", cassette.server.uri())));
+        assert!(style.contains(&format!("{}/{HOST}/tiles/", cassette.server.uri())));
         assert!(!style.contains("https://demotiles.maplibre.org"));
         assert!(style.contains("https://github.com/maplibre/demotiles"));
     }
 
     #[tokio::test]
     async fn a_path_without_a_recording_is_answered_with_a_404() {
-        let cassette = Cassette::replaying(HOST).await;
+        let cassette = Cassette::replaying(&[HOST]).await;
 
         assert_eq!(get(&cassette, UNRECORDED).await.status(), 404);
         assert_eq!(cassette.request_log().await, format!("GET {UNRECORDED}"));
     }
 
     #[tokio::test]
-    #[should_panic(expected = "the cassette has no recording for:\n/tiles/9/9/9.pbf")]
+    #[should_panic(
+        expected = "the cassette has no recording for:\n/demotiles.maplibre.org/tiles/9/9/9.pbf"
+    )]
     async fn a_path_without_a_recording_fails_the_test() {
-        let cassette = Cassette::replaying(HOST).await;
+        let cassette = Cassette::replaying(&[HOST]).await;
 
         get(&cassette, UNRECORDED).await;
         cassette.assert_no_misses();
