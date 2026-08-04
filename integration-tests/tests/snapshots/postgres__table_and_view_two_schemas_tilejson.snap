@@ -4,9 +4,9 @@ expression: source_tilejson
 ---
 {
   "bounds": [
-    0.0012741832,
+    0.0012741833,
     0.0000988181,
-    0.0012921495,
+    0.0012921496,
     0.0001169055
   ],
   "description": "schema_a.table_and_view_two_schemas.a_geom",

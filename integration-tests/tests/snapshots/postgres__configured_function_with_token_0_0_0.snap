@@ -1,3 +1,7 @@
+---
+source: integration-tests/tests/postgres.rs
+expression: "tile_dump(&martin, \"/function_zxy_query_test/0/0/0?token=martin\").await"
+---
 layer: 0
   name: public.function_zxy_query_test
   version: 2

@@ -21,14 +21,6 @@ mkdir -p "$LOG_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if ! command -v mvt > /dev/null; then
-  echo "the 'mvt' CLI is required for testing (used to dump vector tiles)"
-  echo "Install it with one of these:"
-  echo "   cargo binstall fast-mvt"
-  echo "   cargo install fast-mvt --features=cli"
-  exit 1
-fi
-
 if sed --version > /dev/null 2>&1; then
   SED=${SED:-sed}
 elif gsed --version > /dev/null 2>&1; then
@@ -106,42 +98,6 @@ function kill_process {
     timeout -k 1s 1s wait "$PROCESS_ID" || true;
 }
 
-cleanup_json_floats() {
-  # round numbers to $1 decimal places, with optional $2 jq cmd
-  jq --sort-keys --exit-status --argjson PREC "$1" \
-     "${2:-}"'walk( if type == "number" then (. * $PREC | round | . / $PREC) else . end )'
-}
-
-cleanup_json_ints() {
-  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  jq --sort-keys --exit-status \
-     "${1:-}"'walk( if type == "number" then .+0.0 else . end )'
-}
-
-test_jsn() {
-  FILENAME="$TEST_OUT_DIR/$1.json"
-  URL="$MARTIN_URL/$2"
-
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL  --dump-header  "$FILENAME.headers" "$URL" | cleanup_json_ints > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-}
-
-test_mvt() {
-  FILENAME="$TEST_OUT_DIR/$1.mvt"
-  URL="$MARTIN_URL/$2"
-
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-
-  # Dump the vector tile into a human-readable, diffable text form. `mvt dump` parses the tile, so
-  # it also validates the protobuf (it exits non-zero on a malformed tile). Only the dump is kept
-  # under version control - the raw .mvt is a build artifact and is removed.
-  mvt dump "$FILENAME" > "$FILENAME.txt"
-  rm "$FILENAME"
-}
-
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -156,21 +112,6 @@ quietly_remove_lines() {
   LINE_TO_REMOVE="$2"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
-}
-
-# if we dump a headers file via curl, this is otherwise not reproducible
-clean_headers_dump() {
-  FILE="$1"
-  # now we need to strip the date header as it is undeterministic
-  $SED --regexp-extended --in-place "s/date: .+//" "$FILE"
-  # the http version is not an "header" that we want to assert
-  $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
-  # need to remove entirely empty lines, \r\n and leading/trailing whitespace
-  # sorting is arbitrary => sort here
-  tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
-  mv "$FILE.tmp" "$FILE"
-  # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
-  $SED --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -208,7 +149,6 @@ validate_log() {
 
 echo "::group::versions"
 curl --version
-jq --version
 grep --version | head -1
 
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
@@ -294,20 +234,6 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
->&2 echo "Test catalog"
-test_jsn catalog_cfg  catalog
-test_jsn cmp          table_source,points1,points2
-
-# Test tile sources
-test_mvt tbl_0_0_0    table_source/0/0/0
-test_mvt cmp_0_0_0    points1,points2/0/0/0
-test_mvt fnc_0_0_0    function_zxy_query/0/0/0
-test_mvt fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
-
-# Test comments override
-test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  function_Mixed_Name
-
 # Test style rendering (only available on Linux with the rendering feature)
 RENDERING_AVAILABLE=0
 if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
@@ -342,24 +268,11 @@ remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
 
 # If we don't do this, rounding differences on CI and local machines are a problem
-echo "::group::redact unnecessary precision in *_config.yaml and *.json"
+echo "::group::redact unnecessary precision in *_config.yaml"
 for file in $(find ./tests/output/ ./tests/expected/ -name "*_config.yaml" -type f); do
     echo "truncating floats in $file"
     "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
     "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
-done
-for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
-    echo "truncating floats in $file"
-    cat "$file" | cleanup_json_floats 10000000000 > "$file.tmp"
-
-    # update headers if content changed
-    if ! cmp -s "$file" "$file.tmp"; then
-        if [[ -f "$file.headers" ]]; then
-            "$SED" --regexp-extended --in-place 's/^etag: .*/etag: "unstable due to floating-point rounding"/g' "$file.headers"
-        fi
-    fi
-
-    mv "$file.tmp" "$file"
 done
 echo "::endgroup::"
 

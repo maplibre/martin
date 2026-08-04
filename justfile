@@ -201,7 +201,7 @@ bless-insta *args:  fetch (cargo-install 'cargo-insta')
     fi
 
 # Bless integration tests
-bless-int: start install-mvt
+bless-int: start
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf tests/temp
@@ -667,7 +667,7 @@ test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-for
     cargo fmt --all -- --check
 
 # Run integration tests
-test-int: clean-test install-sqlx install-mvt
+test-int: clean-test install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh

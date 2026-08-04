@@ -4,9 +4,9 @@ expression: materialized_view
 ---
 {
   "bounds": [
-    -0.0010997121,
-    0.0003416246,
-    -0.0006641715,
+    -0.0010997122,
+    0.0003416247,
+    -0.0006641716,
     0.0003683552
   ],
   "description": "materialized view comment",
