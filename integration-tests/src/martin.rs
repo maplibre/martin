@@ -477,7 +477,7 @@ fn terminate(child: &Child) {
     let _ = child;
 }
 
-fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
+pub(crate) fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
     let mut body = Vec::new();
     if raw.is_empty() {
         return body;

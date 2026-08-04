@@ -95,6 +95,21 @@ jobs:
         with: { cache: true }
       - name: Run DuckDB tests
         run: just test-duckdb
+  test-rendering:
+    name: Style rendering tests
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+        with: { rendering: true, cache: true }
+      - name: Run rendering tests
+        run: just test-rendering
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -1013,6 +1028,7 @@ jobs:
       - lint-rust-dependencies
       - unit-test-rust
       - test-cog
+      - test-rendering
       - unit-test-svc-pg
       - unit-test-svc-minio
       - test-multi-os
