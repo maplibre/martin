@@ -21,6 +21,7 @@ libc = "0.2"
 brotli.workspace = true
 flate2.workspace = true
 image.workspace = true
+image-compare.workspace = true
 mlt-core.workspace = true
 pmtiles = { workspace = true, features = ["write"] }
 regex.workspace = true
@@ -39,6 +40,7 @@ insta = { workspace = true, features = ["filters", "json"] }
 mlt-core.workspace = true
 pbf_font_tools.workspace = true
 rstest.workspace = true
+test_each_file.workspace = true
 
 [lints]
 workspace = true

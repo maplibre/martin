@@ -273,12 +273,34 @@ impl Martin {
         self.request(Method::HEAD, path, headers).await
     }
 
+    /// Perform a POST request carrying a JSON `body`.
+    pub async fn post_json(&self, path: &str, body: &[u8]) -> TestResponse {
+        self.send(
+            Method::POST,
+            path,
+            &[("content-type", "application/json")],
+            body,
+        )
+        .await
+    }
+
     async fn request(&self, method: Method, path: &str, headers: &[(&str, &str)]) -> TestResponse {
+        self.send(method, path, headers, b"").await
+    }
+
+    async fn send(
+        &self,
+        method: Method,
+        path: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+    ) -> TestResponse {
         let url = format!("http://{}{path}", self.addr);
         let mut request = self
             .client
             .request(method.clone(), &url)
-            .header("accept-encoding", "br, gzip");
+            .header("accept-encoding", "br, gzip")
+            .body(body.to_vec());
         for (name, value) in headers {
             request = request.header(*name, *value);
         }
