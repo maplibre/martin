@@ -58,10 +58,6 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
         with: { rendering: true, cache: true }
-      - name: Install uv
-        if: runner.os == 'Linux'
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - name: Run cargo test
         run: just test-packages-ci
       - run: just test-doc

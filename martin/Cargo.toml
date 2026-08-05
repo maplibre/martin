@@ -253,12 +253,10 @@ walkdir = { workspace = true, optional = true }
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
-image-compare.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
-test_each_file.workspace = true
 testcontainers-modules.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tracing-test.workspace = true
