@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
-use image::ImageReader;
+use image::{ImageFormat, ImageReader};
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
@@ -582,11 +582,23 @@ impl TestResponse {
     /// PNG, JPEG or WebP whatever the `content-type` header says.
     #[must_use]
     pub fn image_size(&self) -> (u32, u32) {
+        self.image_reader()
+            .into_dimensions()
+            .expect("response body is not a raster image")
+    }
+
+    /// Format the decompressed response body is encoded in, read out of the bytes themselves.
+    #[must_use]
+    pub fn image_format(&self) -> ImageFormat {
+        self.image_reader()
+            .format()
+            .expect("response body is not a raster image")
+    }
+
+    fn image_reader(&self) -> ImageReader<Cursor<&Vec<u8>>> {
         ImageReader::new(Cursor::new(&self.body))
             .with_guessed_format()
             .expect("reading from memory cannot fail")
-            .into_dimensions()
-            .expect("response body is not a raster image")
     }
 
     /// Headers as sorted `name: value` lines with nondeterministic headers

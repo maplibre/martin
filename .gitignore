@@ -22,7 +22,6 @@ coverage
 pg_data/
 target/
 test_log*
-tests/mbtiles_temp_files/
 tests/output/
 tmp/
 tsconfig.tsbuildinfo
