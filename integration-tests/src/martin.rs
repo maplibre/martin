@@ -368,20 +368,30 @@ impl Martin {
         self.log_lines = Some(lines);
     }
 
+    /// Remove every log line containing `needle` and return them in the order
+    /// martin logged them. Must be called after [`Martin::stop`].
+    pub fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
+        self.collected_log()
+            .extract_if(.., |line| line.contains(needle))
+            .collect()
+    }
+
     /// Assert that at least one log line contains `needle`, and consume every
     /// matching line. Must be called after [`Martin::stop`].
     pub fn assert_log_contains(&mut self, needle: &str) {
-        let lines = self
-            .log_lines
-            .as_mut()
-            .expect("assert_log_contains must be called after stop()");
-        let before = lines.len();
-        lines.retain(|line| !line.contains(needle));
+        let taken = self.take_log_lines(needle);
         assert!(
-            lines.len() < before,
+            !taken.is_empty(),
             "log does not contain {needle:?}; log:\n{}",
-            lines.join("\n")
+            self.collected_log().join("\n")
         );
+    }
+
+    /// The log [`Martin::stop`] collected, which the assertions below consume from.
+    fn collected_log(&mut self) -> &mut Vec<String> {
+        self.log_lines
+            .as_mut()
+            .expect("log assertions must be called after stop()")
     }
 
     /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
@@ -398,10 +408,7 @@ impl Martin {
     /// after [`ALLOWED_LOG_LINES`] and the lines already consumed by
     /// [`Martin::assert_log_contains`]. Must be called after [`Martin::stop`].
     pub fn assert_log_clean(&mut self) {
-        let lines = self
-            .log_lines
-            .as_mut()
-            .expect("assert_log_clean must be called after stop()");
+        let lines = self.collected_log();
         lines.retain(|line| {
             !ALLOWED_LOG_LINES
                 .iter()
