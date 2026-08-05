@@ -5216,7 +5216,6 @@ dependencies = [
  "geo-types",
  "geojson",
  "hotpath 0.22.0",
- "image",
  "insta",
  "itertools 0.15.0",
  "maplibre_native",
