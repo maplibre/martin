@@ -3,7 +3,9 @@
 
 use std::fs;
 
-use martin_integration_tests::{Martin, StaticFiles, WatchedDir, fixture, vector_pmtiles};
+use martin_integration_tests::{
+    Martin, StaticFiles, WatchedDir, fixture, mbtiles_fixture, vector_pmtiles,
+};
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
 /// that has to be derived from a file name carrying characters a URL cannot.
@@ -397,7 +399,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
 async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let archive = vector_pmtiles(
-        fixture("mbtiles/world_cities.mbtiles"),
+        mbtiles_fixture(tmp.path(), "world_cities").await,
         tmp.path().join("world_cities.pmtiles"),
     )
     .await;
