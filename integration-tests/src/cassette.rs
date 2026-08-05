@@ -18,6 +18,10 @@ use crate::workspace_root;
 /// One directory per upstream host, each mirroring the paths that host serves.
 const CASSETTE_DIR: &str = "tests/fixtures/render_cassette";
 
+/// What a recording is named when its path is also a directory, e.g. a `TileJSON` at `/planet`
+/// whose tiles are at `/planet/{version}/{z}/{x}/{y}.pbf`.
+const INDEX: &str = "_index";
+
 /// The recorded responses of the upstream hosts a style fetches from, served over HTTP under
 /// `/{host}/{path}`, the layout [`CASSETTE_DIR`] holds them in.
 ///
@@ -206,7 +210,7 @@ impl Tape {
             .lock()
             .expect("cassette lock poisoned")
             .get(&url)?;
-        write(&self.dir.join(path.trim_start_matches('/')), &body);
+        write(&self.dir, path, &body);
         self.responses
             .write()
             .expect("cassette lock poisoned")
@@ -277,7 +281,7 @@ async fn fetch(client: &Client, url: &str) -> Option<Vec<u8>> {
     Some(decompress(&body, encoding.as_deref()))
 }
 
-/// The recordings under `dir`, keyed by the URL path each answers.
+/// The recordings under `dir`, keyed by the URL path each answers, `` for [`INDEX`] files.
 ///
 /// A host nothing has been recorded for yet has no directory, and starts out empty.
 fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
@@ -296,10 +300,14 @@ fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
                 pending.push(path);
                 continue;
             }
-            let url_path = path
+            let relative = path
                 .strip_prefix(dir)
                 .expect("the walk stays inside the cassette");
-            let url_path = format!("/{}", url_path.to_str().expect("a cassette path is utf-8"));
+            let relative = relative.to_str().expect("a cassette path is utf-8");
+            let url_path = format!(
+                "/{}",
+                relative.trim_end_matches(INDEX).trim_end_matches('/')
+            );
             responses.insert(
                 url_path,
                 fs::read(&path).expect("failed to read a recording"),
@@ -309,11 +317,30 @@ fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
     responses
 }
 
-fn write(path: &Path, body: &[u8]) {
-    let parent = path.parent().expect("a recording is inside the cassette");
+/// Write the recording of `url_path` under `dir`, at the path the URL spells out.
+///
+/// A URL path that is also a directory is stored as an [`INDEX`] file inside it, and one whose
+/// parent was recorded as a file moves that recording into such an index first.
+fn write(dir: &Path, url_path: &str, body: &[u8]) {
+    let mut target = dir.join(url_path.trim_start_matches('/'));
+    for ancestor in target.ancestors().skip(1) {
+        if ancestor.is_file() {
+            let recording = fs::read(ancestor).expect("failed to read a recording");
+            fs::remove_file(ancestor).expect("failed to replace a recording with its directory");
+            fs::create_dir_all(ancestor)
+                .unwrap_or_else(|e| panic!("failed to create {}: {e}", ancestor.display()));
+            fs::write(ancestor.join(INDEX), recording).expect("failed to write a recording");
+            break;
+        }
+    }
+    if target.is_dir() {
+        target = target.join(INDEX);
+    }
+    let parent = target.parent().expect("a recording is inside the cassette");
     fs::create_dir_all(parent)
         .unwrap_or_else(|e| panic!("failed to create {}: {e}", parent.display()));
-    fs::write(path, body).unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+    fs::write(&target, body)
+        .unwrap_or_else(|e| panic!("failed to write {}: {e}", target.display()));
 }
 
 /// What a recording is served as, from its extension, falling back to what its first byte says.

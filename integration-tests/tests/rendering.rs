@@ -59,7 +59,12 @@ fn reference(group: &str, name: &str) -> PathBuf {
 
 async fn rendered(martin: &Martin, path: &str) -> Vec<u8> {
     let response = martin.get(path).await;
-    assert_eq!(response.status(), 200, "{path} did not render");
+    assert_eq!(
+        response.status(),
+        200,
+        "{path} did not render: {}",
+        response.text()
+    );
     response.body().to_vec()
 }
 
