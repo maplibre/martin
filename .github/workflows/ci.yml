@@ -475,7 +475,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
-        with: { tool: 'just,mlt,fast-mvt' }
+        with: { tool: 'just,fast-mvt' }
       - name: Install rendering dependencies
         if: matrix.os == 'ubuntu-latest'
         run: just install-dependencies
