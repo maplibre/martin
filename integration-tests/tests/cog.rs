@@ -8,9 +8,9 @@
 use std::fs;
 
 use image::ImageFormat;
-use martin_integration_tests::{Martin, WatchedDir, fixture};
+use martin_integration_tests::{Martin, WatchedDir, fixture, round_floats};
 use rstest::rstest;
-use serde_json::{Number, Value};
+use serde_json::Value;
 
 async fn martin_with_the_cog_dir() -> Martin {
     Martin::builder()
@@ -29,19 +29,6 @@ async fn tilejson(martin: &Martin, id: &str) -> Value {
         .expect("tilejson is not valid json");
     round_floats(&mut tilejson);
     tilejson
-}
-
-fn round_floats(value: &mut Value) {
-    match value {
-        Value::Number(number) if number.is_f64() => {
-            let float = number.as_f64().expect("a f64 number");
-            *number = Number::from_f64((float * 1e10).round() / 1e10)
-                .expect("rounding keeps a finite float finite");
-        }
-        Value::Array(items) => items.iter_mut().for_each(round_floats),
-        Value::Object(entries) => entries.values_mut().for_each(round_floats),
-        _ => {}
-    }
 }
 
 #[tokio::test]

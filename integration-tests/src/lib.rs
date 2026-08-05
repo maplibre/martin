@@ -84,6 +84,24 @@ pub async fn mbtiles_fixture(dir: impl AsRef<Path>, name: &str) -> PathBuf {
     dest
 }
 
+/// Round every float in `value` to ten digits, which is as far as the coordinate arithmetic behind
+/// bounds agrees across platforms.
+/// Snapshot filters cannot do this: they truncate the decimal digits they match, so two values a
+/// single ULP apart still end up different.
+pub fn round_floats(value: &mut serde_json::Value) {
+    use serde_json::{Number, Value};
+    match value {
+        Value::Number(number) if number.is_f64() => {
+            let float = number.as_f64().expect("a f64 number");
+            *number = Number::from_f64((float * 1e10).round() / 1e10)
+                .expect("rounding keeps a finite float finite");
+        }
+        Value::Array(items) => items.iter_mut().for_each(round_floats),
+        Value::Object(entries) => entries.values_mut().for_each(round_floats),
+        _ => {}
+    }
+}
+
 /// A command line rendered back for an assertion message.
 fn display_args(args: &[OsString]) -> String {
     args.iter()
