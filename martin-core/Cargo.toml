@@ -161,7 +161,6 @@ criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
 image.workspace = true
-image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rcgen.workspace = true
 rstest.workspace = true
