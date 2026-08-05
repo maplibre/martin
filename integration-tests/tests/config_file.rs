@@ -3,7 +3,6 @@
 use std::fs;
 
 use martin_integration_tests::{Martin, MartinBuilder};
-use tempfile::TempDir;
 
 const PMTILES_SOURCE: &str = "
 pmtiles:
@@ -11,20 +10,12 @@ pmtiles:
     pmt: tests/fixtures/pmtiles/png.pmtiles
 ";
 
-/// Write `yaml` into a fresh temp dir and start `builder` on it.
-/// The dir is returned because it has to outlive the server.
-/// Relative paths in `yaml` resolve against the workspace root, martin's working directory here.
-async fn start_with_config(builder: MartinBuilder, yaml: &str) -> (TempDir, Martin) {
-    let dir = tempfile::tempdir().expect("failed to create a temp dir");
-    let path = dir.path().join("config.yaml");
-    fs::write(&path, yaml).expect("failed to write the config file");
-    let martin = builder
-        .arg("--config")
-        .arg(&path)
+async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
+    builder
+        .config(yaml)
         .start()
         .await
-        .expect("failed to start martin");
-    (dir, martin)
+        .expect("failed to start martin")
 }
 
 /// The keys named by every `Ignoring unrecognized configuration key '<key>'` line, sorted.
@@ -46,7 +37,7 @@ fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
 
 #[tokio::test]
 async fn every_section_reports_its_unrecognized_keys_by_full_path() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder(),
         "
 warning: 'unrecognized'
@@ -97,7 +88,7 @@ fonts:
 
 #[tokio::test]
 async fn an_unrecognized_key_does_not_stop_the_configured_sources_from_being_served() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder(),
         "
 warning: 'unrecognized'
@@ -134,7 +125,7 @@ pmtiles:
 
 #[tokio::test]
 async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder(),
         &format!(
             "
@@ -157,7 +148,7 @@ cog:
 
 #[tokio::test]
 async fn an_object_store_option_is_reported_when_its_value_is_not_a_scalar() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder(),
         "
 pmtiles:
@@ -187,7 +178,7 @@ pmtiles:
 async fn unrecognized_keys_are_left_out_of_the_saved_config() {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = dir.path().join("save_config.yaml");
-    let (_config_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder().arg("--save-config").arg(&save_config),
         "
 warning: 'unrecognized'
@@ -219,7 +210,7 @@ pmtiles:
 #[cfg(feature = "test-pg")]
 #[tokio::test]
 async fn the_postgres_section_reports_its_unrecognized_keys_per_source() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder().with_postgres(),
         "
 postgres:
@@ -257,7 +248,7 @@ postgres:
 #[cfg(feature = "test-pg")]
 #[tokio::test]
 async fn the_postgres_auto_publish_section_reports_its_unrecognized_keys() {
-    let (_dir, mut martin) = start_with_config(
+    let mut martin = start_with_config(
         Martin::builder().with_postgres(),
         "
 postgres:

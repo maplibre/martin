@@ -2,17 +2,20 @@
 
 use std::env;
 use std::ffi::OsString;
-use std::io::{self, Read as _};
+use std::fs;
+use std::io::{self, Cursor, Read as _};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
+use image::ImageReader;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
+use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, BufReader};
 use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
@@ -57,6 +60,7 @@ pub struct MartinBuilder {
     args: Vec<OsString>,
     envs: Vec<(String, String)>,
     database_url: Option<String>,
+    config_dir: Option<TempDir>,
 }
 
 impl MartinBuilder {
@@ -65,6 +69,19 @@ impl MartinBuilder {
     pub fn arg(mut self, arg: impl Into<OsString>) -> Self {
         self.args.push(arg.into());
         self
+    }
+
+    /// Start martin on `yaml`, written to a config file in a temp directory that the
+    /// [`Martin`] instance keeps alive.
+    ///
+    /// Relative paths in `yaml` resolve against the workspace root, martin's working directory here.
+    #[must_use]
+    pub fn config(mut self, yaml: &str) -> Self {
+        let dir = tempfile::tempdir().expect("failed to create a temp dir");
+        let path = dir.path().join("config.yaml");
+        fs::write(&path, yaml).expect("failed to write the config file");
+        self.config_dir = Some(dir);
+        self.arg("--config").arg(path)
     }
 
     /// Set an environment variable for the subprocess.
@@ -133,6 +150,7 @@ impl MartinBuilder {
             log,
             readers,
             log_lines: None,
+            _config_dir: self.config_dir,
         };
         martin.wait_ready().await?;
         Ok(martin)
@@ -163,6 +181,8 @@ pub struct Martin {
     readers: Vec<JoinHandle<()>>,
     /// Populated by [`Martin::stop`]; log-assertion methods consume lines from it.
     log_lines: Option<Vec<String>>,
+    /// Holds the config file [`MartinBuilder::config`] wrote for as long as martin runs.
+    _config_dir: Option<TempDir>,
 }
 
 impl Martin {
@@ -554,6 +574,19 @@ impl TestResponse {
             "{:?}",
             MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
         )
+    }
+
+    /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
+    ///
+    /// The format is read out of the bytes themselves, so this panics on a body that is not a
+    /// PNG, JPEG or WebP whatever the `content-type` header says.
+    #[must_use]
+    pub fn image_size(&self) -> (u32, u32) {
+        ImageReader::new(Cursor::new(&self.body))
+            .with_guessed_format()
+            .expect("reading from memory cannot fail")
+            .into_dimensions()
+            .expect("response body is not a raster image")
     }
 
     /// Headers as sorted `name: value` lines with nondeterministic headers

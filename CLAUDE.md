@@ -13,7 +13,7 @@ Uses [just](https://github.com/casey/just) as command runner. `just --list` for 
 just check
 # run server on :3000
 just run
-# start test DB (docker) + pmtiles fileserver
+# start test DB (docker)
 just start
 # all tests
 just test
