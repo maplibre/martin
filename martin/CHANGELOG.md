@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0](https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0) - 2026-08-05
+
+### Added
+
+- e2e local geoparquet wiring via duckdb ([#3054](https://github.com/maplibre/martin/pull/3054))
+
+### Fixed
+
+- *(deps)* update dependency lucide-react to v1.27.0 ([#3096](https://github.com/maplibre/martin/pull/3096))
+- *(deps)* update npm dependencies ([#3083](https://github.com/maplibre/martin/pull/3083))
+- install configuration in /etc for debian package ([#3078](https://github.com/maplibre/martin/pull/3078))
+- log the resolved listen address on startup ([#3053](https://github.com/maplibre/martin/pull/3053))
+- *(geojson)* advertise vector_layers in TileJSON ([#3082](https://github.com/maplibre/martin/pull/3082))
+
+### Other
+
+- *(deps-dev)* Bump the npm_and_yarn group across 2 directories with 1 update ([#3100](https://github.com/maplibre/martin/pull/3100))
+- *(deps)* autoupdate pre-commit ([#3098](https://github.com/maplibre/martin/pull/3098))
+- *(deps-dev)* Bump brace-expansion from 2.1.1 to 2.1.4 in /martin/martin-ui in the npm_and_yarn group across 1 directory ([#3099](https://github.com/maplibre/martin/pull/3099))
+- enable additional clippy restriction lints ([#3095](https://github.com/maplibre/martin/pull/3095))
+- *(deps)* autoupdate pre-commit ([#3071](https://github.com/maplibre/martin/pull/3071))
+- Change dynamic brotli encoding level from 11 to 4 ([#3061](https://github.com/maplibre/martin/pull/3061))
+- *(deps)* Update hotpath and instrument decoders ([#3059](https://github.com/maplibre/martin/pull/3059))
+- migrate the mbtiles pack/unpack e2e tests to rust ([#3064](https://github.com/maplibre/martin/pull/3064))
+
 ## [1.13.0](https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0) - 2026-07-25
 
 ### Passthrough sources: config-file wiring

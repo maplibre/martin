@@ -1,6 +1,6 @@
 [package]
 name = "martin-config-macros"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Derive macros for MapLibre's Martin tile server configuration types."
 keywords = ["maps", "tiles", "tileserver", "proc-macro"]
