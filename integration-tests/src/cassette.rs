@@ -281,7 +281,7 @@ async fn fetch(client: &Client, url: &str) -> Option<Vec<u8>> {
     Some(decompress(&body, encoding.as_deref()))
 }
 
-/// The recordings under `dir`, keyed by the URL path each answers, `` for [`INDEX`] files.
+/// The recordings under `dir`, keyed by the URL path each answers, or empty for `INDEX`
 ///
 /// A host nothing has been recorded for yet has no directory, and starts out empty.
 fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
