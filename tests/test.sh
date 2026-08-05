@@ -234,28 +234,13 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
-# Test style rendering (only available on Linux with the rendering feature)
-RENDERING_AVAILABLE=0
-if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
-  >&2 echo "***** Test server-side style rendering *****"
-  RENDERING_AVAILABLE=1
-  # PNG rendering
-  $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null
-  $CURL "$MARTIN_URL/style/maplibre/1/0/0.png" > /dev/null
-  $CURL "$MARTIN_URL/style/maplibre/1/1/0.png" > /dev/null
-  # JPEG rendering
-  $CURL "$MARTIN_URL/style/maplibre/0/0/0.jpeg" > /dev/null
-  $CURL "$MARTIN_URL/style/maplibre/1/0/0.jpg" > /dev/null
-  echo "Style rendering smoke tests passed (PNG + JPEG)"
-fi
-
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'Ignoring duplicate font: already configured from another path.*font.name=Overpass Mono Regular'
 # rendering: true produces different warnings depending on whether the rendering feature is compiled in
-if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
+if grep -q 'experimental feature rendering is enabled' "$LOG_FILE"; then
   test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
 else
   test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."

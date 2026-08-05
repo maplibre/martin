@@ -629,6 +629,16 @@ test-duckdb: fetch
     cargo build --package martin --no-default-features --features unstable-duckdb
     cargo test --package martin-integration-tests --features test-duckdb --test duckdb
 
+# Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
+[linux]
+test-rendering *args: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --package martin --features rendering
+    # Each test runs a martin of its own, whose render pool software rendering on CI makes too
+    # heavy to run one per core.
+    cargo test --package martin-integration-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
+
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
     cargo test {{args}}

@@ -1,0 +1,7 @@
+---
+source: integration-tests/tests/rendering.rs
+expression: response.headers_snapshot()
+---
+content-length: [LENGTH]
+content-type: image/png
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
