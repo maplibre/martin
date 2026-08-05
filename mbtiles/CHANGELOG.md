@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1](https://github.com/maplibre/martin/compare/mbtiles-v0.19.0...mbtiles-v0.19.1) - 2026-08-05
+
+### Other
+
+- enable additional clippy restriction lints ([#3095](https://github.com/maplibre/martin/pull/3095))
+- migrate the mbtiles pack/unpack e2e tests to rust ([#3064](https://github.com/maplibre/martin/pull/3064))
+- Change dynamic brotli encoding level from 11 to 4 ([#3061](https://github.com/maplibre/martin/pull/3061))
+- *(deps)* Update hotpath and instrument decoders ([#3059](https://github.com/maplibre/martin/pull/3059))
+
 ## [0.19.0](https://github.com/maplibre/martin/compare/mbtiles-v0.18.1...mbtiles-v0.19.0) - 2026-07-25
 
 ### Added
