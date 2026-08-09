@@ -2,9 +2,7 @@
 
 #![cfg(feature = "test-pg")]
 
-use std::io::Cursor;
-
-use martin_integration_tests::{Martin, TestResponse};
+use martin_integration_tests::Martin;
 use serde_json::Value;
 
 /// A server that publishes everything it finds in the fixture database.
@@ -81,14 +79,6 @@ async fn assert_tiles_across_zooms(martin: &Martin, source: &str, snapshot_prefi
         let dump = tile_dump(martin, &format!("/{source}/{zxy}")).await;
         insta::assert_snapshot!(format!("{snapshot_prefix}_{}", zxy.replace('/', "_")), dump);
     }
-}
-
-fn png_size(response: &TestResponse) -> (u32, u32) {
-    let reader = png::Decoder::new(Cursor::new(response.body()))
-        .read_info()
-        .expect("response body is not a png");
-    let info = reader.info();
-    (info.width, info.height)
 }
 
 #[tokio::test]
@@ -218,7 +208,7 @@ async fn a_function_source_reads_its_query_string_and_can_return_a_raster() {
     let raster = martin.get("/function_zxy_raster/0/0/0").await;
     assert_eq!(raster.status(), 200);
     assert_eq!(raster.header("content-type"), Some("image/png"));
-    assert_eq!(png_size(&raster), (1, 1));
+    assert_eq!(raster.image_size(), (1, 1));
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);

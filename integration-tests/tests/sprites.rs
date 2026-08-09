@@ -1,8 +1,6 @@
 //! Spritesheets generated from directories of SVG files.
 
-use std::io::Cursor;
-
-use martin_integration_tests::{Martin, TestResponse, fixture};
+use martin_integration_tests::{Martin, fixture};
 use rstest::rstest;
 
 async fn martin_with_sprite_dirs() -> Martin {
@@ -14,14 +12,6 @@ async fn martin_with_sprite_dirs() -> Martin {
         .start()
         .await
         .expect("failed to start martin")
-}
-
-fn png_size(response: &TestResponse) -> (u32, u32) {
-    let reader = png::Decoder::new(Cursor::new(response.body()))
-        .read_info()
-        .expect("response body is not a png");
-    let info = reader.info();
-    (info.width, info.height)
 }
 
 #[tokio::test]
@@ -122,7 +112,7 @@ async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
-    assert_eq!(png_size(&response), size);
+    assert_eq!(response.image_size(), size);
 
     martin.stop().await;
     martin.assert_log_clean();
