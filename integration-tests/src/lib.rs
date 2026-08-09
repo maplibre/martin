@@ -5,6 +5,7 @@
 
 #![expect(clippy::panic, reason = "tests fail by panicking")]
 
+mod cassette;
 mod martin;
 mod martin_cp;
 mod mbtiles;
@@ -20,6 +21,7 @@ use std::time::SystemTime;
 use tempfile::TempDir;
 use tokio::process::Command;
 
+pub use crate::cassette::Cassette;
 pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
 pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{

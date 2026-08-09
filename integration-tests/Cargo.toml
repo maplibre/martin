@@ -12,6 +12,7 @@ rust-version.workspace = true
 test-cog = []
 test-duckdb = []
 test-pg = []
+test-rendering = []
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
