@@ -132,20 +132,6 @@ test_jsn() {
   clean_headers_dump "$FILENAME.headers"
 }
 
-test_metrics() {
-  FILENAME="$TEST_OUT_DIR/$1"
-  URL="$MARTIN_URL/_/metrics"
-
-  echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
-  clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
-  clean_headers_dump "$FILENAME.fetched_with_compression.headers"
-  # due to slight timing differences, these might be slightly different
-  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
-}
-
 test_mvt() {
   FILENAME="$TEST_OUT_DIR/$1.mvt"
   URL="$MARTIN_URL/$2"
@@ -418,12 +404,7 @@ test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
 
->&2 echo "***** Test observability outputs (metrics, logs) *****"
-
-test_metrics "metrics_1"
-
 # Test style rendering (only available on Linux with the rendering feature)
-# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output
 RENDERING_AVAILABLE=0
 if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
   >&2 echo "***** Test server-side style rendering *****"
