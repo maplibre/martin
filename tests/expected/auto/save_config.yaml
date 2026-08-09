@@ -390,7 +390,6 @@ pmtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
-  - tests/fixtures/cog
   sources:
     png: tests/fixtures/pmtiles/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
@@ -398,7 +397,6 @@ mbtiles:
   paths:
   - tests/fixtures/mbtiles
   - tests/fixtures/pmtiles
-  - tests/fixtures/cog
   sources:
     geography-class-jpg: tests/fixtures/mbtiles/geography-class-jpg.mbtiles
     geography-class-jpg-diff: tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles
@@ -418,7 +416,6 @@ mbtiles:
 geojson:
 - tests/fixtures/mbtiles
 - tests/fixtures/pmtiles
-- tests/fixtures/cog
 sprites: tests/fixtures/sprites/src1
 styles:
 - tests/fixtures/styles/maplibre_demo.json

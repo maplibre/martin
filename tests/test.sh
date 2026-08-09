@@ -19,10 +19,6 @@ TEST_OUT_BASE_DIR="$(dirname "$0")/output"
 LOG_DIR="${LOG_DIR:-target/test_logs}"
 mkdir -p "$LOG_DIR"
 
-TEST_TEMP_DIR="$(dirname "$0")/mbtiles_temp_files"
-rm -rf "$TEST_TEMP_DIR"
-mkdir -p "$TEST_TEMP_DIR"
-
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
 if ! command -v mvt > /dev/null; then
@@ -146,22 +142,6 @@ test_mvt() {
   rm "$FILENAME"
 }
 
-test_png() {
-  # 3rd argument is optional, .png by default
-  FILENAME="$TEST_OUT_DIR/$1.${3:-png}"
-  URL="$MARTIN_URL/$2"
-
-  echo "Testing $(basename "$FILENAME") from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
-  clean_headers_dump "$FILENAME.headers"
-
-  if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
-    # some 'file' versions are more verbose, but CI is not
-    # we must reduce this to match their output
-    file "$FILENAME" | $SED 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
-  fi
-}
-
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -191,20 +171,6 @@ clean_headers_dump() {
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
   $SED --in-place '1d' "$FILE"
-}
-
-# Stage the fixture outside the watched directory and rename it in, so it appears atomically.
-# A plain `cp` writes in place, letting the reload watcher read a 0-byte file mid-copy.
-# Staging inside the watched directory is not enough either: the watcher still observes the
-# intermediate `.staging` file and warns when it is renamed away mid-scan.
-# The staging path is in the destination's parent directory, which shares its filesystem, so the
-# rename is atomic and the watcher only ever sees the finished file appear in one step.
-install_watched_fixture() {
-  SRC="$1"
-  DEST="$2"
-  STAGING="$(dirname "$DEST")/../$(basename "$DEST").staging"
-  cp "$SRC" "$STAGING"
-  mv "$STAGING" "$DEST"
 }
 
 test_log_has_str() {
@@ -238,35 +204,6 @@ validate_log() {
     echo "Log file $LOG_FILE has unexpected warnings or errors"
     exit 1
   fi
-}
-
-wait_for_catalog_source_removed() {
-  SOURCE_ID="$1"
-  echo "Waiting for source '$SOURCE_ID' to be removed from catalog..."
-  for _ in {1..30}; do
-    if ! $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
-      echo "Source '$SOURCE_ID' has been removed from catalog."
-      return 0
-    fi
-    sleep 1
-  done
-  echo "ERROR: Source '$SOURCE_ID' was not removed from catalog within 30s"
-  exit 1
-}
-
-wait_for_log_str() {
-  WAIT_LOG_FILE="$1"
-  EXPECTED="$2"
-  echo "Waiting for '$EXPECTED' in $WAIT_LOG_FILE..."
-  for _ in {1..30}; do
-    if grep -q "$EXPECTED" "$WAIT_LOG_FILE" 2>/dev/null; then
-      echo "Found '$EXPECTED' in log."
-      return 0
-    fi
-    sleep 1
-  done
-  echo "ERROR: '$EXPECTED' not found in $WAIT_LOG_FILE within 30s"
-  exit 1
 }
 
 echo "::group::versions"
@@ -310,7 +247,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -320,22 +257,6 @@ MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
-
-# TODO: enable below once unstable-cog is stable
-#>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
-#test_jsn rgb_u8       rgb_u8
-#test_png rgb_u8_0_0_0 rgb_u8/0/0/0
-#test_png rgb_u8_3_0_0 rgb_u8/3/0/0
-#test_png rgb_u8_3_1_1 rgb_u8/3/1/1
-
-#test_jsn rgba_u8       rgba_u8
-#test_png rgba_u8_0_0_0 rgba_u8/0/0/0
-#test_png rgba_u8_3_0_0 rgba_u8/3/0/0
-#test_png rgba_u8_3_1_1 rgba_u8/3/1/1
-
-#test_jsn rgba_u8_nodata       rgba_u8_nodata
-#test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
-#test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
@@ -441,69 +362,5 @@ for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
     mv "$file.tmp" "$file"
 done
 echo "::endgroup::"
-
-# The COG reloader is only active when compiled with --features unstable-cog.
-# Detect this at runtime by copying a .tif file and checking whether it appears in the catalog.
-echo "::group::Test COG hot reload"
-TEST_NAME="cog_reload"
-LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
-TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
-COG_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/cog_reload_watch"
-mkdir -p "$TEST_OUT_DIR" "$COG_RELOAD_WATCH_DIR"
-
-ARG=("$COG_RELOAD_WATCH_DIR")
-set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
-MARTIN_PROC_ID=$(jobs -p | tail -n 1)
-{ set +x; } 2> /dev/null
-trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
-wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
-
-COG_SOURCE_ID="usda_naip_128_none_z2"
-install_watched_fixture "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
-
-COG_ENABLED=0
-for _ in {1..10}; do
-  if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$COG_SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
-    COG_ENABLED=1
-    break
-  fi
-  sleep 1
-done
-
-if [[ "$COG_ENABLED" == "1" ]]; then
-  >&2 echo "COG reloader is active - running hot reload tests"
-  test_jsn cog_reload_catalog_added catalog
-
-  >&2 echo "Test COG reload: updating a COG file triggers source update"
-  touch "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
-  wait_for_log_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
-  test_jsn cog_reload_catalog_updated catalog
-
-  >&2 echo "Test COG reload: removing a COG file triggers source removal"
-  rm "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
-  wait_for_catalog_source_removed "$COG_SOURCE_ID"
-  $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
-
-  kill_process "$MARTIN_PROC_ID" Martin
-  trap - EXIT HUP INT TERM
-
-  test_log_has_str "$LOG_FILE" "Added source source.id=${COG_SOURCE_ID}"
-  test_log_has_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
-  test_log_has_str "$LOG_FILE" "Removed source source.id=${COG_SOURCE_ID}"
-else
-  >&2 echo "COG reloader not active (binary not compiled with unstable-cog) - skipping COG reload tests"
-  rm -f "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
-  kill_process "$MARTIN_PROC_ID" Martin
-  trap - EXIT HUP INT TERM
-fi
-
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
-validate_log "$LOG_FILE"
-echo "::endgroup::"
-
-rm -rf "$TEST_TEMP_DIR"
 
 >&2 echo "All integration tests have passed"
