@@ -190,15 +190,8 @@ bless:
     {{just}} bless-int
 
 # Run insta snapshot tests and save their output as the new expected output.
-# On Linux, replay the rendering tests' tiles from the cassette (like `coverage`).
 bless-insta *args:  fetch (cargo-install 'cargo-insta')
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ "$(uname)" = Linux ]; then
-        {{just}} with-render-cache 'cargo insta test --accept --all-targets --workspace {{args}}'
-    else
-        cargo insta test --accept --all-targets --workspace {{args}}
-    fi
+    cargo insta test --accept --all-targets --workspace {{args}}
 
 # Bless integration tests
 bless-int: start
@@ -298,68 +291,6 @@ clippy-md:
     docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# Install mitmproxy via uv if not on PATH.
-[linux]
-install-mitmproxy:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! command -v mitmdump >/dev/null; then
-        command -v uv >/dev/null || { echo >&2 "uv is required: https://docs.astral.sh/uv/"; exit 1; }
-        uv tool install mitmproxy
-    fi
-
-# Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
-# upstreams. Plain HTTP only - ports must match test_render_cache::PROXIED_HOSTS.
-[linux]
-_run-render-proxy mode *cmd: install-mitmproxy
-    #!/usr/bin/env bash
-    set -euo pipefail
-    CASSETTE="tests/fixtures/rendering_cache/flows"
-    case "{{mode}}" in
-        replay)
-            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
-            MITM_ARGS=(--server-replay "$CASSETTE" \
-                       --set server_replay_extra=forward \
-                       --set server_replay_reuse=true)
-            ;;
-        record)
-            mkdir -p "$(dirname "$CASSETTE")"
-            rm -f "$CASSETTE"
-            MITM_ARGS=(-w "$CASSETTE")
-            ;;
-        *) echo >&2 "_run-render-proxy: unknown mode '{{mode}}'"; exit 1 ;;
-    esac
-    mitmdump --quiet --set http2=false \
-        --mode reverse:https://demotiles.maplibre.org@18081 \
-        --mode reverse:https://tiles.openfreemap.org@18082 \
-        "${MITM_ARGS[@]}" \
-        > /tmp/mitmdump.log 2>&1 &
-    MITM_PID=$!
-    trap 'kill -INT "$MITM_PID" 2>/dev/null || true; wait "$MITM_PID" 2>/dev/null || true' EXIT
-    for _ in $(seq 1 20); do
-        (echo > /dev/tcp/127.0.0.1/18081) 2>/dev/null \
-            && (echo > /dev/tcp/127.0.0.1/18082) 2>/dev/null && break
-        sleep 0.5
-    done
-    {{cmd}}
-
-# Run `cmd` with the rendering-test cassette replayed via mitmproxy.
-[linux]
-with-render-cache *cmd: (_run-render-proxy "replay" cmd)
-
-# Re-record the rendering cassette against live upstreams. Commit the result.
-# Records both rendering test binaries so the cassette covers every upstream
-# request either of them makes.
-[linux]
-seed-render-fixtures:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
-    # blob from github.com) aren't captured into the cassette.
-    cargo test -p martin-core --features rendering --test rendering_test --no-run
-    cargo test -p martin --test styles_rendering_test --no-run
-    {{just}} _run-render-proxy record "cargo test -p martin-core --features rendering --test rendering_test && cargo test -p martin --test styles_rendering_test"
-
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
@@ -373,7 +304,7 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-cargo --all-targets
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -597,7 +528,7 @@ shear *args: fetch
 
 # Run all tests using a test database
 test: fetch start
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-cargo --all-targets
     {{just}} test-pg
     {{just}} test-doc
     {{just}} ui::test
@@ -634,7 +565,7 @@ test-duckdb: fetch
 test-rendering *args: fetch
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build --package martin --features rendering
+    cargo build --package martin --no-default-features --features rendering
     # Each test runs a martin of its own, whose render pool software rendering on CI makes too
     # heavy to run one per core.
     cargo test --package martin-integration-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
@@ -651,11 +582,7 @@ test-packages-ci: fetch
     cargo test --package mbtiles --no-default-features
     cargo test --package mbtiles
     cargo test --package martin-core
-    if [ "$(uname)" = Linux ]; then
-        {{just}} with-render-cache 'cargo test --package martin'
-    else
-        cargo test --package martin
-    fi
+    cargo test --package martin
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries

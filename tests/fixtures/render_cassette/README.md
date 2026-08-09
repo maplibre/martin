@@ -8,10 +8,14 @@ One directory per upstream host, mirroring the paths it serves:
 ```text
 render_cassette/demotiles.maplibre.org/tiles/0/0/0.pbf
 render_cassette/demotiles.maplibre.org/font/Open%20Sans%20Semibold/0-255.pbf
+render_cassette/tiles.openfreemap.org/planet/_index
 ```
 
-The test serves this directory over HTTP and hands martin a copy of the style whose URLs point
-there.
+A path that is also a directory - `/planet` answers a TileJSON and holds the tiles it names - is
+stored as the `_index` file inside it.
+
+The tests serve this tree over HTTP under `/{host}/{path}` and hand martin copies of the styles
+with their URLs pointed there.
 
 A request that no recording covers is fetched from the upstream and written here, so a test that
 renders something new records what it needs on its first local run:
