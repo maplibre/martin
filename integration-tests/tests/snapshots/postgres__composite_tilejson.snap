@@ -5,9 +5,9 @@ expression: composite
 {
   "bounds": [
     -179.2731397013,
-    -80.4617715784,
-    179.1118718108,
-    84.9309209512
+    -80.4617715785,
+    179.1118718109,
+    84.9309209513
   ],
   "description": "public.points1.geom\npublic.points2.geom",
   "name": "table_source,points1,points2",

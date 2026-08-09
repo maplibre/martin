@@ -1,0 +1,157 @@
+---
+source: integration-tests/tests/postgres.rs
+expression: saved
+---
+listen_addresses: 127.0.0.1:0
+postgres:
+  connection_string: [DATABASE_URL]
+  default_srid: 4326
+  pool_size: 1
+  auto_publish:
+    tables:
+      from_schemas: autodetect
+      id_columns:
+      - feat_id
+      - big_feat_id
+      clip_geom: false
+      buffer: 3
+      extent: 9000
+    functions:
+      from_schemas: MixedCase
+  tables:
+    MixPoints:
+      schema: MixedCase
+      table: MixPoints
+      srid: 4326
+      geometry_column: Geom
+      id_column: giD
+      bounds:
+      - -170.9498596191
+      - -84.2002563476
+      - 167.7089385986
+      - 74.2357330322
+      geometry_type: POINT
+      properties:
+        taBLe: text
+    auto_table:
+      schema: autodetect
+      table: auto_table
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds:
+      - -166.8710784912
+      - -53.4474754333
+      - 168.140625
+      - 84.2241210937
+      extent: 9000
+      buffer: 3
+      clip_geom: false
+      geometry_type: POINT
+      properties:
+        gid: int4
+    bigint_table:
+      schema: autodetect
+      table: bigint_table
+      srid: 4326
+      geometry_column: geom
+      id_column: big_feat_id
+      bounds:
+      - -174.8947601318
+      - -77.2579803466
+      - 174.7275390625
+      - 73.8078613281
+      extent: 9000
+      buffer: 3
+      clip_geom: false
+      geometry_type: POINT
+      properties:
+        id: int4
+    points1:
+      layer_id: abc
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points2:
+      schema: public
+      table: points2
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      geometry_type: POINT
+      properties:
+        gid: int4
+    points3857:
+      schema: public
+      table: points3857
+      srid: 3857
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      geometry_type: POINT
+      properties:
+        gid: int4
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+      extent: 4096
+      buffer: 64
+      clip_geom: true
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
+  functions:
+    function_Mixed_Name:
+      schema: MixedCase
+      function: function_Mixed_Name
+    function_zxy_query:
+      schema: public
+      function: function_zxy_query
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
+    function_zxy_query_test:
+      schema: public
+      function: function_zxy_query_test
+      minzoom: 0
+      maxzoom: 30
+      bounds:
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0

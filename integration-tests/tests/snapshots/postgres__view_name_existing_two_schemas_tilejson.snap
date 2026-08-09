@@ -5,9 +5,9 @@ expression: source_tilejson
 {
   "bounds": [
     142.8409440943,
-    11.9267418460,
-    142.8414336000,
-    11.9273703485
+    11.926741846,
+    142.8414336,
+    11.9273703486
   ],
   "description": "schema_a.view_name_existing_two_schemas.a_geom",
   "name": "view_name_existing_two_schemas",
