@@ -17,7 +17,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
     We only ship it where we control the runtime environment.
     You get it by either:
 
-    - using the **`-full` Docker image** (`ghcr.io/maplibre/martin:latest-full`), or the matching `-full` Linux-gnu release tarball, or
+    - using the **`-full` Docker image** (`ghcr.io/maplibre/martin:1.13.0 or the matching `-full` Linux-gnu release tarball, or
     - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
 
     The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.

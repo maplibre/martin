@@ -28,7 +28,7 @@ docker run -p 3000:3000 \
 
 !!! note
     The default image is lean and does **not** include server-side style [rendering](sources-styles/rendering.md).
-    If you need it, use the batteries-included `-full` image instead (e.g. `ghcr.io/maplibre/martin:latest-full` or `ghcr.io/maplibre/martin:1.11.0-full`).
+    If you need it, use the batteries-included `-full` image instead (e.g. `ghcr.io/maplibre/martin:1.13.0 or `ghcr.io/maplibre/martin:1.11.0-full`).
     It is larger because it bundles the `maplibre_native` runtime libraries.
 
 ### From Binary Distributions Manually
