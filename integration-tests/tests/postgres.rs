@@ -9,7 +9,11 @@ use serde_json::Value;
 
 /// A server that publishes everything it finds in the fixture database.
 async fn martin_with_postgres() -> Martin {
-    Martin::builder()
+    start_with_postgres(Martin::builder()).await
+}
+
+async fn start_with_postgres(builder: MartinBuilder) -> Martin {
+    builder
         .with_postgres()
         // also adopt tables whose geometry column has SRID 0
         .arg("--default-srid")
@@ -658,6 +662,26 @@ async fn a_source_configured_in_the_wrong_case_still_resolves_and_keeps_its_sql_
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn the_saved_config_spells_out_every_table_and_function_that_was_discovered() {
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin =
+        start_with_postgres(Martin::builder().arg("--save-config").arg(&save_config)).await;
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::with_settings!({filters => vec![
+        (r"(?m)^  connection_string: .*$", "  connection_string: [DATABASE_URL]"),
+        (r"(-?\d+\.\d{10})\d+", "$1"),
+    ]}, {
+        insta::assert_snapshot!(saved);
+    });
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
     martin.assert_log_clean();
 }
 
