@@ -107,7 +107,7 @@ impl MartinBuilder {
     pub async fn start(self) -> Result<Martin, StartError> {
         let mut cmd = martin_command();
         cmd.current_dir(workspace_root())
-            // The environment `tests/test.sh` runs under (via the justfile).
+            // The environment the justfile runs the tests under.
             .env_remove("DATABASE_URL")
             .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
@@ -252,9 +252,8 @@ impl Martin {
         Ok(())
     }
 
-    /// Perform a GET request, advertising `Accept-Encoding: br, gzip` like the
-    /// curl invocation in `tests/test.sh`; the body is transparently
-    /// decompressed while the raw headers stay observable.
+    /// Perform a GET request, advertising `Accept-Encoding: br, gzip`; the body is
+    /// transparently decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
         self.get_with_headers(path, &[]).await
     }
@@ -623,8 +622,7 @@ impl TestResponse {
             .expect("reading from memory cannot fail")
     }
 
-    /// Headers as sorted `name: value` lines with nondeterministic headers
-    /// removed - mirrors `clean_headers_dump` in `tests/test.sh`.
+    /// Headers as sorted `name: value` lines, with the nondeterministic ones removed.
     #[must_use]
     pub fn headers_snapshot(&self) -> String {
         let mut lines = self

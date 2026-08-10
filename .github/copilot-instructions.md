@@ -170,7 +170,8 @@ cargo run --bin mbtiles -- --help
 * `martin/martin-ui/` -> **Frontend-only zone**
 * `martin/` -> Rust CLI entry
 * `martin-core/` -> Core logic
-* `tests/` -> Fixtures & integration tests
+* `tests/fixtures/` -> Shared test fixtures
+* `integration-tests/` -> End-to-end tests driving the built binaries
 
 Rule: **If you enter `martin-ui`, stay there.**
 

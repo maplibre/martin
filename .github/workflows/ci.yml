@@ -233,8 +233,7 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
-        with: { tool: 'just,sqlx-cli,fast-mvt' }
+      - uses: ./.github/actions/setup-rust
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -258,8 +257,6 @@ jobs:
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
-      - name: Set up sqlite3-tools
-        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         # https://github.com/docker/setup-buildx-action
@@ -340,38 +337,38 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/arm64,linux/amd64
 
-      - name: Test linux/arm64 Docker image
+      - name: End-to-end tests against the linux/arm64 Docker image
         run: |
           PLATFORM=linux/arm64
           TAG=${{ github.repository }}:linux
-          export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
-          tests/test.sh
+          # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
+          # directories they build their own in, so the workspace and the temp directory are
+          # mounted where the host has them. The container runs as the runner so that the files
+          # it writes into those directories stay ours to read and delete.
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          export MARTIN_BIN="docker run $RUN $TAG"
+          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
+          cargo test --package martin-integration-tests --features test-pg
         env:
+          TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-      - name: Test linux/amd64 Docker image
+      - name: End-to-end tests against the linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
           TAG=${{ github.repository }}:linux
-          export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
-          tests/test.sh
+          # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
+          # directories they build their own in, so the workspace and the temp directory are
+          # mounted where the host has them. The container runs as the runner so that the files
+          # it writes into those directories stay ours to read and delete.
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          export MARTIN_BIN="docker run $RUN $TAG"
+          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
+          cargo test --package martin-integration-tests --features test-pg
         env:
+          TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-
-      - name: Save test output (on error)
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: failed-test-output-docker
-          path: |
-            tests/output/*
-            target/test_logs/*
-          retention-days: 5
 
       - name: Login to GitHub Docker registry
         if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
@@ -489,18 +486,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Set up sqlite3-tools
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
-      - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
-        with: { tool: 'just,fast-mvt' }
-      - name: Install rendering dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: just install-dependencies
-      - name: Install sqlite3 and sqldiff on Windows
-        if: matrix.os == 'windows-latest'
-        run: choco install sqlite --yes
-        shell: powershell
+      - uses: ./.github/actions/setup-rust
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@e54fc643200ee809b4711c3f537c433dfbeba056 # v2.3
@@ -542,11 +528,8 @@ jobs:
           name: build-${{ matrix.target }}
           path: target/
 
-      - name: Integration Tests
+      - name: End-to-end tests
         run: |
-          export MARTIN_BUILD_ALL=-
-          export AWS_REGION=eu-central-1
-          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
@@ -558,49 +541,23 @@ jobs:
           else
             export DATABASE_URL="${STEPS_PG_OUTPUTS_CONNECTION_URI}"
           fi
-          tests/test.sh
+          cargo test --package martin-integration-tests --features test-pg
         env:
           STEPS_PG_OUTPUTS_CONNECTION_URI: ${{ steps.pg.outputs.connection-uri }}
-      - name: Compare test output results (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
-            echo "** Expected output does not match actual output"
-            echo "** If this is expected, run 'just bless' to update expected output"
-            echo ""
-            echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
-            echo "::endgroup::"
-            exit 1
-          else
-              echo "** Expected output matches actual output"
-          fi
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-debian-x86_64', path: 'target/' }
-      - name: Tests Debian package (Linux)
+      - name: End-to-end tests against the Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
           sudo dpkg -i target/debian-x86_64.deb
-          export MARTIN_BUILD_ALL=-
-          export AWS_REGION=eu-central-1
-          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
-          tests/test.sh
+          cargo test --package martin-integration-tests --features test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
-      - name: Save test output (on error)
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: failed-test-output-${{ runner.os }}
-          path: |
-            tests/output/*
-            target/test_logs/*
-          retention-days: 5
 
   unit-test-svc-pg:
     name: Unit test against PostGIS variants
@@ -790,57 +747,37 @@ jobs:
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
-      - name: Set up sqlite3-tools
-        run: sudo apt update && sudo apt-get install -y sqlite3-tools
-      - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
-        with: { tool: 'just,fast-mvt' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
-      - name: Integration Tests
+      - uses: ./.github/actions/setup-rust
+      - name: End-to-end tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
             export PGSSLROOTCERT=target/certs/server.crt
           fi
-          export MARTIN_BUILD_ALL=-
-          export AWS_REGION=eu-central-1
-          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=target_releases/martin
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
           chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
-          tests/test.sh
+          cargo test --package martin-integration-tests --features test-pg
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Download Debian package
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { name: 'build-debian-x86_64', path: 'target_releases/' }
-      - name: Tests Debian package
+      - name: End-to-end tests against the Debian package
         run: |
           sudo dpkg -i target_releases/debian-x86_64.deb
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
             export PGSSLROOTCERT=target/certs/server.crt
           fi
-          export MARTIN_BUILD_ALL=-
-          export AWS_REGION=eu-central-1
-          export AWS_SKIP_CREDENTIALS=1
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
-          tests/test.sh
+          cargo test --package martin-integration-tests --features test-pg
           sudo dpkg -P martin
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Save test output (on error)
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: test-output
-          path: |
-            tests/output/*
-            target/test_logs/*
-          retention-days: 5
 
   test-publish:
     name: Test publishing via cargo-publish
