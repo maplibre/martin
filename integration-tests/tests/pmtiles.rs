@@ -52,9 +52,6 @@ async fn auto_configured_minimal() {
         .expect("catalog is a json object")
         .remove("settings")
         .expect("catalog has a settings key");
-    #[cfg(target_os = "linux")]
-    assert_eq!(settings, serde_json::json!({ "rendering": false }));
-    #[cfg(not(target_os = "linux"))]
     assert_eq!(settings, serde_json::json!({}));
 
     insta::with_settings!({sort_maps => true}, {
