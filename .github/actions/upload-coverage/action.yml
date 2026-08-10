@@ -1,0 +1,20 @@
+name: Upload coverage
+description: >-
+  Upload the coverage this job recorded as an lcov artifact, for the `coverage` job to merge.
+  Requires `coverage: true` on the `setup-rust` action.
+inputs:
+  suite:
+    description: Test suite this job ran, e.g. "cog". Names the report and its artifact.
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SUITE: ${{ inputs.suite }}
+      run: just coverage-report "$SUITE"
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: coverage-${{ inputs.suite }}
+        path: target/lcov-${{ inputs.suite }}.info
+        retention-days: 1

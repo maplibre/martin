@@ -13,7 +13,6 @@ hide:
 [![crates.io version](https://img.shields.io/crates/v/martin.svg)](https://crates.io/crates/martin)
 [![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
-[![Codecov](https://img.shields.io/codecov/c/github/maplibre/martin)](https://app.codecov.io/gh/maplibre/martin)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
 Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTiles](https://protomaps.com/blog/pmtiles-v3-whats-new) (local or remote), [MBTiles](https://github.com/mapbox/mbtiles-spec), and [GeoJSON](https://geojson.org/) files, allowing multiple tile sources to be dynamically combined into one.
