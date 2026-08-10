@@ -316,6 +316,28 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
 
     cargo llvm-cov report {{args}}
 
+# Append the cargo-llvm-cov environment to `file` ($GITHUB_ENV), instrumenting every later CI step
+coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! rustup component list --installed | grep llvm-tools > /dev/null; then
+        echo "llvm-tools-preview could not be found. Installing..."
+        rustup component add llvm-tools-preview
+    fi
+
+    # `--workspace` would also delete the build artifacts a restored cache just provided.
+    cargo llvm-cov clean --profraw-only
+    # `show-env` quotes its values; $GITHUB_ENV takes the rest of the line literally.
+    cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
+
+# Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
+coverage-report suite:
+    cargo llvm-cov report --lcov --output-path target/lcov-{{suite}}.info
+
+# Merge the per-suite lcov reports in `dir` into one Cobertura report, unioning their hits
+coverage-merge dir='target/coverage' out='target/cobertura.xml': (cargo-install 'grcov')
+    grcov {{quote(dir)}} --source-dir . --output-types cobertura --output-path {{quote(out)}}
+
 # Start Martin server
 cp *args: fetch
     cargo run --bin martin-cp -- {{args}}

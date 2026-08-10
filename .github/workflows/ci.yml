@@ -57,10 +57,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { rendering: true, cache: true }
+        with:
+          rendering: true
+          cache: true
+          coverage: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Run cargo test
         run: just test-packages-ci
       - run: just test-doc
+      # Linux only, because grcov relativises paths against a single source root
+      # and the other runners check out to different ones.
+      - if: matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/upload-coverage
+        with: { suite: unit }
   test-cog:
     name: COG GeoTIFF tests
     permissions:
@@ -73,9 +81,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { cache: true }
+        with: { cache: true, coverage: true }
       - name: Run COG tests
         run: just test-cog
+      - uses: ./.github/actions/upload-coverage
+        with: { suite: cog }
   test-duckdb:
     name: DuckDB GeoParquet tests
     permissions:
@@ -88,9 +98,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { cache: true }
+        with: { cache: true, coverage: true }
       - name: Run DuckDB tests
         run: just test-duckdb
+      - uses: ./.github/actions/upload-coverage
+        with: { suite: duckdb }
   test-rendering:
     name: Style rendering tests
     permissions:
@@ -103,9 +115,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { rendering: true, cache: true }
+        with: { rendering: true, cache: true, coverage: true }
       - name: Run rendering tests
         run: just test-rendering
+      - uses: ./.github/actions/upload-coverage
+        with: { suite: rendering }
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -667,7 +681,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { rendering: true }
+        with: { rendering: true, coverage: true }
       - parallel:
           - name: Init pg11-alpine database
             run: tests/fixtures/initdb.sh
@@ -699,6 +713,9 @@ jobs:
           just test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+      # All three runs above accumulate into the same profile data, so one report covers them.
+      - uses: ./.github/actions/upload-coverage
+        with: { suite: pg }
 
   unit-test-svc-minio:
     # Exercises the PmtilesReloader's S3-prefix polling against a MinIO testcontainer
@@ -713,8 +730,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
+        with: { coverage: true }
       - name: Unit Tests
         run: just test-minio
+      - uses: ./.github/actions/upload-coverage
+        with: { suite: minio }
 
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
@@ -1007,6 +1027,40 @@ jobs:
           delete-branch: true
           path: target/homebrew
 
+  coverage:
+    name: Merge and upload code coverage
+    runs-on: ubuntu-latest
+    # Every job using `setup-rust` with `coverage: true`.
+    needs:
+      - unit-test-rust
+      - test-cog
+      - test-duckdb
+      - test-rendering
+      - unit-test-svc-pg
+      - unit-test-svc-minio
+    permissions:
+      contents: read
+      code-quality: write
+      # actions/upload-code-coverage runs `gh pr list` to find the PR a `push` belongs to.
+      pull-requests: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Download the per-suite lcov reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: 'coverage-*', merge-multiple: true, path: 'target/coverage' }
+      - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+        with: { tool: 'just,grcov' }
+      - name: Merge the reports into one Cobertura report
+        run: just coverage-merge
+      - name: Upload to GitHub code coverage
+        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
+        with:
+          file: target/cobertura.xml
+          language: Rust
+          label: code-coverage/llvm-cov
+
   # This final step is needed to mark the whole workflow as successful
   # Don't change its name - it is used by the merge protection rules
   done:
@@ -1024,7 +1078,9 @@ jobs:
       - lint-rust-dependencies
       - unit-test-rust
       - test-cog
+      - test-duckdb
       - test-rendering
+      - coverage
       - unit-test-svc-pg
       - unit-test-svc-minio
       - test-multi-os
