@@ -8,8 +8,10 @@ mod demo 'demo/justfile'
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
-# list of features we deem stable for release packaging
+# list of features we deem stable for release packaging (also the default feature set)
 stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+# stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
+full_features := stable_features + ',rendering'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -222,6 +224,17 @@ build-release target: fetch
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
+build-release-full target: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    if [[ "{{release_mode}}" == "1" ]]; then
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    fi
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
