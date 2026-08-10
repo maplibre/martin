@@ -52,7 +52,6 @@ runs:
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
-        # Instrumented artifacts are not interchangeable with plain ones.
         key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
     - if: inputs.tools != ''
       uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
@@ -66,7 +65,6 @@ runs:
     - if: inputs.coverage == 'true'
       uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
       with: { tool: 'cargo-llvm-cov' }
-    # Last, because it sets RUSTFLAGS for every step after it.
     - if: inputs.coverage == 'true'
       shell: bash
       run: just coverage-env "$GITHUB_ENV"

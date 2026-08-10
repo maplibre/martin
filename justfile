@@ -325,9 +325,7 @@ coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
         rustup component add llvm-tools-preview
     fi
 
-    # `--workspace` would also delete the build artifacts a restored cache just provided.
     cargo llvm-cov clean --profraw-only
-    # `show-env` quotes its values; $GITHUB_ENV takes the rest of the line literally.
     cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`

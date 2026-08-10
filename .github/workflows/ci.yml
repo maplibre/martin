@@ -64,8 +64,6 @@ jobs:
       - name: Run cargo test
         run: just test-packages-ci
       - run: just test-doc
-      # Linux only, because grcov relativises paths against a single source root
-      # and the other runners check out to different ones.
       - if: matrix.os == 'ubuntu-latest'
         uses: ./.github/actions/upload-coverage
         with: { suite: unit }
@@ -713,7 +711,6 @@ jobs:
           just test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-      # All three runs above accumulate into the same profile data, so one report covers them.
       - uses: ./.github/actions/upload-coverage
         with: { suite: pg }
 
@@ -1030,7 +1027,6 @@ jobs:
   coverage:
     name: Merge and upload code coverage
     runs-on: ubuntu-latest
-    # Every job using `setup-rust` with `coverage: true`.
     needs:
       - unit-test-rust
       - test-cog
@@ -1041,7 +1037,6 @@ jobs:
     permissions:
       contents: read
       code-quality: write
-      # actions/upload-code-coverage runs `gh pr list` to find the PR a `push` belongs to.
       pull-requests: read
     steps:
       - name: Checkout sources

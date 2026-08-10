@@ -17,5 +17,4 @@ runs:
       with:
         name: coverage-${{ inputs.suite }}
         path: target/lcov-${{ inputs.suite }}.info
-        # Only read by the `coverage` job, in the same run.
         retention-days: 1
