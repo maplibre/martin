@@ -42,11 +42,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - name: Install just
-        uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with: { tool: 'just' }
       - name: Install cargo-zigbuild (musl only)
         if: inputs.musl
-        uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+        uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with: { tool: 'cargo-zigbuild' }
       - name: Install zig (musl only)
         if: inputs.musl

@@ -50,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+      - uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with: { tool: 'just,oha' }
       - name: Install rendering dependencies
         run: just install-dependencies
