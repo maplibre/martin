@@ -80,9 +80,9 @@ The top-level `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` apply
 - **`threads`** - DuckDB thread count per connection. When unset, DuckDB uses its own default.
 - **`memory_limit_mb`** - DuckDB memory limit in megabytes per connection.
 - **`auto_bounds`** - how TileJSON bounds are computed (defaults to `quick`):
-    - **`quick`** - compute geometry bounds, but abort if it takes longer than 5 seconds
-    - **`calc`** - compute geometry bounds. The startup time may be significant.
-    - **`skip`** - do not compute bounds. TileJSON will omit `bounds`.
+  - **`quick`** - compute geometry bounds, but abort if it takes longer than 5 seconds
+  - **`calc`** - compute geometry bounds. The startup time may be significant.
+  - **`skip`** - do not compute bounds. TileJSON will omit `bounds`.
 
 Each GeoParquet source supports:
 
