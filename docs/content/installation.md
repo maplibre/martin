@@ -92,6 +92,19 @@ cargo install martin --locked
 martin --help
 ```
 
+#### Optional features
+
+##### DuckDB / GeoParquet
+
+The `unstable-duckdb` feature is **not included** in default builds, Homebrew, Debian packages, or the Docker image.
+To experiment with [DuckDB sources](sources-duckdb.md), build Martin from source with the feature enabled:
+
+```bash
+cargo install martin --locked --features=unstable-duckdb
+```
+
+This compiles a bundled DuckDB.
+
 #### Platform-Specific Build Notes
 
 ##### Windows

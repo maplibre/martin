@@ -32,6 +32,10 @@ martin  ... ... ...  --save-config config.yaml
 
 --8<-- "files/generated_config.md"
 
+!!! note
+    The generated reference and its JSON Schema cover the features included during schema generation.
+    Feature-gated sources such as [DuckDB / GeoParquet](../sources-duckdb.md) are not included yet.
+
 ## Postprocessing
 
 Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.

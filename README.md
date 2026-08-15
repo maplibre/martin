@@ -10,7 +10,8 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
 Martin is a tile server and a set of tools able to generate vector tiles on the fly
-from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` files.
+from large `PostgreSQL` databases and `GeoJSON` files, and serve tiles from `PMTiles` and `MBTiles` files.
+It can also serve vector tiles from `GeoParquet` files via DuckDB (unstable).
 Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 ## Features
@@ -20,6 +21,7 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
   * [GeoJSON](https://maplibre.org/martin/sources-geojson/) files, converted to vector tiles on the fly
+  * [GeoParquet](https://maplibre.org/martin/sources-duckdb/) files via DuckDB, converted to vector tiles on the fly (unstable)
 * [Passthrough](https://maplibre.org/martin/sources-passthrough/) tiles from an upstream HTTP tile server
 * [Combine](https://maplibre.org/martin/sources-composite/) multiple tile sources into one
 * Serve [styles](https://maplibre.org/martin/sources-styles/) and generate [sprites](https://maplibre.org/martin/sources-sprites/) or [font glyphs](https://maplibre.org/martin/sources-fonts/) on the fly
