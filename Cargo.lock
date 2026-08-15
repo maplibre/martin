@@ -5087,9 +5087,9 @@ dependencies = [
 
 [[package]]
 name = "maplibre_native"
-version = "0.8.7"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bf785448133fd7eafd0c7261b1843b6eef5ff7f3660569af8396aebed22a47d"
+checksum = "5bcfa6f5248b97b4c706a9bf4e8ecbf2de148535c1d8657c14be6b9bcdf054c8"
 dependencies = [
  "cmake",
  "cxx",
