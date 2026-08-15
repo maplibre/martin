@@ -21,7 +21,7 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
   * [GeoJSON](https://maplibre.org/martin/sources-geojson/) files, converted to vector tiles on the fly
-  * [GeoParquet](https://maplibre.org/martin/sources-duckdb/) files via DuckDB, converted to vector tiles on the fly (unstable)
+  * [GeoParquet](docs/content/sources-duckdb.md) files via DuckDB, converted to vector tiles on the fly (unstable)
 * [Passthrough](https://maplibre.org/martin/sources-passthrough/) tiles from an upstream HTTP tile server
 * [Combine](https://maplibre.org/martin/sources-composite/) multiple tile sources into one
 * Serve [styles](https://maplibre.org/martin/sources-styles/) and generate [sprites](https://maplibre.org/martin/sources-sprites/) or [font glyphs](https://maplibre.org/martin/sources-fonts/) on the fly
