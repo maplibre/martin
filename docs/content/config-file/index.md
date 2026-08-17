@@ -34,7 +34,7 @@ martin  ... ... ...  --save-config config.yaml
 
 !!! note
     The generated reference and its JSON Schema cover the features included during schema generation.
-    Feature-gated sources such as [DuckDB / GeoParquet](../sources-duckdb.md) are not included yet.
+    Unstable sources such as duckdb or cog are not included.
 
 ## Postprocessing
 
