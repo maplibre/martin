@@ -101,7 +101,7 @@ To experiment with them, build Martin from source with the feature enabled:
 cargo install martin --locked --features=unstable-foobar
 ```
 
- #### Platform-Specific Build Notes
+#### Platform-Specific Build Notes
 
 ##### Windows
 
