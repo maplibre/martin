@@ -7,7 +7,7 @@ use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache};
+use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache, normalize_font_ids};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -60,7 +60,7 @@ pub async fn get_font(
     let result = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                FontCacheKey::new(path.fontstack.clone(), path.start, path.end),
+                FontCacheKey::new(normalize_font_ids(&path.fontstack), path.start, path.end),
                 async || fonts.get_font_range(&path.fontstack, path.start, path.end),
             )
             .await
@@ -100,7 +100,8 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
 pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
-        FontError::InvalidFontRangeStartEnd { .. }
+        FontError::TooManyFontIds { .. }
+        | FontError::InvalidFontRangeStartEnd { .. }
         | FontError::InvalidFontRangeStart(_)
         | FontError::InvalidFontRangeEnd(_)
         | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),

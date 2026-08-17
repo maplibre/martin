@@ -14,6 +14,15 @@ pub enum FontError {
     #[error("Font {0} not found")]
     FontNotFound(String),
 
+    /// Too many distinct font IDs requested at once.
+    #[error("Requested {requested} font ids, but at most {max} are allowed per request")]
+    TooManyFontIds {
+        /// Requested count.
+        requested: usize,
+        /// Allowed maximum.
+        max: usize,
+    },
+
     /// The font range start value is greater than the end value.
     #[error("Font range start ({start}) must be <= end ({end})")]
     InvalidFontRangeStartEnd {

@@ -15,7 +15,7 @@
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -54,6 +54,24 @@ const BUFFER_SIZE: usize = 3;
 const RADIUS: usize = 8;
 /// Cutoff threshold for SDF generation (0.0 to 1.0).
 const CUTOFF: f64 = 0.25_f64;
+
+/// Maximum number of distinct font ids accepted in a single request.
+const MAX_FONT_IDS_PER_REQUEST: usize = 128;
+
+/// Deduplicates a comma-separated font id list, preserving order (font order
+/// affects rendering priority, so unlike sprites this must not sort).
+fn split_and_dedup_ids(ids: &str) -> Vec<&str> {
+    let mut seen = HashSet::new();
+    ids.split(',').filter(|id| seen.insert(*id)).collect()
+}
+
+/// Normalizes a font id list so equivalent fontstacks share one cache entry.
+#[must_use]
+pub fn normalize_font_ids(ids: &str) -> String {
+    let mut unique_ids = split_and_dedup_ids(ids);
+    unique_ids.sort_unstable();
+    unique_ids.join(",")
+}
 
 mod error;
 pub use error::FontError;
@@ -211,8 +229,16 @@ impl FontSources {
             return Err(FontError::InvalidFontRange(start, end));
         }
 
-        let fonts = ids
-            .split(',')
+        let unique_ids = split_and_dedup_ids(ids);
+        if unique_ids.len() > MAX_FONT_IDS_PER_REQUEST {
+            return Err(FontError::TooManyFontIds {
+                requested: unique_ids.len(),
+                max: MAX_FONT_IDS_PER_REQUEST,
+            });
+        }
+
+        let fonts = unique_ids
+            .into_iter()
             .map(|id| {
                 if self.fonts.get(id).is_none() {
                     return Err(FontError::FontNotFound(id.to_owned()));
@@ -420,6 +446,61 @@ fn parse_font(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_font_ids_collapses_order_and_duplicates() {
+        assert_eq!(normalize_font_ids("b,a,b"), "a,b");
+        assert_eq!(normalize_font_ids("a"), "a");
+    }
+
+    #[test]
+    fn duplicate_ids_are_deduplicated_before_rendering() {
+        let mut sources = FontSources::default();
+        sources
+            .recursively_add_directory(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../tests/fixtures/fonts/overpass-mono-regular.ttf"),
+            )
+            .unwrap();
+
+        let single = sources
+            .get_font_range("Overpass Mono Regular", 0, 255)
+            .unwrap();
+        let repeated_ids = vec!["Overpass Mono Regular"; 50].join(",");
+        let repeated = sources.get_font_range(&repeated_ids, 0, 255).unwrap();
+
+        assert_eq!(single, repeated);
+    }
+
+    #[test]
+    fn too_many_ids_are_rejected_before_any_work() {
+        let sources = FontSources::default();
+
+        let ids = (0..=MAX_FONT_IDS_PER_REQUEST)
+            .map(|i| format!("nonexistent{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let Err(err) = sources.get_font_range(&ids, 0, 255) else {
+            panic!("expected TooManyFontIds, got Ok");
+        };
+        assert!(matches!(err, FontError::TooManyFontIds { .. }));
+    }
+
+    #[test]
+    fn exactly_max_ids_is_not_rejected_by_the_count_check() {
+        let sources = FontSources::default();
+
+        let ids = (0..MAX_FONT_IDS_PER_REQUEST)
+            .map(|i| format!("nonexistent{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let Err(err) = sources.get_font_range(&ids, 0, 255) else {
+            panic!("expected FontNotFound, got Ok");
+        };
+        assert!(matches!(err, FontError::FontNotFound(_)));
+    }
 
     #[cfg(unix)]
     #[test]

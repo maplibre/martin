@@ -22,7 +22,7 @@ pub use admin::Catalog;
 pub use admin::{__path_get_catalog, get_catalog};
 
 #[cfg(feature = "_tiles")]
-mod tiles;
+pub(crate) mod tiles;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::content::{__path_get_tile, get_tile};
 #[cfg(feature = "_tiles")]
