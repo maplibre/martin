@@ -1478,7 +1478,8 @@
 <h1 id="usage">Usage</h1>
 <p>Martin requires at least one PostgreSQL <a href="../pg-connections/">connection string</a> or a <a href="../sources-files/">tile source file</a>
 as a command-line argument.
-A PG connection string can also be passed via the <code>DATABASE_URL</code> environment variable.</p>
+A PG connection string can also be passed via the <code>DATABASE_URL</code> environment variable.
+<a href="../sources-duckdb/">DuckDB / GeoParquet sources</a> are configured in a <a href="../config-file/">configuration file</a> instead, and require Martin to be built with <code>--features=unstable-duckdb</code>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
 <p>Martin provides <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint for

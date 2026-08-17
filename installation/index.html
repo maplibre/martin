@@ -795,6 +795,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#optional-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional features
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#platform-specific-build-notes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1234,6 +1245,11 @@ to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for
 <p>If you <a href="https://www.rust-lang.org/tools/install">install Rust</a>, you can build martin from source with Cargo:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>martin<span class="w"> </span>--help
+</span></code></pre></div>
+<h4 id="optional-features">Optional features</h4>
+<p><code>unstable-foobar</code> features are <strong>not included</strong> in default builds, Homebrew, Debian packages, or the Docker image.
+To experiment with them, build Martin from source with the feature enabled:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="o">=</span>unstable-foobar
 </span></code></pre></div>
 <h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
 <h5 id="windows">Windows</h5>

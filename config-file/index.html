@@ -846,6 +846,8 @@
       
         
       
+        
+      
     
     
     
@@ -1081,6 +1083,35 @@
     
   
   GeoJSON Sources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sources-duckdb/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>DuckDB</title><path d="M12 0C5.363 0 0 5.363 0 12s5.363 12 12 12 12-5.363 12-12S18.637 0 12 0M9.502 7.03a4.974 4.974 0 0 1 4.97 4.97 4.974 4.974 0 0 1-4.97 4.97A4.974 4.974 0 0 1 4.532 12a4.974 4.974 0 0 1 4.97-4.97m6.563 3.183h2.351c.98 0 1.787.782 1.787 1.762s-.807 1.789-1.787 1.789h-2.351z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  DuckDB Sources
 
     
   </span>
@@ -2079,6 +2110,11 @@ This will generate a config yaml file with all of your configuration, which you 
 </span><span id="__span-2-447"><a id="__codelineno-2-447" name="__codelineno-2-447" href="#__codelineno-2-447"></a><span class="c1"># Number of web server workers</span>
 </span><span id="__span-2-448"><a id="__codelineno-2-448" name="__codelineno-2-448" href="#__codelineno-2-448"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The generated reference and its JSON Schema cover the features included during schema generation.
+Unstable sources such as duckdb or cog are not included.</p>
+</div>
 <h2 id="postprocessing">Postprocessing</h2>
 <p>Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's <code>Accept</code> header.
 The <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys configure these conversions.

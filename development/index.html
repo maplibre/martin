@@ -1336,9 +1336,14 @@ the web UI (<code>martin/martin-ui/</code>) and the demo (<code>demo/</code>).</
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Run all tests including PostgreSQL tests (requires PostgreSQL running)</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">     </span><span class="c1"># runs all tests</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>just<span class="w"> </span>test-pg<span class="w">  </span><span class="c1"># starts PostgreSQL and runs only PostgreSQL-requiring tests</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># Run DuckDB / GeoParquet tests</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>just<span class="w"> </span>test-duckdb
 </span></code></pre></div>
 <p>The <code>test-pg</code> feature gates tests that require a live PostgreSQL connection.
 This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.</p>
+<p>The <code>test-duckdb</code> / <code>unstable-duckdb</code> features gate DuckDB / GeoParquet tests.
+These are not part of the default build; see <a href="../sources-duckdb/">DuckDB Sources</a>.</p>
 <h3 id="pass-arguments-to-commands">Pass arguments to commands</h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--<span class="w"> </span>--test<span class="w"> </span>integration_test
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>just<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml

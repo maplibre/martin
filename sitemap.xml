@@ -82,6 +82,9 @@
         <loc>https://maplibre.org/martin/sources-geojson/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/sources-duckdb/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/sources-passthrough/</loc>
       </url>
       <url>

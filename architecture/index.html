@@ -1383,6 +1383,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
             MBT[MBTiles Files]
             PMT[PMTiles Files&lt;br/&gt;Local &amp; Remote]
             COG[Cloud Optimized&lt;br/&gt;GeoTIFF]
+            DuckDB[DuckDB / GeoParquet]
         end
 
         subgraph Resources["Supporting Resources"]
@@ -1397,8 +1398,9 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 
     subgraph Storage["Data Storage"]
         DB[(PostgreSQL&lt;br/&gt;PostGIS)]
-        Files[File System&lt;br/&gt;MBTiles/PMTiles]
+        Files[File System&lt;br/&gt;MBTiles/PMTiles/GeoParquet]
         S3[Object Storage&lt;br/&gt;S3/Azure/GCP]
+        HTTP[HTTP&lt;br/&gt;GeoParquet]
     end
 
     Client --&gt;|HTTP Requests| Server
@@ -1413,6 +1415,8 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
     PMT --&gt; S3
     COG --&gt; Files
     COG --&gt; S3
+    DuckDB --&gt; Files
+    DuckDB --&gt; HTTP
 
     Cache -.-&gt;|Cached Tiles/Resources| Client</code></pre>
 <h2 id="core-components">Core Components</h2>
@@ -1456,6 +1460,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>PostgreSQL connection pooling and query execution</li>
 <li>MBTiles and PMTiles reading</li>
 <li>Cloud Optimized GeoTIFF (COG) tile extraction</li>
+<li>DuckDB / GeoParquet tile generation</li>
 <li>Sprite, font, and style resource generation</li>
 <li>Tile format handling (MVT protocol buffers)</li>
 </ul>
@@ -1466,6 +1471,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li><code>mbtiles/</code> - MBTiles file source</li>
 <li><code>pmtiles/</code> - PMTiles file source</li>
 <li><code>cog/</code> - Cloud Optimized GeoTIFF source</li>
+<li><code>duckdb/</code> - DuckDB / GeoParquet tile source</li>
 <li><code>catalog.rs</code> - Source registry and management</li>
 <li><code>src/resources/</code> - Supporting resources</li>
 <li><code>sprites/</code> - SVG sprite generation</li>
@@ -1558,6 +1564,12 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
         Discovery-&gt;&gt;Discovery: Scan MBTiles files
         Discovery-&gt;&gt;Discovery: Scan PMTiles files
         Discovery-&gt;&gt;Sources: Register file sources
+    end
+
+    alt DuckDB Sources
+        Discovery-&gt;&gt;Discovery: Read duckdb.sources from config
+        Discovery-&gt;&gt;Discovery: Introspect GeoParquet metadata
+        Discovery-&gt;&gt;Sources: Register GeoParquet sources
     end
 
     Sources--&gt;&gt;Server: Source catalog
@@ -1678,7 +1690,7 @@ It can currently automatically detect:</p>
 <summary>Multi-Protocol Tile Support</summary>
 <p>Different workloads benefit from different storage models.
 This lets operators pick the best format for their use case:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">PostgreSQL</label><label for="__tabbed_3_2">MBTiles</label><label for="__tabbed_3_3">PMTiles</label><label for="__tabbed_3_4">COG</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:5"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">PostgreSQL</label><label for="__tabbed_3_2">MBTiles</label><label for="__tabbed_3_3">PMTiles</label><label for="__tabbed_3_4">COG</label><label for="__tabbed_3_5">DuckDB</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>Dynamic tiles generated from live data.
@@ -1693,6 +1705,10 @@ Simple and fast for static datasets.</p>
 </div>
 <div class="tabbed-block">
 <p>Direct tile serving from Cloud Optimized GeoTIFFs.</p>
+</div>
+<div class="tabbed-block">
+<p>On-the-fly vector tiles from GeoParquet via DuckDB.
+Best for semi-static parquet datasets without a pre-generated archive.</p>
 </div>
 </div>
 </div>
@@ -1718,7 +1734,7 @@ Simple and fast for static datasets.</p>
 </ul>
 </details>
 <h2 id="component-interactions">Component Interactions</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:3"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PosgtgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PosgtgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label><label for="__tabbed_4_4">DuckDB / GeoParquet Integration</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <pre class="mermaid"><code>graph TB
@@ -1821,6 +1837,51 @@ Martin loads the whole file once, reprojects and indexes it in memory, then clip
 <li><code>buffer</code> (default <code>64</code>, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.</li>
 </ul>
 <p>Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed <code>.geojson</code>/<code>.json</code> files.</p>
+</div>
+<div class="tabbed-block">
+<p>Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles.
+Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.</p>
+<pre class="mermaid"><code>graph TB
+    subgraph Load["Load time (once per source)"]
+        File[".parquet file or HTTP URL"]
+        Pool["DuckDBPool&lt;br/&gt;in-memory + spatial"]
+        Describe["DESCRIBE read_parquet"]
+        CRS["ST_CRS / configured SRID"]
+        Bounds["auto_bounds&lt;br/&gt;ST_Extent_Approx / ST_Extent"]
+    end
+
+    subgraph Request["Per tile request"]
+        XYZ["z / x / y"]
+        SQL["ST_Transform + ST_AsMVTGeom"]
+        MVT["ST_AsMVT"]
+    end
+
+    File --&gt; Pool --&gt; Describe --&gt; CRS --&gt; Bounds
+    Pool -.-&gt;|pooled connection| SQL
+    XYZ --&gt; SQL --&gt; MVT</code></pre>
+<p><strong>Load time</strong> (<code>DuckDBSource</code> in <code>martin-core/src/tiles/duckdb/</code>, resolver in <code>martin/src/config/file/tiles/duckdb/</code>):</p>
+<ol>
+<li>Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the <code>spatial</code> extension; remote <code>http(s)</code> URLs also load <code>httpfs</code>.</li>
+<li>Columns are discovered with <code>DESCRIBE SELECT * FROM read_parquet(...)</code>. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.</li>
+<li>SRID is taken from config, or from <code>ST_CRS</code> on the first non-null geometry (EPSG and <code>OGC:CRS84</code> only).</li>
+<li>TileJSON bounds are computed according to <code>auto_bounds</code> (<code>quick</code>, <code>calc</code>, or <code>skip</code>).</li>
+<li>An MVT SQL query is built once and executed per tile with <code>z</code>, <code>x</code>, <code>y</code> parameters.</li>
+</ol>
+<p><strong>Per request</strong> (<code>DuckDBSource::get_tile</code>):</p>
+<ol>
+<li>A connection is taken from the pool and the tile query runs on a blocking thread.</li>
+<li>Geometry is stamped with the source CRS, transformed to Web Mercator (<code>EPSG:3857</code>), filtered to the tile envelope (expanded by <code>buffer</code>), clipped with <code>ST_AsMVTGeom</code>, and encoded with <code>ST_AsMVT</code>.</li>
+<li>Non-geometry columns become MVT feature properties. <code>id_column</code>, if set, becomes the MVT feature id.</li>
+<li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
+</ol>
+<p><strong>Configuration</strong> (<code>DuckDbConfig</code>, config-file only; requires <code>--features=unstable-duckdb</code>):</p>
+<ul>
+<li><code>pool_size</code> (default <code>4</code>) - DuckDB connection pool size per source.</li>
+<li><code>auto_bounds</code> (default <code>quick</code>) - how TileJSON bounds are computed.</li>
+<li>Per-source <code>geoparquet</code> path or URL, plus optional <code>layer_id</code>, <code>geometry_column</code>, <code>srid</code>, <code>extent</code>, <code>buffer</code>, and <code>clip_geom</code>.</li>
+</ul>
+<p>DuckDB sources do not currently hot-reload.
+Database file entries (<code>database:</code>) parse in the config but are skipped at resolve time.</p>
 </div>
 </div>
 </div>
@@ -1997,7 +2058,6 @@ The loop, triggers, and sink are reused.
 </ol>
 <p>Example source types that could be added:</p>
 <ul>
-<li>Direct GeoJSON file serving</li>
 <li>Vector tile rendering from raster data</li>
 <li>Integration with other spatial databases</li>
 </ul>
