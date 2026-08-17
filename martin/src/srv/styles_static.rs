@@ -171,13 +171,7 @@ impl SizeRequest {
                 .content_type(ContentType::plaintext())
                 .body("Scale factor must be a positive finite number"));
         }
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "scale was checked to be finite and positive above"
-        )]
-        let scale_u8 = self.scale.round() as u8;
-        if scale_u8 > MAX_SCALE {
+        if self.scale > f32::from(MAX_SCALE) {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
                 .body(format!(
@@ -647,6 +641,7 @@ mod tests {
     #[case::oversize_width("9999x100.png", "Image dimensions exceed maximum")]
     #[case::oversize_height("100x9999.png", "Image dimensions exceed maximum")]
     #[case::oversize_scale("100x100@9x.png", "Scale factor exceeds maximum")]
+    #[case::just_over_max_scale("100x100@4.4x.png", "Scale factor exceeds maximum")]
     #[case::zero_scale("100x100@0x.png", "Scale factor must be a positive finite number")]
     #[case::negative_scale("100x100@-2x.png", "Scale factor must be a positive finite number")]
     #[case::nan_scale("100x100@nanx.png", "Scale factor must be a positive finite number")]
