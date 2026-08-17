@@ -15,7 +15,12 @@ pub enum SpriteError {
 
     /// Too many distinct sprite source IDs requested at once.
     #[error("Requested {requested} sprite ids, but at most {max} are allowed per request")]
-    TooManySpriteIds { requested: usize, max: usize },
+    TooManySpriteIds {
+        /// Number of distinct ids in the request.
+        requested: usize,
+        /// Maximum number of distinct ids allowed per request.
+        max: usize,
+    },
 
     /// I/O error accessing sprite file or directory.
     #[error("IO error {0}: {1}")]

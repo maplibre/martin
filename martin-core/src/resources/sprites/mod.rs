@@ -325,7 +325,10 @@ mod tests {
         let repeated_ids = vec!["src1"; 50].join(",");
         let repeated = sprites.get_sprites(&repeated_ids, false).await.unwrap();
 
-        assert_eq!(single.get_index(), repeated.get_index());
+        assert_eq!(
+            serde_json::to_value(single.get_index()).unwrap(),
+            serde_json::to_value(repeated.get_index()).unwrap()
+        );
         assert_eq!(single.encode_png().unwrap(), repeated.encode_png().unwrap());
     }
 
@@ -337,14 +340,14 @@ mod tests {
             PathBuf::from("../tests/fixtures/sprites/src1"),
         );
 
-        // distinct, nonexistent ids: this must fail on the count check,
-        // never reach the per-id source lookup.
         let ids = (0..=MAX_SPRITE_IDS_PER_REQUEST)
             .map(|i| format!("nonexistent{i}"))
             .collect::<Vec<_>>()
             .join(",");
 
-        let err = sprites.get_sprites(&ids, false).await.unwrap_err();
+        let Err(err) = sprites.get_sprites(&ids, false).await else {
+            panic!("expected TooManySpriteIds, got Ok");
+        };
         assert!(matches!(err, SpriteError::TooManySpriteIds { .. }));
     }
 
@@ -352,14 +355,14 @@ mod tests {
     async fn exactly_max_ids_is_not_rejected_by_the_count_check() {
         let sprites = SpriteSources::default();
 
-        // exactly at the cap, with distinct nonexistent ids: the count check
-        // must not trip, so this should fail on the per-id lookup instead.
         let ids = (0..MAX_SPRITE_IDS_PER_REQUEST)
             .map(|i| format!("nonexistent{i}"))
             .collect::<Vec<_>>()
             .join(",");
 
-        let err = sprites.get_sprites(&ids, false).await.unwrap_err();
+        let Err(err) = sprites.get_sprites(&ids, false).await else {
+            panic!("expected SpriteNotFound, got Ok");
+        };
         assert!(matches!(err, SpriteError::SpriteNotFound(_)));
     }
 
