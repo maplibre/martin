@@ -15,7 +15,7 @@ hide:
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
-Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTiles](https://protomaps.com/blog/pmtiles-v3-whats-new) (local or remote), [MBTiles](https://github.com/mapbox/mbtiles-spec), and [GeoJSON](https://geojson.org/) files, allowing multiple tile sources to be dynamically combined into one.
+Martin is a tile server able to generate and serve [vector tiles](https://github.com/mapbox/vector-tile-spec) on the fly from large [PostGIS](https://github.com/postgis/postgis) databases, [PMTiles](https://protomaps.com/blog/pmtiles-v3-whats-new) (local or remote), [MBTiles](https://github.com/mapbox/mbtiles-spec), [GeoJSON](https://geojson.org/) files, and [GeoParquet](sources-duckdb.md) files via DuckDB (unstable), allowing multiple tile sources to be dynamically combined into one.
 Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 # What Martin can do
@@ -25,6 +25,7 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
   - [PMTiles](https://docs.protomaps.com/pmtiles/) from local files or over HTTP
   - [MBTiles](https://github.com/mapbox/mbtiles-spec) files
   - [GeoJSON](https://geojson.org/) files
+  - [GeoParquet](sources-duckdb.md) files via DuckDB (unstable)
 - [Combine](sources-composite.md) multiple tile sources into one
 - Serve [styles](sources-styles/index.md) and generate [sprites](sources-sprites.md) and [font glyphs](sources-fonts.md) on the fly
 - Generate tiles in bulk into an MBTiles archive with [martin-cp](martin-cp.md)

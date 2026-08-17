@@ -92,6 +92,15 @@ cargo install martin --locked
 martin --help
 ```
 
+#### Optional features
+
+`unstable-foobar` features are **not included** in default builds, Homebrew, Debian packages, or the Docker image.
+To experiment with them, build Martin from source with the feature enabled:
+
+```bash
+cargo install martin --locked --features=unstable-foobar
+```
+
 #### Platform-Specific Build Notes
 
 ##### Windows

@@ -49,12 +49,12 @@ runs:
         COMPONENTS: ${{ inputs.components }}
       run: rustup component add $COMPONENTS
     - if: inputs.cache == 'true' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
     - if: inputs.tools != ''
-      uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+      uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
       with: { tool: '${{ inputs.tools }}' }
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
@@ -63,7 +63,7 @@ runs:
       shell: bash
       run: just env-info
     - if: inputs.coverage == 'true'
-      uses: taiki-e/install-action@3d7d7cd5ac7f994c1892ae0c06165095b9139094 # v2.85.1
+      uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
       with: { tool: 'cargo-llvm-cov' }
     - if: inputs.coverage == 'true'
       shell: bash

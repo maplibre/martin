@@ -12,6 +12,12 @@ We offer the `martin-cp` tool for generating tiles in bulk, from any source(s) s
 `martin-cp` can be used to generate tiles for a large area or multiple areas (bounding boxes).
 If multiple areas overlap, it will ensure each tile is generated only once
 `martin-cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+The released `martin-cp` binary does not include [DuckDB / GeoParquet sources](sources-duckdb.md).
+To use them, build `martin-cp` with the feature and list the source in the configuration file:
+
+```bash
+cargo build --package martin --bin martin-cp --features=unstable-duckdb
+```
 
 After copying, `martin-cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified.
 This allows the MBTiles file to be [validated](mbtiles-validation.md#aggregate-content-validation) using `mbtiles validate` command.
