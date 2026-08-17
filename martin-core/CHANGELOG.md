@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/maplibre/martin/compare/martin-core-v0.10.0...martin-core-v0.11.0) - 2026-08-17
+
+### Added
+
+- e2e local geoparquet wiring via duckdb ([#3054](https://github.com/maplibre/martin/pull/3054))
+
+### Fixed
+
+- *(sprites)* dedupe/cap sprite ids and bound rasterization concurrency ([#3123](https://github.com/maplibre/martin/pull/3123))
+- *(geojson)* advertise vector_layers in TileJSON ([#3082](https://github.com/maplibre/martin/pull/3082))
+
+### Other
+
+- move the remaining rendering tests to e2e and drop mitmproxy ([#3104](https://github.com/maplibre/martin/pull/3104))
+- enable additional clippy restriction lints ([#3095](https://github.com/maplibre/martin/pull/3095))
+
 ## [0.10.0](https://github.com/maplibre/martin/compare/martin-core-v0.9.0...martin-core-v0.10.0) - 2026-07-25
 
 ### Added
