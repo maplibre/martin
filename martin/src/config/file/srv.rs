@@ -33,7 +33,10 @@ impl CacheControlHeader {
 
 impl fmt::Display for CacheControlHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[expect(clippy::map_err_ignore, reason = "cannot be returned and is not usefull to log")]
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "cannot be returned and is not usefull to log"
+        )]
         f.write_str(self.0.to_str().map_err(|_| fmt::Error)?)
     }
 }
