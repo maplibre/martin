@@ -203,8 +203,10 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
         interactiveLayerIds={[layerId]}
         mapStyle={mapStyle}
         maxBounds={[
-          [-spacing, -(rows - 1) * spacing - spacing],
-          [(cols - 1) * spacing + spacing, spacing],
+          -spacing,
+          -(rows - 1) * spacing - spacing,
+          (cols - 1) * spacing + spacing,
+          spacing,
         ]}
         onClick={handleMapClick}
         onLoad={(e) => {
