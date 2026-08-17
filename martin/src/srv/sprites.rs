@@ -1,12 +1,14 @@
 use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
-use actix_web::error::ErrorNotFound;
+use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::sprites::{OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources};
+use martin_core::sprites::{
+    OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources, normalize_sprite_ids,
+};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -63,7 +65,7 @@ pub async fn get_sprite_png(
     let png = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, false),
+                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, false),
                 async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -131,7 +133,7 @@ pub async fn get_sprite_sdf_png(
     let png = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, false),
+                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, false),
                 async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -200,7 +202,7 @@ pub async fn get_sprite_json(
     let json = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, true),
+                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, true),
                 async || get_index(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -269,7 +271,7 @@ pub async fn get_sprite_sdf_json(
     let json = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, true),
+                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, true),
                 async || get_index(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -331,6 +333,9 @@ fn map_sprite_compute_error(e: &SpriteComputeError) -> actix_web::Error {
     match e {
         SpriteComputeError::Sprite(err @ SpriteError::SpriteNotFound(_)) => {
             ErrorNotFound(err.to_string())
+        }
+        SpriteComputeError::Sprite(err @ SpriteError::TooManySpriteIds { .. }) => {
+            ErrorBadRequest(err.to_string())
         }
         other => map_internal_error(other),
     }

@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
-use futures::future::try_join_all;
+use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
@@ -37,8 +37,52 @@ use crate::walk_files;
 
 const SVG_EXTENSIONS: &[&str] = &["svg"];
 
+/// Maximum number of distinct sprite source ids accepted in a single request.
+///
+/// Bounds the amount of per-request work (file reads, SVG parses, rasterization)
+/// an attacker can trigger by stuffing a request path with many ids.
+const MAX_SPRITE_IDS_PER_REQUEST: usize = 128;
+
+/// Maximum number of SVGs parsed and rasterized concurrently while building one spritesheet.
+const MAX_CONCURRENT_SPRITE_PARSES: usize = 16;
+
 fn discover_svgs(path: &Path) -> Result<Vec<PathBuf>, SpriteError> {
     walk_files(path, SVG_EXTENSIONS).map_err(|e| IoError(e.into(), path.to_path_buf()))
+}
+
+/// Splits a comma-separated, optionally `@2x`-suffixed sprite id list from a
+/// request path into the requested pixel ratio and a deduplicated, sorted
+/// list of source ids.
+///
+/// Sorting and deduplicating here (rather than only at spritesheet-build
+/// time) means equivalent requests - regardless of id order or repeat count
+/// - do the same amount of work and can share one cache entry.
+fn split_and_dedup_ids(ids: &str) -> (Vec<&str>, u8) {
+    let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
+        (ids, 2)
+    } else {
+        (ids, 1)
+    };
+
+    let mut unique_ids: Vec<&str> = ids.split(',').collect();
+    unique_ids.sort_unstable();
+    unique_ids.dedup();
+
+    (unique_ids, dpi)
+}
+
+/// Normalizes a request-path sprite id list so that equivalent requests
+/// (different id order, repeated ids) share one cache entry instead of
+/// each producing a distinct cache miss.
+#[must_use]
+pub fn normalize_sprite_ids(ids: &str) -> String {
+    let (unique_ids, dpi) = split_and_dedup_ids(ids);
+    let joined = unique_ids.join(",");
+    if dpi == 2 {
+        format!("{joined}@2x")
+    } else {
+        joined
+    }
 }
 
 mod error;
@@ -156,14 +200,17 @@ impl SpriteSources {
         err(Debug),
     )]
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
-        let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
-            (ids, 2)
-        } else {
-            (ids, 1)
-        };
+        let (unique_ids, dpi) = split_and_dedup_ids(ids);
 
-        let sprite_ids = ids
-            .split(',')
+        if unique_ids.len() > MAX_SPRITE_IDS_PER_REQUEST {
+            return Err(SpriteError::TooManySpriteIds {
+                requested: unique_ids.len(),
+                max: MAX_SPRITE_IDS_PER_REQUEST,
+            });
+        }
+
+        let sprite_ids = unique_ids
+            .into_iter()
             .map(|id| self.get(id))
             .collect::<Result<Vec<_>, SpriteError>>()?;
 
@@ -237,7 +284,10 @@ pub async fn get_spritesheet(
             futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
         }
     }
-    let sprites = try_join_all(futures).await?;
+    let sprites: Vec<(String, Sprite)> = stream::iter(futures)
+        .buffer_unordered(MAX_CONCURRENT_SPRITE_PARSES)
+        .try_collect()
+        .await?;
     let mut builder = SpritesheetBuilder::new();
     if as_sdf {
         builder.make_sdf();
@@ -255,6 +305,63 @@ pub async fn get_spritesheet(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_sprite_ids_collapses_order_and_duplicates() {
+        assert_eq!(normalize_sprite_ids("b,a,b"), "a,b");
+        assert_eq!(normalize_sprite_ids("b,a@2x"), "a,b@2x");
+        assert_eq!(normalize_sprite_ids("a"), "a");
+    }
+
+    #[tokio::test]
+    async fn duplicate_ids_are_deduplicated_before_rendering() {
+        let mut sprites = SpriteSources::default();
+        sprites.add_source(
+            "src1".to_owned(),
+            PathBuf::from("../tests/fixtures/sprites/src1"),
+        );
+
+        let single = sprites.get_sprites("src1", false).await.unwrap();
+        let repeated_ids = vec!["src1"; 50].join(",");
+        let repeated = sprites.get_sprites(&repeated_ids, false).await.unwrap();
+
+        assert_eq!(single.get_index(), repeated.get_index());
+        assert_eq!(single.encode_png().unwrap(), repeated.encode_png().unwrap());
+    }
+
+    #[tokio::test]
+    async fn too_many_ids_are_rejected_before_any_work() {
+        let mut sprites = SpriteSources::default();
+        sprites.add_source(
+            "src1".to_owned(),
+            PathBuf::from("../tests/fixtures/sprites/src1"),
+        );
+
+        // distinct, nonexistent ids: this must fail on the count check,
+        // never reach the per-id source lookup.
+        let ids = (0..=MAX_SPRITE_IDS_PER_REQUEST)
+            .map(|i| format!("nonexistent{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let err = sprites.get_sprites(&ids, false).await.unwrap_err();
+        assert!(matches!(err, SpriteError::TooManySpriteIds { .. }));
+    }
+
+    #[tokio::test]
+    async fn exactly_max_ids_is_not_rejected_by_the_count_check() {
+        let sprites = SpriteSources::default();
+
+        // exactly at the cap, with distinct nonexistent ids: the count check
+        // must not trip, so this should fail on the per-id lookup instead.
+        let ids = (0..MAX_SPRITE_IDS_PER_REQUEST)
+            .map(|i| format!("nonexistent{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let err = sprites.get_sprites(&ids, false).await.unwrap_err();
+        assert!(matches!(err, SpriteError::SpriteNotFound(_)));
+    }
 
     #[tokio::test]
     async fn sprites() {
