@@ -282,7 +282,7 @@ mod tests {
 
         assert_eq!(
             config.cache_control.as_ref().map(ToString::to_string),
-            Some("public, max-age=3600, stale-while-revalidate=60".to_string())
+            Some("public, max-age=3600, stale-while-revalidate=60".to_owned())
         );
         assert_eq!(
             config.cache_control_header().unwrap(),
