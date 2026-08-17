@@ -114,7 +114,6 @@ pub enum LineJoin {
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 impl From<Color> for MlnColor {
     fn from(c: Color) -> Self {
-        // csscolorparser already clamps to 0..=1, so this won't panic.
         Self::rgba(c.r, c.g, c.b, c.a)
     }
 }

@@ -179,10 +179,16 @@ just test-cargo
 # Run all tests including PostgreSQL tests (requires PostgreSQL running)
 just test     # runs all tests
 just test-pg  # starts PostgreSQL and runs only PostgreSQL-requiring tests
+
+# Run DuckDB / GeoParquet tests
+just test-duckdb
 ```
 
 The `test-pg` feature gates tests that require a live PostgreSQL connection.
 This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.
+
+The `test-duckdb` / `unstable-duckdb` features gate DuckDB / GeoParquet tests.
+These are not part of the default build; see [DuckDB Sources](../sources-duckdb.md).
 
 ### Pass arguments to commands
 

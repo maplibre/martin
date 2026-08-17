@@ -220,7 +220,7 @@ impl TryFrom<StaticOverlayProperties> for OverlayProperties {
 fn parse_color(prop: &str, raw: Option<String>) -> Result<Option<Color>, String> {
     raw.map(|s| {
         csscolorparser::parse(&s)
-            // csscolorparser yields straight RGBA already clamped to 0..=1.
+            .map(|c| c.clamp())
             .map(|c| Color {
                 r: c.r,
                 g: c.g,
@@ -382,6 +382,37 @@ mod tests {
                     a: 1.0,
                 },
             ),
+        }
+        ");
+    }
+
+    #[test]
+    fn out_of_gamut_cie_colors_are_clamped() {
+        insta::assert_debug_snapshot!(style(json!({
+            "fill-color": "lab(150% 200 200)",
+        })), @"
+        OverlayProperties {
+            circle_color: None,
+            circle_opacity: None,
+            circle_radius: None,
+            circle_stroke_color: None,
+            circle_stroke_opacity: None,
+            circle_stroke_width: None,
+            line_color: None,
+            line_opacity: None,
+            line_width: None,
+            line_cap: None,
+            line_join: None,
+            fill_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            fill_opacity: None,
+            fill_outline_color: None,
         }
         ");
     }
