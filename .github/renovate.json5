@@ -73,5 +73,28 @@
       matchCurrentValue: '/^11/',
       enabled: false,
     },
+    {
+      // typescript v7 breaks config/OpenAPI/UI-type generation and coverage (#3022);
+      // fixing it needs upstream changes we don't have capacity to contribute right now.
+      matchManagers: ['npm'],
+      matchPackageNames: ['typescript'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
+    {
+      // ubuntu:26.04 breaks the docker image build (#3017); fixing it needs upstream
+      // changes we don't have capacity to contribute right now.
+      matchDatasources: ['docker'],
+      matchPackageNames: ['ubuntu'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
+    {
+      // static-files 0.3 breaks the Rust build across nearly every target (#2973);
+      // fixing it needs upstream changes we don't have capacity to contribute right now.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['static-files'],
+      enabled: false,
+    },
   ],
 }
