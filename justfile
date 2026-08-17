@@ -71,7 +71,7 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     oha --latency-correction -n {{requests}}            http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Start release-compiled Martin server and a test database
-bench-server: fetch start
+bench-server: fetch start prepare-mbtiles
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Build martin with hotpath profiling support
@@ -79,7 +79,7 @@ build-hotpath: fetch
     RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
-bench-server-hotpath: start build-hotpath
+bench-server-hotpath: start build-hotpath prepare-mbtiles
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
@@ -131,19 +131,23 @@ test-schemas:
     echo "::endgroup::"
 
     echo "::group::Validate real config fixtures against the config schema"
-    # `tests/expected/*/save_config.yaml` are the post-resolved configs Martin
-    # writes via `--save-config`, with no env-substitution placeholders, so they
-    # are clean inputs for schema validation. If a real config doesn't validate,
-    # the schema is wrong, not the config.
+    # The `save_config` snapshots are the post-resolved configs Martin writes via
+    # `--save-config`, with no env-substitution placeholders, so they are clean
+    # inputs for schema validation. If a real config doesn't validate, the schema
+    # is wrong, not the config. Each snapshot carries an insta header ending in a
+    # `---` line, which is dropped to leave the config itself.
     fixtures=(
-        tests/expected/auto/save_config.yaml
-        tests/expected/configured/save_config.yaml
+        e2e-tests/tests/snapshots/save_config__every_discovered_source_and_resource_is_spelled_out.snap
+        e2e-tests/tests/snapshots/save_config__every_documented_setting_survives_the_round_trip.snap
     )
     for f in "${fixtures[@]}"; do
         if [[ -f "$f" ]]; then
-            echo "  -> $f"
+            tmp=$(mktemp --suffix=.yaml)
+            awk 'body { print; next } NR > 1 && /^---$/ { body=1 }' "$f" > "$tmp"
+            echo "  -> $f (YAML extracted to $tmp)"
             uvx --from check-jsonschema check-jsonschema \
-                --schemafile schemas/config.json "$f"
+                --schemafile schemas/config.json "$tmp"
+            rm -f "$tmp"
         else
             echo "missing $f aborting"
             exit -1
@@ -174,32 +178,29 @@ test-schemas:
     fi
     echo "::endgroup::"
 
-# Run integration tests and save its output as the new expected output (ordering is important)
+# Run all tests and save their output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta ui::bless bless-pg; do
+    for target in restart bless-insta ui::bless bless-pg; do
       echo "::group::just $target"
       {{just}} $target
       echo "::endgroup::"
     done
 
-    echo "Blessing integration tests"
-    {{just}} bless-int
+    echo "Blessing end-to-end tests"
+    {{just}} bless-e2e
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-insta')
     cargo insta test --accept --all-targets --workspace {{args}}
 
-# Bless integration tests
-bless-int: start
-    #!/usr/bin/env bash
-    set -euo pipefail
-    rm -rf tests/temp
-    tests/test.sh
-    rm -rf tests/expected && mv tests/output tests/expected
+# Bless the end-to-end tests, including the ones that need the PostgreSQL database
+bless-e2e *args: fetch start (cargo-install 'cargo-insta')
+    cargo build --package martin --package mbtiles
+    cargo insta test --accept --package martin-e2e-tests --features test-pg {{args}}
 
 bless-pg: fetch start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
@@ -278,7 +279,7 @@ check-doc:  (docs-build)
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
-clean: clean-test stop ui::clean
+clean: stop ui::clean
     cargo clean -p static-files
     cargo clean
 
@@ -312,7 +313,7 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
     # {{just}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     # echo "::endgroup::"
 
-    {{just}} test-int
+    {{just}} test-e2e
 
     cargo llvm-cov report {{args}}
 
@@ -479,6 +480,20 @@ pg_dump *args:
     pg_dump {{args}} {{quote(DATABASE_URL)}}
 
 # Update the offline `.sqlx` query cache for the mbtiles crate.
+# Build the .mbtiles fixtures from their .sql sources. The tests build their own copies in
+# temp directories; this is for serving `tests/fixtures/mbtiles` by hand.
+prepare-mbtiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for folder in tests/fixtures/files tests/fixtures/mbtiles; do
+        for sql_file in "$folder"/*.sql; do
+            mbtiles_file="${sql_file%.sql}.mbtiles"
+            echo "Creating $mbtiles_file from $sql_file"
+            rm -f "$mbtiles_file"
+            sqlite3 "$mbtiles_file" < "$sql_file"
+        done
+    done
+
 prepare-sqlite: fetch install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
@@ -552,7 +567,7 @@ test: fetch start
     {{just}} test-pg
     {{just}} test-doc
     {{just}} ui::test
-    {{just}} test-int
+    {{just}} test-e2e
 
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start
@@ -570,7 +585,7 @@ test-cog: fetch
     cargo test -p martin --features unstable-cog --no-default-features --lib
     cargo test -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
-    cargo test --package martin-integration-tests --features test-cog --test cog
+    cargo test --package martin-e2e-tests --features test-cog --test cog
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
@@ -578,7 +593,7 @@ test-duckdb: fetch
     cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
     cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
     cargo build --package martin --no-default-features --features unstable-duckdb
-    cargo test --package martin-integration-tests --features test-duckdb --test duckdb
+    cargo test --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
 [linux]
@@ -588,7 +603,7 @@ test-rendering *args: fetch
     cargo build --package martin --no-default-features --features rendering
     # Each test runs a martin of its own, whose render pool software rendering on CI makes too
     # heavy to run one per core.
-    cargo test --package martin-integration-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
+    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
@@ -608,12 +623,12 @@ test-packages-ci: fetch
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch
     cargo build --package martin --package mbtiles
-    cargo test --package martin-integration-tests {{args}}
+    cargo test --package martin-e2e-tests {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start
     cargo build --package martin --package mbtiles
-    cargo test --package martin-integration-tests --features test-pg --test config_file --test martin_cp --test postgres --test process {{args}}
+    cargo test --package martin-e2e-tests --features test-pg --test config_file --test martin_cp --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
@@ -622,24 +637,6 @@ test-doc *args: fetch
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
-
-# Run integration tests
-test-int: clean-test install-sqlx
-    #!/usr/bin/env bash
-    set -euo pipefail
-    tests/test.sh
-    echo "** Comparing actual output with expected output..."
-    if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
-        echo "** Expected output does not match actual output"
-        echo "** If this is expected, run 'just bless' to update expected output"
-        echo ""
-        echo "::group::Resulting diff (max 100 lines)"
-        diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
-        echo "::endgroup::"
-        exit 1
-    else
-        echo "** Expected output matches actual output"
-    fi
 
 # Run AWS Lambda smoke test against SAM local
 test-lambda martin_bin='target/debug/martin':
@@ -695,13 +692,14 @@ test-lambda martin_bin='target/debug/martin':
 test-freebsd: (test-cargo "-j 2 --lib --bins --tests --examples") test-doc
 
 # Run all tests using the oldest supported version of the database
-test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
+test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
-# Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: start-ssl (test-cargo "--all-targets") test-pg test-doc clean-test
-    tests/test.sh
+# Run all tests using an SSL connection to a test database
+test-ssl: start-ssl (test-cargo "--all-targets") test-pg test-doc
+    cargo build --package martin --package mbtiles
+    cargo test --package martin-e2e-tests --features test-pg
 
-# Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
+# Run all tests using an SSL connection with client cert to a test database
 test-ssl-cert: start-ssl-cert
     #!/usr/bin/env bash
     set -euxo pipefail
@@ -715,9 +713,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
     {{just}} test-cargo --all-targets
-    {{just}} clean-test
     {{just}} test-doc
-    tests/test.sh
+    cargo build --package martin --package mbtiles
+    cargo test --package martin-e2e-tests --features test-pg
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update: fetch
@@ -742,29 +740,13 @@ validate-tools:
     if ! command -v jq >/dev/null 2>&1; then
         missing_tools+=("jq")
     fi
-    if ! command -v file >/dev/null 2>&1; then
-        missing_tools+=("file")
-    fi
-    if ! command -v curl >/dev/null 2>&1; then
-        missing_tools+=("curl")
-    fi
-    if ! command -v grep >/dev/null 2>&1; then
-        missing_tools+=("grep")
-    fi
     if ! command -v sqlite3 >/dev/null 2>&1; then
         missing_tools+=("sqlite3")
     fi
-    # `mvt` dumps vector tiles to a readable form in the integration tests. Install it with
+    # `mvt` dumps a vector tile to a readable form by hand, as `just mvt`. Install it with
     # `just install-mvt` (or `cargo install fast-mvt --features=cli`).
     if ! command -v mvt >/dev/null 2>&1; then
         missing_tools+=("mvt")
-    fi
-
-    # Check Darwin-specific tools
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        if ! command -v gsed >/dev/null 2>&1; then
-            missing_tools+=("gsed")
-        fi
     fi
 
     # Check FreeBSD-specific tools
@@ -781,9 +763,9 @@ validate-tools:
         echo "✓ All required tools are installed"
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
-        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools"
-        echo "  macOS: brew install jq file curl grep sqlite gsed"
-        echo "  FreeBSD: pkg install jq curl sqlite3 protobuf"
+        echo "  Ubuntu/Debian: sudo apt install -y jq sqlite3-tools"
+        echo "  macOS: brew install jq sqlite"
+        echo "  FreeBSD: pkg install jq sqlite3 protobuf"
         echo "  mvt: cargo install fast-mvt --features=cli   (or 'just install-mvt')"
         echo ""
         exit 1
@@ -837,11 +819,6 @@ fetch:
     done
     echo "cargo fetch failed after 5 attempts" >&2
     exit 1
-
-# Delete test output files
-[private]
-clean-test:
-    rm -rf tests/output
 
 # Wait for the test database to be ready
 [private]

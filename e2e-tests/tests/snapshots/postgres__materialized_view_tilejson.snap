@@ -1,0 +1,26 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: materialized_view
+---
+{
+  "bounds": [
+    -0.0010997122,
+    0.0003416247,
+    -0.0006641716,
+    0.0003683552
+  ],
+  "description": "materialized view comment",
+  "name": "mat_view",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://[ADDR]/mat_view/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "id": "int4"
+      },
+      "id": "mat_view"
+    }
+  ]
+}
