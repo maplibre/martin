@@ -14,6 +14,7 @@ When used as a library, you can use the following features:
   * `mbtiles` - enable MBTile tile sources
   * `pmtiles` - enable PMTile tile sources
   * `postgres` - enable PostgreSQL/PostGIS tile sources
+  * `unstable-duckdb` - enable DuckDB / GeoParquet tile sources (unstable, not in default features)
 * supporting resources
   * `fonts` - enable font sources
   * `sprites` - enable sprite sources

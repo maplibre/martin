@@ -26,6 +26,7 @@ graph TB
             MBT[MBTiles Files]
             PMT[PMTiles Files<br/>Local & Remote]
             COG[Cloud Optimized<br/>GeoTIFF]
+            DuckDB[DuckDB / GeoParquet]
         end
 
         subgraph Resources["Supporting Resources"]
@@ -40,8 +41,9 @@ graph TB
 
     subgraph Storage["Data Storage"]
         DB[(PostgreSQL<br/>PostGIS)]
-        Files[File System<br/>MBTiles/PMTiles]
+        Files[File System<br/>MBTiles/PMTiles/GeoParquet]
         S3[Object Storage<br/>S3/Azure/GCP]
+        HTTP[HTTP<br/>GeoParquet]
     end
 
     Client -->|HTTP Requests| Server
@@ -56,6 +58,8 @@ graph TB
     PMT --> S3
     COG --> Files
     COG --> S3
+    DuckDB --> Files
+    DuckDB --> HTTP
 
     Cache -.->|Cached Tiles/Resources| Client
 ```
@@ -106,6 +110,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - PostgreSQL connection pooling and query execution
     - MBTiles and PMTiles reading
     - Cloud Optimized GeoTIFF (COG) tile extraction
+    - DuckDB / GeoParquet tile generation
     - Sprite, font, and style resource generation
     - Tile format handling (MVT protocol buffers)
 
@@ -116,6 +121,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - `mbtiles/` - MBTiles file source
     - `pmtiles/` - PMTiles file source
     - `cog/` - Cloud Optimized GeoTIFF source
+    - `duckdb/` - DuckDB / GeoParquet tile source
     - `catalog.rs` - Source registry and management
     - `src/resources/` - Supporting resources
     - `sprites/` - SVG sprite generation
@@ -213,6 +219,12 @@ Martin's architecture is organized into four main Rust crates, each with distinc
             Discovery->>Discovery: Scan MBTiles files
             Discovery->>Discovery: Scan PMTiles files
             Discovery->>Sources: Register file sources
+        end
+
+        alt DuckDB Sources
+            Discovery->>Discovery: Read duckdb.sources from config
+            Discovery->>Discovery: Introspect GeoParquet metadata
+            Discovery->>Sources: Register GeoParquet sources
         end
 
         Sources-->>Server: Source catalog
@@ -340,6 +352,10 @@ Read it when you're curious **why** certain choices were made.
 
     === "COG"
         Direct tile serving from Cloud Optimized GeoTIFFs.
+
+    === "DuckDB"
+        On-the-fly vector tiles from GeoParquet via DuckDB.
+        Best for semi-static parquet datasets without a pre-generated archive.
 
 ??? "Why generate resources (sprites, fonts) dynamically"
 
@@ -473,6 +489,56 @@ Read it when you're curious **why** certain choices were made.
     - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.
 
     Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed `.geojson`/`.json` files.
+
+=== "DuckDB / GeoParquet Integration"
+
+    Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles.
+    Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.
+
+    ```mermaid
+    graph TB
+        subgraph Load["Load time (once per source)"]
+            File[".parquet file or HTTP URL"]
+            Pool["DuckDBPool<br/>in-memory + spatial"]
+            Describe["DESCRIBE read_parquet"]
+            CRS["ST_CRS / configured SRID"]
+            Bounds["auto_bounds<br/>ST_Extent_Approx / ST_Extent"]
+        end
+
+        subgraph Request["Per tile request"]
+            XYZ["z / x / y"]
+            SQL["ST_Transform + ST_AsMVTGeom"]
+            MVT["ST_AsMVT"]
+        end
+
+        File --> Pool --> Describe --> CRS --> Bounds
+        Pool -.->|pooled connection| SQL
+        XYZ --> SQL --> MVT
+    ```
+
+    **Load time** (`DuckDBSource` in `martin-core/src/tiles/duckdb/`, resolver in `martin/src/config/file/tiles/duckdb/`):
+
+    1. Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the `spatial` extension; remote `http(s)` URLs also load `httpfs`.
+    2. Columns are discovered with `DESCRIBE SELECT * FROM read_parquet(...)`. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.
+    3. SRID is taken from config, or from `ST_CRS` on the first non-null geometry (EPSG and `OGC:CRS84` only).
+    4. TileJSON bounds are computed according to `auto_bounds` (`quick`, `calc`, or `skip`).
+    5. An MVT SQL query is built once and executed per tile with `z`, `x`, `y` parameters.
+
+    **Per request** (`DuckDBSource::get_tile`):
+
+    1. A connection is taken from the pool and the tile query runs on a blocking thread.
+    2. Geometry is stamped with the source CRS, transformed to Web Mercator (`EPSG:3857`), filtered to the tile envelope (expanded by `buffer`), clipped with `ST_AsMVTGeom`, and encoded with `ST_AsMVT`.
+    3. Non-geometry columns become MVT feature properties. `id_column`, if set, becomes the MVT feature id.
+    4. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
+
+    **Configuration** (`DuckDbConfig`, config-file only; requires `--features=unstable-duckdb`):
+
+    - `pool_size` (default `4`) - DuckDB connection pool size per source.
+    - `auto_bounds` (default `quick`) - how TileJSON bounds are computed.
+    - Per-source `geoparquet` path or URL, plus optional `layer_id`, `geometry_column`, `srid`, `extent`, `buffer`, and `clip_geom`.
+
+    DuckDB sources do not currently hot-reload.
+    Database file entries (`database:`) parse in the config but are skipped at resolve time.
 
 == Runtime Source Reloading
 
@@ -623,7 +689,6 @@ Martin supports multiple deployment patterns:
 
     Example source types that could be added:
 
-    - Direct GeoJSON file serving
     - Vector tile rendering from raster data
     - Integration with other spatial databases
 
