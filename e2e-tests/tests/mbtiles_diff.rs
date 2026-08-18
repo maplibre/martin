@@ -45,6 +45,7 @@ async fn bsdiff_rows(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>, i64)> {
 /// be snapshotted: this run's temp directory, and the number of cpus the bindiff pass found.
 fn redact(dir: &TempDir, output: &str) -> String {
     let output = output.replace(&dir.path().display().to_string(), "[TMP]");
+    let output = output.replace(std::path::MAIN_SEPARATOR, "/");
     Regex::new(r"bindiff\.cpus=\d+")
         .expect("the pattern is valid")
         .replace_all(&output, "bindiff.cpus=[CPUS]")

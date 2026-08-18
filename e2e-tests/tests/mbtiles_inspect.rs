@@ -27,6 +27,7 @@ async fn broken_fixture(dir: &Path, name: &str) -> PathBuf {
 /// build that wrote the file.
 fn redact(dir: &TempDir, output: &str) -> String {
     let output = output.replace(&dir.path().display().to_string(), "[TMP]");
+    let output = output.replace(std::path::MAIN_SEPARATOR, "/");
     Regex::new(r"(?m)^(File size:|SQL page size:|SQL page count:)(\s+).*$")
         .expect("the pattern is valid")
         .replace_all(&output, "$1$2[SQLITE]")
