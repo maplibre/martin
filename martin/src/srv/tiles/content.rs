@@ -9,7 +9,7 @@ use actix_web::http::header::{
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
-use futures::future::try_join_all;
+use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
@@ -26,6 +26,9 @@ use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
+
+/// Maximum number of source tiles fetched concurrently for one composite response.
+const MAX_CONCURRENT_TILE_FETCHES: usize = 32;
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
@@ -398,12 +401,11 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        let tiles = try_join_all(
-            self.sources
-                .iter()
-                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz)),
-        )
-        .await?;
+        let tiles: Vec<Tile> = stream::iter(&self.sources)
+            .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
+            .buffered(MAX_CONCURRENT_TILE_FETCHES)
+            .try_collect()
+            .await?;
 
         self.merge_tiles(tiles)
     }

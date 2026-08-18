@@ -11,9 +11,10 @@ pub const NO_FONT_CACHE: OptFontCache = None;
 
 /// Cache key for a font glyph range.
 ///
-/// `ids` is the comma-joined font stack from the request path. Invalidation
-/// by font ID matches by token (not substring): invalidating `"Open Sans"`
-/// does not invalidate entries keyed against `"Open Sans Bold"`.
+/// `ids` is the [`crate::fonts::normalize_font_ids`]-normalized font stack
+/// from the request path. Invalidation by font ID matches by token (not
+/// substring): invalidating `"Open Sans"` does not invalidate entries keyed
+/// against `"Open Sans Bold"`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct FontCacheKey {
     ids: String,
