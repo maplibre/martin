@@ -348,7 +348,6 @@ impl Config {
     #[instrument(skip_all, err(Debug))]
     #[cfg_attr(
         not(any(
-            feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
@@ -356,7 +355,10 @@ impl Config {
             feature = "unstable-duckdb",
             feature = "geojson"
         )),
-        expect(unused_variables, reason = "idr is only consumed by tile backends")
+        expect(
+            unused_variables,
+            reason = "idr is only consumed by file tile backends"
+        )
     )]
     async fn resolve_tile_sources(
         &mut self,
@@ -365,7 +367,6 @@ impl Config {
     ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
         #[cfg_attr(
             not(any(
-                feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
                 feature = "passthrough",
@@ -373,7 +374,7 @@ impl Config {
                 feature = "unstable-duckdb",
                 feature = "geojson"
             )),
-            expect(unused_mut, reason = "tile backends push resolved sources here")
+            expect(unused_mut, reason = "file tile backends push resolved sources here")
         )]
         let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
 
