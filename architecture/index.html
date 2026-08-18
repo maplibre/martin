@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.55">
+      <meta name="generator" content="zensical-0.0.56">
     
     
       
@@ -1891,17 +1891,17 @@ One generic loop - the **Reload Driver** - sits behind three traits, so every so
 
 ```mermaid
 graph LR
-    Trigger[&quot;Trigger&lt;br/&gt;(when)&quot;] --&gt;|fires| Driver[Reload Driver]
-    Driver --&gt;|discover| Discovery[&quot;Discovery&lt;br/&gt;(what should exist)&quot;]
-    Discovery --&gt;|&quot;(Version, Args) per id&quot;| Driver
-    Driver --&gt;|&quot;diff vs baseline, build changed&quot;| Advisory[&quot;ReloadAdvisory&lt;br/&gt;add / update / remove&quot;]
-    Advisory --&gt;|apply| Sink[&quot;Sink&lt;br/&gt;(where)&quot;]
-    Sink --&gt; Catalog[(&quot;Catalog&lt;br/&gt;TileSourceManager&quot;)]
+    Trigger["Trigger&lt;br/&gt;(when)"] --&gt;|fires| Driver[Reload Driver]
+    Driver --&gt;|discover| Discovery["Discovery&lt;br/&gt;(what should exist)"]
+    Discovery --&gt;|"(Version, Args) per id"| Driver
+    Driver --&gt;|"diff vs baseline, build changed"| Advisory["ReloadAdvisory&lt;br/&gt;add / update / remove"]
+    Advisory --&gt;|apply| Sink["Sink&lt;br/&gt;(where)"]
+    Sink --&gt; Catalog[("Catalog&lt;br/&gt;TileSourceManager")]
 ```
 
 The traits are:
 
-- **`Discovery`** - the cheap **&quot;what should exist now&quot;** read (a directory scan or object-store listing).
+- **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing).
   Returns one `(Version, Args)` per source id.
   `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
   `Args` is the kind-specific payload used to build the source on demand.

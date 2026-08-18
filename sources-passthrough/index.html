@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.55">
+      <meta name="generator" content="zensical-0.0.56">
     
     
       
@@ -1824,7 +1824,7 @@ Each entry under <code>passthrough.sources</code> maps the source ID Martin serv
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="c1"># HTTP headers sent with every upstream request. Values support `${ENV_VAR}` substitution.</span>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">headers</span><span class="p">:</span>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">        </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${API_TOKEN}</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">      </span><span class="c1"># Per-request timeout. Accepts human-readable values like &quot;30s&quot; or &quot;1m&quot;. Defaults to &quot;30s&quot;.</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">      </span><span class="c1"># Per-request timeout. Accepts human-readable values like "30s" or "1m". Defaults to "30s".</span>
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">      </span><span class="c1"># Explicit tile format. When unset it is detected from the URL extension,</span>
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">      </span><span class="c1"># the upstream TileJSON, or the response itself.</span>
@@ -1833,7 +1833,7 @@ Each entry under <code>passthrough.sources</code> maps the source ID Martin serv
 </span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">      </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">      </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">      </span><span class="nt">bounds</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-85.0511</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">180.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">85.0511</span><span class="p p-Indicator">]</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">      </span><span class="nt">attribution</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;©</span><span class="nv"> </span><span class="s">Example&#39;</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">      </span><span class="nt">attribution</span><span class="p">:</span><span class="w"> </span><span class="s">'©</span><span class="nv"> </span><span class="s">Example'</span>
 </span></code></pre></div>
 <h2 id="upstream-forms">Upstream forms</h2>
 <p>A source value under <code>passthrough.sources</code> is one of:</p>

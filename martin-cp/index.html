@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.55">
+      <meta name="generator" content="zensical-0.0.56">
     
     
       
@@ -1846,7 +1846,7 @@ This allows the MBTiles file to be <a href="../mbtiles-validation/#aggregate-con
 <p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="../mbtiles-schema/#normalized">normalized</a> schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin-cp<span class="w">  </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w">                         </span><span class="se">\</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">           </span>--mbtiles-type<span class="w"> </span>normalized<span class="w">                             </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="s2">&quot;--bbox=-180,-85.05112877980659,180,85.0511287798066&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="s2">"--bbox=-180,-85.05112877980659,180,85.0511287798066"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">           </span>--min-zoom<span class="w"> </span><span class="m">0</span><span class="w">                                          </span><span class="se">\</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">           </span>--max-zoom<span class="w"> </span><span class="m">10</span><span class="w">                                         </span><span class="se">\</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">           </span>--source<span class="w"> </span>source_name<span class="w">                                  </span><span class="se">\</span>
@@ -1939,13 +1939,13 @@ Ignored for non-encodable tiles like PNG and JPEG.</p>
 </span><span id="__span-2-58"><a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a>          Skip generating a global hash for mbtiles validation. By default, martin-cp will compute and update agg_tiles_hash metadata value
 </span><span id="__span-2-59"><a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>
 </span><span id="__span-2-60"><a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a>      --set-meta &lt;KEY=VALUE&gt;
-</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>          Set additional metadata values. Must be set as &quot;key=value&quot; pairs. Can be specified multiple times
+</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>          Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times
 </span><span id="__span-2-62"><a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a>
 </span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>  -c, --config &lt;CONFIG&gt;
 </span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>          Path to config file. If set, no tile source-related parameters are allowed
 </span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>
 </span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>      --save-config &lt;SAVE_CONFIG&gt;
-</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>          Save resulting config to a file or use &quot;-&quot; to print to stdout. By default, only print if sources are auto-detected
+</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 </span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>
 </span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>  -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
 </span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>          Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
@@ -1967,13 +1967,13 @@ Ignored for non-encodable tiles like PNG and JPEG.</p>
 </span><span id="__span-2-86"><a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a>  -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
 </span><span id="__span-2-87"><a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>          Limit the number of geo features per tile.
 </span><span id="__span-2-88"><a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>
-</span><span id="__span-2-89"><a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>          If the source table has more features than set here, they will not be included in the tile and the result will look &quot;cut off&quot;/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
+</span><span id="__span-2-89"><a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
 </span><span id="__span-2-90"><a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
 </span><span id="__span-2-91"><a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>
 </span><span id="__span-2-92"><a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>          Can be either a positive integer or unlimited if omitted.
 </span><span id="__span-2-93"><a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>
 </span><span id="__span-2-94"><a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>  -h, --help
-</span><span id="__span-2-95"><a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>          Print help (see a summary with &#39;-h&#39;)
+</span><span id="__span-2-95"><a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>          Print help (see a summary with '-h')
 </span><span id="__span-2-96"><a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>
 </span><span id="__span-2-97"><a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>  -V, --version
 </span><span id="__span-2-98"><a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>          Print version

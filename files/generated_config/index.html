@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.55">
+      <meta name="generator" content="zensical-0.0.56">
     
     
       
@@ -1014,7 +1014,7 @@
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nt">cache</span><span class="p">:</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="c1"># Maximum lifetime for all cache entries (time-to-live from creation).</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">  </span><span class="c1"># Entries are evicted after this duration regardless of access.</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: &quot;1h&quot;, &quot;30m&quot;, &quot;1d&quot;, &quot;3600s&quot;.</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: "1h", "30m", "1d", "3600s".</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="c1"># default: null (no expiry, entries only evicted by size pressure)</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="nt">expiry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="c1"># Maximum idle time for all cache entries (time-to-idle since last access).</span>
@@ -1034,7 +1034,7 @@
 </span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">  </span><span class="c1"># Total amount of cache we use [default: 512, 0 to disable]</span>
 </span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">  </span><span class="c1"># By default, this is split up between:</span>
 </span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">  </span><span class="c1"># - Tiles 50% -&gt; 256 MB</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">  </span><span class="c1"># - Pmtiles&#39; directories 25% -&gt; 128 MB</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">  </span><span class="c1"># - Pmtiles' directories 25% -&gt; 128 MB</span>
 </span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">  </span><span class="c1"># - Fonts 12.5% -&gt; 64 MB</span>
 </span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">  </span><span class="c1"># - Sprites 12.5% -&gt; 64 MB</span>
 </span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">  </span><span class="c1">#</span>
@@ -1101,7 +1101,7 @@
 </span><span id="__span-0-99"><a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a><span class="w">  </span><span class="c1"># null means not setting the header for preflight requests</span>
 </span><span id="__span-0-100"><a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a><span class="w">  </span><span class="nt">max_age</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3600</span>
 </span><span id="__span-0-101"><a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a><span class="w">  </span><span class="c1"># Sets the `Access-Control-Allow-Origin` header [default: *]</span>
-</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a><span class="w">  </span><span class="c1"># &#39;*&#39; will use the requests `ORIGIN` header</span>
+</span><span id="__span-0-102"><a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a><span class="w">  </span><span class="c1"># '*' will use the requests `ORIGIN` header</span>
 </span><span id="__span-0-103"><a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a><span class="w">  </span><span class="nt">origin</span><span class="p">:</span>
 </span><span id="__span-0-104"><a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.org</span>
 </span><span id="__span-0-105"><a id="__codelineno-0-105" name="__codelineno-0-105" href="#__codelineno-0-105"></a><span class="c1"># Font configuration</span>
@@ -1161,8 +1161,8 @@
 </span><span id="__span-0-159"><a id="__codelineno-0-159" name="__codelineno-0-159" href="#__codelineno-0-159"></a><span class="w">    </span><span class="nt">add_labels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 </span><span id="__span-0-160"><a id="__codelineno-0-160" name="__codelineno-0-160" href="#__codelineno-0-160"></a><span class="c1"># The policy for handling invalid sources during startup. [default: abort]</span>
 </span><span id="__span-0-161"><a id="__codelineno-0-161" name="__codelineno-0-161" href="#__codelineno-0-161"></a><span class="c1">#</span>
-</span><span id="__span-0-162"><a id="__codelineno-0-162" name="__codelineno-0-162" href="#__codelineno-0-162"></a><span class="c1"># Invalid sources are those that are missing (file not found, table doesn&#39;t exist, ...),</span>
-</span><span id="__span-0-163"><a id="__codelineno-0-163" name="__codelineno-0-163" href="#__codelineno-0-163"></a><span class="c1"># reference columns that don&#39;t exist, and so on.</span>
+</span><span id="__span-0-162"><a id="__codelineno-0-162" name="__codelineno-0-162" href="#__codelineno-0-162"></a><span class="c1"># Invalid sources are those that are missing (file not found, table doesn't exist, ...),</span>
+</span><span id="__span-0-163"><a id="__codelineno-0-163" name="__codelineno-0-163" href="#__codelineno-0-163"></a><span class="c1"># reference columns that don't exist, and so on.</span>
 </span><span id="__span-0-164"><a id="__codelineno-0-164" name="__codelineno-0-164" href="#__codelineno-0-164"></a><span class="c1"># Currently limited to tile sources; broader rollout is planned.</span>
 </span><span id="__span-0-165"><a id="__codelineno-0-165" name="__codelineno-0-165" href="#__codelineno-0-165"></a><span class="c1">#</span>
 </span><span id="__span-0-166"><a id="__codelineno-0-166" name="__codelineno-0-166" href="#__codelineno-0-166"></a><span class="c1"># Options:</span>
@@ -1257,8 +1257,8 @@
 </span><span id="__span-0-255"><a id="__codelineno-0-255" name="__codelineno-0-255" href="#__codelineno-0-255"></a><span class="w">  </span><span class="c1"># How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.</span>
 </span><span id="__span-0-256"><a id="__codelineno-0-256" name="__codelineno-0-256" href="#__codelineno-0-256"></a><span class="w">  </span><span class="c1"># Has no effect on local directories, which are watched via filesystem events.</span>
 </span><span id="__span-0-257"><a id="__codelineno-0-257" name="__codelineno-0-257" href="#__codelineno-0-257"></a><span class="w">  </span><span class="c1">#</span>
-</span><span id="__span-0-258"><a id="__codelineno-0-258" name="__codelineno-0-258" href="#__codelineno-0-258"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: &quot;10m&quot;, &quot;1h&quot;, &quot;30s&quot;.</span>
-</span><span id="__span-0-259"><a id="__codelineno-0-259" name="__codelineno-0-259" href="#__codelineno-0-259"></a><span class="w">  </span><span class="c1"># Defaults to &quot;10m&quot;. Set to &quot;0s&quot; to disable remote polling.</span>
+</span><span id="__span-0-258"><a id="__codelineno-0-258" name="__codelineno-0-258" href="#__codelineno-0-258"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: "10m", "1h", "30s".</span>
+</span><span id="__span-0-259"><a id="__codelineno-0-259" name="__codelineno-0-259" href="#__codelineno-0-259"></a><span class="w">  </span><span class="c1"># Defaults to "10m". Set to "0s" to disable remote polling.</span>
 </span><span id="__span-0-260"><a id="__codelineno-0-260" name="__codelineno-0-260" href="#__codelineno-0-260"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10m</span>
 </span><span id="__span-0-261"><a id="__codelineno-0-261" name="__codelineno-0-261" href="#__codelineno-0-261"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
 </span><span id="__span-0-262"><a id="__codelineno-0-262" name="__codelineno-0-262" href="#__codelineno-0-262"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
@@ -1277,7 +1277,7 @@
 </span><span id="__span-0-275"><a id="__codelineno-0-275" name="__codelineno-0-275" href="#__codelineno-0-275"></a><span class="w">  </span><span class="c1">#</span>
 </span><span id="__span-0-276"><a id="__codelineno-0-276" name="__codelineno-0-276" href="#__codelineno-0-276"></a><span class="w">  </span><span class="c1"># Options:</span>
 </span><span id="__span-0-277"><a id="__codelineno-0-277" name="__codelineno-0-277" href="#__codelineno-0-277"></a><span class="w">  </span><span class="c1"># - `calc` compute table geometry bounds on startup.</span>
-</span><span id="__span-0-278"><a id="__codelineno-0-278" name="__codelineno-0-278" href="#__codelineno-0-278"></a><span class="w">  </span><span class="c1"># - `quick` same as &#39;calc&#39;, but the calculation will be aborted after 5 seconds.</span>
+</span><span id="__span-0-278"><a id="__codelineno-0-278" name="__codelineno-0-278" href="#__codelineno-0-278"></a><span class="w">  </span><span class="c1"># - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.</span>
 </span><span id="__span-0-279"><a id="__codelineno-0-279" name="__codelineno-0-279" href="#__codelineno-0-279"></a><span class="w">  </span><span class="c1"># - `skip` does not compute table geometry bounds on startup.</span>
 </span><span id="__span-0-280"><a id="__codelineno-0-280" name="__codelineno-0-280" href="#__codelineno-0-280"></a><span class="w">  </span><span class="nt">auto_bounds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">quick</span>
 </span><span id="__span-0-281"><a id="__codelineno-0-281" name="__codelineno-0-281" href="#__codelineno-0-281"></a><span class="w">  </span><span class="c1"># Enable automatic discovery of tables and functions. [default: null]</span>
@@ -1292,9 +1292,9 @@
 </span><span id="__span-0-290"><a id="__codelineno-0-290" name="__codelineno-0-290" href="#__codelineno-0-290"></a><span class="w">    </span><span class="nt">functions</span><span class="p">:</span>
 </span><span id="__span-0-291"><a id="__codelineno-0-291" name="__codelineno-0-291" href="#__codelineno-0-291"></a><span class="w">      </span><span class="c1"># Optionally limit to just these schemas</span>
 </span><span id="__span-0-292"><a id="__codelineno-0-292" name="__codelineno-0-292" href="#__codelineno-0-292"></a><span class="w">      </span><span class="nt">from_schemas</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-</span><span id="__span-0-293"><a id="__codelineno-0-293" name="__codelineno-0-293" href="#__codelineno-0-293"></a><span class="w">      </span><span class="c1"># Optionally set how source ID should be generated based on the function&#39;s</span>
+</span><span id="__span-0-293"><a id="__codelineno-0-293" name="__codelineno-0-293" href="#__codelineno-0-293"></a><span class="w">      </span><span class="c1"># Optionally set how source ID should be generated based on the function's</span>
 </span><span id="__span-0-294"><a id="__codelineno-0-294" name="__codelineno-0-294" href="#__codelineno-0-294"></a><span class="w">      </span><span class="c1"># name and schema</span>
-</span><span id="__span-0-295"><a id="__codelineno-0-295" name="__codelineno-0-295" href="#__codelineno-0-295"></a><span class="w">      </span><span class="nt">source_id_format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;{schema}.{function}&quot;</span>
+</span><span id="__span-0-295"><a id="__codelineno-0-295" name="__codelineno-0-295" href="#__codelineno-0-295"></a><span class="w">      </span><span class="nt">source_id_format</span><span class="p">:</span><span class="w"> </span><span class="s">"{schema}.{function}"</span>
 </span><span id="__span-0-296"><a id="__codelineno-0-296" name="__codelineno-0-296" href="#__codelineno-0-296"></a><span class="w">    </span><span class="c1"># Here we enable both tables and functions auto discovery.</span>
 </span><span id="__span-0-297"><a id="__codelineno-0-297" name="__codelineno-0-297" href="#__codelineno-0-297"></a><span class="w">    </span><span class="c1"># You can also enable just one of them by not mentioning the other, or</span>
 </span><span id="__span-0-298"><a id="__codelineno-0-298" name="__codelineno-0-298" href="#__codelineno-0-298"></a><span class="w">    </span><span class="c1"># setting it to false. Setting one to true disables the other one as well.</span>
@@ -1315,7 +1315,7 @@
 </span><span id="__span-0-313"><a id="__codelineno-0-313" name="__codelineno-0-313" href="#__codelineno-0-313"></a><span class="w">      </span><span class="c1"># If a list of strings is given, the first found column will be treated as a</span>
 </span><span id="__span-0-314"><a id="__codelineno-0-314" name="__codelineno-0-314" href="#__codelineno-0-314"></a><span class="w">      </span><span class="c1"># feature ID.</span>
 </span><span id="__span-0-315"><a id="__codelineno-0-315" name="__codelineno-0-315" href="#__codelineno-0-315"></a><span class="w">      </span><span class="nt">id_columns</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-</span><span id="__span-0-316"><a id="__codelineno-0-316" name="__codelineno-0-316" href="#__codelineno-0-316"></a><span class="w">      </span><span class="c1"># Optionally set how source ID should be generated based on the table&#39;s name,</span>
+</span><span id="__span-0-316"><a id="__codelineno-0-316" name="__codelineno-0-316" href="#__codelineno-0-316"></a><span class="w">      </span><span class="c1"># Optionally set how source ID should be generated based on the table's name,</span>
 </span><span id="__span-0-317"><a id="__codelineno-0-317" name="__codelineno-0-317" href="#__codelineno-0-317"></a><span class="w">      </span><span class="c1"># schema, and geometry column</span>
 </span><span id="__span-0-318"><a id="__codelineno-0-318" name="__codelineno-0-318" href="#__codelineno-0-318"></a><span class="w">      </span><span class="nt">source_id_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">table.{schema}.{table}.{column}</span>
 </span><span id="__span-0-319"><a id="__codelineno-0-319" name="__codelineno-0-319" href="#__codelineno-0-319"></a><span class="w">  </span><span class="c1"># Database connection string.</span>
@@ -1363,7 +1363,7 @@
 </span><span id="__span-0-361"><a id="__codelineno-0-361" name="__codelineno-0-361" href="#__codelineno-0-361"></a><span class="w">  </span><span class="c1"># Limit the number of geo features per tile.</span>
 </span><span id="__span-0-362"><a id="__codelineno-0-362" name="__codelineno-0-362" href="#__codelineno-0-362"></a><span class="w">  </span><span class="c1">#</span>
 </span><span id="__span-0-363"><a id="__codelineno-0-363" name="__codelineno-0-363" href="#__codelineno-0-363"></a><span class="w">  </span><span class="c1"># If the source table has more features than set here, they will not be</span>
-</span><span id="__span-0-364"><a id="__codelineno-0-364" name="__codelineno-0-364" href="#__codelineno-0-364"></a><span class="w">  </span><span class="c1"># included in the tile and the result will look &quot;cut off&quot;/incomplete.</span>
+</span><span id="__span-0-364"><a id="__codelineno-0-364" name="__codelineno-0-364" href="#__codelineno-0-364"></a><span class="w">  </span><span class="c1"># included in the tile and the result will look "cut off"/incomplete.</span>
 </span><span id="__span-0-365"><a id="__codelineno-0-365" name="__codelineno-0-365" href="#__codelineno-0-365"></a><span class="w">  </span><span class="c1"># This feature allows you to put a maximum latency bound on tiles with an</span>
 </span><span id="__span-0-366"><a id="__codelineno-0-366" name="__codelineno-0-366" href="#__codelineno-0-366"></a><span class="w">  </span><span class="c1"># extreme amount of detail at the cost of not returning all data.</span>
 </span><span id="__span-0-367"><a id="__codelineno-0-367" name="__codelineno-0-367" href="#__codelineno-0-367"></a><span class="w">  </span><span class="c1"># It is sensible to set this limit if you have user generated/untrusted</span>
@@ -1376,8 +1376,8 @@
 </span><span id="__span-0-374"><a id="__codelineno-0-374" name="__codelineno-0-374" href="#__codelineno-0-374"></a><span class="w">  </span><span class="c1"># How often the `PostgresReloader` re-runs catalog discovery to publish new tables and</span>
 </span><span id="__span-0-375"><a id="__codelineno-0-375" name="__codelineno-0-375" href="#__codelineno-0-375"></a><span class="w">  </span><span class="c1"># functions, update changed ones, and drop removed ones at runtime, without a restart.</span>
 </span><span id="__span-0-376"><a id="__codelineno-0-376" name="__codelineno-0-376" href="#__codelineno-0-376"></a><span class="w">  </span><span class="c1">#</span>
-</span><span id="__span-0-377"><a id="__codelineno-0-377" name="__codelineno-0-377" href="#__codelineno-0-377"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: &quot;10m&quot;, &quot;1h&quot;, &quot;30s&quot;.</span>
-</span><span id="__span-0-378"><a id="__codelineno-0-378" name="__codelineno-0-378" href="#__codelineno-0-378"></a><span class="w">  </span><span class="c1"># Defaults to &quot;10m&quot;. Set to &quot;0s&quot; to disable runtime reloading.</span>
+</span><span id="__span-0-377"><a id="__codelineno-0-377" name="__codelineno-0-377" href="#__codelineno-0-377"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: "10m", "1h", "30s".</span>
+</span><span id="__span-0-378"><a id="__codelineno-0-378" name="__codelineno-0-378" href="#__codelineno-0-378"></a><span class="w">  </span><span class="c1"># Defaults to "10m". Set to "0s" to disable runtime reloading.</span>
 </span><span id="__span-0-379"><a id="__codelineno-0-379" name="__codelineno-0-379" href="#__codelineno-0-379"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10m</span>
 </span><span id="__span-0-380"><a id="__codelineno-0-380" name="__codelineno-0-380" href="#__codelineno-0-380"></a><span class="w">  </span><span class="c1"># Same as `PGSSLCERT` for `psql`</span>
 </span><span id="__span-0-381"><a id="__codelineno-0-381" name="__codelineno-0-381" href="#__codelineno-0-381"></a><span class="w">  </span><span class="nt">ssl_cert</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./postgresql.crt</span>
@@ -1441,7 +1441,7 @@
 </span><span id="__span-0-439"><a id="__codelineno-0-439" name="__codelineno-0-439" href="#__codelineno-0-439"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
 </span><span id="__span-0-440"><a id="__codelineno-0-440" name="__codelineno-0-440" href="#__codelineno-0-440"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
 </span><span id="__span-0-441"><a id="__codelineno-0-441" name="__codelineno-0-441" href="#__codelineno-0-441"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
-</span><span id="__span-0-442"><a id="__codelineno-0-442" name="__codelineno-0-442" href="#__codelineno-0-442"></a><span class="c1">#    old tiles aren&#39;t served when a new tileset is deployed.</span>
+</span><span id="__span-0-442"><a id="__codelineno-0-442" name="__codelineno-0-442" href="#__codelineno-0-442"></a><span class="c1">#    old tiles aren't served when a new tileset is deployed.</span>
 </span><span id="__span-0-443"><a id="__codelineno-0-443" name="__codelineno-0-443" href="#__codelineno-0-443"></a><span class="c1">#</span>
 </span><span id="__span-0-444"><a id="__codelineno-0-444" name="__codelineno-0-444" href="#__codelineno-0-444"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
 </span><span id="__span-0-445"><a id="__codelineno-0-445" name="__codelineno-0-445" href="#__codelineno-0-445"></a><span class="c1"># Many CDNs ignore them by default.</span>
@@ -1450,7 +1450,7 @@
 </span><span id="__span-0-448"><a id="__codelineno-0-448" name="__codelineno-0-448" href="#__codelineno-0-448"></a><span class="c1"># - the setting here is `version`, and</span>
 </span><span id="__span-0-449"><a id="__codelineno-0-449" name="__codelineno-0-449" href="#__codelineno-0-449"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
 </span><span id="__span-0-450"><a id="__codelineno-0-450" name="__codelineno-0-450" href="#__codelineno-0-450"></a><span class="c1"># `TileJSON` will be:</span>
-</span><span id="__span-0-451"><a id="__codelineno-0-451" name="__codelineno-0-451" href="#__codelineno-0-451"></a><span class="c1"># `{ ..., &quot;tiles&quot;: [&quot;.../{z}/{x}/{y}?version=1.0.0&quot;], ... }`</span>
+</span><span id="__span-0-451"><a id="__codelineno-0-451" name="__codelineno-0-451" href="#__codelineno-0-451"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
 </span><span id="__span-0-452"><a id="__codelineno-0-452" name="__codelineno-0-452" href="#__codelineno-0-452"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
 </span><span id="__span-0-453"><a id="__codelineno-0-453" name="__codelineno-0-453" href="#__codelineno-0-453"></a><span class="c1"># Number of web server workers</span>
 </span><span id="__span-0-454"><a id="__codelineno-0-454" name="__codelineno-0-454" href="#__codelineno-0-454"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
