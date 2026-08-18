@@ -21,8 +21,10 @@ just test
 cargo test --workspace
 # PG tests (needs `just start`)
 just test-pg
-# integration tests (needs docker)
-just test-int
+# end-to-end tests driving the built binaries
+just test-e2e
+# end-to-end tests that need the PostgreSQL database (needs docker, needs `just start`)
+just test-e2e-pg
 # lint the PR (run before committing)
 just lint
 # update all snapshot/expected output
@@ -44,5 +46,5 @@ just bless
 
 - **CI warnings = errors**: set env var `CARGO_BUILD_WARNINGS=deny`. ALL warnings must be fixed.
 - **Clippy pedantic** enabled workspace-wide. Avoid `unwrap`/`panic` in non-test code; prefer `expect` with a clear message or proper error handling. `unwrap`/`panic` may be acceptable in tests/examples when appropriate.
-- **Integration tests**: compare output against `tests/expected/`. `just bless-int` to update.
+- **End-to-end tests**: `e2e-tests/` runs the built `martin`/`mbtiles` binaries and snapshots what they answer. `just bless-e2e` to update.
 - **Frontend-only changes** `martin-ui/` use `npm run dev` to view changes

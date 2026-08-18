@@ -1,0 +1,12 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: with_token
+---
+{
+  "description": "public.function_zxy_query_test",
+  "name": "function_zxy_query_test",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://[ADDR]/function_zxy_query_test/{z}/{x}/{y}"
+  ]
+}

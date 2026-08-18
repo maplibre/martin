@@ -5262,7 +5262,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "martin-integration-tests"
+name = "martin-e2e-tests"
 version = "0.0.0"
 dependencies = [
  "approx",

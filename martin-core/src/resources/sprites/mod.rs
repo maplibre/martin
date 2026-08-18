@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
-use spreet::{Sprite, SpritesheetBuilder, sprite_name};
+use spreet::{Sprite, SpritesheetBuilder, sprite_name as spreet_sprite_name};
 use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
@@ -48,6 +48,12 @@ const MAX_CONCURRENT_SPRITE_PARSES: usize = 16;
 
 fn discover_svgs(path: &Path) -> Result<Vec<PathBuf>, SpriteError> {
     walk_files(path, SVG_EXTENSIONS).map_err(|e| IoError(e.into(), path.to_path_buf()))
+}
+
+/// `spreet::sprite_name` joins a nested sprite's directory onto its file stem with the
+/// platform separator; the name is a URL path segment, so keep it `/`-joined everywhere.
+fn sprite_name(path: &Path, base_path: &Path) -> spreet::SpreetResult<String> {
+    spreet_sprite_name(path, base_path).map(|name| name.replace(std::path::MAIN_SEPARATOR, "/"))
 }
 
 /// Splits a comma-separated, optionally `@2x`-suffixed sprite id list from a
@@ -425,6 +431,26 @@ mod tests {
             entry.images,
             vec!["bar".to_owned(), "foo".to_owned()],
             "expected plain sprite names without dotfile directory prefixes"
+        );
+    }
+
+    #[test]
+    fn a_nested_sprite_name_is_forward_slash_joined_on_every_platform() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let sub = tmp.path().join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
+        std::fs::write(sub.join("circle.svg"), svg).unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("nested".to_owned(), tmp.path().to_path_buf());
+
+        let catalog = sprites.get_catalog().expect("catalog");
+        let entry = catalog.get("nested").expect("nested source registered");
+        assert_eq!(
+            entry.images,
+            vec!["sub/circle".to_owned()],
+            "nested sprite names must use `/` even on windows, since they are URL path segments"
         );
     }
 

@@ -1,0 +1,5 @@
+---
+source: e2e-tests/tests/rendering.rs
+expression: "fetched.join(\"\\n\")"
+---
+GET /demotiles.maplibre.org/tiles/0/0/0.pbf

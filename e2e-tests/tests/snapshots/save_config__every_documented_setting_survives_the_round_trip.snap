@@ -1,0 +1,37 @@
+---
+source: e2e-tests/tests/save_config.rs
+expression: saved
+---
+cache:
+  size_mb: 8
+  minzoom: 0
+  maxzoom: 20
+keep_alive: 75
+listen_addresses: 127.0.0.1:0
+worker_processes: 1
+cors:
+  origin:
+  - "*"
+  max_age: null
+observability:
+  metrics: {}
+tilejson_url_version_param: version
+pmtiles:
+  sources:
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
+geojson: {}
+sprites:
+  paths: tests/fixtures/sprites/src1
+  sources:
+    mysrc: tests/fixtures/sprites/src2
+styles:
+  paths: tests/fixtures/styles/src2
+  sources:
+    maplibre: tests/fixtures/styles/maplibre_demo.json
+fonts:
+- tests/fixtures/fonts/overpass-mono-regular.ttf
+- tests/fixtures/fonts

@@ -1,0 +1,20 @@
+---
+source: e2e-tests/tests/save_config.rs
+expression: saved
+---
+listen_addresses: 127.0.0.1:0
+tilejson_url_version_param: version
+pmtiles:
+  paths: tests/fixtures/pmtiles
+  sources:
+    png: tests/fixtures/pmtiles/png.pmtiles
+    stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+mbtiles: tests/fixtures/pmtiles
+geojson: tests/fixtures/pmtiles
+sprites: tests/fixtures/sprites/src1
+styles:
+- tests/fixtures/styles/maplibre_demo.json
+- tests/fixtures/styles/src2
+fonts:
+- tests/fixtures/fonts/overpass-mono-regular.ttf
+- tests/fixtures/fonts
