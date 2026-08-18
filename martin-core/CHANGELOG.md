@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/maplibre/martin/compare/martin-core-v0.10.0...martin-core-v0.11.0) - 2026-08-17
+
+### Security
+
+- **Repeated sprite ids let a single request amplify into unbounded rasterization work** ([GHSA-5x5g-6p4c-jqfh](https://github.com/maplibre/martin/security/advisories/GHSA-5x5g-6p4c-jqfh), medium severity). The sprite cache rasterized and cached one SVG per id in a request's id list, with no cap on id count and no deduplication, so repeating a single valid id let an unauthenticated client multiply rasterization work at a ratio of its own choosing. Fixed by capping ids per request, deduplicating before doing the work, normalizing the cache key, and bounding rasterization concurrency. Done in [#3123](https://github.com/maplibre/martin/pull/3123).
+
+### Added
+
+- e2e local geoparquet wiring via duckdb ([#3054](https://github.com/maplibre/martin/pull/3054))
+
+### Fixed
+
+- *(geojson)* advertise vector_layers in TileJSON ([#3082](https://github.com/maplibre/martin/pull/3082))
+
+### Other
+
+- move the remaining rendering tests to e2e and drop mitmproxy ([#3104](https://github.com/maplibre/martin/pull/3104))
+- enable additional clippy restriction lints ([#3095](https://github.com/maplibre/martin/pull/3095))
+
 ## [0.10.0](https://github.com/maplibre/martin/compare/martin-core-v0.9.0...martin-core-v0.10.0) - 2026-07-25
 
 ### Added

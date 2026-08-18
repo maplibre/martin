@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0](https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0) - 2026-08-17
+
+### Security
+
+Two vulnerabilities reported through our security advisories are fixed in this release:
+
+- **Out-of-gamut CIE colors in the static-overlay body could permanently kill render workers** ([GHSA-6774-6cqw-f586](https://github.com/maplibre/martin/security/advisories/GHSA-6774-6cqw-f586), high severity, only affects deployments with the opt-in, Linux-only `rendering` feature enabled). An unauthenticated `POST /style/{id}/static/...` body could carry a CSS color such as `lab()` or `oklch()` whose channels `csscolorparser` does not clamp to `0..=1`. That out-of-gamut value reached an unchecked assertion deep in the renderer, permanently killing one of martin's 2-8 render workers per request; a handful of ~180-byte requests could disable static rendering for the life of the process. Fixed by clamping colors to the valid gamut before they reach the renderer. Done in [#3124](https://github.com/maplibre/martin/pull/3124).
+- **Repeated sprite ids let a single request amplify into unbounded rasterization work** ([GHSA-5x5g-6p4c-jqfh](https://github.com/maplibre/martin/security/advisories/GHSA-5x5g-6p4c-jqfh), medium severity). `/sprite/{ids}.png` rasterized and cached one SVG per id in the comma-separated id list, with no cap on id count and no deduplication, so repeating a single valid id let an unauthenticated client multiply server work at a ratio of its own choosing. Fixed by capping ids per request, deduplicating before doing the work, and bounding rasterization concurrency. Done in [#3123](https://github.com/maplibre/martin/pull/3123).
+
+### Added
+
+- e2e local geoparquet wiring via duckdb ([#3054](https://github.com/maplibre/martin/pull/3054))
+
+### Fixed
+
+- install configuration in /etc for debian package ([#3078](https://github.com/maplibre/martin/pull/3078))
+- log the resolved listen address on startup ([#3053](https://github.com/maplibre/martin/pull/3053))
+- *(geojson)* advertise vector_layers in TileJSON ([#3082](https://github.com/maplibre/martin/pull/3082))
+
+### Other
+
+- migrated the COG source, MBTiles pack/unpack, and the remaining rendering e2e tests to Rust, dropping mitmproxy in the process ([#3104](https://github.com/maplibre/martin/pull/3104), [#3101](https://github.com/maplibre/martin/pull/3101), [#3064](https://github.com/maplibre/martin/pull/3064))
+- replace Codecov with GitHub-native code coverage ([#3108](https://github.com/maplibre/martin/pull/3108))
+- enable additional clippy restriction lints ([#3095](https://github.com/maplibre/martin/pull/3095))
+- Change dynamic brotli encoding level from 11 to 4 ([#3061](https://github.com/maplibre/martin/pull/3061))
+- *(deps)* update dependency lucide-react to v1.27.0 ([#3096](https://github.com/maplibre/martin/pull/3096))
+- *(deps)* update npm dependencies ([#3083](https://github.com/maplibre/martin/pull/3083))
+- *(deps)* Update hotpath and instrument decoders ([#3059](https://github.com/maplibre/martin/pull/3059))
+- *(deps)* dependency bumps and pre-commit autoupdates ([#3110](https://github.com/maplibre/martin/pull/3110), [#3109](https://github.com/maplibre/martin/pull/3109), [#3100](https://github.com/maplibre/martin/pull/3100), [#3099](https://github.com/maplibre/martin/pull/3099), [#3098](https://github.com/maplibre/martin/pull/3098), [#3071](https://github.com/maplibre/martin/pull/3071))
+
 ## [1.13.0](https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0) - 2026-07-25
 
 ### Passthrough sources: config-file wiring
