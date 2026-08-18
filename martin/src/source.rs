@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use actix_web::error::ErrorNotFound;
+use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use dashmap::DashMap;
 use martin_core::tiles::catalog::TileCatalog;
 use martin_core::tiles::{BoxedSource, Source};
@@ -8,6 +8,10 @@ use martin_tile_utils::TileInfo;
 use tracing::debug;
 
 use crate::config::file::ProcessConfig;
+
+/// Maximum number of comma-separated source ids accepted in a single
+/// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
+const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
 /// Result of resolving multiple sources for a composite tile request.
 pub struct ResolvedSources {
@@ -99,11 +103,19 @@ impl TileSources {
         source_ids: &str,
         zoom: Option<u8>,
     ) -> actix_web::Result<ResolvedSources> {
+        let ids: Vec<&str> = source_ids.split(',').collect();
+        if ids.len() > MAX_SOURCE_IDS_PER_REQUEST {
+            return Err(ErrorBadRequest(format!(
+                "Requested {} source ids, but at most {MAX_SOURCE_IDS_PER_REQUEST} are allowed per request",
+                ids.len()
+            )));
+        }
+
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
 
-        for id in source_ids.split(',') {
+        for id in ids {
             let (src, pc) = self.get_source(id)?;
             let src_inf = src.get_tile_info();
             use_url_query |= src.support_url_query();
@@ -160,5 +172,37 @@ impl TileSources {
         self.0
             .iter()
             .any(|s| s.value().0.benefits_from_concurrent_scraping())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tilejson::tilejson;
+
+    use super::*;
+    use crate::srv::tiles::tests::TestSource;
+
+    fn sources_with_one_valid() -> TileSources {
+        TileSources::new(vec![vec![Box::new(TestSource {
+            id: "valid",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1, 2, 3],
+            format: martin_tile_utils::Format::Mvt,
+        })]])
+    }
+
+    #[test]
+    fn too_many_source_ids_are_rejected() {
+        let sources = sources_with_one_valid();
+        let ids = vec!["valid"; MAX_SOURCE_IDS_PER_REQUEST + 1].join(",");
+        assert!(sources.get_sources(&ids, None).is_err());
+    }
+
+    #[test]
+    fn exactly_max_source_ids_is_not_rejected_by_the_count_check() {
+        let sources = sources_with_one_valid();
+        let ids = vec!["valid"; MAX_SOURCE_IDS_PER_REQUEST].join(",");
+        let resolved = sources.get_sources(&ids, None).unwrap();
+        assert_eq!(resolved.sources.len(), MAX_SOURCE_IDS_PER_REQUEST);
     }
 }
