@@ -1,9 +1,16 @@
-//! [`PostgresReloader`]: polls `PostgreSQL` catalog discovery and applies the diff at runtime.
+//! [`PostgresReloader`]: the single writer of one `PostgreSQL` connection's sources — it loads
+//! them at startup via [`init`](PostgresReloader::init) and keeps them current by polling.
 
+use std::ops::Add as _;
+use std::time::Duration;
+
+use futures::pin_mut;
 use tokio::task::JoinHandle;
+use tokio::time::timeout;
 
-use crate::TileSourceManager;
+use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::CachePolicy;
+use crate::config::file::TileSourceWarning;
 use crate::config::file::postgres::PostgresConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -11,20 +18,21 @@ use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::PostgresDiscovery;
 use crate::config::file::tiles::driver::{Baseline, PollTrigger, ReloadDriver};
 use crate::config::primitives::IdResolver;
+use crate::{MartinResult, TileSourceManager};
 
 /// Reloader for `PostgreSQL` sources.
 ///
-/// `PostgreSQL` has no change-notification channel Martin listens to, so this re-runs catalog
-/// discovery on a fixed [`PollTrigger`] interval and applies the diff (adds, updates, removals)
-/// to the [`TileSourceManager`]. A `reload_interval` of `0s` disables it.
+/// [`init`](Self::init) publishes everything the catalog discovers into the [`TileSourceManager`]
+/// before serving starts. `PostgreSQL` has no change-notification channel Martin listens to, so
+/// [`start`](Self::start) then re-runs discovery on a fixed [`PollTrigger`] interval and applies
+/// the diff (adds, updates, removals). A `reload_interval` of `0s` disables the polling.
 pub struct PostgresReloader {
-    tile_source_manager: TileSourceManager,
-    discovery: PostgresDiscovery,
+    driver: ReloadDriver<PostgresDiscovery, TileSourceManager>,
 }
 
 impl PostgresReloader {
     /// Resolves the connection-level process config (source-type > global > default) and wires a
-    /// [`PostgresDiscovery`] over `config`. The connection pool is built lazily on the first poll.
+    /// [`PostgresDiscovery`] over `config`. The connection pool is built lazily on the first use.
     #[must_use]
     pub fn new(
         tsm: TileSourceManager,
@@ -49,24 +57,60 @@ impl PostgresReloader {
 
         let discovery = PostgresDiscovery::new(config, id_resolver, default_cache, process);
         Self {
-            tile_source_manager: tsm,
-            discovery,
+            driver: ReloadDriver::new(discovery, tsm),
         }
+    }
+
+    /// Publishes every discovered source into the catalog and returns the discovery warnings for
+    /// the caller's `on_invalid` policy. Fails if the database is unreachable or, under
+    /// `on_invalid: abort`, if any source fails to build.
+    pub async fn init(&mut self) -> MartinResult<Vec<TileSourceWarning>> {
+        let discovery = self.driver.discovery();
+        let auto_bounds = discovery.config().auto_bounds.unwrap_or_default();
+        let db = discovery.pool_id().unwrap_or("PostgreSQL").to_owned();
+        let init = self.driver.init();
+        // warn only if default bounds timeout has already passed
+        on_slow(init, DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)), || {
+            if auto_bounds == BoundsCalcType::Skip {
+                tracing::warn!(
+                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Bounds calculation is already disabled. You may need to tune your database."
+                );
+            } else {
+                tracing::warn!(
+                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
+                );
+            }
+        })
+        .await
     }
 
     /// Spawns the reload driver on the configured poll interval, returning its task handle.
     ///
     /// Returns `None` without spawning when `reload_interval` is `0s`.
     pub fn start(self) -> Option<JoinHandle<()>> {
-        let interval = self.discovery.reload_interval();
+        let interval = self.driver.discovery().reload_interval();
         if interval.is_zero() {
             tracing::info!("PostgresReloader: runtime reloading disabled (reload_interval = 0s)");
             return None;
         }
         Some(
-            ReloadDriver::new(self.discovery, self.tile_source_manager)
-                .spawn(PollTrigger::new(interval), Baseline::StartupResolved),
+            self.driver
+                .spawn(PollTrigger::new(interval), Baseline::Initialized),
         )
+    }
+}
+
+async fn on_slow<T, S: FnOnce()>(
+    future: impl Future<Output = T>,
+    duration: Duration,
+    on_slow: S,
+) -> T {
+    pin_mut!(future);
+    if let Ok(result) = timeout(duration, &mut future).await {
+        result
+    } else {
+        on_slow();
+        future.await
     }
 }
 
@@ -101,6 +145,28 @@ mod tests {
     }
 
     #[rstest]
+    #[case::fast(Duration::from_millis(0), false)]
+    #[case::slow(Duration::from_millis(50), true)]
+    #[tokio::test]
+    async fn on_slow_fires_only_when_the_future_outlives_the_deadline(
+        #[case] takes: Duration,
+        #[case] should_warn: bool,
+    ) {
+        let warned = std::cell::Cell::new(false);
+        let value = super::on_slow(
+            async {
+                tokio::time::sleep(takes).await;
+                42
+            },
+            Duration::from_millis(10),
+            || warned.set(true),
+        )
+        .await;
+        assert_eq!(value, 42, "the future's result is returned either way");
+        assert_eq!(warned.get(), should_warn);
+    }
+
+    #[rstest]
     #[case::zero_disables(Duration::ZERO, false)]
     #[case::nonzero_spawns(Duration::from_mins(10), true)]
     #[tokio::test]
@@ -122,8 +188,9 @@ mod tests {
 }
 
 /// End-to-end reload against a live container: a real [`ReloadDriver`] + [`PostgresDiscovery`],
-/// driven one reconcile at a time by a rendezvous [`Trigger`], must mirror CREATE / ALTER / DROP
-/// into the [`TileSourceManager`] catalog.
+/// initialized once and then driven one reconcile at a time by a rendezvous [`Trigger`], must
+/// mirror CREATE / ALTER / DROP into the [`TileSourceManager`] catalog — including a DROP that
+/// lands between startup and the first poll.
 #[cfg(all(test, feature = "test-pg"))]
 mod e2e {
     use std::collections::BTreeMap;
@@ -142,7 +209,7 @@ mod e2e {
     };
 
     /// A [`Trigger`] the test drives in lockstep. Each `next()` first acks that the previous cycle
-    /// (the seed, or a reconcile) has finished, then blocks for the test's go-ahead.
+    /// has finished, then blocks for the test's go-ahead.
     struct RendezvousTrigger {
         ticks: mpsc::Receiver<()>,
         acks: mpsc::Sender<()>,
@@ -179,7 +246,7 @@ mod e2e {
             )
         }
 
-        /// Blocks until the driver finishes its current cycle (seed, or a prior reconcile).
+        /// Blocks until the driver finishes its current cycle.
         async fn await_cycle(&mut self) {
             self.acks
                 .recv()
@@ -196,10 +263,12 @@ mod e2e {
         }
     }
 
-    fn published(tsm: &TileSourceManager) -> bool {
-        tsm.tile_sources()
-            .source_names()
-            .contains(&"reload_e2e".to_owned())
+    fn published(tsm: &TileSourceManager, id: &str) -> bool {
+        tsm.tile_sources().source_names().contains(&id.to_owned())
+    }
+
+    fn has_provenance(tsm: &TileSourceManager, id: &str) -> bool {
+        tsm.provenance().iter().any(|(pid, _)| pid == id)
     }
 
     /// The fields the published source advertises (its table's non-geometry columns).
@@ -218,9 +287,15 @@ mod e2e {
     }
 
     #[tokio::test]
-    async fn reload_reflects_create_alter_drop_in_catalog() {
+    async fn init_then_reload_reflects_create_alter_drop_in_catalog() {
         let container = start_postgres_11_with_posgis_3_container().await;
         let connstr = connection_string(&container).await;
+
+        seed(
+            &connstr,
+            "CREATE TABLE public.reload_boundary (gid serial PRIMARY KEY, geom geometry(Point, 4326));",
+        )
+        .await;
 
         let config = PostgresConfig {
             connection_string: Some(connstr.clone()),
@@ -235,16 +310,32 @@ mod e2e {
         // `Warn`, not `Abort`: under `Abort` one failed source wedges every later tick.
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
 
-        let (trigger, mut rdv) = Rendezvous::new();
-        let driver =
-            ReloadDriver::new(discovery, tsm.clone()).spawn(trigger, Baseline::StartupResolved);
-
-        // The seed establishes the baseline; our table does not exist yet.
-        rdv.await_cycle().await;
+        let mut driver = ReloadDriver::new(discovery, tsm.clone());
+        let warnings = driver.init().await.expect("init");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
         assert!(
-            !published(&tsm),
+            published(&tsm, "reload_boundary"),
+            "init must publish a table that exists at startup"
+        );
+        assert!(
+            !published(&tsm, "reload_e2e"),
             "must not publish a table that does not exist"
         );
+        assert!(has_provenance(&tsm, "reload_boundary"));
+
+        seed(&connstr, "DROP TABLE public.reload_boundary;").await;
+
+        let (trigger, mut rdv) = Rendezvous::new();
+        let driver = driver.spawn(trigger, Baseline::Initialized);
+        rdv.await_cycle().await;
+
+        rdv.trigger_reconcile().await;
+        rdv.await_cycle().await;
+        assert!(
+            !published(&tsm, "reload_boundary"),
+            "a table dropped between init and the first poll must be removed"
+        );
+        assert!(!has_provenance(&tsm, "reload_boundary"));
 
         // CREATE -> addition.
         seed(
@@ -254,7 +345,10 @@ mod e2e {
         .await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(published(&tsm), "CREATE TABLE must publish the source");
+        assert!(
+            published(&tsm, "reload_e2e"),
+            "CREATE TABLE must publish the source"
+        );
         assert!(
             !advertised_fields(&tsm).contains_key("label"),
             "the not-yet-added column must not be advertised"
@@ -277,7 +371,10 @@ mod e2e {
         seed(&connstr, "DROP TABLE public.reload_e2e;").await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(!published(&tsm), "DROP TABLE must remove the source");
+        assert!(
+            !published(&tsm, "reload_e2e"),
+            "DROP TABLE must remove the source"
+        );
 
         // Dropping the rendezvous closes the tick channel, ending the driver loop.
         drop(rdv);

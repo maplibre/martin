@@ -1,26 +1,19 @@
 use crate::config::file::CollectUnrecognizedKeys;
 use std::num::{NonZeroU32, NonZeroUsize};
-use std::ops::Add as _;
 use std::time::Duration;
 
-use futures::future::join_all;
-use futures::pin_mut;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
-use tokio::time::timeout;
-use tracing::{info, warn};
 
 use super::{FuncInfoSources, TableInfoSources};
-use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
+use crate::config::args::BoundsCalcType;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
-    TileSourceWarning, UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
+use crate::config::primitives::{OptBoolObj, OptOneMany};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
 /// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
@@ -295,92 +288,6 @@ pub struct PostgresCfgPublishFuncs {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl PostgresConfig {
-    pub async fn resolve(
-        &mut self,
-        id_resolver: IdResolver,
-        default_cache: CachePolicy,
-    ) -> ResolutionResult {
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
-
-        let (specs, mut warnings) = pg.discover().await?;
-
-        // Build each source concurrently, warning if the bounds work drags on.
-        let pg_ref = &pg;
-        let pending = specs.into_iter().map(move |(id, spec)| async move {
-            (id.clone(), pg_ref.instantiate(&id, spec).await)
-        });
-        let instantiated = on_slow(
-            join_all(pending),
-            // warn only if default bounds timeout has already passed
-            DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
-            || {
-                if pg.auto_bounds() == BoundsCalcType::Skip {
-                    warn!(
-                        "Discovering tables in PostgreSQL database '{}' is taking too long. Bounds calculation is already disabled. You may need to tune your database.",
-                        pg.get_id()
-                    );
-                } else {
-                    warn!(
-                        "Discovering tables in PostgreSQL database '{}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation.",
-                        pg.get_id()
-                    );
-                }
-            },
-        )
-        .await;
-
-        // Write back the resolved tables/functions for `--save-config`, collect the live sources, and surface per-source failures as warnings.
-        let mut sources = Vec::new();
-        let mut tables = TableInfoSources::new();
-        let mut functions = FuncInfoSources::new();
-        for (id, result) in instantiated {
-            match result {
-                Ok((source, SourceSpec::Table(info))) => {
-                    let kind = match info.relkind {
-                        Some('v') => "view",
-                        Some('m') => "materialized view",
-                        _ => "table",
-                    };
-                    info!(
-                        source.id = %id,
-                        source.kind = kind,
-                        schema = %info.schema,
-                        table = %info.table,
-                        geometry_column = %info.geometry_column,
-                        geometry_type = info.geometry_type.as_deref().unwrap_or("unknown"),
-                        srid = info.srid,
-                        id_column = info.id_column.as_deref().unwrap_or("none"),
-                        "Published source"
-                    );
-                    sources.push(source);
-                    tables.insert(id, info);
-                }
-                Ok((source, SourceSpec::Function(info, sql))) => {
-                    info!(
-                        source.id = %id,
-                        source.kind = "function",
-                        schema = %info.schema,
-                        function = %info.function,
-                        function.signature = %sql.signature,
-                        "Published source"
-                    );
-                    sources.push(source);
-                    functions.insert(id, info);
-                }
-                Err(error) => warnings.push(TileSourceWarning::SourceError {
-                    source_id: id,
-                    error: error.to_string(),
-                }),
-            }
-        }
-
-        self.tables = Some(tables);
-        self.functions = Some(functions);
-        Ok((sources, warnings))
-    }
-}
-
 impl ConfigurationLivecycleHooks for PostgresConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
@@ -392,20 +299,6 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
         }
 
         Ok(())
-    }
-}
-
-async fn on_slow<T, S: FnOnce()>(
-    future: impl Future<Output = T>,
-    duration: Duration,
-    fn_on_slow: S,
-) -> T {
-    pin_mut!(future);
-    if let Ok(result) = timeout(duration, &mut future).await {
-        result
-    } else {
-        fn_on_slow();
-        future.await
     }
 }
 
