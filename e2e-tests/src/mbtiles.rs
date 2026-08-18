@@ -2,6 +2,7 @@
 //! check the resulting files against sqlite rather than against the CLI's own output.
 
 use std::collections::BTreeMap;
+use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::io::Read as _;
@@ -97,10 +98,11 @@ impl MbtilesCli {
         let output = cmd.output().await.unwrap_or_else(|e| {
             panic!("failed to run `mbtiles {}`: {e}", display_args(&self.args))
         });
+        let exe = format!("mbtiles{}", env::consts::EXE_SUFFIX);
         (
             output.status,
-            String::from_utf8_lossy(&output.stdout).into_owned(),
-            String::from_utf8_lossy(&output.stderr).into_owned(),
+            String::from_utf8_lossy(&output.stdout).replace(&exe, "mbtiles"),
+            String::from_utf8_lossy(&output.stderr).replace(&exe, "mbtiles"),
         )
     }
 }
