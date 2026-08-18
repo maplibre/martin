@@ -13,12 +13,11 @@ mod mbtiles;
 mod pmtiles;
 mod statics;
 
-use std::env;
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::thread;
 use std::time::{Duration, SystemTime};
+use std::{env, thread};
 
 use tempfile::TempDir;
 use tokio::process::Command;
@@ -178,9 +177,11 @@ impl WatchedDir {
             )
         });
         let dest = self.dir().join(name);
-        // Replacing a file martin still has open leaves Windows briefly holding it locked
-        // (antivirus scanning the new copy has the same effect), so the rename that swaps it in
-        // can transiently fail with access denied; a short retry clears it.
+        // Antivirus scanning the freshly staged file can briefly hold it locked on Windows,
+        // so the rename can transiently fail with access denied; a short retry clears it.
+        // This does not help when martin itself already has `dest` open (e.g. replacing a
+        // source file it is actively serving): that lock does not clear on its own, so tests
+        // doing that are `#[cfg(not(windows))]`.
         for attempt in 1.. {
             match fs::rename(&staging, &dest) {
                 Ok(()) => break,

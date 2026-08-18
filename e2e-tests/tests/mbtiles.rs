@@ -337,6 +337,7 @@ async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] q
     martin.assert_log_clean();
 }
 
+#[cfg(not(windows))]
 #[tokio::test]
 async fn reload_adds_and_updates_a_source() {
     let watched = WatchedDir::new();
