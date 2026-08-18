@@ -100,7 +100,9 @@ async fn the_saved_config_names_every_discovered_file() {
         .await
         .expect("failed to start martin");
 
-    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let saved = fs::read_to_string(&save_config)
+        .expect("martin did not write --save-config")
+        .replace(std::path::MAIN_SEPARATOR, "/");
     // The discovered paths martin writes carry the OS path separator; normalized here so the
     // snapshot is the same on every platform.
     let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
