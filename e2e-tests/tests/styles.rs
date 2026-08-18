@@ -28,14 +28,26 @@ fn redacted_json(martin: &Martin, response: &TestResponse) -> Value {
     serde_json::from_str(&martin.redact(&response.text())).expect("response body is not valid json")
 }
 
+/// Normalizes path separators inside every string leaf of a decoded JSON value.
+///
+/// Must run after parsing, not on the raw response text: JSON escapes `\` as `\\`, so replacing
+/// the separator beforehand doubles it up into `//` instead of collapsing it to `/`.
+fn normalize_paths(value: &mut Value) {
+    match value {
+        Value::String(s) => *s = s.replace(std::path::MAIN_SEPARATOR, "/"),
+        Value::Array(items) => items.iter_mut().for_each(normalize_paths),
+        Value::Object(map) => map.values_mut().for_each(normalize_paths),
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
+    }
+}
+
 #[tokio::test]
 async fn styles_are_discovered_from_files_and_directories() {
     let mut martin = martin_with_styles().await;
 
-    let catalog = martin.get("/catalog").await;
-    let body = catalog.text().replace(std::path::MAIN_SEPARATOR, "/");
-    let styles: Value = serde_json::from_str(&body).expect("response body is not valid json");
-    insta::assert_json_snapshot!(styles["styles"], @r#"
+    let mut styles = martin.get("/catalog").await.json()["styles"].clone();
+    normalize_paths(&mut styles);
+    insta::assert_json_snapshot!(styles, @r#"
     {
       "maplibre_demo": {
         "path": "tests/fixtures/styles/maplibre_demo.json"
