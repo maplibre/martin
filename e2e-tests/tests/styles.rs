@@ -32,7 +32,10 @@ fn redacted_json(martin: &Martin, response: &TestResponse) -> Value {
 async fn styles_are_discovered_from_files_and_directories() {
     let mut martin = martin_with_styles().await;
 
-    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["styles"], @r#"
+    let catalog = martin.get("/catalog").await;
+    let body = catalog.text().replace(std::path::MAIN_SEPARATOR, "/");
+    let styles: Value = serde_json::from_str(&body).expect("response body is not valid json");
+    insta::assert_json_snapshot!(styles["styles"], @r#"
     {
       "maplibre_demo": {
         "path": "tests/fixtures/styles/maplibre_demo.json"

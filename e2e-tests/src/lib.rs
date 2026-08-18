@@ -87,7 +87,12 @@ fn binary_command(env_var: &str, name: &str) -> Command {
 /// Path of a checked-in fixture, relative to `tests/fixtures`.
 #[must_use]
 pub fn fixture(relative: &str) -> PathBuf {
-    workspace_root().join("tests/fixtures").join(relative)
+    // `relative` may itself hold several `/`-separated components (e.g. "styles/src2"); joining
+    // it as one string leaves those embedded `/`s intact next to the native separators `.join`
+    // inserts, so the result mixes separators on windows. Push each component individually.
+    let mut path = workspace_root().join("tests").join("fixtures");
+    path.extend(relative.split('/'));
+    path
 }
 
 /// Build the `tests/fixtures/mbtiles/{name}.sql` fixture into `dir` and return the file's path.
