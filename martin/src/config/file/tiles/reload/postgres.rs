@@ -1,4 +1,4 @@
-//! [`PostgresReloader`]: the single writer of one `PostgreSQL` connection's sources — it loads
+//! [`PostgresReloader`]: the single writer of one `PostgreSQL` connection's sources - it loads
 //! them at startup via [`init`](PostgresReloader::init) and keeps them current by polling.
 
 use std::ops::Add as _;
@@ -189,7 +189,7 @@ mod tests {
 
 /// End-to-end reload against a live container: a real [`ReloadDriver`] + [`PostgresDiscovery`],
 /// initialized once and then driven one reconcile at a time by a rendezvous [`Trigger`], must
-/// mirror CREATE / ALTER / DROP into the [`TileSourceManager`] catalog — including a DROP that
+/// mirror CREATE / ALTER / DROP into the [`TileSourceManager`] catalog - including a DROP that
 /// lands between startup and the first poll.
 #[cfg(all(test, feature = "test-pg"))]
 mod e2e {
