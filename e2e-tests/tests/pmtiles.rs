@@ -84,6 +84,7 @@ async fn auto_configured_minimal() {
     assert_eq!(tile.image_size(), (512, 512));
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
     insta::assert_snapshot!(saved, @r"
     listen_addresses: 127.0.0.1:0
     pmtiles:

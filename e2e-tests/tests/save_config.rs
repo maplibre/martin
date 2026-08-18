@@ -50,6 +50,7 @@ async fn saved_config(builder: MartinBuilder) -> (Martin, String) {
         .await
         .expect("failed to start martin");
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
     (martin, saved)
 }
 
