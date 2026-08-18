@@ -592,6 +592,8 @@ impl Config {
     ) -> ConfigFileResult<()> {
         #[cfg(feature = "postgres")]
         let config = self.with_catalog(catalog);
+        #[cfg(all(feature = "_tiles", not(feature = "postgres")))]
+        let _ = catalog;
         #[cfg(not(feature = "postgres"))]
         let config = self;
         let yaml = serde_saphyr::to_string(&config).expect("Unable to serialize config");
