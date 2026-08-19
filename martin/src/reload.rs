@@ -1,8 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::BoxedSource;
 
 use crate::MartinResult;
+use crate::config::file::MAX_CONCURRENT_SOURCE_INITS;
 use crate::config::file::ProcessConfig;
 
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
@@ -54,14 +56,12 @@ impl ReloadAdvisory {
             .map(|id| DeletedSource { id: id.clone() })
             .collect();
 
-        let mut additions: Vec<NewSource> = vec![];
-        for id in next_ids.difference(previous_ids) {
-            additions.push(NewSource {
-                id: id.clone(),
-                source: initializer(id.clone()).await,
-                process: process.clone(),
-            });
-        }
+        let additions = build_all(
+            next_ids.difference(previous_ids).cloned(),
+            &initializer,
+            &process,
+        )
+        .await;
 
         Self {
             additions,
@@ -83,35 +83,27 @@ impl ReloadAdvisory {
     where
         F: AsyncFn(String) -> MartinResult<BoxedSource>,
     {
-        let mut advisory = Self::default();
+        let removals = previous_map
+            .keys()
+            .filter(|id| !next_map.contains_key(*id))
+            .map(|id| DeletedSource { id: id.clone() })
+            .collect();
 
-        for id in previous_map.keys() {
-            if !next_map.contains_key(id) {
-                advisory.removals.insert(DeletedSource { id: id.clone() });
-            }
-        }
-
+        let mut to_update = Vec::new();
+        let mut to_add = Vec::new();
         for (id, &next_version) in next_map {
             match previous_map.get(id) {
-                Some(&prev_version) if next_version != prev_version => {
-                    advisory.updates.push(NewSource {
-                        id: id.clone(),
-                        source: initializer(id.clone()).await,
-                        process: process.clone(),
-                    });
-                }
-                None => {
-                    advisory.additions.push(NewSource {
-                        id: id.clone(),
-                        source: initializer(id.clone()).await,
-                        process: process.clone(),
-                    });
-                }
-                _ => {} // Unchanged
+                Some(&prev_version) if next_version != prev_version => to_update.push(id.clone()),
+                None => to_add.push(id.clone()),
+                _ => {}
             }
         }
 
-        advisory
+        Self {
+            updates: build_all(to_update, &initializer, &process).await,
+            additions: build_all(to_add, &initializer, &process).await,
+            removals,
+        }
     }
 
     /// Returns `true` if there are no changes.
@@ -119,6 +111,28 @@ impl ReloadAdvisory {
     pub fn is_empty(&self) -> bool {
         self.additions.is_empty() && self.updates.is_empty() && self.removals.is_empty()
     }
+}
+
+/// Builds every id, at most [`MAX_CONCURRENT_SOURCE_INITS`] at a time, preserving input order.
+async fn build_all<F>(
+    ids: impl IntoIterator<Item = String>,
+    initializer: &F,
+    process: &ProcessConfig,
+) -> Vec<NewSource>
+where
+    F: AsyncFn(String) -> MartinResult<BoxedSource>,
+{
+    stream::iter(ids)
+        .map(|id| async move {
+            NewSource {
+                source: initializer(id.clone()).await,
+                id,
+                process: process.clone(),
+            }
+        })
+        .buffered(MAX_CONCURRENT_SOURCE_INITS)
+        .collect()
+        .await
 }
 
 #[cfg(test)]
