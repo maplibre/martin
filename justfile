@@ -292,8 +292,7 @@ clippy-md:
     docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
-# e2e-tests is test harness code (process spawning, snapshot redaction, ...), not the product
-# these tests exercise; excluded so its coverage doesn't dilute/inflate the reported number.
+# folders ignored from coverage
 coverage_ignore_regex := '^e2e-tests/src/'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
