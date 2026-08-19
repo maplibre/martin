@@ -10,9 +10,14 @@ use aws_config::profile::ProfileFileRegionProvider;
 use aws_credential_types::provider::{ProvideCredentials as _, SharedCredentialsProvider};
 #[cfg(test)]
 use aws_runtime::env_config::file::EnvConfigFiles;
+use dashmap::DashMap;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use object_store::aws::{AmazonS3Builder, AwsCredential, AwsCredentialProvider};
+use object_store::azure::MicrosoftAzureBuilder;
+use object_store::client::{ClientOptions, HttpClient, HttpConnector, ReqwestConnector};
+use object_store::gcp::GoogleCloudStorageBuilder;
+use object_store::http::HttpBuilder;
 use object_store::{CredentialProvider, ObjectStore, ObjectStoreScheme};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
@@ -116,6 +121,11 @@ pub struct PmtConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub aws_credentials: Option<AwsCredentialProvider>,
 
+    /// HTTP clients shared by every remote source of this config (internal state, not serialized)
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub(crate) http_clients: SharedHttpClients,
+
     #[cfg(test)]
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -136,6 +146,7 @@ impl Default for PmtConfig {
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
             aws_credentials: None,
+            http_clients: SharedHttpClients::default(),
             #[cfg(test)]
             aws_profile_files: None,
         }
@@ -153,7 +164,7 @@ impl PartialEq for PmtConfig {
         let base = base
             && self.convert_to_mlt == other.convert_to_mlt
             && self.convert_to_mvt == other.convert_to_mvt;
-        // pmtiles_directory_cache is intentionally excluded from equality check
+        // pmtiles_directory_cache and http_clients are intentionally excluded from equality check
         base
     }
 }
@@ -264,26 +275,48 @@ impl PmtConfig {
         }
     }
 
+    /// Builds the store for `url`. Remote stores share this config's HTTP clients.
     pub(crate) fn parse_url_opts(
         &self,
         url: &Url,
     ) -> object_store::Result<(Box<dyn ObjectStore>, object_store::path::Path)> {
-        let (scheme, path) = ObjectStoreScheme::parse(url)?;
-        if scheme != ObjectStoreScheme::AmazonS3 {
-            return object_store::parse_url_opts(url, &self.options);
+        macro_rules! with_options {
+            ($builder:ty, $url:expr) => {
+                self.options
+                    .iter()
+                    .fold(
+                        <$builder>::new().with_url($url.to_string()),
+                        |builder, (key, value)| match key.parse() {
+                            Ok(key) => builder.with_config(key, value),
+                            Err(_) => builder,
+                        },
+                    )
+                    .with_http_connector(self.http_clients.clone())
+            };
         }
 
-        let mut builder = self.options.iter().fold(
-            AmazonS3Builder::new().with_url(url.to_string()),
-            |builder, (key, value)| match key.parse() {
-                Ok(key) => builder.with_config(key, value),
-                Err(_) => builder,
-            },
-        );
-        if let Some(credentials) = &self.aws_credentials {
-            builder = builder.with_credentials(Arc::clone(credentials));
-        }
-        Ok((Box::new(builder.build()?), path))
+        let (scheme, path) = ObjectStoreScheme::parse(url)?;
+        let store: Box<dyn ObjectStore> = match scheme {
+            ObjectStoreScheme::AmazonS3 => {
+                let mut builder = with_options!(AmazonS3Builder, url);
+                if let Some(credentials) = &self.aws_credentials {
+                    builder = builder.with_credentials(Arc::clone(credentials));
+                }
+                Box::new(builder.build()?)
+            }
+            ObjectStoreScheme::GoogleCloudStorage => {
+                Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?)
+            }
+            ObjectStoreScheme::MicrosoftAzure => {
+                Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
+            }
+            ObjectStoreScheme::Http => {
+                let origin = &url[..url::Position::BeforePath];
+                Box::new(with_options!(HttpBuilder, origin).build()?)
+            }
+            _ => return object_store::parse_url_opts(url, &self.options),
+        };
+        Ok((store, path))
     }
 
     /// Partition options and unrecognized keys
@@ -483,6 +516,21 @@ impl TileSourceConfiguration for PmtConfig {
     }
 }
 
+/// One HTTP client per distinct [`ClientOptions`], handed to every store built from one
+/// [`PmtConfig`], so its sources share connection pools instead of each opening their own.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SharedHttpClients(Arc<DashMap<String, HttpClient>>);
+
+impl HttpConnector for SharedHttpClients {
+    fn connect(&self, options: &ClientOptions) -> object_store::Result<HttpClient> {
+        let client = self
+            .0
+            .entry(format!("{options:?}"))
+            .or_try_insert_with(|| ReqwestConnector::default().connect(options))?;
+        Ok(client.clone())
+    }
+}
+
 #[derive(Debug)]
 pub struct AwsSdkCredentialProvider {
     provider: SharedCredentialsProvider,
@@ -513,9 +561,38 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 mod tests {
     use aws_runtime::env_config::file::{EnvConfigFileKind, EnvConfigFiles};
     use indoc::indoc;
+    use rstest::rstest;
     use tempfile::tempdir;
 
     use super::*;
+
+    #[rstest]
+    #[case::s3("s3://bucket-a/one.pmtiles", "s3://bucket-b/two.pmtiles")]
+    #[case::https(
+        "https://tiles.example.com/one.pmtiles",
+        "https://other.example.com/two.pmtiles"
+    )]
+    #[case::gcs("gs://bucket-a/one.pmtiles", "gs://bucket-b/two.pmtiles")]
+    #[case::azure("az://container-a/one.pmtiles", "az://container-b/two.pmtiles")]
+    #[case::mixed("s3://bucket-a/one.pmtiles", "https://tiles.example.com/two.pmtiles")]
+    fn remote_sources_share_http_clients(#[case] first: &str, #[case] second: &str) {
+        let mut config = PmtConfig::default();
+        config
+            .options
+            .insert("aws_region".to_owned(), "us-east-1".to_owned());
+        config
+            .options
+            .insert("skip_signature".to_owned(), "true".to_owned());
+        config.options.insert(
+            "azure_storage_account_name".to_owned(),
+            "account".to_owned(),
+        );
+        config.parse_url_opts(&Url::parse(first).unwrap()).unwrap();
+        let clients = config.http_clients.0.len();
+        assert!(clients > 0);
+        config.parse_url_opts(&Url::parse(second).unwrap()).unwrap();
+        assert_eq!(config.http_clients.0.len(), clients);
+    }
 
     fn profile_files() -> (tempfile::TempDir, EnvConfigFiles) {
         let dir = tempdir().unwrap();
