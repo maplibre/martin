@@ -292,6 +292,10 @@ clippy-md:
     docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
+# e2e-tests is test harness code (process spawning, snapshot redaction, ...), not the product
+# these tests exercise; excluded so its coverage doesn't dilute/inflate the reported number.
+coverage_ignore_regex := '^e2e-tests/src/'
+
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
@@ -315,7 +319,7 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
 
     {{just}} test-e2e
 
-    cargo llvm-cov report {{args}}
+    cargo llvm-cov report --ignore-filename-regex {{quote(coverage_ignore_regex)}} {{args}}
 
 # Append the cargo-llvm-cov environment to `file` ($GITHUB_ENV), instrumenting every later CI step
 coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
@@ -331,7 +335,7 @@ coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
 coverage-report suite:
-    cargo llvm-cov report --lcov --output-path target/lcov-{{suite}}.info
+    cargo llvm-cov report --lcov --ignore-filename-regex {{quote(coverage_ignore_regex)}} --output-path target/lcov-{{suite}}.info
 
 # Merge the per-suite lcov reports in `dir` into one Cobertura report, unioning their hits
 coverage-merge dir='target/coverage' out='target/cobertura.xml': (cargo-install 'grcov')
