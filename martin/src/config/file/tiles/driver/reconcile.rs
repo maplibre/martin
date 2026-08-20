@@ -228,6 +228,7 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
+        #[expect(clippy::unused_async_trait_impl)]
         async fn discover(&self) -> MartinResult<Snapshot> {
             self.snapshots
                 .lock()
@@ -236,6 +237,7 @@ mod tests {
                 .unwrap_or_else(|| Ok(Snapshot::new()))
         }
 
+        #[expect(clippy::unused_async_trait_impl)]
         async fn build(&self, id: &str, _args: &()) -> MartinResult<BoxedSource> {
             Ok(Box::new(TestSource::new(id)))
         }
@@ -257,6 +259,7 @@ mod tests {
     }
 
     impl Trigger for ManualTrigger {
+        #[expect(clippy::unused_async_trait_impl)]
         async fn next(&mut self) -> Option<()> {
             if self.remaining == 0 {
                 return None;
@@ -293,6 +296,7 @@ mod tests {
     }
 
     impl Sink for SpySink {
+        #[expect(clippy::unused_async_trait_impl)]
         async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
             self.applied
                 .lock()

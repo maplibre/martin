@@ -433,6 +433,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         })
     }
 
+    #[expect(clippy::unused_async_trait_impl)]
     async fn before_insert(&self, _conn: &mut SqliteConnection) -> MbtResult<()> {
         Ok(())
     }

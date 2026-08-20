@@ -1619,6 +1619,7 @@ mod folder_source_tests {
         fn parse_urls() -> bool {
             false
         }
+        #[expect(clippy::unused_async_trait_impl)]
         async fn new_sources(
             &self,
             id: String,
@@ -1638,6 +1639,7 @@ mod folder_source_tests {
                 }))
             }
         }
+        #[expect(clippy::unused_async_trait_impl)]
         async fn new_sources_url(
             &self,
             _id: String,
