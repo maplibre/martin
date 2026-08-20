@@ -456,9 +456,19 @@ async fn resolve_int<T: TileSourceConfiguration>(
         }
     }
 
+    let custom = &cfg.custom;
+    let opened = stream::iter(planned)
+        .map(|p| async move {
+            let result = p.open(custom).await;
+            (p, result)
+        })
+        .buffered(MAX_CONCURRENT_SOURCE_INITS)
+        .collect::<Vec<_>>()
+        .await;
+
     let mut results = Vec::new();
-    for p in planned {
-        match p.open(&cfg.custom).await {
+    for (p, result) in opened {
+        match result {
             Ok(src) => {
                 p.log_configured();
                 if !p.from_sources
