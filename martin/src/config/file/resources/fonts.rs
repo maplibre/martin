@@ -1,12 +1,11 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 
 use martin_core::fonts::FontSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues,
+    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]

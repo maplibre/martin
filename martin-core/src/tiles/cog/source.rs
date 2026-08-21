@@ -10,8 +10,7 @@ use martin_tile_utils::{
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::Tag;
-use tiff::tags::{CompressionMethod, PlanarConfiguration};
+use tiff::tags::{CompressionMethod, PlanarConfiguration, Tag};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
 

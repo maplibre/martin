@@ -1,9 +1,10 @@
 use std::fmt;
 
-use crate::config::file::CollectUnrecognizedKeys;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::config::file::CollectUnrecognizedKeys;
 
 /// A generic three-state configuration value: auto, disabled, or explicit.
 #[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]

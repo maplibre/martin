@@ -1,10 +1,11 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::config::file::CollectUnrecognizedKeys;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::config::file::CollectUnrecognizedKeys;
 
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]

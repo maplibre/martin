@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 
 use martin_core::sprites::SpriteSources;
@@ -6,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::file::{
-    CacheSizeConfig, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
-    UnrecognizedValues,
+    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
+    FileConfigEnum, UnrecognizedValues,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;

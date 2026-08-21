@@ -1,11 +1,10 @@
 //! Recorded upstream responses, replayed over a local server.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
-use std::thread;
+use std::{fs, thread};
 
 use reqwest::Client;
 use tempfile::TempDir;
