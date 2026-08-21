@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
@@ -10,7 +9,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 
 /// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
@@ -106,12 +106,10 @@ mod tests {
 
     use indoc::indoc;
 
-    use crate::config::file::CollectUnrecognizedKeys as _;
-
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
-        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
-        FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
+        FileConfigEnum, FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]

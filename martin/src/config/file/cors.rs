@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt;
 
 use actix_http::Method;
@@ -8,7 +7,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    UnrecognizedValues,
 };
 use crate::{MartinError, MartinResult};
 

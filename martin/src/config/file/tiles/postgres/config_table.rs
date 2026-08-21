@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroU32;
 
@@ -9,7 +8,7 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
-use crate::config::file::{CachePolicy, UnrecognizedValues};
+use crate::config::file::{CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 

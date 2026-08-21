@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Add as _;
 use std::time::Duration;
@@ -15,8 +14,8 @@ use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
-    TileSourceWarning, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    ConfigurationLivecycleHooks, ResolutionResult, TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};

@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 use std::env;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -11,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
-    UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    FileConfigEnum, UnrecognizedValues,
 };
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;

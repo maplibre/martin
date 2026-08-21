@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -9,7 +8,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -75,12 +75,10 @@ mod tests {
     use indoc::indoc;
     use martin_core::CacheZoomRange;
 
-    use crate::config::file::CollectUnrecognizedKeys as _;
-
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
-        FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
+        FileConfigEnum, FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]

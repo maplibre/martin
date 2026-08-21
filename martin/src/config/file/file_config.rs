@@ -9,6 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 
+pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
@@ -32,8 +33,6 @@ use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
-
-pub use martin_config_macros::ConfigurationLivecycleHooks;
 
 /// Lifecycle hooks for configuring the application
 ///

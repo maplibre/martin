@@ -1,12 +1,11 @@
 //! The `martin` server subprocess and the responses it answers with.
 
-use std::env;
 use std::ffi::OsString;
-use std::fs;
 use std::io::{self, Cursor, Read as _};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::{env, fs};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
