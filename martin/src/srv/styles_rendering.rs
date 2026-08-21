@@ -27,7 +27,7 @@ pub(super) enum ImageFormatRequest {
 }
 
 impl ImageFormatRequest {
-    fn image_format(self) -> ImageFormat {
+    const fn image_format(self) -> ImageFormat {
         match self {
             Self::Png => ImageFormat::Png,
             Self::Jpeg => ImageFormat::Jpeg,

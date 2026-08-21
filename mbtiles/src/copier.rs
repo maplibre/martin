@@ -37,7 +37,7 @@ pub enum CopyDuplicateMode {
 
 impl CopyDuplicateMode {
     #[must_use]
-    pub fn to_sql(self) -> &'static str {
+    pub const fn to_sql(self) -> &'static str {
         match self {
             Self::Override => "OR REPLACE",
             Self::Ignore => "OR IGNORE",
@@ -443,7 +443,7 @@ impl MbtileCopierInt {
         Ok(src_info)
     }
 
-    fn copy_text(&self) -> &str {
+    const fn copy_text(&self) -> &str {
         match self.options.copy {
             CopyType::All => "",
             CopyType::Tiles => "tiles data ",
@@ -936,7 +936,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
     }
 }
 
-fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
+const fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
     if let Some(v) = patch_type {
         match v {
             BinDiffGz => " with bin-diff on gzip-ed tiles",

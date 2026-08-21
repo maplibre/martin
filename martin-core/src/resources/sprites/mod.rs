@@ -155,7 +155,7 @@ impl SpriteSources {
 
     /// Adds a sprite source directory containing SVG files.
     /// Files are ignored - only directories accepted. Duplicates ignored with warning.
-    pub fn add_source(&mut self, id: String, path: PathBuf) {
+    pub fn add_source(&self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
             warn!(

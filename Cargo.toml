@@ -13,7 +13,7 @@ members = [
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.94"
+rust-version = "1.98"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]

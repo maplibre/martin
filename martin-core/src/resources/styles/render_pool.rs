@@ -68,7 +68,7 @@ impl RenderParams {
 
     /// Override output dimensions and pixel density.
     #[must_use]
-    pub fn with_size(mut self, width: u32, height: u32, pixel_ratio: f32) -> Self {
+    pub const fn with_size(mut self, width: u32, height: u32, pixel_ratio: f32) -> Self {
         self.width = width;
         self.height = height;
         self.pixel_ratio = pixel_ratio;
@@ -78,7 +78,7 @@ impl RenderParams {
     /// Override camera bearing (degrees clockwise from north) and pitch
     /// (degrees away from straight-down).
     #[must_use]
-    pub fn with_orientation(mut self, bearing: f64, pitch: f64) -> Self {
+    pub const fn with_orientation(mut self, bearing: f64, pitch: f64) -> Self {
         self.bearing = bearing;
         self.pitch = pitch;
         self
@@ -378,7 +378,7 @@ impl<'r> RendererWithOverlay<'r> {
     }
 
     /// The renderer carrying the applied overlay, for issuing render calls.
-    fn renderer(&mut self) -> &mut ImageRenderer<Static> {
+    const fn renderer(&mut self) -> &mut ImageRenderer<Static> {
         self.renderer
     }
 }

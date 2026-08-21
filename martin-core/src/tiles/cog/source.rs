@@ -508,9 +508,9 @@ fn get_full_resolution(
            |- -|   |-       -| |- -|
         */
         (_, Some(matrix)) => {
-            let mut x_res = (matrix[0] * matrix[0] + matrix[4] * matrix[4]).sqrt();
+            let mut x_res = matrix[0].hypot(matrix[4]);
             x_res = x_res.copysign(matrix[0]);
-            let mut y_res = (matrix[1] * matrix[1] + matrix[5] * matrix[5]).sqrt();
+            let mut y_res = matrix[1].hypot(matrix[5]);
             // A positive y_res indicates that model space Y coordinates decrease as raster space J indices increase. This is the standard vertical relationship between raster space and model space
             y_res = y_res.copysign(-matrix[5]);
             Ok([x_res, y_res]) // drop the z scale directly as we don't use it
@@ -522,8 +522,8 @@ fn get_full_resolution(
 fn raster2model(i: u32, j: u32, matrix: &[f64]) -> (f64, f64) {
     let i = f64::from(i);
     let j = f64::from(j);
-    let x = matrix[3] + (matrix[0] * i) + (matrix[1] * j);
-    let y = matrix[7] + (matrix[4] * i) + (matrix[5] * j);
+    let x = matrix[1].mul_add(j, matrix[0].mul_add(i, matrix[3]));
+    let y = matrix[5].mul_add(j, matrix[4].mul_add(i, matrix[7]));
     (x, y)
 }
 

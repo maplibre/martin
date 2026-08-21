@@ -192,7 +192,7 @@ impl PostgresPool {
 
     /// Returns a reference to the active query registry.
     #[must_use]
-    pub fn active_query_registry(&self) -> &ActiveQueryRegistry {
+    pub const fn active_query_registry(&self) -> &ActiveQueryRegistry {
         &self.active_query_registry
     }
 
@@ -201,7 +201,7 @@ impl PostgresPool {
     /// `true` if running postgis >= `3.1`
     /// This being false indicates that tiles may be cut off at the edges.
     #[must_use]
-    pub fn supports_tile_margin(&self) -> bool {
+    pub const fn supports_tile_margin(&self) -> bool {
         self.supports_tile_margin
     }
 }
@@ -337,7 +337,7 @@ impl std::fmt::Debug for ActiveQueryRegistry {
 }
 
 /// Removes its query from the [`ActiveQueryRegistry`] when dropped.
-pub(crate) struct ActiveQueryGuard {
+pub struct ActiveQueryGuard {
     inner: Arc<Mutex<ActiveQueryRegistryInner>>,
     id: u64,
 }
