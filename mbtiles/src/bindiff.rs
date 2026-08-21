@@ -433,8 +433,11 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         })
     }
 
-    async fn before_insert(&self, _conn: &mut SqliteConnection) -> MbtResult<()> {
-        Ok(())
+    fn before_insert(
+        &self,
+        _conn: &mut SqliteConnection,
+    ) -> impl Future<Output = MbtResult<()>> + Send {
+        std::future::ready(Ok(()))
     }
 
     async fn insert(&self, value: ApplierAfter, conn: &mut SqliteConnection) -> MbtResult<()> {

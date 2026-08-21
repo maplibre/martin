@@ -89,6 +89,10 @@ impl TileSourceConfiguration for GeoJsonConfig {
         Ok(Box::new(geojson_source))
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "unreachable stub; async keeps it simple to write and read"
+    )]
     async fn new_sources_url(
         &self,
         _id: String,

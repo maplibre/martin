@@ -57,6 +57,10 @@ impl TileSourceConfiguration for MbtConfig {
         Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "unreachable stub; async keeps it simple to write and read"
+    )]
     async fn new_sources_url(
         &self,
         _id: String,
