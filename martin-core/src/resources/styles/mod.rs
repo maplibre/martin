@@ -235,7 +235,7 @@ mod tests {
     fn style_external() {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
-        let mut styles = StyleSources::default();
+        let styles = StyleSources::default();
         styles.add_style(
             "maplibre_demo".to_owned(),
             style_dir.join("maplibre_demo.json"),
