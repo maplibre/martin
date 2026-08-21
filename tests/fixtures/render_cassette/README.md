@@ -1,7 +1,7 @@
 # Rendering cassette
 
 What the styles in `tests/fixtures/styles` fetch while martin renders them, recorded so that
-`integration-tests/tests/rendering.rs` never depends on those hosts being up or fast.
+`e2e-tests/tests/rendering.rs` never depends on those hosts being up or fast.
 
 One directory per upstream host, mirroring the paths it serves:
 

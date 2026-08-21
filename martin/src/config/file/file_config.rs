@@ -402,39 +402,35 @@ async fn resolve_int<T: TileSourceConfiguration>(
         return Ok((vec![], vec![]));
     };
 
-    let mut results = Vec::new();
     let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
     let mut files: HashMap<PathBuf, PathBuf> = HashMap::new();
     let mut directories = Vec::new();
+    let mut planned = Vec::new();
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            match resolve_one_source_int(
-                &cfg.custom,
+            match plan_one_source(
+                T::parse_urls(),
                 idr,
                 &id,
                 source,
                 &mut files,
                 &mut configs,
                 default_cache,
-            )
-            .await
-            {
-                Ok(src) => results.push(src),
-                Err(err) => {
-                    warnings.push(TileSourceWarning::SourceError {
-                        source_id: id,
-                        error: err.to_string(),
-                    });
-                }
+            ) {
+                Ok(p) => planned.push(p),
+                Err(err) => warnings.push(TileSourceWarning::SourceError {
+                    source_id: id,
+                    error: err.to_string(),
+                }),
             }
         }
     }
 
     for path in cfg.paths {
-        match resolve_one_path_int(
-            &cfg.custom,
+        match plan_one_path(
+            T::parse_urls(),
             idr,
             extension,
             path.clone(),
@@ -442,19 +438,28 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &mut directories,
             &mut configs,
             default_cache,
-        )
-        .await
-        {
-            Ok((sources, path_warnings)) => {
-                results.extend(sources);
-                warnings.extend(path_warnings);
+        ) {
+            Ok(p) => planned.extend(p),
+            Err(err) => warnings.push(TileSourceWarning::PathError {
+                path,
+                error: err.to_string(),
+            }),
+        }
+    }
+
+    let mut results = Vec::new();
+    for p in planned {
+        match p.open(&cfg.custom).await {
+            Ok(src) => {
+                p.log_configured();
+                if !p.from_sources
+                    && let Target::File { path, .. } = &p.target
+                {
+                    configs.insert(p.id.clone(), FileConfigSrc::Path(path.clone()));
+                }
+                results.push(src);
             }
-            Err(err) => {
-                warnings.push(TileSourceWarning::PathError {
-                    path,
-                    error: err.to_string(),
-                });
-            }
+            Err(err) => warnings.push(p.warning(&err)),
         }
     }
 
@@ -463,61 +468,144 @@ async fn resolve_int<T: TileSourceConfiguration>(
     Ok((results, warnings))
 }
 
-/// Resolves a single tile source configuration and returns a boxed source for further processing.
-///
-/// This function processes a tile source configuration using a given custom implementation of
-/// `TileSourceConfiguration` and resolves its ID using `IdResolver`.
-/// It determines if the source is a URL or a file path, configures the source accordingly.
 #[cfg(feature = "_tiles")]
-async fn resolve_one_source_int<T: TileSourceConfiguration>(
-    custom: &T,
+enum Target {
+    Url {
+        url: Url,
+        /// The configured path, for the warning if the open fails.
+        configured: PathBuf,
+    },
+    File {
+        path: PathBuf,
+        canonical: PathBuf,
+    },
+}
+
+/// A source whose id is resolved and whose open is still pending.
+#[cfg(feature = "_tiles")]
+struct Planned {
+    id: String,
+    target: Target,
+    cache: CachePolicy,
+    /// From `sources` rather than `paths`: failures are reported by id instead of path, and
+    /// discovered files only enter the config once they open, so one bad file in a directory
+    /// does not take its siblings with it.
+    from_sources: bool,
+    duplicate: bool,
+}
+
+#[cfg(feature = "_tiles")]
+impl Planned {
+    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> MartinResult<BoxedSource> {
+        match &self.target {
+            Target::Url { url, .. } => {
+                custom
+                    .new_sources_url(self.id.clone(), url.clone(), self.cache)
+                    .await
+            }
+            Target::File { path, .. } => {
+                custom
+                    .new_sources(self.id.clone(), path.clone(), self.cache)
+                    .await
+            }
+        }
+    }
+
+    fn log_configured(&self) {
+        match &self.target {
+            Target::Url { url, .. } if self.from_sources => info!(
+                source.id = %self.id,
+                source.url = %sanitize_url(url),
+                source.duplicate = self.duplicate,
+                "Configured source"
+            ),
+            Target::Url { url, .. } => info!(
+                source.id = %self.id,
+                source.url = %sanitize_url(url),
+                "Configured source from URL"
+            ),
+            Target::File { canonical, .. } if self.from_sources => info!(
+                source.id = %self.id,
+                source.path = %canonical.display(),
+                source.duplicate = self.duplicate,
+                "Configured source"
+            ),
+            Target::File { canonical, .. } => info!(
+                source.id = %self.id,
+                source.path = %canonical.display(),
+                "Configured source"
+            ),
+        }
+    }
+
+    fn warning(&self, err: &MartinError) -> TileSourceWarning {
+        if self.from_sources {
+            return TileSourceWarning::SourceError {
+                source_id: self.id.clone(),
+                error: err.to_string(),
+            };
+        }
+        let path = match &self.target {
+            Target::Url { configured, .. } => configured.clone(),
+            Target::File { path, .. } => path.clone(),
+        };
+        TileSourceWarning::PathError {
+            path,
+            error: err.to_string(),
+        }
+    }
+}
+
+/// Resolves the id of one configured source (a URL or a file) and records it, without opening it.
+#[cfg(feature = "_tiles")]
+fn plan_one_source(
+    parse_urls: bool,
     idr: &IdResolver,
     id: &str,
     source: FileConfigSrc,
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> MartinResult<BoxedSource> {
+) -> MartinResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
-    let result;
-    if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
+    if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
-        let duplicate = files.insert(key.clone(), key).is_some();
+        let duplicate = files.insert(key.clone(), key.clone()).is_some();
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
-        result = custom
-            .new_sources_url(id.clone(), url.clone(), cache)
-            .await?;
-        info!(
-            source.id = %id,
-            source.url = %sanitize_url(&url),
-            source.duplicate = duplicate,
-            "Configured source"
-        );
-    } else {
-        let can = source.abs_path()?;
-        let duplicate = files.insert(can.clone(), can.clone()).is_some();
-        let id = idr.resolve(id, can.to_string_lossy().to_string());
-        info!(
-            source.id = %id,
-            source.path = %can.display(),
-            source.duplicate = duplicate,
-            "Configured source"
-        );
-        configs.insert(id.clone(), source.clone());
-        result = custom.new_sources(id, source.into_path(), cache).await?;
+        return Ok(Planned {
+            id,
+            target: Target::Url {
+                url,
+                configured: key,
+            },
+            cache,
+            from_sources: true,
+            duplicate,
+        });
     }
-    Ok(result)
+    let can = source.abs_path()?;
+    let duplicate = files.insert(can.clone(), can.clone()).is_some();
+    let id = idr.resolve(id, can.to_string_lossy().to_string());
+    configs.insert(id.clone(), source.clone());
+    Ok(Planned {
+        id,
+        target: Target::File {
+            path: source.into_path(),
+            canonical: can,
+        },
+        cache,
+        from_sources: true,
+        duplicate,
+    })
 }
 
-/// Resolves a single path, configuring sources based on the given tile source configuration.
-///
-/// This function processes a given `PathBuf`, checking if it represents a file, directory,
-/// or a URL, and then it performs the necessary steps to configure tile sources.
+/// Resolves the ids under one configured path (a URL, a file, or a directory) and records them,
+/// without opening any source.
 #[cfg(feature = "_tiles")]
 #[expect(clippy::too_many_arguments)]
-async fn resolve_one_path_int<T: TileSourceConfiguration>(
-    custom: &T,
+fn plan_one_path(
+    parse_urls: bool,
     idr: &IdResolver,
     extension: &[&str],
     path: PathBuf,
@@ -525,11 +613,8 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> ResolutionResult {
-    let mut results = Vec::new();
-    let mut warnings = Vec::new();
-
-    if let Some(url) = parse_url(T::parse_urls(), &path)? {
+) -> MartinResult<Vec<Planned>> {
+    if let Some(url) = parse_url(parse_urls, &path)? {
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
@@ -541,7 +626,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 "URL does not end with a known extension; treating as a prefix for the reloader to discover"
             );
             directories.push(path);
-            return Ok((results, warnings));
+            return Ok(Vec::new());
         };
         let id = url
             .path_segments()
@@ -555,76 +640,65 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             .unwrap_or("web_source");
 
         let id = idr.resolve(id, url.to_string());
-        configs.insert(id.clone(), FileConfigSrc::Path(path));
-        results.push(
-            custom
-                .new_sources_url(id.clone(), url.clone(), default_cache)
-                .await?,
-        );
-        info!(
-            source.id = %id,
-            source.url = %sanitize_url(&url),
-            "Configured source from URL"
-        );
-    } else {
-        let is_dir = path.is_dir();
-        let dir_files = if is_dir {
-            // directories will be kept in the config just in case there are new files
-            directories.push(path.clone());
-            collect_files_with_extension(&path, extension)?
-        } else if path.is_file() {
-            vec![path]
-        } else {
-            return Err(MartinError::from(ConfigFileError::InvalidFilePath(
-                path.canonicalize().unwrap_or(path),
-            )));
-        };
-        for path in dir_files {
-            let can = path
-                .canonicalize()
-                .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
-            if let Some(kept) = files.get(&can) {
-                if !is_dir {
-                    warn!(
-                        source.path.dropped = %path.display(),
-                        source.path.kept = %kept.display(),
-                        "Ignoring duplicate source path: already configured under another path"
-                    );
-                }
-                continue;
-            }
-            let id = path.file_stem().map_or_else(
-                || "_unknown".to_owned(),
-                |s| s.to_string_lossy().to_string(),
-            );
-            let id = idr.resolve(&id, can.to_string_lossy().to_string());
-            // Only commit `id`/`can` to bookkeeping after a successful init so a single
-            // bad file inside a directory does not poison the whole batch - without this,
-            // `on_invalid: warn` would still drop every sibling source.
-            match custom
-                .new_sources(id.clone(), path.clone(), default_cache)
-                .await
-            {
-                Ok(src) => {
-                    info!(
-                        source.id = %id,
-                        source.path = %can.display(),
-                        "Configured source"
-                    );
-                    files.insert(can, path.clone());
-                    configs.insert(id, FileConfigSrc::Path(path));
-                    results.push(src);
-                }
-                Err(err) => {
-                    warnings.push(TileSourceWarning::PathError {
-                        path,
-                        error: err.to_string(),
-                    });
-                }
-            }
-        }
+        configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
+        return Ok(vec![Planned {
+            id,
+            target: Target::Url {
+                url,
+                configured: path,
+            },
+            cache: default_cache,
+            from_sources: false,
+            duplicate: false,
+        }]);
     }
-    Ok((results, warnings))
+
+    let is_dir = path.is_dir();
+    let dir_files = if is_dir {
+        // directories will be kept in the config just in case there are new files
+        directories.push(path.clone());
+        collect_files_with_extension(&path, extension)?
+    } else if path.is_file() {
+        vec![path]
+    } else {
+        return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+            path.canonicalize().unwrap_or(path),
+        )));
+    };
+
+    let mut planned = Vec::new();
+    for path in dir_files {
+        let can = path
+            .canonicalize()
+            .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
+        if let Some(kept) = files.get(&can) {
+            if !is_dir {
+                warn!(
+                    source.path.dropped = %path.display(),
+                    source.path.kept = %kept.display(),
+                    "Ignoring duplicate source path: already configured under another path"
+                );
+            }
+            continue;
+        }
+        files.insert(can.clone(), path.clone());
+        let id = path.file_stem().map_or_else(
+            || "_unknown".to_owned(),
+            |s| s.to_string_lossy().to_string(),
+        );
+        let id = idr.resolve(&id, can.to_string_lossy().to_string());
+        planned.push(Planned {
+            id,
+            target: Target::File {
+                path,
+                canonical: can,
+            },
+            cache: default_cache,
+            from_sources: false,
+            duplicate: false,
+        });
+    }
+    Ok(planned)
 }
 
 /// Returns a vector of file paths matching any `allowed_extension` within the given directory.
