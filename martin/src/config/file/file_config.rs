@@ -9,6 +9,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(feature = "_tiles")]
+use futures::stream::{self, StreamExt as _};
 pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
@@ -391,6 +393,12 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     resolve_int(config, idr, extension, default_cache).await
 }
 
+/// How many tile sources are opened at once at startup and on reload. Opening a remote source is
+/// a few dependent round trips, so serial opens cost latency times source count; this bounds the
+/// fan-out so thousands of sources do not mean thousands of simultaneous requests.
+#[cfg(feature = "_tiles")]
+pub const MAX_CONCURRENT_SOURCE_INITS: usize = 32;
+
 #[cfg(feature = "_tiles")]
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
@@ -447,9 +455,19 @@ async fn resolve_int<T: TileSourceConfiguration>(
         }
     }
 
+    let custom = &cfg.custom;
+    let opened = stream::iter(planned)
+        .map(|p| async move {
+            let result = p.open(custom).await;
+            (p, result)
+        })
+        .buffered(MAX_CONCURRENT_SOURCE_INITS)
+        .collect::<Vec<_>>()
+        .await;
+
     let mut results = Vec::new();
-    for p in planned {
-        match p.open(&cfg.custom).await {
+    for (p, result) in opened {
+        match result {
             Ok(src) => {
                 p.log_configured();
                 if !p.from_sources
