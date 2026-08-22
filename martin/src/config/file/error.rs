@@ -258,7 +258,7 @@ impl Diagnostic for ConfigFileError {
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let help: &'static str = match self {
             Self::NoSources => {
-                "Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config."
+                "Provide tile sources as connection arguments (e.g. `martin postgres://...`), or in a config file passed with --config."
             }
             Self::CorsNoOriginsConfigured => {
                 "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block."

@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use tracing::{info, warn};
+use tracing::info;
 
 use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
@@ -9,7 +9,6 @@ use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
-use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
@@ -35,17 +34,19 @@ pub struct PostgresArgs {
     /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
+    /// A file with a client SSL certificate. Replaces the `PGSSLCERT` environment variable.
+    #[arg(long)]
+    pub ssl_cert: Option<std::path::PathBuf>,
+    /// A file with the key for the client SSL certificate. Replaces the `PGSSLKEY` environment variable.
+    #[arg(long)]
+    pub ssl_key: Option<std::path::PathBuf>,
 }
 
 impl PostgresArgs {
-    pub fn into_config(
-        self,
-        cli_strings: &mut Arguments,
-        env: &impl Env,
-    ) -> OptOneMany<PostgresConfig> {
-        let connections = Self::extract_conn_strings(cli_strings, env);
-        let default_srid = self.get_default_srid(env);
-        let certs = self.get_certs(env);
+    pub fn into_config(self, cli_strings: &mut Arguments) -> OptOneMany<PostgresConfig> {
+        let connections = Self::extract_conn_strings(cli_strings);
+        let default_srid = self.default_srid;
+        let certs = self.get_certs();
 
         let results: Vec<_> = connections
             .into_iter()
@@ -84,6 +85,8 @@ impl PostgresArgs {
             auto_bounds,
             max_feature_count,
             ca_root_file,
+            ssl_cert,
+            ssl_key,
         } = self;
 
         if let Some(value) = default_srid {
@@ -127,68 +130,43 @@ impl PostgresArgs {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
             });
         }
+        if let Some(ref value) = ssl_cert {
+            info!(
+                "Overriding client SSL certificate to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_cert.clone_from(&ssl_cert);
+            });
+        }
+        if let Some(ref value) = ssl_key {
+            info!(
+                "Overriding client SSL key to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_key.clone_from(&ssl_key);
+            });
+        }
     }
 
-    fn extract_conn_strings(cli_strings: &mut Arguments, env: &impl Env) -> Vec<String> {
-        let mut connections = cli_strings.process(|v| {
+    fn extract_conn_strings(cli_strings: &mut Arguments) -> Vec<String> {
+        cli_strings.process(|v| {
             if is_postgres_connection_string(v) {
                 Take(v.to_owned())
             } else {
                 Ignore
             }
-        });
-        if connections.is_empty()
-            && let Some(s) = env.get_env_str("DATABASE_URL")
-        {
-            if is_postgres_connection_string(&s) {
-                info!("Using env var DATABASE_URL to connect to PostgreSQL");
-                connections.push(s);
-            } else {
-                warn!("Environment var DATABASE_URL is not a valid postgres connection string");
-            }
-        }
-
-        connections
+        })
     }
 
-    fn get_default_srid(&self, env: &impl Env) -> Option<i32> {
-        if self.default_srid.is_some() {
-            return self.default_srid;
-        }
-        let srid = env.get_env_str("DEFAULT_SRID")?;
-        match srid.parse::<i32>() {
-            Ok(v) => {
-                info!("Using env var DEFAULT_SRID={v} to set default SRID");
-                Some(v)
-            }
-            Err(v) => {
-                warn!("Env var DEFAULT_SRID is not a valid integer {srid}: {v}");
-                None
-            }
-        }
-    }
-
-    fn get_certs(&self, env: &impl Env) -> PostgresSslCerts {
-        let mut result = PostgresSslCerts {
-            ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
-            ssl_key: Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate"),
+    fn get_certs(&self) -> PostgresSslCerts {
+        PostgresSslCerts {
+            ssl_cert: self.ssl_cert.clone(),
+            ssl_key: self.ssl_key.clone(),
             ssl_root_cert: self.ca_root_file.clone(),
             unrecognized: UnrecognizedValues::default(),
-        };
-        if result.ssl_root_cert.is_none() {
-            result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
         }
-
-        result
-    }
-
-    fn parse_env_var(env: &impl Env, env_var: &str, info: &str) -> Option<std::path::PathBuf> {
-        let path = env.var_os(env_var).map(std::path::PathBuf::from);
-        if let Some(p) = &path {
-            let p = p.display();
-            info!("Using env {env_var}={p} to load {info}");
-        }
-        path
     }
 }
 
@@ -199,12 +177,10 @@ fn is_postgres_connection_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::OsString;
     use std::path::PathBuf;
 
     use super::*;
     use crate::MartinError;
-    use crate::config::primitives::env::FauxEnv;
 
     #[test]
     fn extracts_conn_strings() {
@@ -214,7 +190,7 @@ mod tests {
             "mysql://localhost:3306".to_owned(),
         ]);
         assert_eq!(
-            PostgresArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
+            PostgresArgs::extract_conn_strings(&mut args),
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
         assert!(matches!(args.check(), Err(
@@ -222,25 +198,19 @@ mod tests {
     }
 
     #[test]
-    fn extract_conn_strings_from_env() {
+    fn no_cli_connection_yields_no_config() {
+        // `DATABASE_URL` used to fill this in implicitly; connections now come from the CLI or
+        // from a config file only.
         let mut args = Arguments::new(vec![]);
-        let env = FauxEnv(
-            vec![(
-                "DATABASE_URL",
-                OsString::from("postgresql://localhost:5432"),
-            )]
-            .into_iter()
-            .collect(),
-        );
-        let strings = PostgresArgs::extract_conn_strings(&mut args, &env);
-        assert_eq!(strings, vec!["postgresql://localhost:5432"]);
+        let config = PostgresArgs::default().into_config(&mut args);
+        assert_eq!(config, OptOneMany::NoVals);
         args.check().unwrap();
     }
 
     #[test]
     fn merge_into_config() {
         let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
-        let config = PostgresArgs::default().into_config(&mut args, &FauxEnv::default());
+        let config = PostgresArgs::default().into_config(&mut args);
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
@@ -251,19 +221,16 @@ mod tests {
         args.check().unwrap();
     }
 
+    /// The CLI replacements for the removed `DEFAULT_SRID` and `PGSSLROOTCERT` variables.
     #[test]
     fn merge_into_config2() {
-        let mut args = Arguments::new(vec![]);
-        let env = FauxEnv(
-            vec![
-                ("DATABASE_URL", OsString::from("postgres://localhost:5432")),
-                ("DEFAULT_SRID", OsString::from("10")),
-                ("PGSSLROOTCERT", OsString::from("file")),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        let config = PostgresArgs::default().into_config(&mut args, &env);
+        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
+        let pg_args = PostgresArgs {
+            default_srid: Some(10),
+            ca_root_file: Some(PathBuf::from("file")),
+            ..Default::default()
+        };
+        let config = pg_args.into_config(&mut args);
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
@@ -279,25 +246,18 @@ mod tests {
         args.check().unwrap();
     }
 
+    /// The CLI replacements for the removed `PGSSLCERT` and `PGSSLKEY` variables.
     #[test]
     fn merge_into_config3() {
-        let mut args = Arguments::new(vec![]);
-        let env = FauxEnv(
-            vec![
-                ("DATABASE_URL", OsString::from("postgres://localhost:5432")),
-                ("DEFAULT_SRID", OsString::from("10")),
-                ("PGSSLCERT", OsString::from("cert")),
-                ("PGSSLKEY", OsString::from("key")),
-                ("PGSSLROOTCERT", OsString::from("root")),
-            ]
-            .into_iter()
-            .collect(),
-        );
+        let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
         let pg_args = PostgresArgs {
             default_srid: Some(20),
+            ssl_cert: Some(PathBuf::from("cert")),
+            ssl_key: Some(PathBuf::from("key")),
+            ca_root_file: Some(PathBuf::from("root")),
             ..Default::default()
         };
-        let config = pg_args.into_config(&mut args, &env);
+        let config = pg_args.into_config(&mut args);
         assert_eq!(
             config,
             OptOneMany::One(PostgresConfig {
@@ -313,5 +273,35 @@ mod tests {
             })
         );
         args.check().unwrap();
+    }
+
+    /// A config file's values must survive; the SSL CLI flags override them like `--ca-root-file`.
+    #[test]
+    fn override_config_applies_ssl_cli_flags() {
+        let mut config = OptOneMany::One(PostgresConfig {
+            connection_string: Some("postgres://localhost:5432".to_owned()),
+            ssl_certificates: PostgresSslCerts {
+                ssl_cert: Some(PathBuf::from("from-config")),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        PostgresArgs {
+            ssl_cert: Some(PathBuf::from("from-cli")),
+            ssl_key: Some(PathBuf::from("key-from-cli")),
+            ..Default::default()
+        }
+        .override_config(&mut config);
+        let OptOneMany::One(cfg) = config else {
+            panic!("expected exactly one postgres config");
+        };
+        assert_eq!(
+            cfg.ssl_certificates.ssl_cert,
+            Some(PathBuf::from("from-cli"))
+        );
+        assert_eq!(
+            cfg.ssl_certificates.ssl_key,
+            Some(PathBuf::from("key-from-cli"))
+        );
     }
 }

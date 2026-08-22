@@ -13,7 +13,10 @@ If using Martin with PostgreSQL database, you must install PostGIS with at least
 
 Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration
 file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by
-passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.
+passing a connection string or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.
+
+The config file may reference environment variables passed into the container, e.g.
+`connection_string: ${DATABASE_URL}` -- see [environment variables](env-vars.md).
 
 ```bash
 export PGPASSWORD=postgres  # secret!

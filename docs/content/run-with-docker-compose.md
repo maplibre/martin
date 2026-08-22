@@ -18,8 +18,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - DATABASE_URL=postgres://postgres:password@db/db
+    command: ["postgres://postgres:password@db/db"]
     depends_on:
       - db
 

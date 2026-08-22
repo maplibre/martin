@@ -174,16 +174,12 @@ SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
 
 ## Martin Configuration
 
-Martin can be configured using environment variables, [the CLI](run-with-cli.md), or the [configuration file](config-file/index.md).
+Martin can be configured using [the CLI](run-with-cli.md) or the [configuration file](config-file/index.md).
 Which of them you choose is up to you.
 You do not need to configure things twice.
 
-??? "Environment Variables (click to expand)"
-    ```bash
-    export PGSSLROOTCERT=./ca-cert.pem
-    export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
-    martin
-    ```
+Martin does not read `PGSSLROOTCERT` or `DATABASE_URL` on its own -- see
+[environment variables](env-vars.md) if you keep them in your environment.
 
 ??? "Configuration File (click to expand)"
     ```yaml
@@ -209,14 +205,14 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
+RUST_LOG=debug RUST_LOG_FORMAT=pretty martin --ca-root-file ./ca-cert.pem postgres://...
 ```
 
 These are the errors that can occur:
 
 ??? "Certificate verification failed (click to expand)"
     - Check server certificate is signed by the CA
-    - Verify CA certificate path in `PGSSLROOTCERT`
+    - Verify the CA certificate path passed to Martin (`--ca-root-file` / `ssl_root_cert`), and `PGSSLROOTCERT` for `psql`
     - Ensure certificate files are readable
 
 ??? "Hostname verification failed (click to expand)"
