@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/maplibre/martin/compare/martin-core-v0.11.0...martin-core-v0.11.1) - 2026-08-22
+
+### Other
+
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- fix fmt ([#3135](https://github.com/maplibre/martin/pull/3135))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+
 ## [0.11.0](https://github.com/maplibre/martin/compare/martin-core-v0.10.0...martin-core-v0.11.0) - 2026-08-17
 
 ### Security

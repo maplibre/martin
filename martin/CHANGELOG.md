@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.1](https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.14.1) - 2026-08-22
+
+### Other
+
+- *(postprocesing)* refactor docs to accept the new postprocessing section ([#3139](https://github.com/maplibre/martin/pull/3139))
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- fix cors logging logging `unrecognisable` ([#3136](https://github.com/maplibre/martin/pull/3136))
+- fix fmt ([#3135](https://github.com/maplibre/martin/pull/3135))
+- *(config)* resolve file source ids before opening the sources ([#3133](https://github.com/maplibre/martin/pull/3133))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+
 ## [1.14.0](https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0) - 2026-08-17
 
 ### Security

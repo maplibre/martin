@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2](https://github.com/maplibre/martin/compare/mbtiles-v0.19.1...mbtiles-v0.19.2) - 2026-08-22
+
+### Other
+
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+
 ## [0.19.1](https://github.com/maplibre/martin/compare/mbtiles-v0.19.0...mbtiles-v0.19.1) - 2026-08-17
 
 ### Other
