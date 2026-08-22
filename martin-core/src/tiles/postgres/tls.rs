@@ -28,7 +28,7 @@ use crate::tiles::postgres::PostgresResult;
 ///
 /// Cancel opens a new connection, so it needs the same connector the pool uses.
 #[derive(Clone)]
-pub(crate) enum PgTlsConnector {
+pub enum PgTlsConnector {
     NoTls(NoTls),
     Rustls(MakeRustlsConnect),
 }

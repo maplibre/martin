@@ -25,7 +25,7 @@ pub struct FontCacheKey {
 impl FontCacheKey {
     /// Build a key for the given font stack and glyph range.
     #[must_use]
-    pub fn new(ids: String, start: u32, end: u32) -> Self {
+    pub const fn new(ids: String, start: u32, end: u32) -> Self {
         Self { ids, start, end }
     }
 }

@@ -15,7 +15,7 @@ use crate::tiles::geojson::error::GeoJsonError;
 /// The coordinate type `T` tracks which space the geometry lives in: `f64` for the preprocessed
 /// Web Mercator (EPSG:3857) features, and `i32` once clipped and snapped to the MVT tile grid.
 #[derive(Clone)]
-pub(crate) struct PreparedFeature<T: geo_types::CoordNum = f64> {
+pub struct PreparedFeature<T: geo_types::CoordNum = f64> {
     /// Feature geometry.
     pub(crate) geom: geo_types::Geometry<T>,
     /// `GeoJSON` feature properties, carried verbatim into the MVT feature.
@@ -23,7 +23,7 @@ pub(crate) struct PreparedFeature<T: geo_types::CoordNum = f64> {
 }
 
 /// A `GeoJSON` document turned into everything the source needs to answer tile and `TileJSON` requests.
-pub(crate) struct Preprocessed {
+pub struct Preprocessed {
     /// Features ready to serve, in Web Mercator.
     pub(crate) features: Vec<PreparedFeature>,
     /// Spatial index over every feature's bounding box.
@@ -36,7 +36,7 @@ pub(crate) struct Preprocessed {
 
 /// The MVT value type `value` encodes as, in the vocabulary `TileJSON`'s `vector_layers[].fields` uses.
 /// `None` for a null, which [`add_properties`] omits from the tile.
-fn field_type(value: &JsonValue) -> Option<&'static str> {
+const fn field_type(value: &JsonValue) -> Option<&'static str> {
     match value {
         JsonValue::Null => None,
         JsonValue::Bool(_) => Some("Boolean"),
@@ -52,7 +52,7 @@ fn field_type(value: &JsonValue) -> Option<&'static str> {
 /// 2. Reproject geometries from WGS84 to Web Mercator.
 /// 3. Index every geometry's bounding box in a packed Hilbert R-tree.
 /// 4. Collect the property names across all features, so `TileJSON` can advertise them.
-pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError> {
+pub fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError> {
     let raw = match geojson {
         GeoJson::FeatureCollection(fc) => fc
             .features
@@ -126,7 +126,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
     })
 }
 
-pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {
+pub fn tile_length_from_zoom(zoom: u8) -> f64 {
     EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom)
 }
 
@@ -134,7 +134,7 @@ pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {
 /// Geometries carry no attributes once converted to `geo_types`, so this is the only feature
 /// metadata copied through to the encoder. Null-valued properties are omitted; arrays and objects
 /// are serialized to a JSON string, matching the MVT value model which has no composite types.
-pub(crate) fn add_properties(
+pub fn add_properties(
     feature: &mut MvtFeatureBuilder,
     properties: Map<String, JsonValue>,
 ) -> Result<(), GeoJsonError> {

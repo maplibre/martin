@@ -33,7 +33,7 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(
+    pub const fn new(
         ifd_index: usize,
         zoom_level: u8,
         tiles_origin: (u32, u32),
@@ -54,7 +54,7 @@ impl Image {
     }
 
     /// Returns the output format for this image based on compression.
-    pub fn output_format(&self) -> Option<Format> {
+    pub const fn output_format(&self) -> Option<Format> {
         if self.compression == COMPRESSION_WEBP {
             return Some(Format::Webp);
         }
@@ -69,7 +69,7 @@ impl Image {
 
     /// Returns true if this image uses a passthrough compression (WEBP or JPEG)
     /// where raw tile bytes can be returned directly without re-encoding.
-    fn is_passthrough_compression(&self) -> bool {
+    const fn is_passthrough_compression(&self) -> bool {
         if self.compression == COMPRESSION_WEBP {
             return true;
         }
@@ -173,15 +173,15 @@ impl Image {
         Ok(tile_data)
     }
 
-    pub fn compression(&self) -> u16 {
+    pub const fn compression(&self) -> u16 {
         self.compression
     }
 
-    pub fn tile_size(&self) -> u32 {
+    pub const fn tile_size(&self) -> u32 {
         self.tile_size
     }
 
-    pub fn zoom_level(&self) -> u8 {
+    pub const fn zoom_level(&self) -> u8 {
         self.zoom_level
     }
 

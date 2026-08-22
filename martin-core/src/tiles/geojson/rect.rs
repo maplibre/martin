@@ -12,7 +12,7 @@ use crate::tiles::geojson::process::tile_length_from_zoom;
 
 /// A single tile in Web Mercator space, carrying the MVT resolution it is rendered at.
 #[derive(Debug, Clone)]
-pub(crate) struct Rect {
+pub struct Rect {
     pub(crate) min_x: f64,
     pub(crate) min_y: f64,
     pub(crate) max_x: f64,
@@ -162,10 +162,12 @@ impl Rect {
         let buffer = self.buffer_fraction();
         let extent = f64::from(self.extent.get());
 
-        let max_x = ((1.0 + buffer) * self.max_x + buffer * self.min_x) / (1.0 + 2.0 * buffer);
+        let max_x =
+            buffer.mul_add(self.min_x, (1.0 + buffer) * self.max_x) / 2.0f64.mul_add(buffer, 1.0);
         let min_x = (self.min_x + max_x * buffer) / (1.0 + buffer);
 
-        let max_y = ((1.0 + buffer) * self.max_y + buffer * self.min_y) / (1.0 + 2.0 * buffer);
+        let max_y =
+            buffer.mul_add(self.min_y, (1.0 + buffer) * self.max_y) / 2.0f64.mul_add(buffer, 1.0);
         let min_y = (self.min_y + max_y * buffer) / (1.0 + buffer);
 
         let x_multiplier = extent / (max_x - min_x);

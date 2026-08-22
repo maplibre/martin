@@ -139,12 +139,12 @@ impl StyleSources {
     /// Whether server-side style rendering is currently enabled.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[must_use]
-    pub fn is_rendering_enabled(&self) -> bool {
+    pub const fn is_rendering_enabled(&self) -> bool {
         self.pools.is_some()
     }
 
     /// Adds a style JSON file with an ID to the catalog.
-    pub fn add_style(&mut self, id: String, path: PathBuf) {
+    pub fn add_style(&self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
         match self.sources.entry(id) {
@@ -235,7 +235,7 @@ mod tests {
     fn style_external() {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
-        let mut styles = StyleSources::default();
+        let styles = StyleSources::default();
         styles.add_style(
             "maplibre_demo".to_owned(),
             style_dir.join("maplibre_demo.json"),

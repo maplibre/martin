@@ -258,8 +258,7 @@ fn redirect_tile_with_query(
 pub struct DynTileSource<'a> {
     pub sources: Vec<(BoxedSource, ProcessConfig)>,
     pub info: TileInfo,
-    pub query_str: Option<&'a str>,
-    pub query_obj: Option<UrlQuery>,
+    pub query: Option<(&'a str, UrlQuery)>,
     /// The format requested via the `Accept` header.
     /// `None` means no `Accept` header was present (or it was a wildcard).
     pub accepted_format: Option<Format>,
@@ -307,18 +306,17 @@ impl<'a> DynTileSource<'a> {
             resolved.info.format,
         )?;
 
-        let mut query_obj = None;
-        let mut query_str = None;
-        if resolved.use_url_query && !query.is_empty() {
-            query_obj = Some(Query::<UrlQuery>::from_query(query)?.into_inner());
-            query_str = Some(query);
-        }
+        let query = if resolved.use_url_query && !query.is_empty() {
+            let o = Query::<UrlQuery>::from_query(query)?.into_inner();
+            Some((query, o))
+        } else {
+            None
+        };
 
         Ok(Self {
             sources: resolved.sources,
             info: resolved.info,
-            query_str,
-            query_obj,
+            query,
             accepted_format,
             headers,
             cache,
@@ -466,7 +464,9 @@ impl<'a> DynTileSource<'a> {
         let src_id = s.get_id().to_owned();
         let src = s.clone_source();
         let compute = || async move {
-            let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+            let t = src
+                .get_tile_with_etag(xyz, self.query.as_ref().map(|q| &q.1))
+                .await?;
             apply_pre_cache_processors(
                 t,
                 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -482,7 +482,7 @@ impl<'a> DynTileSource<'a> {
                     martin_core::tiles::TileCacheKey::new(
                         src_id,
                         xyz,
-                        self.query_str.map(str::to_owned),
+                        self.query.as_ref().map(|q| q.0.to_owned()),
                         self.accepted_format,
                     ),
                     compute,
@@ -578,7 +578,7 @@ impl<'a> DynTileSource<'a> {
                     ContentEncoding::Zstd => q_zstd = Some(enc.quality),
                     _ => {}
                 }
-            } else if let Preference::Any = enc.item {
+            } else if enc.item == Preference::Any {
                 q_gzip.get_or_insert(enc.quality);
                 q_brotli.get_or_insert(enc.quality);
                 q_zstd.get_or_insert(enc.quality);
@@ -614,7 +614,7 @@ impl<'a> DynTileSource<'a> {
         }
     }
 
-    fn get_preferred_enc(&self) -> ContentEncoding {
+    const fn get_preferred_enc(&self) -> ContentEncoding {
         match self.headers.preferred_enc {
             None | Some(PreferredEncoding::Gzip) => ContentEncoding::Gzip,
             Some(PreferredEncoding::Brotli) => ContentEncoding::Brotli,

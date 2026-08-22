@@ -26,7 +26,7 @@ pub struct PostgresSource {
 impl PostgresSource {
     /// Creates a new `PostgreSQL` tile source.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         id: String,
         info: PostgresSqlInfo,
         tilejson: TileJSON,
@@ -171,7 +171,7 @@ pub struct PostgresSqlInfo {
 impl PostgresSqlInfo {
     /// Creates new SQL query information.
     #[must_use]
-    pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
+    pub const fn new(query: String, has_query_params: bool, signature: String) -> Self {
         Self {
             sql_query: query,
             use_url_query: has_query_params,

@@ -106,7 +106,7 @@ struct OverlayGuard<'a, 'st> {
 }
 
 impl<'a, 'st> OverlayGuard<'a, 'st> {
-    fn new(style: &'st mut StyleRef<'a, Static>) -> Self {
+    const fn new(style: &'st mut StyleRef<'a, Static>) -> Self {
         Self {
             style,
             layer_ids: Vec::new(),

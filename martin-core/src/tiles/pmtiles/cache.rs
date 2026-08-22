@@ -64,7 +64,7 @@ pub struct PmtCacheInstance {
 impl PmtCacheInstance {
     /// Creates a new `PMTiles` directory cache instance
     #[must_use]
-    pub fn new(id: usize, cache: PmtCache) -> Self {
+    pub const fn new(id: usize, cache: PmtCache) -> Self {
         Self { id, cache }
     }
 
@@ -84,7 +84,7 @@ impl PmtCacheInstance {
 
     /// Returns the cache ID.
     #[must_use]
-    pub fn id(&self) -> usize {
+    pub const fn id(&self) -> usize {
         self.id
     }
 
@@ -152,7 +152,7 @@ struct PmtCacheKey {
 }
 
 impl PmtCacheKey {
-    fn new(id: usize, offset: usize) -> Self {
+    const fn new(id: usize, offset: usize) -> Self {
         Self { id, offset }
     }
 }

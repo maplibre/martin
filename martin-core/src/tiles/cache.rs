@@ -30,7 +30,7 @@ pub struct TileCacheKey {
 impl TileCacheKey {
     /// Build a key from the request fields.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         source_id: String,
         xyz: TileCoord,
         query: Option<String>,
