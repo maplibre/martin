@@ -531,11 +531,12 @@ restart:
     {{just}} start
 
 # Start Martin server
-run *args='--webui enable-for-all': fetch
+# Martin no longer picks DATABASE_URL up on its own, so the default args pass it explicitly.
+run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch
     cargo run -p martin -- {{args}}
 
 # Start release-compiled Martin server and a test database
-run-release *args='--webui enable-for-all': fetch start
+run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch start
     cargo run -p martin --release -- {{args}}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`

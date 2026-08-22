@@ -31,7 +31,9 @@ You can use Martin with [Managed PostgreSQL from Heroku](https://www.heroku.com/
 heroku pg:psql -a APP_NAME -c 'create extension postgis'
 ```
 
-Use the same environment variables as Heroku [suggests for psql](https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables).
+Set the same environment variables Heroku [suggests for psql](https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables),
+and hand them to Martin explicitly -- Martin does not read them on its own, see
+[environment variables](env-vars.md).
 
 ```bash
 export DATABASE_URL=$(heroku config:get DATABASE_URL -a APP_NAME)
@@ -39,7 +41,10 @@ export PGSSLCERT=DIRECTORY/PREFIXpostgresql.crt
 export PGSSLKEY=DIRECTORY/PREFIXpostgresql.key
 export PGSSLROOTCERT=DIRECTORY/PREFIXroot.crt
 
-martin
+martin --ssl-cert "$PGSSLCERT" \
+       --ssl-key "$PGSSLKEY" \
+       --ca-root-file "$PGSSLROOTCERT" \
+       "$DATABASE_URL"
 ```
 
 You may also be able to validate SSL certificate with an explicit sslmode, e.g.

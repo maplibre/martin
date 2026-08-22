@@ -4,14 +4,13 @@ use std::env;
 use std::ffi::OsString;
 use std::process::Stdio;
 
-use crate::{binary_command, display_args, workspace_root};
+use crate::{binary_command, display_args, test_database_url, workspace_root};
 
 /// One run of the `martin-cp` binary, which reaches a database only through
 /// [`MartinCp::with_postgres`].
 #[derive(Debug, Default)]
 pub struct MartinCp {
     args: Vec<OsString>,
-    database_url: Option<String>,
 }
 
 impl MartinCp {
@@ -27,13 +26,11 @@ impl MartinCp {
         self
     }
 
-    /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at.
+    /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at, passing its connection
+    /// string as a CLI argument the way a user now has to.
     #[must_use]
-    pub fn with_postgres(mut self) -> Self {
-        let url = env::var("DATABASE_URL")
-            .expect("DATABASE_URL must point at the test database; start it with `just start`");
-        self.database_url = Some(url);
-        self
+    pub fn with_postgres(self) -> Self {
+        self.arg(test_database_url())
     }
 
     /// Run the copy, require it to succeed, and return what it logged.
@@ -45,8 +42,16 @@ impl MartinCp {
             .env("RUST_LOG_FORMAT", "bare")
             .args(&self.args)
             .stdin(Stdio::null());
-        if let Some(url) = &self.database_url {
-            cmd.env("DATABASE_URL", url);
+        // See the matching comment in `MartinBuilder::start`: martin-cp shares `PostgresArgs`
+        // with martin, so it needs the same PGSSL* -> CLI-flag translation.
+        if let Ok(root_cert) = env::var("PGSSLROOTCERT") {
+            cmd.arg("--ca-root-file").arg(root_cert);
+        }
+        if let Ok(cert) = env::var("PGSSLCERT") {
+            cmd.arg("--ssl-cert").arg(cert);
+        }
+        if let Ok(key) = env::var("PGSSLKEY") {
+            cmd.arg("--ssl-key").arg(key);
         }
         let described = display_args(&self.args);
         let output = cmd

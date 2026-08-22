@@ -28,6 +28,8 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+#[cfg(feature = "postgres")]
+use crate::config::file::warn_legacy_env_vars;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::env::Env;
@@ -105,6 +107,13 @@ impl Args {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
+        // With a config file, `read_config` has already reported the legacy environment variables
+        // against its contents, skipping the ones the file explicitly references.
+        #[cfg(feature = "postgres")]
+        if self.meta.config.is_none() {
+            warn_legacy_env_vars(env, None);
+        }
+
         if self.srv.cache_size.is_some() {
             config.cache.size_mb = self.srv.cache_size;
         }
@@ -140,7 +149,7 @@ impl Args {
         {
             let pg_args = self.pg.unwrap_or_default();
             if config.postgres.is_none() {
-                config.postgres = pg_args.into_config(&mut cli_strings, env);
+                config.postgres = pg_args.into_config(&mut cli_strings);
             } else {
                 // config was loaded from a file, we can only apply a few CLI overrides to it
                 pg_args.override_config(&mut config.postgres);
@@ -395,6 +404,76 @@ mod tests {
             let res = Args::try_parse_from(params);
             assert!(res.is_err(), "Expected error, got: {res:?} for {params:?}");
         }
+    }
+
+    /// The environment used to be a source of configuration all by itself. It no longer is.
+    #[test]
+    #[cfg(feature = "postgres")]
+    fn cli_ignores_the_legacy_env_vars() {
+        let args = Args::parse_from(["martin"]);
+
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &legacy_env()).unwrap();
+
+        assert_eq!(config, Config::default());
+    }
+
+    /// The CLI replacements win, and are not disturbed by the legacy variables still being set.
+    #[test]
+    #[cfg(feature = "postgres")]
+    fn cli_replacements_configure_what_the_legacy_env_used_to() {
+        use crate::config::primitives::OptOneMany;
+
+        let args = Args::parse_from([
+            "martin",
+            "--default-srid",
+            "4326",
+            "--ssl-cert",
+            "cli.crt",
+            "--ssl-key",
+            "cli.key",
+            "--ca-root-file",
+            "cli-root.crt",
+            "postgres://localhost:5432/from-cli",
+        ]);
+
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &legacy_env()).unwrap();
+
+        let pg = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(
+            pg.connection_string.as_deref(),
+            Some("postgres://localhost:5432/from-cli")
+        );
+        assert_eq!(pg.default_srid, Some(4326));
+        assert_eq!(pg.ssl_certificates.ssl_cert, Some(PathBuf::from("cli.crt")));
+        assert_eq!(pg.ssl_certificates.ssl_key, Some(PathBuf::from("cli.key")));
+        assert_eq!(
+            pg.ssl_certificates.ssl_root_cert,
+            Some(PathBuf::from("cli-root.crt"))
+        );
+    }
+
+    /// Every variable martin used to read implicitly, all set at once.
+    #[cfg(feature = "postgres")]
+    fn legacy_env() -> FauxEnv {
+        use std::ffi::OsString;
+
+        [
+            (
+                "DATABASE_URL",
+                OsString::from("postgres://localhost:5432/from-env"),
+            ),
+            ("DEFAULT_SRID", OsString::from("900913")),
+            ("PGSSLCERT", OsString::from("env.crt")),
+            ("PGSSLKEY", OsString::from("env.key")),
+            ("PGSSLROOTCERT", OsString::from("env-root.crt")),
+        ]
+        .into_iter()
+        .collect()
     }
 
     #[test]

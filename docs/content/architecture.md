@@ -598,7 +598,7 @@ Martin supports multiple deployment patterns:
 === "Container Deployment"
 
     - Docker image with all dependencies
-    - Configuration via environment variables
+    - Configuration via CLI arguments or a mounted config file
     - Health check endpoints
     - Suitable for Kubernetes and container orchestrators
 

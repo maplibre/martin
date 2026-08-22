@@ -49,6 +49,15 @@ pub fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// The test database's connection string, which the justfile and CI export as `DATABASE_URL`.
+///
+/// Martin itself no longer reads this variable; the harness passes the value to it explicitly.
+#[must_use]
+fn test_database_url() -> String {
+    env::var("DATABASE_URL")
+        .expect("DATABASE_URL must point at the test database; start it with `just start`")
+}
+
 /// A workspace binary, run from its debug build unless `env_var` names another one.
 ///
 /// `env_var` may hold a program plus leading arguments (e.g. a `docker run ...` invocation).

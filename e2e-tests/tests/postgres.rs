@@ -14,7 +14,7 @@ async fn martin_with_postgres() -> Martin {
 
 async fn start_with_postgres(builder: MartinBuilder) -> Martin {
     builder
-        .with_postgres()
+        .with_postgres_connection()
         // also adopt tables whose geometry column has SRID 0
         .arg("--default-srid")
         .arg("900913")

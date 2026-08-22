@@ -80,6 +80,12 @@ Options:
 
           Can be either a positive integer or unlimited if omitted.
 
+      --ssl-cert <SSL_CERT>
+          A file with a client SSL certificate. Replaces the `PGSSLCERT` environment variable
+
+      --ssl-key <SSL_KEY>
+          A file with the key for the client SSL certificate. Replaces the `PGSSLKEY` environment variable
+
   -h, --help
           Print help (see a summary with '-h')
 

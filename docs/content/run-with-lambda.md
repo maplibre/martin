@@ -12,7 +12,7 @@ Martin can run in AWS Lambda.
 This is useful if you want to serve tiles from a serverless environment, while accessing "nearby" data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.
 
 Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration.
-When using container-based deployment, we can pass our configuration on the command line or environment variables.
+When using container-based deployment, we can pass our configuration on the command line.
 
 Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication.
 The CloudShell also runs in a particular AWS region.

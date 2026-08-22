@@ -13,34 +13,79 @@ pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config>
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     #[cfg(feature = "postgres")]
-    warn_unused_pg_env_vars(env, &contents);
+    warn_legacy_env_vars(env, Some(&contents));
     parse_config(&contents, &env.as_property_map(), file_name)
 }
 
+/// Environment variables Martin used to configure itself from automatically, each paired with the
+/// CLI flag and the config file key that replace it.
+///
+/// Martin no longer reads any of these; they are only detected so that a startup warning can point
+/// at the replacement. Only the *names* are ever logged -- `DATABASE_URL` and the SSL paths are
+/// sensitive.
 #[cfg(feature = "postgres")]
-fn warn_unused_pg_env_vars(env: &impl Env, contents: &str) {
-    let set_vars: Vec<&str> = [
+const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
+    (
         "DATABASE_URL",
+        r#"martin "$DATABASE_URL""#,
+        "postgres.connection_string: ${DATABASE_URL}",
+    ),
+    (
         "DEFAULT_SRID",
+        r#"--default-srid "$DEFAULT_SRID""#,
+        "postgres.default_srid: ${DEFAULT_SRID}",
+    ),
+    (
         "PGSSLCERT",
+        r#"--ssl-cert "$PGSSLCERT""#,
+        "postgres.ssl_cert: ${PGSSLCERT}",
+    ),
+    (
         "PGSSLKEY",
+        r#"--ssl-key "$PGSSLKEY""#,
+        "postgres.ssl_key: ${PGSSLKEY}",
+    ),
+    (
         "PGSSLROOTCERT",
-    ]
-    .into_iter()
-    .filter(|v| env.var_os(v).is_some())
-    .collect();
+        r#"--ca-root-file "$PGSSLROOTCERT""#,
+        "postgres.ssl_root_cert: ${PGSSLROOTCERT}",
+    ),
+];
+
+/// Warn once at startup about the environment variables Martin used to configure itself from that
+/// are set but no longer used.
+///
+/// `config_contents` is the raw YAML of the config file that was loaded, if any. A variable the
+/// config explicitly references as `${VAR}` is doing exactly what it should, so it is not reported.
+/// Variable values are never logged.
+#[cfg(feature = "postgres")]
+pub fn warn_legacy_env_vars(env: &impl Env, config_contents: Option<&str>) {
+    let set_vars: Vec<_> = LEGACY_ENV_VARS
+        .into_iter()
+        .filter(|(name, _, _)| env.var_os(name).is_some())
+        .collect();
     if set_vars.is_empty() {
         return;
     }
-    let Ok(value) = serde_saphyr::from_str::<serde_json::Value>(contents) else {
-        return;
+    let referenced = match config_contents {
+        // An unparseable config is about to abort startup with a proper diagnostic; staying quiet
+        // beats claiming a variable is unused when we cannot tell whether it is referenced.
+        Some(contents) => match serde_saphyr::from_str::<serde_json::Value>(contents) {
+            Ok(value) => Some(value),
+            Err(_) => return,
+        },
+        None => None,
     };
-    for v in set_vars {
-        if !json_value_references_var(&value, v) {
-            warn!(
-                "Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file."
-            );
+    for (name, cli, config_key) in set_vars {
+        if referenced
+            .as_ref()
+            .is_some_and(|value| json_value_references_var(value, name))
+        {
+            continue;
         }
+        warn!(
+            "Environment variable {name} is set but ignored: Martin no longer configures itself from environment variables. Pass it on the command line (`{cli}`), or reference it from a config file (`{config_key}`). See https://maplibre.org/martin/env-vars/"
+        );
     }
 }
 
@@ -741,6 +786,110 @@ mod tests {
                 !string_references_var(s, "DATABASE_URL"),
                 "expected no hit in {s:?}"
             );
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    mod legacy_env {
+        use std::ffi::OsString;
+
+        use super::super::warn_legacy_env_vars;
+        use crate::config::primitives::env::FauxEnv;
+
+        const SECRET: &str = "postgres://user:hunter2@localhost/db";
+
+        fn faux(pairs: &[(&'static str, &str)]) -> FauxEnv {
+            pairs
+                .iter()
+                .map(|(k, v)| (*k, OsString::from(*v)))
+                .collect()
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn no_warning_without_legacy_vars() {
+            warn_legacy_env_vars(&FauxEnv::default(), None);
+            assert!(!logs_contain("is set but ignored"));
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn warns_with_cli_and_config_replacement_without_a_config_file() {
+            warn_legacy_env_vars(&faux(&[("DATABASE_URL", SECRET)]), None);
+            assert!(logs_contain(
+                "Environment variable DATABASE_URL is set but ignored"
+            ));
+            assert!(logs_contain(r#"martin "$DATABASE_URL""#));
+            assert!(logs_contain("postgres.connection_string: ${DATABASE_URL}"));
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn never_logs_the_value() {
+            warn_legacy_env_vars(
+                &faux(&[
+                    ("DATABASE_URL", SECRET),
+                    ("PGSSLKEY", "/secrets/postgresql.key"),
+                ]),
+                None,
+            );
+            assert!(!logs_contain("hunter2"));
+            assert!(!logs_contain("/secrets/postgresql.key"));
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn every_legacy_var_is_reported() {
+            let env = faux(&[
+                ("DATABASE_URL", SECRET),
+                ("DEFAULT_SRID", "4326"),
+                ("PGSSLCERT", "cert"),
+                ("PGSSLKEY", "key"),
+                ("PGSSLROOTCERT", "root"),
+            ]);
+            warn_legacy_env_vars(&env, None);
+            for (name, _, _) in super::super::LEGACY_ENV_VARS {
+                assert!(
+                    logs_contain(&format!("Environment variable {name} is set but ignored")),
+                    "{name} was not reported"
+                );
+            }
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn explicit_config_reference_is_not_reported() {
+            warn_legacy_env_vars(
+                &faux(&[("DATABASE_URL", SECRET)]),
+                Some("postgres:\n  connection_string: ${DATABASE_URL}\n"),
+            );
+            assert!(!logs_contain("is set but ignored"));
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn unreferenced_var_is_reported_even_with_a_config_file() {
+            warn_legacy_env_vars(
+                &faux(&[("DATABASE_URL", SECRET), ("DEFAULT_SRID", "4326")]),
+                Some("postgres:\n  connection_string: ${DATABASE_URL}\n"),
+            );
+            assert!(!logs_contain(
+                "Environment variable DATABASE_URL is set but ignored"
+            ));
+            assert!(logs_contain(
+                "Environment variable DEFAULT_SRID is set but ignored"
+            ));
+        }
+
+        #[test]
+        #[tracing_test::traced_test]
+        fn unparseable_config_stays_quiet() {
+            // The same unbalanced quote `syntax_error_unbalanced_quote` above pins as a parse error.
+            warn_legacy_env_vars(
+                &faux(&[("DATABASE_URL", SECRET)]),
+                Some("srv:\n  listen_addresses: \"0.0.0.0:3000\n  worker_processes: 4\n"),
+            );
+            assert!(!logs_contain("is set but ignored"));
         }
     }
 }

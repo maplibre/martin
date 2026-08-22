@@ -1,11 +1,12 @@
 //! The `martin` server subprocess and the responses it answers with.
 
+use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::io::{self, Cursor, Read as _};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::{env, fs};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
@@ -20,7 +21,7 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 
-use crate::{binary_command, workspace_root};
+use crate::{binary_command, test_database_url, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -90,13 +91,23 @@ impl MartinBuilder {
         self
     }
 
-    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at.
+    // The two helpers below stay separate because martin rejects a config file combined with CLI
+    // connection arguments (`ConfigAndConnectionsError`).
+    /// Make `DATABASE_URL` visible to the subprocess so a config file can expand `${DATABASE_URL}`.
+    ///
+    /// Martin no longer connects to it on its own, so this is only useful together with
+    /// [`MartinBuilder::config`]; use [`MartinBuilder::with_postgres_connection`] otherwise.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
-        let url = env::var("DATABASE_URL")
-            .expect("DATABASE_URL must point at the test database; start it with `just start`");
-        self.database_url = Some(url);
+        self.database_url = Some(test_database_url());
         self
+    }
+
+    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at, passing its connection
+    /// string as a CLI argument the way a user now has to.
+    #[must_use]
+    pub fn with_postgres_connection(self) -> Self {
+        self.arg(test_database_url())
     }
 
     /// Spawn martin and wait until it responds over HTTP.
@@ -124,6 +135,19 @@ impl MartinBuilder {
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
+        }
+        // The harness's own PGSSL* variables, if the test runner set any (CI does for the
+        // verify-ca/verify-full sslmode matrix, and `just test-ssl-cert` does for client-cert
+        // auth), become explicit CLI flags the way a real deployer now has to pass them -- martin
+        // itself no longer reads these variables.
+        if let Ok(root_cert) = env::var("PGSSLROOTCERT") {
+            cmd.arg("--ca-root-file").arg(root_cert);
+        }
+        if let Ok(cert) = env::var("PGSSLCERT") {
+            cmd.arg("--ssl-cert").arg(cert);
+        }
+        if let Ok(key) = env::var("PGSSLKEY") {
+            cmd.arg("--ssl-key").arg(key);
         }
 
         let mut child = cmd.spawn().map_err(StartError::Spawn)?;
