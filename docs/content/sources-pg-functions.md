@@ -178,7 +178,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 Function sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
 This can be set for all PostgreSQL sources or for an individual function.
-See [Configuration File](config-file/index.md#postprocessing) for details.
+See [Postprocessing](postprocessing/index.md) for details.
 
 ```yaml
 postgres:
