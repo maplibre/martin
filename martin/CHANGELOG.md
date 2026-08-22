@@ -310,7 +310,7 @@ convert-to-mlt:
   allow_shared_dict: true # Disable to reduce search space
 ```
 
-[A full guide is avaliable here](https://github.com/maplibre/martin/blob/main/docs/content/using-guides/mlt.md).
+[A full guide is avaliable here](https://github.com/maplibre/martin/blob/main/docs/content/postprocessing/mlt.md).
 Implemented in [#2769](https://github.com/maplibre/martin/pull/2769) [#2773](https://github.com/maplibre/martin/pull/2773) and  [#2775](https://github.com/maplibre/martin/pull/2775)
 
 ### Improved sprite and font previews in the Web UI

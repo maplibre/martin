@@ -12,7 +12,7 @@ tags:
 A `passthrough` source proxies tiles from an upstream HTTP tile server through Martin.
 Martin fetches each tile from the upstream URL and serves the bytes verbatim, preserving the upstream `Content-Encoding`.
 The rest of Martin's pipeline is applied on top, exactly as for any other source.
-This means that you can use this to [convert between MVT and MLT](config-file/index.md#postprocessing) and for [tile caching](config-file/index.md)
+This means that you can use this to [convert between MVT and MLT](postprocessing/index.md) and for [tile caching](config-file/index.md)
 
 Use it to:
 
@@ -87,7 +87,7 @@ A source value under `passthrough.sources` is one of:
 | `format`                            | all            | Explicit tile format override (e.g. `mvt`, `png`). Detected when unset.                                |
 | `attribution`                       | templates only | Attribution advertised in the served TileJSON.                                                         |
 | `cache`                             | all            | Zoom-level bounds for tile caching.                                                                    |
-| `convert_to_mlt` / `convert_to_mvt` | all            | Per-source [MVT/MLT conversion](config-file/index.md#postprocessing) overrides.                        |
+| `convert_to_mlt` / `convert_to_mvt` | all            | Per-source [MVT/MLT conversion](postprocessing/index.md) overrides.                        |
 | `minzoom` / `maxzoom`               | templates only | Zoom range advertised in the served TileJSON.                                                          |
 | `bounds`                            | templates only | Geographic bounds advertised in the served TileJSON.                                                   |
 
@@ -99,7 +99,7 @@ A source value under `passthrough.sources` is one of:
 
 Alongside `sources`, the `passthrough` section accepts `convert_to_mlt` and `convert_to_mvt` keys that apply to every passthrough source.
 They override the global defaults and are themselves overridden by a per-source setting.
-See [Postprocessing](config-file/index.md#postprocessing) for what these conversions do.
+See [Postprocessing](postprocessing/index.md) for what these conversions do.
 
 ```yaml
 passthrough:

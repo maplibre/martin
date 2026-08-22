@@ -58,7 +58,7 @@ The choice between MBTiles and PMTiles depends on system requirements:
 
 MBTiles and PMTiles sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
 This can be set for all sources of a type or for an individual source.
-See [Configuration File](../config-file/index.md#postprocessing) for details.
+See [Postprocessing](../postprocessing/index.md) for details.
 
 ```yaml
 pmtiles:
