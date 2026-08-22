@@ -41,7 +41,6 @@ impl ReloadAdvisory {
     ///
     /// Any source that disappears is a removal; any source that appears is an addition.
     /// Sources that remain are left untouched (no update concept without versions).
-    /// Additions are built concurrently.
     pub async fn from_sets<F>(
         previous_ids: &BTreeSet<String>,
         next_ids: &BTreeSet<String>,
@@ -73,7 +72,7 @@ impl ReloadAdvisory {
     /// Generates an advisory for **versioned** sources (e.g., `MBTiles`, COG).
     ///
     /// Compares keys and version values to distinguish between additions, removals,
-    /// and updates (version changed). Additions and updates are built concurrently.
+    /// and updates (version changed).
     pub async fn from_maps<F, V: Eq + Copy>(
         previous_map: &BTreeMap<String, V>,
         next_map: &BTreeMap<String, V>,
