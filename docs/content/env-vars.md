@@ -43,13 +43,13 @@ Martin used to read the variables below on its own. It now ignores them, and pri
 startup naming any of them that is still set, together with its replacement. The warning never
 prints the value of a variable, so connection strings and certificate paths stay out of the logs.
 
-| No longer read  | Command line                    | Config file                                   |
-|-----------------|---------------------------------|-----------------------------------------------|
-| `DATABASE_URL`  | `martin "$DATABASE_URL"`        | `postgres.connection_string: ${DATABASE_URL}`  |
-| `DEFAULT_SRID`  | `--default-srid 4326`           | `postgres.default_srid: ${DEFAULT_SRID}`       |
-| `PGSSLCERT`     | `--ssl-cert ./postgresql.crt`   | `postgres.ssl_cert: ${PGSSLCERT}`              |
-| `PGSSLKEY`      | `--ssl-key ./postgresql.key`    | `postgres.ssl_key: ${PGSSLKEY}`                |
-| `PGSSLROOTCERT` | `--ca-root-file ./root.crt`     | `postgres.ssl_root_cert: ${PGSSLROOTCERT}`     |
+| No longer read  | Command line                  | Config file                                   |
+|-----------------|-------------------------------|-----------------------------------------------|
+| `DATABASE_URL`  | `martin "$DATABASE_URL"`      | `postgres.connection_string: ${DATABASE_URL}` |
+| `DEFAULT_SRID`  | `--default-srid 4326`         | `postgres.default_srid: ${DEFAULT_SRID}`      |
+| `PGSSLCERT`     | `--ssl-cert ./postgresql.crt` | `postgres.ssl_cert: ${PGSSLCERT}`             |
+| `PGSSLKEY`      | `--ssl-key ./postgresql.key`  | `postgres.ssl_key: ${PGSSLKEY}`               |
+| `PGSSLROOTCERT` | `--ca-root-file ./root.crt`   | `postgres.ssl_root_cert: ${PGSSLROOTCERT}`    |
 
 ### With the command line
 
@@ -94,9 +94,9 @@ martin --config config.yaml
 
 These are not Martin settings, and are unaffected by the above:
 
-| Environment var           | Description                                                                                                                                                                |
-|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `RUST_LOG`                | Logging level, e.g. `RUST_LOG=debug` or `RUST_LOG=martin=debug`                                                                                                             |
-| `RUST_LOG_FORMAT`         | Log output format: `json`, `full`, `compact` (default), `bare` or `pretty`                                                                                                  |
-| `AWS_LAMBDA_RUNTIME_API`  | Set by the AWS Lambda runtime itself. If present, Martin serves requests through Lambda instead of its own HTTP server. See [Running in AWS Lambda](run-with-lambda.md)      |
-| `AWS_*`                   | Read by the deprecated `pmtiles` S3 compatibility shim, which warns and points at the equivalent [`pmtiles` config keys](sources-pmtiles.md)                                |
+| Environment var          | Description                                                                                                                                                             |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `RUST_LOG`               | Logging level, e.g. `RUST_LOG=debug` or `RUST_LOG=martin=debug`                                                                                                         |
+| `RUST_LOG_FORMAT`        | Log output format: `json`, `full`, `compact` (default), `bare` or `pretty`                                                                                              |
+| `AWS_LAMBDA_RUNTIME_API` | Set by the AWS Lambda runtime itself. If present, Martin serves requests through Lambda instead of its own HTTP server. See [Running in AWS Lambda](run-with-lambda.md) |
+| `AWS_*`                  | Read by the deprecated `pmtiles` S3 compatibility shim, which warns and points at the equivalent [`pmtiles` config keys](sources-pmtiles.md)                            |

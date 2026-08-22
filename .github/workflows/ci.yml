@@ -358,7 +358,11 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          # DEFAULT_SRID/PGSSL* are forwarded bare (no `=value`) alongside DATABASE_URL so tests
+          # that check the legacy-env-var migration warnings see them inside the container too --
+          # docker only passes through variables explicitly listed here, never the caller's whole
+          # environment.
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e PGSSLCERT -e PGSSLKEY -e PGSSLROOTCERT -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
@@ -374,7 +378,11 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          # DEFAULT_SRID/PGSSL* are forwarded bare (no `=value`) alongside DATABASE_URL so tests
+          # that check the legacy-env-var migration warnings see them inside the container too --
+          # docker only passes through variables explicitly listed here, never the caller's whole
+          # environment.
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e PGSSLCERT -e PGSSLKEY -e PGSSLROOTCERT -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
