@@ -392,6 +392,8 @@
       
         
       
+        
+      
     
     
     
@@ -756,6 +758,8 @@
       
         
           
+        
+      
         
       
         
@@ -1200,7 +1204,7 @@
     
       
         
-      
+          
         
       
         
@@ -1228,7 +1232,118 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
         
           
-          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+          <div class="md-nav__link md-nav__container">
+            <a href="../postprocessing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Postprocessing
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Postprocessing
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../postprocessing/mlt/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>MapLibre</title><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0m0 3.19c2.937 0 5.371 2.265 5.371 5.035 0 4.111-4.364 7.635-5.035 8.138-.084 0-.084.084-.084.084-.084.084-.168.084-.168.084s-.168 0-.168-.084l-.084-.084c-.84-.503-5.203-3.943-5.203-8.138 0-2.77 2.434-5.036 5.371-5.036zm0 2.601c-1.427 0-2.602 1.173-2.602 2.684 0 1.51 1.175 2.685 2.602 2.685s2.602-1.175 2.602-2.685S13.427 5.79 12 5.79zM8.979 17.287h6.042a.66.66 0 0 1 .67.672v2.014a.66.66 0 0 1-.67.67H8.98a.66.66 0 0 1-.67-.67v-2.014a.66.66 0 0 1 .67-.672zm.755 1.258v.924h4.448v-.924z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  MVT/MLT Conversion
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="">
             
   
   
@@ -1245,8 +1360,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1601,6 +1716,8 @@
       
         
           
+        
+      
         
       
         
@@ -2121,41 +2238,6 @@ This will generate a config yaml file with all of your configuration, which you 
 <p>The generated reference and its JSON Schema cover the features included during schema generation.
 Unstable sources such as duckdb or cog are not included.</p>
 </div>
-<h2 id="postprocessing">Postprocessing</h2>
-<p>Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's <code>Accept</code> header.
-The <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys configure these conversions.
-See the <a href="../using-guides/mlt/">MLT usage guide</a> for full details.</p>
-<p>Currently configurable:</p>
-<ul>
-<li><strong><code>convert_to_mlt</code></strong> - encoder settings for MVT-&gt;MLT conversion (triggered by <code>Accept: application/vnd.maplibre-tile</code>).</li>
-<li><strong><code>convert_to_mvt</code></strong> - enables MLT-&gt;MVT conversion (triggered by <code>Accept: application/x-protobuf</code> on an MLT source). Currently only supports <code>auto</code>.</li>
-</ul>
-<p>Both keys can appear at three levels.
-The most specific level wins entirely (no merging between levels):</p>
-<ol>
-<li><strong>Global</strong> - applies to all sources</li>
-<li><strong>Source-type</strong> - applies to all sources of that type (e.g. all PMTiles sources)</li>
-<li><strong>Per-source</strong> - applies to a single source</li>
-</ol>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Global: default encoder settings for any source whose tiles get converted</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">convert_to_mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="c1"># Source-type: override the encoder config for all PG sources</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">my_table</span><span class="p">:</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">      </span><span class="c1"># Per-source: this table uses the default MLT encoder config</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="nt">no_mlt_table</span><span class="p">:</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">      </span><span class="c1"># Per-source: explicitly opt out</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">      </span><span class="c1"># Even if the client requests MLT, this source is served as MVT.</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="nt">mbtiles</span><span class="p">:</span><span class="w"> </span><span class="c1"># gets global default</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">some/file.mbtiles</span>
-</span></code></pre></div>
 <h2 id="validating-your-config">Validating your config</h2>
 <p>Martin publishes a JSON Schema for the config file at
 <a href="https://github.com/maplibre/martin/blob/main/schemas/config.json"><code>schemas/config.json</code></a>.
@@ -2163,7 +2245,7 @@ You can use it to catch typos, wrong types, and unknown keys before
 starting Martin.</p>
 <h3 id="in-your-editor">In your editor</h3>
 <p>Add the directive at the top of your <code>config.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json</span>
 </span></code></pre></div>
 <p>Editors that respect it (any with the
 <a href="https://github.com/redhat-developer/yaml-language-server">YAML Language Server</a>
@@ -2172,9 +2254,9 @@ autocomplete from the schema.</p>
 <h3 id="from-the-command-line">From the command line</h3>
 <p>The same check Martin's CI runs against its own fixtures works on your config too.
 With <a href="https://docs.astral.sh/uv/"><code>uv</code></a> installed:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uvx<span class="w"> </span>--from<span class="w"> </span>check-jsonschema<span class="w"> </span>check-jsonschema<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--schemafile<span class="w"> </span>https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span>config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uvx<span class="w"> </span>--from<span class="w"> </span>check-jsonschema<span class="w"> </span>check-jsonschema<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--schemafile<span class="w"> </span>https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>config.yaml
 </span></code></pre></div>
 <p>A passing run prints <code>ok -- validation done</code>; a failing one points at
 the offending path with the reason.</p>
