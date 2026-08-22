@@ -1,13 +1,12 @@
 //! [`PostgresDiscovery`]: a [`Discovery`] over a `PostgreSQL` connection's tables and functions.
 
-use std::collections::BTreeMap;
 use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, ProcessConfig};
 use crate::config::primitives::IdResolver;
 use crate::{MartinError, MartinResult};
@@ -70,15 +69,15 @@ impl PostgresDiscovery {
 impl Discovery for PostgresDiscovery {
     type Args = SourceSpec;
 
-    async fn discover(&self) -> MartinResult<BTreeMap<String, (Version, Self::Args)>> {
+    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
         let (specs, warnings) = self.builder().await?.discover().await?;
-        for warning in &warnings {
-            tracing::warn!(?warning, "tile source discovery warning during reload");
-        }
-        Ok(specs
-            .into_iter()
-            .map(|(id, spec)| (id, (Version::Tracked(spec.fingerprint()), spec)))
-            .collect())
+        Ok(Discovered {
+            sources: specs
+                .into_iter()
+                .map(|(id, spec)| (id, (Version::Tracked(spec.fingerprint()), spec)))
+                .collect(),
+            warnings,
+        })
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
@@ -134,7 +133,8 @@ mod tests {
         let snapshot = discovery_for(&connstr)
             .discover()
             .await
-            .expect("discovery discover");
+            .expect("discovery discover")
+            .sources;
 
         let snapshot_ids: Vec<&String> = snapshot.keys().collect();
         let spec_ids: Vec<&String> = specs.keys().collect();
@@ -168,8 +168,8 @@ mod tests {
         seed(&connstr, ROADS_TABLE_SQL).await;
 
         let discovery = discovery_for(&connstr);
-        let first = discovery.discover().await.expect("first discover");
-        let second = discovery.discover().await.expect("second discover");
+        let first = discovery.discover().await.expect("first discover").sources;
+        let second = discovery.discover().await.expect("second discover").sources;
         assert_eq!(
             versions(&first),
             versions(&second),
@@ -183,10 +183,18 @@ mod tests {
         seed(&connstr, ROADS_TABLE_SQL).await;
 
         let discovery = discovery_for(&connstr);
-        let before = discovery.discover().await.expect("discover before ALTER");
+        let before = discovery
+            .discover()
+            .await
+            .expect("discover before ALTER")
+            .sources;
 
         seed(&connstr, "ALTER TABLE public.roads ADD COLUMN name text;").await;
-        let after = discovery.discover().await.expect("discover after ALTER");
+        let after = discovery
+            .discover()
+            .await
+            .expect("discover after ALTER")
+            .sources;
 
         assert_ne!(
             before["roads"].0, after["roads"].0,
@@ -205,7 +213,7 @@ mod tests {
         .await;
 
         let discovery = discovery_for(&connstr);
-        let snapshot = discovery.discover().await.expect("discover");
+        let snapshot = discovery.discover().await.expect("discover").sources;
         let (_version, spec) = snapshot.get("points").expect("spec for points");
 
         let source = discovery.build("points", spec).await.expect("build");

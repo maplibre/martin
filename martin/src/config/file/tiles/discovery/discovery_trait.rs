@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use martin_core::tiles::BoxedSource;
 
 use crate::MartinResult;
-use crate::config::file::ProcessConfig;
+use crate::config::file::{ProcessConfig, TileSourceWarning};
 
 /// Per-Source change-detection value. `Opaque` sources only diff on presence, never update.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -16,15 +16,31 @@ pub enum Version {
     Opaque,
 }
 
+/// One `discover()` observation: what should exist now, plus non-fatal findings along the way.
+pub struct Discovered<A> {
+    /// id -> (version, source arguments)
+    pub sources: BTreeMap<String, (Version, A)>,
+    /// Non-fatal findings (a misconfigured source, an unreadable path).
+    pub warnings: Vec<TileSourceWarning>,
+}
+
+impl<A> Discovered<A> {
+    #[must_use]
+    pub fn new(sources: BTreeMap<String, (Version, A)>) -> Self {
+        Self {
+            sources,
+            warnings: Vec::new(),
+        }
+    }
+}
+
 /// Enumerates the sources that should exist now, and builds one on demand.
 pub trait Discovery: Send + Sync + 'static {
     /// Per-source build payload passed from [`discover`](Self::discover) to [`build`](Self::build).
     type Args: Clone + Send + Sync + 'static;
 
     /// Cheap snapshot of id -> (version, source arguments); an `Err` makes the driver retain its baseline.
-    fn discover(
-        &self,
-    ) -> impl Future<Output = MartinResult<BTreeMap<String, (Version, Self::Args)>>> + Send;
+    fn discover(&self) -> impl Future<Output = MartinResult<Discovered<Self::Args>>> + Send;
 
     /// Builds one source; an `Err` rides into that source's `NewSource`.
     fn build(

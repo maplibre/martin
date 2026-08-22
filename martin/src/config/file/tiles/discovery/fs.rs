@@ -10,7 +10,7 @@ use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
 use crate::config::file::file_config::is_remote_url;
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult};
@@ -115,7 +115,7 @@ impl FsDiscovery {
 impl Discovery for FsDiscovery {
     type Args = (PathBuf, CachePolicy);
 
-    async fn discover(&self) -> MartinResult<BTreeMap<String, (Version, Self::Args)>> {
+    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
         let discovered = discover_sources_by_ext(
             &self.directories,
             self.extensions,
@@ -124,12 +124,14 @@ impl Discovery for FsDiscovery {
         )
         .await?;
 
-        Ok(discovered
-            .into_iter()
-            .map(|(id, (path, modified_at_ms, policy))| {
-                (id, (Version::Tracked(modified_at_ms), (path, policy)))
-            })
-            .collect())
+        Ok(Discovered::new(
+            discovered
+                .into_iter()
+                .map(|(id, (path, modified_at_ms, policy))| {
+                    (id, (Version::Tracked(modified_at_ms), (path, policy)))
+                })
+                .collect(),
+        ))
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
@@ -253,7 +255,7 @@ mod tests {
             unreachable_builder(),
         );
 
-        let snapshot = discovery.discover().await.expect("discover");
+        let snapshot = discovery.discover().await.expect("discover").sources;
 
         let mut ids: Vec<&String> = snapshot.keys().collect();
         ids.sort();
