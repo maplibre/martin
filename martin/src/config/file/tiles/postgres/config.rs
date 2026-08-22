@@ -381,6 +381,10 @@ impl PostgresConfig {
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "no real .await here, but async keeps the early-return control flow readable"
+    )]
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);

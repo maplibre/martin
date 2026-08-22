@@ -74,8 +74,11 @@ impl StyleConfig {
             return Ok(StyleSources::default());
         };
 
+        #[cfg_attr(
+            not(all(feature = "rendering", target_os = "linux")),
+            expect(unused_mut)
+        )]
         let mut results = StyleSources::default();
-
         #[cfg(all(feature = "rendering", target_os = "linux"))]
         match cfg.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),

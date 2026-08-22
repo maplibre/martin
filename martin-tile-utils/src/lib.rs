@@ -56,13 +56,13 @@ impl TileCoord {
     ///
     /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
     #[must_use]
-    pub fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
+    pub const fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
         Self { z, x, y }
     }
 
     /// Checks that zoom `z` is plausibily small and `x`/`y` is possible on said zoom level
     #[must_use]
-    pub fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
+    pub const fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
         if z > MAX_ZOOM {
             return false;
         }
@@ -105,7 +105,7 @@ impl Format {
 
     /// Get the `format` value as it should be stored in the `MBTiles` metadata table
     #[must_use]
-    pub fn metadata_format_value(self) -> &'static str {
+    pub const fn metadata_format_value(self) -> &'static str {
         match self {
             Self::Gif => "gif",
             Self::Jpeg => "jpeg",
@@ -120,7 +120,7 @@ impl Format {
     }
 
     #[must_use]
-    pub fn content_type(&self) -> &str {
+    pub const fn content_type(&self) -> &str {
         match *self {
             Self::Gif => "image/gif",
             Self::Jpeg => "image/jpeg",
@@ -150,7 +150,7 @@ impl Format {
     }
 
     #[must_use]
-    pub fn is_detectable(self) -> bool {
+    pub const fn is_detectable(self) -> bool {
         match self {
             Self::Png
             | Self::Jpeg
@@ -208,7 +208,7 @@ impl Encoding {
     /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
     /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
-    pub fn compression(self) -> Option<&'static str> {
+    pub const fn compression(self) -> Option<&'static str> {
         match self {
             Self::Uncompressed | Self::Internal => None,
             Self::Gzip => Some("gzip"),
@@ -219,7 +219,7 @@ impl Encoding {
     }
 
     #[must_use]
-    pub fn is_encoded(self) -> bool {
+    pub const fn is_encoded(self) -> bool {
         match self {
             Self::Uncompressed | Self::Internal => false,
             Self::Gzip | Self::Zlib | Self::Brotli | Self::Zstd => true,
@@ -235,7 +235,7 @@ pub struct TileInfo {
 
 impl TileInfo {
     #[must_use]
-    pub fn new(format: Format, encoding: Encoding) -> Self {
+    pub const fn new(format: Format, encoding: Encoding) -> Self {
         Self { format, encoding }
     }
 
@@ -297,7 +297,7 @@ impl TileInfo {
     }
 
     #[must_use]
-    pub fn encoding(self, encoding: Encoding) -> Self {
+    pub const fn encoding(self, encoding: Encoding) -> Self {
         Self { encoding, ..self }
     }
 }
@@ -422,8 +422,9 @@ fn is_valid_json(tile: &[u8]) -> bool {
 pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
-    let col = (((x - (EARTH_CIRCUMFERENCE * -0.5)).abs() / tile_size) as u32).min((1 << zoom) - 1);
-    let row = ((((EARTH_CIRCUMFERENCE * 0.5) - y).abs() / tile_size) as u32).min((1 << zoom) - 1);
+    let col = ((EARTH_CIRCUMFERENCE.mul_add(0.5, x).abs() / tile_size) as u32).min((1 << zoom) - 1);
+    let row =
+        ((EARTH_CIRCUMFERENCE.mul_add(0.5, -y).abs() / tile_size) as u32).min((1 << zoom) - 1);
     (col, row)
 }
 
@@ -450,8 +451,8 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 #[expect(clippy::cast_lossless)]
 #[must_use]
 pub fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
-    let min_x = EARTH_CIRCUMFERENCE * -0.5 + x as f64 * tile_length;
-    let max_y = EARTH_CIRCUMFERENCE * 0.5 - y as f64 * tile_length;
+    let min_x = (x as f64).mul_add(tile_length, EARTH_CIRCUMFERENCE * -0.5);
+    let max_y = (y as f64).mul_add(-tile_length, EARTH_CIRCUMFERENCE * 0.5);
 
     [min_x, max_y - tile_length, min_x + tile_length, max_y]
 }
@@ -487,7 +488,7 @@ pub fn webmercator_to_wgs84(x: f64, y: f64) -> (f64, f64) {
 // from https://github.com/Esri/arcgis-osm-editor/blob/e4b9905c264aa22f8eeb657efd52b12cdebea69a/src/OSMWeb10_1/Utils/WebMercator.cs
 #[must_use]
 pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
-    let x = lon * PI / 180.0 * EARTH_RADIUS;
+    let x = lon.to_radians() * EARTH_RADIUS;
 
     let y_sin = lat.to_radians().sin();
     let y = EARTH_RADIUS / 2.0 * ((1.0 + y_sin) / (1.0 - y_sin)).ln();

@@ -155,7 +155,7 @@ impl SpriteSources {
 
     /// Adds a sprite source directory containing SVG files.
     /// Files are ignored - only directories accepted. Duplicates ignored with warning.
-    pub fn add_source(&mut self, id: String, path: PathBuf) {
+    pub fn add_source(&self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
             warn!(
@@ -321,7 +321,7 @@ mod tests {
 
     #[tokio::test]
     async fn duplicate_ids_are_deduplicated_before_rendering() {
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source(
             "src1".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
@@ -340,7 +340,7 @@ mod tests {
 
     #[tokio::test]
     async fn too_many_ids_are_rejected_before_any_work() {
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source(
             "src1".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
@@ -374,7 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn sprites() {
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source(
             "src1".to_owned(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
@@ -422,7 +422,7 @@ mod tests {
         symlink("..data/foo.svg", root.join("foo.svg")).unwrap();
         symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
 
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source("foobar".to_owned(), root.to_path_buf());
 
         let catalog = sprites.get_catalog().expect("catalog");
@@ -442,7 +442,7 @@ mod tests {
         let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
         std::fs::write(sub.join("circle.svg"), svg).unwrap();
 
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source("nested".to_owned(), tmp.path().to_path_buf());
 
         let catalog = sprites.get_catalog().expect("catalog");
@@ -460,7 +460,7 @@ mod tests {
         std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
         std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
 
-        let mut sprites = SpriteSources::default();
+        let sprites = SpriteSources::default();
         sprites.add_source("bad".to_owned(), tmp.path().to_path_buf());
 
         let source = sprites.get("bad").expect("source registered");

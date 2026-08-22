@@ -16,7 +16,7 @@ impl SpriteConfig {
             return Ok(SpriteSources::default());
         };
 
-        let mut results = SpriteSources::default();
+        let results = SpriteSources::default();
         let mut directories = Vec::new();
         let mut configs = BTreeMap::new();
 

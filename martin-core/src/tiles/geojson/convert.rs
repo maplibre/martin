@@ -23,8 +23,6 @@ fn simplify_geo(geom: geo_types::Geometry<f64>) -> geo_types::Geometry<f64> {
 
 /// Validate a tile-space geometry and drop duplicate points.
 /// Geometry that the integer snap pinched into an invalid shape (e.g. a self-touching polygon) yields `None`.
-pub(crate) fn validate_and_simplify(
-    geom: geo_types::Geometry<f64>,
-) -> Option<geo_types::Geometry<f64>> {
+pub fn validate_and_simplify(geom: geo_types::Geometry<f64>) -> Option<geo_types::Geometry<f64>> {
     geom.is_valid().then(|| simplify_geo(geom))
 }
