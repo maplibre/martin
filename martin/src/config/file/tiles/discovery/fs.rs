@@ -10,13 +10,13 @@ use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
 use crate::config::file::file_config::is_remote_url;
-use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
+use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult};
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
-type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
+type BuildFuture = BoxFuture<'static, MartinResult<BoxedSource>>;
 
 /// Opens one discovered file as a source.
 ///
@@ -28,7 +28,7 @@ type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
 /// The mbtiles/cog builders capture nothing and would coerce to a bare `fn` pointer.
 /// They share this one type so all kinds yield the same concrete `FsDiscovery`.
 /// The cost is a single heap allocation per reloader at startup.
-pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
+pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuildFuture + Send + Sync>;
 
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
@@ -134,8 +134,10 @@ impl Discovery for FsDiscovery {
         ))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
-        (self.build)(id.to_owned(), args.0.clone(), args.1).await
+    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+        (self.build)(id.to_owned(), args.0.clone(), args.1)
+            .await
+            .map(Into::into)
     }
 
     fn process(&self) -> ProcessConfig {

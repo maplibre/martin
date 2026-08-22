@@ -2,11 +2,10 @@
 
 use std::time::Duration;
 
-use martin_core::tiles::BoxedSource;
 use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
-use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
+use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, ProcessConfig};
 use crate::config::primitives::IdResolver;
 use crate::{MartinError, MartinResult};
@@ -80,13 +79,71 @@ impl Discovery for PostgresDiscovery {
         })
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
-        let (source, _spec) = self.builder().await?.instantiate(id, args.clone()).await?;
-        Ok(source)
+    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+        let (source, spec) = self.builder().await?.instantiate(id, args.clone()).await?;
+        Ok(BuiltSource {
+            source,
+            process: Some(per_source_process(&self.process, &spec)),
+        })
     }
 
     fn process(&self) -> ProcessConfig {
         self.process.clone()
+    }
+}
+
+/// Per-source `convert_to_*` settings override the connection-level [`ProcessConfig`].
+#[cfg(feature = "mlt")]
+fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessConfig {
+    use crate::config::file::resolve_process_config;
+
+    let per_source = match spec {
+        SourceSpec::Table(info) => ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+        },
+        SourceSpec::Function(info, _) => ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+        },
+    };
+    resolve_process_config(connection, &ProcessConfig::default(), &per_source)
+}
+
+#[cfg(not(feature = "mlt"))]
+fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> ProcessConfig {
+    connection.clone()
+}
+
+#[cfg(all(test, feature = "mlt"))]
+mod process_tests {
+    use super::*;
+    use crate::config::file::postgres::TableInfo;
+    use crate::config::primitives::AutoOption;
+
+    #[test]
+    fn per_source_convert_overrides_the_connection_level() {
+        let connection = ProcessConfig {
+            convert_to_mlt: Some(AutoOption::Auto),
+            convert_to_mvt: None,
+        };
+
+        let with_override = SourceSpec::Table(TableInfo {
+            convert_to_mlt: Some(AutoOption::Disabled),
+            ..TableInfo::default()
+        });
+        assert_eq!(
+            per_source_process(&connection, &with_override).convert_to_mlt,
+            Some(AutoOption::Disabled),
+            "a per-table convert_to_mlt must win over the connection-level setting"
+        );
+
+        let without_override = SourceSpec::Table(TableInfo::default());
+        assert_eq!(
+            per_source_process(&connection, &without_override),
+            connection,
+            "a table without overrides must inherit the connection-level setting"
+        );
     }
 }
 
@@ -216,8 +273,8 @@ mod tests {
         let snapshot = discovery.discover().await.expect("discover").sources;
         let (_version, spec) = snapshot.get("points").expect("spec for points");
 
-        let source = discovery.build("points", spec).await.expect("build");
-        assert_eq!(source.get_id(), "points");
+        let built = discovery.build("points", spec).await.expect("build");
+        assert_eq!(built.source.get_id(), "points");
     }
 
     #[tokio::test]
