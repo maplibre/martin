@@ -50,8 +50,8 @@ jobs:
           persist-credentials: false
 
       - run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
-        with: { tool: 'just,oha' }
+      - uses: ./.github/actions/setup-rust
+        with: { toolchain: none, tools: 'just,oha' }
       - name: Install rendering dependencies
         run: just install-dependencies
 
@@ -63,6 +63,28 @@ jobs:
       - name: Create metrics directory
         run: mkdir -p /tmp/metrics
 
+      # Written to /tmp (not the justfile or a local action) because the base
+      # benchmark runs after `git checkout <base sha>` switches the whole tree,
+      # so anything added to tracked files would not exist for the base run.
+      - name: Write the benchmark script both runs share
+        run: |
+          cat > /tmp/hotpath-benchmark.sh << 'EOF'
+          set -euo pipefail
+          just bench-server-hotpath &
+          MARTIN_PID=$!
+
+          for i in {1..1000}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill "$MARTIN_PID" 2>/dev/null; exit 1; }
+
+          just bench-http 1m 100k
+
+          kill "$MARTIN_PID" 2>/dev/null || true
+          wait "$MARTIN_PID" || true
+          EOF
+
       - name: Build head
         run: just build-hotpath
 
@@ -72,21 +94,7 @@ jobs:
           HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
           HOTPATH_ALLOC_SELF: true
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-        run: |
-          set -euo pipefail
-          just bench-server-hotpath &
-          MARTIN_PID=$!
-
-          for i in {1..1000}; do
-            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
-            sleep 1
-          done
-          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
-
-          just bench-http 1m 100k
-
-          kill $MARTIN_PID 2>/dev/null || true
-          wait $MARTIN_PID || true
+        run: bash /tmp/hotpath-benchmark.sh
 
       - name: Checkout base
         run: git checkout ${{ github.event.pull_request.base.sha }}
@@ -116,21 +124,7 @@ jobs:
           HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
           HOTPATH_ALLOC_SELF: true
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-        run: |
-          set -euo pipefail
-          just bench-server-hotpath &
-          MARTIN_PID=$!
-
-          for i in {1..1000}; do
-            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
-            sleep 1
-          done
-          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
-
-          just bench-http 1m 100k
-
-          kill "$MARTIN_PID" 2>/dev/null || true
-          wait "$MARTIN_PID" || true
+        run: bash /tmp/hotpath-benchmark.sh
 
       - name: Save PR metadata
         env:

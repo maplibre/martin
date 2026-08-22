@@ -36,8 +36,8 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
-        with: { tool: 'just,cargo-binstall' }
+      - uses: ./.github/actions/setup-rust
+        with: { toolchain: none, tools: 'just,cargo-binstall' }
 
       - run: just -v docs-build
 
