@@ -87,7 +87,7 @@ A source value under `passthrough.sources` is one of:
 | `format`                            | all            | Explicit tile format override (e.g. `mvt`, `png`). Detected when unset.                                |
 | `attribution`                       | templates only | Attribution advertised in the served TileJSON.                                                         |
 | `cache`                             | all            | Zoom-level bounds for tile caching.                                                                    |
-| `convert_to_mlt` / `convert_to_mvt` | all            | Per-source [MVT/MLT conversion](postprocessing/index.md) overrides.                        |
+| `convert_to_mlt` / `convert_to_mvt` | all            | Per-source [MVT/MLT conversion](postprocessing/index.md) overrides.                               |
 | `minzoom` / `maxzoom`               | templates only | Zoom range advertised in the served TileJSON.                                                          |
 | `bounds`                            | templates only | Geographic bounds advertised in the served TileJSON.                                                   |
 
