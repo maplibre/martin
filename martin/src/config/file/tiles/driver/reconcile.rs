@@ -62,7 +62,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
     /// startup, so applying would double-add.
     async fn seed(&mut self) {
         match self.discovery.discover().await {
-            Ok(next) => self.baseline = Some(next),
+            Ok(next) => self.baseline = Some(next.sources),
             Err(error) => {
                 tracing::warn!(?error, "reload seed discovery failed; baseline deferred");
             }
@@ -77,6 +77,10 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
                 return;
             }
         };
+        for warning in &next.warnings {
+            tracing::warn!(%warning, "tile source discovery warning during reload");
+        }
+        let next = next.sources;
 
         let Some(prev) = self.baseline.as_ref() else {
             // No baseline yet (the seed failed): record it without applying, so already-served
@@ -133,6 +137,7 @@ mod tests {
 
     use super::*;
     use crate::config::file::ProcessConfig;
+    use crate::config::file::tiles::discovery::Discovered;
 
     /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
     #[derive(Debug, Clone)]
@@ -228,14 +233,14 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
-        fn discover(&self) -> impl Future<Output = MartinResult<Snapshot>> + Send {
+        fn discover(&self) -> impl Future<Output = MartinResult<Discovered<()>>> + Send {
             let snap = self
                 .snapshots
                 .lock()
                 .expect("FakeDiscovery mutex poisoned")
                 .pop_front()
                 .unwrap_or_else(|| Ok(Snapshot::new()));
-            std::future::ready(snap)
+            std::future::ready(snap.map(Discovered::new))
         }
 
         fn build(
