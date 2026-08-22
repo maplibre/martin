@@ -393,7 +393,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
 
 /// How many tile sources are opened at once at startup and on reload.
 /// Opening a remote source is a few dependent round trips, so serial opens cost latency times source count.
-/// 
+///
 /// FIXME: make this constant dependent on system size (number of cores) and source types (local/remote)
 #[cfg(feature = "_tiles")]
 pub const MAX_CONCURRENT_SOURCE_INITS: usize = 64;
