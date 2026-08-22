@@ -36,5 +36,5 @@ The difference between MBTiles and PMTiles is that:
 
 The choice depends on your specific usecase and requirements.
 
-Most vector tile sources support optional [postprocessing](../config-file/index.md#postprocessing) (format conversion) via the `convert_to_mlt` and `convert_to_mvt` configuration keys.
+Most vector tile sources support optional [postprocessing](../postprocessing/index.md) (format conversion) via the `convert_to_mlt` and `convert_to_mvt` configuration keys.
 DuckDB / GeoParquet sources do not currently support postprocessing.

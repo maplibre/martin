@@ -43,7 +43,7 @@ Sources that produce other formats (raster, etc.) are unaffected.
 ## Scoping MLT Conversion
 
 You don't have to convert everything.
-The `convert_to_mlt` key can be placed at three levels, and the most specific one wins entirely (see [Configuration File](../config-file/index.md) for details).
+The `convert_to_mlt` key can be placed at three levels, and the most specific one wins entirely (see [Postprocessing](index.md) for details).
 
 ### Convert only PostgreSQL sources
 
