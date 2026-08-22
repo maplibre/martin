@@ -1,15 +1,14 @@
 //! [`PostgresDiscovery`]: a [`Discovery`] over a `PostgreSQL` connection's tables and functions.
 
-use std::collections::BTreeMap;
 use std::time::Duration;
 
-use martin_core::tiles::BoxedSource;
 use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, ProcessConfig};
 use crate::config::primitives::IdResolver;
+use crate::reload::SourceProvenance;
 use crate::{MartinError, MartinResult};
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
@@ -50,6 +49,17 @@ impl PostgresDiscovery {
         self.config.reload_interval
     }
 
+    #[must_use]
+    pub fn config(&self) -> &PostgresConfig {
+        &self.config
+    }
+
+    /// The pool id (database name), once the first `discover` has connected.
+    #[must_use]
+    pub fn pool_id(&self) -> Option<&str> {
+        self.builder.get().map(PostgresAutoDiscoveryBuilder::get_id)
+    }
+
     /// The builder, created on first use. A bad connection string surfaces here as an `Err`,
     /// which the driver treats like any other discovery failure (retain the baseline, retry).
     async fn builder(&self) -> MartinResult<&PostgresAutoDiscoveryBuilder> {
@@ -70,24 +80,92 @@ impl PostgresDiscovery {
 impl Discovery for PostgresDiscovery {
     type Args = SourceSpec;
 
-    async fn discover(&self) -> MartinResult<BTreeMap<String, (Version, Self::Args)>> {
+    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
         let (specs, warnings) = self.builder().await?.discover().await?;
-        for warning in &warnings {
-            tracing::warn!(?warning, "tile source discovery warning during reload");
-        }
-        Ok(specs
-            .into_iter()
-            .map(|(id, spec)| (id, (Version::Tracked(spec.fingerprint()), spec)))
-            .collect())
+        Ok(Discovered {
+            sources: specs
+                .into_iter()
+                .map(|(id, spec)| (id, (Version::Tracked(spec.fingerprint()), spec)))
+                .collect(),
+            warnings,
+        })
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
-        let (source, _spec) = self.builder().await?.instantiate(id, args.clone()).await?;
-        Ok(source)
+    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+        let (source, spec) = self.builder().await?.instantiate(id, args.clone()).await?;
+        log_published(id, &spec);
+        Ok(BuiltSource {
+            source,
+            process: Some(per_source_process(&self.process, &spec)),
+            provenance: Some(SourceProvenance::Postgres {
+                connection_string: self
+                    .config
+                    .connection_string
+                    .clone()
+                    .expect("connection_string is set after PostgresConfig::finalize()"),
+                spec,
+            }),
+        })
     }
 
     fn process(&self) -> ProcessConfig {
         self.process.clone()
+    }
+}
+
+/// Per-source `convert_to_*` settings override the connection-level [`ProcessConfig`].
+#[cfg(feature = "mlt")]
+fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessConfig {
+    use crate::config::file::resolve_process_config;
+
+    let per_source = match spec {
+        SourceSpec::Table(info) => ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+        },
+        SourceSpec::Function(info, _) => ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+        },
+    };
+    resolve_process_config(connection, &ProcessConfig::default(), &per_source)
+}
+
+#[cfg(not(feature = "mlt"))]
+fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> ProcessConfig {
+    connection.clone()
+}
+
+fn log_published(id: &str, spec: &SourceSpec) {
+    match spec {
+        SourceSpec::Table(info) => {
+            let kind = match info.relkind {
+                Some('v') => "view",
+                Some('m') => "materialized view",
+                _ => "table",
+            };
+            tracing::info!(
+                source.id = %id,
+                source.kind = kind,
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                geometry_type = info.geometry_type.as_deref().unwrap_or("unknown"),
+                srid = info.srid,
+                id_column = info.id_column.as_deref().unwrap_or("none"),
+                "Published source"
+            );
+        }
+        SourceSpec::Function(info, sql) => {
+            tracing::info!(
+                source.id = %id,
+                source.kind = "function",
+                schema = %info.schema,
+                function = %info.function,
+                function.signature = %sql.signature,
+                "Published source"
+            );
+        }
     }
 }
 
@@ -134,7 +212,8 @@ mod tests {
         let snapshot = discovery_for(&connstr)
             .discover()
             .await
-            .expect("discovery discover");
+            .expect("discovery discover")
+            .sources;
 
         let snapshot_ids: Vec<&String> = snapshot.keys().collect();
         let spec_ids: Vec<&String> = specs.keys().collect();
@@ -168,8 +247,8 @@ mod tests {
         seed(&connstr, ROADS_TABLE_SQL).await;
 
         let discovery = discovery_for(&connstr);
-        let first = discovery.discover().await.expect("first discover");
-        let second = discovery.discover().await.expect("second discover");
+        let first = discovery.discover().await.expect("first discover").sources;
+        let second = discovery.discover().await.expect("second discover").sources;
         assert_eq!(
             versions(&first),
             versions(&second),
@@ -183,10 +262,18 @@ mod tests {
         seed(&connstr, ROADS_TABLE_SQL).await;
 
         let discovery = discovery_for(&connstr);
-        let before = discovery.discover().await.expect("discover before ALTER");
+        let before = discovery
+            .discover()
+            .await
+            .expect("discover before ALTER")
+            .sources;
 
         seed(&connstr, "ALTER TABLE public.roads ADD COLUMN name text;").await;
-        let after = discovery.discover().await.expect("discover after ALTER");
+        let after = discovery
+            .discover()
+            .await
+            .expect("discover after ALTER")
+            .sources;
 
         assert_ne!(
             before["roads"].0, after["roads"].0,
@@ -205,11 +292,12 @@ mod tests {
         .await;
 
         let discovery = discovery_for(&connstr);
-        let snapshot = discovery.discover().await.expect("discover");
+        let snapshot = discovery.discover().await.expect("discover").sources;
         let (_version, spec) = snapshot.get("points").expect("spec for points");
 
-        let source = discovery.build("points", spec).await.expect("build");
-        assert_eq!(source.get_id(), "points");
+        let built = discovery.build("points", spec).await.expect("build");
+        assert_eq!(built.source.get_id(), "points");
+        assert!(built.provenance.is_some());
     }
 
     #[tokio::test]

@@ -3,10 +3,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use martin_core::tiles::BoxedSource;
 use tokio::task::JoinHandle;
 
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::TileSourceWarning;
+use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
 use crate::reload::ReloadAdvisory;
 use crate::{MartinError, MartinResult};
@@ -17,6 +17,8 @@ use crate::{MartinError, MartinResult};
 /// next discovery.
 #[derive(Clone, Copy)]
 pub enum Baseline {
+    /// Populated by [`ReloadDriver::init`], which is the only writer of these sources.
+    Initialized,
     /// Loaded into the catalog at startup by `config.resolve()` (local directories): seed the
     /// baseline from the current discovery, so only later changes apply and removals diff correctly.
     StartupResolved,
@@ -45,10 +47,29 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         }
     }
 
+    #[must_use]
+    pub fn discovery(&self) -> &D {
+        &self.discovery
+    }
+
+    /// Loads everything discovered into the sink and records it as the baseline, so the catalog
+    /// is populated by exactly one observation before serving starts.
+    ///
+    /// Discovery warnings are returned for the caller's `on_invalid` policy; a discovery or apply
+    /// error leaves the baseline unset and is returned.
+    pub async fn init(&mut self) -> MartinResult<Vec<TileSourceWarning>> {
+        let discovered = self.discovery.discover().await?;
+        let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
+        self.sink.apply_changes(advisory).await?;
+        self.baseline = Some(discovered.sources);
+        Ok(discovered.warnings)
+    }
+
     /// Establishes the [`Baseline`], then reconciles once per `trigger.next()`.
     pub fn spawn(mut self, mut trigger: impl Trigger, initial: Baseline) -> JoinHandle<()> {
         tokio::spawn(async move {
             match initial {
+                Baseline::Initialized => {}
                 Baseline::StartupResolved => self.seed().await,
                 Baseline::Empty => self.baseline = Some(BTreeMap::new()),
             }
@@ -62,7 +83,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
     /// startup, so applying would double-add.
     async fn seed(&mut self) {
         match self.discovery.discover().await {
-            Ok(next) => self.baseline = Some(next),
+            Ok(next) => self.baseline = Some(next.sources),
             Err(error) => {
                 tracing::warn!(?error, "reload seed discovery failed; baseline deferred");
             }
@@ -77,6 +98,10 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
                 return;
             }
         };
+        for warning in &next.warnings {
+            tracing::warn!(%warning, "tile source discovery warning during reload");
+        }
+        let next = next.sources;
 
         let Some(prev) = self.baseline.as_ref() else {
             // No baseline yet (the seed failed): record it without applying, so already-served
@@ -85,22 +110,36 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
             return;
         };
 
+        let advisory = Self::advisory(&self.discovery, prev, &next).await;
+        match self.sink.apply_changes(advisory).await {
+            Ok(()) => self.baseline = Some(next),
+            Err(error) => {
+                tracing::warn!(?error, "reload apply failed; retaining baseline for retry");
+            }
+        }
+    }
+
+    async fn advisory(
+        discovery: &Arc<D>,
+        prev: &BTreeMap<String, (Version, D::Args)>,
+        next: &BTreeMap<String, (Version, D::Args)>,
+    ) -> ReloadAdvisory {
         let prev_versions: BTreeMap<String, Version> =
             prev.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
         let next_versions: BTreeMap<String, Version> =
             next.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
 
-        let process = self.discovery.process();
-        let discovery = Arc::clone(&self.discovery);
+        let process = discovery.process();
+        let discovery = Arc::clone(discovery);
         let args_by_id: BTreeMap<String, D::Args> = next
             .iter()
             .map(|(id, (_, args))| (id.clone(), args.clone()))
             .collect();
 
-        let advisory = ReloadAdvisory::from_maps(
+        ReloadAdvisory::from_maps(
             &prev_versions,
             &next_versions,
-            async move |id: String| -> MartinResult<BoxedSource> {
+            async move |id: String| -> MartinResult<BuiltSource> {
                 let args = args_by_id
                     .get(&id)
                     .ok_or_else(|| MartinError::SourceNotFound(id.clone()))?;
@@ -108,14 +147,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
             },
             process,
         )
-        .await;
-
-        match self.sink.apply_changes(advisory).await {
-            Ok(()) => self.baseline = Some(next),
-            Err(error) => {
-                tracing::warn!(?error, "reload apply failed; retaining baseline for retry");
-            }
-        }
+        .await
     }
 }
 
@@ -126,13 +158,14 @@ mod tests {
 
     use async_trait::async_trait;
     use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use rstest::rstest;
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
     use crate::config::file::ProcessConfig;
+    use crate::config::file::tiles::discovery::Discovered;
 
     /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
     #[derive(Debug, Clone)]
@@ -228,23 +261,24 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
-        fn discover(&self) -> impl Future<Output = MartinResult<Snapshot>> + Send {
-            let snap = self
+        fn discover(&self) -> impl Future<Output = MartinResult<Discovered<()>>> + Send {
+            let discovered = self
                 .snapshots
                 .lock()
                 .expect("FakeDiscovery mutex poisoned")
                 .pop_front()
-                .unwrap_or_else(|| Ok(Snapshot::new()));
-            std::future::ready(snap)
+                .unwrap_or_else(|| Ok(Snapshot::new()))
+                .map(Discovered::new);
+            std::future::ready(discovered)
         }
 
         fn build(
             &self,
             id: &str,
             _args: &(),
-        ) -> impl Future<Output = MartinResult<BoxedSource>> + Send {
+        ) -> impl Future<Output = MartinResult<BuiltSource>> + Send {
             let source: BoxedSource = Box::new(TestSource::new(id));
-            std::future::ready(Ok(source))
+            std::future::ready(Ok(source.into()))
         }
 
         fn process(&self) -> ProcessConfig {
@@ -439,6 +473,58 @@ mod tests {
             recorded.lock().unwrap().is_empty(),
             "establishing the baseline after a failed seed must not flood"
         );
+    }
+
+    #[tokio::test]
+    async fn init_applies_full_discovery_then_ticks_diff_against_it() {
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
+        ]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        let mut driver = ReloadDriver::new(discovery, sink);
+        let warnings = driver.init().await.expect("init");
+        assert!(warnings.is_empty());
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: ids(&["a", "b"]),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: ids(&[]),
+                    updates: ids(&[]),
+                    removals: ids(&["b"]),
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn init_propagates_discovery_and_apply_errors() {
+        let discovery = FakeDiscovery::new(vec![Err(MartinError::SourceNotFound("boom".into()))]);
+        let mut driver = ReloadDriver::new(discovery, SpySink::new());
+        assert!(
+            driver.init().await.is_err(),
+            "discovery error must fail init"
+        );
+
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
+        let sink = SpySink::with_results(vec![Err(MartinError::SourceNotFound("apply".into()))]);
+        let mut driver = ReloadDriver::new(discovery, sink);
+        assert!(driver.init().await.is_err(), "apply error must fail init");
     }
 
     #[tokio::test]

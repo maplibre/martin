@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 use martin_core::tiles::BoxedSource;
 
 use crate::MartinResult;
-use crate::config::file::ProcessConfig;
+use crate::config::file::{ProcessConfig, TileSourceWarning};
+use crate::reload::SourceProvenance;
 
 /// Per-Source change-detection value. `Opaque` sources only diff on presence, never update.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -16,22 +17,56 @@ pub enum Version {
     Opaque,
 }
 
+/// One `discover()` observation: what should exist now, plus non-fatal findings along the way.
+pub struct Discovered<A> {
+    /// id -> (version, source arguments)
+    pub sources: BTreeMap<String, (Version, A)>,
+    /// Non-fatal findings (a misconfigured source, an unreadable path). Abortable at startup, warn-only live.
+    pub warnings: Vec<TileSourceWarning>,
+}
+
+impl<A> Discovered<A> {
+    #[must_use]
+    pub fn new(sources: BTreeMap<String, (Version, A)>) -> Self {
+        Self {
+            sources,
+            warnings: Vec::new(),
+        }
+    }
+}
+
+/// A built source, with what the catalog needs to write it back to a config file.
+pub struct BuiltSource {
+    pub source: BoxedSource,
+    pub provenance: Option<SourceProvenance>,
+    /// Per-source override of the kind's [`Discovery::process`], if the source configures one.
+    pub process: Option<ProcessConfig>,
+}
+
+impl From<BoxedSource> for BuiltSource {
+    fn from(source: BoxedSource) -> Self {
+        Self {
+            source,
+            provenance: None,
+            process: None,
+        }
+    }
+}
+
 /// Enumerates the sources that should exist now, and builds one on demand.
 pub trait Discovery: Send + Sync + 'static {
     /// Per-source build payload passed from [`discover`](Self::discover) to [`build`](Self::build).
     type Args: Clone + Send + Sync + 'static;
 
     /// Cheap snapshot of id -> (version, source arguments); an `Err` makes the driver retain its baseline.
-    fn discover(
-        &self,
-    ) -> impl Future<Output = MartinResult<BTreeMap<String, (Version, Self::Args)>>> + Send;
+    fn discover(&self) -> impl Future<Output = MartinResult<Discovered<Self::Args>>> + Send;
 
     /// Builds one source; an `Err` rides into that source's `NewSource`.
     fn build(
         &self,
         id: &str,
         args: &Self::Args,
-    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = MartinResult<BuiltSource>> + Send;
 
     /// `ProcessConfig` stamped onto every source this kind emits.
     fn process(&self) -> ProcessConfig;
