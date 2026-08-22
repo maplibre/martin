@@ -35,6 +35,12 @@ pub struct PostgresArgs {
     /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
+    /// A file with a client SSL certificate.
+    #[arg(long)]
+    pub ssl_cert: Option<std::path::PathBuf>,
+    /// A file with the key for the client SSL certificate.
+    #[arg(long)]
+    pub ssl_key: Option<std::path::PathBuf>,
 }
 
 impl PostgresArgs {
@@ -84,6 +90,8 @@ impl PostgresArgs {
             auto_bounds,
             max_feature_count,
             ca_root_file,
+            ssl_cert,
+            ssl_key,
         } = self;
 
         if let Some(value) = default_srid {
@@ -125,6 +133,24 @@ impl PostgresArgs {
             );
             pg_config.iter_mut().for_each(|c| {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
+            });
+        }
+        if let Some(ref value) = ssl_cert {
+            info!(
+                "Overriding client SSL certificate to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_cert.clone_from(&ssl_cert);
+            });
+        }
+        if let Some(ref value) = ssl_key {
+            info!(
+                "Overriding client SSL key to {} on all Postgres connections because of a CLI parameter",
+                value.display()
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.ssl_certificates.ssl_key.clone_from(&ssl_key);
             });
         }
     }
@@ -170,11 +196,17 @@ impl PostgresArgs {
 
     fn get_certs(&self, env: &impl Env) -> PostgresSslCerts {
         let mut result = PostgresSslCerts {
-            ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
-            ssl_key: Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate"),
+            ssl_cert: self.ssl_cert.clone(),
+            ssl_key: self.ssl_key.clone(),
             ssl_root_cert: self.ca_root_file.clone(),
             unrecognized: UnrecognizedValues::default(),
         };
+        if result.ssl_cert.is_none() {
+            result.ssl_cert = Self::parse_env_var(env, "PGSSLCERT", "ssl certificate");
+        }
+        if result.ssl_key.is_none() {
+            result.ssl_key = Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate");
+        }
         if result.ssl_root_cert.is_none() {
             result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
         }
@@ -313,5 +345,71 @@ mod tests {
             })
         );
         args.check().unwrap();
+    }
+
+    /// `--ssl-cert`/`--ssl-key` win over `PGSSLCERT`/`PGSSLKEY`, the same way `--ca-root-file`
+    /// already wins over `PGSSLROOTCERT`.
+    #[test]
+    fn cli_ssl_cert_and_key_override_env() {
+        let mut args = Arguments::new(vec![]);
+        let env = FauxEnv(
+            vec![
+                ("DATABASE_URL", OsString::from("postgres://localhost:5432")),
+                ("PGSSLCERT", OsString::from("env-cert")),
+                ("PGSSLKEY", OsString::from("env-key")),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let pg_args = PostgresArgs {
+            ssl_cert: Some(PathBuf::from("cli-cert")),
+            ssl_key: Some(PathBuf::from("cli-key")),
+            ..Default::default()
+        };
+        let config = pg_args.into_config(&mut args, &env);
+        assert_eq!(
+            config,
+            OptOneMany::One(PostgresConfig {
+                connection_string: Some("postgres://localhost:5432".to_owned()),
+                ssl_certificates: PostgresSslCerts {
+                    ssl_cert: Some(PathBuf::from("cli-cert")),
+                    ssl_key: Some(PathBuf::from("cli-key")),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+        );
+        args.check().unwrap();
+    }
+
+    /// A config file's SSL values must survive; `--ssl-cert`/`--ssl-key` override them like
+    /// `--ca-root-file` already does for `ssl_root_cert`.
+    #[test]
+    fn override_config_applies_ssl_cli_flags() {
+        let mut config = OptOneMany::One(PostgresConfig {
+            connection_string: Some("postgres://localhost:5432".to_owned()),
+            ssl_certificates: PostgresSslCerts {
+                ssl_cert: Some(PathBuf::from("from-config")),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        PostgresArgs {
+            ssl_cert: Some(PathBuf::from("from-cli")),
+            ssl_key: Some(PathBuf::from("key-from-cli")),
+            ..Default::default()
+        }
+        .override_config(&mut config);
+        let OptOneMany::One(cfg) = config else {
+            panic!("expected exactly one postgres config");
+        };
+        assert_eq!(
+            cfg.ssl_certificates.ssl_cert,
+            Some(PathBuf::from("from-cli"))
+        );
+        assert_eq!(
+            cfg.ssl_certificates.ssl_key,
+            Some(PathBuf::from("key-from-cli"))
+        );
     }
 }
