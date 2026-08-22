@@ -12,6 +12,11 @@ The configuration file itself can use environment variables if needed.
 See [configuration section](config-file/index.md) on how to use environment variables with config files.
 See also [SSL configuration](pg-connections/index.md#ssl-connections) section below.
 
+**Deprecated:** reading these five variables implicitly is deprecated and may be removed in a
+future release ([#1052](https://github.com/maplibre/martin/issues/1052)). Martin warns once at
+startup naming any of them that are still set, together with the config-file key (and CLI flag,
+where one exists) that replaces them.
+
 | Environment var <br/> Config File key    | Example                                   | Description                                                                                                                                                                                                |
 |------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `DATABASE_URL` <br/> `connection_string` | `postgres://`<br/>`postgres@localhost/db` | Postgres database connection                                                                                                                                                                               |

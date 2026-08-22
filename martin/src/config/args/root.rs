@@ -28,6 +28,8 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+#[cfg(feature = "postgres")]
+use crate::config::file::warn_legacy_env_vars;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::env::Env;
@@ -103,6 +105,13 @@ impl Args {
     ) -> MartinResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
+        }
+
+        // With a config file, `read_config` has already reported the legacy environment variables
+        // against its contents, skipping the ones the file explicitly references.
+        #[cfg(feature = "postgres")]
+        if self.meta.config.is_none() {
+            warn_legacy_env_vars(env, None);
         }
 
         if self.srv.cache_size.is_some() {
@@ -494,5 +503,38 @@ mod tests {
         insta::assert_yaml_snapshot!(config, @r#"
         geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
         "#);
+    }
+
+    /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`
+    /// still configures Postgres exactly as it does today.
+    #[cfg(feature = "postgres")]
+    #[test]
+    #[tracing_test::traced_test]
+    fn legacy_env_var_still_configures_postgres_and_warns() {
+        use crate::config::primitives::OptOneMany;
+        use std::ffi::OsString;
+
+        let env: FauxEnv = [(
+            "DATABASE_URL",
+            OsString::from("postgres://localhost:5432/from-env"),
+        )]
+        .into_iter()
+        .collect();
+
+        let args = Args::parse_from(["martin"]);
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &env).unwrap();
+
+        let pg = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(
+            pg.connection_string.as_deref(),
+            Some("postgres://localhost:5432/from-env")
+        );
+        assert!(logs_contain(
+            "Environment variable DATABASE_URL is deprecated"
+        ));
     }
 }
