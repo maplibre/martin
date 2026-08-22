@@ -70,6 +70,10 @@ nav = [
         {"Passthrough Sources" = "sources-passthrough.md"},
         {"Composite Sources" = "sources-composite.md"}
     ]},
+    {"Postprocessing" = [
+        "postprocessing/index.md",
+        {"MVT/MLT Conversion" = "postprocessing/mlt.md"}
+    ]},
     {"Supporting Resources" = [
         {"Sprites" = "sources-sprites.md"},
         {"Styles" = [
@@ -378,6 +382,10 @@ quote = "octicons/quote-16"
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
 link = "https://github.com/maplibre/martin"
+
+[project.markdown_extensions.pymdownx.emoji]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
 
 [project.markdown_extensions.pymdownx.highlight]
 anchor_linenums = true

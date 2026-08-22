@@ -31,7 +31,7 @@ use serde::Deserialize;
 ///
 /// Returns a human-readable message on malformed JSON, a non-`FeatureCollection`
 /// body, an invalid enum/number, or an unparseable CSS color.
-pub(crate) fn parse_overlay(bytes: &[u8]) -> Result<OverlaySpec, String> {
+pub fn parse_overlay(bytes: &[u8]) -> Result<OverlaySpec, String> {
     let raw: StaticStyleOverlay =
         serde_json::from_slice(bytes).map_err(|e| format!("Invalid JSON overlay body: {e}"))?;
     OverlaySpec::try_from(raw)

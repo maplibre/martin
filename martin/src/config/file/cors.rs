@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt;
 
 use actix_http::Method;
@@ -8,7 +7,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    UnrecognizedValues,
 };
 use crate::{MartinError, MartinResult};
 
@@ -118,10 +118,14 @@ impl CorsConfig {
     pub fn log_current_configuration(&self) {
         match &self {
             Self::SimpleFlag(false) => info!("CORS is disabled"),
-            Self::SimpleFlag(true) => info!(
-                "CORS enabled with defaults: {:?}",
-                CorsProperties::default()
-            ),
+            Self::SimpleFlag(true) => {
+                let CorsProperties {
+                    origin,
+                    max_age,
+                    unrecognized: _,
+                } = CorsProperties::default();
+                info!("CORS enabled with defaults (origin={origin:?}, max_age={max_age:?})");
+            }
             Self::Properties(props) => {
                 info!("CORS enabled with custom properties: {props:?}");
             }

@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
@@ -6,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
-use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
+use crate::config::file::{
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+};
 
 /// Resolved `GeoParquet` location after finalize: a concrete local file or an http(s) URL.
 ///

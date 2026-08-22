@@ -58,7 +58,7 @@ pub async fn get_source_info(
         // Fall back to X-Rewrite-URL header if present, otherwise use request path
         req.headers()
             .get("X-Rewrite-URL")
-            .or(req.headers().get("X-Forwarded-Prefix"))
+            .or_else(|| req.headers().get("X-Forwarded-Prefix"))
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
             .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())

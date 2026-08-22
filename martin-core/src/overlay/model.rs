@@ -19,7 +19,7 @@ pub struct OverlaySpec {
 impl OverlaySpec {
     /// `true` when there are no features -- nothing to apply.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.features.is_empty()
     }
 }

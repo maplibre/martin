@@ -23,14 +23,14 @@ pub struct CacheZoomRange {
 impl CacheZoomRange {
     /// Creates a new `CacheZoomRange` with the given bounds.
     #[must_use]
-    pub fn new(minzoom: Option<u8>, maxzoom: Option<u8>) -> Self {
+    pub const fn new(minzoom: Option<u8>, maxzoom: Option<u8>) -> Self {
         Self { minzoom, maxzoom }
     }
 
     /// Creates a disabled `CacheZoomRange` where `minzoom > maxzoom`,
     /// so `contains()` always returns `false`.
     #[must_use]
-    pub fn disabled() -> Self {
+    pub const fn disabled() -> Self {
         Self {
             minzoom: Some(u8::MAX),
             maxzoom: Some(0),
@@ -39,7 +39,7 @@ impl CacheZoomRange {
 
     /// Returns `true` if neither bound is set.
     #[must_use]
-    pub fn is_empty(self) -> bool {
+    pub const fn is_empty(self) -> bool {
         self.minzoom.is_none() && self.maxzoom.is_none()
     }
 

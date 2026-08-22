@@ -36,45 +36,6 @@ martin  ... ... ...  --save-config config.yaml
     The generated reference and its JSON Schema cover the features included during schema generation.
     Unstable sources such as duckdb or cog are not included.
 
-## Postprocessing
-
-Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.
-The `convert_to_mlt` and `convert_to_mvt` keys configure these conversions.
-See the [MLT usage guide](../using-guides/mlt.md) for full details.
-
-Currently configurable:
-
-- **`convert_to_mlt`** - encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
-- **`convert_to_mvt`** - enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
-
-Both keys can appear at three levels.
-The most specific level wins entirely (no merging between levels):
-
-1. **Global** - applies to all sources
-2. **Source-type** - applies to all sources of that type (e.g. all PMTiles sources)
-3. **Per-source** - applies to a single source
-
-```yaml
-# Global: default encoder settings for any source whose tiles get converted
-convert_to_mlt: auto
-convert_to_mvt: auto
-
-postgres:
-  connection_string: postgresql://localhost/mydb
-  # Source-type: override the encoder config for all PG sources
-  convert_to_mlt: auto
-  tables:
-    my_table:
-      # Per-source: this table uses the default MLT encoder config
-      convert_to_mlt: auto
-    no_mlt_table:
-      # Per-source: explicitly opt out
-      # Even if the client requests MLT, this source is served as MVT.
-      convert_to_mlt: disabled
-mbtiles: # gets global default
-  - some/file.mbtiles
-```
-
 ## Validating your config
 
 Martin publishes a JSON Schema for the config file at

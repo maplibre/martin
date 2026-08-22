@@ -101,16 +101,16 @@ pub async fn get_style_json(
 /// styles the header would contain the full style request path
 /// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
 fn path_prefix(req: &HttpRequest, srv_config: &SrvConfig) -> String {
-    if let Some(prefix) = srv_config.public_path_prefix() {
-        prefix.to_owned()
-    } else {
-        req.headers()
+    let Some(prefix) = srv_config.public_path_prefix() else {
+        return req
+            .headers()
             .get("X-Forwarded-Prefix")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
             .map(|v| v.path().trim_end_matches('/').to_owned())
-            .unwrap_or_default()
-    }
+            .unwrap_or_default();
+    };
+    prefix.to_owned()
 }
 
 /// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)

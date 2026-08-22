@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::BTreeMap;
 
 use martin_tile_utils::{Encoding, Format, TileInfo};
@@ -10,7 +9,7 @@ use super::config::PostgresInfo;
 #[cfg(feature = "unstable-schemas")]
 use crate::config::file::postgres::config_table::bounds_world_example;
 use crate::config::file::postgres::utils::patch_json;
-use crate::config::file::{CachePolicy, UnrecognizedValues};
+use crate::config::file::{CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 

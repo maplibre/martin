@@ -42,11 +42,11 @@ pub enum CopyType {
 
 impl CopyType {
     #[must_use]
-    pub fn copy_tiles(self) -> bool {
+    pub const fn copy_tiles(self) -> bool {
         matches!(self, Self::All | Self::Tiles)
     }
     #[must_use]
-    pub fn copy_metadata(self) -> bool {
+    pub const fn copy_metadata(self) -> bool {
         matches!(self, Self::All | Self::Metadata)
     }
 }
@@ -560,7 +560,7 @@ impl Mbtiles {
     /// sql query for getting tile and hash
     ///
     /// For [`MbtType::Flat`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
-    fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
+    const fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
             MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -739,11 +739,7 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
-pub(crate) fn parse_tile_index(
-    z: Option<i64>,
-    x: Option<i64>,
-    y: Option<i64>,
-) -> Option<TileCoord> {
+pub fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Option<TileCoord> {
     let z: u8 = z?.try_into().ok()?;
     let x: u32 = x?.try_into().ok()?;
     let y: u32 = y?.try_into().ok()?;

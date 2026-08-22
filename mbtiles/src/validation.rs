@@ -71,7 +71,7 @@ pub enum NormalizedSchema {
 impl NormalizedSchema {
     /// Name of the table storing tile coordinates (the "map" table).
     #[must_use]
-    pub fn map_table(self) -> &'static str {
+    pub const fn map_table(self) -> &'static str {
         match self {
             Self::Hash => "map",
             Self::DedupId => "tiles_shallow",
@@ -80,7 +80,7 @@ impl NormalizedSchema {
 
     /// Name of the table storing tile blobs (the "images" table).
     #[must_use]
-    pub fn content_table(self) -> &'static str {
+    pub const fn content_table(self) -> &'static str {
         match self {
             Self::Hash => "images",
             Self::DedupId => "tiles_data",
@@ -89,13 +89,13 @@ impl NormalizedSchema {
 
     /// Returns `true` if the tile id column is an integer (`DedupId` schema).
     #[must_use]
-    pub fn uses_integer_tile_id(self) -> bool {
+    pub const fn uses_integer_tile_id(self) -> bool {
         matches!(self, Self::DedupId)
     }
 
     /// Name of the foreign key column linking the map table to the images table.
     #[must_use]
-    pub fn tile_id_column(self) -> &'static str {
+    pub const fn tile_id_column(self) -> &'static str {
         match self {
             Self::Hash => "tile_id",
             Self::DedupId => "tile_data_id",
@@ -162,12 +162,12 @@ pub enum MbtType {
 
 impl MbtType {
     #[must_use]
-    pub fn is_normalized(self) -> bool {
+    pub const fn is_normalized(self) -> bool {
         matches!(self, Self::Normalized { .. })
     }
 
     #[must_use]
-    pub fn is_normalized_with_view(self) -> bool {
+    pub const fn is_normalized_with_view(self) -> bool {
         matches!(
             self,
             Self::Normalized {
@@ -179,7 +179,7 @@ impl MbtType {
 
     /// Returns the [`NormalizedSchema`] if this is a normalized type, `None` otherwise.
     #[must_use]
-    pub fn normalized_schema(self) -> Option<NormalizedSchema> {
+    pub const fn normalized_schema(self) -> Option<NormalizedSchema> {
         match self {
             Self::Normalized { schema, .. } => Some(schema),
             _ => None,
@@ -553,8 +553,8 @@ impl Mbtiles {
                     "tile_column".to_owned(),
                     "tile_row".to_owned(),
                 ]))
-                .collect::<Vec<_>>()
-                .is_empty()
+                .next()
+                .is_none()
             {
                 return Ok(());
             }

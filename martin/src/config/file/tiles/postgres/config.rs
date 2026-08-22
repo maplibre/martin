@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::Duration;
 
@@ -9,7 +8,8 @@ use tilejson::TileJSON;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -289,6 +289,10 @@ pub struct PostgresCfgPublishFuncs {
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "no real .await here, but async keeps the early-return control flow readable"
+    )]
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);

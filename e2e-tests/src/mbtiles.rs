@@ -2,12 +2,11 @@
 //! check the resulting files against sqlite rather than against the CLI's own output.
 
 use std::collections::BTreeMap;
-use std::env;
 use std::ffi::OsString;
-use std::fs;
 use std::io::Read as _;
 use std::path::Path;
 use std::process::{ExitStatus, Stdio};
+use std::{env, fs};
 
 use flate2::read::GzDecoder;
 use sqlx::sqlite::SqliteConnectOptions;
