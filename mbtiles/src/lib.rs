@@ -71,6 +71,6 @@ pub use validation::{
 /// ```
 #[inline]
 #[must_use]
-pub fn invert_y_value(zoom: u8, y: u32) -> u32 {
+pub const fn invert_y_value(zoom: u8, y: u32) -> u32 {
     (1u32 << zoom) - 1 - y
 }

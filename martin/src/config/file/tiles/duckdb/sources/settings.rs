@@ -1,9 +1,9 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
+use crate::config::file::CollectUnrecognizedKeys;
 
 /// Pool and bounds settings shared by database and geoparquet source entries.
 #[serde_with::skip_serializing_none]

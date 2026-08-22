@@ -44,13 +44,13 @@ impl Tile {
 
     /// Creates a new tile with the given tile data, metadata, and etag.
     #[must_use]
-    pub fn new_with_etag(data: TileData, info: TileInfo, etag: String) -> Self {
+    pub const fn new_with_etag(data: TileData, info: TileInfo, etag: String) -> Self {
         Self { data, info, etag }
     }
 
     /// Returns true if the tile data is empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 }

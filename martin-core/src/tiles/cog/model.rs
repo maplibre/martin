@@ -123,8 +123,7 @@ impl ModelInfo {
             .get_tag_u16_vec(Tag::GeoKeyDirectoryTag)
             .ok()
             .and_then(|geokeys| {
-                let (chunks, _) = geokeys.as_chunks::<4>();
-                let mut chunks = chunks.iter();
+                let mut chunks = geokeys.as_chunks::<4>().0.iter();
 
                 // Validate header: version=1, revision=1.0, with at least one key
                 match chunks.next()? {

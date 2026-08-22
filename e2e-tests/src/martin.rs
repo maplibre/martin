@@ -1,12 +1,11 @@
 //! The `martin` server subprocess and the responses it answers with.
 
-use std::env;
 use std::ffi::OsString;
-use std::fs;
 use std::io::{self, Cursor, Read as _};
 use std::process::{ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::{env, fs};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
@@ -429,7 +428,7 @@ impl Martin {
     }
 
     /// The log [`Martin::stop`] collected, which the assertions below consume from.
-    fn collected_log(&mut self) -> &mut Vec<String> {
+    const fn collected_log(&mut self) -> &mut Vec<String> {
         self.log_lines
             .as_mut()
             .expect("log assertions must be called after stop()")
@@ -498,7 +497,7 @@ fn terminate(child: &Child) {
     let _ = child;
 }
 
-pub(crate) fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
+pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
     let mut body = Vec::new();
     if raw.is_empty() {
         return body;
@@ -528,7 +527,7 @@ pub struct TestResponse {
 
 impl TestResponse {
     #[must_use]
-    pub fn status(&self) -> u16 {
+    pub const fn status(&self) -> u16 {
         self.status
     }
 

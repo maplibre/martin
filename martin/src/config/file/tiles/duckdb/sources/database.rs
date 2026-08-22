@@ -1,10 +1,9 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
+use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedValues};
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]

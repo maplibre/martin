@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -9,7 +8,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -57,7 +57,10 @@ impl TileSourceConfiguration for MbtConfig {
         Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
-    #[expect(clippy::unused_async_trait_impl)]
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "unreachable stub; async keeps it simple to write and read"
+    )]
     async fn new_sources_url(
         &self,
         _id: String,
@@ -76,12 +79,10 @@ mod tests {
     use indoc::indoc;
     use martin_core::CacheZoomRange;
 
-    use crate::config::file::CollectUnrecognizedKeys as _;
-
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
-        FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
+        FileConfigEnum, FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]

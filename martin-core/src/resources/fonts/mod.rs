@@ -85,7 +85,7 @@ type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);
 /// Extracts available codepoints from a font face.
 ///
 /// Returns `None` if the font contains no usable glyphs.
-fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
+fn get_available_codepoints(face: &Face) -> Option<GetGlyphInfo> {
     let mut codepoints = BitSet::new();
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
@@ -390,7 +390,7 @@ fn parse_font(
             Entry::Vacant(v) => {
                 let key = v.key();
                 let Some((codepoints, glyphs, ranges, start, end)) =
-                    get_available_codepoints(&mut face)
+                    get_available_codepoints(&face)
                 else {
                     warn!(
                         font.name = %key,
@@ -558,10 +558,10 @@ mod tests {
             let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join(format!("../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
             assert!(font_path.is_file(), "{}", font_path.display());
-            let mut face = lib.new_face(&font_path, 0).unwrap();
+            let face = lib.new_face(&font_path, 0).unwrap();
 
             let (_codepoints, count, _ranges, first, last) =
-                get_available_codepoints(&mut face).unwrap();
+                get_available_codepoints(&face).unwrap();
             assert_eq!(count, 2);
             assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
             assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));

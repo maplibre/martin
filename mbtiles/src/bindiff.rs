@@ -333,7 +333,7 @@ pub struct BinDiffPatcher {
 }
 
 impl BinDiffPatcher {
-    pub fn new(
+    pub const fn new(
         src_mbt: Mbtiles,
         dif_mbt: Mbtiles,
         dst_type: MbtType,
@@ -433,9 +433,11 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         })
     }
 
-    #[expect(clippy::unused_async_trait_impl)]
-    async fn before_insert(&self, _conn: &mut SqliteConnection) -> MbtResult<()> {
-        Ok(())
+    fn before_insert(
+        &self,
+        _conn: &mut SqliteConnection,
+    ) -> impl Future<Output = MbtResult<()>> + Send {
+        std::future::ready(Ok(()))
     }
 
     async fn insert(&self, value: ApplierAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
@@ -460,7 +462,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 }
 
 #[must_use]
-pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
+pub const fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     match patch_type {
         BinDiffRaw => "bsdiffraw",
         BinDiffGz => "bsdiffrawgz",

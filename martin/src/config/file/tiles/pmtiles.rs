@@ -1,4 +1,3 @@
-use crate::config::file::CollectUnrecognizedKeys;
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
@@ -26,8 +25,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};

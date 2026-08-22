@@ -98,7 +98,7 @@ impl TileRect {
     /// assert!(!rect1.is_overlapping(&rect3));
     /// ```
     #[must_use]
-    pub fn is_overlapping(&self, other: &Self) -> bool {
+    pub const fn is_overlapping(&self, other: &Self) -> bool {
         self.zoom == other.zoom
             && self.min_x <= other.max_x
             && self.max_x >= other.min_x

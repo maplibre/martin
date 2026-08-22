@@ -113,13 +113,13 @@ impl TemplateSet {
 
     /// The resolved tile format.
     #[must_use]
-    pub fn format(&self) -> Format {
+    pub const fn format(&self) -> Format {
         self.format
     }
 
     /// The operator-declared metadata.
     #[must_use]
-    pub fn meta(&self) -> &TemplateMeta {
+    pub const fn meta(&self) -> &TemplateMeta {
         &self.meta
     }
 }

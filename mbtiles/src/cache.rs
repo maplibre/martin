@@ -104,7 +104,7 @@ impl<'a> CacheEntryMeta<'a> {
     /// public) or use [`CacheEntryMeta::default`] for "unknown fetch time, never expires,
     /// no etag".
     #[must_use]
-    pub fn new(fetched: UnixSeconds, expires: UnixSeconds, etag: &'a str) -> Self {
+    pub const fn new(fetched: UnixSeconds, expires: UnixSeconds, etag: &'a str) -> Self {
         Self {
             fetched: Some(fetched),
             expires: Some(expires),

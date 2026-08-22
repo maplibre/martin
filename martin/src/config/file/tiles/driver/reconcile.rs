@@ -228,18 +228,23 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
-        #[expect(clippy::unused_async_trait_impl)]
-        async fn discover(&self) -> MartinResult<Snapshot> {
-            self.snapshots
+        fn discover(&self) -> impl Future<Output = MartinResult<Snapshot>> + Send {
+            let snap = self
+                .snapshots
                 .lock()
                 .expect("FakeDiscovery mutex poisoned")
                 .pop_front()
-                .unwrap_or_else(|| Ok(Snapshot::new()))
+                .unwrap_or_else(|| Ok(Snapshot::new()));
+            std::future::ready(snap)
         }
 
-        #[expect(clippy::unused_async_trait_impl)]
-        async fn build(&self, id: &str, _args: &()) -> MartinResult<BoxedSource> {
-            Ok(Box::new(TestSource::new(id)))
+        fn build(
+            &self,
+            id: &str,
+            _args: &(),
+        ) -> impl Future<Output = MartinResult<BoxedSource>> + Send {
+            let source: BoxedSource = Box::new(TestSource::new(id));
+            std::future::ready(Ok(source))
         }
 
         fn process(&self) -> ProcessConfig {
@@ -259,7 +264,10 @@ mod tests {
     }
 
     impl Trigger for ManualTrigger {
-        #[expect(clippy::unused_async_trait_impl)]
+        #[expect(
+            clippy::unused_async_trait_impl,
+            reason = "no real .await here, but async keeps the early-return control flow readable"
+        )]
         async fn next(&mut self) -> Option<()> {
             if self.remaining == 0 {
                 return None;
@@ -296,17 +304,21 @@ mod tests {
     }
 
     impl Sink for SpySink {
-        #[expect(clippy::unused_async_trait_impl)]
-        async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
+        fn apply_changes(
+            &self,
+            advisory: ReloadAdvisory,
+        ) -> impl Future<Output = MartinResult<()>> + Send {
             self.applied
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
-            self.results
+            let result = self
+                .results
                 .lock()
                 .expect("SpySink results mutex poisoned")
                 .pop_front()
-                .unwrap_or(Ok(()))
+                .unwrap_or(Ok(()));
+            std::future::ready(result)
         }
     }
 

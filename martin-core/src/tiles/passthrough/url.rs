@@ -32,7 +32,7 @@ impl UrlTemplate {
 }
 
 /// Returns `true` if `url` contains any of the `{z}`, `{x}` or `{y}` placeholders.
-pub(crate) fn is_template(url: &str) -> bool {
+pub fn is_template(url: &str) -> bool {
     url.contains("{z}") || url.contains("{x}") || url.contains("{y}")
 }
 
@@ -40,7 +40,7 @@ pub(crate) fn is_template(url: &str) -> bool {
 ///
 /// No other placeholders (`{s}`, `{quadkey}`, `{bbox-epsg-3857}`, …) and no y-flip are handled.
 #[must_use]
-pub(crate) fn substitute(template: &str, xyz: TileCoord) -> String {
+pub fn substitute(template: &str, xyz: TileCoord) -> String {
     template
         .replace("{z}", &xyz.z.to_string())
         .replace("{x}", &xyz.x.to_string())
@@ -52,7 +52,7 @@ pub(crate) fn substitute(template: &str, xyz: TileCoord) -> String {
 ///
 /// Assumes `urls` is non-empty; the modulo keeps the index in range.
 #[must_use]
-pub(crate) fn select_url(urls: &[String], xyz: TileCoord) -> &str {
+pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
     if let [single] = urls {
         return single;
     }
@@ -66,7 +66,7 @@ pub(crate) fn select_url(urls: &[String], xyz: TileCoord) -> &str {
 
 /// Derive the source-level tile [`Format`] from the configured layers, most-specific first:
 /// explicit config -> tile URL extension -> upstream `TileJSON` `format`. Errors if none apply.
-pub(crate) fn derive_format(
+pub fn derive_format(
     id: &str,
     cfg_format: Option<Format>,
     url_for_ext: &str,

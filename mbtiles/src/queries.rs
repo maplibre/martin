@@ -29,7 +29,7 @@ where
 ///
 /// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
 /// on `;` is safe because these files are ours and contain no embedded semicolons.
-pub(crate) async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
+pub async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {

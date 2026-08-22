@@ -11,6 +11,7 @@ use std::time::Duration;
 
 #[cfg(feature = "_tiles")]
 use futures::stream::{self, StreamExt as _};
+pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
@@ -34,8 +35,6 @@ use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
-
-pub use martin_config_macros::ConfigurationLivecycleHooks;
 
 /// Lifecycle hooks for configuring the application
 ///
@@ -1619,7 +1618,10 @@ mod folder_source_tests {
         fn parse_urls() -> bool {
             false
         }
-        #[expect(clippy::unused_async_trait_impl)]
+        #[expect(
+            clippy::unused_async_trait_impl,
+            reason = "no real .await here, but async keeps the branching readable"
+        )]
         async fn new_sources(
             &self,
             id: String,
@@ -1639,7 +1641,10 @@ mod folder_source_tests {
                 }))
             }
         }
-        #[expect(clippy::unused_async_trait_impl)]
+        #[expect(
+            clippy::unused_async_trait_impl,
+            reason = "unreachable stub; async keeps it simple to write and read"
+        )]
         async fn new_sources_url(
             &self,
             _id: String,
