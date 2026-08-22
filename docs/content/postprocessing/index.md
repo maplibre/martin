@@ -11,7 +11,7 @@ Currently configurable:
 
 - **`convert_to_mlt`** - encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`). See the [MVT/MLT conversion guide](mlt.md).
 - **`convert_to_mvt`** - enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
-- **`convert_to_hillshade`** - bakes a hillshade from a source serving Mapzen normal tiles. See the [hillshade guide](hillshade.md). Unlike the two above, this is settable per source only, since it describes what a source serves rather than a server-wide policy.
+- **`convert_to_hillshade`** - bakes a hillshade from a source serving Mapzen normal tiles. Unlike the two above, this is settable per source only, since it describes what a source serves rather than a server-wide policy.
 
 The two conversion keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):
