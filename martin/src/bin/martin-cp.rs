@@ -20,8 +20,6 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
-#[cfg(feature = "postgres")]
-use futures::future::try_join_all;
 use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
@@ -29,10 +27,14 @@ use martin::StartupError;
 #[cfg(feature = "postgres")]
 use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
-#[cfg(feature = "postgres")]
-use martin::config::file::ProcessConfig;
-#[cfg(feature = "postgres")]
-use martin::config::file::reload::postgres::PostgresReloader;
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+use martin::config::file::reload::TileReloaders;
 use martin::config::file::{Config, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -223,38 +225,15 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         )
         .await?;
 
-    #[cfg(feature = "postgres")]
-    {
-        let global_pc = ProcessConfig {
-            #[cfg(feature = "mlt")]
-            convert_to_mlt: config.convert_to_mlt.clone(),
-            #[cfg(feature = "mlt")]
-            convert_to_mvt: config.convert_to_mvt.clone(),
-            cache_control: None,
-        };
-        let mut reloaders: Vec<_> = config
-            .postgres
-            .iter()
-            .cloned()
-            .map(|pg_config| {
-                PostgresReloader::new(
-                    sources.tile_manager.clone(),
-                    resolver.clone(),
-                    pg_config,
-                    config.cache.policy(),
-                    &global_pc,
-                )
-            })
-            .collect();
-        let warnings = try_join_all(reloaders.iter_mut().map(PostgresReloader::init))
-            .await
-            .map_err(StartupError::from)?;
-        sources
-            .tile_manager
-            .on_invalid()
-            .handle_tile_warnings(&warnings.into_iter().flatten().collect::<Vec<_>>())
-            .map_err(StartupError::from)?;
-    }
+    // The reload loops are never started: martin-cp only needs the initial publication.
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    drop(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?);
 
     if let Some(file_name) = save_config {
         config
