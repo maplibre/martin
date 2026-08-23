@@ -29,6 +29,19 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const WATCH_TIMEOUT: Duration = Duration::from_secs(30);
 const WATCH_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+/// [`READY_TIMEOUT`], unless `MARTIN_E2E_READY_TIMEOUT` overrides it with a number
+/// of seconds. Emulated environments need more: under the QEMU arm64 docker CI step,
+/// several cold-started containers contend for the runner and 60s is not enough.
+fn ready_timeout() -> Duration {
+    match env::var("MARTIN_E2E_READY_TIMEOUT") {
+        Ok(secs) => Duration::from_secs(
+            secs.parse()
+                .expect("MARTIN_E2E_READY_TIMEOUT must be a whole number of seconds"),
+        ),
+        Err(_) => READY_TIMEOUT,
+    }
+}
+
 const ALLOWED_LOG_LINES: &[&str] = &[
     "Margin parameter in ST_TileEnvelope is not supported",
     "PostgreSQL is older than the recommended minimum 12.0.0",
@@ -49,7 +62,7 @@ pub enum StartError {
     Spawn(#[source] io::Error),
     #[error("martin exited during startup with {status}; log:\n{log}")]
     EarlyExit { status: ExitStatus, log: String },
-    #[error("martin did not become ready within {}s; log:\n{log}", READY_TIMEOUT.as_secs())]
+    #[error("martin did not become ready within {}s; log:\n{log}", ready_timeout().as_secs())]
     ReadyTimeout { log: String },
 }
 
@@ -211,7 +224,7 @@ impl Martin {
     async fn wait_ready(&mut self) -> Result<(), StartError> {
         let announced =
             Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
-        let deadline = Instant::now() + READY_TIMEOUT;
+        let deadline = Instant::now() + ready_timeout();
         loop {
             let addr = self
                 .log
@@ -692,7 +705,10 @@ mod tests {
         };
         assert_eq!(
             timeout.to_string(),
-            "martin did not become ready within 60s; log:\nsome log"
+            format!(
+                "martin did not become ready within {}s; log:\nsome log",
+                ready_timeout().as_secs()
+            )
         );
     }
 

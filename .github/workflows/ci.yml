@@ -366,6 +366,9 @@ jobs:
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          # Seconds. Emulated containers start slowly, especially the first parallel
+          # wave while QEMU and the image are cold; the default 60s is not enough.
+          MARTIN_E2E_READY_TIMEOUT: 300
       - name: End-to-end tests against the linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
