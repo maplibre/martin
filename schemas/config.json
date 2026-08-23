@@ -998,7 +998,7 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert_to_mlt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert_to_mlt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
         },
         "convert_to_mvt": {
           "anyOf": [
@@ -1237,7 +1237,7 @@
           "type": "null"
         }
       ],
-      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert_to_mlt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert_to_mlt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
     },
     "convert_to_mvt": {
       "anyOf": [

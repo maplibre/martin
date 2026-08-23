@@ -71,7 +71,7 @@ cache_control: null
 # Can be either:
 # - (default) `auto` - we choose defaults which we think work best for most users
 # - `disabled` - no conversion
-# - explicitely configured
+# - explicitly configured
 convert_to_mlt:
   # Allow `FastPFOR` integer compression.
   allow_fastpfor: null
@@ -334,7 +334,7 @@ postgres:
   # - `null` (default) - defer to the global setting
   # - `auto` - we choose defaults which we think work best for most users
   # - `disabled` - no conversion
-  # - explicitely configured
+  # - explicitly configured
   convert_to_mlt:
     # Allow `FastPFOR` integer compression.
     allow_fastpfor: null
