@@ -9,10 +9,12 @@ use actix_web::web::Bytes;
 use martin_core::sprites::{SpriteCache, SpriteCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
+/// Extra time to wait after an expiry deadline so slow CI runners do not flake
+const EXPIRY_BUFFER: Duration = Duration::from_secs(1);
 
 #[tokio::test]
 async fn cache_entry_available_before_ttl_expires() {
-    let ttl = Duration::from_millis(200);
+    let ttl = Duration::from_secs(60);
     let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "sprite-a", false, false, b"sprite-data").await;
@@ -23,38 +25,38 @@ async fn cache_entry_available_before_ttl_expires() {
 
 #[tokio::test]
 async fn cache_entry_evicted_after_ttl_expires() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_secs(2);
     let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "sprite-a", false, false, b"original").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     assert_miss(&cache, "sprite-a", false, false, b"refreshed").await;
 }
 
 #[tokio::test]
 async fn cache_entry_evicted_after_idle_timeout() {
-    let tti = Duration::from_millis(25);
+    let tti = Duration::from_secs(2);
     let cache = SpriteCache::new(CACHE_SIZE, None, Some(tti));
 
     insert(&cache, "sprite-a", false, false, b"data").await;
 
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + EXPIRY_BUFFER).await;
 
     assert_miss(&cache, "sprite-a", false, false, b"new").await;
 }
 
 #[tokio::test]
 async fn tti_evicts_before_ttl_when_idle() {
-    let ttl = Duration::from_millis(200);
-    let tti = Duration::from_millis(25);
+    let ttl = Duration::from_secs(60);
+    let tti = Duration::from_secs(2);
     let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), Some(tti));
 
     insert(&cache, "sprite-a", false, false, b"data").await;
 
     // Wait past TTI but within TTL
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + EXPIRY_BUFFER).await;
 
     assert_miss(&cache, "sprite-a", false, false, b"new").await;
 }
@@ -73,13 +75,13 @@ async fn cache_entry_persists_without_ttl_or_tti() {
 
 #[tokio::test]
 async fn different_sources_share_ttl_policy() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_secs(2);
     let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "source_a", false, false, b"a").await;
     insert(&cache, "source_b", false, false, b"b").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     assert_miss(&cache, "source_a", false, false, b"a-new").await;
     assert_miss(&cache, "source_b", false, false, b"b-new").await;
@@ -87,13 +89,13 @@ async fn different_sources_share_ttl_policy() {
 
 #[tokio::test]
 async fn json_and_image_create_separate_cache_entries_with_same_ttl() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_secs(2);
     let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "sprite-a", false, true, b"json-data").await;
     insert(&cache, "sprite-a", false, false, b"image-data").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     assert_miss(&cache, "sprite-a", false, true, b"json-new").await;
     assert_miss(&cache, "sprite-a", false, false, b"image-new").await;
