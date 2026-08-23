@@ -1528,10 +1528,11 @@
 <li><a href="https://httpd.apache.org/">Apache</a></li>
 </ul>
 </li>
-<li>You may need to host more than just tiles/resources on the domain name.</li>
-<li>Martin has a fixed public API, but your site may require a different structure.
-  For example, you may want to serve tiles from <code>/{sourceID}/tiles?z={z}&amp;x={x}&amp;y={y}</code> instead of <code>/{sourceID}/{z}/{x}/{y}</code>.</li>
 </ul>
+<p>For client- and CDN-side caching, Martin can set a default <code>Cache-Control</code> response header itself via the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a>.
+- You may need to host more than just tiles/resources on the domain name.
+- Martin has a fixed public API, but your site may require a different structure.
+  For example, you may want to serve tiles from <code>/{sourceID}/tiles?z={z}&amp;x={x}&amp;y={y}</code> instead of <code>/{sourceID}/{z}/{x}/{y}</code>.</p>
 
 
 

@@ -1737,8 +1737,8 @@ The <code>bin</code> directory of your Layer will be added to the PATH.</p>
 <li>Set up a CloudFront CDN, this is a whole thing, but explain the motivation and the basics.</li>
 <li>Grant the execution role permission to read objects from an S3 bucket, and teach Martin how to make authenticated requests to S3.</li>
 <li>Teach Martin how to serve all PMTiles files from an S3 bucket rather than having to list them at startup.</li>
-<li>Teach Martin how to set the Cache-Control and Etag headers for better defaults.</li>
 </ul>
+<p>Martin already sets an <code>Etag</code> header on tile responses, and the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a> sets a default <code>Cache-Control</code> header - useful when running behind CloudFront.</p>
 
 
   <nav class="md-tags" >
