@@ -86,7 +86,7 @@ bench-server-hotpath: start build-hotpath prepare-mbtiles
 bench-hotpath:
     #!/usr/bin/env bash
     set -euo pipefail
-    just bench-server-hotpath &
+    {{just}} bench-server-hotpath &
     MARTIN_PID=$!
 
     for i in {1..1000}; do
@@ -95,7 +95,7 @@ bench-hotpath:
     done
     curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill "$MARTIN_PID" 2>/dev/null; exit 1; }
 
-    just bench-http 1m 100k
+    {{just}} bench-http 1m 100k
 
     kill "$MARTIN_PID" 2>/dev/null || true
     wait "$MARTIN_PID" || true
