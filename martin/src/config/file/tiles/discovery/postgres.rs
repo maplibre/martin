@@ -115,38 +115,6 @@ fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> Process
     connection.clone()
 }
 
-#[cfg(all(test, feature = "mlt"))]
-mod process_tests {
-    use super::*;
-    use crate::config::file::postgres::TableInfo;
-    use crate::config::primitives::AutoOption;
-
-    #[test]
-    fn per_source_convert_overrides_the_connection_level() {
-        let connection = ProcessConfig {
-            convert_to_mlt: Some(AutoOption::Auto),
-            convert_to_mvt: None,
-        };
-
-        let with_override = SourceSpec::Table(TableInfo {
-            convert_to_mlt: Some(AutoOption::Disabled),
-            ..TableInfo::default()
-        });
-        assert_eq!(
-            per_source_process(&connection, &with_override).convert_to_mlt,
-            Some(AutoOption::Disabled),
-            "a per-table convert_to_mlt must win over the connection-level setting"
-        );
-
-        let without_override = SourceSpec::Table(TableInfo::default());
-        assert_eq!(
-            per_source_process(&connection, &without_override),
-            connection,
-            "a table without overrides must inherit the connection-level setting"
-        );
-    }
-}
-
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use std::collections::BTreeMap;
@@ -287,6 +255,34 @@ mod tests {
         assert!(
             discovery.discover().await.is_err(),
             "a bad connection string must surface as Err, not panic"
+        );
+    }
+
+    #[cfg(feature = "mlt")]
+    #[test]
+    fn per_source_convert_overrides_the_connection_level() {
+        use crate::config::file::postgres::TableInfo;
+        use crate::config::primitives::AutoOption;
+        let connection = ProcessConfig {
+            convert_to_mlt: Some(AutoOption::Auto),
+            convert_to_mvt: None,
+        };
+
+        let with_override = SourceSpec::Table(TableInfo {
+            convert_to_mlt: Some(AutoOption::Disabled),
+            ..TableInfo::default()
+        });
+        assert_eq!(
+            per_source_process(&connection, &with_override).convert_to_mlt,
+            Some(AutoOption::Disabled),
+            "a per-table convert_to_mlt must win over the connection-level setting"
+        );
+
+        let without_override = SourceSpec::Table(TableInfo::default());
+        assert_eq!(
+            per_source_process(&connection, &without_override),
+            connection,
+            "a table without overrides must inherit the connection-level setting"
         );
     }
 }
