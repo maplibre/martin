@@ -41,13 +41,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Install just
+      - name: Install just (and cargo-zigbuild for musl)
         uses: ./.github/actions/setup-rust
-        with: { toolchain: none }
-      - name: Install cargo-zigbuild (musl only)
-        if: inputs.musl
-        uses: ./.github/actions/setup-rust
-        with: { toolchain: none, tools: 'cargo-zigbuild' }
+        with:
+          toolchain: none
+          tools: ${{ inputs.musl && 'just,cargo-zigbuild' || 'just' }}
       - name: Install zig (musl only)
         if: inputs.musl
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
