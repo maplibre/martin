@@ -13,7 +13,7 @@ use crate::MartinResult;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, TileSourceConfiguration as _,
 };
@@ -95,7 +95,7 @@ impl ObjectStoreDiscovery {
 impl Discovery for ObjectStoreDiscovery {
     type Args = Url;
 
-    async fn discover(&self) -> MartinResult<BTreeMap<String, (Version, Self::Args)>> {
+    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
         // Per-prefix failures are logged and skipped so a transient outage doesn't flap the catalog.
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
@@ -112,7 +112,7 @@ impl Discovery for ObjectStoreDiscovery {
                 }
             }
         }
-        Ok(out)
+        Ok(Discovered::new(out))
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
