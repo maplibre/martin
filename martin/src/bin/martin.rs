@@ -89,6 +89,7 @@ async fn start(args: Args) -> StartupResult<()> {
         let pc = ProcessConfig {
             convert_to_mlt: config.convert_to_mlt.clone(),
             convert_to_mvt: config.convert_to_mvt.clone(),
+            ..Default::default()
         };
         #[cfg(not(feature = "mlt"))]
         let pc = ProcessConfig::default();

@@ -165,6 +165,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
                 (
@@ -180,6 +181,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
             ]))

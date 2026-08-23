@@ -3,20 +3,25 @@ use mlt_core::encoder::EncoderConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use serde::{Deserialize, Serialize};
 
+use crate::config::file::CacheControlHeader;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
-/// Internal carrier for resolved per-source processing settings.
+/// Internal carrier for resolved per-source serving settings.
 ///
-/// Not serialized directly - config files use `convert_to_mlt` / `convert_to_mvt`.
+/// Not serialized directly - config files use `convert_to_mlt` / `convert_to_mvt` /
+/// `cache_control`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProcessConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     pub convert_to_mlt: Option<MltProcessConfig>,
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+    /// `Cache-Control` response header for this source,
+    /// overriding the server-level `cache_control` default.
+    pub cache_control: Option<CacheControlHeader>,
 }
 
 /// Configuration for MVT-to-MLT format conversion.
@@ -125,21 +130,31 @@ impl From<MltEncoderConfig> for EncoderConfig {
     }
 }
 
-/// Resolve effective process config using full-override semantics:
-/// per-source > source-type > global > default.
+/// Resolve the effective per-source config: per-source > source-type > global > default.
+///
+/// The `convert_to_*` pair overrides as a unit; `cache_control` resolves on its own.
 #[must_use]
 pub fn resolve_process_config(
     global: &ProcessConfig,
     source_type: &ProcessConfig,
     per_source: &ProcessConfig,
 ) -> ProcessConfig {
-    let default = ProcessConfig::default();
-    if *per_source != default {
-        per_source.clone()
-    } else if *source_type != default {
-        source_type.clone()
-    } else {
-        global.clone()
+    let cache_control = per_source
+        .cache_control
+        .clone()
+        .or_else(|| source_type.cache_control.clone())
+        .or_else(|| global.cache_control.clone());
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    let conversions = [per_source, source_type, global]
+        .into_iter()
+        .find(|pc| pc.convert_to_mlt.is_some() || pc.convert_to_mvt.is_some())
+        .unwrap_or(global);
+    ProcessConfig {
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mlt: conversions.convert_to_mlt.clone(),
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mvt: conversions.convert_to_mvt.clone(),
+        cache_control,
     }
 }
 
@@ -301,10 +316,12 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
+            cache_control: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Disabled),
             convert_to_mvt: None,
+            cache_control: None,
         };
         let resolved = resolve_process_config(&global, &ProcessConfig::default(), &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
@@ -316,10 +333,12 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
+            cache_control: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
+            cache_control: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
@@ -327,6 +346,7 @@ mod tests {
                 ..Default::default()
             })),
             convert_to_mvt: None,
+            cache_control: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &per_source);
@@ -339,10 +359,12 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
+            cache_control: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
+            cache_control: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &ProcessConfig::default());
@@ -355,6 +377,7 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
+            cache_control: None,
         };
 
         let resolved = resolve_process_config(
@@ -363,6 +386,57 @@ mod tests {
             &ProcessConfig::default(),
         );
         assert_eq!(resolved, global);
+    }
+
+    fn cache_control(value: &str) -> CacheControlHeader {
+        serde_saphyr::from_str(value).expect("valid Cache-Control header")
+    }
+
+    #[cfg_attr(
+        not(all(feature = "mlt", feature = "_tiles")),
+        allow(clippy::needless_update)
+    )]
+    fn only_cache_control(value: &str) -> ProcessConfig {
+        ProcessConfig {
+            cache_control: Some(cache_control(value)),
+            ..ProcessConfig::default()
+        }
+    }
+
+    #[test]
+    fn resolve_per_source_cache_control_wins() {
+        let source_type = only_cache_control("public, max-age=60");
+        let per_source = only_cache_control("no-store");
+        let resolved = resolve_process_config(&ProcessConfig::default(), &source_type, &per_source);
+        assert_eq!(resolved.cache_control, Some(cache_control("no-store")));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn resolve_cache_control_independently_of_conversions() {
+        let source_type = ProcessConfig {
+            convert_to_mlt: Some(MltProcessConfig::Disabled),
+            cache_control: Some(cache_control("public, max-age=60")),
+            ..Default::default()
+        };
+        let per_source = ProcessConfig {
+            convert_to_mlt: Some(MltProcessConfig::Auto),
+            ..Default::default()
+        };
+        let resolved = resolve_process_config(&ProcessConfig::default(), &source_type, &per_source);
+        assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Auto));
+        assert_eq!(
+            resolved.cache_control,
+            Some(cache_control("public, max-age=60"))
+        );
+
+        let resolved = resolve_process_config(
+            &ProcessConfig::default(),
+            &source_type,
+            &only_cache_control("no-store"),
+        );
+        assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
+        assert_eq!(resolved.cache_control, Some(cache_control("no-store")));
     }
 
     #[test]

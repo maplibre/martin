@@ -4,8 +4,8 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    Accept, AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
-    LOCATION, Preference,
+    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc,
+    EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -383,7 +383,19 @@ impl<'a> DynTileSource<'a> {
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
+        if let Some(cache_control) = self.cache_control_header() {
+            response.insert_header((CACHE_CONTROL, cache_control));
+        }
         Ok(response.body(tile.data))
+    }
+
+    /// The per-source `Cache-Control` value, when every source of this request agrees on one.
+    fn cache_control_header(&self) -> Option<HeaderValue> {
+        let mut configured = self.sources.iter().map(|(_, pc)| &pc.cache_control);
+        let first = configured.next()?.as_ref()?;
+        configured
+            .all(|c| c.as_ref() == Some(first))
+            .then(|| first.header_value())
     }
 
     #[hotpath::measure]
