@@ -3,10 +3,9 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use martin_core::tiles::BoxedSource;
 use tokio::task::JoinHandle;
 
-use crate::config::file::tiles::discovery::{Discovery, Version};
+use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
 use crate::reload::ReloadAdvisory;
 use crate::{MartinError, MartinResult};
@@ -104,7 +103,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         let advisory = ReloadAdvisory::from_maps(
             &prev_versions,
             &next_versions,
-            async move |id: String| -> MartinResult<BoxedSource> {
+            async move |id: String| -> MartinResult<BuiltSource> {
                 let args = args_by_id
                     .get(&id)
                     .ok_or_else(|| MartinError::SourceNotFound(id.clone()))?;
@@ -130,7 +129,7 @@ mod tests {
 
     use async_trait::async_trait;
     use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use rstest::rstest;
     use tilejson::{TileJSON, tilejson};
@@ -247,9 +246,9 @@ mod tests {
             &self,
             id: &str,
             _args: &(),
-        ) -> impl Future<Output = MartinResult<BoxedSource>> + Send {
+        ) -> impl Future<Output = MartinResult<BuiltSource>> + Send {
             let source: BoxedSource = Box::new(TestSource::new(id));
-            std::future::ready(Ok(source))
+            std::future::ready(Ok(source.into()))
         }
 
         fn process(&self) -> ProcessConfig {

@@ -34,6 +34,22 @@ impl<A> Discovered<A> {
     }
 }
 
+/// A built source, with anything source-specific the catalog must apply alongside it.
+pub struct BuiltSource {
+    pub source: BoxedSource,
+    /// Per-source override of the kind's [`Discovery::process`], if the source configures one.
+    pub process: Option<ProcessConfig>,
+}
+
+impl From<BoxedSource> for BuiltSource {
+    fn from(source: BoxedSource) -> Self {
+        Self {
+            source,
+            process: None,
+        }
+    }
+}
+
 /// Enumerates the sources that should exist now, and builds one on demand.
 pub trait Discovery: Send + Sync + 'static {
     /// Per-source build payload passed from [`discover`](Self::discover) to [`build`](Self::build).
@@ -47,7 +63,7 @@ pub trait Discovery: Send + Sync + 'static {
         &self,
         id: &str,
         args: &Self::Args,
-    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = MartinResult<BuiltSource>> + Send;
 
     /// `ProcessConfig` stamped onto every source this kind emits.
     fn process(&self) -> ProcessConfig;

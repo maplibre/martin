@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use futures::stream::TryStreamExt as _;
-use martin_core::tiles::BoxedSource;
 use object_store::ObjectStore as _;
 use url::Url;
 
@@ -13,7 +12,7 @@ use crate::MartinResult;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::discovery::{Discovered, Discovery, Version};
+use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, TileSourceConfiguration as _,
 };
@@ -115,10 +114,11 @@ impl Discovery for ObjectStoreDiscovery {
         Ok(Discovered::new(out))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BoxedSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
         self.config
             .new_sources_url(id.to_owned(), args.clone(), CachePolicy::default())
             .await
+            .map(Into::into)
     }
 
     fn process(&self) -> ProcessConfig {

@@ -312,6 +312,7 @@ mod tests {
         use tempfile::TempDir;
 
         use crate::MartinError;
+        use crate::config::file::discovery::BuiltSource;
         use crate::config::file::{ConfigFileError, ProcessConfig};
 
         const BAD_PREFIX: &str = "bad_";
@@ -337,16 +338,17 @@ mod tests {
             clippy::unused_async,
             reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
         )]
-        async fn build(id: String, dir: PathBuf) -> MartinResult<BoxedSource> {
+        async fn build(id: String, dir: PathBuf) -> MartinResult<BuiltSource> {
             if id.starts_with(BAD_PREFIX) {
                 return Err(MartinError::from(ConfigFileError::InvalidFilePath(
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            Ok(Box::new(TestSource {
+            let source: BoxedSource = Box::new(TestSource {
                 id,
                 tj: tilejson! { tiles: vec![] },
-            }))
+            });
+            Ok(source.into())
         }
 
         let dir = TempDir::new().expect("create tempdir");

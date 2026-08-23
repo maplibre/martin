@@ -2,7 +2,7 @@
 //! `ObjectStoreDiscovery` for remote `PMTiles` prefixes.
 
 mod discovery_trait;
-pub use discovery_trait::{Discovered, Discovery, Version};
+pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 
 #[cfg(any(
     feature = "mbtiles",
