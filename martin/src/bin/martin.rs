@@ -6,6 +6,8 @@
 use std::env;
 
 use clap::Parser as _;
+#[cfg(feature = "postgres")]
+use futures::future::try_join_all;
 use martin::StartupResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
@@ -56,13 +58,6 @@ async fn start(args: Args) -> StartupResult<()> {
     )?;
     config.finalize().await?;
     config.warn_unrecognized_keys();
-
-    // Snapshot the PostgreSQL config before `resolve()` rewrites its resolved tables/functions
-    // back into it, so each reloader re-derives discovery from the same inputs startup used.
-    #[cfg(feature = "postgres")]
-    let pg_snapshot = config.postgres.clone();
-    #[cfg(feature = "postgres")]
-    let pg_default_cache = config.cache.policy();
 
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
@@ -126,21 +121,40 @@ async fn start(args: Args) -> StartupResult<()> {
         }
     }
     #[cfg(feature = "postgres")]
-    for pg_config in pg_snapshot {
-        let reloader = PostgresReloader::new(
-            mgr.clone(),
-            resolver.clone(),
-            pg_config,
-            pg_default_cache,
-            &global_pc,
-        );
-        reloader.start();
-    }
+    let pg_reloaders = {
+        let mut reloaders: Vec<_> = config
+            .postgres
+            .iter()
+            .cloned()
+            .map(|pg_config| {
+                PostgresReloader::new(
+                    mgr.clone(),
+                    resolver.clone(),
+                    pg_config,
+                    config.cache.policy(),
+                    &global_pc,
+                )
+            })
+            .collect();
+        let warnings = try_join_all(reloaders.iter_mut().map(PostgresReloader::init)).await?;
+        mgr.on_invalid()
+            .handle_tile_warnings(&warnings.into_iter().flatten().collect::<Vec<_>>())?;
+        reloaders
+    };
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name.as_path())?;
+        config.save_to_file(
+            file_name.as_path(),
+            #[cfg(feature = "_tiles")]
+            &sources.tile_manager,
+        )?;
     } else {
         info!("Use --save-config to save or print Martin configuration.");
+    }
+
+    #[cfg(feature = "postgres")]
+    for reloader in pg_reloaders {
+        reloader.start();
     }
 
     #[cfg(all(feature = "webui", not(docsrs)))]

@@ -1,13 +1,15 @@
 #![cfg(feature = "test-pg")]
 
 use std::collections::BTreeMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::{TestRequest, call_service, init_service, read_body_json};
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
+use martin::config::file::ProcessConfig;
+use martin::config::file::reload::postgres::PostgresReloader;
 use martin::config::file::srv::SrvConfig;
 use martin::config::primitives::IdResolver;
 use martin_core::tiles::postgres::PostgresPool;
@@ -18,6 +20,9 @@ use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 
 pub mod utils;
 
+const RELOAD_INTERVAL: Duration = Duration::from_millis(100);
+const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
+
 /// Launches a throwaway `PostGIS` container so the run never touches the shared `just start` DB.
 async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
     let container = Postgres::default()
@@ -26,8 +31,11 @@ async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
         .start()
         .await
         .expect("PostGIS container failed to start (is Docker running?)");
-    let host = container.get_host().await.unwrap();
-    let port = container.get_host_port_ipv4(5432).await.unwrap();
+    let host = container.get_host().await.expect("container host");
+    let port = container
+        .get_host_port_ipv4(5432)
+        .await
+        .expect("container port");
     let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
     (container, connstr)
 }
@@ -44,13 +52,20 @@ async fn seed(connstr: &str, sql: &str) {
         .expect("execute seed SQL");
 }
 
-async fn catalog_tiles(
-    app: &impl actix_web::dev::Service<
-        actix_http::Request,
-        Response = ServiceResponse,
-        Error = actix_web::Error,
-    >,
-) -> serde_json::Map<String, Value> {
+trait App:
+    actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>
+{
+}
+impl<T> App for T where
+    T: actix_web::dev::Service<
+            actix_http::Request,
+            Response = ServiceResponse,
+            Error = actix_web::Error,
+        >
+{
+}
+
+async fn catalog_tiles(app: &impl App) -> serde_json::Map<String, Value> {
     let req = TestRequest::get().uri("/catalog").to_request();
     let resp = call_service(app, req).await;
     assert!(resp.status().is_success(), "/catalog failed: {resp:?}");
@@ -61,34 +76,92 @@ async fn catalog_tiles(
         .unwrap_or_default()
 }
 
-/// Asserts the current (no-reloader) behavior: tables that exist at startup are published, but
-/// tables created out-of-band after `resolve()` are NOT picked up without a restart.
-///
-/// When PR #2841 (`PostgresReloader`) lands, the negative assertions here should flip to positive.
+const MANAGED: [&str; 3] = ["reload_alpha", "reload_boundary", "reload_beta"];
+
+async fn managed_tiles(app: &impl App) -> BTreeMap<String, Value> {
+    let tiles = catalog_tiles(app).await;
+    MANAGED
+        .into_iter()
+        .filter_map(|id| tiles.get(id).map(|v| (id.to_owned(), v.clone())))
+        .collect()
+}
+
+/// Polls `/catalog` until `id` is (or is not) listed, instead of sleeping a fixed time.
+async fn wait_for_catalog(app: &impl App, id: &str, present: bool) {
+    let deadline = Instant::now() + CATALOG_TIMEOUT;
+    loop {
+        let tiles = catalog_tiles(app).await;
+        if tiles.contains_key(id) == present {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{id} {} in /catalog after {CATALOG_TIMEOUT:?}: {tiles:?}",
+            if present {
+                "never appeared"
+            } else {
+                "still listed"
+            }
+        );
+        tokio::time::sleep(RELOAD_INTERVAL).await;
+    }
+}
+
+async fn tile_status(app: &impl App, id: &str) -> u16 {
+    call_service(
+        app,
+        TestRequest::get().uri(&format!("/{id}/0/0/0")).to_request(),
+    )
+    .await
+    .status()
+    .as_u16()
+}
+
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn pg_startup_catalog_is_static_without_reloader() {
+async fn catalog_follows_create_and_drop_through_the_reloader() {
     let (_container, connstr) = start_postgis().await;
 
-    // Seeded before `resolve()` so it is part of the startup catalog.
     seed(
         &connstr,
         "CREATE TABLE public.reload_alpha (id serial PRIMARY KEY, geom geometry(Point, 4326));
-         INSERT INTO public.reload_alpha (geom) VALUES (ST_SetSRID(ST_MakePoint(0, 0), 4326));",
+         INSERT INTO public.reload_alpha (geom) VALUES (ST_SetSRID(ST_MakePoint(0, 0), 4326));
+         CREATE TABLE public.reload_boundary (id serial PRIMARY KEY, geom geometry(Point, 4326));",
     )
     .await;
 
-    // Discovery is scoped to `public` so the container's spatial system schemas never leak in.
     let yaml = formatdoc! {"
         postgres:
           connection_string: '{connstr}'
+          reload_interval: {}ms
           auto_publish:
             from_schemas: public
-    "};
+    ", RELOAD_INTERVAL.as_millis()};
 
     let mut config = utils::mock_cfg(&yaml).await;
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
+    let tsm = state.tile_manager.clone();
+
+    let mut reloader = PostgresReloader::new(
+        tsm.clone(),
+        resolver,
+        config
+            .postgres
+            .iter()
+            .next()
+            .cloned()
+            .expect("one postgres config"),
+        config.cache.policy(),
+        &ProcessConfig::default(),
+    );
+    let warnings = reloader.init().await.expect("init postgres sources");
+    assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+    seed(&connstr, "DROP TABLE public.reload_boundary;").await;
+    let _driver = reloader
+        .start()
+        .expect("reload_interval > 0 spawns the driver");
 
     let app = init_service(
         actix_web::App::new()
@@ -97,51 +170,46 @@ async fn pg_startup_catalog_is_static_without_reloader() {
                     #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
                     &state,
                 )
-                .unwrap(),
+                .expect("catalog"),
             ))
-            .app_data(Data::new(state.tile_manager.clone()))
+            .app_data(Data::new(tsm))
             .app_data(Data::new(SrvConfig::default()))
             .configure(|c| martin::srv::router(c, &SrvConfig::default())),
     )
     .await;
 
-    // `reload_alpha` was part of the startup baseline, so it must appear.
-    let tiles = catalog_tiles(&app).await;
-    assert!(
-        tiles.contains_key("reload_alpha"),
-        "startup-seeded table must appear in /catalog, got: {tiles:?}"
-    );
+    wait_for_catalog(&app, "reload_boundary", false).await;
+    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
+    reload_alpha:
+      content_type: application/x-protobuf
+      description: public.reload_alpha.geom
+    ");
+    assert_eq!(tile_status(&app, "reload_boundary").await, 404);
 
-    // Create a second table out-of-band, then give the server a generous window to (not) react.
-    // On main there is no PG reloader, so this table must remain invisible until restart.
     seed(
         &connstr,
         "CREATE TABLE public.reload_beta (id serial PRIMARY KEY, geom geometry(Point, 4326));
          INSERT INTO public.reload_beta (geom) VALUES (ST_SetSRID(ST_MakePoint(0, 0), 4326));",
     )
     .await;
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    wait_for_catalog(&app, "reload_beta", true).await;
+    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
+    reload_alpha:
+      content_type: application/x-protobuf
+      description: public.reload_alpha.geom
+    reload_beta:
+      content_type: application/x-protobuf
+      description: public.reload_beta.geom
+    ");
+    assert_eq!(tile_status(&app, "reload_beta").await, 200);
 
-    let tiles = catalog_tiles(&app).await;
-    let managed: BTreeMap<String, Value> = ["reload_alpha", "reload_beta"]
-        .into_iter()
-        .filter_map(|id| tiles.get(id).map(|v| (id.to_owned(), v.clone())))
-        .collect();
-    assert_yaml_snapshot!(managed, @r"
+    seed(&connstr, "DROP TABLE public.reload_beta;").await;
+    wait_for_catalog(&app, "reload_beta", false).await;
+    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
     reload_alpha:
       content_type: application/x-protobuf
       description: public.reload_alpha.geom
     ");
-
-    // Tile requests for the still-unknown source must 404, not serve a tile.
-    let resp = call_service(
-        &app,
-        TestRequest::get().uri("/reload_beta/0/0/0").to_request(),
-    )
-    .await;
-    assert_eq!(
-        resp.status().as_u16(),
-        404,
-        "without a reloader, a post-startup table must not be tile-served"
-    );
+    assert_eq!(tile_status(&app, "reload_beta").await, 404);
+    assert_eq!(tile_status(&app, "reload_alpha").await, 200);
 }

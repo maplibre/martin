@@ -184,7 +184,11 @@ impl Discovery for FsDiscovery {
             .and_then(|cfg| cfg.process.clone());
         #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
         let process = None;
-        Ok(BuiltSource { source, process })
+        Ok(BuiltSource {
+            source,
+            process,
+            provenance: None,
+        })
     }
 
     fn process(&self) -> ProcessConfig {

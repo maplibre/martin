@@ -43,6 +43,10 @@ pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
 }
 
 pub type MockSource = (ServerState, Config);
+
+/// Resolves `config` the way the binaries do: non-tile resources via `resolve()`, then every
+/// `postgres` connection through its reloader's `init()`. The returned config carries the
+/// `postgres` sources materialized from the catalog, as `--save-config` would write them.
 pub async fn mock_sources(mut config: Config) -> MockSource {
     #[cfg(feature = "_tiles")]
     let idr = IdResolver::new(&[]);
@@ -58,6 +62,32 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
             config = serde_saphyr::to_string(&config).unwrap()
         )
     });
+    #[cfg(feature = "test-pg")]
+    {
+        use martin::config::file::ProcessConfig;
+        use martin::config::file::reload::postgres::PostgresReloader;
+
+        for pg in config.postgres.iter().cloned() {
+            let mut reloader = PostgresReloader::new(
+                res.tile_manager.clone(),
+                idr.clone(),
+                pg,
+                config.cache.policy(),
+                &ProcessConfig::default(),
+            );
+            let warnings = reloader.init().await.unwrap_or_else(|e| {
+                panic!(
+                    "Failed to init postgres sources:\n{config}\nBecause {e}",
+                    config = serde_saphyr::to_string(&config).unwrap()
+                )
+            });
+            res.tile_manager
+                .on_invalid()
+                .handle_tile_warnings(&warnings)
+                .expect("postgres discovery warnings");
+        }
+        config = config.with_catalog(&res.tile_manager);
+    }
     (res, config)
 }
 
