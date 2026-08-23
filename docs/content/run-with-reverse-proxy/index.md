@@ -19,6 +19,8 @@ Doing so has a few downsides:
     - [Nginx](https://nginx.org/)
     - [Varnish](https://varnish-cache.org/)
     - [Apache](https://httpd.apache.org/)
+
+  For client- and CDN-side caching, Martin can set a default `Cache-Control` response header itself via the `cache_control` option in the [configuration file](../config-file/index.md).
 - You may need to host more than just tiles/resources on the domain name.
 - Martin has a fixed public API, but your site may require a different structure.
   For example, you may want to serve tiles from `/{sourceID}/tiles?z={z}&x={x}&y={y}` instead of `/{sourceID}/{z}/{x}/{y}`.
