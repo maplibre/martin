@@ -9,6 +9,7 @@ cache:
 keep_alive: 75
 listen_addresses: 127.0.0.1:0
 worker_processes: 1
+cache_control: public, max-age=3600
 cors:
   origin:
   - "*"

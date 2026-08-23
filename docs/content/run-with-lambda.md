@@ -147,4 +147,5 @@ AWS Lambda support is preliminary; there are features to add to Martin, configur
 * Set up a CloudFront CDN, this is a whole thing, but explain the motivation and the basics.
 * Grant the execution role permission to read objects from an S3 bucket, and teach Martin how to make authenticated requests to S3.
 * Teach Martin how to serve all PMTiles files from an S3 bucket rather than having to list them at startup.
-* Teach Martin how to set the Cache-Control and Etag headers for better defaults.
+
+Martin already sets an `Etag` header on tile responses, and the `cache_control` option in the [configuration file](config-file/index.md) sets a default `Cache-Control` header - useful when running behind CloudFront.
