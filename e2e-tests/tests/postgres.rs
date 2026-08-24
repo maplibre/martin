@@ -199,6 +199,21 @@ async fn assert_tiles_across_zooms(martin: &Martin, source: &str, snapshot_prefi
 }
 
 #[tokio::test]
+async fn legacy_postgres_env_vars_warn_in_the_log() {
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .env("DEFAULT_SRID", "4326")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    martin.stop().await;
+    for var in ["DATABASE_URL", "DEFAULT_SRID"] {
+        martin.assert_log_contains(&format!("Environment variable {var} is deprecated"));
+    }
+}
+
+#[tokio::test]
 async fn every_kind_of_source_in_the_database_is_published() {
     let mut martin = martin_with_postgres().await;
 

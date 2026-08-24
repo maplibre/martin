@@ -14,27 +14,24 @@ For example, to use `MY_DATABASE_URL` in your
 config file: `connection_string: ${MY_DATABASE_URL}`, or with a
 default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}`
 
-The legacy single-colon default `${MY_DATABASE_URL:postgres://postgres@localhost/db}` is still
-accepted for backward compatibility, but is deprecated in favor of the `:-` form shown above.
-
 ```bash
 martin --config config.yaml
 ```
 
-You may wish to auto-generate a config file with `--save-config` argument.
-This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
+!!! warning "Deprecation of single-colon interpolation"
+    The legacy single-colon default `${MY_DATABASE_URL:postgres://postgres@localhost/db}` is still
+    accepted for backward compatibility, but is deprecated in favor of the `:-` form shown above.
 
-```bash
-martin  ... ... ...  --save-config config.yaml
-```
+!!! tip "auto-generate a config file with `--save-config`"
+    You can generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
+
+    ```bash
+    martin  ... ... ...  --save-config config.yaml
+    ```
 
 ## Full Configuration
 
 --8<-- "files/generated_config.md"
-
-!!! note
-    The generated reference and its JSON Schema cover the features included during schema generation.
-    Unstable sources such as duckdb or cog are not included.
 
 ## Validating your config
 
@@ -43,29 +40,24 @@ Martin publishes a JSON Schema for the config file at
 You can use it to catch typos, wrong types, and unknown keys before
 starting Martin.
 
-### In your editor
+=== "In your editor"
 
-Add the directive at the top of your `config.yaml`:
+    Add the directive at the top of your `config.yaml`:
 
-```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
-```
+    ```yaml
+    # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+    ```
 
-Editors that respect it (any with the
-[YAML Language Server](https://github.com/redhat-developer/yaml-language-server)
-behind them) will validate keys, types and enums as you type, and offer
-autocomplete from the schema.
+    Editors that respect it (any with the [YAML Language Server](https://github.com/redhat-developer/yaml-language-server) behind them) will validate your config.
+    This means you get schema based autocomplete for keys, types and enums as you type.
 
-### From the command line
+=== "From the command line"
 
-The same check Martin's CI runs against its own fixtures works on your config too.
-With [`uv`](https://docs.astral.sh/uv/) installed:
+    The same check Martin's CI runs against its own fixtures works on your config too.
+    With [`uv`](https://docs.astral.sh/uv/) installed:
 
-```bash
-uvx --from check-jsonschema check-jsonschema \
-    --schemafile https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json \
-    config.yaml
-```
-
-A passing run prints `ok -- validation done`; a failing one points at
-the offending path with the reason.
+    ```bash
+    $ uvx --from check-jsonschema check-jsonschema \
+        --schemafile https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json \
+        config.yaml
+    ```
