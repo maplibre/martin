@@ -222,13 +222,14 @@ jobs:
         image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
+        env: &postgis-env
+          POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          PGDATABASE: test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        options: &postgis-ssl-options >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -593,7 +594,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
+    env: &pg-env
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
@@ -603,13 +604,8 @@ jobs:
         image: postgis/postgis:13-3.0-alpine
         ports:
           - 5432/tcp
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
+        env: *postgis-env
+        options: &postgis-options >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -618,36 +614,15 @@ jobs:
         image: postgis/postgis:18-3.6-alpine
         ports:
           - 5432/tcp
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        env: *postgis-env
+        options: *postgis-options
       # alpine images don't support SSL, so for sslmode=require we use the debian image
       pg18-ssl:
         image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --entrypoint sh
-          postgis/postgis:18-3.6
-          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
+        env: *postgis-env
+        options: *postgis-ssl-options
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -737,23 +712,14 @@ jobs:
           #- img_ver: 15-3.3
           #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
           #  sslmode: verify-full
-    env:
-      PGDATABASE: test
-      PGHOST: localhost
-      PGUSER: postgres
-      PGPASSWORD: postgres
+    env: *pg-env
     services:
       postgres:
         image: postgis/postgis:${{ matrix.img_ver }}
         ports:
           - 5432/tcp
+        env: *postgis-env
         options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -860,35 +826,18 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
         with: { toolchain: none }
-      - parallel:
-          - name: Download build artifact build-aarch64-apple-darwin
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
-          - name: Download build artifact build-aarch64-unknown-linux-gnu
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
-          - name: Download build artifact build-x86_64-unknown-linux-gnu
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
-          - name: Download build artifact build-aarch64-unknown-linux-musl
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
-          - name: Download build artifact build-x86_64-unknown-linux-musl
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
-          - name: Download build artifact build-x86_64-pc-windows-msvc
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
-          - name: Download build artifact build-debian-x86_64
-            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-            with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
+      # Every build-* artifact from the jobs in `needs` lands in target/build-<target>/.
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: 'build-*', path: 'target' }
 
       - name: Package
         run: |
           set -x
 
-          for target in aarch64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl x86_64-pc-windows-msvc debian-x86_64;
-          do
+          for dir in target/build-*; do
+            target="${dir#target/build-}"
+            mv "$dir" "target/$target"
             just package-assets "$target"
           done
 
