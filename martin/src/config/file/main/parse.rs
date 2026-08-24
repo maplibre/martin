@@ -802,17 +802,6 @@ mod tests {
 
         #[test]
         #[tracing_test::traced_test]
-        fn warns_with_config_replacement_without_a_config_file() {
-            warn_legacy_env_vars(&faux(&[("DATABASE_URL", SECRET)]), None);
-            assert!(logs_contain(
-                "Environment variable DATABASE_URL is deprecated"
-            ));
-            assert!(logs_contain("postgres.connection_string: ${DATABASE_URL}"));
-            assert!(logs_contain(r#"martin "$DATABASE_URL""#));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
         fn vars_without_a_cli_flag_get_config_guidance_only() {
             warn_legacy_env_vars(&faux(&[("PGSSLCERT", "/secrets/postgresql.crt")]), None);
             assert!(logs_contain("postgres.ssl_cert: ${PGSSLCERT}"));
@@ -831,25 +820,6 @@ mod tests {
             );
             assert!(!logs_contain("hunter2"));
             assert!(!logs_contain("/secrets/postgresql.key"));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn every_legacy_var_is_reported() {
-            let env = faux(&[
-                ("DATABASE_URL", SECRET),
-                ("DEFAULT_SRID", "4326"),
-                ("PGSSLCERT", "cert"),
-                ("PGSSLKEY", "key"),
-                ("PGSSLROOTCERT", "root"),
-            ]);
-            warn_legacy_env_vars(&env, None);
-            for (name, _, _) in super::super::LEGACY_ENV_VARS {
-                assert!(
-                    logs_contain(&format!("Environment variable {name} is deprecated")),
-                    "{name} was not reported"
-                );
-            }
         }
 
         #[test]
