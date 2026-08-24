@@ -24,7 +24,7 @@ martin --config config.yaml
 
 !!! tip "auto-generate a config file with `--save-config`"
     You can generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
-    
+
     ```bash
     martin  ... ... ...  --save-config config.yaml
     ```
@@ -43,11 +43,11 @@ starting Martin.
 === "In your editor"
 
     Add the directive at the top of your `config.yaml`:
-    
+
     ```yaml
     # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
     ```
-    
+
     Editors that respect it (any with the [YAML Language Server](https://github.com/redhat-developer/yaml-language-server) behind them) will validate your config.
     This means you get schema based autocomplete for keys, types and enums as you type.
 
@@ -55,7 +55,7 @@ starting Martin.
 
     The same check Martin's CI runs against its own fixtures works on your config too.
     With [`uv`](https://docs.astral.sh/uv/) installed:
-    
+
     ```bash
     $ uvx --from check-jsonschema check-jsonschema \
         --schemafile https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json \
