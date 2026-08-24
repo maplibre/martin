@@ -12,112 +12,49 @@ use crate::config::primitives::env::Env;
 pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config> {
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
-    #[cfg(feature = "postgres")]
-    warn_legacy_env_vars(env, Some(&contents));
     parse_config(&contents, &env.as_property_map(), file_name)
 }
 
-/// Postgres env vars Martin still reads implicitly, paired with the config key that replaces
-/// them and, where one already exists, the CLI flag.
+/// Postgres env vars Martin still reads implicitly, but will stop in the future
 #[cfg(feature = "postgres")]
-const LEGACY_ENV_VARS: [(&str, Option<&str>, &str); 5] = [
+const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
     (
         "DATABASE_URL",
-        Some(r#"martin "$DATABASE_URL""#),
+        r#"martin "$DATABASE_URL""#,
         "postgres.connection_string: ${DATABASE_URL}",
     ),
     (
         "DEFAULT_SRID",
-        Some(r#"--default-srid "$DEFAULT_SRID""#),
+        r#"--default-srid "$DEFAULT_SRID""#,
         "postgres.default_srid: ${DEFAULT_SRID}",
     ),
-    ("PGSSLCERT", None, "postgres.ssl_cert: ${PGSSLCERT}"),
-    ("PGSSLKEY", None, "postgres.ssl_key: ${PGSSLKEY}"),
+    (
+        "PGSSLCERT",
+        r#"--ssl-cert "$PGSSLCERT""#,
+        "postgres.ssl_cert: ${PGSSLCERT}",
+    ),
+    (
+        "PGSSLKEY",
+        r#"--ssl-key "$PGSSLKEY""#,
+        "postgres.ssl_key: ${PGSSLKEY}",
+    ),
     (
         "PGSSLROOTCERT",
-        Some(r#"--ca-root-file "$PGSSLROOTCERT""#),
+        r#"--ca-root-file "$PGSSLROOTCERT""#,
         "postgres.ssl_root_cert: ${PGSSLROOTCERT}",
     ),
 ];
 
 /// Warn once at startup about legacy Postgres env vars Martin still reads implicitly.
-///
-/// `config_contents` is the raw YAML of the config file that was loaded, if any. A variable the
-/// config explicitly references as `${VAR}` is doing exactly what it should, so it is not
-/// reported. Variable values are never logged.
 #[cfg(feature = "postgres")]
-pub fn warn_legacy_env_vars(env: &impl Env, config_contents: Option<&str>) {
-    let set_vars: Vec<_> = LEGACY_ENV_VARS
-        .into_iter()
-        .filter(|(name, _, _)| env.var_os(name).is_some())
-        .collect();
-    if set_vars.is_empty() {
-        return;
-    }
-    let referenced = match config_contents {
-        // An unparseable config is about to abort startup with a proper diagnostic; staying quiet
-        // beats claiming a variable is unused when we cannot tell whether it is referenced.
-        Some(contents) => match serde_saphyr::from_str::<serde_json::Value>(contents) {
-            Ok(value) => Some(value),
-            Err(_) => return,
-        },
-        None => None,
-    };
-    for (name, cli, config_key) in set_vars {
-        if referenced
-            .as_ref()
-            .is_some_and(|value| json_value_references_var(value, name))
-        {
-            continue;
+pub fn warn_legacy_env_vars(env: &impl Env) {
+    for (name, cli, config_key) in LEGACY_ENV_VARS {
+        if env.var_os(name).is_some() {
+            warn!(
+                "Environment variable {name} is deprecated; use `{config_key}` in your configuration file (or `{cli}` on the command line) instead. See https://maplibre.org/martin/env-vars/"
+            );
         }
-        let cli_hint = cli.map_or_else(String::new, |c| format!(" (or `{c}` on the command line)"));
-        warn!(
-            "Environment variable {name} is deprecated; use `{config_key}` in your configuration file{cli_hint} instead. See https://maplibre.org/martin/env-vars/"
-        );
     }
-}
-
-#[cfg(feature = "postgres")]
-fn json_value_references_var(value: &serde_json::Value, name: &str) -> bool {
-    use serde_json::Value::{Array, Bool, Null, Number, Object, String};
-    match value {
-        String(s) => string_references_var(s, name),
-        Array(items) => items.iter().any(|v| json_value_references_var(v, name)),
-        Object(map) => map
-            .iter()
-            .any(|(k, v)| string_references_var(k, name) || json_value_references_var(v, name)),
-        Null | Bool(_) | Number(_) => false,
-    }
-}
-
-/// Whether `haystack` contains a saphyr-style substitution token referencing `name`:
-/// `${name}`, `${name<op>...}` for `<op>` in `:-/-/:+/+/:?/?`, or bare `$name` not
-/// followed by an identifier-continuation char. `$$` is treated as an escape, not a `$`.
-#[cfg(feature = "postgres")]
-fn string_references_var(haystack: &str, name: &str) -> bool {
-    let mut rest = haystack;
-    while let Some((_, after)) = rest.split_once('$') {
-        if let Some(escaped) = after.strip_prefix('$') {
-            rest = escaped;
-            continue;
-        }
-        let (body, in_braces) = after
-            .strip_prefix('{')
-            .map_or((after, false), |b| (b, true));
-        if let Some(tail) = body.strip_prefix(name) {
-            let next = tail.bytes().next();
-            let matched = if in_braces {
-                matches!(next, Some(b'}' | b':' | b'-' | b'+' | b'?'))
-            } else {
-                next.is_none_or(|c| !(c.is_ascii_alphanumeric() || c == b'_'))
-            };
-            if matched {
-                return true;
-            }
-        }
-        rest = after;
-    }
-    false
 }
 
 pub fn parse_config(
@@ -301,6 +238,7 @@ fn migrate_json_key(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::collections::HashMap;
     use std::path::Path;
     use std::time::Duration;
@@ -636,8 +574,9 @@ mod tests {
     #[case::escaped_braced("escaped: $${a:b}\n")]
     #[case::plain("plain: no substitution here\n")]
     fn rewrite_legacy_substitution_syntax_borrows_when_unchanged(#[case] input: &str) {
-        assert!(
-            matches!(rewrite_legacy_substitution_syntax(input), Cow::Borrowed(_)),
+        assert_matches!(
+            rewrite_legacy_substitution_syntax(input),
+            Cow::Borrowed(_),
             "should not rewrite: {input:?}"
         );
     }
@@ -740,121 +679,5 @@ mod tests {
         assert_eq!(config.cache.size_mb, expected_size_mb);
         assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
         assert_eq!(config.srv.base_path.as_deref(), expected_base_path);
-    }
-
-    #[cfg(feature = "postgres")]
-    #[test]
-    fn string_references_var_matches_substitution_tokens() {
-        for s in [
-            "${DATABASE_URL}",
-            "${DATABASE_URL:-postgres://x}",
-            "${DATABASE_URL:?required}",
-            "${DATABASE_URL-no-default}",
-            "${DATABASE_URL+set}",
-            "${DATABASE_URL?msg}",
-            "prefix-${DATABASE_URL}-suffix",
-            "$DATABASE_URL",
-            "$DATABASE_URL/path",
-            "$DATABASE_URL ",
-        ] {
-            assert!(
-                string_references_var(s, "DATABASE_URL"),
-                "expected a hit in {s:?}"
-            );
-        }
-        for s in [
-            "DATABASE_URL",
-            "$$DATABASE_URL",
-            "$DATABASE_URLISH",
-            "${DATABASE_URL_OTHER}",
-            "${OTHER_DATABASE_URL}",
-            "postgres://db",
-        ] {
-            assert!(
-                !string_references_var(s, "DATABASE_URL"),
-                "expected no hit in {s:?}"
-            );
-        }
-    }
-
-    #[cfg(feature = "postgres")]
-    mod legacy_env {
-        use std::ffi::OsString;
-
-        use super::super::warn_legacy_env_vars;
-        use crate::config::primitives::env::FauxEnv;
-
-        const SECRET: &str = "postgres://user:hunter2@localhost/db";
-
-        fn faux(pairs: &[(&'static str, &str)]) -> FauxEnv {
-            pairs
-                .iter()
-                .map(|(k, v)| (*k, OsString::from(*v)))
-                .collect()
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn no_warning_without_legacy_vars() {
-            warn_legacy_env_vars(&FauxEnv::default(), None);
-            assert!(!logs_contain("is deprecated"));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn vars_without_a_cli_flag_get_config_guidance_only() {
-            warn_legacy_env_vars(&faux(&[("PGSSLCERT", "/secrets/postgresql.crt")]), None);
-            assert!(logs_contain("postgres.ssl_cert: ${PGSSLCERT}"));
-            assert!(!logs_contain("command line"));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn never_logs_the_value() {
-            warn_legacy_env_vars(
-                &faux(&[
-                    ("DATABASE_URL", SECRET),
-                    ("PGSSLKEY", "/secrets/postgresql.key"),
-                ]),
-                None,
-            );
-            assert!(!logs_contain("hunter2"));
-            assert!(!logs_contain("/secrets/postgresql.key"));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn explicit_config_reference_is_not_reported() {
-            warn_legacy_env_vars(
-                &faux(&[("DATABASE_URL", SECRET)]),
-                Some("postgres:\n  connection_string: ${DATABASE_URL}\n"),
-            );
-            assert!(!logs_contain("is deprecated"));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn unreferenced_var_is_reported_even_with_a_config_file() {
-            warn_legacy_env_vars(
-                &faux(&[("DATABASE_URL", SECRET), ("DEFAULT_SRID", "4326")]),
-                Some("postgres:\n  connection_string: ${DATABASE_URL}\n"),
-            );
-            assert!(!logs_contain(
-                "Environment variable DATABASE_URL is deprecated"
-            ));
-            assert!(logs_contain(
-                "Environment variable DEFAULT_SRID is deprecated"
-            ));
-        }
-
-        #[test]
-        #[tracing_test::traced_test]
-        fn unparseable_config_stays_quiet() {
-            warn_legacy_env_vars(
-                &faux(&[("DATABASE_URL", SECRET)]),
-                Some("srv:\n  listen_addresses: \"0.0.0.0:3000\n  worker_processes: 4\n"),
-            );
-            assert!(!logs_contain("is deprecated"));
-        }
     }
 }

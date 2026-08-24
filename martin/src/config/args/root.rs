@@ -107,12 +107,8 @@ impl Args {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
-        // With a config file, `read_config` has already reported the legacy environment variables
-        // against its contents, skipping the ones the file explicitly references.
         #[cfg(feature = "postgres")]
-        if self.meta.config.is_none() {
-            warn_legacy_env_vars(env, None);
-        }
+        warn_legacy_env_vars(env);
 
         if self.srv.cache_size.is_some() {
             config.cache.size_mb = self.srv.cache_size;
@@ -511,8 +507,9 @@ mod tests {
     #[test]
     #[tracing_test::traced_test]
     fn legacy_env_var_still_configures_postgres_and_warns() {
-        use crate::config::primitives::OptOneMany;
         use std::ffi::OsString;
+
+        use crate::config::primitives::OptOneMany;
 
         let env: FauxEnv = [(
             "DATABASE_URL",
