@@ -49,8 +49,6 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Unable to deserialize SQL comment on public.points2 as tilejson",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
-    // `MartinBuilder::with_postgres` connects via the `DATABASE_URL` env var,
-    // same as `just start`/`just test-pg` do -- expected on every postgres test.
     "Environment variable DATABASE_URL is deprecated",
 ];
 
