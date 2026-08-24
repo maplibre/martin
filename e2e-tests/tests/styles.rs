@@ -137,6 +137,10 @@ async fn styles_can_be_merged_in_request_order() {
     assert_eq!(response.body(), suffixed.body());
     insta::assert_json_snapshot!(response.json(), @r##"
     {
+      "font-faces": {
+        "Base Font": "https://fonts.example/base.ttf",
+        "Overlay Font": "https://fonts.example/overlay.ttf"
+      },
       "glyphs": "http://example.com/font/{fontstack}/{range}",
       "layers": [
         {
@@ -153,8 +157,20 @@ async fn styles_can_be_merged_in_request_order() {
         },
         {
           "id": "overlay-points",
+          "layout": {
+            "text-field": "label",
+            "text-font": [
+              "Overlay Font"
+            ]
+          },
+          "paint": {
+            "text-opacity": [
+              "global-state",
+              "overlay-opacity"
+            ]
+          },
           "source": "points",
-          "type": "circle"
+          "type": "symbol"
         }
       ],
       "metadata": {
@@ -175,6 +191,14 @@ async fn styles_can_be_merged_in_request_order() {
         }
       },
       "sprite": "http://example.com/sprite/src1,src2",
+      "state": {
+        "base-visible": {
+          "default": true
+        },
+        "overlay-opacity": {
+          "default": 0.5
+        }
+      },
       "version": 8
     }
     "##);

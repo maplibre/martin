@@ -1,5 +1,8 @@
 {
   "glyphs": "/font/{fontstack}/{range}",
+  "font-faces": {
+    "Overlay Font": "https://fonts.example/overlay.ttf"
+  },
   "layers": [
     {
       "id": "overlay-line",
@@ -10,7 +13,14 @@
     {
       "id": "overlay-points",
       "source": "points",
-      "type": "circle"
+      "type": "symbol",
+      "layout": {
+        "text-field": "label",
+        "text-font": ["Overlay Font"]
+      },
+      "paint": {
+        "text-opacity": ["global-state", "overlay-opacity"]
+      }
     }
   ],
   "metadata": { "from": "overlay" },
@@ -27,6 +37,9 @@
       },
       "type": "geojson"
     }
+  },
+  "state": {
+    "overlay-opacity": { "default": 0.5 }
   },
   "sprite": "/sprite/src2",
   "version": 8

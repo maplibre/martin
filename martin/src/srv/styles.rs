@@ -141,7 +141,7 @@ pub async fn get_style_json(
     if parsed.len() == 1 {
         return HttpResponse::Ok().json(parsed.pop().expect("one style was loaded").1);
     }
-    match merge_styles(parsed) {
+    match merge_styles(parsed, &base_url) {
         Ok(style) => HttpResponse::Ok().json(style),
         Err(error) => HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())

@@ -104,6 +104,30 @@ pub enum StyleMergeError {
         second_style: String,
     },
 
+    #[error("Style {style_id:?} has a font-faces field that is not an object")]
+    InvalidFontFaces { style_id: String },
+
+    #[error(
+        "Cannot merge styles {first_style:?} and {second_style:?}: font face {font_face:?} has different definitions"
+    )]
+    FontFaceConflict {
+        first_style: String,
+        second_style: String,
+        font_face: String,
+    },
+
+    #[error("Style {style_id:?} has a state field that is not an object")]
+    InvalidState { style_id: String },
+
+    #[error(
+        "Cannot merge styles {first_style:?} and {second_style:?}: state property {state_property:?} has different definitions"
+    )]
+    StateConflict {
+        first_style: String,
+        second_style: String,
+        state_property: String,
+    },
+
     #[error(
         "Cannot merge styles {first_style:?} and {second_style:?}: sprite definitions are incompatible"
     )]
@@ -124,17 +148,23 @@ pub enum StyleMergeError {
 
 /// Merge styles in request order, keeping the first style's root properties.
 ///
-/// Layer arrays are concatenated, structurally identical sources are
-/// de-duplicated, and layers are rewritten to use the first name under which a
-/// source definition appeared. Conflicts that cannot be represented without
-/// changing style semantics are rejected.
-pub fn merge_styles(styles: Vec<(String, Style)>) -> Result<Style, StyleMergeError> {
+/// The `font-faces` and `state` root maps are merged by key. Layer arrays are
+/// concatenated, structurally identical sources are de-duplicated, and layers
+/// are rewritten to use the first name under which a source definition
+/// appeared. Conflicts that cannot be represented without changing style
+/// semantics are rejected.
+pub fn merge_styles(
+    styles: Vec<(String, Style)>,
+    martin_base_url: &str,
+) -> Result<Style, StyleMergeError> {
     let mut styles = styles.into_iter();
     let Some((first_id, mut first_style)) = styles.next() else {
         return Err(StyleMergeError::NoStyles);
     };
 
     let first_layers = first_style.other.remove("layers");
+    let first_font_faces = first_style.other.remove("font-faces");
+    let first_state = first_style.other.remove("state");
     let mut result = Style {
         other: std::mem::take(&mut first_style.other),
         ..Style::default()
@@ -142,9 +172,19 @@ pub fn merge_styles(styles: Vec<(String, Style)>) -> Result<Style, StyleMergeErr
     if let Some(first_layers) = first_layers {
         first_style.other.insert("layers".to_owned(), first_layers);
     }
+    if let Some(first_font_faces) = first_font_faces {
+        first_style
+            .other
+            .insert("font-faces".to_owned(), first_font_faces);
+    }
+    if let Some(first_state) = first_state {
+        first_style.other.insert("state".to_owned(), first_state);
+    }
     let mut source_names = Vec::new();
     let mut seen_sources = HashMap::new();
     let mut layer_owners = HashMap::new();
+    let mut font_face_owners = HashMap::new();
+    let mut state_owners = HashMap::new();
     let mut layers = Vec::new();
     let mut glyph_owner = None;
     let mut sprite_owner = None;
@@ -161,6 +201,21 @@ pub fn merge_styles(styles: Vec<(String, Style)>) -> Result<Style, StyleMergeErr
             &mut sprite_owner,
             style.sprite.take(),
             &style_id,
+            martin_base_url,
+        )?;
+        merge_root_map(
+            &mut result.other,
+            &mut font_face_owners,
+            &mut style.other,
+            &style_id,
+            RootMap::FontFaces,
+        )?;
+        merge_root_map(
+            &mut result.other,
+            &mut state_owners,
+            &mut style.other,
+            &style_id,
+            RootMap::State,
         )?;
 
         let aliases = merge_sources(
@@ -183,6 +238,86 @@ pub fn merge_styles(styles: Vec<(String, Style)>) -> Result<Style, StyleMergeErr
         .other
         .insert("layers".to_owned(), Value::Array(layers));
     Ok(result)
+}
+
+#[derive(Clone, Copy)]
+enum RootMap {
+    FontFaces,
+    State,
+}
+
+impl RootMap {
+    const fn field(self) -> &'static str {
+        match self {
+            Self::FontFaces => "font-faces",
+            Self::State => "state",
+        }
+    }
+
+    fn invalid(self, style_id: &str) -> StyleMergeError {
+        match self {
+            Self::FontFaces => StyleMergeError::InvalidFontFaces {
+                style_id: style_id.to_owned(),
+            },
+            Self::State => StyleMergeError::InvalidState {
+                style_id: style_id.to_owned(),
+            },
+        }
+    }
+
+    fn conflict(self, first_style: String, second_style: &str, key: String) -> StyleMergeError {
+        match self {
+            Self::FontFaces => StyleMergeError::FontFaceConflict {
+                first_style,
+                second_style: second_style.to_owned(),
+                font_face: key,
+            },
+            Self::State => StyleMergeError::StateConflict {
+                first_style,
+                second_style: second_style.to_owned(),
+                state_property: key,
+            },
+        }
+    }
+}
+
+fn merge_root_map(
+    merged: &mut BTreeMap<String, Value>,
+    owners: &mut HashMap<String, String>,
+    style_other: &mut BTreeMap<String, Value>,
+    style_id: &str,
+    kind: RootMap,
+) -> Result<(), StyleMergeError> {
+    let Some(value) = style_other.remove(kind.field()) else {
+        return Ok(());
+    };
+    let Value::Object(values) = value else {
+        return Err(kind.invalid(style_id));
+    };
+
+    let merged_values = merged
+        .entry(kind.field().to_owned())
+        .or_insert_with(|| Value::Object(serde_json::Map::new()))
+        .as_object_mut()
+        .expect("merged root maps are always JSON objects");
+    for (key, value) in values {
+        if let Some(existing) = merged_values.get(&key) {
+            if existing != &value {
+                return Err(kind.conflict(
+                    owners
+                        .get(&key)
+                        .cloned()
+                        .expect("a merged root map entry always has an owner"),
+                    style_id,
+                    key,
+                ));
+            }
+        } else {
+            owners.insert(key.clone(), style_id.to_owned());
+            merged_values.insert(key, value);
+        }
+    }
+    Ok(())
 }
 
 fn merge_glyphs(
@@ -310,6 +445,7 @@ fn merge_sprites(
     owner: &mut Option<String>,
     sprite: Option<Sprite>,
     style_id: &str,
+    martin_base_url: &str,
 ) -> Result<(), StyleMergeError> {
     let Some(sprite) = sprite else {
         return Ok(());
@@ -328,7 +464,7 @@ fn merge_sprites(
         .expect("a merged sprite definition always has an owner");
     match (existing, sprite) {
         (Sprite::Single(first), Sprite::Single(second)) => {
-            let Some(composite) = composite_sprite_url(first, &second) else {
+            let Some(composite) = composite_sprite_url(first, &second, martin_base_url) else {
                 return Err(StyleMergeError::SpriteConflict {
                     first_style,
                     second_style: style_id.to_owned(),
@@ -362,31 +498,24 @@ fn merge_sprites(
     }
 }
 
-fn composite_sprite_url(first: &str, second: &str) -> Option<String> {
-    fn split(url: &str) -> Option<(&str, Vec<&str>)> {
-        let (prefix, ids) = url.rsplit_once("/sprite/")?;
-        if prefix.is_empty()
-            || ids.is_empty()
-            || ids.contains('/')
-            || ids.contains('?')
-            || ids.contains('#')
-        {
+fn composite_sprite_url(first: &str, second: &str, martin_base_url: &str) -> Option<String> {
+    fn split<'a>(url: &'a str, sprite_prefix: &str) -> Option<Vec<&'a str>> {
+        let ids = url.strip_prefix(sprite_prefix)?;
+        if ids.is_empty() || ids.contains('/') || ids.contains('?') || ids.contains('#') {
             return None;
         }
-        Some((prefix, ids.split(',').collect()))
+        Some(ids.split(',').collect())
     }
 
-    let (first_prefix, mut first_ids) = split(first)?;
-    let (second_prefix, second_ids) = split(second)?;
-    if first_prefix != second_prefix {
-        return None;
-    }
+    let sprite_prefix = format!("{}/sprite/", martin_base_url.trim_end_matches('/'));
+    let mut first_ids = split(first, &sprite_prefix)?;
+    let second_ids = split(second, &sprite_prefix)?;
     for id in second_ids {
         if !first_ids.contains(&id) {
             first_ids.push(id);
         }
     }
-    Some(format!("{first_prefix}/sprite/{}", first_ids.join(",")))
+    Some(format!("{sprite_prefix}{}", first_ids.join(",")))
 }
 
 impl Style {
@@ -466,12 +595,18 @@ mod tests {
 
     use super::*;
 
+    const MARTIN_BASE_URL: &str = "https://martin.test/prefix";
+
     fn parse(v: Value) -> Style {
         serde_json::from_value(v).unwrap()
     }
 
     fn dump(s: &Style) -> Value {
         serde_json::to_value(s).unwrap()
+    }
+
+    fn merge(styles: Vec<(String, Style)>) -> Result<Style, StyleMergeError> {
+        merge_styles(styles, MARTIN_BASE_URL)
     }
 
     #[test]
@@ -701,6 +836,12 @@ mod tests {
             "name": "base",
             "metadata": {"keep": true},
             "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+            "font-faces": {
+                "Base Font": "https://fonts.example/base.ttf"
+            },
+            "state": {
+                "base-visible": {"default": true}
+            },
             "sources": {
                 "canonical": {"type": "vector", "url": "https://example.com/tiles.json"}
             },
@@ -711,17 +852,29 @@ mod tests {
             "name": "overlay",
             "metadata": {"discard": true},
             "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+            "font-faces": {
+                "Overlay Font": "https://fonts.example/overlay.ttf"
+            },
+            "state": {
+                "overlay-opacity": {"default": 0.5}
+            },
             "sources": {
                 "alias": {"type": "vector", "url": "https://example.com/tiles.json"},
                 "points": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}
             },
             "layers": [
                 {"id": "alias-layer", "type": "line", "source": "alias"},
-                {"id": "points-layer", "type": "circle", "source": "points"}
+                {
+                    "id": "points-layer",
+                    "type": "symbol",
+                    "source": "points",
+                    "layout": {"text-font": ["Overlay Font"]},
+                    "paint": {"text-opacity": ["global-state", "overlay-opacity"]}
+                }
             ]
         }));
 
-        let merged = merge_styles(vec![
+        let merged = merge(vec![
             ("base".to_owned(), base),
             ("overlay".to_owned(), overlay),
         ])
@@ -734,6 +887,14 @@ mod tests {
                 "name": "base",
                 "metadata": {"keep": true},
                 "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+                "font-faces": {
+                    "Base Font": "https://fonts.example/base.ttf",
+                    "Overlay Font": "https://fonts.example/overlay.ttf"
+                },
+                "state": {
+                    "base-visible": {"default": true},
+                    "overlay-opacity": {"default": 0.5}
+                },
                 "sources": {
                     "canonical": {"type": "vector", "url": "https://example.com/tiles.json"},
                     "points": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}
@@ -741,7 +902,13 @@ mod tests {
                 "layers": [
                     {"id": "base-layer", "type": "fill", "source": "canonical"},
                     {"id": "alias-layer", "type": "line", "source": "canonical"},
-                    {"id": "points-layer", "type": "circle", "source": "points"}
+                    {
+                        "id": "points-layer",
+                        "type": "symbol",
+                        "source": "points",
+                        "layout": {"text-font": ["Overlay Font"]},
+                        "paint": {"text-opacity": ["global-state", "overlay-opacity"]}
+                    }
                 ]
             })
         );
@@ -775,7 +942,7 @@ mod tests {
         ];
 
         assert_eq!(
-            merge_styles(styles),
+            merge(styles),
             Err(StyleMergeError::SourceConflict {
                 first_style: "alias".to_owned(),
                 second_style: "conflict".to_owned(),
@@ -786,7 +953,7 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_layer_ids() {
-        let result = merge_styles(vec![
+        let result = merge(vec![
             (
                 "base".to_owned(),
                 parse(json!({"layers": [{"id": "water", "type": "fill"}]})),
@@ -808,7 +975,7 @@ mod tests {
 
     #[test]
     fn rejects_different_glyph_templates() {
-        let result = merge_styles(vec![
+        let result = merge(vec![
             (
                 "base".to_owned(),
                 parse(json!({"glyphs": "https://a/{fontstack}", "layers": []})),
@@ -829,7 +996,7 @@ mod tests {
 
     #[test]
     fn combines_martin_sprite_urls() {
-        let merged = merge_styles(vec![
+        let merged = merge(vec![
             (
                 "base".to_owned(),
                 parse(json!({"sprite": "https://martin.test/prefix/sprite/base", "layers": []})),
@@ -853,6 +1020,80 @@ mod tests {
     }
 
     #[test]
+    fn rejects_external_sprite_urls_that_resemble_martin_endpoints() {
+        let result = merge(vec![
+            (
+                "base".to_owned(),
+                parse(json!({"sprite": "https://cdn.example/sprite/base", "layers": []})),
+            ),
+            (
+                "overlay".to_owned(),
+                parse(json!({"sprite": "https://cdn.example/sprite/overlay", "layers": []})),
+            ),
+        ]);
+        assert_eq!(
+            result,
+            Err(StyleMergeError::SpriteConflict {
+                first_style: "base".to_owned(),
+                second_style: "overlay".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_font_faces_and_state_properties() {
+        let font_face_result = merge(vec![
+            (
+                "base".to_owned(),
+                parse(json!({
+                    "font-faces": {"Shared Font": "https://fonts.example/a.ttf"},
+                    "layers": []
+                })),
+            ),
+            (
+                "overlay".to_owned(),
+                parse(json!({
+                    "font-faces": {"Shared Font": "https://fonts.example/b.ttf"},
+                    "layers": []
+                })),
+            ),
+        ]);
+        assert_eq!(
+            font_face_result,
+            Err(StyleMergeError::FontFaceConflict {
+                first_style: "base".to_owned(),
+                second_style: "overlay".to_owned(),
+                font_face: "Shared Font".to_owned(),
+            })
+        );
+
+        let state_result = merge(vec![
+            (
+                "base".to_owned(),
+                parse(json!({
+                    "state": {"opacity": {"default": 0.5}},
+                    "layers": []
+                })),
+            ),
+            (
+                "overlay".to_owned(),
+                parse(json!({
+                    "state": {"opacity": {"default": 1.0}},
+                    "layers": []
+                })),
+            ),
+        ]);
+        assert_eq!(
+            state_result,
+            Err(StyleMergeError::StateConflict {
+                first_style: "base".to_owned(),
+                second_style: "overlay".to_owned(),
+                state_property: "opacity".to_owned(),
+            })
+        );
+    }
+
+    #[test]
     fn merges_multi_sprite_entries_and_rejects_id_conflicts() {
         let base = parse(json!({
             "sprite": [{"id": "base", "url": "https://example.com/base"}],
@@ -865,7 +1106,7 @@ mod tests {
             ],
             "layers": []
         }));
-        let merged = merge_styles(vec![
+        let merged = merge(vec![
             ("base".to_owned(), base.clone()),
             ("overlay".to_owned(), overlay),
         ])
@@ -883,7 +1124,7 @@ mod tests {
             "layers": []
         }));
         assert_eq!(
-            merge_styles(vec![
+            merge(vec![
                 ("base".to_owned(), base),
                 ("conflict".to_owned(), conflict),
             ]),
@@ -898,7 +1139,7 @@ mod tests {
     #[test]
     fn validates_layers_only_when_merging() {
         assert_eq!(
-            merge_styles(vec![
+            merge(vec![
                 ("base".to_owned(), parse(json!({"layers": []}))),
                 ("missing".to_owned(), parse(json!({}))),
             ]),
