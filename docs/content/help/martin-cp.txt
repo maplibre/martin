@@ -91,6 +91,12 @@ Options:
 
           Can be either a positive integer or unlimited if omitted.
 
+      --ssl-cert <SSL_CERT>
+          A file with a client SSL certificate
+
+      --ssl-key <SSL_KEY>
+          A file with the key for the client SSL certificate
+
   -h, --help
           Print help (see a summary with '-h')
 
