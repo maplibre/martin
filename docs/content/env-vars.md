@@ -17,8 +17,8 @@ See also [SSL configuration](pg-connections/index.md#ssl-connections) section be
 | `AWS_LAMBDA_RUNTIME_API` | If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See [Running in AWS Lambda](run-with-lambda.md) |
 
 !!! warning "Deprecated environment variables"
-    Reading below environment variables is deprecated and will be removed in a future, major release.
-    See [#1052](https://github.com/maplibre/martin/issues/1052) for further context.
+    Reading **below environment variables is deprecated** and **will be removed** in a **future** (semver major) **release**.
+    See [#1052](https://github.com/maplibre/martin/issues/1052) for further context why this was done.
     Use the appropriate CLI flags or our yaml interpolation (`key: ${ENV_VAR}`) support that replaces them.
 
     | Environment var <br/> Config File key    | Example                                   | Description                                                                                                                                                                                                |
