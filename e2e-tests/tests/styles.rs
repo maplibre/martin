@@ -14,6 +14,10 @@ async fn martin_with_styles() -> Martin {
         .arg(fixture("styles/src2"))
         .arg("--style")
         .arg(fixture("styles/relative_urls.json"))
+        .arg("--style")
+        .arg(fixture("styles/composite_base.json"))
+        .arg("--style")
+        .arg(fixture("styles/composite_overlay.json"))
         .start()
         .await
         .expect("failed to start martin")
@@ -49,6 +53,12 @@ async fn styles_are_discovered_from_files_and_directories() {
     normalize_paths(&mut styles);
     insta::assert_json_snapshot!(styles, @r#"
     {
+      "composite_base": {
+        "path": "tests/fixtures/styles/composite_base.json"
+      },
+      "composite_overlay": {
+        "path": "tests/fixtures/styles/composite_overlay.json"
+      },
       "maplibre_demo": {
         "path": "tests/fixtures/styles/maplibre_demo.json"
       },
@@ -101,6 +111,92 @@ async fn the_json_suffix_is_optional(#[case] style_id: &str, #[case] fixture_pat
     assert_eq!(suffixed.status(), 200);
     assert_eq!(bare.json(), fixture_json(fixture_path));
     assert_eq!(bare.body(), suffixed.body());
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn styles_can_be_merged_in_request_order() {
+    let mut martin = martin_with_styles().await;
+
+    let response = martin
+        .get_with_headers(
+            "/style/composite_base,composite_overlay",
+            &[("Host", "example.com")],
+        )
+        .await;
+    let suffixed = martin
+        .get_with_headers(
+            "/style/composite_base,composite_overlay.json",
+            &[("Host", "example.com")],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(suffixed.status(), 200);
+    assert_eq!(response.body(), suffixed.body());
+    insta::assert_json_snapshot!(response.json(), @r##"
+    {
+      "glyphs": "http://example.com/font/{fontstack}/{range}",
+      "layers": [
+        {
+          "id": "base-layer",
+          "source": "canonical",
+          "source-layer": "roads",
+          "type": "line"
+        },
+        {
+          "id": "overlay-line",
+          "source": "canonical",
+          "source-layer": "roads",
+          "type": "line"
+        },
+        {
+          "id": "overlay-points",
+          "source": "points",
+          "type": "circle"
+        }
+      ],
+      "metadata": {
+        "from": "base"
+      },
+      "name": "Composite base",
+      "sources": {
+        "canonical": {
+          "type": "vector",
+          "url": "http://example.com/shared_source"
+        },
+        "points": {
+          "data": {
+            "features": [],
+            "type": "FeatureCollection"
+          },
+          "type": "geojson"
+        }
+      },
+      "sprite": "http://example.com/sprite/src1,src2",
+      "version": 8
+    }
+    "##);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn composite_style_validation_errors_are_bad_requests() {
+    let mut martin = martin_with_styles().await;
+
+    let empty = martin.get("/style/composite_base,,composite_overlay").await;
+    assert_eq!(empty.status(), 400);
+    assert_eq!(empty.text(), "Style ids must not be empty");
+
+    let conflict = martin.get("/style/maplibre_demo,relative_urls").await;
+    assert_eq!(conflict.status(), 400);
+    assert!(conflict.text().contains("glyph URLs are different"));
+
+    let missing = martin.get("/style/composite_base,nope").await;
+    assert_eq!(missing.status(), 404);
 
     martin.stop().await;
     martin.assert_log_clean();

@@ -24,6 +24,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/font/{font}/{start}-{end}`                  | [Font source](sources-fonts.md)                                    |
 | `/font/{font1},…,{fontN}/{start}-{end}`       | [Composite Font source](sources-fonts.md)                          |
 | `/style/{style}`                              | [Style source](sources-styles/index.md)                            |
+| `/style/{style1},…,{styleN}`                  | [Merged style source](sources-styles/index.md#merged-styles)       |
 | `/style/{style}/{z}/{x}/{y}.{ext}`            | [Rendered raster tiles](sources-styles/rendering.md) (Linux)       |
 | `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](sources-styles/rendering.md#static-images) (Linux) |
 | `/health`                                     | Martin server health check: returns 200 `OK`                       |

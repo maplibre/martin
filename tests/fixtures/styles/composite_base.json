@@ -1,0 +1,21 @@
+{
+  "version": 8,
+  "name": "Composite base",
+  "metadata": {"from": "base"},
+  "glyphs": "/font/{fontstack}/{range}",
+  "sprite": "/sprite/src1",
+  "sources": {
+    "canonical": {
+      "type": "vector",
+      "url": "/shared_source"
+    }
+  },
+  "layers": [
+    {
+      "id": "base-layer",
+      "type": "line",
+      "source": "canonical",
+      "source-layer": "roads"
+    }
+  ]
+}

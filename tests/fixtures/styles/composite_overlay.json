@@ -1,0 +1,33 @@
+{
+  "version": 8,
+  "name": "Composite overlay",
+  "metadata": {"from": "overlay"},
+  "glyphs": "/font/{fontstack}/{range}",
+  "sprite": "/sprite/src2",
+  "sources": {
+    "alias": {
+      "type": "vector",
+      "url": "/shared_source"
+    },
+    "points": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": []
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "overlay-line",
+      "type": "line",
+      "source": "alias",
+      "source-layer": "roads"
+    },
+    {
+      "id": "overlay-points",
+      "type": "circle",
+      "source": "points"
+    }
+  ]
+}
