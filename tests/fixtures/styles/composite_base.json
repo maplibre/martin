@@ -1,8 +1,8 @@
 {
-  "glyphs": "/font/{fontstack}/{range}",
   "font-faces": {
     "Base Font": "https://fonts.example/base.ttf"
   },
+  "glyphs": "/font/{fontstack}/{range}",
   "layers": [
     {
       "id": "base-layer",
@@ -19,9 +19,9 @@
       "url": "/shared_source"
     }
   },
+  "sprite": "/sprite/src1",
   "state": {
     "base-visible": { "default": true }
   },
-  "sprite": "/sprite/src1",
   "version": 8
 }
