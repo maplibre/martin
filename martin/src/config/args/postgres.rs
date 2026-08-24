@@ -347,8 +347,6 @@ mod tests {
         args.check().unwrap();
     }
 
-    /// `--ssl-cert`/`--ssl-key` win over `PGSSLCERT`/`PGSSLKEY`, the same way `--ca-root-file`
-    /// already wins over `PGSSLROOTCERT`.
     #[test]
     fn cli_ssl_cert_and_key_override_env() {
         let mut args = Arguments::new(vec![]);
@@ -382,8 +380,6 @@ mod tests {
         args.check().unwrap();
     }
 
-    /// A config file's SSL values must survive; `--ssl-cert`/`--ssl-key` override them like
-    /// `--ca-root-file` already does for `ssl_root_cert`.
     #[test]
     fn override_config_applies_ssl_cli_flags() {
         let mut config = OptOneMany::One(PostgresConfig {
