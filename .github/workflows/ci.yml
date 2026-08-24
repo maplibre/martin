@@ -222,14 +222,15 @@ jobs:
         image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
-        env: &postgis-env
-          POSTGRES_DB: test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          PGDATABASE: test
-          PGUSER: postgres
-          PGPASSWORD: postgres
+        # The -e flags stay inside options here: they must precede the image name, and the
+        # runner appends a service's env: map after options, i.e. after the image.
         options: &postgis-ssl-options >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -604,7 +605,13 @@ jobs:
         image: postgis/postgis:13-3.0-alpine
         ports:
           - 5432/tcp
-        env: *postgis-env
+        env: &postgis-env
+          POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          PGDATABASE: test
+          PGUSER: postgres
+          PGPASSWORD: postgres
         options: &postgis-options >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -621,7 +628,6 @@ jobs:
         image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
-        env: *postgis-env
         options: *postgis-ssl-options
     steps:
       - name: Checkout sources
@@ -718,8 +724,13 @@ jobs:
         image: postgis/postgis:${{ matrix.img_ver }}
         ports:
           - 5432/tcp
-        env: *postgis-env
         options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
