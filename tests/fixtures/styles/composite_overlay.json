@@ -1,33 +1,33 @@
 {
-  "version": 8,
-  "name": "Composite overlay",
-  "metadata": {"from": "overlay"},
   "glyphs": "/font/{fontstack}/{range}",
-  "sprite": "/sprite/src2",
+  "layers": [
+    {
+      "id": "overlay-line",
+      "source": "alias",
+      "source-layer": "roads",
+      "type": "line"
+    },
+    {
+      "id": "overlay-points",
+      "source": "points",
+      "type": "circle"
+    }
+  ],
+  "metadata": { "from": "overlay" },
+  "name": "Composite overlay",
   "sources": {
     "alias": {
       "type": "vector",
       "url": "/shared_source"
     },
     "points": {
-      "type": "geojson",
       "data": {
-        "type": "FeatureCollection",
-        "features": []
-      }
+        "features": [],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
     }
   },
-  "layers": [
-    {
-      "id": "overlay-line",
-      "type": "line",
-      "source": "alias",
-      "source-layer": "roads"
-    },
-    {
-      "id": "overlay-points",
-      "type": "circle",
-      "source": "points"
-    }
-  ]
+  "sprite": "/sprite/src2",
+  "version": 8
 }

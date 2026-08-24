@@ -1,21 +1,21 @@
 {
-  "version": 8,
-  "name": "Composite base",
-  "metadata": {"from": "base"},
   "glyphs": "/font/{fontstack}/{range}",
-  "sprite": "/sprite/src1",
+  "layers": [
+    {
+      "id": "base-layer",
+      "source": "canonical",
+      "source-layer": "roads",
+      "type": "line"
+    }
+  ],
+  "metadata": { "from": "base" },
+  "name": "Composite base",
   "sources": {
     "canonical": {
       "type": "vector",
       "url": "/shared_source"
     }
   },
-  "layers": [
-    {
-      "id": "base-layer",
-      "type": "line",
-      "source": "canonical",
-      "source-layer": "roads"
-    }
-  ]
+  "sprite": "/sprite/src1",
+  "version": 8
 }
