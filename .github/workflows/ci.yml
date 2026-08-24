@@ -79,7 +79,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { cache: true, coverage: true }
+        with: { coverage: true }
       - name: Run COG tests
         run: just test-cog
       - uses: ./.github/actions/upload-coverage
@@ -506,7 +506,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: ./.github/actions/setup-rust
-        with: { tools: 'just,fast-mvt', rendering: true }
+        with: { tools: 'just,fast-mvt', rendering: true, cache: true }
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes
