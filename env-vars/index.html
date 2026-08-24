@@ -1497,6 +1497,25 @@ See also <a href="../pg-connections/#ssl-connections">SSL configuration</a> sect
 <table>
 <thead>
 <tr>
+<th>Environment var</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AWS_LAMBDA_RUNTIME_API</code></td>
+<td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="../run-with-lambda/">Running in AWS Lambda</a></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Deprecated environment variables</p>
+<p>Reading <strong>below environment variables is deprecated</strong> and <strong>will be removed</strong> in a <strong>future</strong> (semver major) <strong>release</strong>.
+See <a href="https://github.com/maplibre/martin/issues/1052">#1052</a> for further context why this was done.
+Use the appropriate CLI flags or our yaml interpolation (<code>key: ${ENV_VAR}</code>) support that replaces them.</p>
+<table>
+<thead>
+<tr>
 <th>Environment var <br/> Config File key</th>
 <th>Example</th>
 <th>Description</th>
@@ -1528,13 +1547,9 @@ See also <a href="../pg-connections/#ssl-connections">SSL configuration</a> sect
 <td><code>./root.crt</code></td>
 <td>A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT">docs</a></td>
 </tr>
-<tr>
-<td><code>AWS_LAMBDA_RUNTIME_API</code> <br/> -</td>
-<td></td>
-<td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="../run-with-lambda/">Running in AWS Lambda</a></td>
-</tr>
 </tbody>
 </table>
+</div>
 
 
   <nav class="md-tags" >
