@@ -135,11 +135,6 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
     resolve_process_config(connection, &ProcessConfig::default(), &per_source)
 }
 
-#[cfg(not(feature = "mlt"))]
-fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> ProcessConfig {
-    connection.clone()
-}
-
 fn log_published(id: &str, spec: &SourceSpec) {
     match spec {
         SourceSpec::Table(info) => {

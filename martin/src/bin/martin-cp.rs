@@ -225,13 +225,13 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
     #[cfg(feature = "postgres")]
     {
-        #[cfg(feature = "mlt")]
         let global_pc = ProcessConfig {
+            #[cfg(feature = "mlt")]
             convert_to_mlt: config.convert_to_mlt.clone(),
+            #[cfg(feature = "mlt")]
             convert_to_mvt: config.convert_to_mvt.clone(),
+            cache_control: None,
         };
-        #[cfg(not(feature = "mlt"))]
-        let global_pc = ProcessConfig::default();
         let mut reloaders: Vec<_> = config
             .postgres
             .iter()

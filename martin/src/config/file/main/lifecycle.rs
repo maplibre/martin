@@ -52,8 +52,6 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
-#[cfg(feature = "postgres")]
-use crate::config::file::postgres::PostgresConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(any(
@@ -455,7 +453,6 @@ impl Config {
         let mut map = HashMap::new();
 
         #[cfg(any(
-            feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
@@ -472,12 +469,7 @@ impl Config {
                 cache_control: None,
             };
 
-            #[cfg(feature = "postgres")]
-            for pg in self.postgres.iter() {
-                Self::insert_postgres_configs(&mut map, &global, pg);
-            }
-
-            #[cfg(feature = "pmtiles")]
+            #[cfg(all(feature = "pmtiles", feature = "mlt"))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
@@ -539,45 +531,9 @@ impl Config {
         map
     }
 
-    #[cfg(feature = "postgres")]
-    fn insert_postgres_configs(
-        map: &mut HashMap<String, ProcessConfig>,
-        global: &ProcessConfig,
-        pg: &PostgresConfig,
-    ) {
-        let source_type = ProcessConfig {
-            #[cfg(feature = "mlt")]
-            convert_to_mlt: pg.convert_to_mlt.clone(),
-            #[cfg(feature = "mlt")]
-            convert_to_mvt: pg.convert_to_mvt.clone(),
-            cache_control: None,
-        };
-        if let Some(tables) = &pg.tables {
-            Self::insert_source_configs(map, global, &source_type, tables, |info| ProcessConfig {
-                #[cfg(feature = "mlt")]
-                convert_to_mlt: info.convert_to_mlt.clone(),
-                #[cfg(feature = "mlt")]
-                convert_to_mvt: info.convert_to_mvt.clone(),
-                cache_control: info.cache_control.clone(),
-            });
-        }
-        if let Some(functions) = &pg.functions {
-            Self::insert_source_configs(map, global, &source_type, functions, |info| {
-                ProcessConfig {
-                    #[cfg(feature = "mlt")]
-                    convert_to_mlt: info.convert_to_mlt.clone(),
-                    #[cfg(feature = "mlt")]
-                    convert_to_mvt: info.convert_to_mvt.clone(),
-                    cache_control: info.cache_control.clone(),
-                }
-            });
-        }
-    }
-
     /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
     #[cfg(any(
-        feature = "postgres",
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
