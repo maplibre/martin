@@ -483,12 +483,7 @@ impl PmtConfig {
         }
     }
 
-    /// Forwards the credential-discovery variables for [`AWS_CREDENTIAL_DISCOVERY_KEYS`] to the
-    /// S3 client so task roles work without configuration.
-    ///
-    /// Without these, `object_store` falls back to the EC2 instance metadata service, which does
-    /// not exist on ECS/Fargate or EKS. Explicitly configured keys win over the environment, and a
-    /// `profile` is left alone because the AWS SDK chain it loads already covers these sources.
+    /// Forwards the credential-discovery variables to the S3 client so task roles work without configuration.
     fn import_aws_credential_discovery_env(&mut self, env: &impl Env) {
         if self.profile.is_some() {
             return;
