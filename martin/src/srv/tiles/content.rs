@@ -262,7 +262,10 @@ fn redirect_tile_with_query(
 pub struct DynTileSource<'a> {
     pub sources: Vec<(BoxedSource, ProcessConfig)>,
     pub info: TileInfo,
+    /// The request's query string and its parsed form, when the request carried one.
     pub query: Option<(&'a str, UrlQuery)>,
+    /// Whether the resolved sources take their parameters from that query.
+    use_url_query: bool,
     /// The format requested via the `Accept` header.
     /// `None` means no `Accept` header was present (or it was a wildcard).
     pub accepted_format: Option<Format>,
@@ -310,17 +313,17 @@ impl<'a> DynTileSource<'a> {
             resolved.info.format,
         )?;
 
-        let query = if resolved.use_url_query && !query.is_empty() {
-            let o = Query::<UrlQuery>::from_query(query)?.into_inner();
-            Some((query, o))
-        } else {
+        let query = if query.is_empty() {
             None
+        } else {
+            Some((query, Query::<UrlQuery>::from_query(query)?.into_inner()))
         };
 
         Ok(Self {
             sources: resolved.sources,
             info: resolved.info,
             query,
+            use_url_query: resolved.use_url_query,
             accepted_format,
             headers,
             cache,
@@ -465,6 +468,7 @@ impl<'a> DynTileSource<'a> {
                 id: s.get_id().to_owned(),
                 source: Ok(fresh_src.clone_source()),
                 process: pc.clone(),
+                provenance: None,
             }],
             ..Default::default()
         };
@@ -518,7 +522,7 @@ impl<'a> DynTileSource<'a> {
         let src = s.clone_source();
         let compute = || async move {
             let t = src
-                .get_tile_with_etag(xyz, self.query.as_ref().map(|q| &q.1))
+                .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
                 .await?;
             apply_pre_cache_processors(
                 t,
@@ -535,7 +539,7 @@ impl<'a> DynTileSource<'a> {
                     martin_core::tiles::TileCacheKey::new_request_dynamic(
                         src_id,
                         xyz,
-                        self.query.as_ref().map(|q| q.0.to_owned()),
+                        self.source_query().map(|q| q.0.to_owned()),
                         self.accepted_format,
                     ),
                     compute,
@@ -544,6 +548,11 @@ impl<'a> DynTileSource<'a> {
         } else {
             compute().await.map_err(Arc::new)
         }
+    }
+
+    /// The query the sources read their own parameters from, `None` when they ignore it.
+    fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
+        self.query.as_ref().filter(|_| self.use_url_query)
     }
 
     /// Resolves this source's hillshade settings for the current request.
@@ -560,12 +569,13 @@ impl<'a> DynTileSource<'a> {
             return Ok(None);
         };
 
-        if !settings.allow_request_overrides || self.query.is_none() {
+        let Some((_, overrides)) = self
+            .query
+            .as_ref()
+            .filter(|_| settings.allow_request_overrides)
+        else {
             return Ok(Some(settings));
-        }
-        // Reuses the source-query parser, so percent encoding is handled identically.
-        let query_str = self.query.as_ref().map_or_default(|q| q.0);
-        let overrides = Query::<UrlQuery>::from_query(query_str)?.into_inner();
+        };
         let settings = settings
             .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
             .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;

@@ -9,11 +9,10 @@ use futures::future::BoxFuture;
 use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
-use crate::config::file::FileConfigSrc;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, ProcessConfig, SourceBuildError, SourceBuildResult,
+    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, SourceBuildError, SourceBuildResult,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 

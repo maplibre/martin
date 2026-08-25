@@ -24,6 +24,7 @@ required-features = ["hillshade"]
 [features]
 default = [
     "fonts",
+    "hillshade",
     "mbtiles",
     "metrics",
     "passthrough",

@@ -298,6 +298,10 @@ impl Diagnostic for ConfigFileError {
             | Self::InvalidSourceFilePath(..)
             | Self::InvalidBasePath(_)
             | Self::TileResolutionWarningsIssued => return None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            Self::InvalidHillshade { .. } => {
+                "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."
+            }
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => return None,
             #[cfg(feature = "styles")]

@@ -5,10 +5,9 @@ use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
-use crate::config::file::TileSourceWarning;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
-use crate::config::file::{SourceBuildError, SourceBuildResult};
+use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
 use crate::reload::ReloadAdvisory;
 
 /// What the catalog already holds for a driver's sources when it starts.

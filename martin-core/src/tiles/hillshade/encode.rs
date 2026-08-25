@@ -38,7 +38,12 @@ impl BakedTile {
                 self.side,
                 ExtendedColorType::L8,
             ),
-            other => return Err(HillshadeError::UnsupportedFormat(other)),
+            other @ (Format::Gif
+            | Format::Jpeg
+            | Format::Json
+            | Format::Mvt
+            | Format::Mlt
+            | Format::Avif) => return Err(HillshadeError::UnsupportedFormat(other)),
         };
         result.map_err(|source| HillshadeError::Encoding { format, source })?;
         Ok(buf)

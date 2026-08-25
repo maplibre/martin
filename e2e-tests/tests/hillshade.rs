@@ -1,5 +1,3 @@
-#![cfg(feature = "test-hillshade")]
-
 use std::fs;
 use std::path::PathBuf;
 
@@ -353,7 +351,7 @@ async fn an_out_of_range_override_is_rejected() {
 
     let response = martin.get(&format!("{}?altitude=120", tile_path())).await;
     assert_eq!(response.status(), 400);
-    insta::assert_snapshot!(response.text(), @"Hillshade parameter altitude must be between 0 and 90, but was 120");
+    insta::assert_snapshot!(response.text(), @"Hillshade parameter altitude must be between `0` and `90`, but was `120`");
 }
 
 #[tokio::test]

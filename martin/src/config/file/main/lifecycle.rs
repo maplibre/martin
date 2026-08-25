@@ -578,47 +578,6 @@ impl Config {
         map
     }
 
-    #[cfg(feature = "postgres")]
-    fn insert_postgres_configs(
-        map: &mut HashMap<String, ProcessConfig>,
-        global: &ProcessConfig,
-        pg: &PostgresConfig,
-    ) {
-        let source_type = ProcessConfig {
-            #[cfg(feature = "mlt")]
-            convert_to_mlt: pg.convert_to_mlt.clone(),
-            #[cfg(feature = "mlt")]
-            convert_to_mvt: pg.convert_to_mvt.clone(),
-            cache_control: None,
-            #[cfg(feature = "hillshade")]
-            convert_to_hillshade: None,
-        };
-        if let Some(tables) = &pg.tables {
-            Self::insert_source_configs(map, global, &source_type, tables, |info| ProcessConfig {
-                #[cfg(feature = "mlt")]
-                convert_to_mlt: info.convert_to_mlt.clone(),
-                #[cfg(feature = "mlt")]
-                convert_to_mvt: info.convert_to_mvt.clone(),
-                cache_control: info.cache_control.clone(),
-                #[cfg(feature = "hillshade")]
-                convert_to_hillshade: None,
-            });
-        }
-        if let Some(functions) = &pg.functions {
-            Self::insert_source_configs(map, global, &source_type, functions, |info| {
-                ProcessConfig {
-                    #[cfg(feature = "mlt")]
-                    convert_to_mlt: info.convert_to_mlt.clone(),
-                    #[cfg(feature = "mlt")]
-                    convert_to_mvt: info.convert_to_mvt.clone(),
-                    cache_control: info.cache_control.clone(),
-                    #[cfg(feature = "hillshade")]
-                    convert_to_hillshade: None,
-                }
-            });
-        }
-    }
-
     /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
     #[cfg(any(

@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -607,14 +607,6 @@ test-cog: fetch
     cargo test -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
     cargo test --package martin-e2e-tests --features test-cog --test cog
-
-# Run hillshade tests only, including the end-to-end ones
-test-hillshade: fetch
-    cargo test -p martin-core --features hillshade --no-default-features --lib
-    cargo test -p martin-core --features hillshade --no-default-features --test hillshade_golden_test
-    cargo test -p martin --features hillshade,passthrough --no-default-features --lib
-    cargo build --package martin --no-default-features --features hillshade,passthrough
-    cargo test --package martin-e2e-tests --features test-hillshade --test hillshade
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch

@@ -231,6 +231,8 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
             #[cfg(feature = "mlt")]
             convert_to_mvt: config.convert_to_mvt.clone(),
             cache_control: None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            convert_to_hillshade: None,
         };
         let mut reloaders: Vec<_> = config
             .postgres

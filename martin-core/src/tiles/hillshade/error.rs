@@ -60,7 +60,7 @@ impl crate::Classify for HillshadeError {
         match self {
             Self::CorruptCentreTile => Unavailable,
             Self::UnsupportedFormat(_) => InvalidInput,
-            _ => Internal,
+            Self::MalformedBake { .. } | Self::Encoding { .. } => Internal,
         }
     }
 }

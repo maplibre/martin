@@ -10,7 +10,6 @@ rust-version.workspace = true
 
 [features]
 test-cog = []
-test-hillshade = []
 test-duckdb = []
 test-pg = []
 test-rendering = []
