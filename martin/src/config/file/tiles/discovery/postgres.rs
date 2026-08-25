@@ -120,7 +120,9 @@ mod tests {
 
     use super::*;
     use crate::config::file::CachePolicy;
-    use crate::config::file::discovery::{Discovery as _, PostgresDiscovery, Version};
+    #[cfg(feature = "mlt")]
+    use crate::config::file::discovery::Discovery as _;
+    use crate::config::file::discovery::{PostgresDiscovery, Version};
     use crate::config::file::postgres::{PostgresConfig, SourceSpec};
     use crate::config::file::process::ProcessConfig;
     use crate::config::primitives::IdResolver;
