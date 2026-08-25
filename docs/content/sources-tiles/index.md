@@ -38,3 +38,6 @@ The choice depends on your specific usecase and requirements.
 
 Most vector tile sources support optional [postprocessing](../postprocessing/index.md) (format conversion) via the `convert_to_mlt` and `convert_to_mvt` configuration keys.
 DuckDB / GeoParquet sources do not currently support postprocessing.
+
+Tile sources also accept a per-source `cache_control` configuration key that sets the `Cache-Control` response header for that source's tiles, overriding the top-level `cache_control` default.
+A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.

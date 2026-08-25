@@ -9,7 +9,6 @@ use futures::future::BoxFuture;
 use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::FileConfigSrc;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
@@ -37,8 +36,7 @@ pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuildFutu
 /// same canonical path keeps its policy and per-source process settings.
 struct ConfiguredSource {
     policy: CachePolicy,
-    /// Per-source `convert_to_*` override, already resolved against the kind level.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    /// Per-source `convert_to_*` / `cache_control` override, already resolved against the kind level.
     process: Option<ProcessConfig>,
 }
 
@@ -81,7 +79,6 @@ impl FsDiscovery {
                     canonical,
                     ConfiguredSource {
                         policy: src.cache_zoom(),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         process: per_source_process(&process, src),
                     },
                 );
@@ -131,21 +128,23 @@ impl FsDiscovery {
     }
 }
 
-/// Per-source `convert_to_*` settings override the kind-level [`ProcessConfig`].
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+/// Per-source `convert_to_*` and `cache_control` settings override the kind-level [`ProcessConfig`].
 fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
     use crate::config::file::resolve_process_config;
 
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
-    if obj.convert_to_mlt.is_none() && obj.convert_to_mvt.is_none() {
+    let per_source = ProcessConfig {
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mlt: obj.convert_to_mlt.clone(),
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mvt: obj.convert_to_mvt.clone(),
+        cache_control: obj.cache_control.clone(),
+    };
+    if per_source == ProcessConfig::default() {
         return None;
     }
-    let per_source = ProcessConfig {
-        convert_to_mlt: obj.convert_to_mlt.clone(),
-        convert_to_mvt: obj.convert_to_mvt.clone(),
-    };
     Some(resolve_process_config(
         kind_level,
         &ProcessConfig::default(),
@@ -177,13 +176,10 @@ impl Discovery for FsDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = self
             .configured
             .get(&args.0)
             .and_then(|cfg| cfg.process.clone());
-        #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
-        let process = None;
         Ok(BuiltSource {
             source,
             process,
@@ -344,6 +340,7 @@ mod tests {
                         path: overridden.clone(),
                         convert_to_mlt: Some(AutoOption::Disabled),
                         convert_to_mvt: None,
+                        cache_control: None,
                         cache: CachePolicy::default(),
                     }),
                 ),
@@ -354,6 +351,7 @@ mod tests {
         let kind_level = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
+            cache_control: None,
         };
         let discovery = FsDiscovery::from_config(
             &config,
@@ -378,5 +376,49 @@ mod tests {
             Some(AutoOption::Disabled)
         );
         assert_eq!(configured(&plain).process, None);
+    }
+
+    #[test]
+    fn configured_sources_keep_their_cache_control_override() {
+        use crate::config::file::{FileConfig, FileConfigSource};
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pinned = dir.path().join("pinned.mbtiles");
+        File::create(&pinned).expect("create pinned");
+
+        let config = FileConfigEnum::Config(FileConfig {
+            sources: Some(BTreeMap::from([(
+                "pinned".to_owned(),
+                FileConfigSrc::Obj(FileConfigSource {
+                    path: pinned.clone(),
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mlt: None,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mvt: None,
+                    cache_control: Some(
+                        serde_saphyr::from_str("public, max-age=60").expect("valid header"),
+                    ),
+                    cache: CachePolicy::default(),
+                }),
+            )])),
+            ..FileConfig::<()>::default()
+        });
+        let discovery = FsDiscovery::from_config(
+            &config,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            ProcessConfig::default(),
+            unreachable_builder(),
+        );
+
+        let canonical = pinned.canonicalize().expect("canonicalize");
+        let process = discovery
+            .configured
+            .get(&canonical)
+            .expect("configured path")
+            .process
+            .as_ref()
+            .expect("a cache_control-only override is still an override");
+        assert!(process.cache_control.is_some());
     }
 }

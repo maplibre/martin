@@ -112,19 +112,24 @@ impl Discovery for PostgresDiscovery {
     }
 }
 
-/// Per-source `convert_to_*` settings override the connection-level [`ProcessConfig`].
-#[cfg(feature = "mlt")]
+/// Per-source `convert_to_*` and `cache_control` settings override the connection-level [`ProcessConfig`].
 fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessConfig {
     use crate::config::file::resolve_process_config;
 
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: info.convert_to_mlt.clone(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
+            cache_control: info.cache_control.clone(),
         },
         SourceSpec::Function(info, _) => ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: info.convert_to_mlt.clone(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
+            cache_control: info.cache_control.clone(),
         },
     };
     resolve_process_config(connection, &ProcessConfig::default(), &per_source)

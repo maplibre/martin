@@ -13,14 +13,14 @@ use aws_runtime::env_config::file::EnvConfigFiles;
 use dashmap::DashMap;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
-use object_store::aws::{AmazonS3Builder, AwsCredential, AwsCredentialProvider};
+use object_store::aws::{AmazonS3Builder, AmazonS3ConfigKey, AwsCredential, AwsCredentialProvider};
 use object_store::azure::MicrosoftAzureBuilder;
 use object_store::client::{ClientOptions, HttpClient, HttpConnector, ReqwestConnector};
 use object_store::gcp::GoogleCloudStorageBuilder;
 use object_store::http::HttpBuilder;
 use object_store::{CredentialProvider, ObjectStore, ObjectStoreScheme};
 use serde::{Deserialize, Serialize};
-use tracing::{trace, warn};
+use tracing::{info, trace, warn};
 use url::Url;
 
 use crate::config::file::{
@@ -29,11 +29,23 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+use crate::config::primitives::env::{Env, OsEnv};
 
 /// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+/// Options that AWS runtimes set through env-vars to say where credentials come from
+const AWS_CREDENTIAL_DISCOVERY_KEYS: &[AmazonS3ConfigKey] = &[
+    AmazonS3ConfigKey::ContainerCredentialsRelativeUri,
+    AmazonS3ConfigKey::ContainerCredentialsFullUri,
+    AmazonS3ConfigKey::ContainerAuthorizationTokenFile,
+    AmazonS3ConfigKey::WebIdentityTokenFile,
+    AmazonS3ConfigKey::RoleArn,
+    AmazonS3ConfigKey::RoleSessionName,
+    AmazonS3ConfigKey::StsEndpoint,
+];
 
 fn default_reload_interval() -> Duration {
     DEFAULT_RELOAD_INTERVAL
@@ -177,6 +189,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
+        self.import_aws_credential_discovery_env(&OsEnv);
         self.load_aws_profile().await;
 
         Ok(())
@@ -321,11 +334,11 @@ impl PmtConfig {
     /// Partition options and unrecognized keys
     fn partition_options_and_unrecognized(&mut self) {
         for (key, value) in self.unrecognized.clone() {
-            let key_could_configure_object_store =
-                object_store::aws::AmazonS3ConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::gcp::GoogleConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::azure::AzureConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::client::ClientConfigKey::from_str(key.as_str()).is_ok();
+            let key_could_configure_object_store = AmazonS3ConfigKey::from_str(key.as_str())
+                .is_ok()
+                || object_store::gcp::GoogleConfigKey::from_str(key.as_str()).is_ok()
+                || object_store::azure::AzureConfigKey::from_str(key.as_str()).is_ok()
+                || object_store::client::ClientConfigKey::from_str(key.as_str()).is_ok();
             if key_could_configure_object_store {
                 self.unrecognized
                     .remove(&key)
@@ -469,6 +482,26 @@ impl PmtConfig {
             self.options.insert(new_key.to_owned(), value);
         }
     }
+
+    /// Forwards the credential-discovery variables to the S3 client so task roles work without configuration.
+    fn import_aws_credential_discovery_env(&mut self, env: &impl Env) {
+        if self.profile.is_some() {
+            return;
+        }
+        for key in AWS_CREDENTIAL_DISCOVERY_KEYS {
+            let prefixed = key.as_ref();
+            let bare = prefixed.strip_prefix("aws_").unwrap_or(prefixed);
+            let env_key = prefixed.to_ascii_uppercase();
+            let Some(value) = env.get_env_str(&env_key) else {
+                continue;
+            };
+            if self.options.contains_key(prefixed) || self.options.contains_key(bare) {
+                continue;
+            }
+            info!("Using {env_key} from the environment as pmtiles.{bare} for S3 credentials.");
+            self.options.insert(bare.to_owned(), value);
+        }
+    }
 }
 
 impl TileSourceConfiguration for PmtConfig {
@@ -558,12 +591,89 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+
     use aws_runtime::env_config::file::{EnvConfigFileKind, EnvConfigFiles};
     use indoc::indoc;
     use rstest::rstest;
     use tempfile::tempdir;
 
     use super::*;
+    use crate::config::primitives::env::FauxEnv;
+
+    fn task_role_env() -> FauxEnv {
+        [
+            (
+                "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+                OsString::from("/v2/credentials/12345678-1234-1234-1234-123456789012"),
+            ),
+            (
+                "AWS_WEB_IDENTITY_TOKEN_FILE",
+                OsString::from("/var/run/secrets/eks.amazonaws.com/serviceaccount/token"),
+            ),
+            (
+                "AWS_ROLE_ARN",
+                OsString::from("arn:aws:iam::123456789012:role/from-env"),
+            ),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    #[test]
+    fn credential_discovery_env_reaches_the_s3_store() {
+        let mut config = PmtConfig::default();
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert_eq!(
+            config
+                .options
+                .get("container_credentials_relative_uri")
+                .map(String::as_str),
+            Some("/v2/credentials/12345678-1234-1234-1234-123456789012")
+        );
+        assert_eq!(
+            config
+                .options
+                .get("web_identity_token_file")
+                .map(String::as_str),
+            Some("/var/run/secrets/eks.amazonaws.com/serviceaccount/token")
+        );
+        assert_eq!(
+            config.options.get("role_arn").map(String::as_str),
+            Some("arn:aws:iam::123456789012:role/from-env")
+        );
+        assert!(config.aws_credentials.is_none());
+        // the forwarded keys must be ones object_store accepts
+        config
+            .parse_url_opts(&Url::parse("s3://bucket/tiles.pmtiles").unwrap())
+            .unwrap();
+    }
+
+    #[test]
+    fn explicit_configuration_wins_over_credential_discovery_env() {
+        let mut config = PmtConfig::default();
+        config.options.insert(
+            "aws_role_arn".to_owned(),
+            "arn:aws:iam::123456789012:role/explicit".to_owned(),
+        );
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert!(!config.options.contains_key("role_arn"));
+        assert_eq!(
+            config.options.get("aws_role_arn").map(String::as_str),
+            Some("arn:aws:iam::123456789012:role/explicit")
+        );
+        assert!(config.options.contains_key("web_identity_token_file"));
+    }
+
+    #[test]
+    fn profile_disables_credential_discovery_env() {
+        let mut config = PmtConfig {
+            profile: Some("staging".to_owned()),
+            ..PmtConfig::default()
+        };
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert!(config.options.is_empty());
+    }
 
     #[rstest]
     #[case::s3("s3://bucket-a/one.pmtiles", "s3://bucket-b/two.pmtiles")]
