@@ -571,7 +571,7 @@ Read it when you're curious **why** certain choices were made.
 
     1. **Init or seed**.
        PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
-       File-based kinds are loaded during configuration resolution, so their drivers only seed: record a baseline, applying nothing.
+       `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
     2. **Reconcile**.
        On each Trigger, re-run Discovery.
        Diff the new `Version`s against the baseline into a `ReloadAdvisory`.

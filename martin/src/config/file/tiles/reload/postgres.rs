@@ -1,5 +1,6 @@
-//! [`PostgresReloader`]: the single writer of one `PostgreSQL` connection's sources - it loads
-//! them at startup via [`init`](PostgresReloader::init) and keeps them current by polling.
+//! [`PostgresReloader`] writes the `PostgreSQL` connection's sources by
+//! - loading them at startup via [`init`](PostgresReloader::init) and
+//! - keeps them current by polling.
 
 use std::ops::Add as _;
 use std::time::Duration;
@@ -21,10 +22,10 @@ use crate::config::primitives::IdResolver;
 
 /// Reloader for `PostgreSQL` sources.
 ///
-/// [`init`](Self::init) publishes everything the catalog discovers into the [`TileSourceManager`]
-/// before serving starts. `PostgreSQL` has no change-notification channel Martin listens to, so
-/// [`start`](Self::start) then re-runs discovery on a fixed [`PollTrigger`] interval and applies
-/// the diff (adds, updates, removals). A `reload_interval` of `0s` disables the polling.
+/// [`init`](Self::init) publishes everything the catalog discovers into the [`TileSourceManager`] before serving starts.
+/// `PostgreSQL` has no change-notification channel Martin could listens to, so [`start`](Self::start) then re-runs discovery on a fixed [`PollTrigger`] interval.
+/// The diff (adds, updates, removals) gets applied.
+/// A `reload_interval` of `0s` disables polling.
 pub struct PostgresReloader {
     driver: ReloadDriver<PostgresDiscovery, TileSourceManager>,
 }
@@ -60,9 +61,8 @@ impl PostgresReloader {
         }
     }
 
-    /// Publishes every discovered source into the catalog and returns the discovery warnings for
-    /// the caller's `on_invalid` policy. Fails if the database is unreachable or, under
-    /// `on_invalid: abort`, if any source fails to build.
+    /// Publishes every discovered source into the catalog and returns the discovery warnings.
+    /// Fails if the database is unreachable or, under `on_invalid: abort`, if any source fails to build.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovery = self.driver.discovery();
         let auto_bounds = discovery.config().auto_bounds.unwrap_or_default();
