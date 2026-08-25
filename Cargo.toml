@@ -135,6 +135,7 @@ md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.12.3", default-features = false }
 moka = { version = "0.12", default-features = false }
+multiversion = "0.8"
 notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }

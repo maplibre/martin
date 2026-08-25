@@ -123,11 +123,31 @@ impl Config {
         #[cfg(feature = "fonts")]
         self.fonts.finalize().await?;
 
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        self.validate_hillshade()?;
+
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
         } else {
             Ok(())
         }
+    }
+
+    /// Range-checks every configured hillshade, naming the source at fault.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    fn validate_hillshade(&self) -> StartupResult<()> {
+        for (source_id, pc) in self.build_process_config_map() {
+            if let Some(config) = &pc.convert_to_hillshade
+                && let Err(e) = config.resolve_hillshade()
+            {
+                return Err(ConfigFileError::InvalidHillshade {
+                    source_id,
+                    source: Box::new(e),
+                }
+                .into());
+            }
+        }
+        Ok(())
     }
 
     /// Returns `true` when no source of any enabled kind has been configured.
@@ -450,6 +470,29 @@ impl Config {
         ))
     }
 
+    /// The processing settings configured at the top level of the config file, which every source inherits unless it overrides them.
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "passthrough",
+        feature = "unstable-cog",
+        feature = "geojson"
+    ))]
+    fn global_process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(feature = "mlt")]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            #[cfg(feature = "mlt")]
+            convert_to_mvt: self.convert_to_mvt.clone(),
+            // applied by middleware from the server-level default, not carried here
+            cache_control: None,
+            // `None` since deliberately does not exist at top level
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+        }
+    }
+
     /// Build a map from source ID -> resolved [`ProcessConfig`].
     ///
     /// Uses full-override semantics: per-source > source-type > global > default.
@@ -467,14 +510,7 @@ impl Config {
             feature = "geojson"
         ))]
         {
-            // The server-level `cache_control` is applied by middleware, not carried here.
-            let global = ProcessConfig {
-                #[cfg(feature = "mlt")]
-                convert_to_mlt: self.convert_to_mlt.clone(),
-                #[cfg(feature = "mlt")]
-                convert_to_mvt: self.convert_to_mvt.clone(),
-                cache_control: None,
-            };
+            let global = self.global_process_config();
 
             #[cfg(feature = "postgres")]
             for pg in self.postgres.iter() {
@@ -486,6 +522,8 @@ impl Config {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
                 cache_control: None,
+                #[cfg(feature = "hillshade")]
+                convert_to_hillshade: None,
             });
             #[cfg(all(feature = "pmtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |_| {
@@ -497,6 +535,8 @@ impl Config {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
                 cache_control: None,
+                #[cfg(feature = "hillshade")]
+                convert_to_hillshade: None,
             });
             #[cfg(all(feature = "mbtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |_| {
@@ -504,6 +544,9 @@ impl Config {
             });
 
             // COG and GeoJSON have no kind-level conversion settings.
+            // COG cannot be hillshaded either: shading reads Mapzen *normal* tiles, whose surface
+            // gradients are already per-pixel, whereas a COG holds elevation - which would need
+            // metres-per-pixel scaling and its own quantisation handling, a separate feature.
             #[cfg(feature = "unstable-cog")]
             Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
                 ProcessConfig::default()
@@ -524,6 +567,8 @@ impl Config {
                     #[cfg(feature = "mlt")]
                     convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
                     cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
                 };
                 Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
                     match src {
@@ -533,6 +578,8 @@ impl Config {
                             #[cfg(feature = "mlt")]
                             convert_to_mvt: obj.convert_to_mvt.clone(),
                             cache_control: obj.cache_control.clone(),
+                            #[cfg(feature = "hillshade")]
+                            convert_to_hillshade: obj.convert_to_hillshade.clone(),
                         },
                         PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                     }
@@ -555,6 +602,8 @@ impl Config {
             #[cfg(feature = "mlt")]
             convert_to_mvt: pg.convert_to_mvt.clone(),
             cache_control: None,
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
         };
         if let Some(tables) = &pg.tables {
             Self::insert_source_configs(map, global, &source_type, tables, |info| ProcessConfig {
@@ -563,6 +612,8 @@ impl Config {
                 #[cfg(feature = "mlt")]
                 convert_to_mvt: info.convert_to_mvt.clone(),
                 cache_control: info.cache_control.clone(),
+                #[cfg(feature = "hillshade")]
+                convert_to_hillshade: None,
             });
         }
         if let Some(functions) = &pg.functions {
@@ -573,6 +624,8 @@ impl Config {
                     #[cfg(feature = "mlt")]
                     convert_to_mvt: info.convert_to_mvt.clone(),
                     cache_control: info.cache_control.clone(),
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
                 }
             });
         }
@@ -628,6 +681,8 @@ impl Config {
                         #[cfg(feature = "mlt")]
                         convert_to_mvt: obj.convert_to_mvt.clone(),
                         cache_control: obj.cache_control.clone(),
+                        #[cfg(feature = "hillshade")]
+                        convert_to_hillshade: obj.convert_to_hillshade.clone(),
                     },
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
                 });
@@ -664,6 +719,60 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use crate::config::test_helpers::render_finalize_failure;
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn finalize_rejects_an_out_of_range_hillshade() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                passthrough:
+                  sources:
+                    terrain:
+                      url: https://example.org/normal/{z}/{x}/{y}.png
+                      convert_to_hillshade:
+                        azimuth: 400
+            "})
+            .await,
+            @"Source terrain has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`"
+        );
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn hillshade_cannot_be_configured_globally() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config: super::Config = serde_saphyr::from_str(indoc::indoc! {"
+            convert_to_hillshade: auto
+            passthrough:
+              sources:
+                terrain: https://example.org/normal/{z}/{x}/{y}.png
+        "})
+        .expect("parses, with the stray key collected rather than rejected");
+
+        let keys = config.get_unrecognized_keys();
+        let keys = keys.iter().collect::<Vec<_>>();
+        assert_eq!(keys.as_slice(), ["convert_to_hillshade"]);
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn finalize_accepts_a_valid_hillshade() {
+        let mut config: super::Config = serde_saphyr::from_str(indoc::indoc! {"
+            passthrough:
+              sources:
+                terrain:
+                  url: https://example.org/normal/{z}/{x}/{y}.png
+                  convert_to_hillshade:
+                    azimuth: 315
+                    format: webp
+        "})
+        .expect("parses");
+        config
+            .finalize()
+            .await
+            .expect("valid hillshade must start up");
+    }
 
     #[tokio::test]
     async fn finalize_no_sources() {

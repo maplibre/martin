@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "AutoOption_HillshadeSettings": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `HillshadeSettings` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/HillshadeSettings"
+        }
+      ]
+    },
     "AutoOption_MltEncoderConfig": {
       "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `MltEncoderConfig` - explicit  settings",
       "oneOf": [
@@ -208,6 +230,17 @@
     },
     "FileConfig2": {
       "properties": {
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -246,6 +279,36 @@
     },
     "FileConfig3": {
       "properties": {
+        "buffer": {
+          "description": "Clip margin kept around each tile edge, in tile units, defaulting to 64.\nIncrease it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.",
+          "examples": [64],
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "extent": {
+          "description": "Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.",
+          "examples": [4096],
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig4": {
+      "properties": {
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."
@@ -264,7 +327,7 @@
       },
       "type": "object"
     },
-    "FileConfig4": {
+    "FileConfig5": {
       "properties": {
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -284,7 +347,7 @@
       },
       "type": "object"
     },
-    "FileConfig5": {
+    "FileConfig6": {
       "properties": {
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
@@ -399,6 +462,25 @@
         }
       ]
     },
+    "FileConfigEnum6": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig6"
+        }
+      ]
+    },
     "FileConfigSource": {
       "properties": {
         "cache": {
@@ -408,6 +490,17 @@
         "cache_control": {
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -588,6 +681,83 @@
           "$ref": "#/$defs/GlobalCacheConfig"
         }
       ]
+    },
+    "HillshadeFormat": {
+      "description": "Image format for the baked hillshade.",
+      "oneOf": [
+        {
+          "const": "png",
+          "description": "Lossless PNG. Universally supported.",
+          "type": "string"
+        },
+        {
+          "const": "webp",
+          "description": "Lossless WebP. Around 40% smaller than PNG on banded output.",
+          "type": "string"
+        }
+      ]
+    },
+    "HillshadeSettings": {
+      "description": "Hillshade settings as they appear in a config file.",
+      "properties": {
+        "allow_request_overrides": {
+          "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "type": ["boolean", "null"]
+        },
+        "altitude": {
+          "description": "Height of the light above the horizon in degrees.\nDefaults to `45`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "ambient": {
+          "description": "Shadow floor, so shadows read as shaded rather than black.\nDefaults to `0.25`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "azimuth": {
+          "description": "Compass bearing the light shines from, in degrees clockwise from north.\nDefaults to `315` (north-west) by cartographic convention.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "contrast": {
+          "description": "Separation between lit and shadowed slopes.\nDefaults to `1.9`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "elevation_scale": {
+          "description": "How strongly high terrain deepens the contrast.\nDefaults to `2.5`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HillshadeFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Output image format.\nDefaults to `png`."
+        },
+        "padding": {
+          "description": "Apron width in pixels at 256-core scale, rescaled with the core.\nDefaults to `0`, so the served tile is a 512x512 square.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "toon_bands": {
+          "description": "Number of hard shading bands; below `2` the shading is a smooth gradient instead.\nDefaults to `3`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "vertical_exaggeration": {
+          "description": "Scales the terrain's horizontal gradient before lighting, exaggerating relief.\n`1` is true-to-source.\nDefaults to `3`.",
+          "format": "double",
+          "type": ["number", "null"]
+        }
+      },
+      "type": "object"
     },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
@@ -839,6 +1009,17 @@
         "cache_control": {
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (raster data in Mapzen format)."
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -1228,6 +1409,20 @@
       },
       "required": ["schema", "table", "srid", "geometry_column"],
       "type": "object"
+    },
+    "WebUiMode": {
+      "oneOf": [
+        {
+          "const": "disable",
+          "description": "Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***",
+          "type": "string"
+        },
+        {
+          "const": "enableforall",
+          "description": "Enable Web UI interface on all connections",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1278,8 +1473,12 @@
       "description": "CORS Configuration\n\nDefaults to `cors: true`, which allows all origins.\nSending/Acting on CORS headers can be completely disabled via `cors: false`"
     },
     "fonts": {
-      "$ref": "#/$defs/FileConfigEnum5",
+      "$ref": "#/$defs/FileConfigEnum6",
       "description": "Font configuration"
+    },
+    "geojson": {
+      "$ref": "#/$defs/FileConfigEnum3",
+      "description": "Publish `GeoJSON` files as vector tile sources"
     },
     "keep_alive": {
       "description": "Connection keep alive timeout \\[default: 75\\]",
@@ -1347,17 +1546,28 @@
       "type": ["string", "null"]
     },
     "sprites": {
-      "$ref": "#/$defs/FileConfigEnum3",
+      "$ref": "#/$defs/FileConfigEnum4",
       "description": "Sprite configuration"
     },
     "styles": {
-      "$ref": "#/$defs/FileConfigEnum4",
+      "$ref": "#/$defs/FileConfigEnum5",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tilejson_url_version_param": {
       "description": "If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)\nwill be embedded in the `TileJSON` `tiles` URL, with the set identifier.\nThis is useful to give clients a better way to cache-bust a CDN:\n1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.\n2. maplibre requests each tile it requires, with the tiles URL in the tilejson.\n3. Add `Control: public, max-age=..., immutable` on the tile responses\n   optimize browser/CDN cache hit rates, while also making sure that\n   old tiles aren't served when a new tileset is deployed.\n\nThe CDN must handle query parameters for caching to work correctly.\nMany CDNs ignore them by default.\n\nFor example, if\n- the setting here is `version`, and\n- the `PMTiles` tileset version is `1.0.0`, the\n`TileJSON` will be:\n`{ ..., \"tiles\": [\".../{z}/{x}/{y}?version=1.0.0\"], ... }`",
       "examples": ["version"],
       "type": ["string", "null"]
+    },
+    "web_ui": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WebUiMode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment"
     },
     "worker_processes": {
       "description": "Number of web server workers",

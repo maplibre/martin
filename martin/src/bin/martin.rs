@@ -84,16 +84,12 @@ async fn start(args: Args) -> StartupResult<()> {
     let mgr = sources.tile_manager.clone();
 
     #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
-    let global_pc = {
+    let global_pc = ProcessConfig {
         #[cfg(feature = "mlt")]
-        let pc = ProcessConfig {
-            convert_to_mlt: config.convert_to_mlt.clone(),
-            convert_to_mvt: config.convert_to_mvt.clone(),
-            ..Default::default()
-        };
-        #[cfg(not(feature = "mlt"))]
-        let pc = ProcessConfig::default();
-        pc
+        convert_to_mlt: config.convert_to_mlt.clone(),
+        #[cfg(feature = "mlt")]
+        convert_to_mvt: config.convert_to_mvt.clone(),
+        ..Default::default()
     };
 
     #[cfg(feature = "mbtiles")]
@@ -182,7 +178,7 @@ async fn main() {
     init_tracing(&filter, log_format, false);
 
     let args = Args::parse();
-    if let Err(e) = start(args).await {
+    if let Err(e) = Box::pin(start(args)).await {
         let rendered = e.render_diagnostic_with(log_format);
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");

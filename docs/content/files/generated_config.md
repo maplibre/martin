@@ -131,12 +131,60 @@ fonts:
   paths: []
   # A map of source IDs to file paths or config objects
   sources: {}
+# Publish `GeoJSON` files as vector tile sources
+geojson:
+  # Clip margin kept around each tile edge, in tile units, defaulting to 64.
+  # Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
+  buffer: 64
+  # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
+  extent: 4096
+  # A list of file paths
+  paths: []
+  # A map of source IDs to file paths or config objects
+  sources: {}
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 # The socket address to bind [default: `0.0.0.0:3000`]
 listen_addresses: 0.0.0.0:3000
 # Publish `MBTiles` files
 mbtiles:
+  # Hillshade settings for this source.
+  #
+  # Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+  # See the hillshade documentation for the knobs.
+  # Settable per source only, since it describes what this source serves rather than a server-wide policy.
+  convert_to_hillshade:
+    # Whether a request may override these settings with query parameters.
+    # Defaults to `false`.
+    allow_request_overrides: null
+    # Height of the light above the horizon in degrees.
+    # Defaults to `45`.
+    altitude: null
+    # Shadow floor, so shadows read as shaded rather than black.
+    # Defaults to `0.25`.
+    ambient: null
+    # Compass bearing the light shines from, in degrees clockwise from north.
+    # Defaults to `315` (north-west) by cartographic convention.
+    azimuth: null
+    # Separation between lit and shadowed slopes.
+    # Defaults to `1.9`.
+    contrast: null
+    # How strongly high terrain deepens the contrast.
+    # Defaults to `2.5`.
+    elevation_scale: null
+    # Output image format.
+    # Defaults to `png`.
+    format: png
+    # Apron width in pixels at 256-core scale, rescaled with the core.
+    # Defaults to `0`, so the served tile is a 512x512 square.
+    padding: null
+    # Number of hard shading bands; below `2` the shading is a smooth gradient instead.
+    # Defaults to `3`.
+    toon_bands: null
+    # Scales the terrain's horizontal gradient before lighting, exaggerating relief.
+    # `1` is true-to-source.
+    # Defaults to `3`.
+    vertical_exaggeration: null
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -461,6 +509,11 @@ styles:
 # `TileJSON` will be:
 # `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`
 tilejson_url_version_param: version
+# Enable or disable Martin web UI. [default: disable]
+#
+# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
+# This may be undesirable in a production environment
+web_ui: disable
 # Number of web server workers
 worker_processes: 8
 ```

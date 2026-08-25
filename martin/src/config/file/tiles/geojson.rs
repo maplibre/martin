@@ -50,11 +50,13 @@ const fn is_default_buffer(buffer: &u32) -> bool {
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
     #[serde(default = "default_extent", skip_serializing_if = "is_default_extent")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: NonZeroU32,
 
     /// Clip margin kept around each tile edge, in tile units, defaulting to 64.
     /// Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
     #[serde(default = "default_buffer", skip_serializing_if = "is_default_buffer")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: u32,
 
     #[serde(flatten, skip_serializing)]
@@ -158,15 +160,17 @@ mod tests {
                 ),
                 (
                     "pm-src2".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
                 (
                     "pm-src3".to_owned(),
@@ -174,15 +178,17 @@ mod tests {
                 ),
                 (
                     "pm-src4".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
             ]))
         );

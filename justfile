@@ -284,7 +284,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_process,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -607,6 +607,14 @@ test-cog: fetch
     cargo test -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
     cargo test --package martin-e2e-tests --features test-cog --test cog
+
+# Run hillshade tests only, including the end-to-end ones
+test-hillshade: fetch
+    cargo test -p martin-core --features hillshade --no-default-features --lib
+    cargo test -p martin-core --features hillshade --no-default-features --test hillshade_golden_test
+    cargo test -p martin --features hillshade,passthrough --no-default-features --lib
+    cargo build --package martin --no-default-features --features hillshade,passthrough
+    cargo test --package martin-e2e-tests --features test-hillshade --test hillshade
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch

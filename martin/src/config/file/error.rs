@@ -6,6 +6,9 @@ use martin_core::fonts::FontError;
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::hillshade::HillshadeRangeError;
+
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -55,6 +58,14 @@ pub enum ConfigFileError {
 
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Source {source_id} has an invalid hillshade configuration: {source}")]
+    InvalidHillshade {
+        source_id: String,
+        #[source]
+        source: Box<HillshadeRangeError>,
+    },
 
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
@@ -245,6 +256,8 @@ impl Diagnostic for ConfigFileError {
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
             Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
             Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]

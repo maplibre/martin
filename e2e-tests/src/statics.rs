@@ -46,10 +46,7 @@ impl StaticFiles {
         format!("{}/{path}", self.server.uri())
     }
 
-    /// Every request this server answered, one `METHOD /path range` line each, in arrival order.
-    ///
-    /// Snapshotting this pins down how much of a remote archive martin reads, and that it reads it
-    /// in ranges instead of downloading the whole file.
+    /// Every request this server answered, one `METHOD /path[?query] range` line each, in order.
     pub async fn request_log(&self) -> String {
         self.server
             .received_requests()
@@ -61,7 +58,11 @@ impl StaticFiles {
                     .headers
                     .get("range")
                     .map_or("no range", |value| value.to_str().unwrap_or("[not utf-8]"));
-                format!("{} {} {range}", request.method, request.url.path())
+                let query = request
+                    .url
+                    .query()
+                    .map_or_else(String::new, |query| format!("?{query}"));
+                format!("{} {}{query} {range}", request.method, request.url.path())
             })
             .collect::<Vec<_>>()
             .join("\n")

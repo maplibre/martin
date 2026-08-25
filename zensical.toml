@@ -72,7 +72,8 @@ nav = [
     ]},
     {"Postprocessing" = [
         "postprocessing/index.md",
-        {"MVT/MLT Conversion" = "postprocessing/mlt.md"}
+        {"MVT/MLT Conversion" = "postprocessing/mlt.md"},
+        {"Hillshade" = "postprocessing/hillshade.md"}
     ]},
     {"Supporting Resources" = [
         {"Sprites" = "sources-sprites.md"},

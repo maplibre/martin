@@ -23,6 +23,8 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     UnrecognizedValues,
@@ -280,7 +282,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 #[serde(untagged)]
 pub enum FileConfigSrc {
     Path(PathBuf),
-    Obj(FileConfigSource),
+    Obj(Box<FileConfigSource>),
 }
 
 impl<'de> Deserialize<'de> for FileConfigSrc {
@@ -304,7 +306,7 @@ impl<'de> Deserialize<'de> for FileConfigSrc {
 
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigSrc, M::Error> {
                 let obj = FileConfigSource::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(FileConfigSrc::Obj(obj))
+                Ok(FileConfigSrc::Obj(Box::new(obj)))
             }
 
             // Numbers / booleans / sequences fall through to serde's default `invalid_type`
@@ -378,6 +380,14 @@ pub struct FileConfigSource {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    /// Settable per source only, since it describes what this source serves rather than a server-wide policy.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
@@ -1332,8 +1342,6 @@ mod deserialize_tests {
         "
         );
     }
-
-    // ----- FileConfigSrc -----
 
     #[test]
     fn file_config_src_string_is_path() {

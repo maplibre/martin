@@ -7,6 +7,8 @@
 use std::f64::consts::PI;
 use std::fmt::{Display, Formatter};
 
+use strum::EnumIter;
+
 /// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
 /// circumference of the earth in degrees
@@ -72,7 +74,7 @@ impl TileCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, EnumIter)]
 pub enum Format {
     Gif,
     Jpeg,
