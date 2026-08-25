@@ -448,6 +448,7 @@ impl<'a> DynTileSource<'a> {
                         id: s.get_id().to_owned(),
                         source: Ok(fresh_src.clone_source()),
                         process: pc.clone(),
+                        provenance: None,
                     }],
                     ..Default::default()
                 };
