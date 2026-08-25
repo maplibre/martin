@@ -13,7 +13,7 @@ use aws_runtime::env_config::file::EnvConfigFiles;
 use dashmap::DashMap;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
-use object_store::aws::{AmazonS3Builder, AwsCredential, AwsCredentialProvider};
+use object_store::aws::{AmazonS3Builder, AmazonS3ConfigKey, AwsCredential, AwsCredentialProvider};
 use object_store::azure::MicrosoftAzureBuilder;
 use object_store::client::{ClientOptions, HttpClient, HttpConnector, ReqwestConnector};
 use object_store::gcp::GoogleCloudStorageBuilder;
@@ -36,29 +36,21 @@ use crate::config::primitives::env::{Env, OsEnv};
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
 
-/// Environment variables AWS runtimes inject to say where credentials come from, paired with the
-/// `object_store` option each one configures.
+/// `object_store` options that AWS runtimes set through the environment to say where credentials
+/// come from: ECS/Fargate task roles, EKS IRSA and EKS Pod Identity.
 ///
-/// ECS/Fargate task roles, EKS IRSA and EKS Pod Identity all advertise themselves this way. The
-/// values are per task (a random relative URI, a rotating token path), so they cannot be written
-/// into a config file ahead of time the way keys or a profile can.
-const AWS_CREDENTIAL_DISCOVERY_ENV: &[(&str, &str)] = &[
-    (
-        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
-        "container_credentials_relative_uri",
-    ),
-    (
-        "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-        "container_credentials_full_uri",
-    ),
-    (
-        "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
-        "container_authorization_token_file",
-    ),
-    ("AWS_WEB_IDENTITY_TOKEN_FILE", "web_identity_token_file"),
-    ("AWS_ROLE_ARN", "role_arn"),
-    ("AWS_ROLE_SESSION_NAME", "role_session_name"),
-    ("AWS_ENDPOINT_URL_STS", "endpoint_url_sts"),
+/// The variable name is the option name upper-cased, which is also how
+/// [`AmazonS3Builder::from_env`] reads them. The values are per task (a random relative URI, a
+/// rotating token path), so they cannot be written into a config file ahead of time the way keys
+/// or a profile can.
+const AWS_CREDENTIAL_DISCOVERY_KEYS: &[AmazonS3ConfigKey] = &[
+    AmazonS3ConfigKey::ContainerCredentialsRelativeUri,
+    AmazonS3ConfigKey::ContainerCredentialsFullUri,
+    AmazonS3ConfigKey::ContainerAuthorizationTokenFile,
+    AmazonS3ConfigKey::WebIdentityTokenFile,
+    AmazonS3ConfigKey::RoleArn,
+    AmazonS3ConfigKey::RoleSessionName,
+    AmazonS3ConfigKey::StsEndpoint,
 ];
 
 fn default_reload_interval() -> Duration {
@@ -348,11 +340,11 @@ impl PmtConfig {
     /// Partition options and unrecognized keys
     fn partition_options_and_unrecognized(&mut self) {
         for (key, value) in self.unrecognized.clone() {
-            let key_could_configure_object_store =
-                object_store::aws::AmazonS3ConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::gcp::GoogleConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::azure::AzureConfigKey::from_str(key.as_str()).is_ok()
-                    || object_store::client::ClientConfigKey::from_str(key.as_str()).is_ok();
+            let key_could_configure_object_store = AmazonS3ConfigKey::from_str(key.as_str())
+                .is_ok()
+                || object_store::gcp::GoogleConfigKey::from_str(key.as_str()).is_ok()
+                || object_store::azure::AzureConfigKey::from_str(key.as_str()).is_ok()
+                || object_store::client::ClientConfigKey::from_str(key.as_str()).is_ok();
             if key_could_configure_object_store {
                 self.unrecognized
                     .remove(&key)
@@ -497,7 +489,7 @@ impl PmtConfig {
         }
     }
 
-    /// Forwards the credential-discovery variables from [`AWS_CREDENTIAL_DISCOVERY_ENV`] to the
+    /// Forwards the credential-discovery variables for [`AWS_CREDENTIAL_DISCOVERY_KEYS`] to the
     /// S3 client so task roles work without configuration.
     ///
     /// Without these, `object_store` falls back to the EC2 instance metadata service, which does
@@ -507,15 +499,18 @@ impl PmtConfig {
         if self.profile.is_some() {
             return;
         }
-        for (env_key, key) in AWS_CREDENTIAL_DISCOVERY_ENV {
-            let Some(value) = env.get_env_str(env_key) else {
+        for key in AWS_CREDENTIAL_DISCOVERY_KEYS {
+            let prefixed = key.as_ref();
+            let bare = prefixed.strip_prefix("aws_").unwrap_or(prefixed);
+            let env_key = prefixed.to_ascii_uppercase();
+            let Some(value) = env.get_env_str(&env_key) else {
                 continue;
             };
-            if self.options.contains_key(*key) || self.options.contains_key(&format!("aws_{key}")) {
+            if self.options.contains_key(prefixed) || self.options.contains_key(bare) {
                 continue;
             }
-            info!("Using {env_key} from the environment as pmtiles.{key} for S3 credentials.");
-            self.options.insert((*key).to_owned(), value);
+            info!("Using {env_key} from the environment as pmtiles.{bare} for S3 credentials.");
+            self.options.insert(bare.to_owned(), value);
         }
     }
 }
