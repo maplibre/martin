@@ -199,6 +199,8 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use rstest::rstest;
 
     use super::*;
@@ -217,6 +219,6 @@ mod tests {
     #[test]
     fn parse_crs_to_srid_rejects_unknown_crs() {
         let err = parse_crs_to_srid("UNKNOWN:1", "geom").expect_err("unknown crs");
-        assert!(matches!(err, GeoparquetError::SridUnsupportedCrs(..)));
+        assert_matches!(err, GeoparquetError::SridUnsupportedCrs(..));
     }
 }

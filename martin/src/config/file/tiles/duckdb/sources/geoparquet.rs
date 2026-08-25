@@ -126,6 +126,8 @@ impl GeoParquetEntry {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -147,14 +149,14 @@ mod tests {
         assert_eq!(entry.layer_id, None);
         assert_eq!(entry.id_column, None);
         assert_eq!(entry.geometry_column, None);
-        assert!(matches!(entry.location, Some(GeoParquetLocation::Local(_))));
+        assert_matches!(entry.location, Some(GeoParquetLocation::Local(_)));
     }
 
     #[test]
     fn from_config_classifies_http_urls_as_remote() {
         let location = GeoParquetLocation::from_config("https://example.org/data.parquet")
             .expect("parse remote");
-        assert!(matches!(location, GeoParquetLocation::Remote(_)));
+        assert_matches!(location, GeoParquetLocation::Remote(_));
         assert_eq!(location.stem(), "data");
     }
 }

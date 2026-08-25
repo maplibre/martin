@@ -445,6 +445,8 @@ fn parse_font(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -484,7 +486,7 @@ mod tests {
         let Err(err) = sources.get_font_range(&ids, 0, 255) else {
             panic!("expected TooManyFontIds, got Ok");
         };
-        assert!(matches!(err, FontError::TooManyFontIds { .. }));
+        assert_matches!(err, FontError::TooManyFontIds { .. });
     }
 
     #[test]
@@ -499,7 +501,7 @@ mod tests {
         let Err(err) = sources.get_font_range(&ids, 0, 255) else {
             panic!("expected FontNotFound, got Ok");
         };
-        assert!(matches!(err, FontError::FontNotFound(_)));
+        assert_matches!(err, FontError::FontNotFound(_));
     }
 
     #[cfg(unix)]

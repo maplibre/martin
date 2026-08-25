@@ -1,4 +1,6 @@
 #![allow(clippy::unwrap_used)]
+use std::assert_matches;
+
 use futures::{StreamExt as _, TryStreamExt as _};
 use martin_tile_utils::{Tile, TileCoord};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};
@@ -137,10 +139,10 @@ async fn mbtiles_stream_errors() {
 
     {
         let mut stream = mbtiles.stream_coords(&mut conn);
-        match stream.next().await {
-            Some(Err(MbtError::InvalidTileIndex { .. })) => {}
-            _ => panic!("Unexpected value returned from stream!"),
-        }
+        assert_matches!(
+            stream.next().await,
+            Some(Err(MbtError::InvalidTileIndex { .. }))
+        );
     }
 
     // Counter test: mbtiles must contain all tiles

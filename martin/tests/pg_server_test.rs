@@ -5,6 +5,8 @@
     not(feature = "styles")
 ))]
 
+use std::assert_matches;
+
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
@@ -1075,7 +1077,7 @@ tables:
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
-    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
+    assert_matches!(&src.properties, Some(v) if v.len() == 1);
     let src = source(&mock, "no_id");
     assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0

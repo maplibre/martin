@@ -446,6 +446,8 @@ fn usable_strong_etag(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -469,20 +471,20 @@ mod tests {
     fn from_string_headers_rejects_invalid_name() {
         let err = Transport::from_string_headers(Duration::from_secs(1), [("bad name", "v")])
             .unwrap_err();
-        assert!(matches!(
+        assert_matches!(
             err,
             PassthroughError::InvalidHeaderName { name, .. } if name == "bad name"
-        ));
+        );
     }
 
     #[test]
     fn from_string_headers_rejects_invalid_value() {
         let err = Transport::from_string_headers(Duration::from_secs(1), [("x-key", "bad\nvalue")])
             .unwrap_err();
-        assert!(matches!(
+        assert_matches!(
             err,
             PassthroughError::InvalidHeaderValue { name, .. } if name == "x-key"
-        ));
+        );
     }
 
     #[test]
