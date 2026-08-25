@@ -253,8 +253,6 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     extensions: &[&str],
     allow_url: bool,
 ) -> FileConfigEnum<T> {
-    use std::assert_matches;
-
     use super::State::{Ignore, Share, Take};
 
     let paths = cli_strings.process(|s| {
@@ -283,6 +281,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use super::*;
     use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
