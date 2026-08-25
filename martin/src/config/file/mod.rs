@@ -15,10 +15,7 @@ pub use error::{ConfigFileError, ConfigFileResult};
 
 pub mod process;
 pub use process::ProcessConfig;
-#[cfg(all(
-    feature = "mlt",
-    any(feature = "mbtiles", feature = "pmtiles", feature = "postgres")
-))]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};
