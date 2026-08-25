@@ -118,7 +118,7 @@ fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> Process
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::per_source_process;
+    use super::*;
     use crate::config::file::CachePolicy;
     use crate::config::file::discovery::{Discovery as _, PostgresDiscovery, Version};
     use crate::config::file::postgres::{PostgresConfig, SourceSpec};
