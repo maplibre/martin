@@ -59,7 +59,9 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           rendering: true
-          cache: true
+          # The 10GB cache quota only has room for the Linux entry; a macOS entry
+          # gets evicted before the next run can restore it (see #3156).
+          cache: ${{ matrix.os == 'ubuntu-latest' }}
           coverage: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Run cargo test
         run: just test-packages-ci
