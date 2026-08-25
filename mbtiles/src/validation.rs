@@ -934,6 +934,9 @@ FROM tiles;
 
 #[cfg(test)]
 pub(crate) mod tests {
+
+    use std::assert_matches;
+
     use super::*;
     use crate::mbtiles::tests::open;
     use crate::metadata::anonymous_mbtiles;
@@ -979,7 +982,7 @@ pub(crate) mod tests {
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
-        assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
+        assert_matches!(res, Err(MbtError::InvalidDataFormat(_)));
     }
 
     #[actix_rt::test]
@@ -996,7 +999,7 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/files/invalid_zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
-        assert!(matches!(result, Err(AggHashMismatch { .. })));
+        assert_matches!(result, Err(AggHashMismatch { .. }));
     }
 
     #[actix_rt::test]
@@ -1032,10 +1035,7 @@ pub(crate) mod tests {
         )
         .await;
         let result = mbt.get_hash_algorithm(&mut conn).await;
-        assert!(
-            matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. })),
-            "expected UnsupportedHashAlgorithm, got {result:?}"
-        );
+        assert_matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. }));
     }
 
     #[actix_rt::test]
@@ -1050,10 +1050,7 @@ pub(crate) mod tests {
         )
         .await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
-        assert!(
-            matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. })),
-            "expected UnsupportedHashAlgorithm, got {result:?}"
-        );
+        assert_matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. }));
     }
 
     #[actix_rt::test]
@@ -1079,8 +1076,9 @@ pub(crate) mod tests {
         )
         .await;
         let result = mbt.check_each_tile_hash(&mut conn).await;
-        assert!(
-            matches!(result, Err(IncorrectTileHash { .. })),
+        assert_matches!(
+            result,
+            Err(IncorrectTileHash { .. }),
             "should detect that tile_id != md5_hex(tile_data), got {result:?}"
         );
     }

@@ -8,7 +8,9 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
-use crate::config::file::{CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
+};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
@@ -103,6 +105,12 @@ pub struct TableInfo {
         schemars(with = "Option<crate::config::file::CachePolicyShape>")
     )]
     pub cache: Option<CachePolicy>,
+
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
 
     /// List of columns, that should be encoded as tile properties (required)
     ///

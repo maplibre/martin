@@ -25,6 +25,7 @@ pmtiles:
       cache:
         minzoom: 0
         maxzoom: 3
+      cache_control: no-store
 geojson: {}
 sprites:
   paths: tests/fixtures/sprites/src1

@@ -177,6 +177,8 @@ impl CorsConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use indoc::indoc;
 
     use super::*;
@@ -345,10 +347,10 @@ mod tests {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert!(matches!(
+            assert_matches!(
                 settings.validate(),
                 Err(ConfigFileError::CorsNoOriginsConfigured)
-            ));
+            );
         } else {
             panic!("Expected Properties variant");
         }
@@ -373,10 +375,10 @@ mod tests {
             unrecognized: UnrecognizedValues::default(),
         };
 
-        assert!(matches!(
+        assert_matches!(
             properties.validate(),
             Err(ConfigFileError::CorsNoOriginsConfigured)
-        ));
+        );
     }
 
     #[test]

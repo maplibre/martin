@@ -693,6 +693,7 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::path::Path;
     use std::str::FromStr as _;
     use std::sync::Arc;
@@ -910,10 +911,10 @@ mod tests {
                 assert_eq!(result.unwrap(), vec![expected_bound]);
             }
             Err(expected_coord) => {
-                assert!(matches!(
+                assert_matches!(
                     result,
                     Err(MartinCpError::InvalidBoundingBox(coord, _, _)) if coord == expected_coord
-                ));
+                );
             }
         }
     }

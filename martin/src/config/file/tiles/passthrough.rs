@@ -12,8 +12,9 @@ use tilejson::Bounds;
 use tracing::info;
 
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigurationLivecycleHooks,
-    ResolutionResult, SourceBuildResult, TileSourceWarning, UnrecognizedValues,
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
+    ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -247,6 +248,12 @@ pub struct PassthroughSourceConfig {
     )]
     pub cache: CachePolicy,
 
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
+
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -275,6 +282,7 @@ impl Default for PassthroughSourceConfig {
             bounds: None,
             attribution: None,
             cache: CachePolicy::default(),
+            cache_control: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]

@@ -286,6 +286,7 @@ mod tests {
     use crate::config::args::PreferredEncoding;
     #[cfg(feature = "postgres")]
     use crate::config::primitives::env::FauxEnv;
+    use std::assert_matches;
 
     fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -411,7 +412,7 @@ mod tests {
         let err = args
             .merge_into_config(&mut config, &FauxEnv::default())
             .unwrap_err();
-        assert!(matches!(err, ConfigAndConnections(..)));
+        assert_matches!(err, ConfigAndConnections(..));
     }
 
     #[test]
@@ -427,7 +428,7 @@ mod tests {
             )
             .unwrap_err();
         let bad = vec!["foobar".to_owned()];
-        assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
+        assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]

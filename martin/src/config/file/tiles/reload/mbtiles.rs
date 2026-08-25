@@ -32,6 +32,7 @@ impl MbtilesReloader {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    ..Default::default()
                 },
                 _ => ProcessConfig::default(),
             };
