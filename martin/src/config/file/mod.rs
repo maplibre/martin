@@ -9,13 +9,20 @@ pub use main::*;
 pub mod cache;
 pub mod cors;
 pub mod srv;
+pub use srv::CacheControlHeader;
 
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
 pub mod process;
 pub use process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(any(
+    feature = "postgres",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles"
+))]
 pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};

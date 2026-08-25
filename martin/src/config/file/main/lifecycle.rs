@@ -36,15 +36,24 @@ use crate::StartupResult;
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
     feature = "sprites",
     feature = "fonts",
-    all(feature = "mlt", feature = "mbtiles"),
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::PostgresConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(any(
@@ -449,59 +458,60 @@ impl Config {
         #[allow(unused_mut)]
         let mut map = HashMap::new();
 
-        #[cfg(all(
-            feature = "mlt",
-            any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "passthrough"
-            )
+        #[cfg(any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "passthrough",
+            feature = "unstable-cog",
+            feature = "geojson"
         ))]
         {
+            // The server-level `cache_control` is applied by middleware, not carried here.
             let global = ProcessConfig {
+                #[cfg(feature = "mlt")]
                 convert_to_mlt: self.convert_to_mlt.clone(),
+                #[cfg(feature = "mlt")]
                 convert_to_mvt: self.convert_to_mvt.clone(),
+                cache_control: None,
             };
 
             #[cfg(feature = "postgres")]
             for pg in self.postgres.iter() {
-                let source_type = ProcessConfig {
-                    convert_to_mlt: pg.convert_to_mlt.clone(),
-                    convert_to_mvt: pg.convert_to_mvt.clone(),
-                };
-                if let Some(tables) = &pg.tables {
-                    Self::insert_source_configs(&mut map, &global, &source_type, tables, |info| {
-                        ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                            convert_to_mvt: info.convert_to_mvt.clone(),
-                        }
-                    });
-                }
-                if let Some(functions) = &pg.functions {
-                    Self::insert_source_configs(
-                        &mut map,
-                        &global,
-                        &source_type,
-                        functions,
-                        |info| ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                            convert_to_mvt: info.convert_to_mvt.clone(),
-                        },
-                    );
-                }
+                Self::insert_postgres_configs(&mut map, &global, pg);
             }
 
-            #[cfg(feature = "pmtiles")]
+            #[cfg(all(feature = "pmtiles", feature = "mlt"))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
+                cache_control: None,
+            });
+            #[cfg(all(feature = "pmtiles", not(feature = "mlt")))]
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |_| {
+                ProcessConfig::default()
             });
 
-            #[cfg(feature = "mbtiles")]
+            #[cfg(all(feature = "mbtiles", feature = "mlt"))]
             Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| ProcessConfig {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
+                cache_control: None,
+            });
+            #[cfg(all(feature = "mbtiles", not(feature = "mlt")))]
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |_| {
+                ProcessConfig::default()
+            });
+
+            // COG and GeoJSON have no kind-level conversion settings.
+            #[cfg(feature = "unstable-cog")]
+            Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
+                ProcessConfig::default()
+            });
+
+            #[cfg(feature = "geojson")]
+            Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {
+                ProcessConfig::default()
             });
 
             #[cfg(feature = "passthrough")]
@@ -509,14 +519,20 @@ impl Config {
                 use crate::config::file::passthrough::PassthroughSrc;
 
                 let source_type = ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
+                    cache_control: None,
                 };
                 Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
                     match src {
                         PassthroughSrc::Detailed(obj) => ProcessConfig {
+                            #[cfg(feature = "mlt")]
                             convert_to_mlt: obj.convert_to_mlt.clone(),
+                            #[cfg(feature = "mlt")]
                             convert_to_mvt: obj.convert_to_mvt.clone(),
+                            cache_control: obj.cache_control.clone(),
                         },
                         PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                     }
@@ -524,23 +540,53 @@ impl Config {
             }
         }
 
-        // COG sources produce raster tiles (TIFF), not vector tiles (MVT),
-        // so process config (MLT conversion, compression) does not apply.
-        // They fall through to the global default, which is a no-op for raster formats.
-
         map
+    }
+
+    #[cfg(feature = "postgres")]
+    fn insert_postgres_configs(
+        map: &mut HashMap<String, ProcessConfig>,
+        global: &ProcessConfig,
+        pg: &PostgresConfig,
+    ) {
+        let source_type = ProcessConfig {
+            #[cfg(feature = "mlt")]
+            convert_to_mlt: pg.convert_to_mlt.clone(),
+            #[cfg(feature = "mlt")]
+            convert_to_mvt: pg.convert_to_mvt.clone(),
+            cache_control: None,
+        };
+        if let Some(tables) = &pg.tables {
+            Self::insert_source_configs(map, global, &source_type, tables, |info| ProcessConfig {
+                #[cfg(feature = "mlt")]
+                convert_to_mlt: info.convert_to_mlt.clone(),
+                #[cfg(feature = "mlt")]
+                convert_to_mvt: info.convert_to_mvt.clone(),
+                cache_control: info.cache_control.clone(),
+            });
+        }
+        if let Some(functions) = &pg.functions {
+            Self::insert_source_configs(map, global, &source_type, functions, |info| {
+                ProcessConfig {
+                    #[cfg(feature = "mlt")]
+                    convert_to_mlt: info.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
+                    convert_to_mvt: info.convert_to_mvt.clone(),
+                    cache_control: info.cache_control.clone(),
+                }
+            });
+        }
     }
 
     /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
-    #[cfg(all(
-        feature = "mlt",
-        any(
-            feature = "postgres",
-            feature = "pmtiles",
-            feature = "mbtiles",
-            feature = "passthrough"
-        )
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "passthrough",
+        feature = "unstable-cog",
+        feature = "geojson"
     ))]
     fn insert_source_configs<'a, S: 'a>(
         map: &mut HashMap<String, ProcessConfig>,
@@ -559,8 +605,13 @@ impl Config {
         }
     }
 
-    /// Helper to resolve process configs for file-based source types (pmtiles, mbtiles).
-    #[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
+    /// Helper to resolve process configs for file-based source types.
+    #[cfg(any(
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson"
+    ))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
         map: &mut HashMap<String, ProcessConfig>,
         global: &ProcessConfig,
@@ -572,8 +623,11 @@ impl Config {
             if let Some(sources) = &cfg.sources {
                 Self::insert_source_configs(map, global, &source_type, sources, |src| match src {
                     FileConfigSrc::Obj(obj) => ProcessConfig {
+                        #[cfg(feature = "mlt")]
                         convert_to_mlt: obj.convert_to_mlt.clone(),
+                        #[cfg(feature = "mlt")]
                         convert_to_mvt: obj.convert_to_mvt.clone(),
+                        cache_control: obj.cache_control.clone(),
                     },
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
                 });

@@ -24,7 +24,8 @@ use tracing::{info, warn};
 use url::Url;
 
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -381,6 +382,11 @@ pub struct FileConfigSource {
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
     pub cache: CachePolicy,
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
 }
 
 #[cfg(feature = "_tiles")]
