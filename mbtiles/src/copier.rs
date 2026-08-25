@@ -949,6 +949,8 @@ const fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use insta::assert_snapshot;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
@@ -1342,10 +1344,7 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(matches!(
-            opt.run().await.unwrap_err(),
-            MbtError::RusqliteError(..)
-        ));
+        assert_matches!(opt.run().await.unwrap_err(), MbtError::RusqliteError(..));
     }
 
     #[actix_rt::test]
