@@ -1506,6 +1506,10 @@ See also <a href="../pg-connections/#ssl-connections">SSL configuration</a> sect
 <td><code>AWS_LAMBDA_RUNTIME_API</code></td>
 <td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="../run-with-lambda/">Running in AWS Lambda</a></td>
 </tr>
+<tr>
+<td><code>AWS_CONTAINER_CREDENTIALS_RELATIVE_URI</code><br/><code>AWS_CONTAINER_CREDENTIALS_FULL_URI</code><br/><code>AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE</code><br/><code>AWS_WEB_IDENTITY_TOKEN_FILE</code><br/><code>AWS_ROLE_ARN</code><br/><code>AWS_ROLE_SESSION_NAME</code><br/><code>AWS_ENDPOINT_URL_STS</code></td>
+<td>Injected by ECS, Fargate and EKS to say where the task role's credentials come from. Used for S3-backed PMTiles sources unless <code>pmtiles.profile</code> or the matching <code>pmtiles.*</code> setting is configured. See <a href="../sources-pmtiles/">PMTiles sources</a></td>
+</tr>
 </tbody>
 </table>
 <div class="admonition warning">
