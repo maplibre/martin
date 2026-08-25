@@ -116,7 +116,7 @@ pub fn round_floats(value: &mut serde_json::Value) {
         }
         Value::Array(items) => items.iter_mut().for_each(round_floats),
         Value::Object(entries) => entries.values_mut().for_each(round_floats),
-        _ => {}
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
     }
 }
 

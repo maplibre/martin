@@ -231,7 +231,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
                 sources: None,
                 custom: T::default(),
             }),
-            c => c,
+            c @ (Self::None | Self::Config(_)) => c,
         }
     }
 }

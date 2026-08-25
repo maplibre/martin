@@ -469,6 +469,10 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "StyleError is #[non_exhaustive]; every other cause is a server-side failure"
+)]
 async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,

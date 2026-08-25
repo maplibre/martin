@@ -101,18 +101,16 @@ impl ConfigFileError {
     /// Render this error as a [`miette::Report`] for graphical display, when applicable.
     #[must_use]
     pub fn to_miette_report(&self) -> Option<miette::Report> {
-        match self {
-            Self::YamlParseError(details) => {
-                let inner = serde_saphyr::miette::to_miette_report(
-                    &details.error,
-                    details.named_source.inner(),
-                    details.named_source.name(),
-                );
-                let kind = YamlReportKind::for_error(&details.error);
-                Some(miette::Report::new(YamlParseReport { inner, kind }))
-            }
-            _ => None,
-        }
+        let Self::YamlParseError(details) = self else {
+            return None;
+        };
+        let inner = serde_saphyr::miette::to_miette_report(
+            &details.error,
+            details.named_source.inner(),
+            details.named_source.name(),
+        );
+        let kind = YamlReportKind::for_error(&details.error);
+        Some(miette::Report::new(YamlParseReport { inner, kind }))
     }
 }
 
@@ -123,6 +121,10 @@ enum YamlReportKind {
 }
 
 impl YamlReportKind {
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "serde_saphyr::Error is #[non_exhaustive] with dozens of variants that all render as plain YAML errors"
+    )]
     fn for_error(err: &serde_saphyr::Error) -> Self {
         use serde_saphyr::Error::{
             InvalidPropertyName, PropertyRequiredButEmpty, PropertyRequiredButUnset,
@@ -266,7 +268,27 @@ impl Diagnostic for ConfigFileError {
             Self::YamlParseError { .. } => {
                 "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."
             }
-            _ => return None,
+            Self::IoError(..)
+            | Self::ConfigLoadError(..)
+            | Self::ConfigWriteError(..)
+            | Self::InvalidFilePath(_)
+            | Self::InvalidSourceUrl(..)
+            | Self::PathNotConvertibleToUrl(_)
+            | Self::InvalidSourceFilePath(..) => return None,
+            #[cfg(feature = "passthrough")]
+            Self::InvalidPassthroughFormat { .. } => return None,
+            #[cfg(feature = "styles")]
+            Self::DirectoryWalking(..) => return None,
+            #[cfg(feature = "postgres")]
+            Self::PostgresConnectionStringMissing | Self::PostgresPoolCreationFailed(_) => {
+                return None;
+            }
+            #[cfg(feature = "fonts")]
+            Self::FontResolutionFailed(..) => return None,
+            #[cfg(feature = "pmtiles")]
+            Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
+            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            Self::RendererPoolSpawnFailed(_) => return None,
         };
         Some(Box::new(help))
     }
@@ -278,10 +300,10 @@ impl Diagnostic for ConfigFileError {
     // Carets and labels come from `to_miette_report`.
     // Surface the file here so direct rendering still shows it.
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        match self {
-            Self::YamlParseError(details) => Some(&details.named_source),
-            _ => None,
-        }
+        let Self::YamlParseError(details) = self else {
+            return None;
+        };
+        Some(&details.named_source)
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {

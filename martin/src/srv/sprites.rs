@@ -337,6 +337,8 @@ fn map_sprite_compute_error(e: &SpriteComputeError) -> actix_web::Error {
         SpriteComputeError::Sprite(err @ SpriteError::TooManySpriteIds { .. }) => {
             ErrorBadRequest(err.to_string())
         }
-        other => map_internal_error(other),
+        other @ (SpriteComputeError::Sprite(_)
+        | SpriteComputeError::EncodePng(_)
+        | SpriteComputeError::Serialize(_)) => map_internal_error(other),
     }
 }

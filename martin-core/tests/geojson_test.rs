@@ -130,7 +130,7 @@ fn all_coords(geom: &Geometry<i32>) -> Vec<Coord<i32>> {
         Geometry::Polygon(p) => polygon_coords(p),
         Geometry::MultiPolygon(m) => m.0.iter().flat_map(polygon_coords).collect(),
         Geometry::GeometryCollection(g) => g.0.iter().flat_map(all_coords).collect(),
-        _ => vec![],
+        Geometry::Line(_) | Geometry::Rect(_) | Geometry::Triangle(_) => vec![],
     }
 }
 
@@ -147,7 +147,14 @@ fn polygons(geom: &Geometry<i32>) -> Vec<&Polygon<i32>> {
     match geom {
         Geometry::Polygon(p) => vec![p],
         Geometry::MultiPolygon(m) => m.0.iter().collect(),
-        _ => vec![],
+        Geometry::Point(_)
+        | Geometry::Line(_)
+        | Geometry::LineString(_)
+        | Geometry::MultiPoint(_)
+        | Geometry::MultiLineString(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_) => vec![],
     }
 }
 

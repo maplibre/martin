@@ -97,6 +97,10 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
         .finish()
 }
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "FontError is #[non_exhaustive]; every other cause is a server-side failure"
+)]
 pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),

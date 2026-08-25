@@ -67,6 +67,7 @@ unwrap_used = "warn"
 unused_trait_names = "warn"
 use_self = "warn"
 verbose_file_reads = "warn"
+wildcard_enum_match_arm = "warn"
 
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
