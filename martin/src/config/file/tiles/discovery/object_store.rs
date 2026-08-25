@@ -8,13 +8,12 @@ use futures::stream::TryStreamExt as _;
 use object_store::ObjectStore as _;
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, TileSourceConfiguration as _,
+    CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 
@@ -96,7 +95,7 @@ impl ObjectStoreDiscovery {
 impl Discovery for ObjectStoreDiscovery {
     type Args = Url;
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         // Per-prefix failures are logged and skipped so a transient outage doesn't flap the catalog.
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
@@ -116,7 +115,7 @@ impl Discovery for ObjectStoreDiscovery {
         Ok(Discovered::new(out))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         self.config
             .new_sources_url(id.to_owned(), args.clone(), CachePolicy::default())
             .await
@@ -146,7 +145,7 @@ async fn list_remote_prefix(
     prefix: &Url,
     config: &PmtConfig,
     id_resolver: &IdResolver,
-) -> MartinResult<Vec<(String, Url, Version)>> {
+) -> SourceBuildResult<Vec<(String, Url, Version)>> {
     let (store, base) = config
         .parse_url_opts(prefix)
         .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;

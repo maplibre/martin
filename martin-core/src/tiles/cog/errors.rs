@@ -99,3 +99,9 @@ pub enum CogError {
     #[error("The size of each tile is not consistent.")]
     InconsistentTiling(PathBuf),
 }
+
+impl crate::Classify for CogError {
+    fn kind(&self) -> crate::ErrorKind {
+        crate::ErrorKind::Internal
+    }
+}

@@ -113,3 +113,13 @@ pub enum DuckDBError {
         Option<UrlQuery>,
     ),
 }
+
+impl crate::Classify for DuckDBError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::DuckDBPoolConnError(..) => Unavailable,
+            _ => Internal,
+        }
+    }
+}

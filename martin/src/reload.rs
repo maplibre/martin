@@ -3,9 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::BoxedSource;
 
-use crate::MartinResult;
 use crate::config::file::discovery::BuiltSource;
-use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig};
+use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig, SourceBuildResult};
 
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
 #[derive(Debug)]
@@ -13,7 +12,7 @@ pub struct NewSource {
     /// Resolved source ID.
     pub id: String,
     /// The tile source implementation, or an error if initialization failed.
-    pub source: MartinResult<BoxedSource>,
+    pub source: SourceBuildResult<BoxedSource>,
     /// Resolved process config for this source (per-source > source-type > global > default).
     pub process: ProcessConfig,
 }
@@ -21,7 +20,7 @@ pub struct NewSource {
 impl NewSource {
     /// `process` is the kind-level fallback; a per-source override carried by the
     /// [`BuiltSource`] wins over it.
-    fn new(id: String, built: MartinResult<BuiltSource>, process: ProcessConfig) -> Self {
+    fn new(id: String, built: SourceBuildResult<BuiltSource>, process: ProcessConfig) -> Self {
         match built {
             Ok(built) => Self {
                 id,
@@ -68,7 +67,7 @@ impl ReloadAdvisory {
         process: ProcessConfig,
     ) -> Self
     where
-        F: AsyncFn(String) -> MartinResult<BuiltSource>,
+        F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
     {
         let removals = previous_ids
             .difference(next_ids)
@@ -100,7 +99,7 @@ impl ReloadAdvisory {
         process: ProcessConfig,
     ) -> Self
     where
-        F: AsyncFn(String) -> MartinResult<BuiltSource>,
+        F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
     {
         let removals = previous_map
             .keys()
@@ -139,7 +138,7 @@ async fn build_all<F>(
     process: &ProcessConfig,
 ) -> Vec<NewSource>
 where
-    F: AsyncFn(String) -> MartinResult<BuiltSource>,
+    F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
 {
     stream::iter(ids)
         .map(|id| async move {
@@ -194,7 +193,7 @@ mod tests {
         }
     }
 
-    async fn make_source(id: String) -> MartinResult<BuiltSource> {
+    async fn make_source(id: String) -> SourceBuildResult<BuiltSource> {
         let source: BoxedSource = Box::new(TestSource {
             id,
             tj: tilejson! {

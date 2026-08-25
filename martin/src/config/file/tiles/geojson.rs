@@ -7,10 +7,9 @@ use martin_core::tiles::geojson::source::GeoJsonSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 
 /// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
@@ -83,7 +82,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         let geojson_source =
             GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
         Ok(Box::new(geojson_source))
@@ -98,7 +97,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -166,6 +165,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
                 (
@@ -181,6 +181,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
             ]))

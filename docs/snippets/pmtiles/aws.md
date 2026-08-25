@@ -2,6 +2,11 @@
     Next to the explicit configuration for auth and endpoints below, you can also use `profile` (for example `profile: staging`) to specify an [AWS SDK profile](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html).
     Explicit configuration overrides profiles.
 
+!!! tip "Task roles on ECS, Fargate and EKS"
+    Martin picks up the credential-discovery variables these runtimes inject (`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI`, `AWS_CONTAINER_CREDENTIALS_FULL_URI`, `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`, `AWS_ROLE_SESSION_NAME`, `AWS_ENDPOINT_URL_STS`) automatically, so task roles, IRSA and Pod Identity work without any of the settings below.
+    Explicit configuration and `profile` override them.
+    On EC2, the instance metadata service is used when nothing else is configured.
+
 #### AWS specific Authentication & Credentials
 
 | configuration              | description                                                | example                                                   |

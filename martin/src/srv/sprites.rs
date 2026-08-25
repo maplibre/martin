@@ -1,7 +1,6 @@
 use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
-use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
@@ -12,7 +11,7 @@ use martin_core::sprites::{
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
-use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::server::{DebouncedWarning, map_error};
 
 #[derive(thiserror::Error, Debug)]
 enum SpriteComputeError {
@@ -329,16 +328,15 @@ async fn get_index(
     Ok(Bytes::from(json))
 }
 
-fn map_sprite_compute_error(e: &SpriteComputeError) -> actix_web::Error {
-    match e {
-        SpriteComputeError::Sprite(err @ SpriteError::SpriteNotFound(_)) => {
-            ErrorNotFound(err.to_string())
+impl martin_core::Classify for SpriteComputeError {
+    fn kind(&self) -> martin_core::ErrorKind {
+        match self {
+            Self::Sprite(e) => e.kind(),
+            Self::EncodePng(_) | Self::Serialize(_) => martin_core::ErrorKind::Internal,
         }
-        SpriteComputeError::Sprite(err @ SpriteError::TooManySpriteIds { .. }) => {
-            ErrorBadRequest(err.to_string())
-        }
-        other @ (SpriteComputeError::Sprite(_)
-        | SpriteComputeError::EncodePng(_)
-        | SpriteComputeError::Serialize(_)) => map_internal_error(other),
     }
+}
+
+fn map_sprite_compute_error(e: &SpriteComputeError) -> actix_web::Error {
+    map_error(e)
 }

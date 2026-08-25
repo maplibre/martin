@@ -6,10 +6,9 @@ use martin_core::tiles::mbtiles::MbtSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -53,7 +52,7 @@ impl TileSourceConfiguration for MbtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
@@ -66,7 +65,7 @@ impl TileSourceConfiguration for MbtConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -140,6 +139,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
                 (
@@ -155,6 +155,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::default(),
+                        cache_control: None,
                     })
                 ),
                 (
@@ -166,6 +167,7 @@ mod tests {
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
+                        cache_control: None,
                     })
                 ),
             ]))

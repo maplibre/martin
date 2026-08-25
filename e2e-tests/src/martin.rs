@@ -49,6 +49,7 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Unable to deserialize SQL comment on public.points2 as tilejson",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
+    "Environment variable DATABASE_URL is deprecated",
 ];
 
 fn martin_command() -> Command {

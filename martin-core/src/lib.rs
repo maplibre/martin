@@ -3,6 +3,9 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
+mod error;
+pub use error::{Classify, ErrorKind};
+
 /// Generic resource cache shared by sprite, font, and tile caches.
 pub mod cache;
 

@@ -405,6 +405,10 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
         },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -468,6 +472,10 @@
             }
           ],
           "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -828,6 +836,10 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
         },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -1116,6 +1128,10 @@
             }
           ],
           "description": "Zoom-level bounds for tile caching (overrides top-level cache).\ndefault: null (inherit from top-level default)\nUse `cache: disable` to disable caching for this source."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
         },
         "clip_geom": {
           "description": "Boolean to control if geometries should be clipped or encoded as is",

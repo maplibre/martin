@@ -24,17 +24,18 @@ use tracing::{info, warn};
 use url::Url;
 
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
 #[cfg(feature = "_tiles")]
+use crate::config::file::{SourceBuildError, SourceBuildResult};
+#[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptOneMany;
-#[cfg(feature = "_tiles")]
-use crate::{MartinError, MartinResult};
 
 /// Lifecycle hooks for configuring the application
 ///
@@ -71,7 +72,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
 
     /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
     ///
@@ -82,7 +83,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
@@ -381,6 +382,11 @@ pub struct FileConfigSource {
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
     pub cache: CachePolicy,
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
 }
 
 #[cfg(feature = "_tiles")]
@@ -515,7 +521,7 @@ struct Planned {
 
 #[cfg(feature = "_tiles")]
 impl Planned {
-    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> MartinResult<BoxedSource> {
+    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> SourceBuildResult<BoxedSource> {
         match &self.target {
             Target::Url { url, .. } => {
                 custom
@@ -557,7 +563,7 @@ impl Planned {
         }
     }
 
-    fn warning(&self, err: &MartinError) -> TileSourceWarning {
+    fn warning(&self, err: &SourceBuildError) -> TileSourceWarning {
         if self.from_sources {
             return TileSourceWarning::SourceError {
                 source_id: self.id.clone(),
@@ -585,7 +591,7 @@ fn plan_one_source(
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> MartinResult<Planned> {
+) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
     if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
@@ -632,7 +638,7 @@ fn plan_one_path(
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> MartinResult<Vec<Planned>> {
+) -> SourceBuildResult<Vec<Planned>> {
     if let Some(url) = parse_url(parse_urls, &path)? {
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
         let Some(ext) = target_ext else {
@@ -680,7 +686,7 @@ fn plan_one_path(
     } else if path.is_file() {
         vec![path]
     } else {
-        return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+        return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
             path.canonicalize().unwrap_or(path),
         )));
     };
@@ -1604,7 +1610,7 @@ mod folder_source_tests {
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
-    use crate::MartinError;
+    use crate::config::file::SourceBuildError;
     use crate::config::primitives::IdResolver;
 
     /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
@@ -1628,13 +1634,15 @@ mod folder_source_tests {
             id: String,
             path: PathBuf,
             _cache: CachePolicy,
-        ) -> MartinResult<BoxedSource> {
+        ) -> SourceBuildResult<BoxedSource> {
             let stem = path
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or_default();
             if stem.starts_with(BAD_PREFIX) {
-                Err(MartinError::from(ConfigFileError::InvalidFilePath(path)))
+                Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
+                    path,
+                )))
             } else {
                 Ok(Box::new(FakeSource {
                     id,
@@ -1651,7 +1659,7 @@ mod folder_source_tests {
             _id: String,
             _url: Url,
             _cache: CachePolicy,
-        ) -> MartinResult<BoxedSource> {
+        ) -> SourceBuildResult<BoxedSource> {
             unreachable!()
         }
     }

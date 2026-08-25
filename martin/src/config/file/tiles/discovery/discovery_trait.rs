@@ -4,8 +4,7 @@ use std::collections::BTreeMap;
 
 use martin_core::tiles::BoxedSource;
 
-use crate::MartinResult;
-use crate::config::file::{ProcessConfig, TileSourceWarning};
+use crate::config::file::{ProcessConfig, SourceBuildResult, TileSourceWarning};
 
 /// Per-Source change-detection value. `Opaque` sources only diff on presence, never update.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -56,14 +55,14 @@ pub trait Discovery: Send + Sync + 'static {
     type Args: Clone + Send + Sync + 'static;
 
     /// Cheap snapshot of id -> (version, source arguments); an `Err` makes the driver retain its baseline.
-    fn discover(&self) -> impl Future<Output = MartinResult<Discovered<Self::Args>>> + Send;
+    fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<Self::Args>>> + Send;
 
     /// Builds one source; an `Err` rides into that source's `NewSource`.
     fn build(
         &self,
         id: &str,
         args: &Self::Args,
-    ) -> impl Future<Output = MartinResult<BuiltSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send;
 
     /// `ProcessConfig` stamped onto every source this kind emits.
     fn process(&self) -> ProcessConfig;

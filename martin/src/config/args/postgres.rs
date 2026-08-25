@@ -235,7 +235,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use crate::MartinError;
+    use crate::config::args::ArgsError;
     use crate::config::primitives::env::FauxEnv;
 
     #[test]
@@ -250,7 +250,7 @@ mod tests {
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
         assert!(matches!(args.check(), Err(
-            MartinError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
+            ArgsError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
     }
 
     #[test]

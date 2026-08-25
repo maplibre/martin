@@ -1,3 +1,4 @@
+use crate::TileSourceManager;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -6,7 +7,6 @@ use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, Object
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{FileConfigEnum, TileSourceConfiguration as _};
 use crate::config::primitives::IdResolver;
-use crate::{MartinResult, TileSourceManager};
 
 const PMTILES_EXT: &str = "pmtiles";
 
@@ -35,6 +35,7 @@ impl PmtilesReloader {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    ..Default::default()
                 },
                 FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
                     ProcessConfig::default()
@@ -79,7 +80,7 @@ impl PmtilesReloader {
         }
     }
 
-    pub fn start(self) -> MartinResult<()> {
+    pub fn start(self) -> notify::Result<()> {
         let Self {
             tile_source_manager,
             local,
@@ -219,6 +220,7 @@ mod tests {
                 convert_to_mlt: None,
                 #[cfg(all(feature = "mlt", feature = "_tiles"))]
                 convert_to_mvt: None,
+                cache_control: None,
             }),
         );
         let cfg = FileConfigEnum::Config(FileConfig {

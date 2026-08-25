@@ -75,3 +75,18 @@ pub enum FontError {
     #[error(transparent)]
     ErrorSerializingProtobuf(#[from] pbf_font_tools::prost::DecodeError),
 }
+
+impl crate::Classify for FontError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, InvalidInput, NotFound};
+        match self {
+            Self::FontNotFound(_) => NotFound,
+            Self::TooManyFontIds { .. }
+            | Self::InvalidFontRangeStartEnd { .. }
+            | Self::InvalidFontRangeStart(_)
+            | Self::InvalidFontRangeEnd(_)
+            | Self::InvalidFontRange(_, _) => InvalidInput,
+            _ => Internal,
+        }
+    }
+}

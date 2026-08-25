@@ -7,9 +7,9 @@ use actix_web::{HttpResponse, Responder, middleware, route};
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinResult;
 #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
 use crate::config::file::ServerState;
+use crate::srv::ServerStartError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(
@@ -52,7 +52,7 @@ pub struct CatalogSettings {
 impl Catalog {
     pub fn new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))] state: &ServerState,
-    ) -> MartinResult<Self> {
+    ) -> Result<Self, ServerStartError> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
             tiles: HashMap::default(),

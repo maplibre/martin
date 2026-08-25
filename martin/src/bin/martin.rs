@@ -6,7 +6,7 @@
 use std::env;
 
 use clap::Parser as _;
-use martin::MartinResult;
+use martin::StartupResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
@@ -36,7 +36,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
 #[expect(clippy::too_many_lines)]
-async fn start(args: Args) -> MartinResult<()> {
+async fn start(args: Args) -> StartupResult<()> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv;
@@ -89,6 +89,7 @@ async fn start(args: Args) -> MartinResult<()> {
         let pc = ProcessConfig {
             convert_to_mlt: config.convert_to_mlt.clone(),
             convert_to_mvt: config.convert_to_mvt.clone(),
+            ..Default::default()
         };
         #[cfg(not(feature = "mlt"))]
         let pc = ProcessConfig::default();
@@ -170,7 +171,7 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");
 
-    server.await
+    Ok(server.await?)
 }
 
 #[tokio::main]

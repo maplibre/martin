@@ -63,3 +63,25 @@ pub enum MartinCoreError {
 
 /// A convenience [`Result`] for tiles coming from `martin-core`.
 pub type MartinCoreResult<T> = Result<T, MartinCoreError>;
+
+impl crate::Classify for MartinCoreError {
+    fn kind(&self) -> crate::ErrorKind {
+        match self {
+            #[cfg(feature = "mbtiles")]
+            Self::MbtilesError(e) => e.kind(),
+            #[cfg(feature = "postgres")]
+            Self::PostgresError(e) => e.kind(),
+            #[cfg(feature = "unstable-duckdb")]
+            Self::DuckDBError(e) => e.kind(),
+            #[cfg(feature = "pmtiles")]
+            Self::PmtilesError(e) => e.kind(),
+            #[cfg(feature = "passthrough")]
+            Self::PassthroughError(e) => e.kind(),
+            #[cfg(feature = "unstable-cog")]
+            Self::CogError(e) => e.kind(),
+            #[cfg(feature = "geojson")]
+            Self::GeoJsonError(e) => e.kind(),
+            Self::SourceNeedsReload | Self::OtherError(_) => crate::ErrorKind::Internal,
+        }
+    }
+}

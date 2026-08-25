@@ -6,8 +6,6 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 use tokio::time::{Instant, MissedTickBehavior};
 
-use crate::{MartinError, MartinResult};
-
 /// Decides when a [`ReloadDriver`](super::ReloadDriver) reconciles. `None` ends the loop.
 pub trait Trigger: Send + 'static {
     fn next(&mut self) -> impl Future<Output = Option<()>> + Send;
@@ -21,7 +19,7 @@ pub struct NotifyTrigger {
 }
 
 impl NotifyTrigger {
-    pub fn new(directories: &[PathBuf]) -> MartinResult<Self> {
+    pub fn new(directories: &[PathBuf]) -> notify::Result<Self> {
         let (tx, rx) = mpsc::channel::<Event>(256);
 
         let mut watcher = RecommendedWatcher::new(
@@ -33,13 +31,10 @@ impl NotifyTrigger {
                 }
             },
             Config::default(),
-        )
-        .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
+        )?;
         for dir in directories {
             // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-            watcher
-                .watch(dir, notify::RecursiveMode::NonRecursive)
-                .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
+            watcher.watch(dir, notify::RecursiveMode::NonRecursive)?;
         }
 
         Ok(Self {

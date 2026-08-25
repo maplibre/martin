@@ -29,3 +29,9 @@ pub enum PmtilesError {
         path: String,
     },
 }
+
+impl crate::Classify for PmtilesError {
+    fn kind(&self) -> crate::ErrorKind {
+        crate::ErrorKind::Internal
+    }
+}

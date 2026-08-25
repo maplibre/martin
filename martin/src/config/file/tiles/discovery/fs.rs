@@ -9,14 +9,16 @@ use futures::future::BoxFuture;
 use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
+use crate::config::file::FileConfigSrc;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
-use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
+use crate::config::file::{
+    CachePolicy, FileConfigEnum, ProcessConfig, SourceBuildError, SourceBuildResult,
+};
 use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::{MartinError, MartinResult};
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
-type BuildFuture = BoxFuture<'static, MartinResult<BoxedSource>>;
+type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
 
 /// Opens one discovered file as a source.
 ///
@@ -30,12 +32,20 @@ type BuildFuture = BoxFuture<'static, MartinResult<BoxedSource>>;
 /// The cost is a single heap allocation per reloader at startup.
 pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuildFuture + Send + Sync>;
 
+/// What the config says about one explicitly-configured source, so a discovered file with the
+/// same canonical path keeps its policy and per-source process settings.
+struct ConfiguredSource {
+    policy: CachePolicy,
+    /// Per-source `convert_to_*` / `cache_control` override, already resolved against the kind level.
+    process: Option<ProcessConfig>,
+}
+
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
     directories: Vec<PathBuf>,
     extensions: &'static [&'static str],
-    /// Canonical path -> policy for configured sources, so discovered files inherit their policy.
-    path_cache: BTreeMap<PathBuf, CachePolicy>,
+    /// Canonical path -> configured entry for explicitly-configured sources.
+    configured: BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: IdResolver,
     process: ProcessConfig,
     build: FsSourceBuilder,
@@ -51,7 +61,7 @@ impl FsDiscovery {
         build: FsSourceBuilder,
     ) -> Self {
         let mut directories: Vec<PathBuf> = vec![];
-        let mut path_cache: BTreeMap<PathBuf, CachePolicy> = BTreeMap::new();
+        let mut configured: BTreeMap<PathBuf, ConfiguredSource> = BTreeMap::new();
 
         if let FileConfigEnum::Config(cfg) = config
             && let Some(sources) = &cfg.sources
@@ -65,7 +75,13 @@ impl FsDiscovery {
                     tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
                     continue;
                 };
-                path_cache.insert(canonical, src.cache_zoom());
+                configured.insert(
+                    canonical,
+                    ConfiguredSource {
+                        policy: src.cache_zoom(),
+                        process: per_source_process(&process, src),
+                    },
+                );
             }
         }
 
@@ -98,7 +114,7 @@ impl FsDiscovery {
         Self {
             directories,
             extensions,
-            path_cache,
+            configured,
             id_resolver,
             process,
             build,
@@ -112,14 +128,38 @@ impl FsDiscovery {
     }
 }
 
+/// Per-source `convert_to_*` and `cache_control` settings override the kind-level [`ProcessConfig`].
+fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
+    use crate::config::file::resolve_process_config;
+
+    let FileConfigSrc::Obj(obj) = src else {
+        return None;
+    };
+    let per_source = ProcessConfig {
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mlt: obj.convert_to_mlt.clone(),
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        convert_to_mvt: obj.convert_to_mvt.clone(),
+        cache_control: obj.cache_control.clone(),
+    };
+    if per_source == ProcessConfig::default() {
+        return None;
+    }
+    Some(resolve_process_config(
+        kind_level,
+        &ProcessConfig::default(),
+        &per_source,
+    ))
+}
+
 impl Discovery for FsDiscovery {
     type Args = (PathBuf, CachePolicy);
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let discovered = discover_sources_by_ext(
             &self.directories,
             self.extensions,
-            &self.path_cache,
+            &self.configured,
             &self.id_resolver,
         )
         .await?;
@@ -134,10 +174,13 @@ impl Discovery for FsDiscovery {
         ))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
-        (self.build)(id.to_owned(), args.0.clone(), args.1)
-            .await
-            .map(Into::into)
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
+        let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
+        let process = self
+            .configured
+            .get(&args.0)
+            .and_then(|cfg| cfg.process.clone());
+        Ok(BuiltSource { source, process })
     }
 
     fn process(&self) -> ProcessConfig {
@@ -203,15 +246,15 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 async fn discover_sources_by_ext(
     directories: &[PathBuf],
     extensions: &[&str],
-    path_cache: &BTreeMap<PathBuf, CachePolicy>,
+    configured: &BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: &IdResolver,
-) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
+) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
     let mut out = BTreeMap::new();
     for directory in directories {
         let mut entries = fs::read_dir(directory)
             .await
-            .map_err(MartinError::IoError)?;
-        while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
+            .map_err(SourceBuildError::Io)?;
+        while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
             let Some(e) = resolve_dir_entry(&entry) else {
                 continue;
             };
@@ -222,7 +265,10 @@ async fn discover_sources_by_ext(
             {
                 continue;
             }
-            let policy = path_cache.get(&e.path).copied().unwrap_or_default();
+            let policy = configured
+                .get(&e.path)
+                .map(|cfg| cfg.policy)
+                .unwrap_or_default();
             let id = id_resolver.resolve(&e.stem, e.path_str.clone());
             out.insert(id, (e.path, e.modified_ms, policy));
         }
@@ -268,5 +314,107 @@ mod tests {
                 .all(|(v, _)| matches!(v, Version::Tracked(_))),
             "file sources carry a Tracked mtime version"
         );
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn configured_sources_keep_their_convert_override() {
+        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::primitives::AutoOption;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let overridden = dir.path().join("overridden.mbtiles");
+        let plain = dir.path().join("plain.mbtiles");
+        File::create(&overridden).expect("create overridden");
+        File::create(&plain).expect("create plain");
+
+        let config = FileConfigEnum::Config(FileConfig {
+            sources: Some(BTreeMap::from([
+                (
+                    "overridden".to_owned(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: overridden.clone(),
+                        convert_to_mlt: Some(AutoOption::Disabled),
+                        convert_to_mvt: None,
+                        cache_control: None,
+                        cache: CachePolicy::default(),
+                    }),
+                ),
+                ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
+            ])),
+            ..FileConfig::<()>::default()
+        });
+        let kind_level = ProcessConfig {
+            convert_to_mlt: Some(AutoOption::Auto),
+            convert_to_mvt: None,
+            cache_control: None,
+        };
+        let discovery = FsDiscovery::from_config(
+            &config,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            kind_level,
+            unreachable_builder(),
+        );
+
+        let configured = |path: &PathBuf| {
+            let canonical = path.canonicalize().expect("canonicalize");
+            discovery
+                .configured
+                .get(&canonical)
+                .expect("configured path")
+        };
+        assert_eq!(
+            configured(&overridden)
+                .process
+                .as_ref()
+                .and_then(|p| p.convert_to_mlt.clone()),
+            Some(AutoOption::Disabled)
+        );
+        assert_eq!(configured(&plain).process, None);
+    }
+
+    #[test]
+    fn configured_sources_keep_their_cache_control_override() {
+        use crate::config::file::{FileConfig, FileConfigSource};
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pinned = dir.path().join("pinned.mbtiles");
+        File::create(&pinned).expect("create pinned");
+
+        let config = FileConfigEnum::Config(FileConfig {
+            sources: Some(BTreeMap::from([(
+                "pinned".to_owned(),
+                FileConfigSrc::Obj(FileConfigSource {
+                    path: pinned.clone(),
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mlt: None,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mvt: None,
+                    cache_control: Some(
+                        serde_saphyr::from_str("public, max-age=60").expect("valid header"),
+                    ),
+                    cache: CachePolicy::default(),
+                }),
+            )])),
+            ..FileConfig::<()>::default()
+        });
+        let discovery = FsDiscovery::from_config(
+            &config,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            ProcessConfig::default(),
+            unreachable_builder(),
+        );
+
+        let canonical = pinned.canonicalize().expect("canonicalize");
+        let process = discovery
+            .configured
+            .get(&canonical)
+            .expect("configured path")
+            .process
+            .as_ref()
+            .expect("a cache_control-only override is still an override");
+        assert!(process.cache_control.is_some());
     }
 }

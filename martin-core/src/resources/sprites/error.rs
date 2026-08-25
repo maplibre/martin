@@ -58,3 +58,14 @@ pub enum SpriteError {
     #[error("Unable to create a sprite from file {0}")]
     SpriteInstError(PathBuf),
 }
+
+impl crate::Classify for SpriteError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, InvalidInput, NotFound};
+        match self {
+            Self::SpriteNotFound(_) => NotFound,
+            Self::TooManySpriteIds { .. } => InvalidInput,
+            _ => Internal,
+        }
+    }
+}

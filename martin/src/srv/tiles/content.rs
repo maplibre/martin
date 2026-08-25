@@ -4,8 +4,8 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    Accept, AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
-    LOCATION, Preference,
+    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc,
+    EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -23,7 +23,7 @@ use crate::config::file::ProcessConfig;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
-use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::server::{DebouncedWarning, map_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -383,7 +383,19 @@ impl<'a> DynTileSource<'a> {
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
+        if let Some(cache_control) = self.cache_control_header() {
+            response.insert_header((CACHE_CONTROL, cache_control));
+        }
         Ok(response.body(tile.data))
+    }
+
+    /// The per-source `Cache-Control` value, when every source of this request agrees on one.
+    fn cache_control_header(&self) -> Option<HeaderValue> {
+        let mut configured = self.sources.iter().map(|(_, pc)| &pc.cache_control);
+        let first = configured.next()?.as_ref()?;
+        configured
+            .all(|c| c.as_ref() == Some(first))
+            .then(|| first.header_value())
     }
 
     #[hotpath::measure]
@@ -418,7 +430,7 @@ impl<'a> DynTileSource<'a> {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
             }
-            result => result.map_err(|e| map_internal_error(e.as_ref())),
+            result => result.map_err(|e| map_error(e.as_ref())),
         }
     }
 
@@ -444,9 +456,9 @@ impl<'a> DynTileSource<'a> {
                 }
                 self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
                     .await
-                    .map_err(|e| map_internal_error(e.as_ref()))
+                    .map_err(|e| map_error(e.as_ref()))
             }
-            Err(e) => Err(map_internal_error(&e)),
+            Err(e) => Err(map_error(&e)),
         }
     }
 
