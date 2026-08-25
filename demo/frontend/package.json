@@ -15,7 +15,7 @@
     "react-dom": "19.2.8",
     "react-map-gl": "^8.1.1",
     "react-scroll-parallax": "3.5.0",
-    "styled-components": "6.5.1"
+    "styled-components": "6.5.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.10",
