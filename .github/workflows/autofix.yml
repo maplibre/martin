@@ -82,7 +82,7 @@ jobs:
       # Run pre-commit so the generated JSON conforms to the repo's formatter
       # rules (trailing newline, etc.) - same tiebreaker the bless job uses.
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts
         continue-on-error: true
@@ -133,7 +133,7 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - run: just bless
