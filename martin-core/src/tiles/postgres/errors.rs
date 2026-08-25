@@ -132,3 +132,13 @@ pub enum PostgresError {
         Option<UrlQuery>,
     ),
 }
+
+impl crate::Classify for PostgresError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::PostgresPoolConnError(..) => Unavailable,
+            _ => Internal,
+        }
+    }
+}

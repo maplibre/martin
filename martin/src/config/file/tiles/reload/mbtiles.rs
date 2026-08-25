@@ -1,6 +1,7 @@
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
+use crate::TileSourceManager;
 use crate::config::file::FileConfigEnum;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
@@ -9,7 +10,6 @@ use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::primitives::IdResolver;
-use crate::{MartinResult, TileSourceManager};
 
 /// Watches configured directories for `.mbtiles` changes.
 pub struct MbtilesReloader {
@@ -63,7 +63,7 @@ impl MbtilesReloader {
     }
 
     /// Spawns the reload driver. Does nothing if no directories are configured.
-    pub fn start(self) -> MartinResult<()> {
+    pub fn start(self) -> notify::Result<()> {
         let directories = self.discovery.directories().to_vec();
         if directories.is_empty() {
             return Ok(());

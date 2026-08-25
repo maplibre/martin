@@ -4,9 +4,8 @@ use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
-use crate::MartinResult;
 use crate::config::file::driver::Sink;
-use crate::config::file::{OnInvalid, ProcessConfig};
+use crate::config::file::{OnInvalid, ProcessConfig, SourceBuildResult};
 use crate::reload::ReloadAdvisory;
 use crate::source::TileSources;
 
@@ -81,7 +80,7 @@ impl Sink for TileSourceManager {
     /// 1. **Updates** - time-critical; invalidate cache then replace the source.
     /// 2. **Additions** - make new sources available.
     /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
-    async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
+    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<()> {
         if advisory.is_empty() {
             return Ok(());
         }
@@ -311,9 +310,8 @@ mod tests {
 
         use tempfile::TempDir;
 
-        use crate::MartinError;
         use crate::config::file::discovery::BuiltSource;
-        use crate::config::file::{ConfigFileError, ProcessConfig};
+        use crate::config::file::{ConfigFileError, ProcessConfig, SourceBuildError};
 
         const BAD_PREFIX: &str = "bad_";
 
@@ -338,9 +336,9 @@ mod tests {
             clippy::unused_async,
             reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
         )]
-        async fn build(id: String, dir: PathBuf) -> MartinResult<BuiltSource> {
+        async fn build(id: String, dir: PathBuf) -> SourceBuildResult<BuiltSource> {
             if id.starts_with(BAD_PREFIX) {
-                return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+                return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
                     dir.join(format!("{id}.tiles")),
                 )));
             }

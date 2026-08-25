@@ -1,3 +1,4 @@
+use crate::TileSourceManager;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -6,7 +7,6 @@ use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, Object
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{FileConfigEnum, TileSourceConfiguration as _};
 use crate::config::primitives::IdResolver;
-use crate::{MartinResult, TileSourceManager};
 
 const PMTILES_EXT: &str = "pmtiles";
 
@@ -75,7 +75,7 @@ impl PmtilesReloader {
         }
     }
 
-    pub fn start(self) -> MartinResult<()> {
+    pub fn start(self) -> notify::Result<()> {
         let Self {
             tile_source_manager,
             local,

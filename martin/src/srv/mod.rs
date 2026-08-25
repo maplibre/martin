@@ -14,6 +14,8 @@ pub use fonts::{__path_get_font, get_font};
 mod server;
 #[cfg(feature = "unstable-schemas")]
 pub use server::{__path_get_health, get_health};
+mod error;
+pub use error::ServerStartError;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;

@@ -23,10 +23,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedValues,
+    ConfigurationLivecycleHooks, SourceBuildResult, TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -482,7 +481,7 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
@@ -506,7 +505,7 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         let (store, path) = self
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;

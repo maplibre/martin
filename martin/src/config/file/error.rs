@@ -50,6 +50,12 @@ pub enum ConfigFileError {
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
 
+    #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
+    InvalidBasePath(String),
+
+    #[error("warnings issued during tile source resolution")]
+    TileResolutionWarningsIssued,
+
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(#[source] walkdir::Error, PathBuf),
@@ -237,6 +243,8 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => "martin::config::passthrough::invalid_format",
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
+            Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
+            Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]

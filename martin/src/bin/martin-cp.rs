@@ -23,9 +23,10 @@ use futures::TryStreamExt as _;
 use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
+use martin::StartupError;
 #[cfg(feature = "postgres")]
 use martin::config::args::PostgresArgs;
-use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
+use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -35,7 +36,6 @@ use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_trac
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
-use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
@@ -185,7 +185,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename, &env).map_err(MartinError::from)?
+        read_config(cfg_filename, &env).map_err(StartupError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
@@ -220,7 +220,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     if let Some(file_name) = save_config {
         config
             .save_to_file(file_name.as_path())
-            .map_err(MartinError::from)?;
+            .map_err(StartupError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }
@@ -292,13 +292,17 @@ type MartinCpResult<T> = Result<T, MartinCpError>;
 #[derive(thiserror::Error, Debug)]
 enum MartinCpError {
     #[error(transparent)]
-    Martin(#[from] MartinError),
+    Martin(#[from] StartupError),
+    #[error(transparent)]
+    Args(#[from] ArgsError),
     #[error("Unable to parse encodings argument: {0}")]
     EncodingParse(#[from] ParseError),
     #[error(transparent)]
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error(transparent)]
+    Mbtiles(#[from] MbtilesError),
     #[error("No sources found")]
     NoSources,
     #[error(
@@ -394,8 +398,7 @@ async fn write_tiles_to_mbtiles(
             ));
             if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                 mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await
-                    .map_err(MbtilesError::from)?;
+                    .await?;
                 batch.clear();
                 last_saved = Instant::now();
             }
@@ -413,8 +416,7 @@ async fn write_tiles_to_mbtiles(
     // Flush whatever is left once the channel closes (all senders dropped).
     if !batch.is_empty() {
         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-            .await
-            .map_err(MbtilesError::from)?;
+            .await?;
     }
     Ok(conn)
 }
@@ -425,16 +427,13 @@ async fn produce_tiles(
     tiles: Vec<TileRect>,
     concurrency: usize,
     tx: Sender<TileXyz>,
-) -> MartinResult<()> {
+) -> MartinCpResult<()> {
     stream::iter(iterate_tiles(tiles))
-        .map(MartinResult::Ok)
+        .map(MartinCpResult::Ok)
         .try_for_each_concurrent(concurrency, |xyz| {
             let tx = tx.clone();
             async move {
-                let tile = src
-                    .get_tile_content(xyz)
-                    .await
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let tile = src.get_tile_content(xyz).await?;
                 tx.send(TileXyz {
                     xyz,
                     data: tile.data,
@@ -466,13 +465,11 @@ async fn join_consumer(
         // Normal path
         consumer_task.await
     };
-    let conn = join_result
-        .map_err(|e| {
-            MartinError::from(std::io::Error::other(format!(
-                "consumer task panicked: {e}"
-            )))
-        })?
-        .map_err(MartinError::from)?;
+    let conn = join_result.map_err(|e| {
+        StartupError::from(std::io::Error::other(format!(
+            "consumer task panicked: {e}"
+        )))
+    })??;
     Ok(Some(conn))
 }
 
@@ -638,50 +635,39 @@ async fn init_schema(
     sources: &[BoxedSource],
     tile_info: TileInfo,
     args: &CopyArgs,
-) -> Result<MbtType, MartinError> {
-    Ok(
-        if is_empty_database(&mut *conn)
-            .await
-            .map_err(MbtilesError::from)?
-        {
-            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
-                MbtTypeCli::Flat => MbtType::Flat,
-                MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized {
-                    hash_view: true,
-                    schema: mbtiles::NormalizedSchema::Hash,
-                },
-                MbtTypeCli::Cache => MbtType::Cache,
-            };
-            init_mbtiles_schema(&mut *conn, mbt_type, false)
-                .await
-                .map_err(MbtilesError::from)?;
-            let mut tj = merge_tilejson(sources, String::new());
-            tj.other.insert(
-                "format".to_owned(),
-                serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
-            );
-            tj.other.insert(
-                "generator".to_owned(),
-                serde_json::Value::String(format!("martin-cp v{VERSION}")),
-            );
-            let zooms = get_zooms(args);
-            if let Some(min_zoom) = zooms.iter().min() {
-                tj.minzoom = Some(*min_zoom);
-            }
-            if let Some(max_zoom) = zooms.iter().max() {
-                tj.maxzoom = Some(*max_zoom);
-            }
-            mbt.insert_metadata(&mut *conn, &tj)
-                .await
-                .map_err(MbtilesError::from)?;
-            mbt_type
-        } else {
-            mbt.detect_type(&mut *conn)
-                .await
-                .map_err(MbtilesError::from)?
-        },
-    )
+) -> MartinCpResult<MbtType> {
+    Ok(if is_empty_database(&mut *conn).await? {
+        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+            MbtTypeCli::Flat => MbtType::Flat,
+            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
+            MbtTypeCli::Normalized => MbtType::Normalized {
+                hash_view: true,
+                schema: mbtiles::NormalizedSchema::Hash,
+            },
+            MbtTypeCli::Cache => MbtType::Cache,
+        };
+        init_mbtiles_schema(&mut *conn, mbt_type, false).await?;
+        let mut tj = merge_tilejson(sources, String::new());
+        tj.other.insert(
+            "format".to_owned(),
+            serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
+        );
+        tj.other.insert(
+            "generator".to_owned(),
+            serde_json::Value::String(format!("martin-cp v{VERSION}")),
+        );
+        let zooms = get_zooms(args);
+        if let Some(min_zoom) = zooms.iter().min() {
+            tj.minzoom = Some(*min_zoom);
+        }
+        if let Some(max_zoom) = zooms.iter().max() {
+            tj.maxzoom = Some(*max_zoom);
+        }
+        mbt.insert_metadata(&mut *conn, &tj).await?;
+        mbt_type
+    } else {
+        mbt.detect_type(&mut *conn).await?
+    })
 }
 
 #[tokio::main]

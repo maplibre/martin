@@ -13,12 +13,13 @@ use tokio::fs::{self, DirEntry};
 use crate::config::file::FileConfigSrc;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
-use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
+use crate::config::file::{
+    CachePolicy, FileConfigEnum, ProcessConfig, SourceBuildError, SourceBuildResult,
+};
 use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::{MartinError, MartinResult};
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
-type BuildFuture = BoxFuture<'static, MartinResult<BoxedSource>>;
+type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
 
 /// Opens one discovered file as a source.
 ///
@@ -155,7 +156,7 @@ fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option
 impl Discovery for FsDiscovery {
     type Args = (PathBuf, CachePolicy);
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let discovered = discover_sources_by_ext(
             &self.directories,
             self.extensions,
@@ -174,7 +175,7 @@ impl Discovery for FsDiscovery {
         ))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = self
@@ -251,13 +252,13 @@ async fn discover_sources_by_ext(
     extensions: &[&str],
     configured: &BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: &IdResolver,
-) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
+) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
     let mut out = BTreeMap::new();
     for directory in directories {
         let mut entries = fs::read_dir(directory)
             .await
-            .map_err(MartinError::IoError)?;
-        while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
+            .map_err(SourceBuildError::Io)?;
+        while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
             let Some(e) = resolve_dir_entry(&entry) else {
                 continue;
             };

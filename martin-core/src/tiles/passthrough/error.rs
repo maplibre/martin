@@ -84,3 +84,17 @@ pub enum PassthroughError {
         status: u16,
     },
 }
+
+impl crate::Classify for PassthroughError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::Http(_)
+            | Self::TileJsonFetch { .. }
+            | Self::TileJsonStatus { .. }
+            | Self::TileJsonParse { .. }
+            | Self::UnexpectedStatus { .. } => Unavailable,
+            _ => Internal,
+        }
+    }
+}

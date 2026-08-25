@@ -6,8 +6,8 @@ use clap::builder::styling::AnsiColor;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
-use crate::MartinError::ConfigAndConnectionsError;
-use crate::MartinResult;
+use crate::config::args::ArgsError::ConfigAndConnections;
+use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
 #[cfg(any(
@@ -102,9 +102,9 @@ impl Args {
         self,
         config: &mut Config,
         #[cfg(feature = "postgres")] env: &impl Env,
-    ) -> MartinResult<()> {
+    ) -> ArgsResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
-            return Err(ConfigAndConnectionsError(self.meta.connection));
+            return Err(ConfigAndConnections(self.meta.connection));
         }
 
         #[cfg(feature = "postgres")]
@@ -282,12 +282,12 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MartinError::UnrecognizableConnections;
+    use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
     #[cfg(feature = "postgres")]
     use crate::config::primitives::env::FauxEnv;
 
-    fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
+    fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
@@ -411,7 +411,7 @@ mod tests {
         let err = args
             .merge_into_config(&mut config, &FauxEnv::default())
             .unwrap_err();
-        assert!(matches!(err, ConfigAndConnectionsError(..)));
+        assert!(matches!(err, ConfigAndConnections(..)));
     }
 
     #[test]

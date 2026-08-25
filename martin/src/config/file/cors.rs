@@ -10,7 +10,6 @@ use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     UnrecognizedValues,
 };
-use crate::{MartinError, MartinResult};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -133,10 +132,10 @@ impl CorsConfig {
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(&self) -> MartinResult<()> {
+    pub fn validate(&self) -> ConfigFileResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
-            Self::Properties(properties) => properties.validate().map_err(MartinError::from),
+            Self::Properties(properties) => properties.validate(),
         }
     }
 
