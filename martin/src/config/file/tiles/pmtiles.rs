@@ -36,13 +36,7 @@ use crate::config::primitives::env::{Env, OsEnv};
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
 
-/// `object_store` options that AWS runtimes set through the environment to say where credentials
-/// come from: ECS/Fargate task roles, EKS IRSA and EKS Pod Identity.
-///
-/// The variable name is the option name upper-cased, which is also how
-/// [`AmazonS3Builder::from_env`] reads them. The values are per task (a random relative URI, a
-/// rotating token path), so they cannot be written into a config file ahead of time the way keys
-/// or a profile can.
+/// Options that AWS runtimes set through env-vars to say where credentials come from
 const AWS_CREDENTIAL_DISCOVERY_KEYS: &[AmazonS3ConfigKey] = &[
     AmazonS3ConfigKey::ContainerCredentialsRelativeUri,
     AmazonS3ConfigKey::ContainerCredentialsFullUri,
