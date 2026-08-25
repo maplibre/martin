@@ -97,10 +97,6 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
         .finish()
 }
 
-#[expect(
-    clippy::wildcard_enum_match_arm,
-    reason = "FontError is #[non_exhaustive]; every other cause is a server-side failure"
-)]
 pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
@@ -109,6 +105,12 @@ pub fn map_font_error(e: &FontError) -> actix_web::Error {
         | FontError::InvalidFontRangeStart(_)
         | FontError::InvalidFontRangeEnd(_)
         | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
-        _ => map_internal_error(e),
+        FontError::FreeType(_)
+        | FontError::IoError(..)
+        | FontError::InvalidFontFilePath(_)
+        | FontError::NoFontFilesFound(_)
+        | FontError::MissingFamilyName(_)
+        | FontError::PbfFontError(_)
+        | FontError::ErrorSerializingProtobuf(_) => map_internal_error(e),
     }
 }

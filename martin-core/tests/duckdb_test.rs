@@ -166,10 +166,6 @@ async fn pool_runs_concurrent_queries() {
 }
 
 #[tokio::test]
-#[expect(
-    clippy::wildcard_enum_match_arm,
-    reason = "DuckDBError is #[non_exhaustive]; every other variant fails the assertion"
-)]
 async fn pool_propagates_connection_work_errors() {
     let db = TestDatabase::new();
     let pool = create_file_pool(db.path(), 2);
@@ -188,15 +184,17 @@ async fn pool_propagates_connection_work_errors() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 
 #[tokio::test]
-#[expect(
-    clippy::wildcard_enum_match_arm,
-    reason = "DuckDBError is #[non_exhaustive]; every other variant fails the assertion"
-)]
 async fn database_file_pool_is_read_only() {
     let db = TestDatabase::new();
     let pool = create_file_pool(db.path(), 2);
@@ -215,7 +213,13 @@ async fn database_file_pool_is_read_only() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 

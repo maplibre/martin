@@ -70,7 +70,6 @@ pub enum DuckDBPoolManagerError {
 }
 
 /// Errors that can occur when working with `DuckDB` tile sources.
-#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum DuckDBError {
     /// Cannot build the shared `DuckDB` pool.

@@ -469,10 +469,6 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
-#[expect(
-    clippy::wildcard_enum_match_arm,
-    reason = "StyleError is #[non_exhaustive]; every other cause is a server-side failure"
-)]
 async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,
@@ -506,7 +502,11 @@ async fn render_with_overlays(
                 .content_type(ContentType::plaintext())
                 .body(format!("Overlay application failed: {err}"))
         }
-        other => {
+        other @ (StyleError::IoError(_)
+        | StyleError::StyleLoadError(_)
+        | StyleError::RenderingError(_)
+        | StyleError::FailedToSendRequest
+        | StyleError::FailedToReceiveResponse) => {
             error!("Failed to render static image: {other}");
             HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())

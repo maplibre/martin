@@ -5,7 +5,6 @@ use maplibre_native::{RenderingError, StyleLoadError};
 use crate::overlay::ApplyError;
 
 /// Errors that can occur during style processing.
-#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum StyleError {
     /// I/O error while loading a style for rendering.
