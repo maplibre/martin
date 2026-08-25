@@ -38,6 +38,7 @@ impl PostgresReloader {
             let source_type = ProcessConfig {
                 convert_to_mlt: config.convert_to_mlt.clone(),
                 convert_to_mvt: config.convert_to_mvt.clone(),
+                ..Default::default()
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };

@@ -35,6 +35,7 @@ impl PmtilesReloader {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    ..Default::default()
                 },
                 _ => ProcessConfig::default(),
             };
@@ -215,6 +216,7 @@ mod tests {
                 convert_to_mlt: None,
                 #[cfg(all(feature = "mlt", feature = "_tiles"))]
                 convert_to_mvt: None,
+                cache_control: None,
             }),
         );
         let cfg = FileConfigEnum::Config(FileConfig {
