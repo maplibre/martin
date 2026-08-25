@@ -7,8 +7,8 @@ use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
+use crate::config::file::{SourceBuildError, SourceBuildResult};
 use crate::reload::ReloadAdvisory;
-use crate::{MartinError, MartinResult};
 
 /// What the catalog already holds for a driver's sources when it starts.
 ///
@@ -103,10 +103,10 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         let advisory = ReloadAdvisory::from_maps(
             &prev_versions,
             &next_versions,
-            async move |id: String| -> MartinResult<BuiltSource> {
+            async move |id: String| -> SourceBuildResult<BuiltSource> {
                 let args = args_by_id
                     .get(&id)
-                    .ok_or_else(|| MartinError::SourceNotFound(id.clone()))?;
+                    .ok_or_else(|| SourceBuildError::SourceNotFound(id.clone()))?;
                 discovery.build(&id, args).await
             },
             process,
@@ -218,11 +218,11 @@ mod tests {
 
     /// Replays a scripted sequence of `discover()` results.
     struct FakeDiscovery {
-        snapshots: Mutex<VecDeque<MartinResult<Snapshot>>>,
+        snapshots: Mutex<VecDeque<SourceBuildResult<Snapshot>>>,
     }
 
     impl FakeDiscovery {
-        fn new(snapshots: Vec<MartinResult<Snapshot>>) -> Self {
+        fn new(snapshots: Vec<SourceBuildResult<Snapshot>>) -> Self {
             Self {
                 snapshots: Mutex::new(snapshots.into()),
             }
@@ -232,7 +232,7 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
-        fn discover(&self) -> impl Future<Output = MartinResult<Discovered<()>>> + Send {
+        fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<()>>> + Send {
             let snap = self
                 .snapshots
                 .lock()
@@ -246,7 +246,7 @@ mod tests {
             &self,
             id: &str,
             _args: &(),
-        ) -> impl Future<Output = MartinResult<BuiltSource>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
             let source: BoxedSource = Box::new(TestSource::new(id));
             std::future::ready(Ok(source.into()))
         }
@@ -285,7 +285,7 @@ mod tests {
     #[derive(Clone)]
     struct SpySink {
         applied: Arc<Mutex<Vec<AdvisorySnapshot>>>,
-        results: Arc<Mutex<VecDeque<MartinResult<()>>>>,
+        results: Arc<Mutex<VecDeque<SourceBuildResult<()>>>>,
     }
 
     impl SpySink {
@@ -296,7 +296,7 @@ mod tests {
             }
         }
 
-        fn with_results(results: Vec<MartinResult<()>>) -> Self {
+        fn with_results(results: Vec<SourceBuildResult<()>>) -> Self {
             let s = Self::new();
             *s.results.lock().expect("SpySink results mutex poisoned") = results.into();
             s
@@ -311,7 +311,7 @@ mod tests {
         fn apply_changes(
             &self,
             advisory: ReloadAdvisory,
-        ) -> impl Future<Output = MartinResult<()>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<()>> + Send {
             self.applied
                 .lock()
                 .expect("SpySink applied mutex poisoned")
@@ -425,7 +425,7 @@ mod tests {
     async fn failed_seed_then_success_does_not_flood() {
         // Seed fails (baseline stays None); the first good tick establishes it without applying.
         let discovery = FakeDiscovery::new(vec![
-            Err(MartinError::SourceNotFound("seed boom".into())),
+            Err(SourceBuildError::SourceNotFound("seed boom".into())),
             Ok(snapshot(&[
                 ("a", Version::Tracked(1)),
                 ("b", Version::Tracked(1)),
@@ -450,7 +450,7 @@ mod tests {
         // The failed middle tick keeps the baseline, so only `b` diffs on the last tick.
         let discovery = FakeDiscovery::new(vec![
             Ok(snapshot(&[("a", Version::Tracked(1))])),
-            Err(MartinError::SourceNotFound("tick boom".into())),
+            Err(SourceBuildError::SourceNotFound("tick boom".into())),
             Ok(snapshot(&[
                 ("a", Version::Tracked(1)),
                 ("b", Version::Tracked(1)),
@@ -483,7 +483,7 @@ mod tests {
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_results(vec![
-            Err(MartinError::SourceNotFound("apply boom".into())),
+            Err(SourceBuildError::SourceNotFound("apply boom".into())),
             Ok(()),
         ]);
         let recorded = sink.recorded();

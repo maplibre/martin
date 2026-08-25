@@ -1,10 +1,10 @@
+use crate::TileSourceManager;
 use crate::config::file::geojson::GeoJsonConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::{FileConfigEnum, TileSourceConfiguration as _};
 use crate::config::primitives::IdResolver;
-use crate::{MartinResult, TileSourceManager};
 
 /// Watches configured directories for `.json`/`.geojson` changes.
 pub struct GeoJsonReloader {
@@ -43,7 +43,7 @@ impl GeoJsonReloader {
     }
 
     /// Spawns the reload driver. Does nothing if no directories are configured.
-    pub fn start(self) -> MartinResult<()> {
+    pub fn start(self) -> notify::Result<()> {
         let directories = self.discovery.directories().to_vec();
         if directories.is_empty() {
             return Ok(());

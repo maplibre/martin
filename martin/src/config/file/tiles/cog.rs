@@ -6,10 +6,9 @@ use martin_core::tiles::cog::CogSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 
 #[derive(
@@ -39,7 +38,7 @@ impl TileSourceConfiguration for CogConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         let cog = CogSource::new(id, path, cache.zoom())?;
         Ok(Box::new(cog))
     }
@@ -49,7 +48,7 @@ impl TileSourceConfiguration for CogConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         unreachable!()
     }
 }

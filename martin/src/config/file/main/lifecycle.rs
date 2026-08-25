@@ -20,7 +20,7 @@ use tracing::{info, instrument, warn};
 use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 #[cfg(feature = "_tiles")]
 use super::{ResolutionResult, TileSourceWarning};
-use crate::MartinResult;
+use crate::StartupResult;
 #[cfg(any(
     feature = "postgres",
     feature = "pmtiles",
@@ -62,7 +62,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub async fn finalize(&mut self) -> MartinResult<()> {
+    pub async fn finalize(&mut self) -> StartupResult<()> {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -173,7 +173,7 @@ impl Config {
     pub async fn resolve(
         &mut self,
         #[cfg(feature = "_tiles")] idr: &IdResolver,
-    ) -> MartinResult<ServerState> {
+    ) -> StartupResult<ServerState> {
         init_aws_lc_tls();
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
@@ -362,7 +362,7 @@ impl Config {
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+    ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
         #[cfg_attr(
             not(any(
                 feature = "postgres",

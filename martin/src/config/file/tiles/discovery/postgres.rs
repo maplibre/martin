@@ -6,9 +6,8 @@ use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
-use crate::config::file::{CachePolicy, ProcessConfig};
+use crate::config::file::{CachePolicy, ProcessConfig, SourceBuildError, SourceBuildResult};
 use crate::config::primitives::IdResolver;
-use crate::{MartinError, MartinResult};
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
 ///
@@ -50,7 +49,7 @@ impl PostgresDiscovery {
 
     /// The builder, created on first use. A bad connection string surfaces here as an `Err`,
     /// which the driver treats like any other discovery failure (retain the baseline, retry).
-    async fn builder(&self) -> MartinResult<&PostgresAutoDiscoveryBuilder> {
+    async fn builder(&self) -> SourceBuildResult<&PostgresAutoDiscoveryBuilder> {
         self.builder
             .get_or_try_init(|| async {
                 PostgresAutoDiscoveryBuilder::new(
@@ -59,7 +58,7 @@ impl PostgresDiscovery {
                     self.default_cache,
                 )
                 .await
-                .map_err(MartinError::from)
+                .map_err(SourceBuildError::from)
             })
             .await
     }
@@ -68,7 +67,7 @@ impl PostgresDiscovery {
 impl Discovery for PostgresDiscovery {
     type Args = SourceSpec;
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let (specs, warnings) = self.builder().await?.discover().await?;
         Ok(Discovered {
             sources: specs
@@ -79,7 +78,7 @@ impl Discovery for PostgresDiscovery {
         })
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let (source, spec) = self.builder().await?.instantiate(id, args.clone()).await?;
         Ok(BuiltSource {
             source,
@@ -119,8 +118,11 @@ fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> Process
 mod tests {
     use std::collections::BTreeMap;
 
+    use super::*;
     use crate::config::file::CachePolicy;
-    use crate::config::file::discovery::{Discovery as _, PostgresDiscovery, Version};
+    #[cfg(feature = "mlt")]
+    use crate::config::file::discovery::Discovery as _;
+    use crate::config::file::discovery::{PostgresDiscovery, Version};
     use crate::config::file::postgres::{PostgresConfig, SourceSpec};
     use crate::config::file::process::ProcessConfig;
     use crate::config::primitives::IdResolver;

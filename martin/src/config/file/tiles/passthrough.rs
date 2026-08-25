@@ -11,10 +11,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
-use crate::MartinResult;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigurationLivecycleHooks,
-    ResolutionResult, TileSourceWarning, UnrecognizedValues,
+    ResolutionResult, SourceBuildResult, TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -288,7 +287,11 @@ impl Default for PassthroughSourceConfig {
 impl PassthroughSourceConfig {
     /// Build the upstream into a live [`BoxedSource`], fetching the upstream `TileJSON` once for a
     /// document upstream.
-    async fn build(&self, id: String, default_cache: CachePolicy) -> MartinResult<BoxedSource> {
+    async fn build(
+        &self,
+        id: String,
+        default_cache: CachePolicy,
+    ) -> SourceBuildResult<BoxedSource> {
         let format = match self.format.as_deref() {
             Some(value) => Some(Format::parse(value).ok_or_else(|| {
                 ConfigFileError::InvalidPassthroughFormat {

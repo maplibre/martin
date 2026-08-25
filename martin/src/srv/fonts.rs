@@ -1,8 +1,6 @@
-use std::string::ToString as _;
 use std::sync::Arc;
 
 use actix_middleware_etag::Etag;
-use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
@@ -11,7 +9,7 @@ use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache, nor
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
-use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::server::{DebouncedWarning, map_error};
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
@@ -98,13 +96,5 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
 }
 
 pub fn map_font_error(e: &FontError) -> actix_web::Error {
-    match e {
-        FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
-        FontError::TooManyFontIds { .. }
-        | FontError::InvalidFontRangeStartEnd { .. }
-        | FontError::InvalidFontRangeStart(_)
-        | FontError::InvalidFontRangeEnd(_)
-        | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
-        _ => map_internal_error(e),
-    }
+    map_error(e)
 }

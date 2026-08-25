@@ -1,115 +1,43 @@
-use std::fmt::Write as _;
+//! The error `main` sees.
+//!
+//! [`StartupError`] is the union of the *phases* that can abort a launch, not of everything
+//! that can go wrong in the crate. Each variant wraps one seam's error, and those seams have
+//! consumers that never need this type - notably [`SourceBuildError`], which hot reload logs
+//! and discards. Runtime tile serving does not appear here at all; it ends at an HTTP
+//! response via [`MartinCoreError`](martin_core::tiles::MartinCoreError).
+
 use std::io;
 
-#[cfg(feature = "unstable-cog")]
-use martin_core::tiles::cog::CogError;
-#[cfg(feature = "geojson")]
-use martin_core::tiles::geojson::GeoJsonError;
-#[cfg(feature = "mbtiles")]
-use martin_core::tiles::mbtiles::MbtilesError;
-#[cfg(feature = "passthrough")]
-use martin_core::tiles::passthrough::PassthroughError;
-#[cfg(feature = "pmtiles")]
-use martin_core::tiles::pmtiles::PmtilesError;
-#[cfg(feature = "postgres")]
-use martin_core::tiles::postgres::PostgresError;
-
+use crate::config::args::ArgsError;
 use crate::config::file::ConfigFileError;
+#[cfg(feature = "_tiles")]
+use crate::config::file::SourceBuildError;
+use crate::srv::ServerStartError;
 
-/// A convenience [`Result`] for Martin crate.
-pub type MartinResult<T> = Result<T, MartinError>;
+/// A convenience [`Result`] for fallible startup steps.
+pub type StartupResult<T> = Result<T, StartupError>;
 
-fn elide_vec(vec: &[String], max_items: usize, max_len: usize) -> String {
-    let mut s = String::new();
-    for (i, v) in vec.iter().enumerate() {
-        if i > max_items {
-            let _ = write!(s, " and {} more", vec.len() - i);
-            break;
-        }
-        if i > 0 {
-            s.push(' ');
-        }
-        if v.len() > max_len {
-            let mut bytes = 0usize;
-            s.extend(v.chars().take_while(|c| {
-                bytes += c.len_utf8();
-                bytes <= max_len
-            }));
-            s.push('…');
-        } else {
-            s.push_str(v);
-        }
-    }
-    s
-}
-
+/// Why martin could not finish starting up.
 #[derive(thiserror::Error, Debug)]
-pub enum MartinError {
-    #[error("The --config and the connection parameters cannot be used together. Please remove unsupported parameters '{}'", elide_vec(.0, 3, 15))]
-    ConfigAndConnectionsError(Vec<String>),
-
-    #[error("Unable to bind to {1}: {0}")]
-    BindingError(#[source] io::Error, String),
-
-    #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
-    BasePathError(String),
-
-    #[error("Unrecognizable connection strings: {0:?}")]
-    UnrecognizableConnections(Vec<String>),
-
-    #[cfg(feature = "postgres")]
+pub enum StartupError {
     #[error(transparent)]
-    PostgresError(#[from] PostgresError),
-
-    #[cfg(feature = "pmtiles")]
-    #[error(transparent)]
-    PmtilesError(#[from] PmtilesError),
-
-    #[cfg(feature = "mbtiles")]
-    #[error(transparent)]
-    MbtilesError(#[from] MbtilesError),
-
-    #[cfg(feature = "passthrough")]
-    #[error(transparent)]
-    PassthroughError(#[from] PassthroughError),
-
-    #[cfg(feature = "unstable-cog")]
-    #[error(transparent)]
-    CogError(#[from] CogError),
-
-    #[cfg(feature = "geojson")]
-    #[error(transparent)]
-    GeoJsonError(#[from] GeoJsonError),
+    Args(#[from] ArgsError),
 
     #[error(transparent)]
-    ConfigFileError(#[from] ConfigFileError),
+    Config(#[from] ConfigFileError),
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "_tiles")]
     #[error(transparent)]
-    SpriteError(#[from] martin_core::sprites::SpriteError),
+    SourceBuild(#[from] SourceBuildError),
 
     #[error(transparent)]
-    IoError(#[from] io::Error),
+    Server(#[from] ServerStartError),
 
-    #[cfg(feature = "lambda")]
     #[error(transparent)]
-    LambdaError(#[from] lambda_web::LambdaError),
-
-    #[cfg(feature = "metrics")]
-    #[error("could not initialize metrics: {0}")]
-    MetricsIntialisationError(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("warnings issued during tile source resolution")]
-    TileResolutionWarningsIssued,
-
-    #[error("could not create a watcher for directories configured for tile source discovery")]
-    DirectoryWatchError(notify::ErrorKind),
-
-    #[error("Source '{0}' not found in discovered sources")]
-    SourceNotFound(String),
+    Io(#[from] io::Error),
 }
 
-impl MartinError {
+impl StartupError {
     /// Format the error for end-user display using miette's graphical reporter.
     ///
     /// See [`render_diagnostic_with`](Self::render_diagnostic_with) for an explanation of
@@ -138,8 +66,9 @@ impl MartinError {
     /// render against.
     #[must_use]
     pub fn render_diagnostic_with(&self, format: crate::logging::LogFormat) -> String {
-        if let Self::ConfigFileError(cfg_err) = self
-            && let Some(report) = cfg_err.to_miette_report()
+        if let Some(report) = self
+            .spanned_config_error()
+            .and_then(ConfigFileError::to_miette_report)
         {
             if format.is_json() {
                 let mut buf = String::new();
@@ -159,5 +88,18 @@ impl MartinError {
             return format!(r#"{{"message": {message}}}"#);
         }
         format!("{self}")
+    }
+
+    /// The config error carrying source spans, if this failure bottoms out in one.
+    ///
+    /// A config problem can reach `main` directly or via a source build that rejected the
+    /// config it was handed; both should render the same caret diagnostic.
+    fn spanned_config_error(&self) -> Option<&ConfigFileError> {
+        match self {
+            Self::Config(e) => Some(e),
+            #[cfg(feature = "_tiles")]
+            Self::SourceBuild(SourceBuildError::Config(e)) => Some(e),
+            _ => None,
+        }
     }
 }

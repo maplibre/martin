@@ -23,7 +23,7 @@ use crate::config::file::ProcessConfig;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
-use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::server::{DebouncedWarning, map_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -418,7 +418,7 @@ impl<'a> DynTileSource<'a> {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
             }
-            result => result.map_err(|e| map_internal_error(e.as_ref())),
+            result => result.map_err(|e| map_error(e.as_ref())),
         }
     }
 
@@ -444,9 +444,9 @@ impl<'a> DynTileSource<'a> {
                 }
                 self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
                     .await
-                    .map_err(|e| map_internal_error(e.as_ref()))
+                    .map_err(|e| map_error(e.as_ref()))
             }
-            Err(e) => Err(map_internal_error(&e)),
+            Err(e) => Err(map_error(&e)),
         }
     }
 

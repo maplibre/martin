@@ -16,6 +16,7 @@ use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
@@ -33,7 +34,6 @@ use crate::srv::styles_rendering;
 use crate::srv::styles_static;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
-use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -43,10 +43,30 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
+/// Maps any classified error onto an HTTP response.
+///
+/// The status comes from the error's own `ErrorKind`, so a failure mode is classified once
+/// where it is defined rather than at each handler that can surface it. Only failures the
+/// caller cannot act on are logged.
 #[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
-pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
-    tracing::error!("{e}");
-    actix_web::error::ErrorInternalServerError(e.to_string())
+pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
+    use actix_web::error::{
+        ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,
+    };
+    use martin_core::ErrorKind::{Internal, InvalidInput, NotFound, Unavailable};
+
+    match e.kind() {
+        NotFound => ErrorNotFound(e.to_string()),
+        InvalidInput => ErrorBadRequest(e.to_string()),
+        Unavailable => {
+            tracing::error!("{e}");
+            ErrorServiceUnavailable(e.to_string())
+        }
+        Internal => {
+            tracing::error!("{e}");
+            ErrorInternalServerError(e.to_string())
+        }
+    }
 }
 
 /// Helper struct for debounced warning messages in redirect handlers.
@@ -177,7 +197,7 @@ fn register_services(
     cfg.service(get_index_no_ui);
 }
 
-type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
+type Server = Pin<Box<dyn Future<Output = Result<(), ServerStartError>>>>;
 
 fn cache_control_middleware(value: Option<HeaderValue>) -> middleware::Condition<DefaultHeaders> {
     let enabled = value.is_some();
@@ -190,7 +210,7 @@ fn cache_control_middleware(value: Option<HeaderValue>) -> middleware::Condition
 pub fn new_server(
     config: SrvConfig,
     #[cfg(feature = "_catalog")] state: ServerState,
-) -> MartinResult<(Server, String)> {
+) -> Result<(Server, String), ServerStartError> {
     let cache_control = config.cache_control_header();
     #[cfg(feature = "metrics")]
     let prometheus = {
@@ -214,7 +234,7 @@ pub fn new_server(
                     .add_labels,
             )
             .build()
-            .map_err(MartinError::MetricsIntialisationError)?
+            .map_err(ServerStartError::MetricsInitialisation)?
     };
     let catalog = Catalog::new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
@@ -271,13 +291,13 @@ pub fn new_server(
 
     #[cfg(feature = "lambda")]
     if is_running_on_lambda() {
-        let server = run_actix_on_lambda(factory).map_err(MartinError::LambdaError);
+        let server = run_actix_on_lambda(factory).map_err(ServerStartError::Lambda);
         return Ok((Box::pin(server), "(aws lambda)".into()));
     }
 
     let server = HttpServer::new(factory)
         .bind(listen_addresses.clone())
-        .map_err(|e| MartinError::BindingError(e, listen_addresses.clone()))?;
+        .map_err(|e| ServerStartError::Binding(e, listen_addresses.clone()))?;
 
     let listen_addresses = server
         .addrs()
