@@ -30,8 +30,8 @@ pub enum HillshadeError {
 
     /// A format was requested that the hillshade encoder cannot produce.
     #[error(
-        "Hillshade cannot be encoded as {0}. Supported formats are png and webp, \
-         both lossless. A hillshade is multiplied over the basemap, so a lossy \
+        "Hillshade cannot be encoded as {0}. Supported formats are png, webp, and jxl, \
+         all lossless. A hillshade is multiplied over the basemap, so a lossy \
          codec would show visible blotches on flat terrain."
     )]
     UnsupportedFormat(Format),

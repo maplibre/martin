@@ -694,6 +694,11 @@
           "const": "webp",
           "description": "Lossless WebP. Around 40% smaller than PNG on banded output.",
           "type": "string"
+        },
+        {
+          "const": "jxl",
+          "description": "Lossless JPEG XL, encoded with the pure-Rust `zune-jpegxl` encoder.",
+          "type": "string"
         }
       ]
     },

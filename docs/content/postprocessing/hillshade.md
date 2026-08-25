@@ -58,26 +58,27 @@ The gradient is already baked in, so shading needs no knowledge of the tile's gr
 
 ## Settings
 
-| Setting                   | Default | Range         | Effect                                                                       |
-|---------------------------|---------|---------------|------------------------------------------------------------------------------|
-| `azimuth`                 | `315`   | `0`-`360`     | Compass bearing the light shines from, in degrees clockwise from north.      |
-| `altitude`                | `45`    | `0`-`90`      | Height of the light above the horizon. `90` is overhead and flattens relief. |
-| `vertical_exaggeration`   | `3`     | `0`-`10`      | Scales the horizontal gradient before lighting. `1` is true-to-source.       |
-| `contrast`                | `1.9`   | `0`-`10`      | Separation between lit and shadowed slopes.                                  |
-| `elevation_scale`         | `2.5`   | `0`-`10`      | How much high terrain deepens the contrast.                                  |
-| `toon_bands`              | `3`     | `0`-`32`      | Hard shading bands. Below `2`, shading is a smooth gradient.                 |
-| `ambient`                 | `0.25`  | `0`-`1`       | Shadow floor, so shadows read as shaded rather than black.                   |
-| `padding`                 | `0`     | `0`-`32`      | Apron width in pixels at 256-core scale.                                     |
-| `format`                  | `png`   | `png`, `webp` | Output image format.                                                         |
-| `allow_request_overrides` | `false` |               | Whether query parameters may override the lighting parameters.               |
+| Setting                   | Default | Range                | Effect                                                                       |
+|---------------------------|---------|----------------------|------------------------------------------------------------------------------|
+| `azimuth`                 | `315`   | `0`-`360`            | Compass bearing the light shines from, in degrees clockwise from north.      |
+| `altitude`                | `45`    | `0`-`90`             | Height of the light above the horizon. `90` is overhead and flattens relief. |
+| `vertical_exaggeration`   | `3`     | `0`-`10`             | Scales the horizontal gradient before lighting. `1` is true-to-source.       |
+| `contrast`                | `1.9`   | `0`-`10`             | Separation between lit and shadowed slopes.                                  |
+| `elevation_scale`         | `2.5`   | `0`-`10`             | How much high terrain deepens the contrast.                                  |
+| `toon_bands`              | `3`     | `0`-`32`             | Hard shading bands. Below `2`, shading is a smooth gradient.                 |
+| `ambient`                 | `0.25`  | `0`-`1`              | Shadow floor, so shadows read as shaded rather than black.                   |
+| `padding`                 | `0`     | `0`-`32`             | Apron width in pixels at 256-core scale.                                     |
+| `format`                  | `png`   | `png`, `webp`, `jxl` | Output image format.                                                         |
+| `allow_request_overrides` | `false` |                      | Whether query parameters may override the lighting parameters.               |
 
 Out-of-range values are rejected at startup, rather than surfacing later on some tiles.
 
 The default light comes from the north-west by cartographic convention.
 Terrain lit from the lower half of the compass reads as inverted to most people, with valleys appearing to bulge out of the map.
 
-Both formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
+All three formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
 Lossless WebP is typically around 40% smaller than PNG, and is the better choice where clients support it.
+Lossless JPEG XL (encoded with the pure-Rust `zune-jpegxl` encoder) is usually smaller still, at the cost of narrower client support.
 
 !!! tip "`padding` is only for clients that sample past tile edges"
     The tile is rendered larger than its nominal size, so a client whose sampler reads just outside a tile edge finds real data there rather than disagreeing with the neighbouring tile.

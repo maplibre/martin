@@ -216,6 +216,18 @@ async fn webp_is_served_when_configured() {
 }
 
 #[tokio::test]
+async fn jxl_is_served_when_configured() {
+    let files = upstream().await;
+    let martin = start(&files, "\n        format: jxl").await;
+
+    let response = martin.get(&tile_path()).await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.header("content-type"), Some("image/jxl"));
+    assert_eq!(response.image_size(), (512, 512));
+    assert_image_matches(reference("baked.jxl"), response.body());
+}
+
+#[tokio::test]
 async fn a_disabled_hillshade_serves_the_source_unchanged() {
     let files = upstream().await;
     let martin = start(&files, " disabled").await;

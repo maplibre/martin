@@ -52,6 +52,9 @@ pub enum HillshadeFormat {
     /// Lossless WebP. Around 40% smaller than PNG on banded output.
     #[serde(rename = "webp")]
     Webp,
+    /// Lossless JPEG XL, encoded with the pure-Rust `zune-jpegxl` encoder.
+    #[serde(rename = "jxl")]
+    Jxl,
 }
 
 impl From<HillshadeFormat> for Format {
@@ -59,6 +62,7 @@ impl From<HillshadeFormat> for Format {
         match value {
             HillshadeFormat::Png => Self::Png,
             HillshadeFormat::Webp => Self::Webp,
+            HillshadeFormat::Jxl => Self::Jxl,
         }
     }
 }
@@ -447,6 +451,12 @@ mod tests {
             allow_request_overrides: false,
         }
         ");
+    }
+
+    #[test]
+    fn jxl_can_be_configured_as_a_format() {
+        let resolved = parse("format: jxl").resolve_hillshade().unwrap().unwrap();
+        assert_eq!(resolved.format, Format::Jxl);
     }
 
     #[test]
