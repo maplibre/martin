@@ -680,7 +680,14 @@ async fn main() {
     if let Err(e) = start(args).await {
         let rendered: String = match e {
             MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
-            other => format!("{other}"),
+            other @ (MartinCpError::EncodingParse(_)
+            | MartinCpError::Actix(_)
+            | MartinCpError::Mbt(_)
+            | MartinCpError::NoSources
+            | MartinCpError::MultipleSources(_)
+            | MartinCpError::InvalidBoundingBox(..)
+            | MartinCpError::Args(_)
+            | MartinCpError::Mbtiles(_)) => format!("{other}"),
         };
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");

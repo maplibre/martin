@@ -244,6 +244,10 @@ fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> 
 }
 
 /// Encodes RGBA pixel data to PNG format.
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "tiff::ColorType is #[non_exhaustive] and the supported arms match specific bit depths"
+)]
 fn encode_as_png(
     tile_size: u32,
     pixels: &[u8],

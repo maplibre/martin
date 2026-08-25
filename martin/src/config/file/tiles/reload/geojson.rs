@@ -23,7 +23,9 @@ impl GeoJsonReloader {
         // custom config and delegates to its `new_sources` (see `PmtilesReloader::new`).
         let geojson_config = match config {
             FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            _ => GeoJsonConfig::default(),
+            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                GeoJsonConfig::default()
+            }
         };
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = geojson_config.clone();

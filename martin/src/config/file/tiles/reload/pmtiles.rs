@@ -37,7 +37,9 @@ impl PmtilesReloader {
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
                     ..Default::default()
                 },
-                _ => ProcessConfig::default(),
+                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                    ProcessConfig::default()
+                }
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };
@@ -49,7 +51,9 @@ impl PmtilesReloader {
 
         let pmt_config = match config {
             FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            _ => PmtConfig::default(),
+            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                PmtConfig::default()
+            }
         };
 
         // Local sources are built through `PmtConfig::new_sources` (path -> file:// URL).

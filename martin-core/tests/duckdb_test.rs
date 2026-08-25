@@ -184,7 +184,13 @@ async fn pool_propagates_connection_work_errors() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 
@@ -207,7 +213,13 @@ async fn database_file_pool_is_read_only() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 

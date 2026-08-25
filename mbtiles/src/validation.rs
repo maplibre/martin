@@ -182,7 +182,7 @@ impl MbtType {
     pub const fn normalized_schema(self) -> Option<NormalizedSchema> {
         match self {
             Self::Normalized { schema, .. } => Some(schema),
-            _ => None,
+            Self::Flat | Self::FlatWithHash | Self::Cache => None,
         }
     }
 }
