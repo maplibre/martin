@@ -15,6 +15,7 @@ See also [SSL configuration](pg-connections/index.md#ssl-connections) section be
 | Environment var          | Description                                                                                                                                |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | `AWS_LAMBDA_RUNTIME_API` | If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See [Running in AWS Lambda](run-with-lambda.md) |
+| `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI`<br/>`AWS_CONTAINER_CREDENTIALS_FULL_URI`<br/>`AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`<br/>`AWS_WEB_IDENTITY_TOKEN_FILE`<br/>`AWS_ROLE_ARN`<br/>`AWS_ROLE_SESSION_NAME`<br/>`AWS_ENDPOINT_URL_STS` | Injected by ECS, Fargate and EKS to say where the task role's credentials come from. Used for S3-backed PMTiles sources unless `pmtiles.profile` or the matching `pmtiles.*` setting is configured. See [PMTiles sources](sources-pmtiles.md) |
 
 !!! warning "Deprecated environment variables"
     Reading **below environment variables is deprecated** and **will be removed** in a **future** (semver major) **release**.

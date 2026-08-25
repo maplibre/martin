@@ -20,7 +20,7 @@ use object_store::gcp::GoogleCloudStorageBuilder;
 use object_store::http::HttpBuilder;
 use object_store::{CredentialProvider, ObjectStore, ObjectStoreScheme};
 use serde::{Deserialize, Serialize};
-use tracing::{trace, warn};
+use tracing::{info, trace, warn};
 use url::Url;
 
 use crate::config::file::{
@@ -29,11 +29,37 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+use crate::config::primitives::env::{Env, OsEnv};
 
 /// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+/// Environment variables AWS runtimes inject to say where credentials come from, paired with the
+/// `object_store` option each one configures.
+///
+/// ECS/Fargate task roles, EKS IRSA and EKS Pod Identity all advertise themselves this way. The
+/// values are per task (a random relative URI, a rotating token path), so they cannot be written
+/// into a config file ahead of time the way keys or a profile can.
+const AWS_CREDENTIAL_DISCOVERY_ENV: &[(&str, &str)] = &[
+    (
+        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+        "container_credentials_relative_uri",
+    ),
+    (
+        "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+        "container_credentials_full_uri",
+    ),
+    (
+        "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+        "container_authorization_token_file",
+    ),
+    ("AWS_WEB_IDENTITY_TOKEN_FILE", "web_identity_token_file"),
+    ("AWS_ROLE_ARN", "role_arn"),
+    ("AWS_ROLE_SESSION_NAME", "role_session_name"),
+    ("AWS_ENDPOINT_URL_STS", "endpoint_url_sts"),
+];
 
 fn default_reload_interval() -> Duration {
     DEFAULT_RELOAD_INTERVAL
@@ -177,6 +203,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
+        self.import_aws_credential_discovery_env(&OsEnv);
         self.load_aws_profile().await;
 
         Ok(())
@@ -469,6 +496,28 @@ impl PmtConfig {
             self.options.insert(new_key.to_owned(), value);
         }
     }
+
+    /// Forwards the credential-discovery variables from [`AWS_CREDENTIAL_DISCOVERY_ENV`] to the
+    /// S3 client so task roles work without configuration.
+    ///
+    /// Without these, `object_store` falls back to the EC2 instance metadata service, which does
+    /// not exist on ECS/Fargate or EKS. Explicitly configured keys win over the environment, and a
+    /// `profile` is left alone because the AWS SDK chain it loads already covers these sources.
+    fn import_aws_credential_discovery_env(&mut self, env: &impl Env) {
+        if self.profile.is_some() {
+            return;
+        }
+        for (env_key, key) in AWS_CREDENTIAL_DISCOVERY_ENV {
+            let Some(value) = env.get_env_str(env_key) else {
+                continue;
+            };
+            if self.options.contains_key(*key) || self.options.contains_key(&format!("aws_{key}")) {
+                continue;
+            }
+            info!("Using {env_key} from the environment as pmtiles.{key} for S3 credentials.");
+            self.options.insert((*key).to_owned(), value);
+        }
+    }
 }
 
 impl TileSourceConfiguration for PmtConfig {
@@ -558,12 +607,89 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+
     use aws_runtime::env_config::file::{EnvConfigFileKind, EnvConfigFiles};
     use indoc::indoc;
     use rstest::rstest;
     use tempfile::tempdir;
 
     use super::*;
+    use crate::config::primitives::env::FauxEnv;
+
+    fn task_role_env() -> FauxEnv {
+        [
+            (
+                "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+                OsString::from("/v2/credentials/12345678-1234-1234-1234-123456789012"),
+            ),
+            (
+                "AWS_WEB_IDENTITY_TOKEN_FILE",
+                OsString::from("/var/run/secrets/eks.amazonaws.com/serviceaccount/token"),
+            ),
+            (
+                "AWS_ROLE_ARN",
+                OsString::from("arn:aws:iam::123456789012:role/from-env"),
+            ),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    #[test]
+    fn credential_discovery_env_reaches_the_s3_store() {
+        let mut config = PmtConfig::default();
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert_eq!(
+            config
+                .options
+                .get("container_credentials_relative_uri")
+                .map(String::as_str),
+            Some("/v2/credentials/12345678-1234-1234-1234-123456789012")
+        );
+        assert_eq!(
+            config
+                .options
+                .get("web_identity_token_file")
+                .map(String::as_str),
+            Some("/var/run/secrets/eks.amazonaws.com/serviceaccount/token")
+        );
+        assert_eq!(
+            config.options.get("role_arn").map(String::as_str),
+            Some("arn:aws:iam::123456789012:role/from-env")
+        );
+        assert!(config.aws_credentials.is_none());
+        // the forwarded keys must be ones object_store accepts
+        config
+            .parse_url_opts(&Url::parse("s3://bucket/tiles.pmtiles").unwrap())
+            .unwrap();
+    }
+
+    #[test]
+    fn explicit_configuration_wins_over_credential_discovery_env() {
+        let mut config = PmtConfig::default();
+        config.options.insert(
+            "aws_role_arn".to_owned(),
+            "arn:aws:iam::123456789012:role/explicit".to_owned(),
+        );
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert!(!config.options.contains_key("role_arn"));
+        assert_eq!(
+            config.options.get("aws_role_arn").map(String::as_str),
+            Some("arn:aws:iam::123456789012:role/explicit")
+        );
+        assert!(config.options.contains_key("web_identity_token_file"));
+    }
+
+    #[test]
+    fn profile_disables_credential_discovery_env() {
+        let mut config = PmtConfig {
+            profile: Some("staging".to_owned()),
+            ..PmtConfig::default()
+        };
+        config.import_aws_credential_discovery_env(&task_role_env());
+        assert!(config.options.is_empty());
+    }
 
     #[rstest]
     #[case::s3("s3://bucket-a/one.pmtiles", "s3://bucket-b/two.pmtiles")]
