@@ -1529,7 +1529,7 @@
 </ul>
 </li>
 </ul>
-<p>For client- and CDN-side caching, Martin can set a default <code>Cache-Control</code> response header itself via the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a>.
+<p>For client- and CDN-side caching, Martin can set the <code>Cache-Control</code> response header itself via the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a>, both as a server-wide default and per tile source.
 - You may need to host more than just tiles/resources on the domain name.
 - Martin has a fixed public API, but your site may require a different structure.
   For example, you may want to serve tiles from <code>/{sourceID}/tiles?z={z}&amp;x={x}&amp;y={y}</code> instead of <code>/{sourceID}/{z}/{x}/{y}</code>.</p>

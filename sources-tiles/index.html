@@ -1833,6 +1833,8 @@ For some usecases, you want the flexibility of a database, but you don't want to
 <p>The choice depends on your specific usecase and requirements.</p>
 <p>Most vector tile sources support optional <a href="../postprocessing/">postprocessing</a> (format conversion) via the <code>convert_to_mlt</code> and <code>convert_to_mvt</code> configuration keys.
 DuckDB / GeoParquet sources do not currently support postprocessing.</p>
+<p>Tile sources also accept a per-source <code>cache_control</code> configuration key that sets the <code>Cache-Control</code> response header for that source's tiles, overriding the top-level <code>cache_control</code> default.
+A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.</p>
 
 
   <nav class="md-tags" >
