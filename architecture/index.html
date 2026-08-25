@@ -1761,6 +1761,7 @@ Best for semi-static parquet datasets without a pre-generated archive.</p>
 <li>Martin connects to PostgreSQL using connection string</li>
 <li>Queries <code>geometry_columns</code> view to discover tables</li>
 <li>Queries <code>pg_proc</code> to discover MVT-returning functions</li>
+<li>Publishes them through the Reload Driver, which re-runs discovery every <code>reload_interval</code></li>
 <li>Maintains connection pool for efficient query execution</li>
 <li>Generates tile SQL queries with bbox parameters</li>
 <li>Returns results as MVT tiles</li>
@@ -1916,9 +1917,9 @@ The traits are:
 
 They interact in this loop:
 
-1. **Seed**.
-   Run Discovery once to record a baseline, applying nothing.
-   The catalog was already populated during initialization, so applying would double-add.
+1. **Init or seed**.
+   PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
+   `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
 2. **Reconcile**.
    On each Trigger, re-run Discovery.
    Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
