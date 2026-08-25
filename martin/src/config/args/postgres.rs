@@ -231,6 +231,7 @@ fn is_postgres_connection_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::ffi::OsString;
     use std::path::PathBuf;
 
@@ -249,8 +250,10 @@ mod tests {
             PostgresArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
-        assert!(matches!(args.check(), Err(
-            ArgsError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
+        assert_matches!(
+            args.check(),
+            Err(ArgsError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]
+        );
     }
 
     #[test]

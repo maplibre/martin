@@ -1,6 +1,7 @@
 #![cfg(feature = "passthrough")]
 #![allow(clippy::unwrap_used)]
 
+use std::assert_matches;
 use std::time::Duration;
 
 use martin_core::CacheZoomRange;
@@ -193,7 +194,7 @@ async fn discovers_templates_from_tilejson() {
         empty_meta(),
     )
     .unwrap();
-    assert!(matches!(upstream, Upstream::TileJson { .. }));
+    assert_matches!(upstream, Upstream::TileJson { .. });
 
     let src = build("t", upstream).await;
     assert_eq!(src.get_tilejson().minzoom, Some(2));

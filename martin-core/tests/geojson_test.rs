@@ -1,6 +1,7 @@
 #![cfg(feature = "geojson")]
 #![allow(clippy::unwrap_used)]
 
+use std::assert_matches;
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
@@ -312,8 +313,9 @@ async fn geometry_collection_flattens_sharing_properties() {
         "a 2-geometry collection becomes 2 features"
     );
     for f in &layer.features {
-        assert!(
-            matches!(prop(f, "name"), Some(MvtValue::String(s)) if s == "shared"),
+        assert_matches!(
+            prop(f, "name"),
+            Some(MvtValue::String(s)) if s == "shared",
             "each flattened feature keeps the shared property"
         );
     }
@@ -343,13 +345,13 @@ async fn property_types_round_trip_and_null_is_omitted() {
     assert_eq!(layer.features.len(), 1);
     let f = &layer.features[0];
 
-    assert!(matches!(prop(f, "s"), Some(MvtValue::String(s)) if s == "hi"));
-    assert!(matches!(prop(f, "i"), Some(MvtValue::Int(-7))));
-    assert!(matches!(prop(f, "big"), Some(MvtValue::UInt(u)) if *u == u64::MAX));
-    assert!(matches!(prop(f, "f"), Some(MvtValue::Double(d)) if (*d - 1.5).abs() < f64::EPSILON));
-    assert!(matches!(prop(f, "b"), Some(MvtValue::Bool(true))));
-    assert!(matches!(prop(f, "arr"), Some(MvtValue::String(s)) if s == "[1,2]"));
-    assert!(matches!(prop(f, "obj"), Some(MvtValue::String(s)) if s == r#"{"k":1}"#));
+    assert_matches!(prop(f, "s"), Some(MvtValue::String(s)) if s == "hi");
+    assert_matches!(prop(f, "i"), Some(MvtValue::Int(-7)));
+    assert_matches!(prop(f, "big"), Some(MvtValue::UInt(u)) if *u == u64::MAX);
+    assert_matches!(prop(f, "f"), Some(MvtValue::Double(d)) if (*d - 1.5).abs() < f64::EPSILON);
+    assert_matches!(prop(f, "b"), Some(MvtValue::Bool(true)));
+    assert_matches!(prop(f, "arr"), Some(MvtValue::String(s)) if s == "[1,2]");
+    assert_matches!(prop(f, "obj"), Some(MvtValue::String(s)) if s == r#"{"k":1}"#);
     assert!(prop(f, "nil").is_none(), "null property must be omitted");
 }
 

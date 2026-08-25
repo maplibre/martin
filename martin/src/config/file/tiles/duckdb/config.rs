@@ -143,6 +143,8 @@ impl schemars::JsonSchema for DuckDbSourceEntry {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use crate::config::file::tiles::duckdb::GeoParquetLocation;
 
@@ -269,7 +271,7 @@ sources:
             panic!("expected geoparquet entry");
         };
         assert_eq!(entry.geoparquet, GEOPARQUET_FIXTURE);
-        assert!(matches!(entry.location, Some(GeoParquetLocation::Local(_))));
+        assert_matches!(entry.location, Some(GeoParquetLocation::Local(_)));
         insta::assert_debug_snapshot!(entry.settings, @r#"
         DuckDbSourceSettings {
             pool_size: Some(
