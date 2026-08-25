@@ -140,7 +140,7 @@ notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
-pmtiles = { version = "0.23.0", default-features = false, features = ["tilejson", "object-store"] }
+pmtiles = { version = "0.24.0", default-features = false, features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
