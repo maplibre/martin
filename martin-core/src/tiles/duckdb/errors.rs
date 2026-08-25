@@ -119,7 +119,11 @@ impl crate::Classify for DuckDBError {
         use crate::ErrorKind::{Internal, Unavailable};
         match self {
             Self::DuckDBPoolConnError(..) => Unavailable,
-            _ => Internal,
+            Self::DuckDBPoolBuildError(..)
+            | Self::DuckDBTaskJoinError(..)
+            | Self::PrepareQueryError { .. }
+            | Self::GetTileError(..)
+            | Self::GetTileWithQueryError(..) => Internal,
         }
     }
 }

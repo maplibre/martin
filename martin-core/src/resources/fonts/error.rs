@@ -86,7 +86,13 @@ impl crate::Classify for FontError {
             | Self::InvalidFontRangeStart(_)
             | Self::InvalidFontRangeEnd(_)
             | Self::InvalidFontRange(_, _) => InvalidInput,
-            _ => Internal,
+            Self::FreeType(_)
+            | Self::IoError(..)
+            | Self::InvalidFontFilePath(_)
+            | Self::NoFontFilesFound(_)
+            | Self::MissingFamilyName(_)
+            | Self::PbfFontError(_)
+            | Self::ErrorSerializingProtobuf(_) => Internal,
         }
     }
 }

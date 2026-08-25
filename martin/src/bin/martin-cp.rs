@@ -685,7 +685,9 @@ async fn main() {
             | MartinCpError::Mbt(_)
             | MartinCpError::NoSources
             | MartinCpError::MultipleSources(_)
-            | MartinCpError::InvalidBoundingBox(..)) => format!("{other}"),
+            | MartinCpError::InvalidBoundingBox(..)
+            | MartinCpError::Args(_)
+            | MartinCpError::Mbtiles(_)) => format!("{other}"),
         };
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");

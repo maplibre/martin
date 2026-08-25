@@ -282,7 +282,9 @@ impl Diagnostic for ConfigFileError {
             | Self::InvalidFilePath(_)
             | Self::InvalidSourceUrl(..)
             | Self::PathNotConvertibleToUrl(_)
-            | Self::InvalidSourceFilePath(..) => return None,
+            | Self::InvalidSourceFilePath(..)
+            | Self::InvalidBasePath(_)
+            | Self::TileResolutionWarningsIssued => return None,
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => return None,
             #[cfg(feature = "styles")]

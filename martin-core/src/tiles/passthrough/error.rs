@@ -94,7 +94,12 @@ impl crate::Classify for PassthroughError {
             | Self::TileJsonStatus { .. }
             | Self::TileJsonParse { .. }
             | Self::UnexpectedStatus { .. } => Unavailable,
-            _ => Internal,
+            Self::EmptyUrlList
+            | Self::InvalidHeaderName { .. }
+            | Self::InvalidHeaderValue { .. }
+            | Self::InvalidUrlTemplate(_)
+            | Self::NoTilesInTileJson(_)
+            | Self::FormatUndeterminable(_) => Internal,
         }
     }
 }
