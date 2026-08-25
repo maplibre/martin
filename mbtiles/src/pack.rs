@@ -306,7 +306,9 @@ fn recode_tile(data: Vec<u8>, target: Encoding) -> MbtResult<Vec<u8>> {
     match target {
         Encoding::Uncompressed => Ok(plain),
         Encoding::Gzip => Ok(encode_gzip(&plain)?),
-        other => Err(MbtError::UnsupportedPackTarget(other)),
+        other @ (Encoding::Internal | Encoding::Zlib | Encoding::Brotli | Encoding::Zstd) => {
+            Err(MbtError::UnsupportedPackTarget(other))
+        }
     }
 }
 

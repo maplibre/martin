@@ -182,7 +182,11 @@ impl Discovery for FsDiscovery {
             .configured
             .get(&args.0)
             .and_then(|cfg| cfg.process.clone());
-        Ok(BuiltSource { source, process })
+        Ok(BuiltSource {
+            source,
+            process,
+            provenance: None,
+        })
     }
 
     fn process(&self) -> ProcessConfig {

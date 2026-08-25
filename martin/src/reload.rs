@@ -4,7 +4,20 @@ use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::BoxedSource;
 
 use crate::config::file::discovery::BuiltSource;
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::SourceSpec;
 use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig, SourceBuildResult};
+
+/// Where a catalog entry came from, in enough detail to write it back to a config file.
+#[derive(Clone, Debug)]
+pub enum SourceProvenance {
+    #[cfg(feature = "postgres")]
+    Postgres {
+        /// The `connection_string` of the `postgres` config entry that discovered it.
+        connection_string: String,
+        spec: SourceSpec,
+    },
+}
 
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
 #[derive(Debug)]
@@ -15,6 +28,8 @@ pub struct NewSource {
     pub source: SourceBuildResult<BoxedSource>,
     /// Resolved process config for this source (per-source > source-type > global > default).
     pub process: ProcessConfig,
+    /// Retained by the catalog so `--save-config` can serialize what is actually served.
+    pub provenance: Option<SourceProvenance>,
 }
 
 impl NewSource {
@@ -26,11 +41,13 @@ impl NewSource {
                 id,
                 source: Ok(built.source),
                 process: built.process.unwrap_or(process),
+                provenance: built.provenance,
             },
             Err(e) => Self {
                 id,
                 source: Err(e),
                 process,
+                provenance: None,
             },
         }
     }

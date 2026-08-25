@@ -480,10 +480,27 @@ impl<'a> DynTileSource<'a> {
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        let fresh_src = self.reload_source(s, pc).await?;
-        self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
-            .await
-            .map_err(|e| map_error(e.as_ref()))
+        match s.try_reload().await {
+            Ok(fresh_src) => {
+                warn!(source.id = s.get_id(), "Source modified; reloading");
+                let advisory = ReloadAdvisory {
+                    updates: vec![NewSource {
+                        id: s.get_id().to_owned(),
+                        source: Ok(fresh_src.clone_source()),
+                        process: pc.clone(),
+                        provenance: None,
+                    }],
+                    ..Default::default()
+                };
+                if let Err(e) = self.manager.apply_changes(advisory).await {
+                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                }
+                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+                    .await
+                    .map_err(|e| map_error(e.as_ref()))
+            }
+            Err(e) => Err(map_error(&e)),
+        }
     }
 
     #[cfg_attr(
@@ -625,6 +642,10 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "actix's ContentEncoding is #[non_exhaustive]; only the three encodings we can produce are tracked"
+    )]
     fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
         let mut q_gzip = None;
         let mut q_brotli = None;
@@ -715,6 +736,10 @@ impl<'a> DynTileSource<'a> {
 /// Brotli quality level for on-the-fly response compression
 const BROTLI_ENCODE_QUALITY: u32 = 6;
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "actix's ContentEncoding is #[non_exhaustive]; anything we cannot encode is served as-is"
+)]
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     hotpath::dbg!("encode", enc);
@@ -770,7 +795,7 @@ pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
                 info.encoding(Encoding::Uncompressed),
                 etag,
             ),
-            _ => {
+            Encoding::Uncompressed | Encoding::Internal => {
                 return Err(ErrorBadRequest(format!(
                     "Tile is stored as {info}, but the client does not accept this encoding"
                 )));
@@ -951,7 +976,9 @@ mod tests {
             Encoding::Brotli => encode_brotli_with_quality(data, BROTLI_ENCODE_QUALITY).unwrap(),
             Encoding::Zlib => encode_zlib(data).unwrap(),
             Encoding::Zstd => encode_zstd(data).unwrap(),
-            _ => panic!("compress_with: unsupported encoding {encoding:?}"),
+            Encoding::Uncompressed | Encoding::Internal => {
+                panic!("compress_with: unsupported encoding {encoding:?}")
+            }
         }
     }
 

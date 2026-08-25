@@ -52,8 +52,6 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
-#[cfg(feature = "postgres")]
-use crate::config::file::postgres::PostgresConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(any(
@@ -377,7 +375,6 @@ impl Config {
     #[instrument(skip_all, err(Debug))]
     #[cfg_attr(
         not(any(
-            feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
@@ -385,7 +382,10 @@ impl Config {
             feature = "unstable-duckdb",
             feature = "geojson"
         )),
-        expect(unused_variables, reason = "idr is only consumed by tile backends")
+        expect(
+            unused_variables,
+            reason = "idr is only consumed by file tile backends"
+        )
     )]
     async fn resolve_tile_sources(
         &mut self,
@@ -394,7 +394,6 @@ impl Config {
     ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
         #[cfg_attr(
             not(any(
-                feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
                 feature = "passthrough",
@@ -402,14 +401,9 @@ impl Config {
                 feature = "unstable-duckdb",
                 feature = "geojson"
             )),
-            expect(unused_mut, reason = "tile backends push resolved sources here")
+            expect(unused_mut, reason = "file tile backends push resolved sources here")
         )]
         let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
-
-        #[cfg(feature = "postgres")]
-        for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache.policy())));
-        }
 
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
@@ -502,7 +496,6 @@ impl Config {
         let mut map = HashMap::new();
 
         #[cfg(any(
-            feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
@@ -511,11 +504,6 @@ impl Config {
         ))]
         {
             let global = self.global_process_config();
-
-            #[cfg(feature = "postgres")]
-            for pg in self.postgres.iter() {
-                Self::insert_postgres_configs(&mut map, &global, pg);
-            }
 
             #[cfg(all(feature = "pmtiles", feature = "mlt"))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
@@ -634,7 +622,6 @@ impl Config {
     /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
     #[cfg(any(
-        feature = "postgres",
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
@@ -690,8 +677,55 @@ impl Config {
         }
     }
 
-    pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
-        let yaml = serde_saphyr::to_string(&self).expect("Unable to serialize config");
+    /// A copy of this config whose `postgres` entries carry the `tables`/`functions` currently in
+    /// the catalog, matched to their connection by `connection_string`.
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub fn with_catalog(&self, catalog: &TileSourceManager) -> Self {
+        use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
+        use crate::reload::SourceProvenance;
+
+        let mut config = self.clone();
+        for pg in config.postgres.iter_mut() {
+            let mut tables = TableInfoSources::new();
+            let mut functions = FuncInfoSources::new();
+            for (id, provenance) in catalog.provenance() {
+                let SourceProvenance::Postgres {
+                    connection_string,
+                    spec,
+                } = provenance;
+                if Some(&connection_string) != pg.connection_string.as_ref() {
+                    continue;
+                }
+                match spec {
+                    SourceSpec::Table(info) => {
+                        tables.insert(id, info);
+                    }
+                    SourceSpec::Function(info, _) => {
+                        functions.insert(id, info);
+                    }
+                }
+            }
+            pg.tables = Some(tables);
+            pg.functions = Some(functions);
+        }
+        config
+    }
+
+    /// Writes the running configuration, with the `postgres` sources materialized from the
+    /// catalog so the file describes what is actually served.
+    pub fn save_to_file(
+        &self,
+        file_name: &Path,
+        #[cfg(feature = "_tiles")] catalog: &TileSourceManager,
+    ) -> ConfigFileResult<()> {
+        #[cfg(feature = "postgres")]
+        let config = self.with_catalog(catalog);
+        #[cfg(all(feature = "_tiles", not(feature = "postgres")))]
+        let _ = catalog;
+        #[cfg(not(feature = "postgres"))]
+        let config = self;
+        let yaml = serde_saphyr::to_string(&config).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
             #[expect(

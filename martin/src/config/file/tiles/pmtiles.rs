@@ -288,6 +288,10 @@ impl PmtConfig {
     }
 
     /// Builds the store for `url`. Remote stores share this config's HTTP clients.
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "ObjectStoreScheme is #[non_exhaustive]; anything we do not special-case is left to object_store's own resolution"
+    )]
     pub(crate) fn parse_url_opts(
         &self,
         url: &Url,
@@ -348,7 +352,9 @@ impl PmtConfig {
                     serde_json::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
                     serde_json::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
                     serde_json::Value::String(s) => self.options.insert(key.clone(), s.clone()),
-                    v => {
+                    v @ (serde_json::Value::Null
+                    | serde_json::Value::Array(_)
+                    | serde_json::Value::Object(_)) => {
                         // warn early with better context
                         warn!(
                             "Ignoring unrecognized configuration key 'pmtiles.{key}': {v:?}. Only boolean, string or number values are allowed here. Please check your configuration file for typos."

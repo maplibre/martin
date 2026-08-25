@@ -310,6 +310,8 @@ pub async fn get_spritesheet(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -354,7 +356,7 @@ mod tests {
         let Err(err) = sprites.get_sprites(&ids, false).await else {
             panic!("expected TooManySpriteIds, got Ok");
         };
-        assert!(matches!(err, SpriteError::TooManySpriteIds { .. }));
+        assert_matches!(err, SpriteError::TooManySpriteIds { .. });
     }
 
     #[tokio::test]
@@ -369,7 +371,7 @@ mod tests {
         let Err(err) = sprites.get_sprites(&ids, false).await else {
             panic!("expected SpriteNotFound, got Ok");
         };
-        assert!(matches!(err, SpriteError::SpriteNotFound(_)));
+        assert_matches!(err, SpriteError::SpriteNotFound(_));
     }
 
     #[tokio::test]
@@ -468,7 +470,7 @@ mod tests {
             panic!("expected NoSpriteFilesFound, got Ok");
         };
 
-        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
+        assert_matches!(err, SpriteError::NoSpriteFilesFound(_));
     }
 
     async fn test_src(

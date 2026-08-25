@@ -502,7 +502,11 @@ async fn render_with_overlays(
                 .content_type(ContentType::plaintext())
                 .body(format!("Overlay application failed: {err}"))
         }
-        other => {
+        other @ (StyleError::IoError(_)
+        | StyleError::StyleLoadError(_)
+        | StyleError::RenderingError(_)
+        | StyleError::FailedToSendRequest
+        | StyleError::FailedToReceiveResponse) => {
             error!("Failed to render static image: {other}");
             HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())

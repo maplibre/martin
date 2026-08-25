@@ -617,6 +617,8 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use std::assert_matches;
+
     use indoc::indoc;
     use insta::{assert_debug_snapshot, assert_yaml_snapshot};
     use rstest::rstest;
@@ -855,8 +857,9 @@ mod tests {
           gid: int4
         ");
         // The function is auto-published too, under the default `{function}` id.
-        assert!(
-            matches!(first.get("my_func"), Some(SourceSpec::Function(..))),
+        assert_matches!(
+            first.get("my_func"),
+            Some(SourceSpec::Function(..)),
             "expected an auto-published function spec for my_func"
         );
 

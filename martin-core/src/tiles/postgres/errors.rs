@@ -138,7 +138,24 @@ impl crate::Classify for PostgresError {
         use crate::ErrorKind::{Internal, Unavailable};
         match self {
             Self::PostgresPoolConnError(..) => Unavailable,
-            _ => Internal,
+            Self::CannotLoadRoots(_)
+            | Self::CannotOpenCert(..)
+            | Self::CannotParseCert(..)
+            | Self::InvalidPrivateKey(_)
+            | Self::CannotUseClientKey { .. }
+            | Self::RustlsError(_)
+            | Self::CannotBuildTlsVerifier(_)
+            | Self::UnknownSslMode(_)
+            | Self::PostgresError(..)
+            | Self::PostgresPoolBuildError(..)
+            | Self::BadConnectionString(..)
+            | Self::BadPostgisVersion(..)
+            | Self::BadPostgresVersion { .. }
+            | Self::PostgisTooOld { .. }
+            | Self::PostgresqlTooOld { .. }
+            | Self::PrepareQueryError { .. }
+            | Self::GetTileError(..)
+            | Self::GetTileWithQueryError(..) => Internal,
         }
     }
 }

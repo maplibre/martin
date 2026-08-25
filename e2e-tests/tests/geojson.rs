@@ -26,7 +26,7 @@ fn round_coordinates(value: &mut Value) {
         }
         Value::Array(items) => items.iter_mut().for_each(round_coordinates),
         Value::Object(entries) => entries.values_mut().for_each(round_coordinates),
-        _ => {}
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
     }
 }
 

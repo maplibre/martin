@@ -38,7 +38,9 @@ impl MbtilesReloader {
                     convert_to_hillshade: cfg.custom.convert_to_hillshade.clone(),
                     ..Default::default()
                 },
-                _ => ProcessConfig::default(),
+                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                    ProcessConfig::default()
+                }
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };

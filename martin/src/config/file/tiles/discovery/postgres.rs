@@ -8,6 +8,7 @@ use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{CachePolicy, ProcessConfig, SourceBuildError, SourceBuildResult};
 use crate::config::primitives::IdResolver;
+use crate::reload::SourceProvenance;
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
 ///
@@ -47,6 +48,17 @@ impl PostgresDiscovery {
         self.config.reload_interval
     }
 
+    #[must_use]
+    pub fn config(&self) -> &PostgresConfig {
+        &self.config
+    }
+
+    /// The pool id (database name), once the first `discover` has connected.
+    #[must_use]
+    pub fn pool_id(&self) -> Option<&str> {
+        self.builder.get().map(PostgresAutoDiscoveryBuilder::get_id)
+    }
+
     /// The builder, created on first use. A bad connection string surfaces here as an `Err`,
     /// which the driver treats like any other discovery failure (retain the baseline, retry).
     async fn builder(&self) -> SourceBuildResult<&PostgresAutoDiscoveryBuilder> {
@@ -80,9 +92,18 @@ impl Discovery for PostgresDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let (source, spec) = self.builder().await?.instantiate(id, args.clone()).await?;
+        log_published(id, &spec);
         Ok(BuiltSource {
             source,
             process: Some(per_source_process(&self.process, &spec)),
+            provenance: Some(SourceProvenance::Postgres {
+                connection_string: self
+                    .config
+                    .connection_string
+                    .clone()
+                    .expect("connection_string is set after PostgresConfig::finalize()"),
+                spec,
+            }),
         })
     }
 
@@ -118,14 +139,45 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
     resolve_process_config(connection, &ProcessConfig::default(), &per_source)
 }
 
+fn log_published(id: &str, spec: &SourceSpec) {
+    match spec {
+        SourceSpec::Table(info) => {
+            let kind = match info.relkind {
+                Some('v') => "view",
+                Some('m') => "materialized view",
+                _ => "table",
+            };
+            tracing::info!(
+                source.id = %id,
+                source.kind = kind,
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                geometry_type = info.geometry_type.as_deref().unwrap_or("unknown"),
+                srid = info.srid,
+                id_column = info.id_column.as_deref().unwrap_or("none"),
+                "Published source"
+            );
+        }
+        SourceSpec::Function(info, sql) => {
+            tracing::info!(
+                source.id = %id,
+                source.kind = "function",
+                schema = %info.schema,
+                function = %info.function,
+                function.signature = %sql.signature,
+                "Published source"
+            );
+        }
+    }
+}
+
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
     use crate::config::file::CachePolicy;
-    #[cfg(feature = "mlt")]
-    use crate::config::file::discovery::Discovery as _;
     use crate::config::file::discovery::{PostgresDiscovery, Version};
     use crate::config::file::postgres::{PostgresConfig, SourceSpec};
     use crate::config::file::process::ProcessConfig;
@@ -249,6 +301,7 @@ mod tests {
 
         let built = discovery.build("points", spec).await.expect("build");
         assert_eq!(built.source.get_id(), "points");
+        assert!(built.provenance.is_some());
     }
 
     #[tokio::test]

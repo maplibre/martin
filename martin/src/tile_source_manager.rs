@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use crate::config::file::driver::Sink;
 use crate::config::file::{OnInvalid, ProcessConfig, SourceBuildResult};
-use crate::reload::ReloadAdvisory;
+use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
 use crate::source::TileSources;
 
 /// Manages the live set of tile sources and their caches.
@@ -19,6 +19,8 @@ use crate::source::TileSources;
 #[derive(Clone)]
 pub struct TileSourceManager {
     tile_sources: Arc<DashMap<String, (BoxedSource, ProcessConfig)>>,
+    /// Kept beside the serving map so `--save-config` can serialize what is actually served.
+    provenance: Arc<DashMap<String, SourceProvenance>>,
     tile_cache: OptTileCache,
     on_invalid: OnInvalid,
 }
@@ -29,6 +31,7 @@ impl TileSourceManager {
     pub fn new(tile_cache: OptTileCache, on_invalid: OnInvalid) -> Self {
         Self {
             tile_sources: Arc::new(DashMap::new()),
+            provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
         }
@@ -50,6 +53,7 @@ impl TileSourceManager {
             .collect();
         Self {
             tile_sources: Arc::new(map),
+            provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
         }
@@ -65,6 +69,37 @@ impl TileSourceManager {
     #[must_use]
     pub fn tile_cache(&self) -> &OptTileCache {
         &self.tile_cache
+    }
+
+    /// The [`OnInvalid`] policy this catalog applies to sources that fail to build.
+    #[must_use]
+    pub fn on_invalid(&self) -> OnInvalid {
+        self.on_invalid
+    }
+
+    /// Provenance of every served source that has one, sorted by id.
+    #[must_use]
+    pub fn provenance(&self) -> Vec<(String, SourceProvenance)> {
+        let mut out: Vec<_> = self
+            .provenance
+            .iter()
+            .map(|e| (e.key().clone(), e.value().clone()))
+            .collect();
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    fn insert(
+        &self,
+        id: String,
+        src: BoxedSource,
+        process: ProcessConfig,
+        provenance: Option<SourceProvenance>,
+    ) {
+        if let Some(p) = provenance {
+            self.provenance.insert(id.clone(), p);
+        }
+        self.tile_sources.insert(id, (src, process));
     }
 }
 
@@ -86,37 +121,47 @@ impl Sink for TileSourceManager {
         }
 
         // 1. Updates: time-critical, invalidate cache then swap
-        for new_source in advisory.updates {
-            match new_source.source {
+        for NewSource {
+            id,
+            source,
+            process,
+            provenance,
+        } in advisory.updates
+        {
+            match source {
                 Ok(src) => {
                     if let Some(cache) = &self.tile_cache {
-                        cache.invalidate_source(&new_source.id);
+                        cache.invalidate_source(&id);
                     }
-                    self.tile_sources
-                        .insert(new_source.id.clone(), (src, new_source.process));
-                    info!(source.id = %new_source.id, "Updated source");
+                    info!(source.id = %id, "Updated source");
+                    self.insert(id, src, process, provenance);
                 }
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        warn!(source.id = %new_source.id, error = %err, "Skipping update");
+                        warn!(source.id = %id, error = %err, "Skipping update");
                     }
                 },
             }
         }
 
         // 2. Additions: make new sources available
-        for new_source in advisory.additions {
-            match new_source.source {
+        for NewSource {
+            id,
+            source,
+            process,
+            provenance,
+        } in advisory.additions
+        {
+            match source {
                 Ok(src) => {
-                    self.tile_sources
-                        .insert(new_source.id.clone(), (src, new_source.process));
-                    info!(source.id = %new_source.id, "Added source");
+                    info!(source.id = %id, "Added source");
+                    self.insert(id, src, process, provenance);
                 }
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        warn!(source.id = %new_source.id, error = %err, "Skipping addition");
+                        warn!(source.id = %id, error = %err, "Skipping addition");
                     }
                 },
             }
@@ -125,6 +170,7 @@ impl Sink for TileSourceManager {
         // 3. Removals: GC stale sources
         for deleted_source in &advisory.removals {
             self.tile_sources.remove(&deleted_source.id);
+            self.provenance.remove(&deleted_source.id);
             if let Some(cache) = &self.tile_cache {
                 cache.invalidate_source(&deleted_source.id);
             }
@@ -150,7 +196,7 @@ mod tests {
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
-    use crate::reload::{DeletedSource, NewSource};
+    use crate::reload::DeletedSource;
 
     #[derive(Debug, Clone)]
     struct TestSource {
@@ -197,6 +243,7 @@ mod tests {
                 tj: tilejson! { tiles: vec![] },
             })),
             process: ProcessConfig::default(),
+            provenance: None,
         }
     }
 

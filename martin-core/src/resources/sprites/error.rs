@@ -65,7 +65,15 @@ impl crate::Classify for SpriteError {
         match self {
             Self::SpriteNotFound(_) => NotFound,
             Self::TooManySpriteIds { .. } => InvalidInput,
-            _ => Internal,
+            Self::IoError(..)
+            | Self::InvalidFilePath(_)
+            | Self::InvalidSpriteFilePath(..)
+            | Self::NoSpriteFilesFound(_)
+            | Self::UnableToReadSprite(_)
+            | Self::SpriteProcessingError(..)
+            | Self::SpriteParsingError(..)
+            | Self::UnableToGenerateSpritesheet
+            | Self::SpriteInstError(_) => Internal,
         }
     }
 }
