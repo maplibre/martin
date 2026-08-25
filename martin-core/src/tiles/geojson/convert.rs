@@ -5,8 +5,6 @@ const EPS: f64 = 1e-9;
 /// Drop duplicate/collinear points within `EPS`; points and multipoints are returned unchanged.
 fn simplify_geo(geom: geo_types::Geometry<f64>) -> geo_types::Geometry<f64> {
     match geom {
-        point @ geo::Geometry::Point(_) => point,
-        points @ geo::Geometry::MultiPoint(_) => points,
         geo::Geometry::LineString(linestring) => {
             geo::Geometry::LineString(linestring.simplify(EPS))
         }
@@ -17,7 +15,12 @@ fn simplify_geo(geom: geo_types::Geometry<f64>) -> geo_types::Geometry<f64> {
         geo::Geometry::MultiPolygon(multi_polygon) => {
             geo::Geometry::MultiPolygon(multi_polygon.simplify(EPS))
         }
-        rest => rest,
+        rest @ (geo::Geometry::Point(_)
+        | geo::Geometry::MultiPoint(_)
+        | geo::Geometry::Line(_)
+        | geo::Geometry::GeometryCollection(_)
+        | geo::Geometry::Rect(_)
+        | geo::Geometry::Triangle(_)) => rest,
     }
 }
 

@@ -66,7 +66,9 @@ impl ObjectStoreDiscovery {
 
         let pmt_config = match config {
             FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            _ => PmtConfig::default(),
+            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                PmtConfig::default()
+            }
         };
 
         Self {

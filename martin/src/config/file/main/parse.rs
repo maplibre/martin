@@ -546,7 +546,9 @@ mod tests {
         let config = parse_with_env(&yaml, &env);
         let pg = match config.postgres {
             OptOneMany::One(pg) => pg,
-            other => panic!("expected exactly one postgres config, got: {other:?}"),
+            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
+                panic!("expected exactly one postgres config, got: {other:?}")
+            }
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
@@ -606,7 +608,9 @@ mod tests {
         );
         let pg = match config.postgres {
             OptOneMany::One(pg) => pg,
-            other => panic!("expected exactly one postgres config, got: {other:?}"),
+            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
+                panic!("expected exactly one postgres config, got: {other:?}")
+            }
         };
         assert_eq!(
             pg.connection_string.as_deref(),
@@ -643,7 +647,9 @@ mod tests {
         .expect("comments containing ${VAR} must not trigger substitution");
         let one = match config.postgres {
             OptOneMany::One(pg) => pg,
-            other => panic!("expected exactly one postgres config, got: {other:?}"),
+            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
+                panic!("expected exactly one postgres config, got: {other:?}")
+            }
         };
         assert_eq!(
             one.connection_string.as_deref(),

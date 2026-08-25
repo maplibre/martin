@@ -147,10 +147,12 @@ pub fn add_properties(
             },
             // Scalars (and null) convert straight through fast-mvt's `serde_json::Value` mapping.
             // Non-finite or arbitrary-precision numbers have no MVT representation and error out.
-            _ => match MvtValue::try_from(value) {
-                Ok(v) => v,
-                Err(_) => return Err(GeoJsonError::UnsupportedProperty(key)),
-            },
+            JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {
+                match MvtValue::try_from(value) {
+                    Ok(v) => v,
+                    Err(_) => return Err(GeoJsonError::UnsupportedProperty(key)),
+                }
+            }
         };
         // A null property yields `MvtValue::Null`, which `tag` skips.
         feature
