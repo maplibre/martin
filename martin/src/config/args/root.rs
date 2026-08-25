@@ -281,12 +281,12 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches;
     use super::*;
     use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
     #[cfg(feature = "postgres")]
     use crate::config::primitives::env::FauxEnv;
+    use std::assert_matches;
 
     fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
