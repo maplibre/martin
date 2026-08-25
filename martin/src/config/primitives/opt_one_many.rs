@@ -252,12 +252,12 @@ mod tests {
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × unexpected event: expected string scalar
+          × expected string scalar
            ╭─[config.yaml:3:5]
          2 │   connection_string:
          3 │     - first
            ·     ┬
-           ·     ╰── unexpected event: expected string scalar
+           ·     ╰── expected string scalar
          4 │     - second
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
