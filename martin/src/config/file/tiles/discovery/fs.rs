@@ -140,6 +140,8 @@ fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         convert_to_mvt: obj.convert_to_mvt.clone(),
         cache_control: obj.cache_control.clone(),
+        #[cfg(feature = "hillshade")]
+        convert_to_hillshade: obj.convert_to_hillshade.clone(),
     };
     if per_source == ProcessConfig::default() {
         return None;
@@ -319,7 +321,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
         use crate::config::file::{FileConfig, FileConfigSource};
@@ -335,13 +337,14 @@ mod tests {
             sources: Some(BTreeMap::from([
                 (
                     "overridden".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: overridden.clone(),
                         convert_to_mlt: Some(AutoOption::Disabled),
                         convert_to_mvt: None,
                         cache_control: None,
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
-                    }),
+                    })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
             ])),
@@ -351,6 +354,7 @@ mod tests {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let discovery = FsDiscovery::from_config(
             &config,
@@ -388,17 +392,19 @@ mod tests {
         let config = FileConfigEnum::Config(FileConfig {
             sources: Some(BTreeMap::from([(
                 "pinned".to_owned(),
-                FileConfigSrc::Obj(FileConfigSource {
+                FileConfigSrc::Obj(Box::new(FileConfigSource {
                     path: pinned.clone(),
                     #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     convert_to_mlt: None,
                     #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     convert_to_mvt: None,
+                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    convert_to_hillshade: None,
                     cache_control: Some(
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),
                     ),
                     cache: CachePolicy::default(),
-                }),
+                })),
             )])),
             ..FileConfig::<()>::default()
         });

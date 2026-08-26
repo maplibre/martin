@@ -59,15 +59,17 @@ pub mod tests {
         id: &'static str,
         tilejson: TileJSON,
         data: TileData,
+        format: Format,
         call_count: u32,
     }
 
     impl SourceNeedsReloadTestSource {
-        pub fn new(id: &'static str, data: TileData) -> Self {
+        pub fn new(id: &'static str, data: TileData, format: Format) -> Self {
             Self {
                 id,
                 tilejson: tilejson! { tiles: vec![] },
                 data,
+                format,
                 call_count: 0,
             }
         }
@@ -84,7 +86,7 @@ pub mod tests {
         }
 
         fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+            TileInfo::new(self.format, Encoding::Uncompressed)
         }
 
         fn clone_source(&self) -> BoxedSource {

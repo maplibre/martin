@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "AutoOption_HillshadeSettings": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `HillshadeSettings` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/HillshadeSettings"
+        }
+      ]
+    },
     "AutoOption_MltEncoderConfig": {
       "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `MltEncoderConfig` - explicit  settings",
       "oneOf": [
@@ -208,6 +230,17 @@
     },
     "FileConfig2": {
       "properties": {
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -458,6 +491,17 @@
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
         },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -637,6 +681,83 @@
           "$ref": "#/$defs/GlobalCacheConfig"
         }
       ]
+    },
+    "HillshadeFormat": {
+      "description": "Image format for the baked hillshade.",
+      "oneOf": [
+        {
+          "const": "png",
+          "description": "Lossless PNG. Universally supported.",
+          "type": "string"
+        },
+        {
+          "const": "webp",
+          "description": "Lossless WebP. Around a third smaller than PNG on banded output.",
+          "type": "string"
+        }
+      ]
+    },
+    "HillshadeSettings": {
+      "description": "Hillshade settings as they appear in a config file.",
+      "properties": {
+        "allow_request_overrides": {
+          "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "type": ["boolean", "null"]
+        },
+        "altitude": {
+          "description": "Height of the light above the horizon in degrees.\nDefaults to `45`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "ambient": {
+          "description": "Shadow floor, so shadows read as shaded rather than black.\nDefaults to `0.2`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "azimuth": {
+          "description": "Compass bearing the light shines from, in degrees clockwise from north.\nDefaults to `300` (north-west) by cartographic convention.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "contrast": {
+          "description": "Separation between lit and shadowed slopes.\nDefaults to `2.5`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "elevation_scale": {
+          "description": "How strongly high terrain deepens the contrast.\nDefaults to `0`, which shades high and low terrain alike.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HillshadeFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Output image format.\nDefaults to `png`."
+        },
+        "padding": {
+          "description": "Apron width in pixels at 256-core scale, rescaled with the core.\nDefaults to `0`, so the served tile is a 512x512 square.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "toon_bands": {
+          "description": "Number of hard shading bands; below `2` the shading is a smooth gradient instead.\nDefaults to `6`.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "vertical_exaggeration": {
+          "description": "Scales the terrain's horizontal gradient before lighting, exaggerating relief.\n`1` is true-to-source.\nDefaults to `2.5`.",
+          "format": "double",
+          "type": ["number", "null"]
+        }
+      },
+      "type": "object"
     },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
@@ -888,6 +1009,17 @@
         "cache_control": {
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (raster data in Mapzen format)."
         },
         "convert_to_mlt": {
           "anyOf": [

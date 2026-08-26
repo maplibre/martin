@@ -20,11 +20,15 @@ use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::ProcessConfig;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::ResolvedHillshade;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::server::{DebouncedWarning, map_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::srv::tiles::process::{ProcessError, bake_hillshade};
 use crate::tile_source_manager::TileSourceManager;
 
 /// Maximum number of source tiles fetched concurrently for one composite response.
@@ -34,7 +38,7 @@ const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::zstd(),
-    //probably dont need deflate here, most clients don't support
+    // Deflate omitted since most clients don't support it.
     HeaderEnc::identity(),
 ];
 
@@ -258,7 +262,10 @@ fn redirect_tile_with_query(
 pub struct DynTileSource<'a> {
     pub sources: Vec<(BoxedSource, ProcessConfig)>,
     pub info: TileInfo,
+    /// The request's query string and its parsed form, when the request carried one.
     pub query: Option<(&'a str, UrlQuery)>,
+    /// Whether the resolved sources take their parameters from that query.
+    use_url_query: bool,
     /// The format requested via the `Accept` header.
     /// `None` means no `Accept` header was present (or it was a wildcard).
     pub accepted_format: Option<Format>,
@@ -306,17 +313,17 @@ impl<'a> DynTileSource<'a> {
             resolved.info.format,
         )?;
 
-        let query = if resolved.use_url_query && !query.is_empty() {
-            let o = Query::<UrlQuery>::from_query(query)?.into_inner();
-            Some((query, o))
-        } else {
+        let query = if query.is_empty() {
             None
+        } else {
+            Some((query, Query::<UrlQuery>::from_query(query)?.into_inner()))
         };
 
         Ok(Self {
             sources: resolved.sources,
             info: resolved.info,
             query,
+            use_url_query: resolved.use_url_query,
             accepted_format,
             headers,
             cache,
@@ -324,11 +331,11 @@ impl<'a> DynTileSource<'a> {
         })
     }
 
-    /// Checks the pre-parsed accepted formats against the source format. The
-    /// pre-cache pipeline can transcode between MVT and MLT in either
-    /// direction, so when the Accept header lists the opposite vector format
-    /// the request resolves to that target. Otherwise the source format must
-    /// appear in the accepted list verbatim.
+    /// Checks the pre-parsed accepted formats against the source format.
+    ///
+    /// The pre-cache pipeline can transcode between MVT and MLT, so a request
+    /// accepting the opposite vector format resolves to that target.
+    /// Otherwise the source format must appear in the accepted list verbatim.
     fn resolve_accepted_format(
         accepted: Option<&[Format]>,
         source_format: Format,
@@ -365,12 +372,15 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        let etag = EntityTag::new_strong(tile.etag.clone());
+        // An empty etag means the tile couldn't be identified from its inputs;
+        // omit the header rather than send `ETag: ""`, which would let clients
+        // treat unrelated tiles as identical.
+        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.clone()));
 
-        if let Some(if_none_match) = &self.headers.if_none_match {
+        if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag.as_ref()) {
             let dominated_by = match if_none_match {
                 IfNoneMatch::Any => true,
-                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(&etag)),
+                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(etag)),
             };
             if dominated_by {
                 return Ok(HttpResponse::NotModified().finish());
@@ -379,7 +389,9 @@ impl<'a> DynTileSource<'a> {
 
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
-        response.insert_header((ETAG, etag));
+        if let Some(etag) = etag {
+            response.insert_header((ETAG, etag));
+        }
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
@@ -426,6 +438,17 @@ impl<'a> DynTileSource<'a> {
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        if let Some(settings) = self.resolve_hillshade(pc)? {
+            return match bake_hillshade(s, settings, xyz, self.cache).await {
+                Err(ProcessError::HillshadeSourceNeedsReload) => {
+                    let fresh_src = self.reload_source(s, pc).await?;
+                    Ok(bake_hillshade(&fresh_src, settings, xyz, self.cache).await?)
+                }
+                result => Ok(result?),
+            };
+        }
+
         match self.fetch_tile_content_with_cache(s, pc, xyz).await {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
@@ -434,33 +457,37 @@ impl<'a> DynTileSource<'a> {
         }
     }
 
+    /// Reloads `s`, publishes the fresh instance, and hands it back.
+    ///
+    /// Publishing also invalidates the source's cached tiles, so a retry reads fresh data.
+    async fn reload_source(&self, s: &BoxedSource, pc: &ProcessConfig) -> ActixResult<BoxedSource> {
+        let fresh_src = s.try_reload().await.map_err(|e| map_error(&e))?;
+        warn!(source.id = s.get_id(), "Source modified; reloading");
+        let advisory = ReloadAdvisory {
+            updates: vec![NewSource {
+                id: s.get_id().to_owned(),
+                source: Ok(fresh_src.clone_source()),
+                process: pc.clone(),
+                provenance: None,
+            }],
+            ..Default::default()
+        };
+        if let Err(e) = self.manager.apply_changes(advisory).await {
+            warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+        }
+        Ok(fresh_src)
+    }
+
     async fn reload_source_and_retry_get_tile(
         &self,
         s: &BoxedSource,
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        match s.try_reload().await {
-            Ok(fresh_src) => {
-                warn!(source.id = s.get_id(), "Source modified; reloading");
-                let advisory = ReloadAdvisory {
-                    updates: vec![NewSource {
-                        id: s.get_id().to_owned(),
-                        source: Ok(fresh_src.clone_source()),
-                        process: pc.clone(),
-                        provenance: None,
-                    }],
-                    ..Default::default()
-                };
-                if let Err(e) = self.manager.apply_changes(advisory).await {
-                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
-                }
-                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
-                    .await
-                    .map_err(|e| map_error(e.as_ref()))
-            }
-            Err(e) => Err(map_error(&e)),
-        }
+        let fresh_src = self.reload_source(s, pc).await?;
+        self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+            .await
+            .map_err(|e| map_error(e.as_ref()))
     }
 
     #[cfg_attr(
@@ -478,7 +505,7 @@ impl<'a> DynTileSource<'a> {
         let src = s.clone_source();
         let compute = || async move {
             let t = src
-                .get_tile_with_etag(xyz, self.query.as_ref().map(|q| &q.1))
+                .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
                 .await?;
             apply_pre_cache_processors(
                 t,
@@ -492,10 +519,10 @@ impl<'a> DynTileSource<'a> {
         if let (Some(cache), true) = (self.cache, cache_zoom) {
             cache
                 .get_or_insert(
-                    martin_core::tiles::TileCacheKey::new(
+                    martin_core::tiles::TileCacheKey::new_request_dynamic(
                         src_id,
                         xyz,
-                        self.query.as_ref().map(|q| q.0.to_owned()),
+                        self.source_query().map(|q| q.0.to_owned()),
                         self.accepted_format,
                     ),
                     compute,
@@ -504,6 +531,38 @@ impl<'a> DynTileSource<'a> {
         } else {
             compute().await.map_err(Arc::new)
         }
+    }
+
+    /// The query the sources read their own parameters from, `None` when they ignore it.
+    fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
+        self.query.as_ref().filter(|_| self.use_url_query)
+    }
+
+    /// Resolves this source's hillshade settings for the current request.
+    /// Returns `None` when the source is not hillshaded.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    fn resolve_hillshade(&self, pc: &ProcessConfig) -> ActixResult<Option<ResolvedHillshade>> {
+        let Some(config) = pc.convert_to_hillshade.as_ref() else {
+            return Ok(None);
+        };
+        let Some(settings) = config
+            .resolve_hillshade()
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?
+        else {
+            return Ok(None);
+        };
+
+        let Some((_, overrides)) = self
+            .query
+            .as_ref()
+            .filter(|_| settings.allow_request_overrides)
+        else {
+            return Ok(Some(settings));
+        };
+        let settings = settings
+            .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+        Ok(Some(settings))
     }
 
     fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
@@ -520,13 +579,12 @@ impl<'a> DynTileSource<'a> {
             0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
             1 => tiles.swap_remove(last_non_empty_layer),
             _ => {
-                // Pre-cache processors may have flipped each tile's format
-                // (e.g. MVT->MLT for `Accept: application/vnd.maplibre-tile`),
-                // so resolve the merge target from the actual tiles rather
-                // than the source's native `self.info`.
+                // Pre-cache processors may have flipped a tile's format (e.g.
+                // MVT->MLT), so resolve the merge target from the actual tiles
+                // rather than the source's native `self.info`.
                 let merged_info = tiles[last_non_empty_layer].info;
-                // Both MVT (protobuf) and MLT layers are independent binary blobs
-                // that can be concatenated to form a valid composite tile.
+                // MVT and MLT layers are independent binary blobs that can be
+                // concatenated to form a valid composite tile.
                 let can_join = (merged_info.format == Format::Mvt
                     || merged_info.format == Format::Mlt)
                     && tiles.iter().all(|t| t.info == merged_info);
@@ -548,9 +606,8 @@ impl<'a> DynTileSource<'a> {
                     merged_info.encoding,
                     Encoding::Uncompressed | Encoding::Gzip | Encoding::Zstd
                 ) {
-                    // Gzip (RFC 1952 §2.2) and Zstd (RFC 8878 §3.1.1) support
-                    // multi-stream/multi-frame concatenation, so we can avoid
-                    // decompressing and recompressing entirely.
+                    // Gzip and Zstd support stream/frame concatenation, so we
+                    // can avoid decompressing and recompressing entirely.
                     let data = tiles
                         .into_iter()
                         .map(|t| t.data)
@@ -558,9 +615,8 @@ impl<'a> DynTileSource<'a> {
                         .concat();
                     Tile::new_with_etag(data, merged_info, combined_etag)
                 } else {
-                    // Brotli, zlib, etc. don't support stream concatenation,
-                    // so decompress all tiles, concat raw, and leave uncompressed
-                    // for later recompression.
+                    // Brotli and zlib don't support stream concatenation, so
+                    // decompress, concat raw, and leave uncompressed for later recompression.
                     let mut combined = Vec::new();
                     for tile in tiles {
                         let decoded = decode(tile)?;
@@ -887,13 +943,9 @@ mod tests {
         }
     }
 
-    /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
-    /// must reload the source from the manager and retry the tile request.
     #[actix_rt::test]
     async fn source_needs_reload_is_retried() {
-        // `SourceNeedsReloadSource` returns SourceNeedsReload unless it was instantiated by `try_reload()`, the
-        // internal machanics for a Source's self-reload.
-        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
+        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3], Format::Mvt);
         let mgr = test_manager(vec![vec![Box::new(source)]]);
         let src = DynTileSource::new(
             &mgr,
@@ -1009,7 +1061,6 @@ mod tests {
 
     #[test]
     fn parse_accept_q_zero_rejected() {
-        // A known format with q=0 means "do not want" - should 406
         let accept = Some(Accept(vec![QualityItem::new(
             "application/x-protobuf".parse().unwrap(),
             Quality::ZERO,
@@ -1054,8 +1105,6 @@ mod tests {
         result.unwrap_err();
     }
 
-    /// Without the `mlt` feature, the MVT<->MLT conversion branches are gated
-    /// out and these accept-vs-source pairs must surface as 406.
     #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
     #[rstest]
     #[case::mlt_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
@@ -1066,9 +1115,6 @@ mod tests {
         result.unwrap_err();
     }
 
-    /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
-    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
-    /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
@@ -1080,9 +1126,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    /// `Accept: mvt` against an MLT source resolves to MVT - the pre-cache
-    /// pipeline decodes on first miss unless `process.convert_to_mvt` is
-    /// explicitly disabled.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mvt_only(&["application/x-protobuf"])]
@@ -1093,7 +1136,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
-    /// Compositing sources with mismatched formats (MVT + MLT) should return an error.
     #[actix_rt::test]
     async fn mixed_mvt_mlt_merge_fails() {
         let mvt_source = TestSource {
@@ -1110,11 +1152,44 @@ mod tests {
         };
         let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
 
-        // Mixed MVT+MLT composite should fail at source validation (format mismatch)
         let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
         assert!(
             result.is_err(),
             "Compositing MVT and MLT sources should return an error"
         );
+    }
+
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
+    #[actix_rt::test]
+    async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
+        use crate::config::file::HillshadeProcessConfig;
+
+        let normal_tile =
+            include_bytes!("../../../../tests/fixtures/terrain/normal/10_163_396.png").to_vec();
+        let pc = ProcessConfig {
+            convert_to_hillshade: Some(HillshadeProcessConfig::Auto),
+            convert_to_mlt: None,
+            convert_to_mvt: None,
+            cache_control: None,
+        };
+        let src = SourceNeedsReloadTestSource::new("terrain", normal_tile, Format::Png);
+        let mgr = TileSourceManager::from_sources(
+            None,
+            OnInvalid::Abort,
+            vec![vec![(Box::new(src), pc)]],
+        );
+        let dyn_src =
+            DynTileSource::new(&mgr, "terrain", None, "", TileRequestHeaders::default()).unwrap();
+
+        let tile = dyn_src
+            .get_tile_content(TileCoord {
+                z: 10,
+                x: 163,
+                y: 396,
+            })
+            .await
+            .expect("the bake must be retried after the reload, not fail");
+        assert_eq!(tile.info.format, Format::Png);
+        assert!(!tile.data.is_empty());
     }
 }

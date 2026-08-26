@@ -5142,6 +5142,7 @@ dependencies = [
  "aws-credential-types",
  "aws-runtime",
  "backon",
+ "base64 0.23.1",
  "clap",
  "criterion",
  "csscolorparser 0.8.3",
@@ -5235,6 +5236,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "hotpath 0.23.3",
+ "image",
  "insta",
  "itertools 0.15.0",
  "maplibre_native",
@@ -5242,6 +5244,7 @@ dependencies = [
  "mbtiles",
  "mlt-core",
  "moka",
+ "multiversion",
  "object_store",
  "pbf_font_tools",
  "pmtiles",
@@ -5315,6 +5318,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "strum 0.28.0",
  "thiserror 2.0.20",
  "zstd",
 ]
@@ -5576,6 +5580,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "multiversion"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7edb7f0ff51249dfda9ab96b5823695e15a052dc15074c9dbf3d118afaf2c201"
+dependencies = [
+ "multiversion-macros",
+ "target-features",
+]
+
+[[package]]
+name = "multiversion-macros"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b093064383341eb3271f42e381cb8f10a01459478446953953c75d24bd339fc0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "target-features",
 ]
 
 [[package]]
@@ -8774,6 +8800,12 @@ dependencies = [
  "libc",
  "xattr",
 ]
+
+[[package]]
+name = "target-features"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1bbb9f3c5c463a01705937a24fdabc5047929ac764b2d5b9cf681c1f5041ed5"
 
 [[package]]
 name = "tempfile"
