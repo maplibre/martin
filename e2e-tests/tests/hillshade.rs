@@ -13,7 +13,7 @@ fn normal_tile() -> PathBuf {
 }
 
 fn neighbour_tile(x: u32, y: u32) -> PathBuf {
-    fixture(&format!("hillshade/normal_{ZOOM}_{x}_{y}.png"))
+    fixture(&format!("terrain/normal/{ZOOM}_{x}_{y}.png"))
 }
 
 fn reference(name: &str) -> PathBuf {
