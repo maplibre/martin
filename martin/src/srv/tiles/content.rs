@@ -1165,7 +1165,7 @@ mod tests {
         use crate::config::file::HillshadeProcessConfig;
 
         let normal_tile =
-            include_bytes!("../../../../tests/fixtures/hillshade/normal_10_163_396.png").to_vec();
+            include_bytes!("../../../../tests/fixtures/hillshade/normal/10_163_396.png").to_vec();
         let pc = ProcessConfig {
             convert_to_hillshade: Some(HillshadeProcessConfig::Auto),
             convert_to_mlt: None,
