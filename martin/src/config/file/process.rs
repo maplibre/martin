@@ -1,15 +1,7 @@
-#[cfg(all(feature = "contour", feature = "_tiles"))]
-use martin_core::tiles::contour::{ELEVATION_TAG, ElevationUnits, MAJOR_TAG};
-use martin_tile_utils::TileInfo;
-#[cfg(all(feature = "contour", feature = "_tiles"))]
-use martin_tile_utils::{Encoding, Format};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use mlt_core::encoder::EncoderConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use serde::{Deserialize, Serialize};
-use tilejson::TileJSON;
-#[cfg(all(feature = "contour", feature = "_tiles"))]
-use tilejson::VectorLayer;
 
 use crate::config::file::CacheControlHeader;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -30,65 +22,6 @@ pub struct ProcessConfig {
     /// `Cache-Control` response header for this source,
     /// overriding the server-level `cache_control` default.
     pub cache_control: Option<CacheControlHeader>,
-}
-
-impl ProcessConfig {
-    /// The [`TileInfo`] this source answers with once post-processing has run.
-    ///
-    /// Contouring replaces an elevation raster with a vector tile, so the format
-    /// a client is told about - and the one `Accept` is negotiated against - has
-    /// to be the traced one, not the source's own.
-    #[must_use]
-    pub fn advertised_tile_info(&self, source: TileInfo) -> TileInfo {
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
-        if self
-            .convert_to_contour
-            .as_ref()
-            .and_then(|c| c.resolve_contour().ok().flatten())
-            .is_some()
-        {
-            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
-        }
-        source
-    }
-
-    /// Adds the `vector_layers` entry describing the traced output, if contoured.
-    ///
-    /// Clients that build their style from `TileJSON` - `maplibre-gl-inspect`
-    /// throws outright without it - have no other way to learn the layer exists,
-    /// since the source's own `TileJSON` describes the elevation raster.
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
-    pub fn augment_tilejson(&self, tilejson: &mut TileJSON) {
-        let Some(settings) = self
-            .convert_to_contour
-            .as_ref()
-            .and_then(|c| c.resolve_contour().ok().flatten())
-        else {
-            return;
-        };
-        let mut fields = std::collections::BTreeMap::new();
-        fields.insert(ELEVATION_TAG.to_owned(), "Number".to_owned());
-        fields.insert(MAJOR_TAG.to_owned(), "Boolean".to_owned());
-        let layer = VectorLayer {
-            id: settings.opts.layer_name.clone(),
-            fields,
-            description: Some(match settings.opts.elevation_units {
-                ElevationUnits::Meters => "Contour lines, elevation in meters".to_owned(),
-                ElevationUnits::Feet => "Contour lines, elevation in feet".to_owned(),
-            }),
-            maxzoom: tilejson.maxzoom,
-            minzoom: tilejson.minzoom,
-            other: std::collections::BTreeMap::new(),
-        };
-        // Appended rather than assigned: a composite request merges several
-        // sources' TileJSON into one, and each contoured source contributes a layer.
-        tilejson.vector_layers.get_or_insert_default().push(layer);
-    }
-
-    /// No-op when contour support is not compiled in.
-    #[cfg(not(all(feature = "contour", feature = "_tiles")))]
-    #[expect(clippy::unused_self, reason = "mirrors the contour-enabled signature")]
-    pub fn augment_tilejson(&self, _tilejson: &mut TileJSON) {}
 }
 
 /// Configuration for MVT-to-MLT format conversion.

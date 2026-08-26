@@ -151,15 +151,7 @@ unstable-schemas = [
     "dep:schemars",
     "dep:utoipa",
     "martin-core/unstable-schemas",
-    "fonts",
-    "mbtiles",
-    "metrics",
-    "mlt",
-    "passthrough",
-    "pmtiles",
-    "postgres",
-    "sprites",
-    "styles",
+    "default",
 ]
 unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [
