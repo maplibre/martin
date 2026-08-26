@@ -6,24 +6,18 @@
 use std::env;
 
 use clap::Parser as _;
-#[cfg(feature = "postgres")]
-use futures::future::try_join_all;
 use martin::StartupResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
-use martin::config::file::ProcessConfig;
-#[cfg(feature = "unstable-cog")]
-use martin::config::file::reload::cog::CogReloader;
-#[cfg(feature = "geojson")]
-use martin::config::file::reload::geojson::GeoJsonReloader;
-#[cfg(feature = "mbtiles")]
-use martin::config::file::reload::mbtiles::MbtilesReloader;
-#[cfg(feature = "pmtiles")]
-use martin::config::file::reload::pmtiles::PmtilesReloader;
-#[cfg(feature = "postgres")]
-use martin::config::file::reload::postgres::PostgresReloader;
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+use martin::config::file::reload::TileReloaders;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -37,7 +31,6 @@ use tracing::{error, info};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
-#[expect(clippy::too_many_lines)]
 async fn start(args: Args) -> StartupResult<()> {
     info!("Starting Martin v{VERSION}");
 
@@ -76,72 +69,7 @@ async fn start(args: Args) -> StartupResult<()> {
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    let mgr = sources.tile_manager.clone();
-
-    #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
-    let global_pc = {
-        #[cfg(feature = "mlt")]
-        let pc = ProcessConfig {
-            convert_to_mlt: config.convert_to_mlt.clone(),
-            convert_to_mvt: config.convert_to_mvt.clone(),
-            ..Default::default()
-        };
-        #[cfg(not(feature = "mlt"))]
-        let pc = ProcessConfig::default();
-        pc
-    };
-
-    #[cfg(feature = "mbtiles")]
-    {
-        let reloader =
-            MbtilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start MbtilesReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "unstable-cog")]
-    {
-        let reloader = CogReloader::new(mgr.clone(), resolver.clone(), &config.cog);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start CogReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "geojson")]
-    {
-        let reloader = GeoJsonReloader::new(mgr.clone(), resolver.clone(), &config.geojson);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start GeoJsonReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "pmtiles")]
-    {
-        let reloader =
-            PmtilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start PmtilesReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "postgres")]
-    let pg_reloaders = {
-        let mut reloaders: Vec<_> = config
-            .postgres
-            .iter()
-            .cloned()
-            .map(|pg_config| {
-                PostgresReloader::new(
-                    mgr.clone(),
-                    resolver.clone(),
-                    pg_config,
-                    config.cache.policy(),
-                    &global_pc,
-                )
-            })
-            .collect();
-        let warnings = try_join_all(reloaders.iter_mut().map(PostgresReloader::init)).await?;
-        mgr.on_invalid()
-            .handle_tile_warnings(&warnings.into_iter().flatten().collect::<Vec<_>>())?;
-        reloaders
-    };
+    let reloaders = TileReloaders::init(&config, &sources.tile_manager, &resolver).await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(
@@ -153,10 +81,14 @@ async fn start(args: Args) -> StartupResult<()> {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    #[cfg(feature = "postgres")]
-    for reloader in pg_reloaders {
-        reloader.start();
-    }
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    reloaders.start();
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
