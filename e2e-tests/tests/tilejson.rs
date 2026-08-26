@@ -28,7 +28,7 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
     let response = martin.get("/webp2").await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]

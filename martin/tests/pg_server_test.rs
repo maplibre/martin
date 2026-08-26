@@ -1079,7 +1079,7 @@ tables:
     assert_eq!(src.id_column, None);
     assert_matches!(&src.properties, Some(v) if v.len() == 1);
     let src = source(&mock, "no_id");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -1096,7 +1096,7 @@ tables:
     name: no_id
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1112,7 +1112,7 @@ tables:
       TABLE: text
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1129,7 +1129,7 @@ tables:
       giD: int4
     ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326

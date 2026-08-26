@@ -147,20 +147,7 @@ webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 mlt = ["dep:mlt-core"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
-unstable-schemas = [
-    "dep:schemars",
-    "dep:utoipa",
-    "martin-core/unstable-schemas",
-    "fonts",
-    "mbtiles",
-    "metrics",
-    "mlt",
-    "passthrough",
-    "pmtiles",
-    "postgres",
-    "sprites",
-    "styles",
-]
+unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
 unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [
     "hotpath/hotpath",

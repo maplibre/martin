@@ -661,7 +661,7 @@ mod tests {
     #[case::auto_publish_false("auto_publish: false")]
     fn auto_publish_disabled(#[case] config_yaml: &str) {
         insta::allow_duplicates! {
-            assert_yaml_snapshot!(auto(config_yaml), @r"
+            assert_yaml_snapshot!(auto(config_yaml), @"
             auto_table: ~
             auto_funcs: ~
             ");

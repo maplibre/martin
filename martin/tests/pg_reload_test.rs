@@ -179,7 +179,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     .await;
 
     wait_for_catalog(&app, "reload_boundary", false).await;
-    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
+    assert_yaml_snapshot!(managed_tiles(&app).await, @"
     reload_alpha:
       content_type: application/x-protobuf
       description: public.reload_alpha.geom
@@ -193,7 +193,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     )
     .await;
     wait_for_catalog(&app, "reload_beta", true).await;
-    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
+    assert_yaml_snapshot!(managed_tiles(&app).await, @"
     reload_alpha:
       content_type: application/x-protobuf
       description: public.reload_alpha.geom
@@ -205,7 +205,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
 
     seed(&connstr, "DROP TABLE public.reload_beta;").await;
     wait_for_catalog(&app, "reload_beta", false).await;
-    assert_yaml_snapshot!(managed_tiles(&app).await, @r"
+    assert_yaml_snapshot!(managed_tiles(&app).await, @"
     reload_alpha:
       content_type: application/x-protobuf
       description: public.reload_alpha.geom

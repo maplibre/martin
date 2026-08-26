@@ -37,7 +37,7 @@ async fn auto_configured_minimal() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot(), @"
     content-encoding: br
     content-type: application/json
     transfer-encoding: chunked
@@ -85,7 +85,7 @@ async fn auto_configured_minimal() {
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       paths: tests/fixtures/pmtiles2
@@ -132,7 +132,7 @@ async fn a_raster_source_serves_its_tilejson() {
     let response = martin.get("/stamen_toner__raster_CC-BY-ODbL_z3").await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]
@@ -262,7 +262,7 @@ async fn a_source_url_is_read_over_http() {
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![(r"http://127\.0\.0\.1:\d+", "http://[STATICS]")]}, {
-        insta::assert_snapshot!(saved, @r"
+        insta::assert_snapshot!(saved, @"
         listen_addresses: 127.0.0.1:0
         pmtiles:
           sources:
@@ -511,7 +511,7 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     assert_eq!(layers[0].features.len(), 6523);
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       sources:
@@ -557,7 +557,7 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.json()["tiles"], serde_json::json!({}));
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot(), @"
     content-encoding: br
     content-type: application/json
     transfer-encoding: chunked

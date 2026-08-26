@@ -11,7 +11,7 @@ pub use utils::*;
 async fn function_source_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "function_zxy_query");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     name: function_zxy_query
@@ -49,7 +49,7 @@ async fn function_source_schemas() {
     "})
     .await;
     let sources = mock_sources(cfg).await.0.tile_manager.tile_sources();
-    assert_yaml_snapshot!(sources.get_catalog(), @r"
+    assert_yaml_snapshot!(sources.get_catalog(), @"
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
@@ -67,7 +67,7 @@ async fn function_source_raster_content_type() {
     let catalog_entry = src.get_catalog_entry();
     assert_eq!(catalog_entry.content_type, "image/png");
     // The TileJSON should also contain the content_type field from the SQL comment
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     description: a raster tile function source

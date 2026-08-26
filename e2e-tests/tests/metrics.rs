@@ -91,7 +91,7 @@ async fn metrics_are_served_as_prometheus_text_without_compressing_them() {
     let metrics = martin.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^content-length: \d+$", "content-length: [LENGTH]")]}, {
-        insta::assert_snapshot!(metrics.headers_snapshot(), @r"
+        insta::assert_snapshot!(metrics.headers_snapshot(), @"
         content-length: [LENGTH]
         content-type: text/plain; version=0.0.4; charset=utf-8
         vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

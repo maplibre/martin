@@ -54,7 +54,7 @@ async fn geojson_get_catalog_with_rendering_feature() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
     settings:
       rendering: false
@@ -77,7 +77,7 @@ async fn geojson_get_catalog_gzip_with_rendering_feature() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
     settings:
       rendering: false

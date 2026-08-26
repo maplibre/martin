@@ -48,7 +48,7 @@ async fn every_geojson_file_becomes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot(), @"
     content-encoding: br
     content-type: application/json
     transfer-encoding: chunked
@@ -106,7 +106,7 @@ async fn the_saved_config_names_every_discovered_file() {
     // The discovered paths martin writes carry the OS path separator; normalized here so the
     // snapshot is the same on every platform.
     let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       paths: tests/fixtures/geojson
@@ -136,7 +136,7 @@ async fn a_tilejson_points_back_at_the_source() {
     let response = martin.get("/feature_collection_1").await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]

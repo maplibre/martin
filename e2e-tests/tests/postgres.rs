@@ -219,7 +219,7 @@ async fn every_kind_of_source_in_the_database_is_published() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot(), @"
     content-encoding: br
     content-type: application/json
     transfer-encoding: chunked

@@ -281,12 +281,13 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
     #[cfg(feature = "postgres")]
     use crate::config::primitives::env::FauxEnv;
-    use std::assert_matches;
 
     fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -497,9 +498,7 @@ mod tests {
             &FauxEnv::default(),
         )
         .unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"
-        geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
-        "#);
+        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
     }
 
     /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`
