@@ -59,26 +59,29 @@ export function StyleIntegrationGuideDialog({
   const styleUrl = buildMartinUrl(`/style/${name}`);
 
   const webJsCode = `// Include MapLibre GL JS in your HTML
-<script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
 
 // Initialize the map
-const map = new maplibregl.Map({
-  container: 'map', // container ID
-  style: '${styleUrl}', // your Martin style URL
-  center: [-100, 40], // starting position [lng, lat]
-  zoom: 3 // starting zoom
-});`;
+<script type="module">
+  import { MapLibreMap } from 'https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.mjs';
+
+  const map = new MapLibreMap({
+    container: 'map', // container ID
+    style: '${styleUrl}', // your Martin style URL
+    center: [-100, 40], // starting position [lng, lat]
+    zoom: 3 // starting zoom
+  });
+</script>`;
 
   const webNpmCode = `// Install MapLibre GL JS
 npm install maplibre-gl
 
 // Import in your JavaScript/TypeScript
-import maplibregl from 'maplibre-gl';
+import { MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 // Initialize the map
-const map = new maplibregl.Map({
+const map = new MapLibreMap({
   container: 'map',
   style: '${styleUrl}',
   center: [-100, 40],
