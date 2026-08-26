@@ -497,9 +497,7 @@ mod tests {
             &FauxEnv::default(),
         )
         .unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"
-        geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
-        "#);
+        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
     }
 
     /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`

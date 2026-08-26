@@ -461,7 +461,11 @@ mod tests {
         sources
             .recursively_add_directory(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../tests/fixtures/fonts/overpass-mono-regular.ttf"),
+                    .join("..")
+                    .join("tests")
+                    .join("fixtures")
+                    .join("fonts")
+                    .join("overpass-mono-regular.ttf"),
             )
             .unwrap();
 
@@ -513,8 +517,11 @@ mod tests {
         let root = tmp.path();
         let real_dir = root.join("..2024_05_17_17_57_51.390489675");
         std::fs::create_dir_all(&real_dir).unwrap();
-        let font_src =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts2/u+3320.ttf");
+        let font_src = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("tests")
+            .join("fixtures")
+            .join("fonts2/u+3320.ttf");
         std::fs::copy(&font_src, real_dir.join("u3320.ttf")).unwrap();
         symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
         symlink("..data/u3320.ttf", root.join("u3320.ttf")).unwrap();
@@ -532,7 +539,11 @@ mod tests {
 
     #[test]
     fn catalog_reports_font_format_from_extension() {
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts");
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("tests")
+            .join("fixtures")
+            .join("fonts");
         let mut sources = FontSources::default();
         sources.recursively_add_directory(dir).unwrap();
 

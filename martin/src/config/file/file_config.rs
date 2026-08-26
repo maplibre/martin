@@ -1730,18 +1730,14 @@ mod folder_source_tests {
     #[tokio::test]
     async fn one_good_one_bad() {
         let (sources, warnings) = resolve_mixed_dir(1, 1).await;
-        assert_yaml_snapshot!(sources, @"
-        - good_0
-        ");
-        assert_yaml_snapshot!(warnings, @r#"
-        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
-        "#);
+        assert_yaml_snapshot!(sources, @"- good_0");
+        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
     }
 
     #[tokio::test]
     async fn two_good_two_bad() {
         let (sources, warnings) = resolve_mixed_dir(2, 2).await;
-        assert_yaml_snapshot!(sources, @r"
+        assert_yaml_snapshot!(sources, @"
         - good_0
         - good_1
         ");
@@ -1754,9 +1750,7 @@ mod folder_source_tests {
     #[tokio::test]
     async fn all_bad() {
         let (sources, warnings) = resolve_mixed_dir(0, 2).await;
-        assert_yaml_snapshot!(sources, @"
-        []
-        ");
+        assert_yaml_snapshot!(sources, @"[]");
         assert_yaml_snapshot!(warnings, @r#"
         - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
         - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
@@ -1766,13 +1760,11 @@ mod folder_source_tests {
     #[tokio::test]
     async fn all_good() {
         let (sources, warnings) = resolve_mixed_dir(2, 0).await;
-        assert_yaml_snapshot!(sources, @r"
+        assert_yaml_snapshot!(sources, @"
         - good_0
         - good_1
         ");
-        assert_yaml_snapshot!(warnings, @"
-        []
-        ");
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 }
 

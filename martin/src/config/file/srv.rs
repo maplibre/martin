@@ -296,13 +296,13 @@ mod tests {
             render_failure(indoc::indoc! {"
                 cache_control: max-age=invalid
             "}),
-            @r"
-martin::config::yaml (https://maplibre.org/martin/config-file/)
+            @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-  × invalid Cache-Control header value 'max-age=invalid': no valid directives
-  help: Check the highlighted token in your YAML. The error usually indicates
-        a mismatched type or an unexpected shape.
-");
+          × invalid Cache-Control header value 'max-age=invalid': no valid directives
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]
@@ -311,13 +311,13 @@ martin::config::yaml (https://maplibre.org/martin/config-file/)
             render_failure(indoc::indoc! {"
                 cache_control: ''
             "}),
-            @r"
-martin::config::yaml (https://maplibre.org/martin/config-file/)
+            @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-  × invalid Cache-Control header value '': no valid directives
-  help: Check the highlighted token in your YAML. The error usually indicates
-        a mismatched type or an unexpected shape.
-");
+          × invalid Cache-Control header value '': no valid directives
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]

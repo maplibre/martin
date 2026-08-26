@@ -70,7 +70,7 @@ fonts:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     cors.warning
     fonts.warning
     geojson.warning
@@ -191,7 +191,7 @@ pmtiles:
     .await;
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       sources:
@@ -237,7 +237,7 @@ postgres:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     postgres.functions.function_zxy_query.warning
     postgres.tables.points1.warning
     postgres.warning
@@ -267,7 +267,7 @@ postgres:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     postgres.auto_publish.functions.warning
     postgres.auto_publish.tables.warning
     postgres.auto_publish.warning

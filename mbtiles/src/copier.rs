@@ -1254,7 +1254,7 @@ mod tests {
         );
         assert_snapshot!(
             get_table_sql(&mut dst_conn, "bsdiffraw").await,
-            @r#"
+            @"
         CREATE TABLE bsdiffraw (
                      zoom_level integer NOT NULL,
                      tile_column integer NOT NULL,
@@ -1262,7 +1262,7 @@ mod tests {
                      patch_data blob NOT NULL,
                      tile_xxh3_64_hash integer NOT NULL,
                      PRIMARY KEY(zoom_level, tile_column, tile_row)) STRICT
-        "#
+        "
         );
     }
 

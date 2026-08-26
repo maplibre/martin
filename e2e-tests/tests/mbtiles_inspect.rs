@@ -176,7 +176,7 @@ async fn meta_get_says_nothing_about_a_key_that_is_not_there() {
 async fn meta_all_documents_itself() {
     let help = MbtilesCli::new("meta-all").arg("--help").run().await;
 
-    insta::assert_snapshot!(help, @r"
+    insta::assert_snapshot!(help, @"
     Prints all values in the metadata table in a free-style, unstable YAML format
 
     Usage: mbtiles meta-all <FILE>
@@ -193,7 +193,7 @@ async fn meta_all_documents_itself() {
 async fn meta_get_documents_itself() {
     let help = MbtilesCli::new("meta-get").arg("--help").run().await;
 
-    insta::assert_snapshot!(help, @r"
+    insta::assert_snapshot!(help, @"
     Gets a single value from the MBTiles metadata table
 
     Usage: mbtiles meta-get <FILE> <KEY>

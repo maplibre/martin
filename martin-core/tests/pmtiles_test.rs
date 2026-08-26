@@ -30,7 +30,9 @@ fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("tests/fixtures/pmtiles")
+        .join("tests")
+        .join("fixtures")
+        .join("pmtiles")
 }
 
 async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> PmtilesSource {

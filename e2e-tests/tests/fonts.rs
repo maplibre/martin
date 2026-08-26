@@ -89,7 +89,7 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
     let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/x-protobuf
         etag: [ETAG]
@@ -251,7 +251,7 @@ async fn the_plural_fonts_path_redirects() {
     for response in [martin.get(&path).await, martin.head(&path).await] {
         assert_eq!(response.status(), 301);
         insta::allow_duplicates! {
-            insta::assert_snapshot!(response.headers_snapshot(), @r"
+            insta::assert_snapshot!(response.headers_snapshot(), @"
             content-length: 0
             location: /font/Overpass Mono Regular/0-255
             vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

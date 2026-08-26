@@ -299,7 +299,9 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
-            .join("tests/fixtures/geojson")
+            .join("tests")
+            .join("fixtures")
+            .join("geojson")
     }
 
     #[tokio::test]

@@ -213,17 +213,17 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --workspace {{args}}
+    cargo insta test --accept --force-update-snapshots --all-targets --workspace {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-insta')
     cargo build --package martin --package mbtiles
-    cargo insta test --accept --package martin-e2e-tests --features test-pg {{args}}
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-pg {{args}}
 
 bless-pg: fetch start  (cargo-install 'cargo-insta')
-    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo insta test --accept --features test-pg --no-default-features --package martin --lib
-    cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
+    cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --package martin --lib
+    cargo insta test --accept --force-update-snapshots --features test-pg --package martin-core --no-default-features --lib
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
