@@ -58,27 +58,36 @@ export function StyleIntegrationGuideDialog({
 }: StyleIntegrationGuideDialogProps) {
   const styleUrl = buildMartinUrl(`/style/${name}`);
 
-  const webJsCode = `// Include MapLibre GL JS in your HTML
-<script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
-<link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+  const webJsCode = `<!-- Include MapLibre GL JS in your HTML -->
+<link href="https://unpkg.com/maplibre-gl@^6.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+<div id="map" style="height: 400px"></div>
 
-// Initialize the map
-const map = new maplibregl.Map({
-  container: 'map', // container ID
-  style: '${styleUrl}', // your Martin style URL
-  center: [-100, 40], // starting position [lng, lat]
-  zoom: 3 // starting zoom
-});`;
+<script type="module">
+  import * as maplibregl from 'https://unpkg.com/maplibre-gl@^6.0.0/dist/maplibre-gl.mjs';
+
+  // The worker is auto-detected when loading directly from a CDN
+  const map = new maplibregl.Map({
+    container: 'map', // container ID
+    style: '${styleUrl}', // your Martin style URL
+    center: [-100, 40], // starting position [lng, lat]
+    zoom: 3 // starting zoom
+  });
+</script>`;
 
   const webNpmCode = `// Install MapLibre GL JS
 npm install maplibre-gl
 
-// Import in your JavaScript/TypeScript
-import maplibregl from 'maplibre-gl';
+// Import in your JavaScript/TypeScript (Vite shown; see the MapLibre
+// docs for the equivalent webpack/esbuild/Rollup/Turbopack setup)
+import { Map, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+// Bundlers need this one-time call, or no tiles will load
+setWorkerUrl(workerUrl);
 
 // Initialize the map
-const map = new maplibregl.Map({
+const map = new Map({
   container: 'map',
   style: '${styleUrl}',
   center: [-100, 40],
