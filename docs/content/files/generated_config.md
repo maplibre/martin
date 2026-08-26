@@ -131,6 +131,17 @@ fonts:
   paths: []
   # A map of source IDs to file paths or config objects
   sources: {}
+# Publish `GeoJSON` files as vector tile sources
+geojson:
+  # Clip margin kept around each tile edge, in tile units, defaulting to 64.
+  # Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
+  buffer: 0
+  # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
+  extent: 0
+  # A list of file paths
+  paths: []
+  # A map of source IDs to file paths or config objects
+  sources: {}
 # Connection keep alive timeout [default: 75]
 keep_alive: 75
 # The socket address to bind [default: `0.0.0.0:3000`]
@@ -461,6 +472,11 @@ styles:
 # `TileJSON` will be:
 # `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`
 tilejson_url_version_param: version
+# Enable or disable Martin web UI. [default: disable]
+#
+# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
+# This may be undesirable in a production environment
+web_ui: disable
 # Number of web server workers
 worker_processes: 8
 ```
