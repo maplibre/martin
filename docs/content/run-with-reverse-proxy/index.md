@@ -9,6 +9,8 @@ Martin **can run without** a reverse proxy.
 Doing so has a few downsides:
 
 - Martin does not support HTTPS connections (TLS termination).
+- Martin does not authenticate requests.
+  If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with [`auth_request` in NGINX](../run-with-nginx.md#authenticating-requests).
 - We do not check `HOST`-headers - we just serve on a port.
   This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on.
   Using a reverse proxy makes this abuse obvious.
