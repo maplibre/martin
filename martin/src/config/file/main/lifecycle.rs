@@ -466,7 +466,6 @@ impl Config {
 
     /// The processing settings configured at the top level of the config file, which every source inherits unless it overrides them.
     #[cfg(any(
-        feature = "postgres",
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",

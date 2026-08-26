@@ -484,27 +484,10 @@ impl<'a> DynTileSource<'a> {
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        match s.try_reload().await {
-            Ok(fresh_src) => {
-                warn!(source.id = s.get_id(), "Source modified; reloading");
-                let advisory = ReloadAdvisory {
-                    updates: vec![NewSource {
-                        id: s.get_id().to_owned(),
-                        source: Ok(fresh_src.clone_source()),
-                        process: pc.clone(),
-                        provenance: None,
-                    }],
-                    ..Default::default()
-                };
-                if let Err(e) = self.manager.apply_changes(advisory).await {
-                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
-                }
-                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
-                    .await
-                    .map_err(|e| map_error(e.as_ref()))
-            }
-            Err(e) => Err(map_error(&e)),
-        }
+        let fresh_src = self.reload_source(s, pc).await?;
+        self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+            .await
+            .map_err(|e| map_error(e.as_ref()))
     }
 
     #[cfg_attr(
