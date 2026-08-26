@@ -115,12 +115,12 @@ default = [
     "geojson",
     "mlt",
 ]
-unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
 rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
@@ -130,6 +130,7 @@ pmtiles = [
     "dep:object_store",
     "dep:xxhash-rust",
     "_tiles",
+    "_file_kinds",
 ]
 postgres = [
     "martin-core/postgres",
@@ -140,13 +141,14 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles", "mlt"]
+geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 mlt = ["dep:mlt-core"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
+_file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
 unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [

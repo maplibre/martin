@@ -188,6 +188,21 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         }
     }
 
+    /// Records one source entry, promoting the enum to its `Config` form when needed.
+    pub fn insert_source(&mut self, id: String, src: FileConfigSrc) {
+        if let Self::Config(cfg) = self {
+            cfg.sources.get_or_insert_default().insert(id, src);
+            return;
+        }
+        let paths = match mem::take(self) {
+            Self::None => vec![],
+            Self::Path(path) => vec![path],
+            Self::Paths(paths) => paths,
+            Self::Config(_) => unreachable!("handled above"),
+        };
+        *self = Self::new_extended(paths, BTreeMap::from([(id, src)]), T::default());
+    }
+
     #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -678,77 +693,43 @@ fn plan_one_path(
         }]);
     }
 
-    let is_dir = path.is_dir();
-    let dir_files = if is_dir {
-        // directories will be kept in the config just in case there are new files
-        directories.push(path.clone());
-        collect_files_with_extension(&path, extension)?
-    } else if path.is_file() {
-        vec![path]
-    } else {
+    if path.is_dir() {
+        directories.push(path);
+        return Ok(Vec::new());
+    }
+    if !path.is_file() {
         return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
             path.canonicalize().unwrap_or(path),
         )));
-    };
-
-    let mut planned = Vec::new();
-    for path in dir_files {
-        let can = path
-            .canonicalize()
-            .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
-        if let Some(kept) = files.get(&can) {
-            if !is_dir {
-                warn!(
-                    source.path.dropped = %path.display(),
-                    source.path.kept = %kept.display(),
-                    "Ignoring duplicate source path: already configured under another path"
-                );
-            }
-            continue;
-        }
-        files.insert(can.clone(), path.clone());
-        let id = path.file_stem().map_or_else(
-            || "_unknown".to_owned(),
-            |s| s.to_string_lossy().to_string(),
-        );
-        let id = idr.resolve(&id, can.to_string_lossy().to_string());
-        planned.push(Planned {
-            id,
-            target: Target::File {
-                path,
-                canonical: can,
-            },
-            cache: default_cache,
-            from_sources: false,
-            duplicate: false,
-        });
     }
-    Ok(planned)
-}
 
-/// Returns a vector of file paths matching any `allowed_extension` within the given directory.
-///
-/// # Errors
-///
-/// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
-#[cfg(feature = "_tiles")]
-fn collect_files_with_extension(
-    base_path: &Path,
-    allowed_extension: &[&str],
-) -> Result<Vec<PathBuf>, ConfigFileError> {
-    Ok(base_path
-        .read_dir()
-        .map_err(|e| ConfigFileError::IoError(e, base_path.to_path_buf()))?
-        .filter_map(Result::ok)
-        .filter(|f| {
-            f.path().extension().is_some_and(|actual_ext| {
-                allowed_extension
-                    .iter()
-                    .any(|expected_ext| *expected_ext == actual_ext)
-            }) && f.path().is_file()
-        })
-        .map(|f| f.path())
-        .collect())
+    let can = path
+        .canonicalize()
+        .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
+    if let Some(kept) = files.get(&can) {
+        warn!(
+            source.path.dropped = %path.display(),
+            source.path.kept = %kept.display(),
+            "Ignoring duplicate source path: already configured under another path"
+        );
+        return Ok(Vec::new());
+    }
+    files.insert(can.clone(), path.clone());
+    let id = path.file_stem().map_or_else(
+        || "_unknown".to_owned(),
+        |s| s.to_string_lossy().to_string(),
+    );
+    let id = idr.resolve(&id, can.to_string_lossy().to_string());
+    Ok(vec![Planned {
+        id,
+        target: Target::File {
+            path,
+            canonical: can,
+        },
+        cache: default_cache,
+        from_sources: false,
+        duplicate: false,
+    }])
 }
 
 #[cfg(feature = "_tiles")]
@@ -1730,40 +1711,28 @@ mod folder_source_tests {
     #[tokio::test]
     async fn one_good_one_bad() {
         let (sources, warnings) = resolve_mixed_dir(1, 1).await;
-        assert_yaml_snapshot!(sources, @"- good_0");
-        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
+        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 
     #[tokio::test]
     async fn two_good_two_bad() {
         let (sources, warnings) = resolve_mixed_dir(2, 2).await;
-        assert_yaml_snapshot!(sources, @"
-        - good_0
-        - good_1
-        ");
-        assert_yaml_snapshot!(warnings, @r#"
-        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
-        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
-        "#);
+        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 
     #[tokio::test]
     async fn all_bad() {
         let (sources, warnings) = resolve_mixed_dir(0, 2).await;
         assert_yaml_snapshot!(sources, @"[]");
-        assert_yaml_snapshot!(warnings, @r#"
-        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
-        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
-        "#);
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 
     #[tokio::test]
     async fn all_good() {
         let (sources, warnings) = resolve_mixed_dir(2, 0).await;
-        assert_yaml_snapshot!(sources, @"
-        - good_0
-        - good_1
-        ");
+        assert_yaml_snapshot!(sources, @"[]");
         assert_yaml_snapshot!(warnings, @"[]");
     }
 }

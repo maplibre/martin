@@ -3,10 +3,26 @@ use std::collections::{BTreeMap, BTreeSet};
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::BoxedSource;
 
+#[cfg(feature = "_file_kinds")]
+use crate::config::file::FileConfigSrc;
 use crate::config::file::discovery::BuiltSource;
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::SourceSpec;
 use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig, SourceBuildResult};
+
+/// Which file-backed config section a catalog entry belongs to.
+#[cfg(feature = "_file_kinds")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FileKind {
+    #[cfg(feature = "mbtiles")]
+    Mbtiles,
+    #[cfg(feature = "pmtiles")]
+    Pmtiles,
+    #[cfg(feature = "unstable-cog")]
+    Cog,
+    #[cfg(feature = "geojson")]
+    GeoJson,
+}
 
 /// Where a catalog entry came from, in enough detail to write it back to a config file.
 #[derive(Clone, Debug)]
@@ -15,7 +31,14 @@ pub enum SourceProvenance {
     Postgres {
         /// The `connection_string` of the `postgres` config entry that discovered it.
         connection_string: String,
-        spec: SourceSpec,
+        spec: Box<SourceSpec>,
+    },
+    #[cfg(feature = "_file_kinds")]
+    File {
+        /// The config section the entry serializes under.
+        kind: FileKind,
+        /// The entry `--save-config` writes into that section's `sources`.
+        src: FileConfigSrc,
     },
 }
 

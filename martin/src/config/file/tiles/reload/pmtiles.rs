@@ -5,8 +5,11 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
-use crate::config::file::{FileConfigEnum, TileSourceConfiguration as _};
+use crate::config::file::{
+    FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
+use crate::reload::FileKind;
 
 const PMTILES_EXT: &str = "pmtiles";
 
@@ -16,9 +19,8 @@ const PMTILES_EXT: &str = "pmtiles";
 /// (`s3://`, `gs://`, `https://`, …) use a [`PollTrigger`] because blob stores have no event
 /// channel. Each half is its own [`ReloadDriver`] so neither needs a shared mutex.
 pub struct PmtilesReloader {
-    tile_source_manager: TileSourceManager,
-    local: FsDiscovery,
-    remote: ObjectStoreDiscovery,
+    local: ReloadDriver<FsDiscovery, TileSourceManager>,
+    remote: ReloadDriver<ObjectStoreDiscovery, TileSourceManager>,
 }
 
 impl PmtilesReloader {
@@ -65,6 +67,7 @@ impl PmtilesReloader {
             Box::pin(async move { config.new_sources(id, path, policy).await })
         });
         let local = FsDiscovery::from_config(
+            FileKind::Pmtiles,
             config,
             &[PMTILES_EXT],
             id_resolver.clone(),
@@ -74,22 +77,24 @@ impl PmtilesReloader {
         let remote = ObjectStoreDiscovery::from_config(config, id_resolver, process);
 
         Self {
-            tile_source_manager: tsm,
-            local,
-            remote,
+            local: ReloadDriver::new(local, tsm.clone()),
+            remote: ReloadDriver::new(remote, tsm),
         }
     }
 
-    pub fn start(self) -> notify::Result<()> {
-        let Self {
-            tile_source_manager,
-            local,
-            remote,
-        } = self;
+    /// Publishes every discovered local source into the catalog and returns the discovery warnings.
+    /// Remote sources are not initialized here.
+    /// They start from an empty baseline in `start()`.
+    pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
+        self.local.init().await
+    }
 
-        let directories = local.directories().to_vec();
-        let has_remote = !remote.remote_prefixes().is_empty();
-        let interval = remote.reload_interval();
+    pub fn start(self) -> notify::Result<()> {
+        let Self { local, remote } = self;
+
+        let directories = local.discovery().directories();
+        let has_remote = !remote.discovery().remote_prefixes().is_empty();
+        let interval = remote.discovery().reload_interval();
 
         if directories.is_empty() && !has_remote {
             return Ok(());
@@ -97,8 +102,7 @@ impl PmtilesReloader {
 
         if !directories.is_empty() {
             let trigger = NotifyTrigger::new(&directories)?;
-            ReloadDriver::new(local, tile_source_manager.clone())
-                .spawn(trigger, Baseline::StartupResolved);
+            local.spawn(trigger, Baseline::Initialized);
         }
 
         if has_remote {
@@ -108,7 +112,7 @@ impl PmtilesReloader {
                 );
             } else {
                 let trigger = PollTrigger::new(interval);
-                ReloadDriver::new(remote, tile_source_manager).spawn(trigger, Baseline::Empty);
+                remote.spawn(trigger, Baseline::Empty);
             }
         }
 
@@ -148,15 +152,16 @@ mod tests {
     impl From<&PmtilesReloader> for ReloaderSnapshot {
         fn from(r: &PmtilesReloader) -> Self {
             Self {
-                local_dir_count: r.local.directories().len(),
-                remote_prefix_count: r.remote.remote_prefixes().len(),
+                local_dir_count: r.local.discovery().directories().len(),
+                remote_prefix_count: r.remote.discovery().remote_prefixes().len(),
                 remote_prefixes: r
                     .remote
+                    .discovery()
                     .remote_prefixes()
                     .iter()
                     .map(ToString::to_string)
                     .collect(),
-                interval_secs: r.remote.reload_interval().as_secs(),
+                interval_secs: r.remote.discovery().reload_interval().as_secs(),
             }
         }
     }
@@ -164,9 +169,12 @@ mod tests {
     #[test]
     fn new_with_none_config_yields_default_interval() {
         let reloader = make_reloader(&FileConfigEnum::None);
-        assert!(reloader.local.directories().is_empty());
-        assert!(reloader.remote.remote_prefixes().is_empty());
-        assert_eq!(reloader.remote.reload_interval(), DEFAULT_RELOAD_INTERVAL);
+        assert!(reloader.local.discovery().directories().is_empty());
+        assert!(reloader.remote.discovery().remote_prefixes().is_empty());
+        assert_eq!(
+            reloader.remote.discovery().reload_interval(),
+            DEFAULT_RELOAD_INTERVAL
+        );
     }
 
     #[test]
@@ -205,7 +213,7 @@ mod tests {
             custom: PmtConfig::default(),
         });
         let r = make_reloader(&cfg);
-        assert_eq!(r.remote.remote_prefixes().len(), 1);
+        assert_eq!(r.remote.discovery().remote_prefixes().len(), 1);
     }
 
     #[test]
@@ -231,7 +239,7 @@ mod tests {
         let r = make_reloader(&cfg);
         // Remote single-file sources are tracked elsewhere (resolve_files) -- the reloader
         // does not need to re-list them, so neither half picks them up.
-        assert!(r.local.directories().is_empty());
-        assert!(r.remote.remote_prefixes().is_empty());
+        assert!(r.local.discovery().directories().is_empty());
+        assert!(r.remote.discovery().remote_prefixes().is_empty());
     }
 }
