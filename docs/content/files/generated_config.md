@@ -135,9 +135,9 @@ fonts:
 geojson:
   # Clip margin kept around each tile edge, in tile units, defaulting to 64.
   # Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
-  buffer: 0
+  buffer: 64
   # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
-  extent: 0
+  extent: 4096
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
