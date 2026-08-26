@@ -5,6 +5,8 @@
 use image::RgbaImage;
 use martin_tile_utils::TileData;
 
+use crate::tiles::raster_codecs::ensure_jxl_decoding_hook;
+
 /// Number of tiles in a neighbourhood.
 pub const NEIGHBOURHOOD_LEN: usize = 3 * 3;
 
@@ -74,6 +76,7 @@ impl Neighbourhood {
     /// Returns [`NeighbourhoodError::CorruptCentreTile`] when a centre tile
     /// arrived but could not be decoded.
     pub fn assemble(&self) -> Result<RgbaField, NeighbourhoodError> {
+        ensure_jxl_decoding_hook();
         let decode = |bytes: &TileData| -> Option<RgbaImage> {
             let img = image::load_from_memory(bytes).ok()?.into_rgba8();
             (img.width() > 0 && img.height() > 0).then_some(img)
@@ -218,6 +221,27 @@ mod tests {
         buf
     }
 
+    /// JPEG XL-encodes the same positional image as [`positional_tile`].
+    fn positional_tile_jxl(width: usize, height: usize) -> TileData {
+        use zune_core::bit_depth::BitDepth;
+        use zune_core::colorspace::ColorSpace;
+        use zune_core::options::EncoderOptions;
+        use zune_jpegxl::JxlSimpleEncoder;
+
+        let mut pixels = Vec::with_capacity(width * height * CHANNELS);
+        for y in 0..height {
+            for x in 0..width {
+                pixels.extend_from_slice(&[x as u8, y as u8, 0, 255]);
+            }
+        }
+        let options = EncoderOptions::new(width, height, ColorSpace::RGBA, BitDepth::Eight);
+        let mut buf = Vec::new();
+        JxlSimpleEncoder::new(&pixels, options)
+            .encode(&mut buf)
+            .expect("encode test tile");
+        buf
+    }
+
     /// Field coordinate of local pixel `(x, y)` within grid cell `(gx, gy)`.
     fn at(gx: usize, gy: usize, x: usize, y: usize) -> (usize, usize) {
         (gx * TILE_SIZE + x, gy * TILE_SIZE + y)
@@ -244,6 +268,15 @@ mod tests {
             [last, last, 0, 255],
             "corner clamps both axes"
         );
+    }
+
+    #[test]
+    fn jxl_upstream_tiles_decode_too() {
+        let tiles = Neighbourhood::centre_only(positional_tile_jxl(TILE_SIZE, TILE_SIZE));
+        let field = tiles.assemble().expect("jxl centre decodes");
+
+        let (x, y) = at(1, 1, 40, 90);
+        assert_eq!(field.texel(x, y), [40, 90, 0, 255]);
     }
 
     #[test]

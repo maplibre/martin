@@ -84,11 +84,19 @@ pub enum Format {
     Png,
     Webp,
     Avif,
+    Jxl,
 }
 
 impl Format {
     /// All image formats.
-    pub const IMAGE_FORMATS: &[Self] = &[Self::Gif, Self::Jpeg, Self::Png, Self::Webp, Self::Avif];
+    pub const IMAGE_FORMATS: &[Self] = &[
+        Self::Gif,
+        Self::Jpeg,
+        Self::Png,
+        Self::Webp,
+        Self::Avif,
+        Self::Jxl,
+    ];
 
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
@@ -101,6 +109,7 @@ impl Format {
             "png" => Self::Png,
             "webp" => Self::Webp,
             "avif" => Self::Avif,
+            "jxl" => Self::Jxl,
             _ => None?,
         })
     }
@@ -118,6 +127,7 @@ impl Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
+            Self::Jxl => "jxl",
         }
     }
 
@@ -132,6 +142,7 @@ impl Format {
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
+            Self::Jxl => "image/jxl",
         }
     }
 
@@ -147,6 +158,7 @@ impl Format {
             ("image", "png") => Self::Png,
             ("image", "webp") => Self::Webp,
             ("image", "avif") => Self::Avif,
+            ("image", "jxl") => Self::Jxl,
             _ => None?,
         })
     }
@@ -159,6 +171,7 @@ impl Format {
             | Self::Gif
             | Self::Webp
             | Self::Avif
+            | Self::Jxl
             | Self::Json
             | Self::Mlt => true,
             Self::Mvt => false,
@@ -177,6 +190,7 @@ impl Display for Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
+            Self::Jxl => "jxl",
         })
     }
 }
@@ -277,6 +291,10 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
             v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
+            v if v.starts_with(b"\xFF\x0A") => Some(Format::Jxl),
+            v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => {
+                Some(Format::Jxl)
+            }
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
                 Some(Format::Webp)
             }
@@ -314,7 +332,8 @@ impl From<Format> for TileInfo {
                 | Format::Jpeg
                 | Format::Webp
                 | Format::Gif
-                | Format::Avif => Encoding::Internal,
+                | Format::Avif
+                | Format::Jxl => Encoding::Internal,
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
@@ -517,6 +536,14 @@ mod tests {
     #[case::webp(
         include_bytes!("../fixtures/dc.webp"),
         TileInfo::new(Format::Webp, Encoding::Internal)
+    )]
+    #[case::jxl_codestream(
+        &[0xFF, 0x0A, 0x00, 0x00],
+        TileInfo::new(Format::Jxl, Encoding::Internal)
+    )]
+    #[case::jxl_container(
+        &[0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A],
+        TileInfo::new(Format::Jxl, Encoding::Internal)
     )]
     #[case::json(
         br#"{"foo":"bar"}"#,

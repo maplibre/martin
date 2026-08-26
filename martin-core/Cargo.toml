@@ -99,7 +99,7 @@ unstable-duckdb = [
     "tokio/rt-multi-thread",
 ]
 _tiles = ["dep:base64"]
-_raster = ["dep:image"]
+_raster = ["dep:image", "dep:jxl-oxide", "dep:zune-core", "dep:zune-jpegxl"]
 _neighbourhood = ["_raster", "_tiles"]
 test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
@@ -128,6 +128,7 @@ geojson = { workspace = true, optional = true }
 hotpath.workspace = true
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
+jxl-oxide = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
@@ -162,6 +163,8 @@ url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
+zune-core = { workspace = true, optional = true }
+zune-jpegxl = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-web.workspace = true
