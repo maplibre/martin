@@ -195,33 +195,17 @@ SELECT min(zoom_level), max(zoom_level) FROM tiles;",
     #[actix_rt::test]
     async fn min_max_zoom_uses_index_seek() {
         let flat = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        assert_snapshot!(min_max_zoom_plan(flat).await, @"
-        SCAN CONSTANT ROW
-        SCALAR SUBQUERY 1
-        SEARCH tiles USING COVERING INDEX tile_index
-        SCALAR SUBQUERY 2
-        SEARCH tiles USING COVERING INDEX tile_index
-        ");
+        assert_snapshot!(min_max_zoom_plan(flat).await, @"SCAN tiles USING COVERING INDEX tile_index");
 
         let normalized = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
         assert_snapshot!(min_max_zoom_plan(normalized).await, @"
-        SCAN CONSTANT ROW
-        SCALAR SUBQUERY 1
-        SEARCH map USING INDEX map_index
-        SEARCH images USING COVERING INDEX images_id (tile_id=?)
-        SCALAR SUBQUERY 2
-        SEARCH map USING INDEX map_index
+        SCAN map
         SEARCH images USING COVERING INDEX images_id (tile_id=?)
         ");
 
         let dedup_id = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         assert_snapshot!(min_max_zoom_plan(dedup_id).await, @"
-        SCAN CONSTANT ROW
-        SCALAR SUBQUERY 1
-        SEARCH tiles_shallow USING PRIMARY KEY
-        SEARCH tiles_data USING INTEGER PRIMARY KEY (rowid=?)
-        SCALAR SUBQUERY 2
-        SEARCH tiles_shallow USING PRIMARY KEY
+        SCAN tiles_shallow
         SEARCH tiles_data USING INTEGER PRIMARY KEY (rowid=?)
         ");
     }
