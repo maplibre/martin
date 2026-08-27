@@ -179,8 +179,7 @@ mod tests {
         query(
             "
 EXPLAIN QUERY PLAN
-SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
-       (SELECT max(zoom_level) FROM tiles) AS max_zoom;",
+SELECT min(zoom_level), max(zoom_level) FROM tiles;",
         )
         .fetch_all(&mut conn)
         .await
