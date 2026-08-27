@@ -1,6 +1,6 @@
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
-use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, SqliteExecutor, query};
 use tracing::debug;
 
 use crate::MbtError::InvalidZoomValue;
@@ -126,19 +126,21 @@ fn validate_zoom(zoom: Option<i64>, zoom_name: &'static str) -> MbtResult<Option
     }
 }
 
-const MIN_MAX_ZOOM_SQL: &str = "
-SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
-       (SELECT max(zoom_level) FROM tiles) AS max_zoom;";
-
 /// Compute min and max zoom levels from the `tiles` table
 pub async fn compute_min_max_zoom<T>(conn: &mut T) -> MbtResult<Option<(u8, u8)>>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    let info = query(MIN_MAX_ZOOM_SQL).fetch_one(conn).await?;
+    let info = query!(
+        "
+SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
+       (SELECT max(zoom_level) FROM tiles) AS max_zoom;"
+    )
+    .fetch_one(conn)
+    .await?;
 
-    let min_zoom = validate_zoom(info.get("min_zoom"), "zoom_level")?;
-    let max_zoom = validate_zoom(info.get("max_zoom"), "zoom_level")?;
+    let min_zoom = validate_zoom(info.min_zoom, "zoom_level")?;
+    let max_zoom = validate_zoom(info.max_zoom, "zoom_level")?;
 
     match (min_zoom, max_zoom) {
         (Some(min_zoom), Some(max_zoom)) => Ok(Some((min_zoom, max_zoom))),
@@ -163,6 +165,8 @@ pub async fn action_with_rusqlite(
 
 #[cfg(test)]
 mod tests {
+    use sqlx::Row as _;
+
     use super::*;
     use crate::metadata::anonymous_mbtiles;
 
@@ -174,9 +178,12 @@ mod tests {
             include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql"),
         ] {
             let (_, mut conn) = anonymous_mbtiles(script).await;
-            let plan: Vec<String> = query(AssertSqlSafe(format!(
-                "EXPLAIN QUERY PLAN {MIN_MAX_ZOOM_SQL}"
-            )))
+            let plan: Vec<String> = query(
+                "
+EXPLAIN QUERY PLAN
+SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
+       (SELECT max(zoom_level) FROM tiles) AS max_zoom;",
+            )
             .fetch_all(&mut conn)
             .await
             .unwrap()
