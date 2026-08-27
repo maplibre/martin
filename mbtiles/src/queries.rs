@@ -191,7 +191,7 @@ SELECT min(zoom_level), max(zoom_level) FROM tiles;",
     }
 
     /// Workaround test for the query rewrite in [`compute_min_max_zoom`].
-    /// Delete it once SQLite applies the min/max optimization to both aggregates in one query.
+    /// Delete this test and inline query above once sqlite does not do an entire query scan here..
     #[actix_rt::test]
     async fn min_max_zoom_uses_index_seek() {
         let flat = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
