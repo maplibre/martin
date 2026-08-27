@@ -24,6 +24,10 @@ name = "transcode"
 harness = false
 required-features = ["transcode"]
 
+[[bench]]
+name = "min_max_zoom"
+harness = false
+
 [features]
 default = ["cli"]
 cli = ["dep:anyhow", "dep:clap", "dep:serde-saphyr", "dep:tracing-subscriber"]
@@ -78,7 +82,7 @@ insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
 tracing-test.workspace = true
 
 [lints]
