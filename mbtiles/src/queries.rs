@@ -133,9 +133,8 @@ where
 {
     let info = query!(
         "
-SELECT min(zoom_level) AS min_zoom,
-       max(zoom_level) AS max_zoom
-FROM tiles;"
+SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
+       (SELECT max(zoom_level) FROM tiles) AS max_zoom;"
     )
     .fetch_one(conn)
     .await?;
