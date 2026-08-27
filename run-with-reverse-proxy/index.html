@@ -1516,6 +1516,8 @@
 <p>Doing so has a few downsides:</p>
 <ul>
 <li>Martin does not support HTTPS connections (TLS termination).</li>
+<li>Martin does not authenticate requests.
+  If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with <a href="../run-with-nginx/#authenticating-requests"><code>auth_request</code> in NGINX</a>.</li>
 <li>We do not check <code>HOST</code>-headers - we just serve on a port.
   This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on.
   Using a reverse proxy makes this abuse obvious.</li>
