@@ -131,6 +131,9 @@ pub async fn compute_min_max_zoom<T>(conn: &mut T) -> MbtResult<Option<(u8, u8)>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    // SQLite only applies the min/max index optimization to a query with a single aggregate.
+    // Two scalar subqueries work around that until the planner does the rewrite itself.
+    // https://www.sqlite.org/optoverview.html#the_min_max_optimization
     let info = query!(
         "
 SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
@@ -165,41 +168,62 @@ pub async fn action_with_rusqlite(
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_snapshot;
     use sqlx::Row as _;
 
     use super::*;
     use crate::metadata::anonymous_mbtiles;
 
-    #[actix_rt::test]
-    async fn min_max_zoom_uses_index_seek() {
-        for script in [
-            include_str!("../../tests/fixtures/mbtiles/world_cities.sql"),
-            include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql"),
-            include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql"),
-        ] {
-            let (_, mut conn) = anonymous_mbtiles(script).await;
-            let plan: Vec<String> = query(
-                "
+    async fn min_max_zoom_plan(script: &str) -> String {
+        let (_, mut conn) = anonymous_mbtiles(script).await;
+        query(
+            "
 EXPLAIN QUERY PLAN
 SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
        (SELECT max(zoom_level) FROM tiles) AS max_zoom;",
-            )
-            .fetch_all(&mut conn)
-            .await
-            .unwrap()
-            .iter()
-            .map(|row| row.get::<String, _>("detail"))
-            .collect();
-            assert!(
-                plan.iter().any(|step| step.starts_with("SEARCH ")),
-                "no index seek in plan: {plan:?}"
-            );
-            assert!(
-                !plan
-                    .iter()
-                    .any(|step| step.starts_with("SCAN ") && step != "SCAN CONSTANT ROW"),
-                "full scan in plan: {plan:?}"
-            );
-        }
+        )
+        .fetch_all(&mut conn)
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get::<String, _>("detail"))
+        .collect::<Vec<_>>()
+        .join("\n")
+    }
+
+    /// Workaround test for the query rewrite in [`compute_min_max_zoom`].
+    /// Delete it once SQLite applies the min/max optimization to both aggregates in one query.
+    #[actix_rt::test]
+    async fn min_max_zoom_uses_index_seek() {
+        let flat = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        assert_snapshot!(min_max_zoom_plan(flat).await, @"
+        SCAN CONSTANT ROW
+        SCALAR SUBQUERY 1
+        SEARCH tiles USING COVERING INDEX tile_index
+        SCALAR SUBQUERY 2
+        SEARCH tiles USING COVERING INDEX tile_index
+        ");
+
+        let normalized = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        assert_snapshot!(min_max_zoom_plan(normalized).await, @"
+        SCAN CONSTANT ROW
+        SCALAR SUBQUERY 1
+        SEARCH map USING INDEX map_index
+        SEARCH images USING COVERING INDEX images_id (tile_id=?)
+        SCALAR SUBQUERY 2
+        SEARCH map USING INDEX map_index
+        SEARCH images USING COVERING INDEX images_id (tile_id=?)
+        ");
+
+        let dedup_id = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        assert_snapshot!(min_max_zoom_plan(dedup_id).await, @"
+        SCAN CONSTANT ROW
+        SCALAR SUBQUERY 1
+        SEARCH tiles_shallow USING PRIMARY KEY
+        SEARCH tiles_data USING INTEGER PRIMARY KEY (rowid=?)
+        SCALAR SUBQUERY 2
+        SEARCH tiles_shallow USING PRIMARY KEY
+        SEARCH tiles_data USING INTEGER PRIMARY KEY (rowid=?)
+        ");
     }
 }
