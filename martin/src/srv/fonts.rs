@@ -104,7 +104,6 @@ struct FontExtRequest {
 }
 
 /// Redirect `/font/{fontstack}/{start}-{end}.{extension}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
-/// Registered before the main font route to match the more specific pattern first
 #[routes]
 #[get("/font/{fontstack}/{start}-{end}.{ext}")]
 #[head("/font/{fontstack}/{start}-{end}.{ext}")]
