@@ -610,10 +610,8 @@ test-cog: fetch
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
-    cargo test -p martin --features test-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
-    cargo build --package martin --no-default-features --features unstable-duckdb
+    cargo test -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     cargo test --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
