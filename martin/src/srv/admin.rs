@@ -1,6 +1,7 @@
 #[cfg(feature = "_tiles")]
 use std::collections::HashMap;
 
+use actix_middleware_etag::Etag;
 use actix_web::web::Data;
 use actix_web::{HttpResponse, Responder, middleware, route};
 #[cfg(feature = "_tiles")]
@@ -82,6 +83,7 @@ impl Catalog {
     "/catalog",
     method = "GET",
     method = "HEAD",
+    wrap = "Etag::default()",
     wrap = "middleware::Compress::default()"
 )]
 #[hotpath::measure]
