@@ -37,12 +37,15 @@ async fn auto_configured_minimal() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @"
-    content-encoding: br
-    content-type: application/json
-    transfer-encoding: chunked
-    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-    ");
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(catalog.headers_snapshot(), @"
+        content-encoding: br
+        content-type: application/json
+        etag: [ETAG]
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
 
     let mut catalog_json = catalog.json();
     let settings = catalog_json
@@ -557,12 +560,15 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.json()["tiles"], serde_json::json!({}));
-    insta::assert_snapshot!(catalog.headers_snapshot(), @"
-    content-encoding: br
-    content-type: application/json
-    transfer-encoding: chunked
-    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-    ");
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(catalog.headers_snapshot(), @"
+        content-encoding: br
+        content-type: application/json
+        etag: [ETAG]
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
     assert_eq!(martin.get("/png/0/0/0").await.status(), 404);
 
     watched.install(fixture("pmtiles/png.pmtiles"), "png.pmtiles");

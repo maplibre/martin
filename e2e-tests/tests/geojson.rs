@@ -48,12 +48,15 @@ async fn every_geojson_file_becomes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @"
-    content-encoding: br
-    content-type: application/json
-    transfer-encoding: chunked
-    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-    ");
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(catalog.headers_snapshot(), @"
+        content-encoding: br
+        content-type: application/json
+        etag: [ETAG]
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
     insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
     {
       "bare_geometry": {
