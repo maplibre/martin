@@ -5,7 +5,7 @@ use crate::TileSourceManager;
 use crate::config::file::FileConfigEnum;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(feature = "mlt")]
+#[cfg(feature = "_process")]
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
