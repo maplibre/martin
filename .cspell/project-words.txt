@@ -89,6 +89,7 @@ srid
 sslinfo
 sslmode
 stackoverflow
+subrequest
 subtransaction
 superyachts
 tilejson
