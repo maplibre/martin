@@ -39,6 +39,7 @@ flate2.workspace = true
 insta = { workspace = true, features = ["filters", "json"] }
 mlt-core.workspace = true
 pbf_font_tools.workspace = true
+pretty_assertions.workspace = true
 rstest.workspace = true
 test_each_file.workspace = true
 

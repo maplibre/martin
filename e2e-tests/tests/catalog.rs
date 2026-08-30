@@ -1,6 +1,8 @@
 //! The `/catalog` document every source kind contributes to.
 
-use martin_e2e_tests::{Martin, TestResponse, fixture};
+use martin_e2e_tests::{Martin, fixture};
+use pretty_assertions::assert_eq;
+use serde_json::Value;
 
 async fn martin_with_every_source_kind() -> Martin {
     Martin::builder()
@@ -20,30 +22,14 @@ async fn martin_with_every_source_kind() -> Martin {
         .expect("failed to start martin")
 }
 
-/// Assert every catalog section holds sources and lists its keys in sorted order.
-/// Parsing sorts the keys, so the on-the-wire order is checked against the raw body.
-fn assert_sorted_and_populated(catalog: &TestResponse) {
-    let parsed = catalog.json();
-    let body = catalog.text();
-    for section in ["tiles", "sprites", "fonts", "styles"] {
-        let entries = parsed[section]
-            .as_object()
-            .expect("a catalog section is an object");
-        assert!(
-            !entries.is_empty(),
-            "the `{section}` section has no sources"
-        );
-        let offsets = entries
-            .keys()
-            .map(|key| {
-                body.find(&format!("\"{key}\":"))
-                    .expect("the body names every key it was parsed from")
-            })
-            .collect::<Vec<_>>();
-        assert!(
-            offsets.is_sorted(),
-            "the `{section}` keys are not sorted in {body}"
-        );
+/// Normalizes path separators inside every string leaf of a decoded JSON value,
+/// so the snapshot below reads the same on windows as it does elsewhere.
+fn normalize_paths(value: &mut Value) {
+    match value {
+        Value::String(s) => *s = s.replace(std::path::MAIN_SEPARATOR, "/"),
+        Value::Array(items) => items.iter_mut().for_each(normalize_paths),
+        Value::Object(map) => map.values_mut().for_each(normalize_paths),
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
     }
 }
 
@@ -57,9 +43,84 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
     let second_catalog = second.get("/catalog").await;
     assert_eq!(first_catalog.status(), 200);
     assert_eq!(second_catalog.status(), 200);
-    assert_sorted_and_populated(&first_catalog);
-    assert_sorted_and_populated(&second_catalog);
     assert_eq!(first_catalog.text(), second_catalog.text());
+
+    let mut catalog = first_catalog.json();
+    normalize_paths(&mut catalog);
+    insta::assert_json_snapshot!(catalog, @r#"
+    {
+      "fonts": {
+        "Overpass Mono Light": {
+          "end": 128276,
+          "family": "Overpass Mono",
+          "format": "otf",
+          "glyphs": 988,
+          "start": 0,
+          "style": "Light"
+        },
+        "Overpass Mono Regular": {
+          "end": 128276,
+          "family": "Overpass Mono",
+          "format": "ttf",
+          "glyphs": 988,
+          "start": 0,
+          "style": "Regular"
+        }
+      },
+      "settings": {},
+      "sprites": {
+        "src1": {
+          "images": [
+            "another_bicycle",
+            "bear",
+            "sub/circle"
+          ]
+        },
+        "src2": {
+          "images": [
+            "bicycle"
+          ]
+        }
+      },
+      "styles": {
+        "maplibre_demo": {
+          "path": "tests/fixtures/styles/maplibre_demo.json"
+        },
+        "maptiler_basic": {
+          "path": "tests/fixtures/styles/src2/maptiler_basic.json"
+        },
+        "osm-liberty-lite": {
+          "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+        }
+      },
+      "tiles": {
+        "bare_geometry": {
+          "content_type": "application/x-protobuf"
+        },
+        "clip": {
+          "content_type": "application/x-protobuf"
+        },
+        "feature_1": {
+          "content_type": "application/x-protobuf"
+        },
+        "feature_collection_1": {
+          "content_type": "application/x-protobuf"
+        },
+        "feature_collection_2": {
+          "content_type": "application/x-protobuf"
+        },
+        "feature_collection_3": {
+          "content_type": "application/x-protobuf"
+        },
+        "multi_geometries": {
+          "content_type": "application/x-protobuf"
+        },
+        "properties": {
+          "content_type": "application/x-protobuf"
+        }
+      }
+    }
+    "#);
 
     for martin in [&mut first, &mut second] {
         martin.stop().await;
