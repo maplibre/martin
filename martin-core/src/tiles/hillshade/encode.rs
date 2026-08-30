@@ -6,14 +6,19 @@ use super::error::HillshadeError;
 use super::shade::BakedTile;
 
 /// Image formats a baked hillshade can be encoded to.
-pub const SUPPORTED_FORMATS: &[Format] = &[Format::Png, Format::Webp];
+pub const SUPPORTED_FORMATS: &[Format] = &[Format::Png, Format::Webp, Format::Jxl];
 
 impl BakedTile {
     /// Encodes the baked grayscale image as `format`.
     pub fn encode(&self, format: Format) -> Result<Vec<u8>, HillshadeError> {
         use image::codecs::png::PngEncoder;
         use image::codecs::webp::WebPEncoder;
+        use image::error::{EncodingError, ImageFormatHint};
         use image::{ExtendedColorType, ImageEncoder as _};
+        use zune_core::bit_depth::BitDepth;
+        use zune_core::colorspace::ColorSpace;
+        use zune_core::options::EncoderOptions;
+        use zune_jpegxl::JxlSimpleEncoder;
 
         let expected = (self.side as usize) * (self.side as usize);
         if self.gray.len() != expected {
@@ -38,6 +43,23 @@ impl BakedTile {
                 self.side,
                 ExtendedColorType::L8,
             ),
+            Format::Jxl => {
+                let options = EncoderOptions::new(
+                    self.side as usize,
+                    self.side as usize,
+                    ColorSpace::Luma,
+                    BitDepth::Eight,
+                );
+                JxlSimpleEncoder::new(&self.gray, options)
+                    .encode(&mut buf)
+                    .map(|_written| ())
+                    .map_err(|source| {
+                        image::ImageError::Encoding(EncodingError::new(
+                            ImageFormatHint::Name("jxl".to_owned()),
+                            source,
+                        ))
+                    })
+            }
             other @ (Format::Gif
             | Format::Jpeg
             | Format::Json
@@ -56,6 +78,7 @@ mod tests {
     use strum::IntoEnumIterator as _;
 
     use super::*;
+    use crate::tiles::raster_codecs::ensure_jxl_decoding_hook;
 
     /// A small bake with a spread of tones, enough to catch a codec quantising.
     fn baked(side: u32) -> BakedTile {
@@ -70,7 +93,9 @@ mod tests {
     #[rstest]
     #[case::png(Format::Png)]
     #[case::webp(Format::Webp)]
+    #[case::jxl(Format::Jxl)]
     fn supported_formats_round_trip_losslessly(#[case] format: Format) {
+        ensure_jxl_decoding_hook();
         let tile = baked(64);
         let bytes = tile.encode(format).expect("encodes");
         let decoded = image::load_from_memory(&bytes).expect("decodes").to_luma8();

@@ -37,6 +37,9 @@ pub mod duckdb;
 /// Implementation of a [`Source`] that proxies tiles from an upstream HTTP tile server.
 pub mod passthrough;
 
+#[cfg(feature = "_raster")]
+pub(crate) mod raster_codecs;
+
 #[cfg(feature = "hillshade")]
 pub mod hillshade;
 
