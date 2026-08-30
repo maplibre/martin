@@ -4,7 +4,7 @@ use actix_middleware_etag::Etag;
 use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpResponse, Result as ActixResult, route, routes};
 use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache, normalize_font_ids};
 use serde::Deserialize;
 use tracing::{instrument, warn};
@@ -92,6 +92,42 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
             LOCATION,
             format!("/font/{}/{}-{}", path.fontstack, path.start, path.end),
         ))
+        .finish()
+}
+
+#[derive(Deserialize, Debug)]
+struct FontExtRequest {
+    fontstack: String,
+    start: u32,
+    end: u32,
+    ext: String,
+}
+
+/// Redirect `/font/{fontstack}/{start}-{end}.{extension}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
+#[routes]
+#[get("/font/{fontstack}/{start}-{end}.{ext}")]
+#[head("/font/{fontstack}/{start}-{end}.{ext}")]
+#[get("/fonts/{fontstack}/{start}-{end}.{ext}")]
+#[head("/fonts/{fontstack}/{start}-{end}.{ext}")]
+pub async fn redirect_font_ext(path: Path<FontExtRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let FontExtRequest {
+        fontstack,
+        start,
+        end,
+        ext,
+    } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /font/{fontstack}/{start}-{end}.{ext} caused unnecessary redirect. Use /font/{fontstack}/{start}-{end} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/font/{fontstack}/{start}-{end}")))
         .finish()
 }
 

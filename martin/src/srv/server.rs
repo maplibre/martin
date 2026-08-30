@@ -165,7 +165,10 @@ fn register_services(
         .service(sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(fonts::get_font).service(fonts::redirect_fonts);
+    // Register the glyph file-extension redirect BEFORE the main font route
+    cfg.service(fonts::redirect_font_ext)
+        .service(fonts::get_font)
+        .service(fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
     cfg.service(styles::get_style_json)
