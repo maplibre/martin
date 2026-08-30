@@ -6,6 +6,8 @@ use martin_core::tiles::mbtiles::MbtSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
     TileSourceConfiguration, UnrecognizedValues,
@@ -37,6 +39,15 @@ pub struct MbtConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    /// Settable per source only, since it describes what this source serves rather than a server-wide policy.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -132,15 +143,17 @@ mod tests {
                 ),
                 (
                     "pm-src2".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
                 (
                     "pm-src3".to_owned(),
@@ -148,27 +161,31 @@ mod tests {
                 ),
                 (
                     "pm-src4".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
                 (
                     "pm-src5".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                         cache_control: None,
-                    })
+                    }))
                 ),
             ]))
         );

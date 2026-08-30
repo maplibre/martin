@@ -14,6 +14,14 @@ pub use srv::CacheControlHeader;
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod hillshade;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+pub use hillshade::{
+    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
+    ResolvedHillshade,
+};
+
 pub mod process;
 pub use process::ProcessConfig;
 #[cfg(any(feature = "postgres", feature = "_file_kinds"))]

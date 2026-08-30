@@ -1,7 +1,7 @@
 use crate::TileSourceManager;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "mlt")]
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
@@ -31,11 +31,13 @@ impl PmtilesReloader {
         config: &FileConfigEnum<PmtConfig>,
         global_process: &ProcessConfig,
     ) -> Self {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_process")]
         let process = {
             let source_type = match config {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
                     ..Default::default()
                 },
@@ -45,7 +47,7 @@ impl PmtilesReloader {
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };
-        #[cfg(not(feature = "mlt"))]
+        #[cfg(not(feature = "_process"))]
         let process = {
             let _ = global_process;
             ProcessConfig::default()
@@ -221,15 +223,17 @@ mod tests {
         let mut sources: BTreeMap<String, FileConfigSrc> = BTreeMap::new();
         sources.insert(
             "remote_a".to_owned(),
-            FileConfigSrc::Obj(FileConfigSource {
+            FileConfigSrc::Obj(Box::new(FileConfigSource {
                 path: PathBuf::from("s3://bucket/file.pmtiles"),
                 cache: CachePolicy::default(),
-                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                #[cfg(feature = "mlt")]
                 convert_to_mlt: None,
-                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                #[cfg(feature = "mlt")]
                 convert_to_mvt: None,
                 cache_control: None,
-            }),
+                #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                convert_to_hillshade: None,
+            })),
         );
         let cfg = FileConfigEnum::Config(FileConfig {
             paths: OptOneMany::NoVals,

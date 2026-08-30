@@ -267,6 +267,33 @@ async fn the_plural_fonts_path_redirects() {
     martin.assert_log_clean();
 }
 
+#[rstest]
+#[case::singular("font")]
+#[case::plural("fonts")]
+#[tokio::test]
+async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
+    let mut martin = martin_with_font_dir().await;
+
+    let path = format!("/{segment}/{REGULAR}/0-255.pbf");
+    for response in [martin.get(&path).await, martin.head(&path).await] {
+        assert_eq!(response.status(), 301);
+        insta::allow_duplicates! {
+            insta::assert_snapshot!(response.headers_snapshot(), @"
+            content-length: 0
+            location: /font/Overpass Mono Regular/0-255
+            vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+            ");
+        }
+    }
+    assert_eq!(
+        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
+        200
+    );
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
 #[tokio::test]
 async fn a_font_configured_from_two_paths_is_registered_once() {
     let mut martin = Martin::builder()

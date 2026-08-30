@@ -125,6 +125,7 @@ indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
 json-patch = "4"
+jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.9.0"
@@ -136,6 +137,7 @@ md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.12.3", default-features = false }
 moka = { version = "0.12", default-features = false }
+multiversion = "0.8"
 notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
@@ -197,6 +199,8 @@ walkdir = "2.5.0"
 wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zstd = "0.13"
+zune-core = "0.5"
+zune-jpegxl = "0.5"
 
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification

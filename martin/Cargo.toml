@@ -114,6 +114,7 @@ default = [
     "webui",
     "geojson",
     "mlt",
+    "hillshade",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
@@ -142,11 +143,13 @@ postgres = [
     "_tiles",
 ]
 geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
+hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-mlt = ["dep:mlt-core"]
+mlt = ["dep:mlt-core", "_process"]
 _tiles = ["martin-core/_tiles", "_catalog"]
+_process = []
 _catalog = []
 _file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
@@ -175,6 +178,7 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 clap.workspace = true
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true

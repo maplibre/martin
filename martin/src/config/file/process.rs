@@ -4,6 +4,8 @@ use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::CacheControlHeader;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::hillshade::HillshadeProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -22,6 +24,8 @@ pub struct ProcessConfig {
     /// `Cache-Control` response header for this source,
     /// overriding the server-level `cache_control` default.
     pub cache_control: Option<CacheControlHeader>,
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
 }
 
 /// Configuration for MVT-to-MLT format conversion.
@@ -132,7 +136,8 @@ impl From<MltEncoderConfig> for EncoderConfig {
 
 /// Resolve the effective per-source config: per-source > source-type > global > default.
 ///
-/// The `convert_to_*` pair overrides as a unit; `cache_control` resolves on its own.
+/// The `convert_to_mlt`/`convert_to_mvt` pair overrides as a unit, `cache_control` resolves on
+/// its own, and `convert_to_hillshade` is per-source only.
 #[must_use]
 pub fn resolve_process_config(
     global: &ProcessConfig,
@@ -155,6 +160,8 @@ pub fn resolve_process_config(
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         convert_to_mvt: conversions.convert_to_mvt.clone(),
         cache_control,
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        convert_to_hillshade: per_source.convert_to_hillshade.clone(),
     }
 }
 
@@ -285,9 +292,6 @@ mod tests {
         "#);
     }
 
-    /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line -
-    /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
-    /// instead of routing through a generic `Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_nested_field_bad_type() {
@@ -310,35 +314,39 @@ mod tests {
         ");
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn resolve_per_source_disabled_overrides_global_auto() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Disabled),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let resolved = resolve_process_config(&global, &ProcessConfig::default(), &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn resolve_per_source_overrides_all() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
@@ -347,37 +355,41 @@ mod tests {
             })),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &per_source);
         assert_eq!(resolved, per_source);
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn resolve_source_type_overrides_global() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
             cache_control: None,
+            convert_to_hillshade: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &ProcessConfig::default());
         assert_eq!(resolved, source_type);
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn resolve_global_used_as_fallback() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             convert_to_mvt: None,
             cache_control: None,
+            convert_to_hillshade: None,
         };
 
         let resolved = resolve_process_config(

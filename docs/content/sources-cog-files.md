@@ -10,7 +10,7 @@ tags:
 
 !!! warning
     This feature is currently unstable and thus not included in the default build.
-    Its behaviour may change in patch releases.
+    Its behavior may change in patch releases.
 
     To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
 
@@ -22,7 +22,7 @@ tags:
 
     - [`EPSG:3857`](https://epsg.io/3857) is not yet supported => <https://github.com/maplibre/martin/pull/1893>
 
-    We welcome contributions to help stabilise this feature!
+    We welcome contributions to help stabilize this feature!
 
 Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 
@@ -30,13 +30,13 @@ Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)]
     For cog on remote storage like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875).
     We welcome any assistance.
 
-## Supported colortype and bits per sample
+## Supported color type and bits per sample
 
-| colory type | bits per sample | supported | status     |
-|-------------|-----------------|-----------|------------|
-| rgb/rgba    | 8               | ✅        |            |
-| rgb/rgba    | 16/32...        | 🛠️        | working on |
-| gray        | 8/16/32...      | 🛠️        | working on |
+| color type | bits per sample | supported | status     |
+|------------|-----------------|-----------|------------|
+| rgb/rgba   | 8               | ✅        |            |
+| rgb/rgba   | 16/32...        | 🛠️        | working on |
+| gray       | 8/16/32...      | 🛠️        | working on |
 
 ## Supported compression
 

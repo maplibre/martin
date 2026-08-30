@@ -22,6 +22,7 @@ brotli.workspace = true
 flate2.workspace = true
 image.workspace = true
 image-compare.workspace = true
+jxl-oxide.workspace = true
 mlt-core.workspace = true
 pmtiles = { workspace = true, features = ["write"] }
 regex.workspace = true

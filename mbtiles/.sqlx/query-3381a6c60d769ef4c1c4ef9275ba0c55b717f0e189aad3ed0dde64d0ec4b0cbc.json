@@ -20,6 +20,6 @@
       "Right": 0
     }
   },
-  "hash": "96f3201d2151fbef63593c0e87648a2991e05060e71aa96141ece0867afa2d6c",
-  "query": "\nSELECT min(zoom_level) AS min_zoom,\n       max(zoom_level) AS max_zoom\nFROM tiles;"
+  "hash": "3381a6c60d769ef4c1c4ef9275ba0c55b717f0e189aad3ed0dde64d0ec4b0cbc",
+  "query": "\nSELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,\n       (SELECT max(zoom_level) FROM tiles) AS max_zoom;"
 }

@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -284,7 +284,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -403,6 +403,10 @@ fmt: fetch
         cargo fmt --all
     fi
 
+# Spellcheck the docs using cspell
+spellcheck *args:
+    npx --yes cspell@10.1.1 lint --no-progress {{args}}
+
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
     docker run --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
@@ -470,7 +474,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run common lints
-lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
 
 # Run mbtiles command
 mbtiles *args: fetch
@@ -610,10 +614,8 @@ test-cog: fetch
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
-    cargo test -p martin --features test-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
-    cargo build --package martin --no-default-features --features unstable-duckdb
+    cargo test -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     cargo test --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette

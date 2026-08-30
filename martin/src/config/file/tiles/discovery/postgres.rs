@@ -123,6 +123,8 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
         },
         SourceSpec::Function(info, _) => ProcessConfig {
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -130,6 +132,8 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
         },
     };
     resolve_process_config(connection, &ProcessConfig::default(), &per_source)
