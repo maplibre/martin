@@ -40,6 +40,7 @@ hillshade
 hillshading
 httpfs
 isnull
+jpegxl
 keepalives
 linestring
 lldb
@@ -103,3 +104,4 @@ urlencode
 varchar
 webui
 workspaced
+zune
