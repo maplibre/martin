@@ -160,15 +160,17 @@ mod tests {
                 ),
                 (
                     "pm-src2".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
                 (
                     "pm-src3".to_owned(),
@@ -176,15 +178,17 @@ mod tests {
                 ),
                 (
                     "pm-src4".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
-                    })
+                    }))
                 ),
             ]))
         );

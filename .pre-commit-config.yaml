@@ -38,6 +38,13 @@ repos:
       - id: forbid-tabs
       - id: remove-tabs
 
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v10.1.0
+    hooks:
+      - id: cspell
+        # scoped to the docs; `cspell.json` holds the config and `.cspell/project-words.txt` the domain vocabulary
+        files: ^docs/.*\.md$
+
   - repo: https://github.com/sirosen/texthooks
     rev: 0.7.1
     hooks:

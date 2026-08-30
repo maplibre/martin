@@ -148,6 +148,43 @@ keep_alive: 75
 listen_addresses: 0.0.0.0:3000
 # Publish `MBTiles` files
 mbtiles:
+  # Hillshade settings for this source.
+  #
+  # Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+  # See the hillshade documentation for the knobs.
+  # Settable per source only, since it describes what this source serves rather than a server-wide policy.
+  convert_to_hillshade:
+    # Whether a request may override these settings with query parameters.
+    # Defaults to `false`.
+    allow_request_overrides: null
+    # Height of the light above the horizon in degrees.
+    # Defaults to `45`.
+    altitude: null
+    # Shadow floor, so shadows read as shaded rather than black.
+    # Defaults to `0.2`.
+    ambient: null
+    # Compass bearing the light shines from, in degrees clockwise from north.
+    # Defaults to `300` (north-west) by cartographic convention.
+    azimuth: null
+    # Separation between lit and shadowed slopes.
+    # Defaults to `2.5`.
+    contrast: null
+    # How strongly high terrain deepens the contrast.
+    # Defaults to `0`, which shades high and low terrain alike.
+    elevation_scale: null
+    # Output image format.
+    # Defaults to `png`.
+    format: png
+    # Apron width in pixels at 256-core scale, rescaled with the core.
+    # Defaults to `0`, so the served tile is a 512x512 square.
+    padding: null
+    # Number of hard shading bands; below `2` the shading is a smooth gradient instead.
+    # Defaults to `6`.
+    toon_bands: null
+    # Scales the terrain's horizontal gradient before lighting, exaggerating relief.
+    # `1` is true-to-source.
+    # Defaults to `2.5`.
+    vertical_exaggeration: null
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:

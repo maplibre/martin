@@ -11,7 +11,7 @@ tags:
 
 !!! warning
     This feature is currently unstable and thus not included in the default build.
-    Its behaviour may change in patch releases.
+    Its behavior may change in patch releases.
 
     To experiment with it on any supported platform, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install Martin with the unstable feature:
 
@@ -30,7 +30,7 @@ tags:
     - MLT postprocessing is not supported
     - The published configuration schema does not yet include DuckDB sources
 
-    We welcome contributions to help stabilise this feature!
+    We welcome contributions to help stabilize this feature!
 
 Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files via [DuckDB](https://duckdb.org/).
 Instead of incurring the overhead of serving them directly, we serve them as vector tiles.

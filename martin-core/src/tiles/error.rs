@@ -2,6 +2,8 @@
 use super::cog::CogError;
 #[cfg(feature = "unstable-duckdb")]
 use super::duckdb::DuckDBError;
+#[cfg(feature = "hillshade")]
+use super::hillshade::HillshadeError;
 #[cfg(feature = "mbtiles")]
 use super::mbtiles::MbtilesError;
 #[cfg(feature = "passthrough")]
@@ -45,6 +47,11 @@ pub enum MartinCoreError {
     #[error(transparent)]
     CogError(#[from] CogError),
 
+    /// Errors that can occur while baking a [`hillshade`](crate::tiles::hillshade).
+    #[cfg(feature = "hillshade")]
+    #[error(transparent)]
+    HillshadeError(#[from] HillshadeError),
+
     /// The tile source was modified since it was opened and must be reloaded before retrying.
     ///
     /// Use of this error REQUIRES the `Source` to also implement `Source::try_reload()`.
@@ -81,6 +88,8 @@ impl crate::Classify for MartinCoreError {
             Self::CogError(e) => e.kind(),
             #[cfg(feature = "geojson")]
             Self::GeoJsonError(e) => e.kind(),
+            #[cfg(feature = "hillshade")]
+            Self::HillshadeError(e) => e.kind(),
             Self::SourceNeedsReload | Self::OtherError(_) => crate::ErrorKind::Internal,
         }
     }
