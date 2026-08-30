@@ -19,7 +19,7 @@ When used as a library, you can use the following features:
   * `fonts` - enable font sources
   * `sprites` - enable sprite sources
   * `styles` - enable style sources
-* `lambda` - add specialised support for running in serverless functions
+* `lambda` - add specialized support for running in serverless functions
 
 If you are missing a part of Martin functionality in the [public `martin` API](https://docs.rs/martin), we would love to hear from you.
 Please open an issue on our GitHub repository or directly open a pull request.

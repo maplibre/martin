@@ -9,8 +9,8 @@ tags:
 
 # Hillshade
 
-A hillshade is the grey relief image a map overlayd over its basemap to make terrain look three-dimensional.
-Martin can bake one from a source that serves *normal maps* in Mapzen's encoding - tiles whose pixels store which way the ground faces instead of a colur - which **spares the client this work** and lets the result be **compressed further**.
+A hillshade is the grey relief image a map overlays over its basemap, multiplying it into the colors underneath to make terrain look three-dimensional.
+Martin can bake one from a source that serves *normal maps* in Mapzen's encoding - tiles whose pixels store which way the ground faces instead of a color - which **spares the client this work** and lets the result be **compressed further**.
 See the left image below for the input and the right for the output of this postprocessing.
 
 This is less flexible for the client.
@@ -53,7 +53,7 @@ The horizontal components in the red and green channels and elevation in alpha.
 The gradient is already baked in, so shading needs no knowledge of the tile's ground resolution.
 
 !!! note "Elevation formats such as DEM and Terrarium are not supported."
-    Shading heights means differentiating them against metres-per-pixel at that latitude and zoom, and matching the source's own quantisation - a separate feature rather than a decode step on this one.
+    Shading heights means differentiating them against meters-per-pixel at that latitude and zoom, and matching the source's own quantization - a separate feature rather than a decode step on this one.
     PRs welcome :wink:
 
 ## Settings
@@ -76,16 +76,21 @@ Out-of-range values are rejected at startup, rather than surfacing later on some
 The default light comes from the north-west by cartographic convention.
 Terrain lit from the lower half of the compass reads as inverted to most people, with valleys appearing to bulge out of the map.
 
+<<<<<<< HEAD
 !!! tip "what does `toon_bands` actually do?"
     The defaults for `toon_bands` "squash" the relief into six hard bands, which keeps the shading readable once it is multiplied under a basemap.
     Set `toon_bands: 0` for a smooth gradient instead.
     `elevation_scale` is off by default, so a slope is shaded the same way whether it sits in a valley or on a summit; raise it to make high terrain read more strongly than low.
+=======
+The defaults bake a plain, smoothly shaded relief: the two stylistic knobs, `toon_bands` and `elevation_scale`, are off.
+They are what a basemap usually wants, and they leave any particular house style as something you opt into rather than something you have to undo.
+>>>>>>> 14625522 (spellchecking)
 
 Both formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
 Lossless WebP is typically around a third smaller than PNG, and is the better choice where clients support it.
 
 !!! tip "`padding` is only for clients that sample past tile edges"
-    The tile is rendered larger than its nominal size, so a client whose sampler reads just outside a tile edge finds real data there rather than disagreeing with the neighbouring tile.
+    The tile is rendered larger than its nominal size, so a client whose sampler reads just outside a tile edge finds real data there rather than disagreeing with the neighboring tile.
     MapLibre samples within tile bounds and needs none, hence the `0` default and the exact 512x512 tile.
 
     Padding is expressed at 256-core scale and rescaled with the core, so `padding: 8` yields a 16-pixel apron per side and a 544x544 tile, which the client must crop.
@@ -93,8 +98,10 @@ Lossless WebP is typically around a third smaller than PNG, and is the better ch
 ## Per-request overrides
 
 !!! warning "This is an expensive feature"
-    Hillshading is CPU-intensive. Leave `allow_request_overrides` off unless callers actually need it.
-    A hillshade for fixed settings never changes (+- data changes), so it is near-perfectly cacheable.
+    Leave `allow_request_overrides` off in production.
+    It is meant for internal development, where you want to figure out which parameters look best for your specific map.
+    Hillshading is CPU-intensive.
+    A hillshade for fixed settings never changes (+/- data changes), so it is near-perfectly cacheable at the edge.
 
 With `allow_request_overrides: true`, a request may override any of the seven lighting parameters by name:
 
@@ -104,12 +111,11 @@ GET /terrain/12/2100/1300?azimuth=90&toon_bands=0
 
 `padding`, `format`, and `allow_request_overrides` itself are not overridable.
 Values that are out of range or not a number are rejected with `400`, while query parameters that are not hillshade settings are ignored.
-This option trades server CPU time for flexibility.
 
 ## Caching and cache-busting
 
-Baking reads a 3x3 neighbourhood (to avoid boundary seams) of normal maps, so nine tiles are read per uncached tile served.
-We cache the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighbouring tiles, whereas a baked tile is specific to one parameter set.
+Baking reads a 3x3 neighborhood (to avoid boundary seams) of normal maps, so nine tiles are read per uncached tile served.
+We cache the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a baked tile is specific to one parameter set.
 
 Each tile's `ETag` is derived from the nine tiles it read plus the settings it was baked with, so it moves whenever any input or any setting does.
 
@@ -117,13 +123,13 @@ Each tile's `ETag` is derived from the nine tiles it read plus the settings it w
     To force clients onto a re-tuned hillshade, serve it under a new source ID.
     There is deliberately no cache-busting query parameter: that would leave clients in charge of the server's correctness.
 
-## Neighbourhood handling
+## Neighborhood handling
 
-Missing neighbours are routine rather than an error: at the poles, at the edge of coverage, or when one read of nine fails.
-A missing or unreadable neighbour is replaced by extending the centre tile's nearest edge outward, which may create a seam but still serves the tile.
+Missing neighbors are routine rather than an error: at the poles, at the edge of coverage, or when one read of nine fails.
+A missing or unreadable neighbor is replaced by extending the center tile's nearest edge outward, which may create a seam but still serves the tile.
 
-The projection is cylindrical in x, so tiles at the antimeridian get real neighbours from the far side of the map instead of a clamped edge.
+The projection is cylindrical in x, so tiles at the antimeridian get real neighbors from the far side of the map instead of a clamped edge.
 It is not cylindrical in y, so a tile in the top or bottom row has three clamped slots.
 
-!!! danger "A centre tile that fails to decode is an error"
+!!! danger "A center tile that fails to decode is an error"
     Serving a blank core inside a `200 OK` would let a CDN hold nothing-shaped terrain for as long as its `max-age`, which is worse than a visible failure.

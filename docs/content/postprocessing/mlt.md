@@ -16,7 +16,7 @@ See the [MLT spec](https://github.com/maplibre/maplibre-tile-spec) for details.
 
 Martin can convert MVT tiles to MLT at serve time, so you don't need to re-generate your tile archives or change your database functions.
 If you generate your own tile archives, consider generating them using MLT instead since you save CPU cycles and latency this way.
-The default for this is optimised for size, optimises for network size (!= low CPU usage) and can thus convert approximately 10k tiles/s.
+The default for this is optimized for size, optimizes for network size (!= low CPU usage) and can thus convert approximately 10k tiles/s.
 
 !!! note "Prerequisites"
 
@@ -104,7 +104,7 @@ Only the fields you specify override the defaults; unset fields keep their `mlt-
 
 | Field                      | When to change                                                                                              |
 |----------------------------|-------------------------------------------------------------------------------------------------------------|
-| `tessellate`               | Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your usecase |
+| `tessellate`               | Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case |
 | `try_spatial_morton_sort`  | Disable if your data is already spatially ordered                                                           |
 | `try_spatial_hilbert_sort` | Disable if Morton sort doesn't compress well for your data                                                  |
 | `try_id_sort`              | Enable when features have sequential IDs and spatial sorting isn't beneficial                               |
@@ -120,7 +120,7 @@ Only the fields you specify override the defaults; unset fields keep their `mlt-
 !!! warning
 
     MLT uses lightweight compressions (FastPFOR, FSST, ...), so combining it with heavyweight compression (e.g. gzip) removes most of the reasons for using it.
-    Do this only if you have benchmarked that this actually makes your usecase better.
+    Do this only if you have benchmarked that this actually makes your use case better.
     If for example CPU usage is an issue, disable some sorting options that you have benchmarked to be ineffective.
 
 ## Serving MVT from MLT Sources

@@ -13,7 +13,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     This feature is included in the default build on Linux.
-    Its behaviour may change in patch releases.
+    Its behavior may change in patch releases.
 
     Limitations of our current implementation:
 
@@ -22,7 +22,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
     - Currently, martin does not cache style rendered requests and
     - does not support concurrency for this feature.
 
-    We welcome contributions to help stabilise this feature!
+    We welcome contributions to help stabilize this feature!
 
 To enable rendering, turn it on in the configuration file:
 
@@ -33,7 +33,7 @@ styles:
 
 ## Rendered XYZ tiles
 
-We support generating a rasterised image for an XYZ tile of a given style.
+We support generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
 

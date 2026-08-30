@@ -403,6 +403,10 @@ fmt: fetch
         cargo fmt --all
     fi
 
+# Spellcheck the docs using cspell
+spellcheck *args:
+    npx --yes cspell@10.1.1 lint --no-progress {{args}}
+
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
     docker run --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
@@ -470,7 +474,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run common lints
-lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
 
 # Run mbtiles command
 mbtiles *args: fetch
