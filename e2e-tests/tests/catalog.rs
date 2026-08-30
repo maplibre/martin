@@ -47,7 +47,7 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
 
     let mut catalog = first_catalog.json();
     normalize_paths(&mut catalog);
-    insta::assert_json_snapshot!(catalog, @r#"
+    insta::assert_json_snapshot!(catalog, {".settings" => "[cfg dependent]"}, @r#"
     {
       "fonts": {
         "Overpass Mono Light": {
@@ -67,7 +67,7 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
           "style": "Regular"
         }
       },
-      "settings": {},
+      "settings": "[cfg dependent]",
       "sprites": {
         "src1": {
           "images": [
