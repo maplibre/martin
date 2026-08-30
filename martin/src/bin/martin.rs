@@ -128,7 +128,7 @@ async fn main() {
     init_tracing(&filter, log_format, false);
 
     let args = Args::parse();
-    if let Err(e) = start(args).await {
+    if let Err(e) = Box::pin(start(args)).await {
         let rendered = e.render_diagnostic_with(log_format);
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");

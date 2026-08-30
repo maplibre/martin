@@ -5,7 +5,7 @@ use crate::TileSourceManager;
 use crate::config::file::FileConfigEnum;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "mlt")]
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
@@ -26,12 +26,16 @@ impl MbtilesReloader {
         config: &FileConfigEnum<MbtConfig>,
         global_process: &ProcessConfig,
     ) -> Self {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_process")]
         let process = {
             let source_type = match config {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: cfg.custom.convert_to_hillshade.clone(),
                     ..Default::default()
                 },
                 FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
@@ -40,7 +44,7 @@ impl MbtilesReloader {
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };
-        #[cfg(not(feature = "mlt"))]
+        #[cfg(not(feature = "_process"))]
         let process = {
             let _ = (config, global_process);
             ProcessConfig::default()

@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
     ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
@@ -264,6 +266,14 @@ pub struct PassthroughSourceConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    /// Settable per source only, since it is tied to what this source serves (raster data in Mapzen format).
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -287,6 +297,8 @@ impl Default for PassthroughSourceConfig {
             convert_to_mlt: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            convert_to_hillshade: None,
             unrecognized: UnrecognizedValues::default(),
         }
     }

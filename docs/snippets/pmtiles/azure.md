@@ -36,3 +36,5 @@
 | `fabric_workload_host`      | Host for Fabric workload                                                                                                                                        | `https://workload.fabric.mycompany.com`   |
 | `fabric_session_token`      | Session token for Fabric<br><br>**Security note:** Must be protected; use HTTPS                                                                                 | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
 | `fabric_cluster_identifier` | Identifier for Fabric cluster                                                                                                                                   | `fabric-cluster-01`                       |
+
+<!-- cspell:ignore cdef efgh ijkl mnop qrst uvwx yzab myrg myaccount mycontainer myidentity resourcegroups rwdl -->
