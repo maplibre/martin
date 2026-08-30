@@ -13,7 +13,7 @@
 //! let path = sources.style_json_path("basic").unwrap();
 //! ```
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use std::num::NonZeroUsize;
@@ -86,7 +86,7 @@ pub struct CatalogStyleEntry {
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).
-pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
+pub type StyleCatalog = BTreeMap<String, CatalogStyleEntry>;
 
 /// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]

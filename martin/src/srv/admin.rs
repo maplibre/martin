@@ -1,5 +1,5 @@
 #[cfg(feature = "_tiles")]
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use actix_web::web::Data;
 use actix_web::{HttpResponse, Responder, middleware, route};
@@ -17,7 +17,7 @@ use crate::srv::ServerStartError;
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
 pub struct Catalog {
-    // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
+    // utoipa <=5.4 names every `BTreeMap<K, V>` as `BTreeMap`, so the four
     // catalog fields would collide on a single `$ref` if we let them factor
     // out - `#[schema(inline)]` keeps the schema for each field inline and
     // distinct.
@@ -55,7 +55,7 @@ impl Catalog {
     ) -> Result<Self, ServerStartError> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
-            tiles: HashMap::default(),
+            tiles: BTreeMap::default(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
