@@ -1636,7 +1636,7 @@ Read it when you're curious <strong>why</strong> certain choices were made.</p>
 <summary>Async-first architecture</summary>
 <p>Allows Martin to handle many concurrent requests efficiently.</p>
 <ul>
-<li>Handles hundreds of thousdands of concurrent connections</li>
+<li>Handles hundreds of thousands of concurrent connections</li>
 <li>Avoids blocking database queries</li>
 <li>Enables efficient file and network I/O</li>
 <li>Keeps thread usage low under load</li>
@@ -1738,7 +1738,7 @@ Best for semi-static parquet datasets without a pre-generated archive.</p>
 </ul>
 </details>
 <h2 id="component-interactions">Component Interactions</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PosgtgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label><label for="__tabbed_4_4">DuckDB / GeoParquet Integration</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PostgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label><label for="__tabbed_4_4">DuckDB / GeoParquet Integration</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <pre class="mermaid"><code>graph TB
@@ -1839,7 +1839,7 @@ Martin loads the whole file once, reprojects and indexes it in memory, then clip
 <ul>
 <li><code>extent</code> (default <code>4096</code>) - side length of the MVT integer coordinate grid a tile is encoded into.
   A <code>NonZeroU32</code>, so <code>0</code> is rejected at parse time.</li>
-<li><code>buffer</code> (default <code>64</code>, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.</li>
+<li><code>buffer</code> (default <code>64</code>, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighboring tiles.</li>
 </ul>
 <p>Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed <code>.geojson</code>/<code>.json</code> files.</p>
 </div>

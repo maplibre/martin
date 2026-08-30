@@ -1209,6 +1209,8 @@
       
         
       
+        
+      
     
     
     
@@ -1285,6 +1287,35 @@
     
   
   MVT/MLT Conversion
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../postprocessing/hillshade/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14 6-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Hillshade
 
     
   </span>
@@ -2053,7 +2084,7 @@ as XYZ tiles, or as a single static image at a chosen camera.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This feature is included in the default build on Linux.
-Its behaviour may change in patch releases.</p>
+Its behavior may change in patch releases.</p>
 <p>Limitations of our current implementation:</p>
 <ul>
 <li>Rendering support is currently only available on Linux.
@@ -2061,14 +2092,14 @@ Its behaviour may change in patch releases.</p>
 <li>Currently, martin does not cache style rendered requests and</li>
 <li>does not support concurrency for this feature.</li>
 </ul>
-<p>We welcome contributions to help stabilise this feature!</p>
+<p>We welcome contributions to help stabilize this feature!</p>
 </div>
 <p>To enable rendering, turn it on in the configuration file:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">styles</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
 <h2 id="rendered-xyz-tiles">Rendered XYZ tiles</h2>
-<p>We support generating a rasterised image for an XYZ tile of a given style.</p>
+<p>We support generating a rasterized image for an XYZ tile of a given style.</p>
 <p>After enabling rendering, you can use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>'s rendered png/jpeg content.</p>
 <h2 id="static-images">Static images</h2>
 <div class="admonition info">
