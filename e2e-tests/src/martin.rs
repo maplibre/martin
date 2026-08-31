@@ -652,6 +652,23 @@ impl TestResponse {
         lines.sort();
         lines.join("\n")
     }
+
+    /// [`Self::headers_snapshot`] with the `etag` value masked, for bodies
+    /// whose bytes differ per platform.
+    #[must_use]
+    pub fn headers_snapshot_masking_etag(&self) -> String {
+        self.headers_snapshot()
+            .lines()
+            .map(|line| {
+                if line.starts_with("etag: ") {
+                    "etag: [ETAG]"
+                } else {
+                    line
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 
 #[cfg(test)]
@@ -735,6 +752,22 @@ mod tests {
         assert_eq!(
             response.headers_snapshot(),
             "content-encoding: br\ncontent-type: application/json"
+        );
+    }
+
+    #[test]
+    fn headers_snapshot_masking_etag_keeps_the_line() {
+        let response = TestResponse {
+            status: 200,
+            headers: vec![
+                ("etag".to_owned(), "W/\"445-abc==\"".to_owned()),
+                ("content-type".to_owned(), "application/json".to_owned()),
+            ],
+            body: Vec::new(),
+        };
+        assert_eq!(
+            response.headers_snapshot_masking_etag(),
+            "content-type: application/json\netag: [ETAG]"
         );
     }
 }

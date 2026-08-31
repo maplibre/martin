@@ -44,7 +44,13 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
     assert_eq!(first_catalog.status(), 200);
     assert_eq!(second_catalog.status(), 200);
     assert_eq!(first_catalog.text(), second_catalog.text());
-    insta::assert_snapshot!(first_catalog.header("etag"), @"");
+    // The tag hashes the body, and the body carries `settings.rendering` only
+    // on linux, so the literal value is pinned there alone.
+    #[cfg(target_os = "linux")]
+    insta::assert_snapshot!(
+        first_catalog.header("etag").expect("the catalog must carry an etag"),
+        @r#"W/"445-_MIEFD4aGmj7eZDzTLRNKQ==""#
+    );
     assert_eq!(first_catalog.header("etag"), second_catalog.header("etag"));
 
     let mut catalog = first_catalog.json();

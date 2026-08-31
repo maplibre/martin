@@ -48,7 +48,7 @@ async fn every_geojson_file_becomes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @"
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]

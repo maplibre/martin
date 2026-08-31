@@ -74,7 +74,7 @@ async fn the_catalog_names_the_geoparquet_file() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @r"
       content-encoding: br
       content-type: application/json
       etag: [ETAG]
