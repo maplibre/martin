@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct CacheZoomRange {
     /// Default minimum zoom level (inclusive) for tile caching.
     /// Tiles further zoomed out than this will bypass the cache entirely.
-    /// Can be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).
+    /// Can be overridden with `cache.minzoom` on an individual source.
     /// default: null (no lower bound, all zoom levels cached)
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
     minzoom: Option<u8>,

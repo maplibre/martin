@@ -37,7 +37,7 @@ cache:
   maxzoom: 14
   # Default minimum zoom level (inclusive) for tile caching.
   # Tiles further zoomed out than this will bypass the cache entirely.
-  # Can be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).
+  # Can be overridden with `cache.minzoom` on an individual source.
   # default: null (no lower bound, all zoom levels cached)
   minzoom: 0
   # Total amount of cache we use [default: 512, 0 to disable]
