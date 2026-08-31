@@ -153,7 +153,11 @@ fn register_services(
         // Register /tiles/ prefix redirect after main tile route
         cfg.service(tiles::content::redirect_tiles);
 
-        if usr_cfg.purge_endpoint.unwrap_or(false) {
+        if usr_cfg
+            .endpoints
+            .as_ref()
+            .is_some_and(|endpoints| endpoints.purge_cache.unwrap_or(false))
+        {
             cfg.service(super::cache::purge_source);
         }
     }

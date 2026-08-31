@@ -29,7 +29,8 @@ async fn upstream_with_one_tile() -> StaticFiles {
 async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
     let upstream = upstream_with_one_tile().await;
     let config = formatdoc! {"
-        purge_endpoint: true
+        endpoints:
+          purge_cache: true
         passthrough:
           sources:
             proxy: {url}/{{z}}/{{x}}/{{y}}.pbf
@@ -71,7 +72,8 @@ async fn without_a_tile_cache_the_body_says_so() {
     let mut martin = Martin::builder()
         .config(
             formatdoc! {"
-            purge_endpoint: true
+            endpoints:
+              purge_cache: true
             cache: disable
             pmtiles:
               sources:
