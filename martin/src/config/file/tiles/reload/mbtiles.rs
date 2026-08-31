@@ -4,8 +4,6 @@ use martin_core::tiles::mbtiles::MbtSource;
 use crate::TileSourceManager;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(feature = "_process")]
-use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::{FileConfigEnum, SourceBuildResult, TileSourceWarning};
@@ -44,7 +42,7 @@ impl MbtilesReloader {
                     ProcessConfig::default()
                 }
             };
-            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
+            ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
         #[cfg(not(feature = "_process"))]
         let process = {
@@ -68,7 +66,7 @@ impl MbtilesReloader {
             config,
             &["mbtiles"],
             id_resolver,
-            process,
+            &process,
             build,
         );
 

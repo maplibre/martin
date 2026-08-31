@@ -35,7 +35,7 @@ use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
     feature = "postgres"
 ))]
 use martin::config::file::reload::TileReloaders;
-use martin::config::file::{Config, ProcessConfig, ServerState, read_config};
+use martin::config::file::{Config, ResolvedProcess, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
@@ -653,7 +653,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[(BoxedSource, ProcessConfig)],
+    sources: &[(BoxedSource, ResolvedProcess)],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {
@@ -730,7 +730,7 @@ mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
-    use martin::config::file::{OnInvalid, ProcessConfig, ServerState};
+    use martin::config::file::{OnInvalid, ResolvedProcess, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
@@ -789,7 +789,7 @@ mod tests {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|s| (s, ProcessConfig::default()))
+                    .map(|s| (s, ResolvedProcess::default()))
                     .collect()
             })
             .collect();

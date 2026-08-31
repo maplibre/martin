@@ -102,7 +102,7 @@ impl PassthroughConfig {
     /// [`TileSourceWarning`]s so one bad upstream does not abort the others.
     ///
     /// The `sources` map is rewritten so its keys become the [`IdResolver`]-assigned source ids,
-    /// matching what [`build_process_config_map`](crate::config::file::Config) later keys on.
+    /// matching what [`resolved_process_map`](crate::config::file::Config) later keys on.
     pub async fn resolve(
         &mut self,
         idr: &IdResolver,
