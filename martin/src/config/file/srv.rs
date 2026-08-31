@@ -118,6 +118,13 @@ pub struct SrvConfig {
     #[cfg(all(feature = "webui", not(docsrs)))]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
+    /// Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \[default: false\]
+    ///
+    /// The route has no authentication of its own.
+    /// Put it behind the same proxy rules as the rest of the server.
+    #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub purge_endpoint: Option<bool>,
     /// CORS Configuration
     ///
     /// Defaults to `cors: true`, which allows all origins.

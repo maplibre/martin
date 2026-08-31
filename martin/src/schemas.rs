@@ -35,6 +35,7 @@ pub fn config_json_schema() -> serde_json::Value {
         crate::srv::get_catalog,
         crate::srv::get_source_info,
         crate::srv::get_tile,
+        crate::srv::purge_source,
         crate::srv::get_sprite_png,
         crate::srv::get_sprite_sdf_png,
         crate::srv::get_sprite_json,

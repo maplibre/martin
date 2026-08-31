@@ -20,8 +20,13 @@ pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
 pub use admin::Catalog;
+
+#[cfg(feature = "_tiles")]
+mod cache;
 #[cfg(feature = "unstable-schemas")]
 pub use admin::{__path_get_catalog, get_catalog};
+#[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
+pub use cache::{__path_purge_source, purge_source};
 
 #[cfg(feature = "_tiles")]
 pub(crate) mod tiles;
