@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0](https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.15.0) - 2026-08-31
+
+### Added
+
+- *(catalog)* answer conditional requests on /catalog ([#3188](https://github.com/maplibre/martin/pull/3188))
+- add contour processing ([#3183](https://github.com/maplibre/martin/pull/3183))
+- jxl support ([#3181](https://github.com/maplibre/martin/pull/3181))
+- *(cache-control)* per-source Cache-Control overrides ([#3167](https://github.com/maplibre/martin/pull/3167))
+- *(config)* warn about legacy Postgres env var usage ([#3151](https://github.com/maplibre/martin/pull/3151))
+- *(postgres)* add --ssl-cert and --ssl-key CLI flags ([#3150](https://github.com/maplibre/martin/pull/3150))
+
+### Fixed
+
+- *(catalog)* serialize the catalog in a stable key order ([#3189](https://github.com/maplibre/martin/pull/3189))
+- *(config)* gate the resolve_process_config imports on _process ([#3191](https://github.com/maplibre/martin/pull/3191))
+- *(fonts)* redirect glyph URLs with a file extension ([#3187](https://github.com/maplibre/martin/pull/3187))
+- *(deps)* update npm dependencies ([#3177](https://github.com/maplibre/martin/pull/3177))
+- *(deps)* update npm dependencies ([#3175](https://github.com/maplibre/martin/pull/3175))
+- *(pmtiles)* pick up ECS and EKS credential discovery env vars for S3 sources ([#3165](https://github.com/maplibre/martin/pull/3165))
+- *(reload)* keep per-source convert_to_* overrides for file-backed sources ([#3160](https://github.com/maplibre/martin/pull/3160))
+- *(postgres)* keep per-source convert_to_* overrides on the reload path ([#3144](https://github.com/maplibre/martin/pull/3144))
+- *(mbtiles)* avoid full tiles scan when computing min/max zoom ([#3185](https://github.com/maplibre/martin/pull/3185))
+
+### Other
+
+- *(reload)* publish local file kinds through init() ([#3190](https://github.com/maplibre/martin/pull/3190))
+- implement hillshade-postprocessing ([#3180](https://github.com/maplibre/martin/pull/3180))
+- minor test cleanup ([#3179](https://github.com/maplibre/martin/pull/3179))
+- *(reload)* gather the tile reloaders into TileReloaders ([#3178](https://github.com/maplibre/martin/pull/3178))
+- *(deps)* update cargo dependencies ([#3172](https://github.com/maplibre/martin/pull/3172))
+- *(postgres)* make the reloader the single writer of PostgreSQL sources ([#3130](https://github.com/maplibre/martin/pull/3130))
+- *(clippy)* warn on wildcard_enum_match_arm ([#3168](https://github.com/maplibre/martin/pull/3168))
+- *(tests)* use assert_matches! instead of assert!(matches!(..)) ([#3166](https://github.com/maplibre/martin/pull/3166))
+- *(errors)* split MartinError into different error types ([#3162](https://github.com/maplibre/martin/pull/3162))
+- *(deps)* autoupdate pre-commit ([#3155](https://github.com/maplibre/martin/pull/3155))
+- fix typo explicitely -> explicitly (source + generated), recomend -> recommend ([#3147](https://github.com/maplibre/martin/pull/3147))
+- *(pmtiles)* open file sources concurrently and share one client per store ([#3131](https://github.com/maplibre/martin/pull/3131))
+- *(reload)* build advisory additions and updates concurrently ([#3142](https://github.com/maplibre/martin/pull/3142))
+- *(discovery)* return warnings from Discovery::discover ([#3143](https://github.com/maplibre/martin/pull/3143))
+- *(postprocesing)* refactor docs to accept the new postprocessing section ([#3139](https://github.com/maplibre/martin/pull/3139))
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- fix cors logging logging `unrecognisable` ([#3136](https://github.com/maplibre/martin/pull/3136))
+- fix fmt ([#3135](https://github.com/maplibre/martin/pull/3135))
+- *(config)* resolve file source ids before opening the sources ([#3133](https://github.com/maplibre/martin/pull/3133))
+- *(cache)* fix some CI flakes by widening font + sprite cache expiry margins ([#3146](https://github.com/maplibre/martin/pull/3146))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+
 ## [1.14.0](https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0) - 2026-08-17
 
 ### Security
