@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2](https://github.com/maplibre/martin/compare/mbtiles-v0.19.1...mbtiles-v0.19.2) - 2026-08-31
+
+### Added
+
+- jxl support ([#3181](https://github.com/maplibre/martin/pull/3181))
+
+### Fixed
+
+- *(mbtiles)* avoid full tiles scan when computing min/max zoom ([#3185](https://github.com/maplibre/martin/pull/3185))
+
+### Other
+
+- minor test cleanup ([#3179](https://github.com/maplibre/martin/pull/3179))
+- *(clippy)* warn on wildcard_enum_match_arm ([#3168](https://github.com/maplibre/martin/pull/3168))
+- *(tests)* use assert_matches! instead of assert!(matches!(..)) ([#3166](https://github.com/maplibre/martin/pull/3166))
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+- implement hillshade-postprocessing ([#3180](https://github.com/maplibre/martin/pull/3180))
+
 ## [0.19.1](https://github.com/maplibre/martin/compare/mbtiles-v0.19.0...mbtiles-v0.19.1) - 2026-08-17
 
 ### Other
