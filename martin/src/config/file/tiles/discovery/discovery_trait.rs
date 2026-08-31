@@ -70,4 +70,9 @@ pub trait Discovery: Send + Sync + 'static {
 
     /// `ProcessConfig` stamped onto every source this kind emits.
     fn process(&self) -> ProcessConfig;
+
+    /// Findings from constructing this discovery, reported once through `init()`.
+    fn construction_warnings(&self) -> Vec<TileSourceWarning> {
+        Vec::new()
+    }
 }

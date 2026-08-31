@@ -613,7 +613,7 @@ impl TestResponse {
     /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
     ///
     /// The format is read out of the bytes themselves, so this panics on a body that is not a
-    /// PNG, JPEG or WebP whatever the `content-type` header says.
+    /// PNG, JPEG, WebP, or JPEG XL, whatever the `content-type` header says.
     #[must_use]
     pub fn image_size(&self) -> (u32, u32) {
         self.image_reader()
@@ -622,6 +622,10 @@ impl TestResponse {
     }
 
     /// Format the decompressed response body is encoded in, read out of the bytes themselves.
+    ///
+    /// # Panics
+    /// On a JPEG XL body: `image::ImageFormat` has no variant for it, even once the crate can
+    /// decode one. Use [`image_size`](Self::image_size), which does not need the enum, instead.
     #[must_use]
     pub fn image_format(&self) -> ImageFormat {
         self.image_reader()
@@ -630,6 +634,7 @@ impl TestResponse {
     }
 
     fn image_reader(&self) -> ImageReader<Cursor<&Vec<u8>>> {
+        crate::ensure_jxl_decoding_hook();
         ImageReader::new(Cursor::new(&self.body))
             .with_guessed_format()
             .expect("reading from memory cannot fail")

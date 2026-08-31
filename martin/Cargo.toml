@@ -114,13 +114,14 @@ default = [
     "webui",
     "geojson",
     "mlt",
+    "hillshade",
 ]
-unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
 rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
@@ -130,6 +131,7 @@ pmtiles = [
     "dep:object_store",
     "dep:xxhash-rust",
     "_tiles",
+    "_file_kinds",
 ]
 postgres = [
     "martin-core/postgres",
@@ -140,13 +142,16 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles", "mlt"]
+geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
+hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-mlt = ["dep:mlt-core"]
+mlt = ["dep:mlt-core", "_process"]
 _tiles = ["martin-core/_tiles", "_catalog"]
+_process = []
 _catalog = []
+_file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
 unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [
@@ -173,6 +178,7 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 clap.workspace = true
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true

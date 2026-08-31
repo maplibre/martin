@@ -445,7 +445,7 @@ styles:
 The tile cache received several improvements in this release:
 
 - **Configurable cache expiry**
-  The in-memory tile cache Time To Live (TTL -> f.ex. `cache.expiry: 1h`) and Time To Idle (TTI ->  f.ex. `cache.idle_timeout: 20m`) was previously hardcoded to "∞" (aka never expiring).
+  The in-memory tile cache Time To Live (TTL -> e.g. `cache.expiry: 1h`) and Time To Idle (TTI ->  e.g. `cache.idle_timeout: 20m`) was previously hardcoded to "∞" (aka never expiring).
   You can now configure how long cached tiles stay in memory, allowing better trade-offs between freshness and performance for your specific workload.
 
   ```yaml

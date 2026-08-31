@@ -1,8 +1,16 @@
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod hillshade;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod neighbourhood;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mvt;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+pub use hillshade::bake_hillshade;
 use martin_core::tiles::Tile;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use martin_core::tiles::hillshade::HillshadeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use martin_tile_utils::Format;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -12,6 +20,8 @@ use to_mlt::convert_mvt_to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use to_mvt::convert_mlt_to_mvt;
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeRangeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig, ProcessConfig};
 
@@ -29,11 +39,47 @@ pub enum ProcessError {
     MvtConversion(String),
     #[error("Tile decompression failed: {0}")]
     DecompressionFailed(String),
+
+    /// A hillshade parameter supplied by the request was out of range.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error(transparent)]
+    HillshadeParameter(#[from] HillshadeRangeError),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Hillshade failed: {0}")]
+    Hillshade(#[from] HillshadeError),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Could not read the normal tiles a hillshade needs: {0}")]
+    HillshadeSource(String),
+
+    /// The normals source changed underneath us and must be reloaded before the bake can be retried.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The normals source changed and must be reloaded")]
+    HillshadeSourceNeedsReload,
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The hillshade bake did not complete: {0}")]
+    HillshadeBakeFailed(String),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The server is shutting down and cannot start a new hillshade bake")]
+    HillshadeShuttingDown,
 }
 
 impl From<ProcessError> for actix_web::Error {
     fn from(e: ProcessError) -> Self {
-        actix_web::error::ErrorInternalServerError(e.to_string())
+        match e {
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            ProcessError::HillshadeParameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            ProcessError::HillshadeShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            other => actix_web::error::ErrorInternalServerError(other.to_string()),
+        }
     }
 }
 

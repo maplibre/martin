@@ -15,7 +15,7 @@
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -115,7 +115,7 @@ fn get_available_codepoints(face: &Face) -> Option<GetGlyphInfo> {
 }
 
 /// Catalog mapping font names to metadata (e.g., "Arial" -> `CatalogFontEntry`).
-pub type FontCatalog = HashMap<String, CatalogFontEntry>;
+pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
 
 /// Source font file container format.
 ///

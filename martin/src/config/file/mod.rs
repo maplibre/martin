@@ -14,15 +14,17 @@ pub use srv::CacheControlHeader;
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod hillshade;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+pub use hillshade::{
+    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
+    ResolvedHillshade,
+};
+
 pub mod process;
 pub use process::ProcessConfig;
-#[cfg(any(
-    feature = "postgres",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "postgres", feature = "_file_kinds"))]
 pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};

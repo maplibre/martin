@@ -16,7 +16,7 @@
 //! # }
 //! ```
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -118,7 +118,7 @@ pub struct CatalogSpriteEntry {
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
-pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
+pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 /// Thread-safe sprite source manager for serving sprites as `.png` or `.json`.
 #[derive(Debug, Clone, Default)]

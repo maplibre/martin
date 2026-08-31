@@ -23,6 +23,8 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     UnrecognizedValues,
@@ -188,6 +190,21 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         }
     }
 
+    /// Records one source entry, promoting the enum to its `Config` form when needed.
+    pub fn insert_source(&mut self, id: String, src: FileConfigSrc) {
+        if let Self::Config(cfg) = self {
+            cfg.sources.get_or_insert_default().insert(id, src);
+            return;
+        }
+        let paths = match mem::take(self) {
+            Self::None => vec![],
+            Self::Path(path) => vec![path],
+            Self::Paths(paths) => paths,
+            Self::Config(_) => unreachable!("handled above"),
+        };
+        *self = Self::new_extended(paths, BTreeMap::from([(id, src)]), T::default());
+    }
+
     #[must_use]
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -280,7 +297,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 #[serde(untagged)]
 pub enum FileConfigSrc {
     Path(PathBuf),
-    Obj(FileConfigSource),
+    Obj(Box<FileConfigSource>),
 }
 
 impl<'de> Deserialize<'de> for FileConfigSrc {
@@ -304,7 +321,7 @@ impl<'de> Deserialize<'de> for FileConfigSrc {
 
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigSrc, M::Error> {
                 let obj = FileConfigSource::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(FileConfigSrc::Obj(obj))
+                Ok(FileConfigSrc::Obj(Box::new(obj)))
             }
 
             // Numbers / booleans / sequences fall through to serde's default `invalid_type`
@@ -378,6 +395,14 @@ pub struct FileConfigSource {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    /// Settable per source only, since it describes what this source serves rather than a server-wide policy.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
@@ -678,77 +703,43 @@ fn plan_one_path(
         }]);
     }
 
-    let is_dir = path.is_dir();
-    let dir_files = if is_dir {
-        // directories will be kept in the config just in case there are new files
-        directories.push(path.clone());
-        collect_files_with_extension(&path, extension)?
-    } else if path.is_file() {
-        vec![path]
-    } else {
+    if path.is_dir() {
+        directories.push(path);
+        return Ok(Vec::new());
+    }
+    if !path.is_file() {
         return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
             path.canonicalize().unwrap_or(path),
         )));
-    };
-
-    let mut planned = Vec::new();
-    for path in dir_files {
-        let can = path
-            .canonicalize()
-            .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
-        if let Some(kept) = files.get(&can) {
-            if !is_dir {
-                warn!(
-                    source.path.dropped = %path.display(),
-                    source.path.kept = %kept.display(),
-                    "Ignoring duplicate source path: already configured under another path"
-                );
-            }
-            continue;
-        }
-        files.insert(can.clone(), path.clone());
-        let id = path.file_stem().map_or_else(
-            || "_unknown".to_owned(),
-            |s| s.to_string_lossy().to_string(),
-        );
-        let id = idr.resolve(&id, can.to_string_lossy().to_string());
-        planned.push(Planned {
-            id,
-            target: Target::File {
-                path,
-                canonical: can,
-            },
-            cache: default_cache,
-            from_sources: false,
-            duplicate: false,
-        });
     }
-    Ok(planned)
-}
 
-/// Returns a vector of file paths matching any `allowed_extension` within the given directory.
-///
-/// # Errors
-///
-/// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
-#[cfg(feature = "_tiles")]
-fn collect_files_with_extension(
-    base_path: &Path,
-    allowed_extension: &[&str],
-) -> Result<Vec<PathBuf>, ConfigFileError> {
-    Ok(base_path
-        .read_dir()
-        .map_err(|e| ConfigFileError::IoError(e, base_path.to_path_buf()))?
-        .filter_map(Result::ok)
-        .filter(|f| {
-            f.path().extension().is_some_and(|actual_ext| {
-                allowed_extension
-                    .iter()
-                    .any(|expected_ext| *expected_ext == actual_ext)
-            }) && f.path().is_file()
-        })
-        .map(|f| f.path())
-        .collect())
+    let can = path
+        .canonicalize()
+        .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
+    if let Some(kept) = files.get(&can) {
+        warn!(
+            source.path.dropped = %path.display(),
+            source.path.kept = %kept.display(),
+            "Ignoring duplicate source path: already configured under another path"
+        );
+        return Ok(Vec::new());
+    }
+    files.insert(can.clone(), path.clone());
+    let id = path.file_stem().map_or_else(
+        || "_unknown".to_owned(),
+        |s| s.to_string_lossy().to_string(),
+    );
+    let id = idr.resolve(&id, can.to_string_lossy().to_string());
+    Ok(vec![Planned {
+        id,
+        target: Target::File {
+            path,
+            canonical: can,
+        },
+        cache: default_cache,
+        from_sources: false,
+        duplicate: false,
+    }])
 }
 
 #[cfg(feature = "_tiles")]
@@ -1333,8 +1324,6 @@ mod deserialize_tests {
         );
     }
 
-    // ----- FileConfigSrc -----
-
     #[test]
     fn file_config_src_string_is_path() {
         let cfg = parse_yaml::<FileConfigSrc>("/tmp/tile.pmtiles");
@@ -1593,178 +1582,6 @@ mod mbtiles_tests {
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
         assert_eq!(warnings.len(), 2);
-    }
-}
-
-/// Folder-source path resolution: a single bad file in a directory must not
-/// drop its valid siblings. Regression for
-/// <https://github.com/maplibre/martin/discussions/2767>.
-#[cfg(all(test, feature = "_tiles"))]
-mod folder_source_tests {
-    use async_trait::async_trait;
-    use insta::assert_yaml_snapshot;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tempfile::TempDir;
-    use tilejson::{TileJSON, tilejson};
-
-    use super::*;
-    use crate::config::file::SourceBuildError;
-    use crate::config::primitives::IdResolver;
-
-    /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
-    const BAD_PREFIX: &str = "bad_";
-
-    #[derive(
-        Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
-    )]
-    struct FakeConfig;
-
-    impl TileSourceConfiguration for FakeConfig {
-        fn parse_urls() -> bool {
-            false
-        }
-        #[expect(
-            clippy::unused_async_trait_impl,
-            reason = "no real .await here, but async keeps the branching readable"
-        )]
-        async fn new_sources(
-            &self,
-            id: String,
-            path: PathBuf,
-            _cache: CachePolicy,
-        ) -> SourceBuildResult<BoxedSource> {
-            let stem = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or_default();
-            if stem.starts_with(BAD_PREFIX) {
-                Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
-                    path,
-                )))
-            } else {
-                Ok(Box::new(FakeSource {
-                    id,
-                    tj: tilejson! { tiles: vec![] },
-                }))
-            }
-        }
-        #[expect(
-            clippy::unused_async_trait_impl,
-            reason = "unreachable stub; async keeps it simple to write and read"
-        )]
-        async fn new_sources_url(
-            &self,
-            _id: String,
-            _url: Url,
-            _cache: CachePolicy,
-        ) -> SourceBuildResult<BoxedSource> {
-            unreachable!()
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    struct FakeSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for FakeSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(vec![])
-        }
-    }
-
-    /// Resolves a freshly-created tempdir populated with `good` good files and
-    /// `bad` bad files, returning sorted source ids + warning strings with the
-    /// random tempdir prefix replaced by `<DIR>` for snapshot stability.
-    async fn resolve_mixed_dir(good: usize, bad: usize) -> (Vec<String>, Vec<String>) {
-        let dir = TempDir::new().expect("create tempdir");
-        for i in 0..good {
-            std::fs::write(dir.path().join(format!("good_{i}.tiles")), b"").expect("write good");
-        }
-        for i in 0..bad {
-            std::fs::write(dir.path().join(format!("{BAD_PREFIX}{i}.tiles")), b"")
-                .expect("write bad");
-        }
-
-        let mut config = FileConfigEnum::<FakeConfig>::Path(dir.path().to_path_buf());
-        let idr = IdResolver::new(&[]);
-        let (sources, warnings) =
-            resolve_files(&mut config, &idr, &["tiles"], CachePolicy::default())
-                .await
-                .expect("resolve_files always returns Ok; OnInvalid decides fatality");
-
-        let prefix = dir.path().to_string_lossy().to_string();
-        let mut ids: Vec<String> = sources.iter().map(|s| s.get_id().to_owned()).collect();
-        ids.sort();
-        let mut msgs: Vec<String> = warnings
-            .iter()
-            .map(|w| w.to_string().replace(&prefix, "<DIR>"))
-            .collect();
-        msgs.sort();
-        (ids, msgs)
-    }
-
-    #[tokio::test]
-    async fn one_good_one_bad() {
-        let (sources, warnings) = resolve_mixed_dir(1, 1).await;
-        assert_yaml_snapshot!(sources, @"- good_0");
-        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
-    }
-
-    #[tokio::test]
-    async fn two_good_two_bad() {
-        let (sources, warnings) = resolve_mixed_dir(2, 2).await;
-        assert_yaml_snapshot!(sources, @"
-        - good_0
-        - good_1
-        ");
-        assert_yaml_snapshot!(warnings, @r#"
-        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
-        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
-        "#);
-    }
-
-    #[tokio::test]
-    async fn all_bad() {
-        let (sources, warnings) = resolve_mixed_dir(0, 2).await;
-        assert_yaml_snapshot!(sources, @"[]");
-        assert_yaml_snapshot!(warnings, @r#"
-        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
-        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
-        "#);
-    }
-
-    #[tokio::test]
-    async fn all_good() {
-        let (sources, warnings) = resolve_mixed_dir(2, 0).await;
-        assert_yaml_snapshot!(sources, @"
-        - good_0
-        - good_1
-        ");
-        assert_yaml_snapshot!(warnings, @"[]");
     }
 }
 

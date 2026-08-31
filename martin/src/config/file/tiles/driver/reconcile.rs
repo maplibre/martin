@@ -54,14 +54,16 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
     /// Loads everything discovered into the sink and records it as the baseline, so the catalog
     /// is populated by exactly one observation before serving starts.
     ///
-    /// Discovery warnings are returned for the caller's `on_invalid` policy; a discovery or apply
-    /// error leaves the baseline unset and is returned.
+    /// Construction and discovery warnings are returned for the caller's `on_invalid` policy.
+    /// A discovery or apply error leaves the baseline unset and is returned.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovered = self.discovery.discover().await?;
         let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
         self.sink.apply_changes(advisory).await?;
         self.baseline = Some(discovered.sources);
-        Ok(discovered.warnings)
+        let mut warnings = self.discovery.construction_warnings();
+        warnings.extend(discovered.warnings);
+        Ok(warnings)
     }
 
     /// Establishes the [`Baseline`], then reconciles once per `trigger.next()`.

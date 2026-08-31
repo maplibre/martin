@@ -2,19 +2,19 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
 use crate::TileSourceManager;
-use crate::config::file::FileConfigEnum;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_process")]
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
+use crate::config::file::{FileConfigEnum, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
+use crate::reload::FileKind;
 
 /// Watches configured directories for `.mbtiles` changes.
 pub struct MbtilesReloader {
-    tile_source_manager: TileSourceManager,
-    discovery: FsDiscovery,
+    driver: ReloadDriver<FsDiscovery, TileSourceManager>,
 }
 
 impl MbtilesReloader {
@@ -26,12 +26,16 @@ impl MbtilesReloader {
         config: &FileConfigEnum<MbtConfig>,
         global_process: &ProcessConfig,
     ) -> Self {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_process")]
         let process = {
             let source_type = match config {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: cfg.custom.convert_to_hillshade.clone(),
                     ..Default::default()
                 },
                 FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
@@ -40,7 +44,7 @@ impl MbtilesReloader {
             };
             resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };
-        #[cfg(not(feature = "mlt"))]
+        #[cfg(not(feature = "_process"))]
         let process = {
             let _ = (config, global_process);
             ProcessConfig::default()
@@ -57,23 +61,33 @@ impl MbtilesReloader {
                 Ok(Box::new(src) as BoxedSource)
             })
         });
-        let discovery = FsDiscovery::from_config(config, &["mbtiles"], id_resolver, process, build);
+        let discovery = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            config,
+            &["mbtiles"],
+            id_resolver,
+            process,
+            build,
+        );
 
         Self {
-            tile_source_manager: tsm,
-            discovery,
+            driver: ReloadDriver::new(discovery, tsm),
         }
+    }
+
+    /// Publishes every discovered source into the catalog and returns the discovery warnings.
+    pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
+        self.driver.init().await
     }
 
     /// Spawns the reload driver. Does nothing if no directories are configured.
     pub fn start(self) -> notify::Result<()> {
-        let directories = self.discovery.directories().to_vec();
+        let directories = self.driver.discovery().directories();
         if directories.is_empty() {
             return Ok(());
         }
         let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager)
-            .spawn(trigger, Baseline::StartupResolved);
+        self.driver.spawn(trigger, Baseline::Initialized);
         Ok(())
     }
 }

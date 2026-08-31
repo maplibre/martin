@@ -25,7 +25,7 @@ Each source names an upstream directly.
 
 !!! warning
     Every requested tile results in an upstream HTTP fetch unless it is served from Martin's cache.
-    Point passthrough sources only at upstreams you are authorised to proxy, and be mindful of their rate limits and usage policies.
+    Point passthrough sources only at upstreams you are authorized to proxy, and be mindful of their rate limits and usage policies.
 
 ## Run Martin with configuration file
 
