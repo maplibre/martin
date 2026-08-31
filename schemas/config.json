@@ -320,6 +320,17 @@
       "enum": ["disable"],
       "type": "string"
     },
+    "EndpointsConfig": {
+      "description": "Optional endpoints, each off unless enabled here.",
+      "properties": {
+        "purge_cache": {
+          "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        }
+      },
+      "type": "object"
+    },
     "FileConfig": {
       "properties": {
         "convert_to_mlt": {
@@ -1684,6 +1695,17 @@
       ],
       "description": "CORS Configuration\n\nDefaults to `cors: true`, which allows all origins.\nSending/Acting on CORS headers can be completely disabled via `cors: false`"
     },
+    "endpoints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EndpointsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional endpoints, each off unless enabled here."
+    },
     "fonts": {
       "$ref": "#/$defs/FileConfigEnum6",
       "description": "Font configuration"
@@ -1753,11 +1775,6 @@
         }
       ],
       "description": "Which compression should be used if the\n- client accepts multiple compression formats, and\n- tile source is not pre-compressed.\n\n`gzip` is faster, but `brotli` is smaller, and may be faster with caching.\nDefault could be different depending on Martin version."
-    },
-    "purge_endpoint": {
-      "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.",
-      "examples": [false],
-      "type": ["boolean", "null"]
     },
     "route_prefix": {
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",

@@ -113,6 +113,12 @@ cors:
   # '*' will use the requests `ORIGIN` header
   origin:
     - https://example.org
+# Optional endpoints, each off unless enabled here.
+endpoints:
+  # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
+  #
+  # The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
+  purge_cache: false
 # Font configuration
 fonts:
   # Cache configuration for fonts.
@@ -500,12 +506,6 @@ postgres:
 # `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
 # Default could be different depending on Martin version.
 preferred_encoding: brotli
-# Optional endpoints, each off unless enabled here.
-endpoints:
-  # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
-  #
-  # The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
-  purge_cache: false
 # Set the URL path prefix for all API routes.
 # When set, Martin will serve all endpoints under this path prefix.
 # This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
