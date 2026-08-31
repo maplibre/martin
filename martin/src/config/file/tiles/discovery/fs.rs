@@ -1,7 +1,7 @@
 //! [`FsDiscovery`]: a [`Discovery`] over local directories, used by the file-backed kinds.
 //! Each kind differs only by its extension list and a build closure.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -12,7 +12,8 @@ use tokio::fs::{self, DirEntry};
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, SourceBuildResult, TileSourceWarning,
+    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, SourceBuildError, SourceBuildResult,
+    TileSourceWarning,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::{FileKind, SourceProvenance};
@@ -45,10 +46,8 @@ struct ConfiguredSource {
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
     kind: FileKind,
-    /// Pairs of the configured path and its canonical form.
-    /// Scanning uses the canonical path.
-    /// Config write-back uses the configured spelling so saved paths stay relative when the config was.
-    directories: Vec<(PathBuf, PathBuf)>,
+    /// The watched directories as configured.
+    directories: Vec<PathBuf>,
     extensions: &'static [&'static str],
     /// Canonical path -> configured entry for explicitly-configured sources.
     configured: BTreeMap<PathBuf, ConfiguredSource>,
@@ -56,7 +55,6 @@ pub struct FsDiscovery {
     process: ProcessConfig,
     build: FsSourceBuilder,
     /// Configured directories that could not be read at construction.
-    /// They surface once through `init()` so the `on_invalid` policy decides while the other directories keep working.
     warnings: Vec<TileSourceWarning>,
 }
 
@@ -71,7 +69,8 @@ impl FsDiscovery {
         process: ProcessConfig,
         build: FsSourceBuilder,
     ) -> Self {
-        let mut directories: Vec<(PathBuf, PathBuf)> = vec![];
+        let mut directories: Vec<PathBuf> = vec![];
+        let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
         let mut configured: BTreeMap<PathBuf, ConfiguredSource> = BTreeMap::new();
 
         if let FileConfigEnum::Config(cfg) = config
@@ -106,7 +105,11 @@ impl FsDiscovery {
                 .canonicalize()
                 .and_then(|p| std::fs::read_dir(&p).map(|_| p));
             match probed {
-                Ok(p) => directories.push((path.clone(), p)),
+                Ok(canonical) => {
+                    if seen.insert(canonical) {
+                        directories.push(path.clone());
+                    }
+                }
                 Err(e) => {
                     tracing::warn!(directory = ?path, error = %e, "cannot read watch directory");
                     warnings.push(TileSourceWarning::PathError {
@@ -128,9 +131,6 @@ impl FsDiscovery {
             FileConfigEnum::None => {}
         }
 
-        directories.sort_by(|a, b| a.1.cmp(&b.1));
-        directories.dedup_by(|a, b| a.1 == b.1);
-
         Self {
             kind,
             directories,
@@ -143,22 +143,17 @@ impl FsDiscovery {
         }
     }
 
-    /// Configured directories that could not be read at construction.
-    /// The caller applies its `on_invalid` policy to them.
-    #[must_use]
-    pub fn construction_warnings(&self) -> &[TileSourceWarning] {
-        &self.warnings
-    }
-
     /// The canonical watched directories, for wiring a `NotifyTrigger`.
     #[must_use]
     pub fn directories(&self) -> Vec<PathBuf> {
-        self.directories.iter().map(|(_, c)| c.clone()).collect()
+        self.directories
+            .iter()
+            .filter_map(|dir| dir.canonicalize().ok())
+            .collect()
     }
 
     /// The config-file entry for a discovered file.
-    /// Uses the configured entry when there is one and otherwise spells the path through the configured directory.
-    /// The longest matching directory prefix wins so this stays correct once discovery walks subdirectories.
+    /// A configured source keeps its entry and a discovered file is spelled through its configured directory.
     fn config_entry(&self, canonical: &Path) -> FileConfigSrc {
         if let Some(cfg) = self.configured.get(canonical) {
             return cfg.src.clone();
@@ -166,13 +161,12 @@ impl FsDiscovery {
         let as_configured = self
             .directories
             .iter()
-            .filter_map(|(orig, canon)| {
-                canonical
-                    .strip_prefix(canon)
-                    .ok()
-                    .map(|relative| (canon, orig.join(relative)))
+            .filter_map(|dir| {
+                let canonical_dir = dir.canonicalize().ok()?;
+                let relative = canonical.strip_prefix(&canonical_dir).ok()?;
+                Some((canonical_dir.components().count(), dir.join(relative)))
             })
-            .max_by_key(|(canon, _)| canon.components().count())
+            .max_by_key(|(depth, _)| *depth)
             .map(|(_, path)| path);
         FileConfigSrc::Path(as_configured.unwrap_or_else(|| canonical.to_path_buf()))
     }
@@ -245,6 +239,10 @@ impl Discovery for FsDiscovery {
     fn process(&self) -> ProcessConfig {
         self.process.clone()
     }
+
+    fn construction_warnings(&self) -> Vec<TileSourceWarning> {
+        self.warnings.clone()
+    }
 }
 
 struct ResolvedEntry {
@@ -303,13 +301,13 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 
 /// Scans `directories` for files matching `extensions`, resolving ids and cache policies.
 async fn discover_sources_by_ext(
-    directories: &[(PathBuf, PathBuf)],
+    directories: &[PathBuf],
     extensions: &[&str],
     configured: &BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: &IdResolver,
 ) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
     let mut out = BTreeMap::new();
-    for (_, directory) in directories {
+    for directory in directories {
         let mut entries = fs::read_dir(directory)
             .await
             .map_err(SourceBuildError::Io)?;
@@ -335,13 +333,74 @@ async fn discover_sources_by_ext(
     Ok(out)
 }
 
-use crate::config::file::SourceBuildError;
-
 #[cfg(test)]
+#[cfg(feature = "mbtiles")]
 mod tests {
     use std::fs::File;
 
+    use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
+    use martin_core::CacheZoomRange;
+    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use tilejson::{TileJSON, tilejson};
+
     use super::*;
+    use crate::TileSourceManager;
+    use crate::config::file::tiles::driver::ReloadDriver;
+    use crate::config::file::{ConfigFileError, OnInvalid};
+
+    /// Files whose stem starts with this prefix fail to build.
+    const BAD_PREFIX: &str = "bad_";
+
+    #[derive(Debug, Clone)]
+    struct TestSource {
+        id: String,
+        tj: TileJSON,
+    }
+
+    #[async_trait]
+    impl Source for TestSource {
+        fn get_id(&self) -> &str {
+            &self.id
+        }
+        fn get_tilejson(&self) -> &TileJSON {
+            &self.tj
+        }
+        fn get_tile_info(&self) -> TileInfo {
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
+        fn clone_source(&self) -> BoxedSource {
+            Box::new(self.clone())
+        }
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
+        async fn get_tile(
+            &self,
+            _xyz: TileCoord,
+            _url_query: Option<&UrlQuery>,
+        ) -> MartinCoreResult<TileData> {
+            Ok(vec![])
+        }
+    }
+
+    /// Opens every file as a [`TestSource`] except the `bad_` ones, which fail to build.
+    fn fake_builder() -> FsSourceBuilder {
+        Box::new(|id, path, _policy| {
+            Box::pin(async move {
+                if id.starts_with(BAD_PREFIX) {
+                    return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
+                        path,
+                    )));
+                }
+                Ok(Box::new(TestSource {
+                    id,
+                    tj: tilejson! { tiles: vec![] },
+                }) as BoxedSource)
+            })
+        })
+    }
 
     fn unreachable_builder() -> FsSourceBuilder {
         Box::new(|id, _path, _policy| {
@@ -349,24 +408,10 @@ mod tests {
         })
     }
 
-    fn test_kind() -> FileKind {
-        #[cfg(feature = "mbtiles")]
-        return FileKind::Mbtiles;
-        #[cfg(all(not(feature = "mbtiles"), feature = "pmtiles"))]
-        return FileKind::Pmtiles;
-        #[cfg(all(
-            not(feature = "mbtiles"),
-            not(feature = "pmtiles"),
-            feature = "geojson"
-        ))]
-        return FileKind::GeoJson;
-        #[cfg(all(
-            not(feature = "mbtiles"),
-            not(feature = "pmtiles"),
-            not(feature = "geojson"),
-            feature = "unstable-cog"
-        ))]
-        return FileKind::Cog;
+    fn sorted_source_names(catalog: &TileSourceManager) -> Vec<String> {
+        let mut names = catalog.tile_sources().source_names();
+        names.sort();
+        names
     }
 
     #[tokio::test]
@@ -377,7 +422,7 @@ mod tests {
         File::create(dir.path().join("ignore.txt")).expect("create ignore");
 
         let discovery = FsDiscovery::from_config(
-            test_kind(),
+            FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -396,6 +441,62 @@ mod tests {
                 .all(|(v, _)| matches!(v, Version::Tracked(_))),
             "file sources carry a Tracked mtime version"
         );
+    }
+
+    #[tokio::test]
+    async fn init_publishes_the_good_files_and_skips_the_bad_one_under_warn() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        File::create(dir.path().join("good_0.mbtiles")).expect("create good_0");
+        File::create(dir.path().join("good_1.mbtiles")).expect("create good_1");
+        File::create(dir.path().join("bad_0.mbtiles")).expect("create bad_0");
+
+        let discovery = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            ProcessConfig::default(),
+            fake_builder(),
+        );
+        let catalog = TileSourceManager::new(None, OnInvalid::Warn);
+        ReloadDriver::new(discovery, catalog.clone())
+            .init()
+            .await
+            .expect("the warn policy skips the bad file");
+
+        assert_yaml_snapshot!(sorted_source_names(&catalog), @"
+        - good_0
+        - good_1
+        ");
+    }
+
+    #[tokio::test]
+    async fn init_fails_on_the_bad_file_under_abort() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        File::create(dir.path().join("good_0.mbtiles")).expect("create good_0");
+        File::create(dir.path().join("bad_0.mbtiles")).expect("create bad_0");
+
+        let discovery = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            ProcessConfig::default(),
+            fake_builder(),
+        );
+        let catalog = TileSourceManager::new(None, OnInvalid::Abort);
+        let error = ReloadDriver::new(discovery, catalog)
+            .init()
+            .await
+            .expect_err("the abort policy fails init");
+
+        let prefix = dir
+            .path()
+            .canonicalize()
+            .expect("canonicalize")
+            .to_string_lossy()
+            .to_string();
+        assert_yaml_snapshot!(error.to_string().replace(&prefix, "<DIR>"), @r#""Source path is not a file: <DIR>/bad_0.mbtiles""#);
     }
 
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
@@ -434,7 +535,7 @@ mod tests {
             convert_to_hillshade: None,
         };
         let discovery = FsDiscovery::from_config(
-            test_kind(),
+            FileKind::Mbtiles,
             &config,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -487,7 +588,7 @@ mod tests {
             ..FileConfig::<()>::default()
         });
         let discovery = FsDiscovery::from_config(
-            test_kind(),
+            FileKind::Mbtiles,
             &config,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -508,7 +609,7 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn an_unreadable_directory_warns_and_spares_its_siblings() {
+    async fn init_warns_about_an_unreadable_directory_and_publishes_its_siblings() {
         use std::os::unix::fs::PermissionsExt as _;
 
         let readable = tempfile::tempdir().expect("tempdir");
@@ -518,7 +619,7 @@ mod tests {
             .expect("chmod 000");
 
         let discovery = FsDiscovery::from_config(
-            test_kind(),
+            FileKind::Mbtiles,
             &FileConfigEnum::<()>::Paths(vec![
                 readable.path().to_path_buf(),
                 unreadable.path().to_path_buf(),
@@ -526,28 +627,30 @@ mod tests {
             &["mbtiles"],
             IdResolver::new(&[]),
             ProcessConfig::default(),
-            unreachable_builder(),
+            fake_builder(),
         );
+        std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o755))
+            .expect("restore permissions");
 
-        let restore =
-            std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o755));
-
-        if discovery.construction_warnings().is_empty() {
-            restore.expect("restore permissions");
-            return;
-        }
-        assert_eq!(discovery.construction_warnings().len(), 1);
         assert_eq!(
-            discovery.directories().len(),
-            1,
-            "the readable sibling stays watched"
+            discovery.directories(),
+            vec![readable.path().canonicalize().expect("canonicalize")],
+            "only the readable directory is watched"
         );
-        let snapshot = discovery.discover().await.expect("discover").sources;
-        assert!(
-            snapshot.contains_key("alpha"),
-            "the readable sibling still serves"
-        );
-        restore.expect("restore permissions");
+
+        let catalog = TileSourceManager::new(None, OnInvalid::Warn);
+        let warnings = ReloadDriver::new(discovery, catalog.clone())
+            .init()
+            .await
+            .expect("init");
+
+        let prefix = unreadable.path().to_string_lossy().to_string();
+        let warnings: Vec<String> = warnings
+            .iter()
+            .map(|w| w.to_string().replace(&prefix, "<DIR>"))
+            .collect();
+        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>: Permission denied (os error 13)""#);
+        assert_yaml_snapshot!(sorted_source_names(&catalog), @"- alpha");
     }
 
     #[test]
@@ -556,7 +659,7 @@ mod tests {
         File::create(dir.path().join("alpha.mbtiles")).expect("create alpha");
 
         let discovery = FsDiscovery::from_config(
-            test_kind(),
+            FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),

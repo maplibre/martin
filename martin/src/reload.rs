@@ -10,7 +10,7 @@ use crate::config::file::discovery::BuiltSource;
 use crate::config::file::postgres::SourceSpec;
 use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig, SourceBuildResult};
 
-/// Which file-backed config section a catalog entry belongs to.
+/// Which config section a directory-discovered file serializes under.
 #[cfg(feature = "_file_kinds")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FileKind {

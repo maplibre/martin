@@ -52,7 +52,7 @@ use crate::config::primitives::OptOneMany;
 use crate::tile_source_manager::TileSourceManager;
 
 /// Warnings that can occur during tile source resolution
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum TileSourceWarning {
     #[error("Source {source_id}: {error}")]
     SourceError { source_id: String, error: String },
