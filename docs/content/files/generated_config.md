@@ -502,8 +502,7 @@ postgres:
 preferred_encoding: brotli
 # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
 #
-# The route has no authentication of its own.
-# Put it behind the same proxy rules as the rest of the server.
+# The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
 purge_endpoint: false
 # Set the URL path prefix for all API routes.
 # When set, Martin will serve all endpoints under this path prefix.
