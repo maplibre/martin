@@ -119,7 +119,7 @@
           "type": ["integer", "null"]
         },
         "minzoom": {
-          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden with `cache.minzoom` on an individual source.\ndefault: null (no lower bound, all zoom levels cached)",
           "examples": [0],
           "format": "uint8",
           "maximum": 255,
@@ -823,7 +823,7 @@
           "type": ["integer", "null"]
         },
         "minzoom": {
-          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden with `cache.minzoom` on an individual source.\ndefault: null (no lower bound, all zoom levels cached)",
           "examples": [0],
           "format": "uint8",
           "maximum": 255,
