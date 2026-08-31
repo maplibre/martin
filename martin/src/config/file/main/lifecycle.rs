@@ -124,6 +124,9 @@ impl Config {
         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
         self.validate_hillshade()?;
 
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        self.validate_contour()?;
+
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
         } else {
@@ -139,6 +142,23 @@ impl Config {
                 && let Err(e) = config.resolve_hillshade()
             {
                 return Err(ConfigFileError::InvalidHillshade {
+                    source_id,
+                    source: Box::new(e),
+                }
+                .into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Range-checks every configured contour, naming the source at fault.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    fn validate_contour(&self) -> StartupResult<()> {
+        for (source_id, pc) in self.build_process_config_map() {
+            if let Some(config) = &pc.convert_to_contour
+                && let Err(e) = config.resolve_contour()
+            {
+                return Err(ConfigFileError::InvalidContour {
                     source_id,
                     source: Box::new(e),
                 }
@@ -483,6 +503,8 @@ impl Config {
             // `None` since deliberately does not exist at top level
             #[cfg(feature = "hillshade")]
             convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         }
     }
 
@@ -511,6 +533,8 @@ impl Config {
                 cache_control: None,
                 #[cfg(feature = "hillshade")]
                 convert_to_hillshade: None,
+                #[cfg(feature = "contour")]
+                convert_to_contour: None,
             });
             #[cfg(all(feature = "pmtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |_| {
@@ -524,6 +548,8 @@ impl Config {
                 cache_control: None,
                 #[cfg(feature = "hillshade")]
                 convert_to_hillshade: None,
+                #[cfg(feature = "contour")]
+                convert_to_contour: None,
             });
             #[cfg(all(feature = "mbtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |_| {
@@ -556,6 +582,8 @@ impl Config {
                     cache_control: None,
                     #[cfg(feature = "hillshade")]
                     convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
                 };
                 Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
                     match src {
@@ -567,6 +595,8 @@ impl Config {
                             cache_control: obj.cache_control.clone(),
                             #[cfg(feature = "hillshade")]
                             convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                            #[cfg(all(feature = "contour", feature = "_tiles"))]
+                            convert_to_contour: obj.convert_to_contour.clone(),
                         },
                         PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                     }
@@ -628,6 +658,8 @@ impl Config {
                         cache_control: obj.cache_control.clone(),
                         #[cfg(feature = "hillshade")]
                         convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: obj.convert_to_contour.clone(),
                     },
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
                 });

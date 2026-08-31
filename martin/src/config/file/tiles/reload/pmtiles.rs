@@ -233,6 +233,8 @@ mod tests {
                 cache_control: None,
                 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
                 convert_to_hillshade: None,
+                #[cfg(all(feature = "contour", feature = "_tiles"))]
+                convert_to_contour: None,
             })),
         );
         let cfg = FileConfigEnum::Config(FileConfig {

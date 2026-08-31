@@ -105,6 +105,7 @@ pub struct Config {
     /// - `warn`: log warning messages
     /// - `abort`: log warnings as error messages, abort startup
     #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"abort"))]
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]

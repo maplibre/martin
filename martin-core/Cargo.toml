@@ -23,6 +23,7 @@ required-features = ["hillshade"]
 
 [features]
 default = [
+    "contour",
     "fonts",
     "hillshade",
     "mbtiles",
@@ -48,6 +49,15 @@ geojson = [
     "dep:tokio",
     "tokio/fs",
 ]
+contour = [
+    "_neighbourhood",
+    "_tiles",
+    "dep:contour",
+    "dep:geo",
+    "dep:geo-types",
+    "dep:mlt-core",
+]
+
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
@@ -114,6 +124,7 @@ backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 chrono.workspace = true
+contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }

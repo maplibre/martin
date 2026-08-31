@@ -35,7 +35,7 @@ use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
     feature = "postgres"
 ))]
 use martin::config::file::reload::TileReloaders;
-use martin::config::file::{Config, ServerState, read_config};
+use martin::config::file::{Config, ProcessConfig, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
@@ -569,8 +569,7 @@ where
 
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
-    let just_sources: Vec<_> = src.sources.iter().map(|(s, _)| s.clone()).collect();
-    let mbt_type = init_schema(&mbt, &mut conn, &just_sources, src.info, &args).await?;
+    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, src.info, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
     // Shared with the spawned consumer (updates) and this task (finish / stats).
     let progress = Arc::new(TileCopyProgress::new(total_size));
@@ -654,7 +653,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[BoxedSource],
+    sources: &[(BoxedSource, ProcessConfig)],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {

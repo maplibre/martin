@@ -116,6 +116,7 @@ pub struct SrvConfig {
     /// At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
     /// This may be undesirable in a production environment
     #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
     /// CORS Configuration
     ///

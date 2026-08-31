@@ -20,15 +20,21 @@ use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::ProcessConfig;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ResolvedContour;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::ResolvedHillshade;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::server::{DebouncedWarning, map_error};
+#[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
+use crate::srv::tiles::process::ProcessError;
 use crate::srv::tiles::process::apply_pre_cache_processors;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-use crate::srv::tiles::process::{ProcessError, bake_hillshade};
+use crate::srv::tiles::process::bake_hillshade;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::srv::tiles::process::trace_contour;
 use crate::tile_source_manager::TileSourceManager;
 
 /// Maximum number of source tiles fetched concurrently for one composite response.
@@ -449,6 +455,17 @@ impl<'a> DynTileSource<'a> {
             };
         }
 
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        if let Some(settings) = self.resolve_contour(pc)? {
+            return match trace_contour(s, settings.clone(), xyz, self.cache).await {
+                Err(ProcessError::ContourSourceNeedsReload) => {
+                    let fresh_src = self.reload_source(s, pc).await?;
+                    Ok(trace_contour(&fresh_src, settings, xyz, self.cache).await?)
+                }
+                result => Ok(result?),
+            };
+        }
+
         match self.fetch_tile_content_with_cache(s, pc, xyz).await {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
@@ -536,6 +553,33 @@ impl<'a> DynTileSource<'a> {
     /// The query the sources read their own parameters from, `None` when they ignore it.
     fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
         self.query.as_ref().filter(|_| self.use_url_query)
+    }
+
+    /// Resolves this source's contour settings for the current request.
+    /// Returns `None` when the source is not contoured.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    fn resolve_contour(&self, pc: &ProcessConfig) -> ActixResult<Option<ResolvedContour>> {
+        let Some(config) = pc.convert_to_contour.as_ref() else {
+            return Ok(None);
+        };
+        let Some(settings) = config
+            .resolve_contour()
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?
+        else {
+            return Ok(None);
+        };
+
+        let Some((_, overrides)) = self
+            .query
+            .as_ref()
+            .filter(|_| settings.allow_request_overrides)
+        else {
+            return Ok(Some(settings));
+        };
+        let settings = settings
+            .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+        Ok(Some(settings))
     }
 
     /// Resolves this source's hillshade settings for the current request.
@@ -1171,6 +1215,8 @@ mod tests {
             convert_to_mlt: None,
             convert_to_mvt: None,
             cache_control: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let src = SourceNeedsReloadTestSource::new("terrain", normal_tile, Format::Png);
         let mgr = TileSourceManager::from_sources(

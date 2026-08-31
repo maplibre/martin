@@ -11,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ContourProcessConfig;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
@@ -274,6 +276,14 @@ pub struct PassthroughSourceConfig {
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
+    /// Trace contour lines from this source's tiles.
+    ///
+    /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
+    /// See the contour documentation for the knobs.
+    /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_contour: Option<ContourProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -299,6 +309,8 @@ impl Default for PassthroughSourceConfig {
             convert_to_mvt: None,
             #[cfg(all(feature = "hillshade", feature = "_tiles"))]
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
             unrecognized: UnrecognizedValues::default(),
         }
     }

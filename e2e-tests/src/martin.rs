@@ -9,8 +9,11 @@ use std::{env, fs};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
+use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
 use image::{ImageFormat, ImageReader};
-use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
+use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
+use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
@@ -610,6 +613,50 @@ impl TestResponse {
         )
     }
 
+    /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.
+    #[must_use]
+    pub fn geojson(&self, z: u8, x: u32, y: u32) -> FeatureCollection {
+        let features = self
+            .mvt()
+            .layers
+            .iter()
+            .flat_map(|layer| {
+                let (name, extent) = (layer.name.clone(), f64::from(layer.extent.get()));
+                layer.features.iter().map(move |feature| {
+                    let mut properties = properties(feature);
+                    properties.insert("_layer".to_owned(), name.clone().into());
+                    Feature {
+                        bbox: None,
+                        geometry: Some(to_wgs84(&feature.geometry, z, x, y, extent)),
+                        id: None,
+                        properties: Some(properties),
+                        foreign_members: None,
+                    }
+                })
+            })
+            .collect();
+        FeatureCollection {
+            bbox: None,
+            features,
+            foreign_members: None,
+        }
+    }
+
+    /// [`geojson`](Self::geojson) rendered one feature per line.
+    #[must_use]
+    pub fn geojson_dump(&self, z: u8, x: u32, y: u32) -> String {
+        let features = self
+            .geojson(z, x, y)
+            .features
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        format!(
+            "{{\"type\":\"FeatureCollection\",\"features\":[\n{}\n]}}",
+            features.join(",\n")
+        )
+    }
+
     /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
     ///
     /// The format is read out of the bytes themselves, so this panics on a body that is not a
@@ -652,6 +699,69 @@ impl TestResponse {
         lines.sort();
         lines.join("\n")
     }
+}
+
+/// Reprojects an MVT geometry from tile-local coordinates into WGS84 degrees.
+fn to_wgs84(geometry: &Geometry<i32>, z: u8, x: u32, y: u32, extent: f64) -> GjGeometry {
+    let place = |c: &Coord<i32>| tile_coord_to_wgs84(z, x, y, extent, *c);
+    let line = |l: &LineString<i32>| l.0.iter().map(place).collect::<Vec<_>>();
+    let rings = |p: &Polygon<i32>| {
+        std::iter::once(line(p.exterior()))
+            .chain(p.interiors().iter().map(line))
+            .collect::<Vec<_>>()
+    };
+    GjGeometry::new(match geometry {
+        Geometry::Point(p) => GeometryValue::Point {
+            coordinates: place(&p.0),
+        },
+        Geometry::MultiPoint(m) => GeometryValue::MultiPoint {
+            coordinates: m.0.iter().map(|p| place(&p.0)).collect(),
+        },
+        Geometry::LineString(l) => GeometryValue::LineString {
+            coordinates: line(l),
+        },
+        Geometry::MultiLineString(m) => GeometryValue::MultiLineString {
+            coordinates: m.0.iter().map(line).collect(),
+        },
+        Geometry::Polygon(p) => GeometryValue::Polygon {
+            coordinates: rings(p),
+        },
+        Geometry::MultiPolygon(m) => GeometryValue::MultiPolygon {
+            coordinates: m.0.iter().map(rings).collect(),
+        },
+        other @ (Geometry::Line(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)
+        | Geometry::GeometryCollection(_)) => panic!("a vector tile cannot carry {other:?}"),
+    })
+}
+
+/// Places one tile-local coordinate on the globe as `[longitude, latitude]` in degrees.
+///
+/// Rounded to six decimals: ~0.1 m, finer than a tile unit at any zoom martin serves, so the
+/// integer grid survives while float noise does not.
+fn tile_coord_to_wgs84(z: u8, x: u32, y: u32, extent: f64, coord: Coord<i32>) -> geojson::Position {
+    let span = EARTH_CIRCUMFERENCE / f64::from(1_u32 << z);
+    let [west, _, _, north] = tile_bbox(x, y, span);
+    let unit = span / extent;
+    let (lng, lat) = webmercator_to_wgs84(
+        f64::from(coord.x).mul_add(unit, west),
+        f64::from(coord.y).mul_add(-unit, north),
+    );
+    [(lng * 1e6).round() / 1e6, (lat * 1e6).round() / 1e6].into()
+}
+
+/// An MVT feature's tags as `GeoJSON` properties.
+fn properties(feature: &MvtFeature) -> JsonObject {
+    feature
+        .properties
+        .iter()
+        .map(|(key, value)| {
+            let value = serde_json::Value::try_from(value.clone())
+                .expect("an MVT tag is representable as JSON");
+            (key.clone(), value)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -716,6 +826,66 @@ mod tests {
                 ready_timeout().as_secs()
             )
         );
+    }
+
+    fn dump(z: u8, x: u32, y: u32, line: &[(i32, i32)]) -> String {
+        use std::num::NonZeroU32;
+
+        use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
+
+        let mut layer = MvtTileBuilder::with_capacity(1)
+            .layer_with_capacity("contour", 1)
+            .expect("failed to open a layer");
+        layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
+        let geometry = Geometry::LineString(LineString::from(line.to_vec()));
+        let mut feature = layer.feature(&geometry).expect("failed to add a feature");
+        feature
+            .tag("ele", MvtValue::auto_int(500))
+            .and_then(|f| f.tag("major", MvtValue::Bool(true)))
+            .expect("failed to tag a feature");
+        layer = feature.end();
+        let response = TestResponse {
+            status: 200,
+            headers: Vec::new(),
+            body: layer.end().encode(),
+        };
+        response.geojson_dump(z, x, y)
+    }
+
+    #[test]
+    fn a_world_tile_reprojects_to_the_whole_globe() {
+        insta::assert_snapshot!(dump(0, 0, 0, &[(0, 0), (2048, 2048), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-180.0,85.051129],[0.0,0.0],[180.0,-85.051129]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn a_tile_reprojects_onto_its_own_bounds() {
+        insta::assert_snapshot!(dump(10, 163, 396, &[(0, 0), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.695313,37.71859],[-122.34375,37.439974]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn a_neighbouring_tile_starts_where_its_predecessor_ends() {
+        insta::assert_snapshot!(dump(10, 164, 397, &[(0, 0), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.34375,37.439974],[-121.992188,37.160317]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn coordinates_outside_the_extent_reach_into_the_neighbours() {
+        insta::assert_snapshot!(dump(10, 163, 396, &[(-512, -512), (4608, 4608)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.739258,37.753344],[-122.299805,37.405074]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
     }
 
     #[test]

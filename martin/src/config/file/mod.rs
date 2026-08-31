@@ -14,6 +14,14 @@ pub use srv::CacheControlHeader;
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+mod contour;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+pub use contour::{
+    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings,
+    FilteredThreshold, ResolvedContour,
+};
+
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 mod hillshade;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]

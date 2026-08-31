@@ -23,6 +23,8 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ContourProcessConfig;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
@@ -403,6 +405,14 @@ pub struct FileConfigSource {
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
+    /// Trace contour lines from this source's tiles.
+    ///
+    /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
+    /// See the contour documentation for the knobs.
+    /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_contour: Option<ContourProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
@@ -950,23 +960,35 @@ pub struct GlobalCacheConfig {
     /// Supports human-readable formats: "1h", "30m", "1d", "3600s".
     /// default: null (no expiry, entries only evicted by size pressure)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"1h")
+    )]
     pub expiry: Option<Duration>,
     /// Maximum idle time for all cache entries (time-to-idle since last access).
     /// Entries are evicted if not accessed within this duration.
     /// default: null (no idle timeout)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"30m")
+    )]
     pub idle_timeout: Option<Duration>,
     /// Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
     /// default: null (inherits from `cache.expiry`)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"1h")
+    )]
     pub tile_expiry: Option<Duration>,
     /// Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
     /// default: null (inherits from `cache.idle_timeout`)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"30m")
+    )]
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
     zoom: CacheZoomRange,
@@ -1107,12 +1129,18 @@ pub struct CacheSizeConfig {
     /// Maximum lifetime for cache entries.
     /// default: null (inherits from `cache.expiry`)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"1h")
+    )]
     pub expiry: Option<Duration>,
     /// Maximum idle time for cache entries.
     /// default: null (inherits from `cache.idle_timeout`)
     #[serde(default, with = "humantime_serde")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"30m")
+    )]
     pub idle_timeout: Option<Duration>,
 }
 

@@ -25,21 +25,21 @@ cache:
   # Entries are evicted after this duration regardless of access.
   # Supports human-readable formats: "1h", "30m", "1d", "3600s".
   # default: null (no expiry, entries only evicted by size pressure)
-  expiry: null
+  expiry: 1h
   # Maximum idle time for all cache entries (time-to-idle since last access).
   # Entries are evicted if not accessed within this duration.
   # default: null (no idle timeout)
-  idle_timeout: null
+  idle_timeout: 30m
   # Default maximum zoom level (inclusive) for tile caching.
   # Tiles further zoomed in than this will bypass the cache entirely.
   # Can be overridden per-source.
   # default: null (no upper bound, all zoom levels cached)
-  maxzoom: null
+  maxzoom: 14
   # Default minimum zoom level (inclusive) for tile caching.
   # Tiles further zoomed out than this will bypass the cache entirely.
   # Can be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).
   # default: null (no lower bound, all zoom levels cached)
-  minzoom: null
+  minzoom: 0
   # Total amount of cache we use [default: 512, 0 to disable]
   # By default, this is split up between:
   # - Tiles 50% -> 256 MB
@@ -58,10 +58,10 @@ cache:
   size_mb: 512
   # Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
   # default: null (inherits from `cache.expiry`)
-  tile_expiry: null
+  tile_expiry: 1h
   # Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
   # default: null (inherits from `cache.idle_timeout`)
-  tile_idle_timeout: null
+  tile_idle_timeout: 30m
   # Allows overriding the size of the tile cache.
   # Defaults to `cache.size_mb` / 2
   tile_size_mb: 256
@@ -120,10 +120,10 @@ fonts:
   cache:
     # Maximum lifetime for cache entries.
     # default: null (inherits from `cache.expiry`)
-    expiry: null
+    expiry: 1h
     # Maximum idle time for cache entries.
     # default: null (inherits from `cache.idle_timeout`)
-    idle_timeout: null
+    idle_timeout: 30m
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64
@@ -148,6 +148,55 @@ keep_alive: 75
 listen_addresses: 0.0.0.0:3000
 # Publish `MBTiles` files
 mbtiles:
+  # Trace contour lines from this source's tiles.
+  #
+  # Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
+  # See the contour documentation for the knobs.
+  # Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
+  convert_to_contour:
+    # Whether a request may override these settings with query parameters.
+    # Defaults to `false`.
+    allow_request_overrides: false
+    # Units elevations are declared and reported in.
+    # Defaults to `meters`.
+    elevation_units: meters
+    # MVT tile extent.
+    # Defaults to `4096`.
+    extent: 4096
+    # Apron in source pixels traced past the tile edge so a line meets its
+    # continuation in the next tile, then transformed back out.
+    # Defaults to `32`.
+    fetch_margin: 32.0
+    # An elevation whose contour is suppressed, or `disabled` to draw them all.
+    # Defaults to `0` (sea level).
+    filtered_threshold: 0.0
+    # MVT layer the contour features are written into.
+    # Defaults to `contour`.
+    layer_name: contour
+    # How often a major (bolded) contour line is generated. `0` disables them.
+    # Defaults to `5`.
+    major_interval: 5.0
+    # Contour lines shorter than this are dropped.
+    # Defaults to `50`.
+    min_feature_length: 50.0
+    # Sampling step the isolines are traced at; higher is smoother.
+    # Defaults to `10`.
+    resolution: 10.0
+    # Douglas-Peucker tolerance. Higher means smaller tiles and coarser lines;
+    # `0` disables simplification.
+    # Defaults to `10`.
+    simplification_tolerance: 10.0
+    # Contour interval per zoom level, as `zoom: interval` in
+    # [`Self::elevation_units`]. An interval of `0` disables contours from that
+    # zoom until the next entry.
+    # Defaults to a cartographic ramp from `400` at z4 down to `50` at z12.
+    zoom_intervals:
+      "0": 0.0
+      "10": 100.0
+      "12": 50.0
+      "4": 400.0
+      "6": 200.0
+      "8": 150.0
   # Hillshade settings for this source.
   #
   # Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
@@ -156,35 +205,35 @@ mbtiles:
   convert_to_hillshade:
     # Whether a request may override these settings with query parameters.
     # Defaults to `false`.
-    allow_request_overrides: null
+    allow_request_overrides: false
     # Height of the light above the horizon in degrees.
     # Defaults to `45`.
-    altitude: null
+    altitude: 45.0
     # Shadow floor, so shadows read as shaded rather than black.
     # Defaults to `0.2`.
-    ambient: null
+    ambient: 0.2
     # Compass bearing the light shines from, in degrees clockwise from north.
     # Defaults to `300` (north-west) by cartographic convention.
-    azimuth: null
+    azimuth: 300.0
     # Separation between lit and shadowed slopes.
     # Defaults to `2.5`.
-    contrast: null
+    contrast: 2.5
     # How strongly high terrain deepens the contrast.
     # Defaults to `0`, which shades high and low terrain alike.
-    elevation_scale: null
+    elevation_scale: 0.0
     # Output image format.
     # Defaults to `png`.
     format: png
     # Apron width in pixels at 256-core scale, rescaled with the core.
     # Defaults to `0`, so the served tile is a 512x512 square.
-    padding: null
+    padding: 0
     # Number of hard shading bands; below `2` the shading is a smooth gradient instead.
     # Defaults to `6`.
-    toon_bands: null
+    toon_bands: 6.0
     # Scales the terrain's horizontal gradient before lighting, exaggerating relief.
     # `1` is true-to-source.
     # Defaults to `2.5`.
-    vertical_exaggeration: null
+    vertical_exaggeration: 2.5
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -225,7 +274,7 @@ observability:
 # Options:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
-on_invalid: warn
+on_invalid: abort
 # Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
 # Each upstream is configured under `sources`.
 passthrough:
@@ -302,10 +351,10 @@ pmtiles:
   directory_cache:
     # Maximum lifetime for cache entries.
     # default: null (inherits from `cache.expiry`)
-    expiry: null
+    expiry: 1h
     # Maximum idle time for cache entries.
     # default: null (inherits from `cache.idle_timeout`)
-    idle_timeout: null
+    idle_timeout: 30m
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64
@@ -464,10 +513,10 @@ sprites:
   cache:
     # Maximum lifetime for cache entries.
     # default: null (inherits from `cache.expiry`)
-    expiry: null
+    expiry: 1h
     # Maximum idle time for cache entries.
     # default: null (inherits from `cache.idle_timeout`)
-    idle_timeout: null
+    idle_timeout: 30m
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64

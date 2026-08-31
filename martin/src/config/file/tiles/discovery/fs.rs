@@ -187,6 +187,8 @@ fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option
         cache_control: obj.cache_control.clone(),
         #[cfg(feature = "hillshade")]
         convert_to_hillshade: obj.convert_to_hillshade.clone(),
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        convert_to_contour: obj.convert_to_contour.clone(),
     };
     if per_source == ProcessConfig::default() {
         return None;
@@ -521,6 +523,8 @@ mod tests {
                         convert_to_mvt: None,
                         cache_control: None,
                         convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
                     })),
                 ),
@@ -533,6 +537,8 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
@@ -579,6 +585,8 @@ mod tests {
                     convert_to_mvt: None,
                     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
                     convert_to_hillshade: None,
+                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    convert_to_contour: None,
                     cache_control: Some(
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),
                     ),
