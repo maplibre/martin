@@ -1755,7 +1755,7 @@
       "description": "Which compression should be used if the\n- client accepts multiple compression formats, and\n- tile source is not pre-compressed.\n\n`gzip` is faster, but `brotli` is smaller, and may be faster with caching.\nDefault could be different depending on Martin version."
     },
     "purge_endpoint": {
-      "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own.\nPut it behind the same proxy rules as the rest of the server.",
+      "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.",
       "examples": [false],
       "type": ["boolean", "null"]
     },

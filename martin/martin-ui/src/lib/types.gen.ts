@@ -14,10 +14,6 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Drops every cached tile of one source.
-         * @description Answers `404` for an unknown source and `204` otherwise, also when no tile cache is configured.
-         */
         delete: operations["purge_source"];
         options?: never;
         head?: never;
@@ -462,12 +458,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The source's cached tiles are gone */
-            204: {
+            /** @description The source's cached tiles are gone, or tile cacheing is disabled. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/plain": string;
+                };
             };
             /** @description No such source */
             404: {
