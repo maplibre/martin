@@ -9,50 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.15.0](https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.15.0) - 2026-08-31
 
+### Hillshade postprocessing
+
+Martin can now bake a hillshade from a source serving Mapzen normal tiles, so clients get shaded relief instead of a normal map they have to shade themselves.
+
+```yaml
+passthrough:
+  sources:
+    terrain:
+      url: https://elevation-tiles-prod.s3.amazonaws.com/normal/{z}/{x}/{y}.png
+      maxzoom: 14
+      convert_to_hillshade: auto
+```
+
+`auto` bakes with the defaults, a map of settings overrides light angle, exaggeration, contrast, banding and output format (`png`, `webp` or `jxl`).
+It is a per-source key only, since an inherited value would also reach sources that cannot be shaded.
+Baking reads a 3x3 neighborhood so tiles do not have seams at their edges, and caches the normal maps rather than the baked output.
+See the [documentation](https://maplibre.org/martin/postprocessing/hillshade/).
+Done in [#3180](https://github.com/maplibre/martin/pull/3180).
+
+### Contour postprocessing
+
+`convert_to_contour` traces contour lines from a source serving Mapzen Terrarium elevation tiles and serves them as MVT.
+Each tile has one `contour` layer of linestrings tagged with their elevation (`ele`) and whether they are a major line (`major`), with the interval per zoom set by `zoom_intervals`.
+Unlike hillshade the output is vector, so the client styles and labels the lines itself.
+See the [documentation](https://maplibre.org/martin/postprocessing/contour/).
+Done in [#3183](https://github.com/maplibre/martin/pull/3183).
+
 ### Added
 
-- *(catalog)* answer conditional requests on /catalog ([#3188](https://github.com/maplibre/martin/pull/3188))
-- add contour processing ([#3183](https://github.com/maplibre/martin/pull/3183))
-- jxl support ([#3181](https://github.com/maplibre/martin/pull/3181))
-- *(cache-control)* per-source Cache-Control overrides ([#3167](https://github.com/maplibre/martin/pull/3167))
-- *(config)* warn about legacy Postgres env var usage ([#3151](https://github.com/maplibre/martin/pull/3151))
-- *(postgres)* add --ssl-cert and --ssl-key CLI flags ([#3150](https://github.com/maplibre/martin/pull/3150))
+- JPEG XL: `jxl` tiles are detected and decoded (via `jxl-oxide`), and hillshade can encode its output as lossless JPEG XL (via `zune-jpegxl`), which is usually smaller than PNG or lossless WebP ([#3181](https://github.com/maplibre/martin/pull/3181))
+- *(cache-control)* per-source `Cache-Control` overrides on top of the server-wide default. A composite request only uses one if all of its sources are configured with the same value ([#3167](https://github.com/maplibre/martin/pull/3167), [#3148](https://github.com/maplibre/martin/pull/3148))
+- *(postgres)* `--ssl-cert` and `--ssl-key` flags for the client certificate and key, mirroring `--ca-root-file` ([#3150](https://github.com/maplibre/martin/pull/3150) by [@reddynitish](https://github.com/reddynitish))
+- *(config)* warn once at startup when Martin falls back to a legacy Postgres env var (`DATABASE_URL`, `DEFAULT_SRID`, `PGSSLCERT`, `PGSSLKEY`, `PGSSLROOTCERT`), naming the config key that replaces it. All five keep working, the removal is deferred to v2 ([#3151](https://github.com/maplibre/martin/pull/3151) by [@reddynitish](https://github.com/reddynitish))
 
 ### Fixed
 
-- *(catalog)* serialize the catalog in a stable key order ([#3189](https://github.com/maplibre/martin/pull/3189))
-- *(config)* gate the resolve_process_config imports on _process ([#3191](https://github.com/maplibre/martin/pull/3191))
-- *(fonts)* redirect glyph URLs with a file extension ([#3187](https://github.com/maplibre/martin/pull/3187))
-- *(deps)* update npm dependencies ([#3177](https://github.com/maplibre/martin/pull/3177))
-- *(deps)* update npm dependencies ([#3175](https://github.com/maplibre/martin/pull/3175))
-- *(pmtiles)* pick up ECS and EKS credential discovery env vars for S3 sources ([#3165](https://github.com/maplibre/martin/pull/3165))
-- *(reload)* keep per-source convert_to_* overrides for file-backed sources ([#3160](https://github.com/maplibre/martin/pull/3160))
-- *(postgres)* keep per-source convert_to_* overrides on the reload path ([#3144](https://github.com/maplibre/martin/pull/3144))
-- *(mbtiles)* avoid full tiles scan when computing min/max zoom ([#3185](https://github.com/maplibre/martin/pull/3185))
+- *(mbtiles)* avoid a full tiles scan when computing min/max zoom. Startup on a 5M tile file drops from 367ms to 203ms flat, and from 1650ms to 203ms normalized ([#3185](https://github.com/maplibre/martin/pull/3185))
+- *(catalog)* serialize the catalog in a stable key order, so `/catalog` no longer differs between restarts ([#3189](https://github.com/maplibre/martin/pull/3189))
+- *(fonts)* redirect glyph URLs ending in `.pbf` instead of answering 404, so OpenMapTiles styles work unedited ([#3187](https://github.com/maplibre/martin/pull/3187))
+- *(pmtiles)* pick up the ECS and EKS credential env vars, so S3 sources use the task role on Fargate and EKS ([#3165](https://github.com/maplibre/martin/pull/3165))
+- *(reload)* keep per-source `convert_to_*` overrides for file-backed ([#3160](https://github.com/maplibre/martin/pull/3160)) and Postgres ([#3144](https://github.com/maplibre/martin/pull/3144)) sources
+- *(config)* gate the `resolve_process_config` imports on `_process` ([#3191](https://github.com/maplibre/martin/pull/3191))
+- fix cors logging logging `unrecognisable` ([#3136](https://github.com/maplibre/martin/pull/3136))
+- *(deps)* update npm dependencies ([#3177](https://github.com/maplibre/martin/pull/3177), [#3175](https://github.com/maplibre/martin/pull/3175))
 
 ### Other
 
-- *(reload)* publish local file kinds through init() ([#3190](https://github.com/maplibre/martin/pull/3190))
-- implement hillshade-postprocessing ([#3180](https://github.com/maplibre/martin/pull/3180))
-- minor test cleanup ([#3179](https://github.com/maplibre/martin/pull/3179))
-- *(reload)* gather the tile reloaders into TileReloaders ([#3178](https://github.com/maplibre/martin/pull/3178))
-- *(deps)* update cargo dependencies ([#3172](https://github.com/maplibre/martin/pull/3172))
-- *(postgres)* make the reloader the single writer of PostgreSQL sources ([#3130](https://github.com/maplibre/martin/pull/3130))
-- *(clippy)* warn on wildcard_enum_match_arm ([#3168](https://github.com/maplibre/martin/pull/3168))
-- *(tests)* use assert_matches! instead of assert!(matches!(..)) ([#3166](https://github.com/maplibre/martin/pull/3166))
-- *(errors)* split MartinError into different error types ([#3162](https://github.com/maplibre/martin/pull/3162))
-- *(deps)* autoupdate pre-commit ([#3155](https://github.com/maplibre/martin/pull/3155))
-- fix typo explicitely -> explicitly (source + generated), recomend -> recommend ([#3147](https://github.com/maplibre/martin/pull/3147))
 - *(pmtiles)* open file sources concurrently and share one client per store ([#3131](https://github.com/maplibre/martin/pull/3131))
-- *(reload)* build advisory additions and updates concurrently ([#3142](https://github.com/maplibre/martin/pull/3142))
-- *(discovery)* return warnings from Discovery::discover ([#3143](https://github.com/maplibre/martin/pull/3143))
-- *(postprocesing)* refactor docs to accept the new postprocessing section ([#3139](https://github.com/maplibre/martin/pull/3139))
-- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
-- fix cors logging logging `unrecognisable` ([#3136](https://github.com/maplibre/martin/pull/3136))
-- fix fmt ([#3135](https://github.com/maplibre/martin/pull/3135))
-- *(config)* resolve file source ids before opening the sources ([#3133](https://github.com/maplibre/martin/pull/3133))
-- *(cache)* fix some CI flakes by widening font + sprite cache expiry margins ([#3146](https://github.com/maplibre/martin/pull/3146))
-- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+- Reload and config refactors: the reloader is now the single writer of Postgres sources, the tile reloaders moved into `TileReloaders`, file source ids resolve before the sources open, and `Discovery::discover` returns its warnings ([#3130](https://github.com/maplibre/martin/pull/3130), [#3178](https://github.com/maplibre/martin/pull/3178), [#3190](https://github.com/maplibre/martin/pull/3190), [#3133](https://github.com/maplibre/martin/pull/3133), [#3142](https://github.com/maplibre/martin/pull/3142), [#3143](https://github.com/maplibre/martin/pull/3143))
+- Split `MartinError` into separate error types ([#3162](https://github.com/maplibre/martin/pull/3162))
+- Docs: a postprocessing section for the two new guides ([#3139](https://github.com/maplibre/martin/pull/3139), [#3140](https://github.com/maplibre/martin/pull/3140)), authenticating requests with nginx `auth_request` ([#3184](https://github.com/maplibre/martin/pull/3184)), typo fixes ([#3147](https://github.com/maplibre/martin/pull/3147) by [@vaibhav8a](https://github.com/vaibhav8a))
+- Lints and tests: warn on `wildcard_enum_match_arm`, adopt clippy 1.98, use `assert_matches!`, test cleanup and formatting ([#3168](https://github.com/maplibre/martin/pull/3168), [#3137](https://github.com/maplibre/martin/pull/3137), [#3166](https://github.com/maplibre/martin/pull/3166), [#3179](https://github.com/maplibre/martin/pull/3179), [#3135](https://github.com/maplibre/martin/pull/3135))
+- CI: the save-config e2e tests moved to rust and `tests/test.sh` is gone, the bundled DuckDB builds once and without debuginfo, build caches and duplicated job setup were cleaned up, and a few flaky tests were fixed ([#3105](https://github.com/maplibre/martin/pull/3105), [#3186](https://github.com/maplibre/martin/pull/3186), [#3169](https://github.com/maplibre/martin/pull/3169), [#3157](https://github.com/maplibre/martin/pull/3157), [#3161](https://github.com/maplibre/martin/pull/3161), [#3152](https://github.com/maplibre/martin/pull/3152), [#3145](https://github.com/maplibre/martin/pull/3145), [#3132](https://github.com/maplibre/martin/pull/3132), [#3149](https://github.com/maplibre/martin/pull/3149), [#3146](https://github.com/maplibre/martin/pull/3146))
+- *(deps)* cargo dependencies, docker images, github actions and pre-commit autoupdates ([#3172](https://github.com/maplibre/martin/pull/3172), [#3174](https://github.com/maplibre/martin/pull/3174), [#3171](https://github.com/maplibre/martin/pull/3171), [#3173](https://github.com/maplibre/martin/pull/3173), [#3176](https://github.com/maplibre/martin/pull/3176), [#3155](https://github.com/maplibre/martin/pull/3155))
 
 ## [1.14.0](https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0) - 2026-08-17
 
