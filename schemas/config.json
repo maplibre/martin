@@ -380,28 +380,6 @@
     },
     "FileConfig2": {
       "properties": {
-        "convert_to_contour": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoOption_ContourSettings"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
-        },
-        "convert_to_hillshade": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoOption_HillshadeSettings"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
-        },
         "convert_to_mlt": {
           "anyOf": [
             {

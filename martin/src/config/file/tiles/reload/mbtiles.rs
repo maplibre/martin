@@ -32,10 +32,6 @@ impl MbtilesReloader {
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
                     #[cfg(feature = "mlt")]
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
-                    #[cfg(feature = "hillshade")]
-                    convert_to_hillshade: cfg.custom.convert_to_hillshade.clone(),
-                    #[cfg(feature = "contour")]
-                    convert_to_contour: cfg.custom.convert_to_contour.clone(),
                     ..Default::default()
                 },
                 FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
