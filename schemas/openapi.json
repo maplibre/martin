@@ -36,10 +36,7 @@
                 "last_modified_at": {
                   "description": "Timestamp of the source font file's last modification.",
                   "format": "date-time",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "start": {
                   "description": "First Unicode codepoint available.",
@@ -48,18 +45,10 @@
                 },
                 "style": {
                   "description": "Font style (e.g., \"Bold\", \"Italic\").\n\nNone for regular style.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 }
               },
-              "required": [
-                "family",
-                "glyphs",
-                "start",
-                "end"
-              ],
+              "required": ["family", "glyphs", "start", "end"],
               "type": "object"
             },
             "propertyNames": {
@@ -75,9 +64,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "rendering"
-            ],
+            "required": ["rendering"],
             "type": "object"
           },
           "sprites": {
@@ -94,10 +81,7 @@
                 "last_modified_at": {
                   "description": "Timestamp of the spritesheet's last modification.",
                   "format": "date-time",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "size_in_bytes": {
                   "description": "Total size of the spritesheet in bytes.",
@@ -106,9 +90,7 @@
                   "type": "integer"
                 }
               },
-              "required": [
-                "images"
-              ],
+              "required": ["images"],
               "type": "object"
             },
             "propertyNames": {
@@ -125,27 +107,18 @@
                   "items": {
                     "type": "string"
                   },
-                  "type": [
-                    "array",
-                    "null"
-                  ]
+                  "type": ["array", "null"]
                 },
                 "last_modified_at": {
                   "description": "Timestamp of the style file's last modification.",
                   "format": "date-time",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "layer_count": {
                   "description": "Number of layers declared in the style JSON.",
                   "format": "int32",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "path": {
                   "description": "Path to the style JSON file.",
@@ -164,15 +137,10 @@
                 },
                 "version_hash": {
                   "description": "Hash identifying the current style revision.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 }
               },
-              "required": [
-                "path"
-              ],
+              "required": ["path"],
               "type": "object"
             },
             "propertyNames": {
@@ -186,17 +154,11 @@
               "properties": {
                 "attribution": {
                   "description": "Attribution text for the data source",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "content_encoding": {
                   "description": "Optional content encoding (e.g., \"gzip\", \"deflate\")",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "content_type": {
                   "description": "MIME type for the tile data (e.g., \"application/x-protobuf\", \"image/png\")",
@@ -204,39 +166,25 @@
                 },
                 "description": {
                   "description": "Description of the tile source content",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "last_modified_at": {
                   "description": "Timestamp of the underlying source's last modification.",
                   "format": "date-time",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "layer_count": {
                   "description": "Number of vector layers declared by this source.",
                   "format": "int32",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "name": {
                   "description": "Human-readable name for the tile source",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 }
               },
-              "required": [
-                "content_type"
-              ],
+              "required": ["content_type"],
               "type": "object"
             },
             "propertyNames": {
@@ -245,36 +193,22 @@
             "type": "object"
           }
         },
-        "required": [
-          "tiles",
-          "sprites",
-          "fonts",
-          "styles",
-          "settings"
-        ],
+        "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
       "FeatureCollectionTag": {
         "description": "`\"FeatureCollection\"` discriminator for the top-level body. A unit enum so\nany other `type` (a bare `Feature`, `Geometry`, or garbage) fails to\ndeserialize with a clear serde error.",
-        "enum": [
-          "FeatureCollection"
-        ],
+        "enum": ["FeatureCollection"],
         "type": "string"
       },
       "FeatureTag": {
         "description": "`\"Feature\"` discriminator for each member of the collection.",
-        "enum": [
-          "Feature"
-        ],
+        "enum": ["Feature"],
         "type": "string"
       },
       "FontFormat": {
         "description": "Source font file container format.\n\nThe string serialization (serde and `strum`) is the lowercase file\nextension, so [`FontFormat::VARIANTS`] doubles as the list of recognised\nfont extensions and [`str::parse`] maps an extension back to a variant.",
-        "enum": [
-          "otf",
-          "ttf",
-          "ttc"
-        ],
+        "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
       "StaticOverlayFeature": {
@@ -299,9 +233,7 @@
             "description": "`GeoJSON` type discriminator. Must be `\"Feature\"`."
           }
         },
-        "required": [
-          "type"
-        ],
+        "required": ["type"],
         "type": "object"
       },
       "StaticOverlayProperties": {
@@ -310,107 +242,65 @@
           "circle-color": {
             "description": "CSS color for `Point` geometries.",
             "example": "#285DAA",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "circle-opacity": {
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "circle-radius": {
             "description": "Radius in pixels at the rendered scale.",
             "example": 8.0,
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "circle-stroke-color": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "circle-stroke-opacity": {
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "circle-stroke-width": {
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "fill-color": {
             "description": "CSS color for `Polygon` fills.",
             "example": "#95BEFA",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "fill-opacity": {
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "fill-outline-color": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "line-cap": {
             "description": "One of `butt`, `round`, `square`.",
             "example": "round",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "line-color": {
             "description": "CSS color for `LineString` geometries (and `Polygon` outlines).",
             "example": "#285DAA",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "line-join": {
             "description": "One of `miter`, `bevel`, `round`.",
             "example": "round",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "line-opacity": {
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "line-width": {
             "description": "Line width in pixels at the rendered scale.",
             "example": 2.0,
             "format": "float",
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           }
         },
         "type": "object"
@@ -430,19 +320,12 @@
             "description": "`GeoJSON` type discriminator. Must be `\"FeatureCollection\"`."
           }
         },
-        "required": [
-          "type",
-          "features"
-        ],
+        "required": ["type", "features"],
         "type": "object"
       },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
-        "enum": [
-          "vector",
-          "raster",
-          "hybrid"
-        ],
+        "enum": ["vector", "raster", "hybrid"],
         "type": "string"
       }
     }
@@ -461,484 +344,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/catalog": {
-      "get": {
-        "operationId": "get_catalog",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Catalog"
-                }
-              }
-            },
-            "description": "Catalog of all configured sources"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/font/{fontstack}/{start}-{end}": {
-      "get": {
-        "operationId": "get_font",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "fontstack",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "start",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "end",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/x-protobuf": {}
-            },
-            "description": "Glyph PBF range"
-          },
-          "400": {
-            "description": "Invalid glyph range"
-          },
-          "404": {
-            "description": "No matching font"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/health": {
-      "get": {
-        "operationId": "get_health",
-        "responses": {
-          "200": {
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Service healthy"
-          }
-        },
-        "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/sdf_sprite/{source_ids}.json": {
-      "get": {
-        "operationId": "get_sprite_sdf_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "SDF sprite index JSON"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/sdf_sprite/{source_ids}.png": {
-      "get": {
-        "operationId": "get_sprite_sdf_png",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/png": {}
-            },
-            "description": "Combined signed-distance-field sprite image"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/sprite/{source_ids}.json": {
-      "get": {
-        "operationId": "get_sprite_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "Sprite index JSON"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/sprite/{source_ids}.png": {
-      "get": {
-        "operationId": "get_sprite_png",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/png": {}
-            },
-            "description": "Combined sprite image"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/style/{style_id}": {
-      "get": {
-        "operationId": "get_style_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "MapLibre Style Spec JSON document"
-          },
-          "400": {
-            "description": "Style file is malformed"
-          },
-          "404": {
-            "description": "No matching style"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/style/{style_id}/static/{camera}/{size}.{format}": {
-      "get": {
-        "operationId": "get_rendered_static_style",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
-            "in": "path",
-            "name": "camera",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
-            "in": "path",
-            "name": "size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
-            "in": "path",
-            "name": "format",
-            "required": true,
-            "schema": {
-              "description": "Image format requested in the URL.",
-              "enum": [
-                "png",
-                "jpg",
-                "webp"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/jpeg": {},
-              "image/png": {},
-              "image/webp": {}
-            },
-            "description": "Rendered static map image"
-          },
-          "400": {
-            "description": "Invalid params or size"
-          },
-          "403": {
-            "description": "Rendering is disabled"
-          },
-          "404": {
-            "description": "No matching style"
-          },
-          "500": {
-            "description": "Renderer or encoder failure"
-          }
-        },
-        "summary": "Render a static map image at an arbitrary camera into `{size}.{format}`.",
-        "tags": [
-          "crate::srv"
-        ]
-      },
-      "post": {
-        "description": "An empty or missing body renders the base map alone.",
-        "operationId": "post_rendered_static_style",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
-            "in": "path",
-            "name": "camera",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
-            "in": "path",
-            "name": "size",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
-            "in": "path",
-            "name": "format",
-            "required": true,
-            "schema": {
-              "description": "Image format requested in the URL.",
-              "enum": [
-                "png",
-                "jpg",
-                "webp"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StaticStyleOverlay"
-              }
-            }
-          },
-          "description": "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "image/jpeg": {},
-              "image/png": {},
-              "image/webp": {}
-            },
-            "description": "Rendered static map image"
-          },
-          "400": {
-            "description": "Invalid params, size, or overlay body"
-          },
-          "403": {
-            "description": "Rendering is disabled"
-          },
-          "404": {
-            "description": "No matching style"
-          },
-          "500": {
-            "description": "Renderer or encoder failure"
-          }
-        },
-        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
-    "/style/{style_id}/{z}/{x}/{y}.{format}": {
-      "get": {
-        "operationId": "get_rendered_tile_style",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "z",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "x",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "y",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "format",
-            "required": true,
-            "schema": {
-              "description": "Image format requested in the URL.",
-              "enum": [
-                "png",
-                "jpg",
-                "webp"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
-          },
-          "400": {
-            "description": "Invalid tile coordinates"
-          },
-          "403": {
-            "description": "Rendering is disabled"
-          },
-          "404": {
-            "description": "No matching style"
-          },
-          "500": {
-            "description": "Renderer or encoder failure"
-          }
-        },
-        "tags": [
-          "crate::srv"
-        ]
-      }
-    },
     "/{source_ids}": {
       "get": {
         "operationId": "get_source_info",
@@ -963,9 +368,7 @@
             "description": "No matching source"
           }
         },
-        "tags": [
-          "crate::srv"
-        ]
+        "tags": ["crate::srv"]
       }
     },
     "/{source_ids}/{z}/{x}/{y}": {
@@ -1028,9 +431,451 @@
             "description": "No supported tile format in Accept header"
           }
         },
-        "tags": [
-          "crate::srv"
-        ]
+        "tags": ["crate::srv"]
+      }
+    },
+    "/catalog": {
+      "get": {
+        "operationId": "get_catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Catalog of all configured sources"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/font/{fontstack}/{start}-{end}": {
+      "get": {
+        "operationId": "get_font",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fontstack",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-protobuf": {}
+            },
+            "description": "Glyph PBF range"
+          },
+          "400": {
+            "description": "Invalid glyph range"
+          },
+          "404": {
+            "description": "No matching font"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Service healthy"
+          }
+        },
+        "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
+        "tags": ["crate::srv"]
+      }
+    },
+    "/sdf_sprite/{source_ids}.json": {
+      "get": {
+        "operationId": "get_sprite_sdf_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "SDF sprite index JSON"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/sdf_sprite/{source_ids}.png": {
+      "get": {
+        "operationId": "get_sprite_sdf_png",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Combined signed-distance-field sprite image"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/sprite/{source_ids}.json": {
+      "get": {
+        "operationId": "get_sprite_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "Sprite index JSON"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/sprite/{source_ids}.png": {
+      "get": {
+        "operationId": "get_sprite_png",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Combined sprite image"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}": {
+      "get": {
+        "operationId": "get_style_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "MapLibre Style Spec JSON document"
+          },
+          "400": {
+            "description": "Style file is malformed"
+          },
+          "404": {
+            "description": "No matching style"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}/{z}/{x}/{y}.{format}": {
+      "get": {
+        "operationId": "get_rendered_tile_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "z",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "x",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "y",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
+          },
+          "400": {
+            "description": "Invalid tile coordinates"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}/static/{camera}/{size}.{format}": {
+      "get": {
+        "operationId": "get_rendered_static_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
+            "in": "path",
+            "name": "camera",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
+          },
+          "400": {
+            "description": "Invalid params or size"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "summary": "Render a static map image at an arbitrary camera into `{size}.{format}`.",
+        "tags": ["crate::srv"]
+      },
+      "post": {
+        "description": "An empty or missing body renders the base map alone.",
+        "operationId": "post_rendered_static_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
+            "in": "path",
+            "name": "camera",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticStyleOverlay"
+              }
+            }
+          },
+          "description": "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
+          },
+          "400": {
+            "description": "Invalid params, size, or overlay body"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
+        "tags": ["crate::srv"]
       }
     }
   }
