@@ -500,6 +500,11 @@ postgres:
 # `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
 # Default could be different depending on Martin version.
 preferred_encoding: brotli
+# Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
+#
+# The route has no authentication of its own.
+# Put it behind the same proxy rules as the rest of the server.
+purge_endpoint: false
 # Set the URL path prefix for all API routes.
 # When set, Martin will serve all endpoints under this path prefix.
 # This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).

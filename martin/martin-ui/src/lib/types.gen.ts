@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/cache/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Drops every cached tile of one source.
+         * @description Answers `404` for an unknown source and `204` otherwise, also when no tile cache is configured.
+         */
+        delete: operations["purge_source"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog": {
         parameters: {
             query?: never;
@@ -430,6 +450,34 @@ export type StaticStyleOverlay = components['schemas']['StaticStyleOverlay'];
 export type StyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
+    purge_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Source ID */
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source's cached tiles are gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such source */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_catalog: {
         parameters: {
             query?: never;

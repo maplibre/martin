@@ -434,6 +434,33 @@
         "tags": ["crate::srv"]
       }
     },
+    "/cache/{source_id}": {
+      "delete": {
+        "description": "Answers `404` for an unknown source and `204` otherwise, also when no tile cache is configured.",
+        "operationId": "purge_source",
+        "parameters": [
+          {
+            "description": "Source ID",
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The source's cached tiles are gone"
+          },
+          "404": {
+            "description": "No such source"
+          }
+        },
+        "summary": "Drops every cached tile of one source.",
+        "tags": ["crate::srv"]
+      }
+    },
     "/catalog": {
       "get": {
         "operationId": "get_catalog",

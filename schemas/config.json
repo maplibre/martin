@@ -1754,6 +1754,11 @@
       ],
       "description": "Which compression should be used if the\n- client accepts multiple compression formats, and\n- tile source is not pre-compressed.\n\n`gzip` is faster, but `brotli` is smaller, and may be faster with caching.\nDefault could be different depending on Martin version."
     },
+    "purge_endpoint": {
+      "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own.\nPut it behind the same proxy rules as the rest of the server.",
+      "examples": [false],
+      "type": ["boolean", "null"]
+    },
     "route_prefix": {
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",
       "type": ["string", "null"]
