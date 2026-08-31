@@ -436,7 +436,8 @@ impl PmtConfig {
             }
         }
 
-        // lowercase(env_key) => new key
+        // The AWS SDK's own variables, injected by Lambda, ECS and CI runners.
+        // Adopted silently: they are the documented SDK contract, not a deprecated spelling.
         for env_key in [
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
@@ -448,7 +449,7 @@ impl PmtConfig {
                 let new_key_without_aws_prefix = new_key_with_aws_prefix
                     .strip_prefix("aws_")
                     .expect("all our keys start with aws_");
-                self.migrate_aws_value(
+                self.adopt_aws_value(
                     "Environment variable",
                     env_key,
                     new_key_without_aws_prefix,
@@ -471,7 +472,24 @@ impl PmtConfig {
         }
     }
 
+    /// [`Self::adopt_aws_value`] plus a deprecation warning when the value is taken.
     fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
+        if self.adopt_aws_value(r#type, key, new_key, value) {
+            warn!(
+                "{type} {key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
+            );
+        }
+    }
+
+    /// Takes `value` for `new_key` unless the configuration already sets it, warning only then.
+    /// Returns whether the value was taken.
+    fn adopt_aws_value(
+        &mut self,
+        r#type: &'static str,
+        key: &str,
+        new_key: &str,
+        value: String,
+    ) -> bool {
         let new_key_with_aws_prefix = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
             warn!(
@@ -482,11 +500,10 @@ impl PmtConfig {
                 "{type} {key} is ignored in favor of the new configuration value pmtiles.{new_key_with_aws_prefix}."
             );
         } else {
-            warn!(
-                "{type} {key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
-            );
             self.options.insert(new_key.to_owned(), value);
+            return true;
         }
+        false
     }
 
     /// Forwards the credential-discovery variables to the S3 client so task roles work without configuration.
