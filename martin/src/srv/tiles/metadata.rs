@@ -12,7 +12,7 @@ use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
-use crate::config::file::ProcessConfig;
+use crate::config::file::ResolvedProcess;
 use crate::config::file::srv::SrvConfig;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -114,7 +114,7 @@ pub async fn get_source_info(
 
 /// Merges what each source advertises after post-processing into one [`TileJSON`].
 #[must_use]
-pub fn merge_tilejson(sources: &[(BoxedSource, ProcessConfig)], tiles_url: String) -> TileJSON {
+pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: String) -> TileJSON {
     let mut advertised: Vec<TileJSON> = sources
         .iter()
         .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
@@ -243,7 +243,7 @@ pub mod tests {
         let tj = merge_tilejson(
             &[(
                 Box::new(src1.clone()) as BoxedSource,
-                ProcessConfig::default(),
+                ResolvedProcess::default(),
             )],
             url.clone(),
         );
@@ -278,9 +278,9 @@ pub mod tests {
             &[
                 (
                     Box::new(src1.clone()) as BoxedSource,
-                    ProcessConfig::default(),
+                    ResolvedProcess::default(),
                 ),
-                (Box::new(src2) as BoxedSource, ProcessConfig::default()),
+                (Box::new(src2) as BoxedSource, ResolvedProcess::default()),
             ],
             url.clone(),
         );

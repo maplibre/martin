@@ -12,8 +12,8 @@ use tokio::fs::{self, DirEntry};
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, SourceBuildError, SourceBuildResult,
-    TileSourceWarning,
+    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
+    SourceBuildResult, TileSourceWarning,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::{FileKind, SourceProvenance};
@@ -37,7 +37,8 @@ pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuildFutu
 /// same canonical path keeps its policy and per-source process settings.
 struct ConfiguredSource {
     policy: CachePolicy,
-    /// Per-source `convert_to_*` / `cache_control` override, already resolved against the kind level.
+    /// Per-source `convert_to_*` / `cache_control` override layered over the kind level.
+    /// Resolved when the source is built so a bad parameter fails that source alone.
     process: Option<ProcessConfig>,
     /// The entry as configured, preserved verbatim for `--save-config`.
     src: FileConfigSrc,
@@ -52,7 +53,8 @@ pub struct FsDiscovery {
     /// Canonical path -> configured entry for explicitly-configured sources.
     configured: BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: IdResolver,
-    process: ProcessConfig,
+    /// The kind level, resolved once for every source without its own override.
+    process: ResolvedProcess,
     build: FsSourceBuilder,
     /// Configured directories that could not be read at construction.
     warnings: Vec<TileSourceWarning>,
@@ -66,7 +68,7 @@ impl FsDiscovery {
         config: &FileConfigEnum<C>,
         extensions: &'static [&'static str],
         id_resolver: IdResolver,
-        process: ProcessConfig,
+        process: &ProcessConfig,
         build: FsSourceBuilder,
     ) -> Self {
         let mut directories: Vec<PathBuf> = vec![];
@@ -89,7 +91,7 @@ impl FsDiscovery {
                     canonical,
                     ConfiguredSource {
                         policy: src.cache_zoom(),
-                        process: per_source_process(&process, src),
+                        process: per_source_process(process, src),
                         src: src.clone(),
                     },
                 );
@@ -137,7 +139,9 @@ impl FsDiscovery {
             extensions,
             configured,
             id_resolver,
-            process,
+            process: process
+                .resolve()
+                .expect("the kind level carries no range-checked settings"),
             build,
             warnings,
         }
@@ -172,10 +176,8 @@ impl FsDiscovery {
     }
 }
 
-/// Per-source `convert_to_*` and `cache_control` settings override the kind-level [`ProcessConfig`].
+/// Per-source `convert_to_*` and `cache_control` settings layered over the kind-level [`ProcessConfig`].
 fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
-    use crate::config::file::resolve_process_config;
-
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
@@ -193,7 +195,7 @@ fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option
     if per_source == ProcessConfig::default() {
         return None;
     }
-    Some(resolve_process_config(
+    Some(ProcessConfig::layered(
         kind_level,
         &ProcessConfig::default(),
         &per_source,
@@ -227,7 +229,9 @@ impl Discovery for FsDiscovery {
         let process = self
             .configured
             .get(&args.0)
-            .and_then(|cfg| cfg.process.clone());
+            .and_then(|cfg| cfg.process.as_ref())
+            .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
+            .transpose()?;
         Ok(BuiltSource {
             source,
             process,
@@ -238,7 +242,7 @@ impl Discovery for FsDiscovery {
         })
     }
 
-    fn process(&self) -> ProcessConfig {
+    fn process(&self) -> ResolvedProcess {
         self.process.clone()
     }
 
@@ -428,7 +432,7 @@ mod tests {
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             unreachable_builder(),
         );
 
@@ -457,7 +461,7 @@ mod tests {
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             fake_builder(),
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Warn);
@@ -483,7 +487,7 @@ mod tests {
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             fake_builder(),
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Abort);
@@ -545,7 +549,7 @@ mod tests {
             &config,
             &["mbtiles"],
             IdResolver::new(&[]),
-            kind_level,
+            &kind_level,
             unreachable_builder(),
         );
 
@@ -600,7 +604,7 @@ mod tests {
             &config,
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             unreachable_builder(),
         );
 
@@ -634,7 +638,7 @@ mod tests {
             ]),
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             fake_builder(),
         );
         std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o755))
@@ -671,7 +675,7 @@ mod tests {
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
             &["mbtiles"],
             IdResolver::new(&[]),
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             unreachable_builder(),
         );
 

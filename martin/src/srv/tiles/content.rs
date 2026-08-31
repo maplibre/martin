@@ -19,11 +19,11 @@ use serde::Deserialize;
 use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
-use crate::config::file::ProcessConfig;
 #[cfg(all(feature = "contour", feature = "_tiles"))]
 use crate::config::file::ResolvedContour;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::ResolvedHillshade;
+use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
@@ -266,7 +266,7 @@ fn redirect_tile_with_query(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<(BoxedSource, ProcessConfig)>,
+    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
     pub info: TileInfo,
     /// The request's query string and its parsed form, when the request carried one.
     pub query: Option<(&'a str, UrlQuery)>,
@@ -441,7 +441,7 @@ impl<'a> DynTileSource<'a> {
     async fn get_tile_content_from_one_source(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
@@ -477,7 +477,11 @@ impl<'a> DynTileSource<'a> {
     /// Reloads `s`, publishes the fresh instance, and hands it back.
     ///
     /// Publishing also invalidates the source's cached tiles, so a retry reads fresh data.
-    async fn reload_source(&self, s: &BoxedSource, pc: &ProcessConfig) -> ActixResult<BoxedSource> {
+    async fn reload_source(
+        &self,
+        s: &BoxedSource,
+        pc: &ResolvedProcess,
+    ) -> ActixResult<BoxedSource> {
         let fresh_src = s.try_reload().await.map_err(|e| map_error(&e))?;
         warn!(source.id = s.get_id(), "Source modified; reloading");
         let advisory = ReloadAdvisory {
@@ -498,7 +502,7 @@ impl<'a> DynTileSource<'a> {
     async fn reload_source_and_retry_get_tile(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
         let fresh_src = self.reload_source(s, pc).await?;
@@ -514,7 +518,7 @@ impl<'a> DynTileSource<'a> {
     async fn fetch_tile_content_with_cache(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z);
@@ -558,14 +562,8 @@ impl<'a> DynTileSource<'a> {
     /// Resolves this source's contour settings for the current request.
     /// Returns `None` when the source is not contoured.
     #[cfg(all(feature = "contour", feature = "_tiles"))]
-    fn resolve_contour(&self, pc: &ProcessConfig) -> ActixResult<Option<ResolvedContour>> {
-        let Some(config) = pc.convert_to_contour.as_ref() else {
-            return Ok(None);
-        };
-        let Some(settings) = config
-            .resolve_contour()
-            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?
-        else {
+    fn resolve_contour(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedContour>> {
+        let Some(settings) = pc.contour.clone() else {
             return Ok(None);
         };
 
@@ -585,14 +583,8 @@ impl<'a> DynTileSource<'a> {
     /// Resolves this source's hillshade settings for the current request.
     /// Returns `None` when the source is not hillshaded.
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-    fn resolve_hillshade(&self, pc: &ProcessConfig) -> ActixResult<Option<ResolvedHillshade>> {
-        let Some(config) = pc.convert_to_hillshade.as_ref() else {
-            return Ok(None);
-        };
-        let Some(settings) = config
-            .resolve_hillshade()
-            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?
-        else {
+    fn resolve_hillshade(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedHillshade>> {
+        let Some(settings) = pc.hillshade else {
             return Ok(None);
         };
 
@@ -870,7 +862,7 @@ mod tests {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|s| (s, ProcessConfig::default()))
+                    .map(|s| (s, ResolvedProcess::default()))
                     .collect()
             })
             .collect();
@@ -1206,17 +1198,11 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[actix_rt::test]
     async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
-        use crate::config::file::HillshadeProcessConfig;
-
         let normal_tile =
             include_bytes!("../../../../tests/fixtures/terrain/normal/10_163_396.png").to_vec();
-        let pc = ProcessConfig {
-            convert_to_hillshade: Some(HillshadeProcessConfig::Auto),
-            convert_to_mlt: None,
-            convert_to_mvt: None,
-            cache_control: None,
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
-            convert_to_contour: None,
+        let pc = ResolvedProcess {
+            hillshade: Some(ResolvedHillshade::default()),
+            ..Default::default()
         };
         let src = SourceNeedsReloadTestSource::new("terrain", normal_tile, Format::Png);
         let mgr = TileSourceManager::from_sources(

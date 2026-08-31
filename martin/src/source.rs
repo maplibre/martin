@@ -7,7 +7,7 @@ use martin_core::tiles::{BoxedSource, Source};
 use martin_tile_utils::TileInfo;
 use tracing::debug;
 
-use crate::config::file::ProcessConfig;
+use crate::config::file::ResolvedProcess;
 
 /// Maximum number of comma-separated source ids accepted in a single
 /// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
@@ -15,7 +15,7 @@ const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
 /// Result of resolving multiple sources for a composite tile request.
 pub struct ResolvedSources {
-    pub sources: Vec<(BoxedSource, ProcessConfig)>,
+    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
     pub use_url_query: bool,
     pub info: TileInfo,
 }
@@ -23,14 +23,14 @@ pub struct ResolvedSources {
 /// Thread-safe registry of tile sources indexed by ID.
 ///
 /// Uses a [`DashMap`] for concurrent access without explicit locking.
-/// Each source is paired with its resolved [`ProcessConfig`].
+/// Each source is paired with its resolved [`ResolvedProcess`].
 #[derive(Default, Clone)]
-pub struct TileSources(Arc<DashMap<String, (BoxedSource, ProcessConfig)>>);
+pub struct TileSources(Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>);
 
 impl TileSources {
     /// Creates a new registry from flattened source collections.
     ///
-    /// All sources receive the default [`ProcessConfig`].
+    /// All sources receive the default [`ResolvedProcess`].
     #[must_use]
     pub fn new(sources: Vec<Vec<BoxedSource>>) -> Self {
         Self::new_with_process(
@@ -39,7 +39,7 @@ impl TileSources {
                 .map(|group| {
                     group
                         .into_iter()
-                        .map(|src| (src, ProcessConfig::default()))
+                        .map(|src| (src, ResolvedProcess::default()))
                         .collect()
                 })
                 .collect(),
@@ -48,7 +48,7 @@ impl TileSources {
 
     /// Creates a new registry from sources paired with their resolved process configs.
     #[must_use]
-    pub fn new_with_process(sources: Vec<Vec<(BoxedSource, ProcessConfig)>>) -> Self {
+    pub fn new_with_process(sources: Vec<Vec<(BoxedSource, ResolvedProcess)>>) -> Self {
         Self(Arc::new(
             sources
                 .into_iter()
@@ -60,7 +60,7 @@ impl TileSources {
 
     /// Creates a registry backed by an existing shared `DashMap`.
     #[must_use]
-    pub(crate) fn from_dashmap(map: Arc<DashMap<String, (BoxedSource, ProcessConfig)>>) -> Self {
+    pub(crate) fn from_dashmap(map: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>) -> Self {
         Self(map)
     }
 
@@ -89,7 +89,7 @@ impl TileSources {
     }
 
     /// Gets a source and its process config by ID, returning 404 error if not found.
-    pub fn get_source(&self, id: &str) -> actix_web::Result<(BoxedSource, ProcessConfig)> {
+    pub fn get_source(&self, id: &str) -> actix_web::Result<(BoxedSource, ResolvedProcess)> {
         Ok(self
             .0
             .get(id)

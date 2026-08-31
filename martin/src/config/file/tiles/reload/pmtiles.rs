@@ -1,8 +1,6 @@
 use crate::TileSourceManager;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(feature = "_process")]
-use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
@@ -45,7 +43,7 @@ impl PmtilesReloader {
                     ProcessConfig::default()
                 }
             };
-            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
+            ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
         #[cfg(not(feature = "_process"))]
         let process = {
@@ -73,10 +71,10 @@ impl PmtilesReloader {
             config,
             &[PMTILES_EXT],
             id_resolver.clone(),
-            process.clone(),
+            &process,
             build,
         );
-        let remote = ObjectStoreDiscovery::from_config(config, id_resolver, process);
+        let remote = ObjectStoreDiscovery::from_config(config, id_resolver, &process);
 
         Self {
             local: ReloadDriver::new(local, tsm.clone()),

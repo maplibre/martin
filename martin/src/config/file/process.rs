@@ -11,17 +11,23 @@ use tilejson::TileJSON;
 #[cfg(all(feature = "contour", feature = "_tiles"))]
 use tilejson::VectorLayer;
 
-use crate::config::file::CacheControlHeader;
 #[cfg(all(feature = "contour", feature = "_tiles"))]
-use crate::config::file::contour::{ContourProcessConfig, ResolvedContour};
+use crate::config::file::contour::{ContourProcessConfig, ContourRangeError, ResolvedContour};
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-use crate::config::file::hillshade::HillshadeProcessConfig;
+use crate::config::file::hillshade::{
+    HillshadeProcessConfig, HillshadeRangeError, ResolvedHillshade,
+};
+use crate::config::file::{CacheControlHeader, ConfigFileError};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
-/// Internal carrier for resolved per-source serving settings.
+/// One level of serving settings as written in the config, global, source-type or per-source.
+///
+/// Every field is `None` until that level sets it.
+/// Levels fold together with [`layered`](Self::layered) and become a [`ResolvedProcess`] through [`resolve`](Self::resolve).
+/// Nothing past `Config::finalize` reads this type.
 ///
 /// Not serialized directly - config files use `convert_to_mlt` / `convert_to_mvt` /
 /// `cache_control`.
@@ -41,22 +47,173 @@ pub struct ProcessConfig {
 }
 
 impl ProcessConfig {
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
-    fn is_contoured(&self) -> bool {
-        self.convert_to_contour
-            .as_ref()
-            .is_some_and(ContourProcessConfig::is_enabled)
+    /// Folds the three levels into one, per-source over source-type over global.
+    ///
+    /// The `convert_to_mlt`/`convert_to_mvt` pair overrides as a unit, `cache_control` resolves on
+    /// its own, and `convert_to_hillshade`/`convert_to_contour` are per-source only.
+    #[must_use]
+    pub fn layered(global: &Self, source_type: &Self, per_source: &Self) -> Self {
+        let cache_control = per_source
+            .cache_control
+            .clone()
+            .or_else(|| source_type.cache_control.clone())
+            .or_else(|| global.cache_control.clone());
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        let conversions = [per_source, source_type, global]
+            .into_iter()
+            .find(|pc| pc.convert_to_mlt.is_some() || pc.convert_to_mvt.is_some())
+            .unwrap_or(global);
+        Self {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: conversions.convert_to_mlt.clone(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: conversions.convert_to_mvt.clone(),
+            cache_control,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            convert_to_hillshade: per_source.convert_to_hillshade.clone(),
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: per_source.convert_to_contour.clone(),
+        }
     }
 
-    /// The contour settings this source traces with, if any.
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
-    fn resolved_contour(&self) -> Option<ResolvedContour> {
-        self.convert_to_contour
-            .as_ref()?
-            .resolve_contour()
-            .expect("contour settings are range-checked by Config::finalize")
+    /// Applies the defaults and range-checks the settings, once.
+    ///
+    /// # Errors
+    ///
+    /// A hillshade or contour parameter outside its range.
+    pub fn resolve(&self) -> Result<ResolvedProcess, ProcessResolveError> {
+        Ok(ResolvedProcess {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            mlt: match &self.convert_to_mlt {
+                None | Some(MltProcessConfig::Auto) => {
+                    MltConversion::Encode(EncoderConfig::default())
+                }
+                Some(MltProcessConfig::Explicit(cfg)) => {
+                    MltConversion::Encode(EncoderConfig::from(cfg.clone()))
+                }
+                Some(MltProcessConfig::Disabled) => MltConversion::Disabled,
+            },
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            mvt: match &self.convert_to_mvt {
+                Some(MvtProcessConfig::Disabled) => MvtConversion::Disabled,
+                None | Some(MvtProcessConfig::Auto | MvtProcessConfig::Explicit(_)) => {
+                    MvtConversion::Encode
+                }
+            },
+            cache_control: self.cache_control.clone(),
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            hillshade: match &self.convert_to_hillshade {
+                None => None,
+                Some(config) => config.resolve_hillshade()?,
+            },
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            contour: match &self.convert_to_contour {
+                None => None,
+                Some(config) => config.resolve_contour()?,
+            },
+        })
     }
+}
 
+/// A setting that did not survive [`ProcessConfig::resolve`].
+#[derive(Debug, thiserror::Error)]
+pub enum ProcessResolveError {
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error(transparent)]
+    Hillshade(#[from] HillshadeRangeError),
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error(transparent)]
+    Contour(#[from] ContourRangeError),
+}
+
+impl ProcessResolveError {
+    /// The startup error naming the source at fault.
+    #[must_use]
+    #[cfg_attr(
+        not(any(
+            all(feature = "hillshade", feature = "_tiles"),
+            all(feature = "contour", feature = "_tiles")
+        )),
+        expect(
+            unused_variables,
+            reason = "nothing can fail to resolve without those features"
+        )
+    )]
+    pub fn for_source(self, source_id: String) -> ConfigFileError {
+        match self {
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            Self::Hillshade(source) => ConfigFileError::InvalidHillshade {
+                source_id,
+                source: Box::new(source),
+            },
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            Self::Contour(source) => ConfigFileError::InvalidContour {
+                source_id,
+                source: Box::new(source),
+            },
+        }
+    }
+}
+
+/// Whether, and how, MVT tiles are re-encoded as MLT for clients that accept it.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MltConversion {
+    /// Convert with these encoder settings.
+    Encode(EncoderConfig),
+    /// Serve the MVT bytes as they are.
+    Disabled,
+}
+
+/// Whether MLT tiles are decoded to MVT for clients that accept only that.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MvtConversion {
+    /// Convert.
+    #[default]
+    Encode,
+    /// Serve the MLT bytes as they are.
+    Disabled,
+}
+
+/// What a source is served with, every config level folded together and range-checked.
+///
+/// The catalog and the tile pipeline only ever see this type.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResolvedProcess {
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    pub mlt: MltConversion,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    pub mvt: MvtConversion,
+    /// `Cache-Control` response header for this source.
+    /// `None` leaves the server-level default to the middleware.
+    pub cache_control: Option<CacheControlHeader>,
+    /// Kernel parameters when the source is hillshaded.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    pub hillshade: Option<ResolvedHillshade>,
+    /// Tracer parameters when the source is contoured.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    pub contour: Option<ResolvedContour>,
+}
+
+impl Default for ResolvedProcess {
+    /// What a source gets when no level configures anything.
+    fn default() -> Self {
+        Self {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            mlt: MltConversion::Encode(EncoderConfig::default()),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            mvt: MvtConversion::Encode,
+            cache_control: None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            contour: None,
+        }
+    }
+}
+
+impl ResolvedProcess {
     /// The [`TileInfo`] this source answers with once post-processing has run.
     ///
     /// Contouring replaces an elevation raster with a vector tile, so the format
@@ -65,7 +222,7 @@ impl ProcessConfig {
     #[must_use]
     pub fn advertised_tile_info(&self, source: TileInfo) -> TileInfo {
         #[cfg(all(feature = "contour", feature = "_tiles"))]
-        if self.is_contoured() {
+        if self.contour.is_some() {
             return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
         }
         source
@@ -75,7 +232,7 @@ impl ProcessConfig {
     #[must_use]
     pub fn advertised_tilejson(&self, tilejson: TileJSON) -> TileJSON {
         #[cfg(all(feature = "contour", feature = "_tiles"))]
-        if let Some(settings) = self.resolved_contour() {
+        if let Some(settings) = &self.contour {
             let mut fields = std::collections::BTreeMap::new();
             fields.insert("ele".to_owned(), "Number".to_owned());
             fields.insert("major".to_owned(), "Boolean".to_owned());
@@ -202,39 +359,6 @@ impl From<MltEncoderConfig> for EncoderConfig {
             cfg = cfg.with_shared_dict(v);
         }
         cfg
-    }
-}
-
-/// Resolve the effective per-source config: per-source > source-type > global > default.
-///
-/// The `convert_to_mlt`/`convert_to_mvt` pair overrides as a unit, `cache_control` resolves on
-/// its own, and `convert_to_hillshade` is per-source only.
-#[must_use]
-pub fn resolve_process_config(
-    global: &ProcessConfig,
-    source_type: &ProcessConfig,
-    per_source: &ProcessConfig,
-) -> ProcessConfig {
-    let cache_control = per_source
-        .cache_control
-        .clone()
-        .or_else(|| source_type.cache_control.clone())
-        .or_else(|| global.cache_control.clone());
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    let conversions = [per_source, source_type, global]
-        .into_iter()
-        .find(|pc| pc.convert_to_mlt.is_some() || pc.convert_to_mvt.is_some())
-        .unwrap_or(global);
-    ProcessConfig {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        convert_to_mlt: conversions.convert_to_mlt.clone(),
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        convert_to_mvt: conversions.convert_to_mvt.clone(),
-        cache_control,
-        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-        convert_to_hillshade: per_source.convert_to_hillshade.clone(),
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
-        convert_to_contour: per_source.convert_to_contour.clone(),
     }
 }
 
@@ -406,7 +530,7 @@ mod tests {
             #[cfg(all(feature = "contour", feature = "_tiles"))]
             convert_to_contour: None,
         };
-        let resolved = resolve_process_config(&global, &ProcessConfig::default(), &per_source);
+        let resolved = ProcessConfig::layered(&global, &ProcessConfig::default(), &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
     }
 
@@ -441,7 +565,7 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = resolve_process_config(&global, &source_type, &per_source);
+        let resolved = ProcessConfig::layered(&global, &source_type, &per_source);
         assert_eq!(resolved, per_source);
     }
 
@@ -465,7 +589,7 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = resolve_process_config(&global, &source_type, &ProcessConfig::default());
+        let resolved = ProcessConfig::layered(&global, &source_type, &ProcessConfig::default());
         assert_eq!(resolved, source_type);
     }
 
@@ -481,7 +605,7 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = resolve_process_config(
+        let resolved = ProcessConfig::layered(
             &global,
             &ProcessConfig::default(),
             &ProcessConfig::default(),
@@ -511,7 +635,7 @@ mod tests {
     fn resolve_per_source_cache_control_wins() {
         let source_type = only_cache_control("public, max-age=60");
         let per_source = only_cache_control("no-store");
-        let resolved = resolve_process_config(&ProcessConfig::default(), &source_type, &per_source);
+        let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &per_source);
         assert_eq!(resolved.cache_control, Some(cache_control("no-store")));
     }
 
@@ -527,14 +651,14 @@ mod tests {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             ..Default::default()
         };
-        let resolved = resolve_process_config(&ProcessConfig::default(), &source_type, &per_source);
+        let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Auto));
         assert_eq!(
             resolved.cache_control,
             Some(cache_control("public, max-age=60"))
         );
 
-        let resolved = resolve_process_config(
+        let resolved = ProcessConfig::layered(
             &ProcessConfig::default(),
             &source_type,
             &only_cache_control("no-store"),
@@ -545,7 +669,7 @@ mod tests {
 
     #[test]
     fn resolve_default_when_all_none() {
-        let resolved = resolve_process_config(
+        let resolved = ProcessConfig::layered(
             &ProcessConfig::default(),
             &ProcessConfig::default(),
             &ProcessConfig::default(),
@@ -691,5 +815,32 @@ mod tests {
             saw_encoder_ref,
             "expected $ref to MltEncoderConfig: {schema}"
         );
+    }
+
+    #[test]
+    fn resolve_of_nothing_configured_is_the_default() {
+        assert_eq!(
+            ProcessConfig::default().resolve().unwrap(),
+            ResolvedProcess::default()
+        );
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[test]
+    fn resolve_range_checks_the_hillshade() {
+        use crate::config::file::hillshade::{HillshadeProcessConfig, HillshadeSettings};
+
+        let out_of_range = ProcessConfig {
+            convert_to_hillshade: Some(HillshadeProcessConfig::Explicit(HillshadeSettings {
+                azimuth: Some(400.0),
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+        let err = out_of_range
+            .resolve()
+            .unwrap_err()
+            .for_source("dem".to_owned());
+        insta::assert_snapshot!(err, @"Source dem has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`");
     }
 }
