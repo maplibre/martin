@@ -13,8 +13,6 @@ use crate::TileSourceManager;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::PostgresDiscovery;
 use crate::config::file::tiles::driver::{Baseline, PollTrigger, ReloadDriver};
 use crate::config::file::{CachePolicy, SourceBuildResult, TileSourceWarning};
@@ -48,7 +46,7 @@ impl PostgresReloader {
                 convert_to_mvt: config.convert_to_mvt.clone(),
                 ..Default::default()
             };
-            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
+            ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
         #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
         let process = {

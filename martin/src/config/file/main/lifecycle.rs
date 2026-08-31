@@ -53,7 +53,16 @@ use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "passthrough",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
 use crate::config::file::process::ProcessConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::process::ResolvedProcess;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -121,51 +130,16 @@ impl Config {
         #[cfg(feature = "fonts")]
         self.fonts.finalize().await?;
 
-        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-        self.validate_hillshade()?;
-
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
-        self.validate_contour()?;
+        // Resolving every source's process settings range-checks them; the map itself is
+        // rebuilt by `resolve()`.
+        #[cfg(feature = "_tiles")]
+        self.resolved_process_map()?;
 
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
         } else {
             Ok(())
         }
-    }
-
-    /// Range-checks every configured hillshade, naming the source at fault.
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-    fn validate_hillshade(&self) -> StartupResult<()> {
-        for (source_id, pc) in self.build_process_config_map() {
-            if let Some(config) = &pc.convert_to_hillshade
-                && let Err(e) = config.resolve_hillshade()
-            {
-                return Err(ConfigFileError::InvalidHillshade {
-                    source_id,
-                    source: Box::new(e),
-                }
-                .into());
-            }
-        }
-        Ok(())
-    }
-
-    /// Range-checks every configured contour, naming the source at fault.
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
-    fn validate_contour(&self) -> StartupResult<()> {
-        for (source_id, pc) in self.build_process_config_map() {
-            if let Some(config) = &pc.convert_to_contour
-                && let Err(e) = config.resolve_contour()
-            {
-                return Err(ConfigFileError::InvalidContour {
-                    source_id,
-                    source: Box::new(e),
-                }
-                .into());
-            }
-        }
-        Ok(())
     }
 
     /// Returns `true` when no source of any enabled kind has been configured.
@@ -245,18 +219,14 @@ impl Config {
 
         #[cfg(feature = "_tiles")]
         let tile_sources_with_process = {
-            let process_map = self.build_process_config_map();
-            let global_process = ProcessConfig::default();
+            let process_map = self.resolved_process_map()?;
             tile_sources
                 .into_iter()
                 .map(|group| {
                     group
                         .into_iter()
                         .map(|src| {
-                            let pc = process_map
-                                .get(src.get_id())
-                                .cloned()
-                                .unwrap_or_else(|| global_process.clone());
+                            let pc = process_map.get(src.get_id()).cloned().unwrap_or_default();
                             (src, pc)
                         })
                         .collect::<Vec<_>>()
@@ -508,11 +478,11 @@ impl Config {
         }
     }
 
-    /// Build a map from source ID -> resolved [`ProcessConfig`].
+    /// Source ID -> what it is served with, every level folded and range-checked.
     ///
     /// Uses full-override semantics: per-source > source-type > global > default.
     #[cfg(feature = "_tiles")]
-    fn build_process_config_map(&self) -> HashMap<String, ProcessConfig> {
+    fn resolved_process_map(&self) -> StartupResult<HashMap<String, ResolvedProcess>> {
         #[allow(unused_mut)]
         let mut map = HashMap::new();
 
@@ -527,34 +497,38 @@ impl Config {
             let global = self.global_process_config();
 
             #[cfg(all(feature = "pmtiles", feature = "mlt"))]
-            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
-                convert_to_mlt: c.convert_to_mlt.clone(),
-                convert_to_mvt: c.convert_to_mvt.clone(),
-                cache_control: None,
-                #[cfg(feature = "hillshade")]
-                convert_to_hillshade: None,
-                #[cfg(feature = "contour")]
-                convert_to_contour: None,
-            });
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| {
+                ProcessConfig {
+                    convert_to_mlt: c.convert_to_mlt.clone(),
+                    convert_to_mvt: c.convert_to_mvt.clone(),
+                    cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
+                }
+            })?;
             #[cfg(all(feature = "pmtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |_| {
                 ProcessConfig::default()
-            });
+            })?;
 
             #[cfg(all(feature = "mbtiles", feature = "mlt"))]
-            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| ProcessConfig {
-                convert_to_mlt: c.convert_to_mlt.clone(),
-                convert_to_mvt: c.convert_to_mvt.clone(),
-                cache_control: None,
-                #[cfg(feature = "hillshade")]
-                convert_to_hillshade: None,
-                #[cfg(feature = "contour")]
-                convert_to_contour: None,
-            });
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| {
+                ProcessConfig {
+                    convert_to_mlt: c.convert_to_mlt.clone(),
+                    convert_to_mvt: c.convert_to_mvt.clone(),
+                    cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
+                }
+            })?;
             #[cfg(all(feature = "mbtiles", not(feature = "mlt")))]
             Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |_| {
                 ProcessConfig::default()
-            });
+            })?;
 
             // COG and GeoJSON have no kind-level conversion settings.
             // COG cannot be hillshaded either: shading reads Mapzen *normal* tiles, whose surface
@@ -563,12 +537,12 @@ impl Config {
             #[cfg(feature = "unstable-cog")]
             Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
                 ProcessConfig::default()
-            });
+            })?;
 
             #[cfg(feature = "geojson")]
             Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {
                 ProcessConfig::default()
-            });
+            })?;
 
             #[cfg(feature = "passthrough")]
             if let Some(sources) = &self.passthrough.sources {
@@ -600,14 +574,14 @@ impl Config {
                         },
                         PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                     }
-                });
+                })?;
             }
         }
 
-        map
+        Ok(map)
     }
 
-    /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
+    /// Resolve and insert the effective [`ResolvedProcess`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
     #[cfg(any(
         feature = "pmtiles",
@@ -617,20 +591,19 @@ impl Config {
         feature = "geojson"
     ))]
     fn insert_source_configs<'a, S: 'a>(
-        map: &mut HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
         source_type: &ProcessConfig,
         sources: impl IntoIterator<Item = (&'a String, &'a S)>,
         get_per_source_pc: impl Fn(&S) -> ProcessConfig,
-    ) {
-        use crate::config::file::process::resolve_process_config;
-
+    ) -> StartupResult<()> {
         for (id, src) in sources {
-            map.insert(
-                id.clone(),
-                resolve_process_config(global, source_type, &get_per_source_pc(src)),
-            );
+            let resolved = ProcessConfig::layered(global, source_type, &get_per_source_pc(src))
+                .resolve()
+                .map_err(|e| e.for_source(id.clone()))?;
+            map.insert(id.clone(), resolved);
         }
+        Ok(())
     }
 
     /// Helper to resolve process configs for file-based source types.
@@ -641,11 +614,11 @@ impl Config {
         feature = "geojson"
     ))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
-        map: &mut HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
         file_cfg: &FileConfigEnum<T>,
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
-    ) {
+    ) -> StartupResult<()> {
         if let FileConfigEnum::Config(cfg) = file_cfg {
             let source_type = get_source_type_pc(&cfg.custom);
             if let Some(sources) = &cfg.sources {
@@ -662,9 +635,10 @@ impl Config {
                         convert_to_contour: obj.convert_to_contour.clone(),
                     },
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
-                });
+                })?;
             }
         }
+        Ok(())
     }
 
     /// A copy of this config whose sections carry the sources currently in the catalog:

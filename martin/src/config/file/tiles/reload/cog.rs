@@ -35,7 +35,7 @@ impl CogReloader {
             config,
             &["tif", "tiff"],
             id_resolver,
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             build,
         );
         Self {
