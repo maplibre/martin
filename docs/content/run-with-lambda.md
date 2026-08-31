@@ -199,7 +199,7 @@ Deploy with `sam build && sam deploy --guided --parameter-overrides Bucket=my-bu
 
 ### Sizing
 
-At the Lambda defaults of 128 MB and 3 seconds, Martin v1.14.0 on `arm64` initialises in about 300 ms, peaks at about 45 MB with one PMTiles source in S3, and answers a warm tile request in about 25 ms.
+At the Lambda defaults of 128 MB and 3 seconds, Martin v1.14.0 on `arm64` starts in about 300 ms, peaks at about 45 MB with one PMTiles source in S3, and answers a warm tile request in about 25 ms.
 Raise the timeout if the archive is large or far away, and the memory if you serve many sources.
 
 ### Caching
