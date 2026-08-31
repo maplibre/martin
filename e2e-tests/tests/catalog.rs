@@ -44,6 +44,7 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
     assert_eq!(first_catalog.status(), 200);
     assert_eq!(second_catalog.status(), 200);
     assert_eq!(first_catalog.text(), second_catalog.text());
+    insta::assert_snapshot!(first_catalog.header("etag"), @"");
     assert_eq!(first_catalog.header("etag"), second_catalog.header("etag"));
 
     let mut catalog = first_catalog.json();
