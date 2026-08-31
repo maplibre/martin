@@ -113,6 +113,12 @@ cors:
   # '*' will use the requests `ORIGIN` header
   origin:
     - https://example.org
+# Optional endpoints, each off unless enabled here.
+endpoints:
+  # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
+  #
+  # The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
+  purge_cache: false
 # Font configuration
 fonts:
   # Cache configuration for fonts.

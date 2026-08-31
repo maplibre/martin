@@ -434,6 +434,38 @@
         "tags": ["crate::srv"]
       }
     },
+    "/cache/{source_id}": {
+      "delete": {
+        "operationId": "purge_source",
+        "parameters": [
+          {
+            "description": "Source ID",
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The source's cached tiles are gone, or tile cacheing is disabled."
+          },
+          "404": {
+            "description": "No such source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
     "/catalog": {
       "get": {
         "operationId": "get_catalog",

@@ -320,6 +320,17 @@
       "enum": ["disable"],
       "type": "string"
     },
+    "EndpointsConfig": {
+      "description": "Optional endpoints, each off unless enabled here.",
+      "properties": {
+        "purge_cache": {
+          "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        }
+      },
+      "type": "object"
+    },
     "FileConfig": {
       "properties": {
         "convert_to_mlt": {
@@ -1683,6 +1694,17 @@
         }
       ],
       "description": "CORS Configuration\n\nDefaults to `cors: true`, which allows all origins.\nSending/Acting on CORS headers can be completely disabled via `cors: false`"
+    },
+    "endpoints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EndpointsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional endpoints, each off unless enabled here."
     },
     "fonts": {
       "$ref": "#/$defs/FileConfigEnum6",

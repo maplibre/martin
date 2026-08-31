@@ -5487,6 +5487,7 @@ dependencies = [
  "geojson",
  "image",
  "image-compare",
+ "indoc",
  "insta",
  "jxl-oxide",
  "libc",

@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-#[cfg(feature = "metrics")]
+#[cfg(any(feature = "metrics", feature = "_tiles"))]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
 use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
@@ -118,6 +118,9 @@ pub struct SrvConfig {
     #[cfg(all(feature = "webui", not(docsrs)))]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
+    /// Optional endpoints, each off unless enabled here.
+    #[cfg(feature = "_tiles")]
+    pub endpoints: Option<EndpointsConfig>,
     /// CORS Configuration
     ///
     /// Defaults to `cors: true`, which allows all origins.
@@ -209,6 +212,31 @@ pub struct MetricsConfig {
     /// Example: `{ env: prod, server: martin }`
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub add_labels: HashMap<String, String>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// Optional endpoints, each off unless enabled here.
+#[cfg(feature = "_tiles")]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct EndpointsConfig {
+    /// Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \[default: false\]
+    ///
+    /// The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub purge_cache: Option<bool>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

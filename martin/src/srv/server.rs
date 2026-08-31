@@ -121,7 +121,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
         cfg.service(web::scope(prefix).configure(|cfg| {
             register_services(
                 cfg,
-                #[cfg(all(feature = "webui", not(docsrs)))]
+                #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))]
                 usr_cfg,
             );
         }));
@@ -129,7 +129,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     } else {
         register_services(
             cfg,
-            #[cfg(all(feature = "webui", not(docsrs)))]
+            #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))]
             usr_cfg,
         );
     }
@@ -138,7 +138,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
 /// Helper function to register all services
 fn register_services(
     cfg: &mut web::ServiceConfig,
-    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+    #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))] usr_cfg: &SrvConfig,
 ) {
     cfg.service(get_health).service(get_catalog);
 
@@ -152,6 +152,14 @@ fn register_services(
 
         // Register /tiles/ prefix redirect after main tile route
         cfg.service(tiles::content::redirect_tiles);
+
+        if usr_cfg
+            .endpoints
+            .as_ref()
+            .is_some_and(|endpoints| endpoints.purge_cache.unwrap_or(false))
+        {
+            cfg.service(super::cache::purge_source);
+        }
     }
 
     #[cfg(feature = "sprites")]

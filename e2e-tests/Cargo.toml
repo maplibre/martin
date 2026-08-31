@@ -39,6 +39,7 @@ wiremock.workspace = true
 [dev-dependencies]
 approx.workspace = true
 flate2.workspace = true
+indoc.workspace = true
 insta = { workspace = true, features = ["filters", "json", "redactions"] }
 mlt-core.workspace = true
 pbf_font_tools.workspace = true

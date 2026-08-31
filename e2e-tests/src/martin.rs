@@ -288,6 +288,11 @@ impl Martin {
         self.request(Method::HEAD, path, headers).await
     }
 
+    /// Perform a DELETE request.
+    pub async fn delete(&self, path: &str) -> TestResponse {
+        self.request(Method::DELETE, path, &[]).await
+    }
+
     /// Perform a POST request carrying a JSON `body`.
     pub async fn post_json(&self, path: &str, body: &[u8]) -> TestResponse {
         self.send(
