@@ -1213,6 +1213,8 @@
       
         
       
+        
+      
     
     
     
@@ -1316,6 +1318,35 @@
     
   
   Hillshade
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./contour/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3 14 .5.07L8.07 9.5a1.95 1.95 0 0 1 .52-1.91c.78-.79 2.04-.79 2.82 0 .53.52.7 1.26.52 1.91l2.57 2.57.5-.07c.18 0 .35 0 .5.07l3.57-3.57C19 8.35 19 8.18 19 8a2 2 0 0 1 2-2 2 2 0 0 1 2 2 2 2 0 0 1-2 2c-.18 0-.35 0-.5-.07l-3.57 3.57c.07.15.07.32.07.5a2 2 0 0 1-2 2 2 2 0 0 1-2-2l.07-.5-2.57-2.57c-.32.07-.68.07-1 0L4.93 15.5 5 16a2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1 2-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Contours
 
     
   </span>
@@ -1787,6 +1818,8 @@
       
         
       
+        
+      
     
     
     
@@ -1828,6 +1861,7 @@
 <li><strong><code>convert_to_mlt</code></strong> - encoder settings for MVT-&gt;MLT conversion (triggered by <code>Accept: application/vnd.maplibre-tile</code>). See the <a href="mlt/">MVT/MLT conversion guide</a>.</li>
 <li><strong><code>convert_to_mvt</code></strong> - enables MLT-&gt;MVT conversion (triggered by <code>Accept: application/x-protobuf</code> on an MLT source). Currently only supports <code>auto</code>.</li>
 <li><strong><code>convert_to_hillshade</code></strong> - bakes a hillshade from a source serving Mapzen normal tiles. Unlike the two above, this is settable per source only, since it describes what a source serves rather than a server-wide policy.</li>
+<li><strong><code>convert_to_contour</code></strong> - traces contour lines from a source serving Mapzen Terrarium elevation tiles, and serves them as MVT. Settable per source only, for the same reason. See the <a href="contour/">contour guide</a>.</li>
 </ul>
 <p>The two conversion keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):</p>

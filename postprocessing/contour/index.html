@@ -12,36 +12,36 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/sources-tiles/">
+        <link rel="canonical" href="https://maplibre.org/martin/postprocessing/contour/">
       
       
-        <link rel="prev" href="../config-file/">
+        <link rel="prev" href="../hillshade/">
       
       
-        <link rel="next" href="../sources-files/">
+        <link rel="next" href="../../sources-sprites/">
       
       
         
       
       
-      <link rel="icon" href="../images/favicon.ico">
+      <link rel="icon" href="../../images/favicon.ico">
       <meta name="generator" content="zensical-0.0.57">
     
     
       
-        <title>Tile Sources - Martin Tile Server Documentation</title>
+        <title>Contours - Martin Tile Server Documentation</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.5da3a30f.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5da3a30f.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
       
       
   
@@ -125,7 +125,7 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tile-sources" class="md-skip">
+        <a href="#contours" class="md-skip">
           Skip to content
         </a>
       
@@ -166,7 +166,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tile Sources
+              Contours
             
           </span>
         </div>
@@ -274,7 +274,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="./.." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   Introduction
@@ -309,7 +309,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../quick-start/" class="md-tabs__link">
+        <a href="../../quick-start/" class="md-tabs__link">
           
   
   Quick Start
@@ -326,7 +326,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../installation/" class="md-tabs__link">
+      <a href="../../installation/" class="md-tabs__link">
         
   
   Installation
@@ -363,7 +363,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../run/" class="md-tabs__link">
+        <a href="../../run/" class="md-tabs__link">
           
   
   Running
@@ -399,7 +399,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../config-file/" class="md-tabs__link">
+        <a href="../../config-file/" class="md-tabs__link">
           
   
   Configuration File
@@ -416,7 +416,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../using/" class="md-tabs__link">
+      <a href="../../using/" class="md-tabs__link">
         
   
   Available API Endpoints
@@ -451,7 +451,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../using-guides/" class="md-tabs__link">
+        <a href="../../using-guides/" class="md-tabs__link">
           
   
   Guides
@@ -487,7 +487,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../development/" class="md-tabs__link">
+        <a href="../../development/" class="md-tabs__link">
           
   
   Development
@@ -528,7 +528,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
@@ -558,7 +558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -620,7 +620,7 @@
   
   
   
-    <a href="../quick-start/" class="md-nav__link">
+    <a href="../../quick-start/" class="md-nav__link">
       
   
   
@@ -654,7 +654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   
@@ -718,7 +718,7 @@
   
   
   
-    <a href="../run/" class="md-nav__link">
+    <a href="../../run/" class="md-nav__link">
       
   
   
@@ -788,7 +788,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../config-file/" class="md-nav__link ">
+            <a href="../../config-file/" class="md-nav__link ">
               
   
   
@@ -829,8 +829,6 @@
                 
   
   
-    
-  
   
   
     
@@ -868,15 +866,17 @@
     
       
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="././" class="md-nav__link md-nav__link--active">
+            <a href="../../sources-tiles/" class="md-nav__link ">
               
   
   
@@ -893,13 +893,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_2" id="__nav_5_2_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -948,7 +948,7 @@
   
   
   
-    <a href="../sources-files/" class="md-nav__link">
+    <a href="../../sources-files/" class="md-nav__link">
       
   
   
@@ -1013,7 +1013,7 @@
   
   
   
-    <a href="../pg-connections/" class="md-nav__link">
+    <a href="../../pg-connections/" class="md-nav__link">
       
   
   
@@ -1048,7 +1048,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-cog-files/" class="md-nav__link">
+      <a href="../../sources-cog-files/" class="md-nav__link">
         
   
   
@@ -1077,7 +1077,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-geojson/" class="md-nav__link">
+      <a href="../../sources-geojson/" class="md-nav__link">
         
   
   
@@ -1106,7 +1106,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-duckdb/" class="md-nav__link">
+      <a href="../../sources-duckdb/" class="md-nav__link">
         
   
   
@@ -1135,7 +1135,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-passthrough/" class="md-nav__link">
+      <a href="../../sources-passthrough/" class="md-nav__link">
         
   
   
@@ -1164,7 +1164,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-composite/" class="md-nav__link">
+      <a href="../../sources-composite/" class="md-nav__link">
         
   
   
@@ -1198,8 +1198,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1227,17 +1229,15 @@
     
       
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../postprocessing/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1260,7 +1260,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1279,7 +1279,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../postprocessing/mlt/" class="md-nav__link">
+      <a href="../mlt/" class="md-nav__link">
         
   
   
@@ -1308,7 +1308,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../postprocessing/hillshade/" class="md-nav__link">
+      <a href="../hillshade/" class="md-nav__link">
         
   
   
@@ -1334,10 +1334,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../postprocessing/contour/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3 14 .5.07L8.07 9.5a1.95 1.95 0 0 1 .52-1.91c.78-.79 2.04-.79 2.82 0 .53.52.7 1.26.52 1.91l2.57 2.57.5-.07c.18 0 .35 0 .5.07l3.57-3.57C19 8.35 19 8.18 19 8a2 2 0 0 1 2-2 2 2 0 0 1 2 2 2 2 0 0 1-2 2c-.18 0-.35 0-.5-.07l-3.57 3.57c.07.15.07.32.07.5a2 2 0 0 1-2 2 2 2 0 0 1-2-2l.07-.5-2.57-2.57c-.32.07-.68.07-1 0L4.93 15.5 5 16a2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1 2-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Contours
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1354,6 +1382,121 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Output
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Settings
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#zoom-intervals" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zoom intervals
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtering-a-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Filtering a threshold
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-request-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Per-request overrides
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caching-and-cache-busting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Caching and cache-busting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#neighborhood-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Neighborhood handling
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1439,7 +1582,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-sprites/" class="md-nav__link">
+      <a href="../../sources-sprites/" class="md-nav__link">
         
   
   
@@ -1496,7 +1639,7 @@
   
   
   
-    <a href="../sources-styles/" class="md-nav__link">
+    <a href="../../sources-styles/" class="md-nav__link">
       
   
   
@@ -1531,7 +1674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sources-fonts/" class="md-nav__link">
+      <a href="../../sources-fonts/" class="md-nav__link">
         
   
   
@@ -1575,7 +1718,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../using/" class="md-nav__link">
+      <a href="../../using/" class="md-nav__link">
         
   
   
@@ -1637,7 +1780,7 @@
   
   
   
-    <a href="../using-guides/" class="md-nav__link">
+    <a href="../../using-guides/" class="md-nav__link">
       
   
   
@@ -1705,7 +1848,7 @@
   
   
   
-    <a href="../development/" class="md-nav__link">
+    <a href="../../development/" class="md-nav__link">
       
   
   
@@ -1757,7 +1900,7 @@
   
   
     <li class="md-path__item">
-      <a href="./.." class="md-path__link">
+      <a href="../.." class="md-path__link">
         
   
   <span class="md-ellipsis">
@@ -1791,7 +1934,7 @@
     
     
       <li class="md-path__item">
-        <a href="../config-file/" class="md-path__link">
+        <a href="../../config-file/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -1820,24 +1963,16 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Tile sources
+    Postprocessing
   </span>
 
         </a>
@@ -1854,7 +1989,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-tiles/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/postprocessing/contour.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1862,44 +1997,223 @@
   
 
 
-<h1 id="tile-sources">Tile Sources</h1>
-<p>Martin supports multiple tile sources</p>
-<ul>
-<li><a href="../sources-files/">Tile Archive files</a></li>
-<li><a href="../sources-mbtiles/">MBTiles Sources</a> Local Sqlite database containing pre-generated vector or raster tiles.</li>
-<li><a href="../sources-pmtiles/">PMTiles Sources</a> A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.</li>
-<li><a href="../sources-geojson/">GeoJSON Sources</a> A local file with geodata that we can convert to vector tiles.</li>
-<li><a href="../sources-duckdb/">DuckDB Sources</a> GeoParquet files that we can convert to vector tiles (unstable).</li>
-<li><a href="../pg-connections/">PostgreSQL Connections</a> with</li>
-<li><a href="../sources-pg-tables/">Table Sources</a></li>
-<li><a href="../sources-pg-functions/">Function Sources</a></li>
-</ul>
-<p>The difference between tile archives (<em><a href="../sources-files/">MBTiles/PMTiles</a></em>), semi-static data (<em><a href="../sources-geojson/">GeoJSON</a></em> / <em><a href="../sources-duckdb/">DuckDB</a></em>) and a database (<a href="../sources-pg-tables/">PG-Table</a>/<a href="../sources-pg-functions/">PG-Function</a>) is that</p>
-<ul>
-<li><strong>database</strong> are more flexible and may (depending on how you fill it) be updated in <strong>real-time</strong>.</li>
-<li><strong>Tile archives</strong> on the other hand may (depending on the data) be more <strong>compact, memory efficient and exhibit better performance</strong> for tile-serving.</li>
-<li><strong>semi-static data</strong> is for the use case when the <strong>data is relatively static</strong> and <strong>not large</strong> enough to justify converting it to a tile archive</li>
-</ul>
+<h1 id="contours">Contours</h1>
+<p>A contour map draws lines joining points of equal elevation, so a reader can see how steep the ground is and read a height straight off the map.
+Martin can trace them from a source that serves <em>elevation tiles</em> in Mapzen's Terrarium encoding - tiles whose pixels store a height in meters rather than a color - and serve the result as a vector tile.
+See the left image below for the input and the right for the output of this postprocessing.</p>
+<p>Unlike <a href="../hillshade/">hillshade</a>, the output is <strong>vector</strong>, not raster: the client styles the lines, labels them, and can pick which ones to show at which zoom.
+The right image below is therefore one styling of the traced tile, drawn by Martin's own <a href="../../sources-styles/rendering/">server-side rendering</a>.</p>
 <div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>For most use cases, you may want a mix of both. We support this via <a href="../sources-composite/">Composite Sources</a>
-For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the <a href="../martin-cp/"><code>martin-cp</code></a> utility to render all tiles into a tile archive. This can also be used to provide offline maps via <a href="../mbtiles-diff/">diffing and syncing <code>mbtiles</code></a></p>
+<p class="admonition-title">Pair this with <a href="../mlt/">MLT</a></p>
+<p>A contour tile is thousands of long linestrings over one layer with two columns, one of them a boolean and the other a small integer that repeats across every line at the same height.
+That is close to the best case for MLT's columnar encoding, so <code>convert_to_mlt</code> pays off more here than on a typical vector source.</p>
 </div>
-<p>The difference between MBTiles and PMTiles is that:</p>
+<div class="grid">
+<p><img alt="amazon terrarium elevation tiles in mapzen encoding" src="https://elevation-tiles-prod.s3.amazonaws.com/terrarium/12/2135/1457.png" width="500" /></p>
+<p><img alt="the contours traced from it, with major lines bolded and labelled with their elevation" src="../../images/postprocess/contour.webp" width="500" /></p>
+</div>
+<h2 id="configuration">Configuration</h2>
+<p>Set <code>convert_to_contour</code> on the source serving the elevation tiles:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">elevation</span><span class="p">:</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">convert_to_contour</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span></code></pre></div>
+<p><code>GET /elevation/12/2100/1300</code> now returns an MVT tile with a single <code>contour</code> layer, replacing the elevation tile it was traced from.</p>
+<p><code>auto</code> traces with every default, a map of settings (e.g. <code>convert_to_contour: {major_interval: 10}</code>) overrides said defaults, and <code>disabled</code> (the default for <code>convert_to_contour</code>) is the same as omitting the key.
+It is settable per source only since an inherited value would also reach vector sources and normal-map sources, which carry no elevation to trace.</p>
+<div class="admonition warning">
+<p class="admonition-title">Declare <code>maxzoom</code> on the source</p>
+<p>Zoom limits are inherited from the source's <code>TileJSON</code>, and absent limits mean every zoom is valid.
+A source upstream typically stops at some zoom, so without a declared <code>maxzoom</code> Martin keeps requesting tiles past it unnecessarily.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Normal ("mapzen") maps are not currently supported</p>
+<p>A Terrarium pixel decodes to meters as <code>(R * 256 + G + B / 256) - 32768</code>.
+Mapzen <em>normal</em> tiles (the input <a href="../hillshade/">hillshade</a> takes) store a direction rather than a height and cannot be contoured currently.</p>
+</div>
+<h2 id="output">Output</h2>
+<p>Every feature is a <code>LineString</code> in one layer, carrying two tags:</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ele</code></td>
+<td>integer</td>
+<td>Height of the line, in whole configured <code>elevation_units</code>.</td>
+</tr>
+<tr>
+<td><code>major</code></td>
+<td>boolean</td>
+<td><code>true</code> for every <code>major_interval</code>-th line.</td>
+</tr>
+</tbody>
+</table>
+<p><code>major</code> exists so a style can draw those lines bolder and label only those, which is the usual cartographic convention.
+Both tags are typed for size: a boolean and a small integer encode far tighter than strings and doubles, especially under <a href="../mlt/">MLT</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Elevations are rounded to whole units</p>
+<p>A contour interval below <code>1</code> therefore lands several lines on the same reported <code>ele</code>.
+Contour intervals that fine are not readable on a map anyway, so this is not a practical limit.
+Elevations are carried as 16-bit, which a Terrarium pixel is by construction; only <code>feet</code> below the deepest ocean trench exceed that, and those clamp.</p>
+</div>
+<h2 id="settings">Settings</h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Range</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resolution</code></td>
+<td><code>10</code></td>
+<td><code>1</code>-<code>64</code></td>
+<td>Sampling step the isolines are traced at. Higher is smoother.</td>
+</tr>
+<tr>
+<td><code>major_interval</code></td>
+<td><code>5</code></td>
+<td><code>0</code>-<code>64</code></td>
+<td>Every n-th line gets <code>major: true</code>. <code>0</code> leaves every line <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>simplification_tolerance</code></td>
+<td><code>10</code></td>
+<td><code>0</code>-<code>100</code></td>
+<td>Douglas-Peucker tolerance. Higher means smaller tiles and coarser lines.</td>
+</tr>
+<tr>
+<td><code>min_feature_length</code></td>
+<td><code>50</code></td>
+<td><code>0</code>-<code>10000</code></td>
+<td>Contour lines shorter than this are dropped.</td>
+</tr>
+<tr>
+<td><code>fetch_margin</code></td>
+<td><code>32</code></td>
+<td><code>0</code>-<code>64</code></td>
+<td>Apron in source pixels traced past the tile edge, then transformed back out.</td>
+</tr>
+<tr>
+<td><code>zoom_intervals</code></td>
+<td>see below</td>
+<td><code>zoom: interval</code> map</td>
+<td>Contour interval per zoom, in <code>elevation_units</code>. <code>0</code> disables contours at that zoom.</td>
+</tr>
+<tr>
+<td><code>elevation_units</code></td>
+<td><code>meters</code></td>
+<td><code>meters</code>, <code>feet</code></td>
+<td>Units intervals are declared in and elevations are reported in.</td>
+</tr>
+<tr>
+<td><code>filtered_threshold</code></td>
+<td><code>0</code></td>
+<td>number, <code>disabled</code></td>
+<td>An elevation whose contour is suppressed.</td>
+</tr>
+<tr>
+<td><code>layer_name</code></td>
+<td><code>contour</code></td>
+<td></td>
+<td>MVT layer the features are written into.</td>
+</tr>
+<tr>
+<td><code>extent</code></td>
+<td><code>4096</code></td>
+<td><code>1</code>-<code>16384</code></td>
+<td>MVT tile extent.</td>
+</tr>
+<tr>
+<td><code>allow_request_overrides</code></td>
+<td><code>false</code></td>
+<td></td>
+<td>Whether query parameters may override the tracing parameters.</td>
+</tr>
+</tbody>
+</table>
+<p>Out-of-range values are rejected at startup.</p>
+<h3 id="zoom-intervals">Zoom intervals</h3>
+<p>Contours are only useful over a narrow band of scales: too coarse an interval says nothing, too fine a one is unreadable and enormous.
+<code>zoom_intervals</code> maps a starting zoom to the interval used from there until the next entry, so the map thins out as you zoom out:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">convert_to_contour</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">zoom_intervals</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">      </span><span class="c1"># no contours at all below z4</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">4</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">6</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">8</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">10</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">12</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+</span></code></pre></div>
+<p>That is the default for <code>elevation_units: meters</code>.
+For <code>feet</code> the default is <code>0</code> below z5, then <code>1000</code>, <code>500</code>, <code>400</code>, <code>250</code>, and <code>100</code> from z13.</p>
+<h3 id="filtering-a-threshold">Filtering a threshold</h3>
+<p><code>filtered_threshold</code> defaults to <code>0</code>, sea level.</p>
+<p>A flat tile sits above exactly one threshold, so tracing it produces a single line around the tile's own edge - which over open ocean means every water tile answers with a rectangle.
+Suppressing the sea-level line removes that artifact.
+Set it to another elevation to suppress a different one, or to <code>disabled</code> to draw them all.</p>
+<h2 id="per-request-overrides">Per-request overrides</h2>
+<div class="admonition warning">
+<p class="admonition-title">This is an expensive feature</p>
+<p>Leave <code>allow_request_overrides</code> off in production.
+It is meant for internal development, where you want to figure out which parameters look best for your specific map.
+Tracing contours is CPU-intensive.
+Contours for fixed settings never change (+/- data changes), so they are near-perfectly cacheable at the edge.</p>
+</div>
+<p>With <code>allow_request_overrides: true</code>, a request may override any of the five numeric tracing parameters by name:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>GET /elevation/12/2100/1300?resolution=16&amp;simplification_tolerance=0
+</span></code></pre></div>
+<p><code>zoom_intervals</code>, <code>elevation_units</code>, <code>filtered_threshold</code>, <code>layer_name</code>, <code>extent</code>, and <code>allow_request_overrides</code> itself are not overridable.
+Values that are out of range or not a number are rejected with <code>400</code>, while query parameters that are not contour settings are ignored.</p>
+<h2 id="caching-and-cache-busting">Caching and cache-busting</h2>
+<p>Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served.
+We cache the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.</p>
+<p>Each tile's <code>ETag</code> is derived from the nine tiles it read plus the settings it was traced with, so it moves whenever any input or any setting does.</p>
+<div class="admonition warning">
+<p class="admonition-title">An <code>ETag</code> cannot cut short a <code>max-age</code> a client is already holding.</p>
+<p>To force clients onto re-tuned contours, serve them under a new source ID.
+There is deliberately no cache-busting query parameter: that would leave clients in charge of the server's correctness.</p>
+</div>
+<h2 id="neighborhood-handling">Neighborhood handling</h2>
+<p>Contours are traced across a 3x3 neighborhood with a <code>fetch_margin</code> apron, then shifted back so only the center tile's extent is encoded.
+Without it, a line crossing a tile edge would stop short of its continuation in the next tile and the seam would be visible at every boundary.</p>
+<p>The neighborhood is assembled the same way <a href="../hillshade/#neighborhood-handling">hillshade</a> assembles its own:</p>
 <ul>
-<li><strong>MBTiles</strong> require the entire archive to be on the same machine. <strong>PMTiles</strong> can utilize a remote HTTP-Range request supporting server or a local file.</li>
-<li>Performance wise, <strong>MBTiles</strong> is slightly faster than <strong>PMTiles</strong>, but with caching this is negligible.</li>
-<li>Disk size wise, <strong>MBTiles</strong> is slightly (10-15%) higher than <strong>PMTiles</strong>.</li>
-<li><strong>PMTiles</strong> requires less memory in extreme cases as sqlite has a small in-memory cache.</li>
+<li>x wraps at the antimeridian, since the projection is cylindrical there and the neighbors are real tiles.</li>
+<li>y stops at the poles, where there is no tile at all, and the slot is edge-clamped from the center instead.</li>
+<li>A missing or undecodable <em>neighbor</em> degrades one seam and is clamped over.</li>
+<li>An undecodable <em>center</em> is an error, since serving a clamped-from-nothing trace would look like genuinely contour-free terrain.</li>
+<li>An absent <em>center</em> serves no content (a <code>204</code>), for the same reason.</li>
 </ul>
-<p>The choice depends on your specific use case and requirements.</p>
-<p>Most vector tile sources support optional <a href="../postprocessing/">postprocessing</a> (format conversion) via the <code>convert_to_mlt</code> and <code>convert_to_mvt</code> configuration keys.
-DuckDB / GeoParquet sources do not currently support postprocessing.</p>
-<p>Tile sources also accept a per-source <code>cache_control</code> configuration key that sets the <code>Cache-Control</code> response header for that source's tiles, overriding the top-level <code>cache_control</code> default.
-A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.</p>
 
 
   <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <span class="md-tag">contour</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">vector</span>
+      
     
       
       
@@ -1957,7 +2271,7 @@ A composite tile request uses the per-source value only when every requested sou
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../config-file/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
+          <a href="../hillshade/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hillshade">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1967,20 +2281,20 @@ A composite tile request uses the per-source value only when every requested sou
                 Previous
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Hillshade
               </div>
             </div>
           </a>
         
         
           
-          <a href="../sources-files/" class="md-footer__link md-footer__link--next" aria-label="Next: MBTiles and PMTiles File Sources">
+          <a href="../../sources-sprites/" class="md-footer__link md-footer__link--next" aria-label="Next: Sprites">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                MBTiles and PMTiles File Sources
+                Sprites
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2039,10 +2353,10 @@ A composite tile request uses the per-source value only when every requested sou
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.49251538.min.js"></script>
+      <script src="../../assets/javascripts/bundle.49251538.min.js"></script>
       
     
   </body>

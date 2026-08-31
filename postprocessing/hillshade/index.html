@@ -18,7 +18,7 @@
         <link rel="prev" href="../mlt/">
       
       
-        <link rel="next" href="../../sources-sprites/">
+        <link rel="next" href="../contour/">
       
       
         
@@ -1213,6 +1213,8 @@
       
         
       
+        
+      
     
     
     
@@ -1438,6 +1440,35 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contour/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m3 14 .5.07L8.07 9.5a1.95 1.95 0 0 1 .52-1.91c.78-.79 2.04-.79 2.82 0 .53.52.7 1.26.52 1.91l2.57 2.57.5-.07c.18 0 .35 0 .5.07l3.57-3.57C19 8.35 19 8.18 19 8a2 2 0 0 1 2-2 2 2 0 0 1 2 2 2 2 0 0 1-2 2c-.18 0-.35 0-.5-.07l-3.57 3.57c.07.15.07.32.07.5a2 2 0 0 1-2 2 2 2 0 0 1-2-2l.07-.5-2.57-2.57c-.32.07-.68.07-1 0L4.93 15.5 5 16a2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1 2-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Contours
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1902,6 +1933,8 @@
       
         
       
+        
+      
     
     
     
@@ -1940,7 +1973,7 @@
 <p>A hillshade is the grey relief image a map overlays over its basemap, multiplying it into the colors underneath to make terrain look three-dimensional.
 Martin can bake one from a source that serves <em>normal maps</em> in Mapzen's encoding - tiles whose pixels store which way the ground faces instead of a color - which <strong>spares the client this work</strong> and lets the result be <strong>compressed further</strong>.
 See the left image below for the input and the right for the output of this postprocessing.</p>
-<p>This is less flexible for the client.</p>
+<p>Unlike <a href="../contour/">contours</a>, the output is <strong>raster, not vector</strong>: the client overlays the hillshade, but cannot adjust it further (unless opted into via <code>allow_request_overrides</code>).</p>
 <div class="grid">
 <p><img alt="amazon normal-map tiles in mapzen encoding" src="https://elevation-tiles-prod.s3.amazonaws.com/normal/10/163/396.png" width="500" /></p>
 <p><img alt="postprocessed tile" src="../../images/postprocess/hillshade.webp" width="500" /></p>
@@ -2044,55 +2077,18 @@ PRs welcome <img alt="😉" class="twemoji" src="https://cdn.jsdelivr.net/gh/jde
 </tr>
 </tbody>
 </table>
-<p>Out-of-range values are rejected at startup, rather than surfacing later on some tiles.</p>
+<p>Out-of-range values are rejected at startup.</p>
 <p>The default light comes from the north-west by cartographic convention.
 Terrain lit from the lower half of the compass reads as inverted to most people, with valleys appearing to bulge out of the map.</p>
-<p>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</p>
 <div class="admonition tip">
 <p class="admonition-title">what does <code>toon_bands</code> actually do?</p>
 <p>The defaults for <code>toon_bands</code> "squash" the relief into six hard bands, which keeps the shading readable once it is multiplied under a basemap.
 Set <code>toon_bands: 0</code> for a smooth gradient instead.
 <code>elevation_scale</code> is off by default, so a slope is shaded the same way whether it sits in a valley or on a summit; raise it to make high terrain read more strongly than low.</p>
 </div>
-<p>=======
-The defaults bake a plain, smoothly shaded relief: the two stylistic knobs, <code>toon_bands</code> and <code>elevation_scale</code>, are off.
-They are what a basemap usually wants, and they leave any particular house style as something you opt into rather than something you have to undo.</p>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>14625522 (spellchecking)</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-<p>Both formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
-Lossless WebP is typically around a third smaller than PNG, and is the better choice where clients support it.
-=======
-All three formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
+<p>All three formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
 Lossless WebP is typically around 40% smaller than PNG, and is the better choice where clients support it.
 Lossless JPEG XL (encoded with the pure-Rust <code>zune-jpegxl</code> encoder) is usually smaller still, at the cost of narrower client support.</p>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>3e7172a6 (jxl-support)</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
 <div class="admonition tip">
 <p class="admonition-title"><code>padding</code> is only for clients that sample past tile edges</p>
 <p>The tile is rendered larger than its nominal size, so a client whose sampler reads just outside a tile edge finds real data there rather than disagreeing with the neighboring tile.
@@ -2221,13 +2217,13 @@ It is not cylindrical in y, so a tile in the top or bottom row has three clamped
         
         
           
-          <a href="../../sources-sprites/" class="md-footer__link md-footer__link--next" aria-label="Next: Sprites">
+          <a href="../contour/" class="md-footer__link md-footer__link--next" aria-label="Next: Contours">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Sprites
+                Contours
               </div>
             </div>
             <div class="md-footer__button md-icon">
