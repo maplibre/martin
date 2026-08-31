@@ -125,6 +125,8 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
             cache_control: info.cache_control.clone(),
             #[cfg(feature = "hillshade")]
             convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         },
         SourceSpec::Function(info, _) => ProcessConfig {
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -134,6 +136,8 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
             cache_control: info.cache_control.clone(),
             #[cfg(feature = "hillshade")]
             convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         },
     };
     resolve_process_config(connection, &ProcessConfig::default(), &per_source)
@@ -325,6 +329,10 @@ mod tests {
         let connection = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         };
 
         let with_override = SourceSpec::Table(TableInfo {

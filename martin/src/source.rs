@@ -70,8 +70,14 @@ impl TileSources {
         self.0
             .iter()
             .map(|v| {
-                let (src, _pc) = v.value();
-                (v.key().clone(), src.get_catalog_entry())
+                let (src, pc) = v.value();
+                let mut entry = src.get_catalog_entry();
+                let info = pc.advertised_tile_info(src.get_tile_info());
+                info.format
+                    .content_type()
+                    .clone_into(&mut entry.content_type);
+                entry.content_encoding = info.encoding.compression().map(str::to_owned);
+                (v.key().clone(), entry)
             })
             .collect()
     }
@@ -117,7 +123,7 @@ impl TileSources {
 
         for id in ids {
             let (src, pc) = self.get_source(id)?;
-            let src_inf = src.get_tile_info();
+            let src_inf = pc.advertised_tile_info(src.get_tile_info());
             use_url_query |= src.support_url_query();
 
             // make sure all sources have the same format and encoding

@@ -78,6 +78,7 @@ pub struct PostgresConfig {
     /// - `calc` compute table geometry bounds on startup.
     /// - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
     /// - `skip` does not compute table geometry bounds on startup.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"quick"))]
     pub auto_bounds: Option<BoundsCalcType>,
     /// Limit the number of geo features per tile.
     ///

@@ -6,6 +6,8 @@ use martin_core::fonts::FontError;
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::contour::ContourRangeError;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::hillshade::HillshadeRangeError;
 
@@ -65,6 +67,14 @@ pub enum ConfigFileError {
         source_id: String,
         #[source]
         source: Box<HillshadeRangeError>,
+    },
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Source {source_id} has an invalid contour configuration: {source}")]
+    InvalidContour {
+        source_id: String,
+        #[source]
+        source: Box<ContourRangeError>,
     },
 
     #[cfg(feature = "styles")]
@@ -260,6 +270,8 @@ impl Diagnostic for ConfigFileError {
             Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
             #[cfg(all(feature = "hillshade", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            Self::InvalidContour { .. } => "martin::config::contour::invalid",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
@@ -301,6 +313,10 @@ impl Diagnostic for ConfigFileError {
             #[cfg(all(feature = "hillshade", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => {
                 "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            Self::InvalidContour { .. } => {
+                "Check the `contour` block of the named source: every parameter must lie inside the range given above."
             }
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => return None,

@@ -20,22 +20,7 @@
 
 use multiversion::multiversion;
 
-/// Side length in pixels of one Mapzen normal tile.
-pub(crate) const TILE_SIZE: usize = 256;
-
-/// Side length of the 3x3 neighbourhood canvas the bake samples from.
-///
-/// The bake reads a 3x3 tile neighbourhood assembled into one canvas so that
-/// the apron, and the bilinear taps of texels near a tile edge, read real
-/// neighbouring terrain rather than a clamped guess. Sampling only the centre
-/// tile produces visible discontinuities at every tile seam.
-pub(crate) const CANVAS: usize = GRID_SIDE * TILE_SIZE;
-
-/// Number of channels in a decoded normal texel.
-const CHANNELS: usize = 4;
-
-/// Tiles per side of the sampled neighbourhood.
-pub(crate) const GRID_SIDE: usize = 3;
+use crate::tiles::neighbourhood::{CHANNELS, FIELD_SIDE as CANVAS, TILE_SIZE};
 
 /// Tunable parameters of one hillshade bake.
 #[derive(Clone, Copy, Debug, PartialEq)]

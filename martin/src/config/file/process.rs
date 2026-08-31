@@ -1,9 +1,19 @@
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use martin_core::tiles::contour::ElevationUnits;
+use martin_tile_utils::TileInfo;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use martin_tile_utils::{Encoding, Format};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use mlt_core::encoder::EncoderConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use serde::{Deserialize, Serialize};
+use tilejson::TileJSON;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use tilejson::VectorLayer;
 
 use crate::config::file::CacheControlHeader;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::contour::{ContourProcessConfig, ResolvedContour};
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::hillshade::HillshadeProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -26,6 +36,67 @@ pub struct ProcessConfig {
     pub cache_control: Option<CacheControlHeader>,
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    pub convert_to_contour: Option<ContourProcessConfig>,
+}
+
+impl ProcessConfig {
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    fn is_contoured(&self) -> bool {
+        self.convert_to_contour
+            .as_ref()
+            .is_some_and(ContourProcessConfig::is_enabled)
+    }
+
+    /// The contour settings this source traces with, if any.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    fn resolved_contour(&self) -> Option<ResolvedContour> {
+        self.convert_to_contour
+            .as_ref()?
+            .resolve_contour()
+            .expect("contour settings are range-checked by Config::finalize")
+    }
+
+    /// The [`TileInfo`] this source answers with once post-processing has run.
+    ///
+    /// Contouring replaces an elevation raster with a vector tile, so the format
+    /// a client is told about - and the one `Accept` is negotiated against - has
+    /// to be the traced one, not the source's own.
+    #[must_use]
+    pub fn advertised_tile_info(&self, source: TileInfo) -> TileInfo {
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        if self.is_contoured() {
+            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
+        }
+        source
+    }
+
+    /// The [`TileJSON`] this source answers with once post-processing has run.
+    #[must_use]
+    pub fn advertised_tilejson(&self, tilejson: TileJSON) -> TileJSON {
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        if let Some(settings) = self.resolved_contour() {
+            let mut fields = std::collections::BTreeMap::new();
+            fields.insert("ele".to_owned(), "Number".to_owned());
+            fields.insert("major".to_owned(), "Boolean".to_owned());
+            let layer = VectorLayer {
+                id: settings.opts.layer_name.clone(),
+                fields,
+                description: Some(match settings.opts.elevation_units {
+                    ElevationUnits::Meters => "Contour lines, elevation in meters".to_owned(),
+                    ElevationUnits::Feet => "Contour lines, elevation in feet".to_owned(),
+                }),
+                maxzoom: tilejson.maxzoom,
+                minzoom: tilejson.minzoom,
+                other: std::collections::BTreeMap::new(),
+            };
+            return TileJSON {
+                vector_layers: Some(vec![layer]),
+                ..tilejson
+            };
+        }
+        tilejson
+    }
 }
 
 /// Configuration for MVT-to-MLT format conversion.
@@ -162,6 +233,8 @@ pub fn resolve_process_config(
         cache_control,
         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
         convert_to_hillshade: per_source.convert_to_hillshade.clone(),
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        convert_to_contour: per_source.convert_to_contour.clone(),
     }
 }
 
@@ -322,12 +395,16 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Disabled),
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let resolved = resolve_process_config(&global, &ProcessConfig::default(), &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
@@ -341,12 +418,16 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
@@ -356,6 +437,8 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &per_source);
@@ -370,12 +453,16 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
             convert_to_mvt: Some(MvtProcessConfig::Auto),
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
 
         let resolved = resolve_process_config(&global, &source_type, &ProcessConfig::default());
@@ -390,6 +477,8 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
         };
 
         let resolved = resolve_process_config(
@@ -404,14 +493,17 @@ mod tests {
         serde_saphyr::from_str(value).expect("valid Cache-Control header")
     }
 
-    #[cfg_attr(
-        not(all(feature = "mlt", feature = "_tiles")),
-        allow(clippy::needless_update)
-    )]
     fn only_cache_control(value: &str) -> ProcessConfig {
         ProcessConfig {
             cache_control: Some(cache_control(value)),
-            ..ProcessConfig::default()
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         }
     }
 

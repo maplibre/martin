@@ -20,9 +20,11 @@ libc = "0.2"
 [dependencies]
 brotli.workspace = true
 flate2.workspace = true
+geojson.workspace = true
 image.workspace = true
 image-compare.workspace = true
 jxl-oxide.workspace = true
+martin-tile-utils.workspace = true
 mlt-core.workspace = true
 pmtiles = { workspace = true, features = ["write"] }
 regex.workspace = true

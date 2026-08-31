@@ -168,6 +168,8 @@ mod tests {
                         convert_to_mvt: None,
                         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
                         convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
                     }))
@@ -186,6 +188,8 @@ mod tests {
                         convert_to_mvt: None,
                         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
                         convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
                     }))
