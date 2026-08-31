@@ -33,7 +33,7 @@ fn normalize_paths(value: &mut Value) {
     }
 }
 
-/// Two servers over the same sources answer a byte-identical catalog.
+/// Two servers over the same sources answer a byte-identical catalog under the same etag.
 #[tokio::test]
 async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
     let mut first = martin_with_every_source_kind().await;
@@ -44,6 +44,7 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
     assert_eq!(first_catalog.status(), 200);
     assert_eq!(second_catalog.status(), 200);
     assert_eq!(first_catalog.text(), second_catalog.text());
+    assert_eq!(first_catalog.header("etag"), second_catalog.header("etag"));
 
     let mut catalog = first_catalog.json();
     normalize_paths(&mut catalog);
@@ -127,4 +128,35 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
         martin.assert_startup_warnings();
         martin.assert_log_clean();
     }
+}
+
+#[tokio::test]
+async fn the_catalog_answers_conditional_requests() {
+    let mut martin = martin_with_every_source_kind().await;
+
+    let first = martin.get("/catalog").await;
+    assert_eq!(first.status(), 200);
+    let etag = first
+        .header("etag")
+        .expect("the catalog must carry an etag")
+        .to_owned();
+
+    let cached = martin
+        .get_with_headers("/catalog", &[("if-none-match", &etag)])
+        .await;
+    assert_eq!(cached.status(), 304);
+    assert!(cached.body().is_empty());
+
+    let stale = martin
+        .get_with_headers(
+            "/catalog",
+            &[("if-none-match", r#"W/"0-0000000000000000000000""#)],
+        )
+        .await;
+    assert_eq!(stale.status(), 200);
+    assert_eq!(stale.body(), first.body());
+
+    martin.stop().await;
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
 }
