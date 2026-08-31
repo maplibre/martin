@@ -74,34 +74,44 @@ impl From<HillshadeFormat> for Format {
 pub struct HillshadeSettings {
     /// Compass bearing the light shines from, in degrees clockwise from north.
     /// Defaults to `300` (north-west) by cartographic convention.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &300.0f64))]
     pub azimuth: Option<f64>,
     /// Height of the light above the horizon in degrees.
     /// Defaults to `45`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &45.0f64))]
     pub altitude: Option<f64>,
     /// Scales the terrain's horizontal gradient before lighting, exaggerating relief.
     /// `1` is true-to-source.
     /// Defaults to `2.5`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &2.5f64))]
     pub vertical_exaggeration: Option<f64>,
     /// Separation between lit and shadowed slopes.
     /// Defaults to `2.5`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &2.5f64))]
     pub contrast: Option<f64>,
     /// How strongly high terrain deepens the contrast.
     /// Defaults to `0`, which shades high and low terrain alike.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0.0f64))]
     pub elevation_scale: Option<f64>,
     /// Number of hard shading bands; below `2` the shading is a smooth gradient instead.
     /// Defaults to `6`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &6.0f64))]
     pub toon_bands: Option<f64>,
     /// Shadow floor, so shadows read as shaded rather than black.
     /// Defaults to `0.2`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0.2f64))]
     pub ambient: Option<f64>,
     /// Apron width in pixels at 256-core scale, rescaled with the core.
     /// Defaults to `0`, so the served tile is a 512x512 square.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u32))]
     pub padding: Option<u32>,
     /// Output image format.
     /// Defaults to `png`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"png"))]
     pub format: Option<HillshadeFormat>,
     /// Whether a request may override these settings with query parameters.
     /// Defaults to `false`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
     pub allow_request_overrides: Option<bool>,
 
     #[serde(flatten, skip_serializing)]

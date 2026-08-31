@@ -115,6 +115,7 @@ default = [
     "geojson",
     "mlt",
     "hillshade",
+    "contour",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
@@ -144,6 +145,7 @@ postgres = [
 ]
 geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
 hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
+contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]

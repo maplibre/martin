@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "AutoOption_ContourSettings": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `ContourSettings` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/ContourSettings"
+        }
+      ]
+    },
     "AutoOption_HillshadeSettings": {
       "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `HillshadeSettings` - explicit  settings",
       "oneOf": [
@@ -90,6 +112,7 @@
       "properties": {
         "maxzoom": {
           "description": "Default maximum zoom level (inclusive) for tile caching.\nTiles further zoomed in than this will bypass the cache entirely.\nCan be overridden per-source.\ndefault: null (no upper bound, all zoom levels cached)",
+          "examples": [14],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -97,6 +120,7 @@
         },
         "minzoom": {
           "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "examples": [0],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -120,10 +144,12 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for cache entries.\ndefault: null (inherits from `cache.expiry`)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "idle_timeout": {
           "description": "Maximum idle time for cache entries.\ndefault: null (inherits from `cache.idle_timeout`)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "size_mb": {
@@ -145,6 +171,119 @@
           "$ref": "#/$defs/CacheSizeConfig"
         }
       ]
+    },
+    "ContourElevationUnits": {
+      "description": "Units elevations are reported in on the output features.",
+      "oneOf": [
+        {
+          "const": "meters",
+          "description": "Report elevations in meters.",
+          "type": "string"
+        },
+        {
+          "const": "feet",
+          "description": "Report elevations in feet.",
+          "type": "string"
+        }
+      ]
+    },
+    "ContourSettings": {
+      "description": "Contour settings as they appear in a config file.",
+      "properties": {
+        "allow_request_overrides": {
+          "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
+        "elevation_units": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContourElevationUnits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Units elevations are declared and reported in.\nDefaults to `meters`.",
+          "examples": ["meters"]
+        },
+        "extent": {
+          "description": "MVT tile extent.\nDefaults to `4096`.",
+          "examples": [4096],
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "fetch_margin": {
+          "description": "Apron in source pixels traced past the tile edge so a line meets its\ncontinuation in the next tile, then transformed back out.\nDefaults to `32`.",
+          "examples": [32.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "filtered_threshold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilteredThreshold"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An elevation whose contour is suppressed, or `disabled` to draw them all.\nDefaults to `0` (sea level).",
+          "examples": [0.0]
+        },
+        "layer_name": {
+          "description": "MVT layer the contour features are written into.\nDefaults to `contour`.",
+          "examples": ["contour"],
+          "type": ["string", "null"]
+        },
+        "major_interval": {
+          "description": "How often a major (bolded) contour line is generated. `0` disables them.\nDefaults to `5`.",
+          "examples": [5.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "min_feature_length": {
+          "description": "Contour lines shorter than this are dropped.\nDefaults to `50`.",
+          "examples": [50.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "resolution": {
+          "description": "Sampling step the isolines are traced at; higher is smoother.\nDefaults to `10`.",
+          "examples": [10.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "simplification_tolerance": {
+          "description": "Douglas-Peucker tolerance. Higher means smaller tiles and coarser lines;\n`0` disables simplification.\nDefaults to `10`.",
+          "examples": [10.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "zoom_intervals": {
+          "additionalProperties": false,
+          "description": "Contour interval per zoom level, as `zoom: interval` in\n[`Self::elevation_units`]. An interval of `0` disables contours from that\nzoom until the next entry.\nDefaults to a cartographic ramp from `400` at z4 down to `50` at z12.",
+          "examples": [
+            {
+              "0": 0.0,
+              "4": 400.0,
+              "6": 200.0,
+              "8": 150.0,
+              "10": 100.0,
+              "12": 50.0
+            }
+          ],
+          "patternProperties": {
+            "^\\d+$": {
+              "format": "float",
+              "type": "number"
+            }
+          },
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
     },
     "CorsConfig": {
       "anyOf": [
@@ -230,6 +369,17 @@
     },
     "FileConfig2": {
       "properties": {
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
+        },
         "convert_to_hillshade": {
           "anyOf": [
             {
@@ -491,6 +641,17 @@
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
         },
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
+        },
         "convert_to_hillshade": {
           "anyOf": [
             {
@@ -541,6 +702,24 @@
         }
       ],
       "description": "A serde helper to store a boolean as an object."
+    },
+    "FilteredThreshold": {
+      "description": "An elevation whose contour line is suppressed:\n\n- A number - skip the contour at this elevation\n- `\"disabled\"` or boolean `false` - draw every threshold",
+      "oneOf": [
+        {
+          "description": "Elevation to skip.",
+          "type": "number"
+        },
+        {
+          "description": "Draw every threshold.",
+          "enum": ["disabled", "off", "none"],
+          "type": "string"
+        },
+        {
+          "description": "false = draw every threshold.",
+          "type": "boolean"
+        }
+      ]
     },
     "FunctionInfo": {
       "properties": {
@@ -627,14 +806,17 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for all cache entries (time-to-live from creation).\nEntries are evicted after this duration regardless of access.\nSupports human-readable formats: \"1h\", \"30m\", \"1d\", \"3600s\".\ndefault: null (no expiry, entries only evicted by size pressure)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "idle_timeout": {
           "description": "Maximum idle time for all cache entries (time-to-idle since last access).\nEntries are evicted if not accessed within this duration.\ndefault: null (no idle timeout)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "maxzoom": {
           "description": "Default maximum zoom level (inclusive) for tile caching.\nTiles further zoomed in than this will bypass the cache entirely.\nCan be overridden per-source.\ndefault: null (no upper bound, all zoom levels cached)",
+          "examples": [14],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -642,6 +824,7 @@
         },
         "minzoom": {
           "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "examples": [0],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -656,10 +839,12 @@
         },
         "tile_expiry": {
           "description": "Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.\ndefault: null (inherits from `cache.expiry`)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "tile_idle_timeout": {
           "description": "Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.\ndefault: null (inherits from `cache.idle_timeout`)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "tile_size_mb": {
@@ -707,30 +892,36 @@
       "properties": {
         "allow_request_overrides": {
           "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "examples": [false],
           "type": ["boolean", "null"]
         },
         "altitude": {
           "description": "Height of the light above the horizon in degrees.\nDefaults to `45`.",
+          "examples": [45.0],
           "format": "double",
           "type": ["number", "null"]
         },
         "ambient": {
           "description": "Shadow floor, so shadows read as shaded rather than black.\nDefaults to `0.2`.",
+          "examples": [0.2],
           "format": "double",
           "type": ["number", "null"]
         },
         "azimuth": {
           "description": "Compass bearing the light shines from, in degrees clockwise from north.\nDefaults to `300` (north-west) by cartographic convention.",
+          "examples": [300.0],
           "format": "double",
           "type": ["number", "null"]
         },
         "contrast": {
           "description": "Separation between lit and shadowed slopes.\nDefaults to `2.5`.",
+          "examples": [2.5],
           "format": "double",
           "type": ["number", "null"]
         },
         "elevation_scale": {
           "description": "How strongly high terrain deepens the contrast.\nDefaults to `0`, which shades high and low terrain alike.",
+          "examples": [0.0],
           "format": "double",
           "type": ["number", "null"]
         },
@@ -743,21 +934,25 @@
               "type": "null"
             }
           ],
-          "description": "Output image format.\nDefaults to `png`."
+          "description": "Output image format.\nDefaults to `png`.",
+          "examples": ["png"]
         },
         "padding": {
           "description": "Apron width in pixels at 256-core scale, rescaled with the core.\nDefaults to `0`, so the served tile is a 512x512 square.",
+          "examples": [0],
           "format": "uint32",
           "minimum": 0,
           "type": ["integer", "null"]
         },
         "toon_bands": {
           "description": "Number of hard shading bands; below `2` the shading is a smooth gradient instead.\nDefaults to `6`.",
+          "examples": [6.0],
           "format": "double",
           "type": ["number", "null"]
         },
         "vertical_exaggeration": {
           "description": "Scales the terrain's horizontal gradient before lighting, exaggerating relief.\n`1` is true-to-source.\nDefaults to `2.5`.",
+          "examples": [2.5],
           "format": "double",
           "type": ["number", "null"]
         }
@@ -1015,6 +1210,17 @@
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
           "type": ["string", "null"]
         },
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
+        },
         "convert_to_hillshade": {
           "anyOf": [
             {
@@ -1176,7 +1382,8 @@
               "type": "null"
             }
           ],
-          "description": "Specify how bounds should be computed for the spatial PG tables \\[default: quick\\]\n\nOptions:\n- `calc` compute table geometry bounds on startup.\n- `quick` same as 'calc', but the calculation will be aborted after 5 seconds.\n- `skip` does not compute table geometry bounds on startup."
+          "description": "Specify how bounds should be computed for the spatial PG tables \\[default: quick\\]\n\nOptions:\n- `calc` compute table geometry bounds on startup.\n- `quick` same as 'calc', but the calculation will be aborted after 5 seconds.\n- `skip` does not compute table geometry bounds on startup.",
+          "examples": ["quick"]
         },
         "auto_publish": {
           "$ref": "#/$defs/OptBoolObj",
@@ -1521,7 +1728,8 @@
           "type": "null"
         }
       ],
-      "description": "The policy for handling invalid sources during startup. \\[default: abort\\]\n\nInvalid sources are those that are missing (file not found, table doesn't exist, ...),\nreference columns that don't exist, and so on.\nCurrently limited to tile sources; broader rollout is planned.\n\nOptions:\n- `warn`: log warning messages\n- `abort`: log warnings as error messages, abort startup"
+      "description": "The policy for handling invalid sources during startup. \\[default: abort\\]\n\nInvalid sources are those that are missing (file not found, table doesn't exist, ...),\nreference columns that don't exist, and so on.\nCurrently limited to tile sources; broader rollout is planned.\n\nOptions:\n- `warn`: log warning messages\n- `abort`: log warnings as error messages, abort startup",
+      "examples": ["abort"]
     },
     "passthrough": {
       "$ref": "#/$defs/PassthroughConfig",
@@ -1572,7 +1780,8 @@
           "type": "null"
         }
       ],
-      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment"
+      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment",
+      "examples": ["disable"]
     },
     "worker_processes": {
       "description": "Number of web server workers",

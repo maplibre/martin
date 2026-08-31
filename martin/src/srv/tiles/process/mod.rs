@@ -1,6 +1,10 @@
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+mod contour;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+pub use contour::trace_contour;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 mod hillshade;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
 mod neighbourhood;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mlt;
@@ -9,6 +13,8 @@ mod to_mvt;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 pub use hillshade::bake_hillshade;
 use martin_core::tiles::Tile;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use martin_core::tiles::contour::ContourError;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use martin_core::tiles::hillshade::HillshadeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -20,6 +26,8 @@ use to_mlt::convert_mvt_to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use to_mvt::convert_mlt_to_mvt;
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ContourRangeError;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::HillshadeRangeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -65,6 +73,32 @@ pub enum ProcessError {
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
     #[error("The server is shutting down and cannot start a new hillshade bake")]
     HillshadeShuttingDown,
+
+    /// A contour parameter supplied by the request was out of range.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error(transparent)]
+    ContourParameter(#[from] ContourRangeError),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Contour tracing failed: {0}")]
+    Contour(#[from] ContourError),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Could not read the elevation tiles a contour needs: {0}")]
+    ContourSource(String),
+
+    /// The elevation source changed underneath us and must be reloaded before the trace can be retried.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The elevation source changed and must be reloaded")]
+    ContourSourceNeedsReload,
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The contour trace did not complete: {0}")]
+    ContourTraceFailed(String),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The server is shutting down and cannot start a new contour trace")]
+    ContourShuttingDown,
 }
 
 impl From<ProcessError> for actix_web::Error {
@@ -76,6 +110,14 @@ impl From<ProcessError> for actix_web::Error {
             }
             #[cfg(all(feature = "hillshade", feature = "_tiles"))]
             ProcessError::HillshadeShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            ProcessError::ContourParameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            ProcessError::ContourShuttingDown => {
                 actix_web::error::ErrorServiceUnavailable(e.to_string())
             }
             other => actix_web::error::ErrorInternalServerError(other.to_string()),

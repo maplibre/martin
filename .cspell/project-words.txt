@@ -40,9 +40,11 @@ hillshade
 hillshading
 httpfs
 isnull
+isolines
 jpegxl
 keepalives
 linestring
+linestrings
 lldb
 mapbox
 maplibre
@@ -64,6 +66,7 @@ noto
 onthegomap
 openlayers
 openmaptiles
+peucker
 pfor
 pgpassword
 pgsql

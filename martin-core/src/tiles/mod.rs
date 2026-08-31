@@ -40,6 +40,9 @@ pub mod passthrough;
 #[cfg(feature = "_raster")]
 pub(crate) mod raster_codecs;
 
+#[cfg(feature = "contour")]
+pub mod contour;
+
 #[cfg(feature = "hillshade")]
 pub mod hillshade;
 

@@ -13,7 +13,7 @@ A hillshade is the grey relief image a map overlays over its basemap, multiplyin
 Martin can bake one from a source that serves *normal maps* in Mapzen's encoding - tiles whose pixels store which way the ground faces instead of a color - which **spares the client this work** and lets the result be **compressed further**.
 See the left image below for the input and the right for the output of this postprocessing.
 
-This is less flexible for the client.
+Unlike [contours](contour.md), the output is **raster, not vector**: the client overlays the hillshade, but cannot adjust it further (unless opted into via `allow_request_overrides`).
 
 <div class="grid" markdown>
 
@@ -71,28 +71,19 @@ The gradient is already baked in, so shading needs no knowledge of the tile's gr
 | `format`                  | `png`   | `png`, `webp`, `jxl` | Output image format.                                                         |
 | `allow_request_overrides` | `false` |                      | Whether query parameters may override the lighting parameters.               |
 
-Out-of-range values are rejected at startup, rather than surfacing later on some tiles.
+Out-of-range values are rejected at startup.
 
 The default light comes from the north-west by cartographic convention.
 Terrain lit from the lower half of the compass reads as inverted to most people, with valleys appearing to bulge out of the map.
 
-<<<<<<< HEAD
 !!! tip "what does `toon_bands` actually do?"
     The defaults for `toon_bands` "squash" the relief into six hard bands, which keeps the shading readable once it is multiplied under a basemap.
     Set `toon_bands: 0` for a smooth gradient instead.
     `elevation_scale` is off by default, so a slope is shaded the same way whether it sits in a valley or on a summit; raise it to make high terrain read more strongly than low.
-=======
-The defaults bake a plain, smoothly shaded relief: the two stylistic knobs, `toon_bands` and `elevation_scale`, are off.
-They are what a basemap usually wants, and they leave any particular house style as something you opt into rather than something you have to undo.
->>>>>>> 14625522 (spellchecking)
 
-Both formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
-Lossless WebP is typically around a third smaller than PNG, and is the better choice where clients support it.
-=======
 All three formats are lossless because a hillshade is multiplied over the basemap, where a lossy codec's ringing would land on flat terrain as visible blotches instead of being masked by photographic detail.
 Lossless WebP is typically around 40% smaller than PNG, and is the better choice where clients support it.
 Lossless JPEG XL (encoded with the pure-Rust `zune-jpegxl` encoder) is usually smaller still, at the cost of narrower client support.
->>>>>>> 3e7172a6 (jxl-support)
 
 !!! tip "`padding` is only for clients that sample past tile edges"
     The tile is rendered larger than its nominal size, so a client whose sampler reads just outside a tile edge finds real data there rather than disagreeing with the neighboring tile.

@@ -39,9 +39,9 @@ pub fn temp_dir() -> TempDir {
     tempfile::tempdir().expect("failed to create a temp dir")
 }
 
-/// `image` only recognizes JPEG XL once this hook is registered.
-/// Every other format this crate decodes is supported out of the box.
-//() The hook is process-global, so anything decoding a response body or a reference fixture through `image` should call this first.
+/// `image` only recognizes JPEG XL once this hook is registered; every other format this crate
+/// decodes is supported out of the box. The hook is process-global, so anything decoding a
+/// response body or a reference fixture through `image` should call this first.
 pub(crate) fn ensure_jxl_decoding_hook() {
     static REGISTERED: std::sync::Once = std::sync::Once::new();
     REGISTERED.call_once(|| {
