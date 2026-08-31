@@ -24,13 +24,7 @@ pub use hillshade::{
 
 pub mod process;
 pub use process::ProcessConfig;
-#[cfg(any(
-    feature = "postgres",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "postgres", feature = "_file_kinds"))]
 pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};

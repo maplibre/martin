@@ -102,7 +102,7 @@ impl Discovery for PostgresDiscovery {
                     .connection_string
                     .clone()
                     .expect("connection_string is set after PostgresConfig::finalize()"),
-                spec,
+                spec: Box::new(spec),
             }),
         })
     }

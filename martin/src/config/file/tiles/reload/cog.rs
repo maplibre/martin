@@ -2,17 +2,17 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::cog::CogSource;
 
 use crate::TileSourceManager;
-use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
+use crate::config::file::{FileConfigEnum, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
+use crate::reload::FileKind;
 
 /// Watches configured directories for `.tif`/`.tiff` changes.
 pub struct CogReloader {
-    tile_source_manager: TileSourceManager,
-    discovery: FsDiscovery,
+    driver: ReloadDriver<FsDiscovery, TileSourceManager>,
 }
 
 impl CogReloader {
@@ -31,6 +31,7 @@ impl CogReloader {
             })
         });
         let discovery = FsDiscovery::from_config(
+            FileKind::Cog,
             config,
             &["tif", "tiff"],
             id_resolver,
@@ -38,20 +39,23 @@ impl CogReloader {
             build,
         );
         Self {
-            tile_source_manager: tsm,
-            discovery,
+            driver: ReloadDriver::new(discovery, tsm),
         }
+    }
+
+    /// Publishes every discovered source into the catalog and returns the discovery warnings.
+    pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
+        self.driver.init().await
     }
 
     /// Spawns the reload driver. Does nothing if no directories are configured.
     pub fn start(self) -> notify::Result<()> {
-        let directories = self.discovery.directories().to_vec();
+        let directories = self.driver.discovery().directories();
         if directories.is_empty() {
             return Ok(());
         }
         let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager)
-            .spawn(trigger, Baseline::StartupResolved);
+        self.driver.spawn(trigger, Baseline::Initialized);
         Ok(())
     }
 }

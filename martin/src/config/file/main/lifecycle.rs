@@ -635,53 +635,87 @@ impl Config {
         }
     }
 
-    /// A copy of this config whose `postgres` entries carry the `tables`/`functions` currently in
-    /// the catalog, matched to their connection by `connection_string`.
-    #[cfg(feature = "postgres")]
+    /// A copy of this config whose sections carry the sources currently in the catalog:
+    /// `postgres` entries get their `tables`/`functions` matched by `connection_string`, and
+    /// file-backed sections get an entry per discovered file.
+    #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
     #[must_use]
     pub fn with_catalog(&self, catalog: &TileSourceManager) -> Self {
-        use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
-        use crate::reload::SourceProvenance;
-
         let mut config = self.clone();
+        #[cfg(not(any(feature = "postgres", feature = "_file_kinds")))]
+        let _ = catalog;
+
+        #[cfg(feature = "postgres")]
         for pg in config.postgres.iter_mut() {
+            use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
+            use crate::reload::SourceProvenance;
+
             let mut tables = TableInfoSources::new();
             let mut functions = FuncInfoSources::new();
             for (id, provenance) in catalog.provenance() {
-                let SourceProvenance::Postgres {
-                    connection_string,
-                    spec,
-                } = provenance;
-                if Some(&connection_string) != pg.connection_string.as_ref() {
-                    continue;
-                }
-                match spec {
-                    SourceSpec::Table(info) => {
-                        tables.insert(id, info);
+                match provenance {
+                    SourceProvenance::Postgres {
+                        connection_string,
+                        spec,
+                    } => {
+                        if Some(&connection_string) != pg.connection_string.as_ref() {
+                            continue;
+                        }
+                        match *spec {
+                            SourceSpec::Table(info) => {
+                                tables.insert(id, info);
+                            }
+                            SourceSpec::Function(info, _) => {
+                                functions.insert(id, info);
+                            }
+                        }
                     }
-                    SourceSpec::Function(info, _) => {
-                        functions.insert(id, info);
-                    }
+                    #[cfg(feature = "_file_kinds")]
+                    SourceProvenance::File { .. } => {}
                 }
             }
             pg.tables = Some(tables);
             pg.functions = Some(functions);
         }
+
+        #[cfg(feature = "_file_kinds")]
+        for (id, provenance) in catalog.provenance() {
+            use crate::reload::{FileKind, SourceProvenance};
+
+            match provenance {
+                SourceProvenance::File { kind, src } => match kind {
+                    #[cfg(feature = "mbtiles")]
+                    FileKind::Mbtiles => config.mbtiles.insert_source(id, src),
+                    #[cfg(feature = "pmtiles")]
+                    FileKind::Pmtiles => config.pmtiles.insert_source(id, src),
+                    #[cfg(feature = "unstable-cog")]
+                    FileKind::Cog => config.cog.insert_source(id, src),
+                    #[cfg(feature = "geojson")]
+                    FileKind::GeoJson => config.geojson.insert_source(id, src),
+                },
+                #[cfg(feature = "postgres")]
+                SourceProvenance::Postgres { .. } => {}
+            }
+        }
+
         config
     }
 
-    /// Writes the running configuration, with the `postgres` sources materialized from the
-    /// catalog so the file describes what is actually served.
+    /// Writes the running configuration, with the tile sources materialized from the catalog so
+    /// the file describes what is actually served.
     pub fn save_to_file(
         &self,
         file_name: &Path,
         #[cfg(feature = "_tiles")] catalog: &TileSourceManager,
     ) -> ConfigFileResult<()> {
-        #[cfg(feature = "postgres")]
+        #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
         let config = self.with_catalog(catalog);
-        #[cfg(all(feature = "_tiles", not(feature = "postgres")))]
+        #[cfg(all(
+            feature = "_tiles",
+            not(any(feature = "postgres", feature = "_file_kinds"))
+        ))]
         let _ = catalog;
-        #[cfg(not(feature = "postgres"))]
+        #[cfg(not(any(feature = "postgres", feature = "_file_kinds")))]
         let config = self;
         let yaml = serde_saphyr::to_string(&config).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {

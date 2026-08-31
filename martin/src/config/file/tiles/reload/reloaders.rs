@@ -48,27 +48,48 @@ impl TileReloaders {
         };
 
         #[cfg(feature = "mbtiles")]
-        let mbtiles = super::mbtiles::MbtilesReloader::new(
+        let mut mbtiles = super::mbtiles::MbtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.mbtiles,
             &global_process,
         );
         #[cfg(feature = "unstable-cog")]
-        let cog = super::cog::CogReloader::new(catalog.clone(), resolver.clone(), &config.cog);
+        let mut cog = super::cog::CogReloader::new(catalog.clone(), resolver.clone(), &config.cog);
         #[cfg(feature = "geojson")]
-        let geojson = super::geojson::GeoJsonReloader::new(
+        let mut geojson = super::geojson::GeoJsonReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.geojson,
         );
         #[cfg(feature = "pmtiles")]
-        let pmtiles = super::pmtiles::PmtilesReloader::new(
+        let mut pmtiles = super::pmtiles::PmtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.pmtiles,
             &global_process,
         );
+        #[cfg(feature = "mbtiles")]
+        {
+            let warnings = mbtiles.init().await?;
+            catalog.on_invalid().handle_tile_warnings(&warnings)?;
+        }
+        #[cfg(feature = "unstable-cog")]
+        {
+            let warnings = cog.init().await?;
+            catalog.on_invalid().handle_tile_warnings(&warnings)?;
+        }
+        #[cfg(feature = "geojson")]
+        {
+            let warnings = geojson.init().await?;
+            catalog.on_invalid().handle_tile_warnings(&warnings)?;
+        }
+        #[cfg(feature = "pmtiles")]
+        {
+            let warnings = pmtiles.init().await?;
+            catalog.on_invalid().handle_tile_warnings(&warnings)?;
+        }
+
         #[cfg(feature = "postgres")]
         let postgres = {
             let mut reloaders: Vec<_> = config
