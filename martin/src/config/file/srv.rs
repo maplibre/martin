@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-#[cfg(feature = "metrics")]
+#[cfg(any(feature = "metrics", feature = "_tiles"))]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
 use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
