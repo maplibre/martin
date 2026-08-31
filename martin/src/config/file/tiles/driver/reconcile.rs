@@ -165,7 +165,7 @@ mod tests {
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
-    use crate::config::file::ProcessConfig;
+    use crate::config::file::ResolvedProcess;
     use crate::config::file::tiles::discovery::Discovered;
 
     /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
@@ -281,8 +281,8 @@ mod tests {
             std::future::ready(Ok(source.into()))
         }
 
-        fn process(&self) -> ProcessConfig {
-            ProcessConfig::default()
+        fn process(&self) -> ResolvedProcess {
+            ResolvedProcess::default()
         }
     }
 

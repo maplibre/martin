@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
-use crate::config::file::process::ProcessConfig;
+use crate::config::file::process::{ProcessConfig, ResolvedProcess};
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _,
@@ -24,7 +24,8 @@ pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
     id_resolver: IdResolver,
     config: PmtConfig,
-    process: ProcessConfig,
+    /// The kind level, which every remote prefix serves with.
+    process: ResolvedProcess,
 }
 
 impl ObjectStoreDiscovery {
@@ -33,7 +34,7 @@ impl ObjectStoreDiscovery {
     pub fn from_config(
         config: &FileConfigEnum<PmtConfig>,
         id_resolver: IdResolver,
-        process: ProcessConfig,
+        process: &ProcessConfig,
     ) -> Self {
         let mut remote_prefixes: Vec<Url> = vec![];
         let mut collect = |path: &PathBuf| {
@@ -75,7 +76,9 @@ impl ObjectStoreDiscovery {
             remote_prefixes,
             id_resolver,
             config: pmt_config,
-            process,
+            process: process
+                .resolve()
+                .expect("the kind level carries no range-checked settings"),
         }
     }
 
@@ -122,7 +125,7 @@ impl Discovery for ObjectStoreDiscovery {
             .map(Into::into)
     }
 
-    fn process(&self) -> ProcessConfig {
+    fn process(&self) -> ResolvedProcess {
         self.process.clone()
     }
 }

@@ -38,7 +38,7 @@ impl GeoJsonReloader {
             config,
             &["json", "geojson"],
             id_resolver,
-            ProcessConfig::default(),
+            &ProcessConfig::default(),
             build,
         );
         Self {

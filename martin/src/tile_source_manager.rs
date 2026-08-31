@@ -5,7 +5,7 @@ use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
 use crate::config::file::driver::Sink;
-use crate::config::file::{OnInvalid, ProcessConfig, SourceBuildResult};
+use crate::config::file::{OnInvalid, ResolvedProcess, SourceBuildResult};
 use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
 use crate::source::TileSources;
 
@@ -18,7 +18,7 @@ use crate::source::TileSources;
 /// `TileSourceManager` is cheap to clone.
 #[derive(Clone)]
 pub struct TileSourceManager {
-    tile_sources: Arc<DashMap<String, (BoxedSource, ProcessConfig)>>,
+    tile_sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
     /// Kept beside the serving map so `--save-config` can serialize what is actually served.
     provenance: Arc<DashMap<String, SourceProvenance>>,
     tile_cache: OptTileCache,
@@ -39,14 +39,14 @@ impl TileSourceManager {
 
     /// Creates a manager pre-populated with the given sources.
     ///
-    /// All sources receive the default [`ProcessConfig`].
+    /// All sources receive the default [`ResolvedProcess`].
     #[must_use]
     pub fn from_sources(
         tile_cache: OptTileCache,
         on_invalid: OnInvalid,
-        sources: Vec<Vec<(BoxedSource, ProcessConfig)>>,
+        sources: Vec<Vec<(BoxedSource, ResolvedProcess)>>,
     ) -> Self {
-        let map: DashMap<String, (BoxedSource, ProcessConfig)> = sources
+        let map: DashMap<String, (BoxedSource, ResolvedProcess)> = sources
             .into_iter()
             .flatten()
             .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
@@ -93,7 +93,7 @@ impl TileSourceManager {
         &self,
         id: String,
         src: BoxedSource,
-        process: ProcessConfig,
+        process: ResolvedProcess,
         provenance: Option<SourceProvenance>,
     ) {
         if let Some(p) = provenance {
@@ -242,7 +242,7 @@ mod tests {
                 id: name.to_owned(),
                 tj: tilejson! { tiles: vec![] },
             })),
-            process: ProcessConfig::default(),
+            process: ResolvedProcess::default(),
             provenance: None,
         }
     }
@@ -325,7 +325,7 @@ mod tests {
         let mgr = TileSourceManager::from_sources(
             None,
             OnInvalid::Abort,
-            vec![vec![(src, ProcessConfig::default())]],
+            vec![vec![(src, ResolvedProcess::default())]],
         );
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
@@ -358,7 +358,7 @@ mod tests {
         use tempfile::TempDir;
 
         use crate::config::file::discovery::BuiltSource;
-        use crate::config::file::{ConfigFileError, ProcessConfig, SourceBuildError};
+        use crate::config::file::{ConfigFileError, ResolvedProcess, SourceBuildError};
 
         const BAD_PREFIX: &str = "bad_";
 
@@ -408,7 +408,7 @@ mod tests {
                 state,
                 &next,
                 async |id| build(id, dir_path.clone()).await,
-                ProcessConfig::default(),
+                ResolvedProcess::default(),
             )
             .await;
             mgr.apply_changes(advisory)

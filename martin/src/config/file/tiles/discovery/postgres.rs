@@ -6,7 +6,10 @@ use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
-use crate::config::file::{CachePolicy, ProcessConfig, SourceBuildError, SourceBuildResult};
+use crate::config::file::{
+    CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError,
+    SourceBuildResult,
+};
 use crate::config::primitives::IdResolver;
 use crate::reload::SourceProvenance;
 
@@ -19,7 +22,10 @@ pub struct PostgresDiscovery {
     config: PostgresConfig,
     id_resolver: IdResolver,
     default_cache: CachePolicy,
+    /// The connection level, which per-source settings layer over.
     process: ProcessConfig,
+    /// The connection level resolved, for every source without its own settings.
+    resolved: ResolvedProcess,
     builder: OnceCell<PostgresAutoDiscoveryBuilder>,
 }
 
@@ -36,6 +42,9 @@ impl PostgresDiscovery {
             config,
             id_resolver,
             default_cache,
+            resolved: process
+                .resolve()
+                .expect("the connection level carries no range-checked settings"),
             process,
             builder: OnceCell::new(),
         }
@@ -95,7 +104,10 @@ impl Discovery for PostgresDiscovery {
         log_published(id, &spec);
         Ok(BuiltSource {
             source,
-            process: Some(per_source_process(&self.process, &spec)),
+            process: Some(
+                per_source_process(&self.process, &spec)
+                    .map_err(|e| e.for_source(id.to_owned()))?,
+            ),
             provenance: Some(SourceProvenance::Postgres {
                 connection_string: self
                     .config
@@ -107,15 +119,16 @@ impl Discovery for PostgresDiscovery {
         })
     }
 
-    fn process(&self) -> ProcessConfig {
-        self.process.clone()
+    fn process(&self) -> ResolvedProcess {
+        self.resolved.clone()
     }
 }
 
-/// Per-source `convert_to_*` and `cache_control` settings override the connection-level [`ProcessConfig`].
-fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessConfig {
-    use crate::config::file::resolve_process_config;
-
+/// Per-source `convert_to_*` and `cache_control` settings layered over the connection level.
+fn per_source_process(
+    connection: &ProcessConfig,
+    spec: &SourceSpec,
+) -> Result<ResolvedProcess, ProcessResolveError> {
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -140,7 +153,7 @@ fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessC
             convert_to_contour: None,
         },
     };
-    resolve_process_config(connection, &ProcessConfig::default(), &per_source)
+    ProcessConfig::layered(connection, &ProcessConfig::default(), &per_source).resolve()
 }
 
 fn log_published(id: &str, spec: &SourceSpec) {
@@ -325,10 +338,12 @@ mod tests {
     #[test]
     fn per_source_convert_overrides_the_connection_level() {
         use crate::config::file::postgres::TableInfo;
+        use crate::config::file::process::MltConversion;
         use crate::config::primitives::AutoOption;
         let connection = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
+            cache_control: None,
             #[cfg(feature = "hillshade")]
             convert_to_hillshade: None,
             #[cfg(feature = "contour")]
@@ -340,15 +355,15 @@ mod tests {
             ..TableInfo::default()
         });
         assert_eq!(
-            per_source_process(&connection, &with_override).convert_to_mlt,
-            Some(AutoOption::Disabled),
+            per_source_process(&connection, &with_override).unwrap().mlt,
+            MltConversion::Disabled,
             "a per-table convert_to_mlt must win over the connection-level setting"
         );
 
         let without_override = SourceSpec::Table(TableInfo::default());
         assert_eq!(
-            per_source_process(&connection, &without_override),
-            connection,
+            per_source_process(&connection, &without_override).unwrap(),
+            connection.resolve().unwrap(),
             "a table without overrides must inherit the connection-level setting"
         );
     }

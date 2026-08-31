@@ -31,11 +31,13 @@ pub use hillshade::{
 };
 
 pub mod process;
-pub use process::ProcessConfig;
 #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
-pub(crate) use process::resolve_process_config;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};
+pub use process::{
+    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,
+    MvtProcessConfig,
+};
+pub use process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
 
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 mod resources;
