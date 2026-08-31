@@ -150,7 +150,6 @@ pub fn apply_pre_cache_processors(
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
         match config.mlt {
             MltConversion::Encode(cfg) => convert_mvt_to_mlt(tile, cfg)?,
-            // Explicitly opted out - serve the original MVT bytes.
             MltConversion::Disabled => tile,
         }
     } else if accepted == Some(Format::Mvt)
