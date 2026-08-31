@@ -29,7 +29,7 @@
     
     
       
-        <title>Using with AWS Lambda - v0.14+ - Martin Tile Server Documentation</title>
+        <title>Using with AWS Lambda - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#using-with-aws-lambda-v014" class="md-skip">
+        <a href="#using-with-aws-lambda" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Using with AWS Lambda - v0.14+
+              Using with AWS Lambda
             
           </span>
         </div>
@@ -1054,16 +1054,49 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#everything-as-one-sam-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Everything as one SAM stack
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#todo" class="md-nav__link">
+  <a href="#sizing" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        TODO
+        Sizing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Caching
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not covered yet
       </span>
     </span>
   </a>
@@ -1619,9 +1652,11 @@
   
 
 
-<h1 id="using-with-aws-lambda-v014">Using with AWS Lambda - v0.14+</h1>
+<h1 id="using-with-aws-lambda">Using with AWS Lambda</h1>
 <p>Martin can run in AWS Lambda.
-This is useful if you want to serve tiles from a serverless environment, while accessing "nearby" data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.</p>
+This is useful if you want to serve tiles from a serverless environment, while accessing "nearby" data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance.
+The bucket can stay private.
+Martin signs its S3 requests with the credentials Lambda gives the function, so the execution role only needs <code>s3:GetObject</code> on the archive.</p>
 <p>Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration.
 When using container-based deployment, we can pass our configuration on the command line or environment variables.</p>
 <p>Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication.
@@ -1647,7 +1682,8 @@ The CloudShell also runs in a particular AWS region.</p>
 <li><strong>Note</strong>: This is an internal identifier, not exposed in the function URL.</li>
 <li>Click "Browse images", and select your repository and the tag.</li>
 <li>If you cannot find it, see if you are in the same region?</li>
-<li>Expand "Container image overrides", and under CMD put the URL of a <code>.pmtiles</code> file.</li>
+<li>Expand "Container image overrides", and under CMD put the URL of a <code>.pmtiles</code> file.
+   An <code>s3://</code> URL works once the execution role may read the object, see the zip section below.</li>
 <li>Set "Architecture" to <code>arm64</code> to match the platform that we pulled.
    Lambda has better ARM CPUs than x86.</li>
 <li>Click "Create function".</li>
@@ -1672,7 +1708,7 @@ The <code>bin</code> directory of your Layer will be added to the PATH.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF &gt;src/bootstrap</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="s">#!/bin/sh</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s">set -eu</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">exec martin --config \${_HANDLER}.yaml</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">exec martin --config \${_HANDLER}</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">EOF</span>
 </span></code></pre></div>
 <p>Write the SAM template.</p>
@@ -1720,25 +1756,76 @@ The <code>bin</code> directory of your Layer will be added to the PATH.</p>
 </ol>
 <p>Add your configuration file in the function source code:</p>
 <ol>
-<li>Code tab, File, New File: <code>hello.handler.yaml</code>.</li>
+<li>Code tab, File, New File: <code>config.yaml</code>.</li>
 </ol>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">demotiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;url to a pmtiles file&gt;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">demotiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/tiles.pmtiles</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># a new Lambda instance starts empty, so an in-process cache buys little</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 </span></code></pre></div>
+<p>A prefix such as <code>s3://my-bucket/tiles/</code> under <code>pmtiles.paths</code> serves every archive in it instead, which also needs <code>s3:ListBucket</code>.</p>
 <ol>
+<li>Configuration tab, "General configuration", Edit: set "Handler" to <code>config.yaml</code>.
+   The <code>bootstrap</code> above passes the handler name to <code>martin --config</code>.</li>
+<li>Configuration tab, "Permissions": open the execution role and attach a policy that allows <code>s3:GetObject</code> on the archive.
+   Nothing else is needed.
+   Lambda hands the function temporary credentials through <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code> and <code>AWS_SESSION_TOKEN</code>, and Martin picks them up.</li>
 <li>Click Deploy, wait for the success banner, and visit your function URL.</li>
 </ol>
-<h3 id="todo">TODO</h3>
-<p>AWS Lambda support is preliminary; there are features to add to Martin, configuration to tweak, and documentation to improve.  Your help is welcome.</p>
+<h4 id="everything-as-one-sam-stack">Everything as one SAM stack</h4>
+<p>The layer, the function, its role and the URL can be one template.
+This is also how the steps above were verified.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">AWSTemplateFormatVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2010-09-09</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">Transform</span><span class="p">:</span><span class="w"> </span><span class="s">'AWS::Serverless-2016-10-31'</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">Parameters</span><span class="p">:</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">Bucket</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">String</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">Resources</span><span class="p">:</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">MartinLayer</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">'AWS::Serverless::LayerVersion'</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">DeletionPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Delete</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">Properties</span><span class="p">:</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">ContentUri</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">layer/</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">CompatibleRuntimes</span><span class="p">:</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">provided.al2023</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">CompatibleArchitectures</span><span class="p">:</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arm64</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">  </span><span class="nt">MartinFunction</span><span class="p">:</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">'AWS::Serverless::Function'</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="nt">Properties</span><span class="p">:</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">Runtime</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">provided.al2023</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="nt">Architectures</span><span class="p">:</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arm64</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">      </span><span class="nt">Layers</span><span class="p">:</span>
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="kt">!Ref</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MartinLayer</span>
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">      </span><span class="nt">CodeUri</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">function/</span>
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">      </span><span class="nt">Handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.yaml</span>
+</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">      </span><span class="nt">MemorySize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
+</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">      </span><span class="nt">Timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">      </span><span class="nt">FunctionUrlConfig</span><span class="p">:</span>
+</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">        </span><span class="nt">AuthType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NONE</span>
+</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="w">      </span><span class="nt">Policies</span><span class="p">:</span>
+</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">S3ReadPolicy</span><span class="p">:</span>
+</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="w">            </span><span class="nt">BucketName</span><span class="p">:</span><span class="w"> </span><span class="kt">!Ref</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Bucket</span>
+</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="nt">Outputs</span><span class="p">:</span>
+</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="w">  </span><span class="nt">FunctionUrl</span><span class="p">:</span>
+</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">    </span><span class="nt">Value</span><span class="p">:</span><span class="w"> </span><span class="kt">!GetAtt</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MartinFunctionUrl.FunctionUrl</span>
+</span></code></pre></div>
+<p><code>layer/</code> holds <code>bootstrap</code> and <code>bin/martin</code>, <code>function/</code> holds <code>config.yaml</code>.
+Deploy with <code>sam build &amp;&amp; sam deploy --guided --parameter-overrides Bucket=my-bucket</code>.</p>
+<h3 id="sizing">Sizing</h3>
+<p>At the Lambda defaults of 128 MB and 3 seconds, Martin v1.14.0 on <code>arm64</code> starts in about 300 ms, peaks at about 45 MB with one PMTiles source in S3, and answers a warm tile request in about 25 ms.
+Raise the timeout if the archive is large or far away, and the memory if you serve many sources.</p>
+<h3 id="caching">Caching</h3>
+<p>Martin sets an <code>Etag</code> header on tile responses, and the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a> sets a default <code>Cache-Control</code> header.
+Put CloudFront in front of the function URL and let it hold the tiles, since every new Lambda instance starts with an empty in-process cache.</p>
+<h3 id="not-covered-yet">Not covered yet</h3>
 <ul>
-<li>Lambda has a default timeout of 3 seconds, and 128 MB of memory, maybe this is suboptimal.</li>
-<li>Document how to connect to a PostgreSQL database on RDS.</li>
-<li>Set up a CloudFront CDN, this is a whole thing, but explain the motivation and the basics.</li>
-<li>Grant the execution role permission to read objects from an S3 bucket, and teach Martin how to make authenticated requests to S3.</li>
-<li>Teach Martin how to serve all PMTiles files from an S3 bucket rather than having to list them at startup.</li>
+<li>Connecting to a PostgreSQL database on RDS.</li>
+<li>A CloudFront distribution in front of the function URL, with the motivation and the basics.</li>
 </ul>
-<p>Martin already sets an <code>Etag</code> header on tile responses, and the <code>cache_control</code> option in the <a href="../config-file/">configuration file</a> sets a default <code>Cache-Control</code> header - useful when running behind CloudFront.</p>
 
 
   <nav class="md-tags" >
