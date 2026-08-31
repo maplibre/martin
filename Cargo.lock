@@ -5479,6 +5479,7 @@ dependencies = [
  "mlt-core",
  "pbf_font_tools",
  "pmtiles",
+ "pretty_assertions",
  "regex",
  "reqwest 0.13.4",
  "rstest",
