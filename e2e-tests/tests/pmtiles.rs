@@ -548,6 +548,51 @@ async fn route_prefix_keeps_root_health() {
 }
 
 #[tokio::test]
+async fn recursive_paths_publish_nested_files_under_dotted_ids() {
+    let watched = WatchedDir::new();
+    fs::create_dir_all(watched.dir().join("2024")).expect("failed to create 2024");
+    watched.seed(fixture("pmtiles2/webp2.pmtiles"), "webp2.pmtiles");
+    watched.seed(fixture("pmtiles/png.pmtiles"), "2024/roads.pmtiles");
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "pmtiles:\n  paths: {}\n  recursive: true\n",
+            watched.dir().display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "2024.roads": {
+        "content_type": "image/png",
+        "name": "ne2sr"
+      },
+      "webp2": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/2024.roads/0/0/0").await.status(), 200);
+
+    fs::create_dir_all(watched.dir().join("2025")).expect("failed to create 2025");
+    fs::create_dir_all(watched.outside("2025")).expect("failed to create the staging dir");
+    watched.install(fixture("pmtiles/png.pmtiles"), "2025/rivers.pmtiles");
+    martin.wait_for_source("2025.rivers").await;
+    assert_eq!(martin.get("/2025.rivers/0/0/0").await.status(), 200);
+
+    watched.remove("2025/rivers.pmtiles");
+    martin.wait_for_source_removed("2025.rivers").await;
+
+    martin.stop().await;
+    martin.assert_log_contains("Added source source.id=2025.rivers");
+    martin.assert_log_contains("Removed source source.id=2025.rivers");
+    martin.assert_startup_warnings();
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
 async fn reload_adds_updates_and_removes_a_source() {
     let watched = WatchedDir::new();
     let mut martin = Martin::builder()

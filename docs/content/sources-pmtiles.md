@@ -36,6 +36,10 @@ pmtiles:
     - /path/to/pmtiles/directory
 ```
 
+!!! tip "Scanning subdirectories"
+    Set `recursive: true` next to `paths` to scan subdirectories too.
+    A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.pmtiles` becomes `2024.roads`.
+
 For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
 object `ETag` or `Last-Modified` headers to detect updates to an existing source.
 There is no event channel from blob storage to subscribe to.

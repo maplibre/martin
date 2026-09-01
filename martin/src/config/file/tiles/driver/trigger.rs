@@ -19,7 +19,7 @@ pub struct NotifyTrigger {
 }
 
 impl NotifyTrigger {
-    pub fn new(directories: &[PathBuf]) -> notify::Result<Self> {
+    pub fn new(directories: &[PathBuf], recursive: bool) -> notify::Result<Self> {
         let (tx, rx) = mpsc::channel::<Event>(256);
 
         let mut watcher = RecommendedWatcher::new(
@@ -32,9 +32,13 @@ impl NotifyTrigger {
             },
             Config::default(),
         )?;
+        let mode = if recursive {
+            notify::RecursiveMode::Recursive
+        } else {
+            notify::RecursiveMode::NonRecursive
+        };
         for dir in directories {
-            // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-            watcher.watch(dir, notify::RecursiveMode::NonRecursive)?;
+            watcher.watch(dir, mode)?;
         }
 
         Ok(Self {
@@ -105,7 +109,7 @@ mod tests {
     #[tokio::test]
     async fn notify_trigger_fires_on_file_creation() {
         let dir = tempfile::tempdir().unwrap();
-        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()]).unwrap();
+        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()], false).unwrap();
 
         // Let the watcher register before mutating the directory.
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -130,7 +134,7 @@ mod tests {
         std::fs::write(&file, b"hi").unwrap();
 
         // Start watching only after the file exists, so the create event is not observed.
-        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()]).unwrap();
+        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()], false).unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         // Reading the file mutates nothing; the trigger must stay silent.

@@ -146,6 +146,8 @@ geojson:
   extent: 4096
   # A list of file paths
   paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
   # A map of source IDs to file paths or config objects
   sources: {}
 # Connection keep alive timeout [default: 75]
@@ -176,6 +178,8 @@ mbtiles:
   convert_to_mvt: {}
   # A list of file paths
   paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
   # A map of source IDs to file paths or config objects
   sources: {}
 # Advanced monitoring options
@@ -280,6 +284,8 @@ pmtiles:
     size_mb: 64
   # A list of file paths
   paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
   # How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
   # Has no effect on local directories, which are watched via filesystem events.
   #
