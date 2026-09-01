@@ -88,6 +88,7 @@ nav = [
   {"Available API Endpoints" = "using.md"},
   {"Guides" = [
     "using-guides/index.md",
+    {"Self-hosting a basemap from scratch" = "recipe-basemap-selfhosted.md"},
     {"Map renderer specific" = [
         "using-with-renderer/index.md",
         {"MapLibre" = "using-with-maplibre.md"},

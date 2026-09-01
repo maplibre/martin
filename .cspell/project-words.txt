@@ -33,6 +33,7 @@ fsst
 gdal
 gdalwarp
 geodata
+geofabrik
 geoparquet
 geospatial
 healthcheck
@@ -48,6 +49,7 @@ linestrings
 lldb
 mapbox
 maplibre
+maplibregl
 maptiler
 maptilers
 maputnik

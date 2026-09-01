@@ -1,5 +1,4 @@
 ---
-icon: material/database
 tags:
   - mbtiles
   - tools

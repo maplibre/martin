@@ -1,7 +1,3 @@
----
-icon: material/database-cog
----
-
 # Tile source specific
 
 Some sources for tiles are harder to setup than others.
