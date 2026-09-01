@@ -69,7 +69,7 @@ impl PmtilesReloader {
         let local = FsDiscovery::from_config(
             FileKind::Pmtiles,
             config,
-            pmt_config.recursive,
+            pmt_config.recursive.unwrap_or_default(),
             &[PMTILES_EXT],
             id_resolver.clone(),
             &process,

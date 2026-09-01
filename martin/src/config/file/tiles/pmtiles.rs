@@ -120,8 +120,9 @@ pub struct PmtConfig {
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
     /// Whether `paths` are scanned recursively
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub recursive: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub recursive: Option<bool>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -158,7 +159,7 @@ impl Default for PmtConfig {
             convert_to_mlt: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: None,
-            recursive: false,
+            recursive: None,
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
             aws_credentials: None,

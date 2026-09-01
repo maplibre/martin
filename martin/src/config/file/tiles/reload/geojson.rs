@@ -29,7 +29,7 @@ impl GeoJsonReloader {
                 GeoJsonConfig::default()
             }
         };
-        let recursive = geojson_config.recursive;
+        let recursive = geojson_config.recursive.unwrap_or_default();
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = geojson_config.clone();
             Box::pin(async move { config.new_sources(id, path, policy).await })

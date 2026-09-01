@@ -365,7 +365,8 @@
         },
         "recursive": {
           "description": "Whether `paths` are scanned recursively",
-          "type": "boolean"
+          "examples": [false],
+          "type": ["boolean", "null"]
         },
         "reload_interval": {
           "description": "How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.\nHas no effect on local directories, which are watched via filesystem events.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling.",
@@ -412,7 +413,8 @@
         },
         "recursive": {
           "description": "Whether `paths` are scanned recursively",
-          "type": "boolean"
+          "examples": [false],
+          "type": ["boolean", "null"]
         },
         "sources": {
           "additionalProperties": {
@@ -446,7 +448,8 @@
         },
         "recursive": {
           "description": "Whether `paths` are scanned recursively",
-          "type": "boolean"
+          "examples": [false],
+          "type": ["boolean", "null"]
         },
         "sources": {
           "additionalProperties": {

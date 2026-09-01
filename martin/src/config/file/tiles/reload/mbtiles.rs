@@ -57,7 +57,7 @@ impl MbtilesReloader {
                 Ok(Box::new(src) as BoxedSource)
             })
         });
-        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive);
+        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             config,
