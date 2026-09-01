@@ -59,6 +59,11 @@ pub struct GeoJsonConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: u32,
 
+    /// Whether `paths` are scanned recursively
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub recursive: Option<bool>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -69,6 +74,7 @@ impl Default for GeoJsonConfig {
         Self {
             extent: default_extent(),
             buffer: default_buffer(),
+            recursive: None,
             unrecognized: UnrecognizedValues::default(),
         }
     }

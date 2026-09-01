@@ -19,6 +19,7 @@ cors:
   max_age: null
 tilejson_url_version_param: version
 pmtiles:
+  recursive: true
   sources:
     pmt:
       path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles

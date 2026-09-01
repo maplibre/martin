@@ -49,6 +49,8 @@ pub struct FsDiscovery {
     kind: FileKind,
     /// The watched directories as configured.
     directories: Vec<PathBuf>,
+    /// Whether the watched directories are scanned recursively.
+    recursive: bool,
     extensions: &'static [&'static str],
     /// Canonical path -> configured entry for explicitly-configured sources.
     configured: BTreeMap<PathBuf, ConfiguredSource>,
@@ -66,6 +68,7 @@ impl FsDiscovery {
     pub fn from_config<C>(
         kind: FileKind,
         config: &FileConfigEnum<C>,
+        recursive: bool,
         extensions: &'static [&'static str],
         id_resolver: IdResolver,
         process: &ProcessConfig,
@@ -136,6 +139,7 @@ impl FsDiscovery {
         Self {
             kind,
             directories,
+            recursive,
             extensions,
             configured,
             id_resolver,
@@ -154,6 +158,12 @@ impl FsDiscovery {
             .iter()
             .filter_map(|dir| dir.canonicalize().ok())
             .collect()
+    }
+
+    /// Whether the watched directories are scanned recursively, for wiring a `NotifyTrigger`.
+    #[must_use]
+    pub fn recursive(&self) -> bool {
+        self.recursive
     }
 
     /// The config-file entry for a discovered file.
@@ -208,6 +218,7 @@ impl Discovery for FsDiscovery {
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let discovered = discover_sources_by_ext(
             &self.directories,
+            self.recursive,
             self.extensions,
             &self.configured,
             &self.id_resolver,
@@ -253,9 +264,22 @@ impl Discovery for FsDiscovery {
 
 struct ResolvedEntry {
     path: PathBuf,
-    stem: String,
     path_str: String,
     modified_ms: u128,
+}
+
+/// The source name for a discovered file.
+/// A file directly under `root` is named by its stem.
+/// A nested file is named by its path relative to `root`, extension stripped and `/` replaced with `.`.
+fn source_name(root: &Path, path: &Path) -> Option<String> {
+    let relative = path.strip_prefix(root).ok()?;
+    let mut parts: Vec<&str> = relative
+        .parent()?
+        .components()
+        .map(|c| c.as_os_str().to_str())
+        .collect::<Option<_>>()?;
+    parts.push(relative.file_stem()?.to_str()?);
+    Some(parts.join("."))
 }
 
 fn path_modified_ms(path: &Path) -> Option<u128> {
@@ -285,11 +309,6 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
         return None;
     };
 
-    let Some(stem) = path.file_stem().and_then(|o| o.to_str()) else {
-        tracing::warn!(path = ?path, "failed to resolve file stem");
-        return None;
-    };
-
     let Ok(path_str) = path.clone().into_os_string().into_string() else {
         tracing::warn!(path = ?path, "failed to resolve path string");
         return None;
@@ -298,8 +317,7 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
     let modified_ms = path_modified_ms(&path)?;
 
     Some(ResolvedEntry {
-        path: path.clone(),
-        stem: stem.to_owned(),
+        path,
         path_str,
         modified_ms,
     })
@@ -308,32 +326,47 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 /// Scans `directories` for files matching `extensions`, resolving ids and cache policies.
 async fn discover_sources_by_ext(
     directories: &[PathBuf],
+    recursive: bool,
     extensions: &[&str],
     configured: &BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: &IdResolver,
 ) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
     let mut out = BTreeMap::new();
     for directory in directories {
-        let mut entries = fs::read_dir(directory)
-            .await
-            .map_err(SourceBuildError::Io)?;
-        while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
-            let Some(e) = resolve_dir_entry(&entry) else {
-                continue;
-            };
-            if !e.path.is_file()
-                || e.path
-                    .extension()
-                    .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
-            {
+        let root = directory.canonicalize().map_err(SourceBuildError::Io)?;
+        let mut visited: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut pending = vec![root.clone()];
+        while let Some(dir) = pending.pop() {
+            if !visited.insert(dir.clone()) {
                 continue;
             }
-            let policy = configured
-                .get(&e.path)
-                .map(|cfg| cfg.policy)
-                .unwrap_or_default();
-            let id = id_resolver.resolve(&e.stem, e.path_str.clone());
-            out.insert(id, (e.path, e.modified_ms, policy));
+            let mut entries = fs::read_dir(&dir).await.map_err(SourceBuildError::Io)?;
+            while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
+                let Some(e) = resolve_dir_entry(&entry) else {
+                    continue;
+                };
+                if recursive && e.path.is_dir() {
+                    pending.push(e.path);
+                    continue;
+                }
+                if !e.path.is_file()
+                    || e.path
+                        .extension()
+                        .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
+                {
+                    continue;
+                }
+                let Some(name) = source_name(&root, &e.path) else {
+                    tracing::warn!(path = ?e.path, "failed to resolve source name");
+                    continue;
+                };
+                let policy = configured
+                    .get(&e.path)
+                    .map(|cfg| cfg.policy)
+                    .unwrap_or_default();
+                let id = id_resolver.resolve(&name, e.path_str.clone());
+                out.insert(id, (e.path, e.modified_ms, policy));
+            }
         }
     }
     Ok(out)
@@ -430,6 +463,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
@@ -450,6 +484,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn recursive_discovery_names_nested_files_by_their_dotted_relative_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("gfs/temperature")).expect("create nested dirs");
+        File::create(dir.path().join("top.mbtiles")).expect("create top");
+        File::create(dir.path().join("gfs/wind.mbtiles")).expect("create wind");
+        File::create(dir.path().join("gfs/temperature/202606300100.mbtiles"))
+            .expect("create temperature");
+
+        let recursive = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            true,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            &ProcessConfig::default(),
+            unreachable_builder(),
+        );
+        let mut ids: Vec<String> = recursive
+            .discover()
+            .await
+            .expect("discover")
+            .sources
+            .into_keys()
+            .collect();
+        ids.sort();
+        assert_eq!(ids, vec!["gfs.temperature.202606300100", "gfs.wind", "top"]);
+
+        let flat = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            false,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            &ProcessConfig::default(),
+            unreachable_builder(),
+        );
+        let ids: Vec<String> = flat
+            .discover()
+            .await
+            .expect("discover")
+            .sources
+            .into_keys()
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["top"],
+            "nested files stay hidden unless recursive is set"
+        );
+    }
+
+    #[tokio::test]
     async fn init_publishes_the_good_files_and_skips_the_bad_one_under_warn() {
         let dir = tempfile::tempdir().expect("tempdir");
         File::create(dir.path().join("good_0.mbtiles")).expect("create good_0");
@@ -459,6 +544,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
@@ -485,6 +571,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
@@ -547,6 +634,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &kind_level,
@@ -602,6 +690,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
@@ -636,6 +725,7 @@ mod tests {
                 readable.path().to_path_buf(),
                 unreadable.path().to_path_buf(),
             ]),
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
@@ -673,6 +763,7 @@ mod tests {
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            false,
             &["mbtiles"],
             IdResolver::new(&[]),
             &ProcessConfig::default(),
