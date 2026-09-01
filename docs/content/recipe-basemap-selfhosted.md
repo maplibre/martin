@@ -22,7 +22,7 @@ We will produce each one, then wire them together.
 
 !!! note "Prerequisites"
     We expect you have the following already installed:
-    
+
     - [Docker](https://docker.io) to generate the tile archive
     - [Martin binary](installation.md)
     - `git` and `curl` to fetch the style and fonts
