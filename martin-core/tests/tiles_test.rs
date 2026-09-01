@@ -114,7 +114,7 @@ async fn wait_and_flush(cache: &TileCache, duration: Duration) {
 }
 
 fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>) -> TileCacheKey {
-    TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format)
+    TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format, None)
 }
 
 async fn insert(
@@ -228,7 +228,7 @@ async fn cache_differentiates_by_format() {
 async fn raw_and_rendered_entries_never_collide() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     let raw = TileCacheKey::new_request_static("src", ORIGIN);
-    let rendered = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None);
+    let rendered = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None);
 
     assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
 
@@ -299,7 +299,7 @@ async fn invalidation_reaches_raw_and_rendered_entries() {
         .unwrap();
     cache
         .get_or_insert(
-            TileCacheKey::new_request_dynamic("src", ORIGIN, None, None),
+            TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None),
             async || Ok::<_, Infallible>(test_tile(b"baked")),
         )
         .await

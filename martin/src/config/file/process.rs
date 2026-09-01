@@ -228,6 +228,24 @@ impl ResolvedProcess {
         source
     }
 
+    /// Whether a post-cache processor shapes this source's tiles.
+    #[must_use]
+    #[cfg_attr(
+        not(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles")),
+        expect(clippy::unused_self)
+    )]
+    pub fn is_post_processed(&self) -> bool {
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        if self.hillshade.is_some() {
+            return true;
+        }
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        if self.contour.is_some() {
+            return true;
+        }
+        false
+    }
+
     /// The [`TileJSON`] this source answers with once post-processing has run.
     #[must_use]
     pub fn advertised_tilejson(&self, tilejson: TileJSON) -> TileJSON {
