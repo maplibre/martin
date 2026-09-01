@@ -9,9 +9,25 @@ use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
 };
 
-/// Resolved `GeoParquet` location after finalize: a concrete local file or an http(s) URL.
+/// URL schemes `DuckDB` reads remotely through `read_parquet`.
 ///
-/// Directories are not represented here; discovery (later) must expand them into
+/// This is deliberately not [`crate::config::file::is_remote_url`]: that list describes the
+/// object stores Martin reaches through `object_store`, so it carries Hadoop-style schemes
+/// (`s3a`, `adl`, `abfs`) `DuckDB` does not recognise while missing ones it does.
+const REMOTE_SCHEMES: &[&str] = &[
+    "http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf",
+];
+
+/// Characters that make a path segment a `DuckDB` glob rather than a file name.
+///
+/// `?` is a `DuckDB` glob too, but inside a URL it opens the query string, so it never reaches
+/// a path segment and needs no filtering here.
+const GLOB_CHARS: &[char] = &['*', '[', ']'];
+
+/// Resolved `GeoParquet` location after finalize: a concrete local file, or a remote URL that
+/// may expand to many files.
+///
+/// Local directories are not represented here; discovery (later) must expand them into
 /// [`GeoParquetLocation::Local`] file entries before resolve/SQL.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GeoParquetLocation {
@@ -22,13 +38,16 @@ pub enum GeoParquetLocation {
 impl GeoParquetLocation {
     /// Parse a config string and, for local paths, canonicalize to an existing file.
     pub fn from_config(raw: &str) -> ConfigFileResult<Self> {
-        if let Ok(url) = Url::parse(raw)
-            && matches!(url.scheme(), "http" | "https")
-        {
-            return Ok(Self::Remote(url));
-        }
+        let path = match Url::parse(raw) {
+            Ok(url) if REMOTE_SCHEMES.contains(&url.scheme()) => return Ok(Self::Remote(url)),
+            // `file://` names a local file; hand it to the local branch as a plain path so it
+            // gets a local pool instead of one that loads httpfs.
+            Ok(url) if url.scheme() == "file" => url
+                .to_file_path()
+                .map_err(|()| ConfigFileError::InvalidFilePath(PathBuf::from(raw)))?,
+            _ => PathBuf::from(raw),
+        };
 
-        let path = PathBuf::from(raw);
         let canonical = path
             .canonicalize()
             .map_err(|error| ConfigFileError::IoError(error, path))?;
@@ -48,15 +67,24 @@ impl GeoParquetLocation {
     }
 
     /// Default layer/source id stem from the file name or URL path.
+    ///
+    /// A remote URL may be a glob covering many files, so the last segment can be `*.parquet`.
+    /// The last segment that is not itself a glob names the set well enough to build an id from,
+    /// falling back to the bucket or host when every segment is a glob.
     #[must_use]
     pub fn stem(&self) -> String {
         let stem = match self {
             Self::Local(path) => path.file_stem().and_then(|value| value.to_str()),
             Self::Remote(url) => url
                 .path_segments()
-                .and_then(|mut segments| segments.next_back())
-                .and_then(|segment| Path::new(segment).file_stem())
-                .and_then(|value| value.to_str()),
+                .and_then(|segments| {
+                    segments
+                        .filter(|segment| !segment.contains(GLOB_CHARS))
+                        .filter_map(|segment| Path::new(segment).file_stem())
+                        .filter_map(|value| value.to_str())
+                        .rfind(|value| !value.is_empty())
+                })
+                .or_else(|| url.host_str()),
         };
         stem.filter(|value| !value.is_empty())
             .unwrap_or("duckdb")
@@ -128,6 +156,8 @@ impl GeoParquetEntry {
 mod tests {
     use std::assert_matches;
 
+    use rstest::rstest;
+
     use super::*;
 
     #[test]
@@ -152,11 +182,57 @@ mod tests {
         assert_matches!(entry.location, Some(GeoParquetLocation::Local(_)));
     }
 
-    #[test]
-    fn from_config_classifies_http_urls_as_remote() {
-        let location = GeoParquetLocation::from_config("https://example.org/data.parquet")
-            .expect("parse remote");
+    #[rstest]
+    #[case::http("https://example.org/data.parquet", "data")]
+    #[case::s3("s3://bucket/data.parquet", "data")]
+    #[case::gs("gs://bucket/nested/data.parquet", "data")]
+    #[case::r2("r2://bucket/data.parquet", "data")]
+    #[case::azure("az://account/container/data.parquet", "data")]
+    #[case::huggingface("hf://datasets/org/set/data.parquet", "data")]
+    fn from_config_classifies_duckdb_remote_schemes_as_remote(
+        #[case] raw: &str,
+        #[case] stem: &str,
+    ) {
+        let location = GeoParquetLocation::from_config(raw).expect("parse remote");
         assert_matches!(location, GeoParquetLocation::Remote(_));
-        assert_eq!(location.stem(), "data");
+        assert_eq!(location.to_source_string(), raw);
+        assert_eq!(location.stem(), stem);
+    }
+
+    #[rstest]
+    #[case::single_star(
+        "s3://overturemaps-us-west-2/release/2026-08-19.0/theme=places/type=place/*.parquet",
+        "type=place"
+    )]
+    #[case::nested_globs("s3://bucket/year=*/month=*/part-*.parquet", "bucket")]
+    #[case::question_mark_opens_a_query_string("s3://bucket/tiles/part-?.parquet", "part-")]
+    fn a_remote_glob_survives_parsing_and_names_the_source_after_its_last_fixed_segment(
+        #[case] raw: &str,
+        #[case] stem: &str,
+    ) {
+        let location = GeoParquetLocation::from_config(raw).expect("parse glob");
+        assert_eq!(location.to_source_string(), raw);
+        assert_eq!(location.stem(), stem);
+    }
+
+    #[test]
+    fn from_config_reads_file_urls_as_local_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("points.parquet");
+        std::fs::write(&path, b"").expect("touch parquet");
+        let url = Url::from_file_path(&path).expect("absolute path");
+
+        let location = GeoParquetLocation::from_config(url.as_str()).expect("parse file url");
+        assert_matches!(location, GeoParquetLocation::Local(_));
+    }
+
+    #[test]
+    fn from_config_rejects_schemes_duckdb_cannot_read() {
+        let error = GeoParquetLocation::from_config("ftp://example.org/data.parquet")
+            .expect_err("ftp is not a DuckDB remote scheme");
+        assert!(
+            error.to_string().contains("ftp://example.org/data.parquet"),
+            "unexpected error: {error}"
+        );
     }
 }
