@@ -3880,9 +3880,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.23.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce755d457a63bdd0c95e4c91511daad1b58b33209543b7f38027b676f387e5e"
+checksum = "e2645642a23d4061ec15a4a6e74f851a3145c3125356846cfc7772ff9c6f2737"
 dependencies = [
  "arc-swap",
  "axum",
@@ -3894,7 +3894,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros 0.23.3",
+ "hotpath-macros 0.24.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -3920,9 +3920,9 @@ checksum = "191f6e3b11c1f817e5c3737158812bc8d3a383e9d9d89526703ea6dc1e9fe647"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.23.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a903af89a8429cb07790c3818bc15270b394f80af1bc254e5ccf9c7de2961770"
+checksum = "89a3d3cdf9b0d4d3d4f6d4a29798f3b9170401ba500eaa58dd8f890f926af0f1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3931,15 +3931,15 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.23.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcc0ab94ffbb2ee77f4a897df02b5a137a10cf24d69bda936e59aff4dd456e61"
+checksum = "e84cd2417fa60938241cf1cd6c03e09953f5c821122dc5da9b8f27975d136c5b"
 
 [[package]]
 name = "hotpath-meta"
-version = "0.23.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "053481f6cec8f775a3276c7f6e2f21123111d28261e4edc15ea7421c445964bb"
+checksum = "4d2c145b67b1a4e7bcefa918995e212c30a49a85f05cc5962fe1f717878d560b"
 dependencies = [
  "hotpath-macros-meta",
 ]
@@ -5343,7 +5343,7 @@ dependencies = [
  "enum-display",
  "futures",
  "geojson",
- "hotpath 0.23.3",
+ "hotpath 0.24.0",
  "humantime-serde",
  "image",
  "indicatif",
@@ -5428,7 +5428,7 @@ dependencies = [
  "geo-index",
  "geo-types",
  "geojson",
- "hotpath 0.23.3",
+ "hotpath 0.24.0",
  "image",
  "insta",
  "itertools 0.15.0",
@@ -5515,7 +5515,7 @@ dependencies = [
  "approx",
  "brotli 8.0.4",
  "flate2",
- "hotpath 0.23.3",
+ "hotpath 0.24.0",
  "rstest",
  "serde",
  "serde_json",
@@ -5562,7 +5562,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
- "hotpath 0.23.3",
+ "hotpath 0.24.0",
  "insta",
  "itertools 0.15.0",
  "martin-tile-utils",
@@ -6901,7 +6901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
