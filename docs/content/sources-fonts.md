@@ -85,3 +85,34 @@ fonts:
   - /path/to/font/file.ttf
   - /path/to/font_dir
 ```
+
+### Font Aliases
+
+The config file can also define aliases, which are named font stacks that clients request like a single font.
+Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](#composite-font-request).
+This keeps stylesheets short when text needs many fallback fonts (e.g. for multiple writing systems).
+
+```yaml
+fonts:
+  paths:
+    - /path/to/font_dir
+  # Each alias can be requested like a font and serves the listed fonts combined, in fallback order.
+  aliases:
+    Noto Sans Stack: [Noto Sans Regular, Noto Sans Arabic Regular, Noto Sans Thai Regular]
+```
+
+Aliases may only reference discovered fonts, not other aliases.
+An alias may share the name of a font it references; requests for that name then serve the alias.
+This extends an existing font with fallbacks without changing the name a style uses:
+
+```yaml
+fonts:
+  paths:
+    - /path/to/font_dir
+  aliases:
+    # Requests for "Noto Sans Bold Italic" also get the Arabic glyphs as fallback.
+    Noto Sans Bold Italic: [Noto Sans Bold Italic, Noto Sans Arabic Bold]
+```
+
+Aliases are listed in the catalog under their own name.
+The `glyphs` value of an alias counts the distinct code points covered by its fonts.

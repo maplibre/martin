@@ -93,6 +93,10 @@ pub enum ConfigFileError {
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] FontError, PathBuf),
 
+    #[cfg(feature = "fonts")]
+    #[error("Failed to configure font alias: {0}")]
+    FontAliasResolutionFailed(#[source] FontError),
+
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
@@ -280,6 +284,8 @@ impl Diagnostic for ConfigFileError {
             Self::PostgresPoolCreationFailed(_) => "martin::config::postgres::pool_creation",
             #[cfg(feature = "fonts")]
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
+            #[cfg(feature = "fonts")]
+            Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(feature = "pmtiles")]
@@ -328,6 +334,10 @@ impl Diagnostic for ConfigFileError {
             }
             #[cfg(feature = "fonts")]
             Self::FontResolutionFailed(..) => return None,
+            #[cfg(feature = "fonts")]
+            Self::FontAliasResolutionFailed(_) => {
+                "Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases."
+            }
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
             #[cfg(all(feature = "rendering", target_os = "linux"))]

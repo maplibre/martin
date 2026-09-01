@@ -179,6 +179,8 @@ pub struct CatalogFontEntry {
 pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
+    /// Map of alias name to the font names it combines, in fallback order.
+    aliases: DashMap<String, Vec<String>>,
 }
 
 impl FontSources {
@@ -188,18 +190,129 @@ impl FontSources {
         discover_fonts(&lib, path, &mut self.fonts)
     }
 
-    /// Returns a catalog of all loaded fonts
+    /// Registers a named font stack that serves the given fonts combined, in fallback order.
+    ///
+    /// Every member must name an already discovered font, not another alias.
+    /// An alias may share the name of a discovered font it references.
+    /// Requests for such a name serve the alias.
+    pub fn add_alias(&mut self, name: String, fonts: Vec<String>) -> Result<(), FontError> {
+        if name.is_empty() || name.contains(',') {
+            return Err(FontError::InvalidAliasName(name));
+        }
+        if fonts.is_empty() {
+            return Err(FontError::EmptyAlias(name));
+        }
+        if fonts.len() > MAX_FONT_IDS_PER_REQUEST {
+            return Err(FontError::TooManyFontsInAlias {
+                alias: name,
+                requested: fonts.len(),
+                max: MAX_FONT_IDS_PER_REQUEST,
+            });
+        }
+        for font in &fonts {
+            if self.aliases.contains_key(font) {
+                return Err(FontError::AliasWithinAlias {
+                    alias: name,
+                    font: font.clone(),
+                });
+            }
+            if !self.fonts.contains_key(font) {
+                return Err(FontError::AliasFontNotFound {
+                    alias: name,
+                    font: font.clone(),
+                });
+            }
+        }
+        if self.fonts.contains_key(&name) {
+            info!(
+                font.alias = %name,
+                "Font alias shadows a font of the same name; requests for it will serve the alias"
+            );
+        }
+        info!(
+            font.alias = %name,
+            font.names = %fonts.join(", "),
+            "Configured font alias"
+        );
+        self.aliases.insert(name, fonts);
+        Ok(())
+    }
+
+    /// Replaces every alias in a comma-separated font id list with its member
+    /// fonts, preserving order and deduplicating.
+    fn expanded_ids(&self, ids: &str) -> Vec<String> {
+        let mut seen = HashSet::new();
+        let mut expanded = Vec::new();
+        for id in split_and_dedup_ids(ids) {
+            if let Some(alias) = self.aliases.get(id) {
+                for font in alias.value() {
+                    if seen.insert(font.clone()) {
+                        expanded.push(font.clone());
+                    }
+                }
+            } else if seen.insert(id.to_owned()) {
+                expanded.push(id.to_owned());
+            }
+        }
+        expanded
+    }
+
+    /// Expands every alias in a comma-separated font id list into its member fonts,
+    /// preserving order and deduplicating.
+    ///
+    /// Callers that need the fonts a request actually resolves to use this,
+    /// e.g. to build cache keys that can be invalidated per font.
+    #[must_use]
+    pub fn expand_font_ids(&self, ids: &str) -> String {
+        if self.aliases.is_empty() {
+            return ids.to_owned();
+        }
+        self.expanded_ids(ids).join(",")
+    }
+
+    /// Returns a catalog of all loaded fonts and aliases.
+    ///
+    /// An alias is listed under its own name.
+    /// The `glyphs` value of an alias counts the distinct codepoints its member fonts cover.
     #[must_use]
     pub fn get_catalog(&self) -> FontCatalog {
-        self.fonts
+        let mut catalog: FontCatalog = self
+            .fonts
             .iter()
             .map(|v| (v.key().clone(), v.catalog_entry.clone()))
-            .collect()
+            .collect();
+        for alias in &self.aliases {
+            let mut codepoints = BitSet::new();
+            let mut start = usize::MAX;
+            let mut end = 0;
+            for font in alias.value() {
+                if let Some(font) = self.fonts.get(font) {
+                    codepoints.union_with(&font.codepoints);
+                    start = start.min(font.catalog_entry.start);
+                    end = end.max(font.catalog_entry.end);
+                }
+            }
+            let glyphs = u32::try_from(codepoints.count()).expect("codepoint count fits in u32");
+            catalog.insert(
+                alias.key().clone(),
+                CatalogFontEntry {
+                    family: alias.key().clone(),
+                    style: None,
+                    glyphs,
+                    start,
+                    end,
+                    format: None,
+                    last_modified_at: None,
+                },
+            );
+        }
+        catalog
     }
 
     /// Generates Protocol Buffer encoded font data for a 256-character Unicode range.
     ///
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
+    /// Ids may name aliases registered via [`Self::add_alias`], which expand to their member fonts.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[expect(clippy::cast_possible_truncation)]
     #[instrument(
@@ -229,7 +342,7 @@ impl FontSources {
             return Err(FontError::InvalidFontRange(start, end));
         }
 
-        let unique_ids = split_and_dedup_ids(ids);
+        let unique_ids = self.expanded_ids(ids);
         if unique_ids.len() > MAX_FONT_IDS_PER_REQUEST {
             return Err(FontError::TooManyFontIds {
                 requested: unique_ids.len(),
@@ -238,13 +351,13 @@ impl FontSources {
         }
 
         let fonts = unique_ids
-            .into_iter()
+            .iter()
             .map(|id| {
-                if self.fonts.get(id).is_none() {
-                    return Err(FontError::FontNotFound(id.to_owned()));
+                if self.fonts.get(id.as_str()).is_none() {
+                    return Err(FontError::FontNotFound(id.clone()));
                 }
 
-                Ok(id)
+                Ok(id.as_str())
             })
             .collect::<Result<Vec<&str>, FontError>>()?;
 
@@ -449,10 +562,143 @@ mod tests {
 
     use super::*;
 
+    fn fixture(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("tests")
+            .join("fixtures")
+            .join(name)
+    }
+
+    fn overpass_sources() -> FontSources {
+        let mut sources = FontSources::default();
+        sources.recursively_add_directory(fixture("fonts")).unwrap();
+        sources
+    }
+
     #[test]
     fn normalize_font_ids_collapses_order_and_duplicates() {
         assert_eq!(normalize_font_ids("b,a,b"), "a,b");
         assert_eq!(normalize_font_ids("a"), "a");
+    }
+
+    #[test]
+    fn an_alias_serves_the_same_bytes_as_the_explicit_fontstack() {
+        let mut sources = overpass_sources();
+        sources
+            .add_alias(
+                "Overpass Mono".to_owned(),
+                vec![
+                    "Overpass Mono Regular".to_owned(),
+                    "Overpass Mono Light".to_owned(),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(
+            sources.expand_font_ids("Overpass Mono"),
+            "Overpass Mono Regular,Overpass Mono Light"
+        );
+        assert_eq!(
+            sources.expand_font_ids("Overpass Mono Light,Overpass Mono"),
+            "Overpass Mono Light,Overpass Mono Regular",
+            "a font shared between the request and the alias appears once"
+        );
+        let aliased = sources.get_font_range("Overpass Mono", 0, 255).unwrap();
+        let explicit = sources
+            .get_font_range("Overpass Mono Regular,Overpass Mono Light", 0, 255)
+            .unwrap();
+        assert_eq!(aliased, explicit);
+    }
+
+    #[test]
+    fn an_alias_may_shadow_a_font_and_include_it() {
+        let mut sources = overpass_sources();
+        sources
+            .add_alias(
+                "Overpass Mono Regular".to_owned(),
+                vec![
+                    "Overpass Mono Regular".to_owned(),
+                    "Overpass Mono Light".to_owned(),
+                ],
+            )
+            .unwrap();
+
+        let shadowed = sources
+            .get_font_range("Overpass Mono Regular", 0, 255)
+            .unwrap();
+        // A fresh source set without the alias provides the explicit baseline.
+        let explicit = overpass_sources()
+            .get_font_range("Overpass Mono Regular,Overpass Mono Light", 0, 255)
+            .unwrap();
+        assert_eq!(shadowed, explicit);
+
+        let catalog = sources.get_catalog();
+        let entry = catalog
+            .get("Overpass Mono Regular")
+            .expect("the shadowed name stays cataloged");
+        assert_eq!(entry.style, None, "the alias entry replaces the font's");
+    }
+
+    #[test]
+    fn invalid_aliases_are_rejected() {
+        let mut sources = overpass_sources();
+
+        let err = sources
+            .add_alias(
+                "has,comma".to_owned(),
+                vec!["Overpass Mono Regular".to_owned()],
+            )
+            .unwrap_err();
+        assert_matches!(err, FontError::InvalidAliasName(_));
+
+        let err = sources.add_alias("Empty".to_owned(), vec![]).unwrap_err();
+        assert_matches!(err, FontError::EmptyAlias(_));
+
+        let err = sources
+            .add_alias("Unknown".to_owned(), vec!["Nonexistent".to_owned()])
+            .unwrap_err();
+        assert_matches!(err, FontError::AliasFontNotFound { .. });
+
+        sources
+            .add_alias("Stack".to_owned(), vec!["Overpass Mono Regular".to_owned()])
+            .unwrap();
+        let err = sources
+            .add_alias("Nested".to_owned(), vec!["Stack".to_owned()])
+            .unwrap_err();
+        assert_matches!(err, FontError::AliasWithinAlias { .. });
+
+        let too_many = vec!["Overpass Mono Regular".to_owned(); MAX_FONT_IDS_PER_REQUEST + 1];
+        let err = sources.add_alias("Big".to_owned(), too_many).unwrap_err();
+        assert_matches!(err, FontError::TooManyFontsInAlias { .. });
+    }
+
+    #[test]
+    fn the_catalog_lists_aliases_with_merged_coverage() {
+        let mut sources = overpass_sources();
+        sources
+            .recursively_add_directory(fixture("fonts2/u+3320.ttf"))
+            .unwrap();
+        sources
+            .add_alias(
+                "My Stack".to_owned(),
+                vec![
+                    "Overpass Mono Regular".to_owned(),
+                    "DummyTestFont Regular".to_owned(),
+                ],
+            )
+            .unwrap();
+
+        let catalog = sources.get_catalog();
+        let entry = catalog.get("My Stack").expect("alias is cataloged");
+        insta::assert_json_snapshot!(entry, @r#"
+        {
+          "family": "My Stack",
+          "glyphs": 935,
+          "start": 0,
+          "end": 128276
+        }
+        "#);
     }
 
     #[test]
