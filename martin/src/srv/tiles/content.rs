@@ -457,13 +457,20 @@ impl<'a> DynTileSource<'a> {
 
         #[cfg(all(feature = "contour", feature = "_tiles"))]
         if let Some(settings) = self.resolve_contour(pc)? {
-            return match trace_contour(s, settings.clone(), xyz, self.cache).await {
+            let traced = match trace_contour(s, settings.clone(), xyz, self.cache).await {
                 Err(ProcessError::ContourSourceNeedsReload) => {
                     let fresh_src = self.reload_source(s, pc).await?;
-                    Ok(trace_contour(&fresh_src, settings, xyz, self.cache).await?)
+                    trace_contour(&fresh_src, settings, xyz, self.cache).await?
                 }
-                result => Ok(result?),
+                result => result?,
             };
+            return Ok(apply_pre_cache_processors(
+                traced,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                pc,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                self.accepted_format,
+            )?);
         }
 
         match self.fetch_tile_content_with_cache(s, pc, xyz).await {
