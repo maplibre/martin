@@ -446,8 +446,6 @@ async fn write_tiles_to_mbtiles(
 }
 
 /// Fetches tiles concurrently and sends them to the consumer via `tx`.
-///
-/// With `prune_empty_subtrees`, zooms are copied in ascending order and a tile whose parent came back empty is reported empty without being fetched.
 async fn produce_tiles(
     src: &DynTileSource<'_>,
     tiles: Vec<TileRect>,
