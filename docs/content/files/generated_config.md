@@ -121,6 +121,12 @@ endpoints:
   purge_cache: false
 # Font configuration
 fonts:
+  # Named font stacks.
+  #
+  # Each alias can be requested like a font and serves the listed fonts combined, in fallback order.
+  # Aliases may only reference discovered fonts, not other aliases.
+  # An alias sharing the name of a discovered font takes precedence over it.
+  aliases: {}
   # Cache configuration for fonts.
   # Use `cache: disable` to disable font caching.
   cache:
