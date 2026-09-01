@@ -1988,6 +1988,11 @@ When files are added, modified, or removed from a watched directory, Martin auto
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">foo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/file.geojson</span>
 </span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Scanning subdirectories</p>
+<p>Set <code>recursive: true</code> next to <code>paths</code> to scan subdirectories too.
+A nested file is named by its path relative to the scanned directory with <code>/</code> replaced by <code>.</code>, so <code>2024/roads.geojson</code> becomes <code>2024.roads</code>.</p>
+</div>
 <p>The following events are handled automatically:</p>
 <ul>
 <li><strong>File added</strong> - the new source appears in the catalog.</li>

@@ -2054,6 +2054,11 @@ When <code>.mbtiles</code> files are added, modified, or removed from a watched 
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/mbtiles/directory</span>
 </span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Scanning subdirectories</p>
+<p>Set <code>recursive: true</code> next to <code>paths</code> to scan subdirectories too.
+A nested file is named by its path relative to the scanned directory with <code>/</code> replaced by <code>.</code>, so <code>2024/roads.mbtiles</code> becomes <code>2024.roads</code>.</p>
+</div>
 <p>The following events are handled automatically:</p>
 <ul>
 <li><strong>File added</strong> - the new source appears in the catalog.</li>
