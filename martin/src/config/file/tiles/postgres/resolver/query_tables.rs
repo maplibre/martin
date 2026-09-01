@@ -254,7 +254,8 @@ FROM (
 
     Ok((
         id,
-        PostgresSqlInfo::new(query, false, info.format_id()),
+        // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
+        PostgresSqlInfo::new(query, false, true, info.format_id()),
         info,
     ))
 }

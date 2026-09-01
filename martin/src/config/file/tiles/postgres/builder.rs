@@ -909,6 +909,7 @@ mod tests {
         PostgresSqlInfo {
             sql_query: "SELECT \"public\".\"my_func\"($1::integer, $2::integer, $3::integer) AS tile",
             use_url_query: false,
+            empty_tile_implies_empty_children: false,
             signature: "public.my_func(integer, integer, integer) -> bytea",
         }
         "#);

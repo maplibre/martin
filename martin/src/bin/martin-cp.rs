@@ -148,11 +148,6 @@ pub struct CopyArgs {
     /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
-    /// Skip the tiles below an empty tile. Copies zoom by zoom and never fetches the children of a tile that came back empty.
-    ///
-    /// Safe for PostgreSQL table sources, whose tile envelope contains the envelopes of its children. Do not use with function sources that return different rows per zoom, or with archives that have gaps in their pyramid.
-    #[arg(long)]
-    pub skip_empty_subtrees: bool,
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
@@ -173,7 +168,6 @@ impl Default for CopyArgs {
             max_zoom: None,
             zoom_levels: Vec::new(),
             skip_agg_tiles_hash: true,
-            skip_empty_subtrees: false,
             set_meta: Vec::new(),
         }
     }
@@ -453,13 +447,13 @@ async fn write_tiles_to_mbtiles(
 
 /// Fetches tiles concurrently and sends them to the consumer via `tx`.
 ///
-/// With `skip_empty_subtrees`, zooms are copied in ascending order and a tile whose parent came back empty is reported empty without being fetched.
+/// With `prune_empty_subtrees`, zooms are copied in ascending order and a tile whose parent came back empty is reported empty without being fetched.
 async fn produce_tiles(
     src: &DynTileSource<'_>,
     tiles: Vec<TileRect>,
     concurrency: usize,
     tx: Sender<TileXyz>,
-    skip_empty_subtrees: bool,
+    prune_empty_subtrees: bool,
 ) -> MartinCpResult<()> {
     let mut by_zoom: BTreeMap<u8, Vec<TileRect>> = BTreeMap::new();
     for rect in tiles {
@@ -472,7 +466,7 @@ async fn produce_tiles(
         let empty_here = Mutex::new(HashSet::new());
         let pruned_by = empty_parents
             .take()
-            .filter(|(parent_zoom, _)| skip_empty_subtrees && *parent_zoom + 1 == zoom)
+            .filter(|(parent_zoom, _)| prune_empty_subtrees && *parent_zoom + 1 == zoom)
             .map(|(_, set)| set)
             .unwrap_or_default();
 
@@ -495,7 +489,7 @@ async fn produce_tiles(
                     } else {
                         src.get_tile_content(xyz).await?.data
                     };
-                    if skip_empty_subtrees && data.is_empty() {
+                    if prune_empty_subtrees && data.is_empty() {
                         empty_here
                             .lock()
                             .expect("the empty tile set is only locked here")
@@ -647,13 +641,11 @@ where
     ));
 
     // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
-    let produce = produce_tiles(
-        src,
-        tiles,
-        concurrency,
-        tx.clone(),
-        args.skip_empty_subtrees,
-    );
+    let prune_empty_subtrees = src
+        .sources
+        .iter()
+        .all(|(s, _)| s.empty_tile_implies_empty_children());
+    let produce = produce_tiles(src, tiles, concurrency, tx.clone(), prune_empty_subtrees);
     tokio::pin!(produce);
     tokio::pin!(interrupt);
     let interrupted = match select_future(produce, interrupt).await {
@@ -834,6 +826,10 @@ mod tests {
 
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
+        }
+
+        fn empty_tile_implies_empty_children(&self) -> bool {
+            true
         }
 
         async fn get_tile(
@@ -1096,9 +1092,11 @@ mod tests {
         );
     }
 
-    /// Copies z0..=2 of a source whose left half is empty above z0, and returns
-    /// how many tiles the source was asked for and how many tiles the output holds.
-    async fn copy_sparse_source(skip_empty_subtrees: bool) -> (u64, u64) {
+    #[tokio::test]
+    async fn never_fetches_below_an_empty_tile() {
+        // Copies z0..=2 of a source whose left half is empty above z0.
+        // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
+        // z2: 16 tiles, the 8 below the empty z1 tiles are never fetched, 8 filled.
         let fetches = Arc::new(AtomicU64::new(0));
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
@@ -1115,7 +1113,6 @@ mod tests {
             output_file: output_file.clone(),
             min_zoom: Some(0),
             max_zoom: Some(2),
-            skip_empty_subtrees,
             ..Default::default()
         };
         run_tile_copy_with_interrupt(args, state, std::future::pending::<()>())
@@ -1134,18 +1131,7 @@ mod tests {
                 }
             }
         }
-        (fetches.load(Ordering::Relaxed), written)
-    }
-
-    #[tokio::test]
-    async fn skip_empty_subtrees_never_fetches_below_an_empty_tile() {
-        // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
-        // z2: 16 tiles, the 8 below the empty z1 tiles are empty, 8 filled.
-        let (fetched, written) = copy_sparse_source(false).await;
-        assert_eq!((fetched, written), (21, 11));
-
-        let (fetched, written) = copy_sparse_source(true).await;
-        assert_eq!((fetched, written), (13, 11));
+        assert_eq!((fetches.load(Ordering::Relaxed), written), (13, 11));
     }
 
     #[tokio::test]

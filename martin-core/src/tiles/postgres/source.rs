@@ -72,6 +72,10 @@ impl Source for PostgresSource {
         true
     }
 
+    fn empty_tile_implies_empty_children(&self) -> bool {
+        self.info.empty_tile_implies_empty_children
+    }
+
     fn cache_zoom(&self) -> CacheZoomRange {
         self.cache_zoom
     }
@@ -164,6 +168,8 @@ pub struct PostgresSqlInfo {
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
+    /// Whether an empty tile implies that all tiles below it are empty.
+    pub empty_tile_implies_empty_children: bool,
     /// Signature of the query.
     pub signature: String,
 }
@@ -171,10 +177,16 @@ pub struct PostgresSqlInfo {
 impl PostgresSqlInfo {
     /// Creates new SQL query information.
     #[must_use]
-    pub const fn new(query: String, has_query_params: bool, signature: String) -> Self {
+    pub const fn new(
+        query: String,
+        has_query_params: bool,
+        empty_tile_implies_empty_children: bool,
+        signature: String,
+    ) -> Self {
         Self {
             sql_query: query,
             use_url_query: has_query_params,
+            empty_tile_implies_empty_children,
             signature,
         }
     }

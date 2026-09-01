@@ -221,33 +221,6 @@ mod postgres {
     }
 
     #[tokio::test]
-    async fn skip_empty_subtrees_writes_the_same_tiles_as_a_full_copy() {
-        let dir = temp_dir();
-        let output = dir.path().join("out.mbtiles");
-
-        copy(&output)
-            .arg("--source")
-            .arg("table_source")
-            .arg("--mbtiles-type")
-            .arg("flat")
-            .arg("--min-zoom")
-            .arg("0")
-            .arg("--max-zoom")
-            .arg("6")
-            .arg("--bbox=-2,-1,142.84,45")
-            .arg("--skip-empty-subtrees")
-            .run()
-            .await;
-
-        let summary = summary(&output).run_json().await;
-        assert_eq!(
-            summary["tile_count"], 127,
-            "the same tiles as copies_a_table_source writes without the flag"
-        );
-        validate(&output).await;
-    }
-
-    #[tokio::test]
     async fn copies_a_function_source_answering_a_url_query() {
         let dir = temp_dir();
         let output = dir.path().join("out.mbtiles");
