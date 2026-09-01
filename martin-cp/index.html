@@ -1881,6 +1881,11 @@ If set to multiple values like <code>'gzip,br'</code>, <code>martin-cp</code> wi
 Use <code>identity</code> to disable compression.
 Ignored for non-encodable tiles like PNG and JPEG.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, <code>martin-cp</code> copies zoom by zoom and never fetches the tiles below an empty tile.
+This means that even sparse sources can usually be fairly performant.</p>
+</div>
 <h2 id="arguments">Arguments</h2>
 <p>Use <code>martin-cp --help</code> to see a list of available options:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file
