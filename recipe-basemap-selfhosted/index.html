@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/martin-cp/">
+        <link rel="canonical" href="https://maplibre.org/martin/recipe-basemap-selfhosted/">
       
       
-        <link rel="prev" href="../pg-ssl-certificates/">
+        <link rel="prev" href="../using-guides/">
       
       
-        <link rel="next" href="../mbtiles/">
+        <link rel="next" href="../using-with-renderer/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Generating Tiles in Bulk - Martin Tile Server Documentation</title>
+        <title>Building a Self-hosted Basemap from Scratch - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#generating-tiles-in-bulk" class="md-skip">
+        <a href="#building-a-self-hosted-basemap-from-scratch" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Generating Tiles in Bulk
+              Building a Self-hosted Basemap from Scratch
             
           </span>
         </div>
@@ -929,10 +929,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../recipe-basemap-selfhosted/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m15 19-6-2.11V5l6 2.11M20.5 3h-.16L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5a.5.5 0 0 0 .5.5c.05 0 .11 0 .16-.03L9 18.9l6 2.1 5.64-1.9c.21-.1.36-.25.36-.48V3.5a.5.5 0 0 0-.5-.5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Self-hosting a basemap from scratch
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -949,6 +977,115 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#generate-a-tile-archive-from-openstreetmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generate a tile archive from OpenStreetMap
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-a-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Get a style
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-the-fonts-the-style-uses" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Get the fonts the style uses
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-the-icons-the-style-uses" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Get the icons the style uses
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#point-the-style-at-your-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Point the style at your server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-martin" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Run Martin
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#view-the-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        View the map
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-from-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go from here
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1366,38 +1503,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  Bulk Tile Generation
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../martin-cp/" class="md-nav__link">
         
   
   
@@ -1414,49 +1523,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Usage
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#arguments" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Arguments
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1856,7 +1922,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/martin-cp.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/recipe-basemap-selfhosted.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1864,166 +1930,155 @@
   
 
 
-<h1 id="generating-tiles-in-bulk">Generating Tiles in Bulk</h1>
-<p>We offer the <code>martin-cp</code> tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.</p>
-<p><code>martin-cp</code> can be used to generate tiles for a large area or multiple areas (bounding boxes).
-If multiple areas overlap, it will ensure each tile is generated only once
-<code>martin-cp</code> supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
-The released <code>martin-cp</code> binary does not include <a href="../sources-duckdb/">DuckDB / GeoParquet sources</a>.
-To use them, build <code>martin-cp</code> with the feature and list the source in the configuration file:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--package<span class="w"> </span>martin<span class="w"> </span>--bin<span class="w"> </span>martin-cp<span class="w"> </span>--features<span class="o">=</span>unstable-duckdb
-</span></code></pre></div>
-<p>After copying, <code>martin-cp</code> will update the <code>agg_tiles_hash</code> metadata value unless <code>--skip-agg-tiles-hash</code> is specified.
-This allows the MBTiles file to be <a href="../mbtiles-validation/#aggregate-content-validation">validated</a> using <code>mbtiles validate</code> command.</p>
-<h2 id="usage">Usage</h2>
-<p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="../mbtiles-schema/#normalized">normalized</a> schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin-cp<span class="w">  </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w">                         </span><span class="se">\</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">           </span>--mbtiles-type<span class="w"> </span>normalized<span class="w">                             </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="s2">"--bbox=-180,-85.05112877980659,180,85.0511287798066"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">           </span>--min-zoom<span class="w"> </span><span class="m">0</span><span class="w">                                          </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">           </span>--max-zoom<span class="w"> </span><span class="m">10</span><span class="w">                                         </span><span class="se">\</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">           </span>--source<span class="w"> </span>source_name<span class="w">                                  </span><span class="se">\</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">           </span>postgres://postgres@localhost:5432/db
-</span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Next to regular sources, <code>--source &lt;SOURCE&gt;</code> does support <a href="../sources-composite/">composite sources</a>.
-This means <code>martin-cp</code> can be used to merge two different sources into one <code>mbtiles</code> archive.</p>
-</div>
-<p>If performance is a concern, you should also consider</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><code>--concurrency &lt;CONCURRENCY&gt;</code> and <code>--pool-size &lt;POOL_SIZE&gt;</code> can be used to control the number of concurrent requests and the pool size for postgres sources respectively.</p>
-<p>The optimal setting depends on:</p>
+<h1 id="building-a-self-hosted-basemap-from-scratch">Building a Self-hosted Basemap from Scratch</h1>
+<p>This guide takes you from nothing to a fully styled vector basemap in your browser, with every part of the stack served from your own machine.
+At the end, a single Martin instance serves the tiles, the glyphs, the sprites, and the style itself.
+No API keys and no external services are needed.</p>
+<p>A rendered basemap needs four things:</p>
 <ul>
-<li>the source(s) performance characteristics</li>
-<li>how much load is allowed, for example in a multi-tenant environment</li>
-<li>how to compress tiles stored in the output file</li>
+<li>a <strong>tile archive</strong> containing the map data,</li>
+<li>a <strong>style</strong> telling the renderer how to draw that data,</li>
+<li>the <strong>glyphs</strong> (fonts) the style labels text with, and</li>
+<li>the <strong>sprites</strong> (icons) the style marks points of interest with.</li>
 </ul>
+<p>We will produce each one, then wire them together.</p>
+<div class="admonition note">
+<p class="admonition-title">Prerequisites</p>
+<p>We expect you have the following already installed:</p>
+<ul>
+<li><a href="https://docker.io">Docker</a> to generate the tile archive</li>
+<li><a href="../installation/">Martin binary</a></li>
+<li><code>git</code> and <code>curl</code> to fetch the style and fonts</li>
+</ul>
+<p>All commands below run from one working directory.</p>
 </div>
-<p>You should also consider</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><code>--encoding &lt;ENCODING&gt;</code> can be used to reduce the final size of the MBTiles file or decrease the amount of processing <code>martin-cp</code> does.</p>
-<p>The default <code>gzip</code> should be a reasonable choice for most use cases, but if you prefer a different encoding, you can specify it here.
-If set to multiple values like <code>'gzip,br'</code>, <code>martin-cp</code> will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed.
-Use <code>identity</code> to disable compression.
-Ignored for non-encodable tiles like PNG and JPEG.</p>
+<h2 id="generate-a-tile-archive-from-openstreetmap">Generate a tile archive from OpenStreetMap</h2>
+<p>We will use <a href="https://github.com/onthegomap/planetiler/">Planetiler</a> to build an MBTiles archive of Monaco from <a href="https://osm.org">OpenStreetMap</a> data.
+Planetiler downloads the OSM extract for you and tiles it into the <a href="https://openmaptiles.org/">OpenMapTiles</a> schema.
+See <a href="../recipe-basemap-postgis/">Setting up a Basemap and Overlaying Points from PostGIS</a> for a discussion of why a tiling step is needed and what OpenMapTiles is, and <a href="../sources-tiles/">our tile source comparison</a> for the pros and cons of the different archive formats.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>data
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--user<span class="o">=</span><span class="nv">$UID</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>-e<span class="w"> </span><span class="nv">JAVA_TOOL_OPTIONS</span><span class="o">=</span><span class="s2">"-Xmx1g"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/data"</span>:/data<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span>--rm<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span>ghcr.io/onthegomap/planetiler:latest<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span>--download<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span>--minzoom<span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span>--maxzoom<span class="o">=</span><span class="m">14</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span>--tile_compression<span class="o">=</span>none<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span>--area<span class="o">=</span>monaco<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span>--output<span class="w"> </span>/data/monaco.mbtiles
+</span></code></pre></div>
+<p>Monaco is small, so this finishes in a few minutes.
+Any other <a href="https://download.geofabrik.de/">Geofabrik extract name</a> works as <code>--area</code> the same way, with larger downloads and longer runs.</p>
+<h2 id="get-a-style">Get a style</h2>
+<p>A style only works with data in the schema it was written for.
+Planetiler produced tiles in the OpenMapTiles schema, so we need an OpenMapTiles style.
+We will use <a href="https://github.com/openmaptiles/osm-bright-gl-style">OSM Bright</a>.
+<a href="https://github.com/openmaptiles/positron-gl-style">Positron</a>, <a href="https://github.com/openmaptiles/dark-matter-gl-style">Dark Matter</a>, <a href="https://github.com/openmaptiles/maptiler-basic-gl-style">MapTiler Basic</a>, and <a href="https://github.com/maputnik/osm-liberty">OSM Liberty</a> are alternatives.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>https://github.com/openmaptiles/osm-bright-gl-style.git
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>styles
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>cp<span class="w"> </span>osm-bright-gl-style/style.json<span class="w"> </span>styles/basemap.json
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Attribution</p>
+<p>Your map must display <a href="https://openmaptiles.org/"><code>© OpenMapTiles</code></a> and <a href="https://www.openstreetmap.org/copyright"><code>© OpenStreetMap contributors</code></a>.
+The tile archive built above carries this attribution in its metadata, and MapLibre displays it automatically.</p>
 </div>
+<h2 id="get-the-fonts-the-style-uses">Get the fonts the style uses</h2>
+<p>OSM Bright labels text with <code>Noto Sans Regular</code>, <code>Noto Sans Bold</code>, and <code>Noto Sans Italic</code>.
+Martin generates the glyph ranges MapLibre asks for <a href="../sources-fonts/">directly from <code>.ttf</code>/<code>.otf</code> files</a>, so all we need are the font files themselves:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>fonts
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>fonts/NotoSans-Regular.ttf<span class="w"> </span>https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/full/ttf/NotoSans-Regular.ttf
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>fonts/NotoSans-Bold.ttf<span class="w"> </span>https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/full/ttf/NotoSans-Bold.ttf
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>fonts/NotoSans-Italic.ttf<span class="w"> </span>https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/full/ttf/NotoSans-Italic.ttf
+</span></code></pre></div>
+<p>Martin publishes each font under the name embedded in the file.
+Here that is <code>Noto Sans Regular</code>, <code>Noto Sans Bold</code>, and <code>Noto Sans Italic</code>, exactly the names the style asks for.</p>
+<h2 id="get-the-icons-the-style-uses">Get the icons the style uses</h2>
+<p>The style repository ships its icons as SVG files.
+Martin <a href="../sources-sprites/">generates the spritesheet and index from an SVG directory on the fly</a>, so copying the folder is all that is needed:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>-r<span class="w"> </span>osm-bright-gl-style/icons<span class="w"> </span>icons
+</span></code></pre></div>
+<p>The directory name becomes the sprite ID, so these will be served under <code>/sprite/icons</code>.</p>
+<h2 id="point-the-style-at-your-server">Point the style at your server</h2>
+<p>The copied style still references the original author's tile, glyph, and sprite servers.
+Open <code>styles/basemap.json</code> and change three values to point at the Martin instance we are about to start:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>New value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sources.openmaptiles.url</code></td>
+<td><code>http://localhost:3000/monaco</code></td>
+</tr>
+<tr>
+<td><code>glyphs</code></td>
+<td><code>http://localhost:3000/font/{fontstack}/{range}</code></td>
+</tr>
+<tr>
+<td><code>sprite</code></td>
+<td><code>http://localhost:3000/sprite/icons</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>sources</code> URL is the <a href="../using/">TileJSON endpoint</a> of the <code>monaco</code> archive.
+The <code>{fontstack}</code> and <code>{range}</code> placeholders are filled in by MapLibre when it requests glyph ranges.</p>
+<h2 id="run-martin">Run Martin</h2>
+<p>Everything is in place, so serve all four resources with one command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>martin<span class="w"> </span>data/monaco.mbtiles<span class="w"> </span>--font<span class="w"> </span>fonts<span class="w"> </span>--sprite<span class="w"> </span>icons<span class="w"> </span>--style<span class="w"> </span>styles
+</span></code></pre></div>
+<p>Check <a href="http://localhost:3000/catalog">http://localhost:3000/catalog</a> to see the <code>monaco</code> tile source, the three fonts, the <code>icons</code> sprite, and the <code>basemap</code> style.
+For more control over what is published and how, see the <a href="../config-file/">configuration file</a> documentation.
+<code>--save-config</code> converts the command line above into a config file to grow from.</p>
+<h2 id="view-the-map">View the map</h2>
+<p>Save this as <code>index.html</code> in the working directory and open it in your browser:</p>
+<div class="language-html highlight"><span class="filename">index.html</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">&lt;!DOCTYPE html&gt;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p">&lt;</span><span class="nt">html</span><span class="p">&gt;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">"utf-8"</span><span class="p">&gt;</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>My self-hosted map<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  <span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">"https://unpkg.com/maplibre-gl@^5/dist/maplibre-gl.js"</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  <span class="p">&lt;</span><span class="nt">link</span> <span class="na">rel</span><span class="o">=</span><span class="s">"stylesheet"</span> <span class="na">href</span><span class="o">=</span><span class="s">"https://unpkg.com/maplibre-gl@^5/dist/maplibre-gl.css"</span><span class="p">&gt;</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  <span class="p">&lt;</span><span class="nt">style</span><span class="p">&gt;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">html</span><span class="o">,</span><span class="w"> </span><span class="nt">body</span><span class="o">,</span><span class="w"> </span><span class="p">#</span><span class="nn">map</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">height</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="kt">%</span><span class="p">;</span><span class="w"> </span><span class="k">margin</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="p">&lt;/</span><span class="nt">style</span><span class="p">&gt;</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>  <span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">"map"</span><span class="p">&gt;&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>  <span class="p">&lt;</span><span class="nt">script</span><span class="p">&gt;</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">map</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">maplibregl</span><span class="p">.</span><span class="nb">Map</span><span class="p">({</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nx">container</span><span class="o">:</span><span class="w"> </span><span class="s1">'map'</span><span class="p">,</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nx">style</span><span class="o">:</span><span class="w"> </span><span class="s1">'http://localhost:3000/style/basemap'</span><span class="p">,</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nx">center</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="mf">7.4266</span><span class="p">,</span><span class="w"> </span><span class="mf">43.7396</span><span class="p">],</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nx">zoom</span><span class="o">:</span><span class="w"> </span><span class="mf">14</span><span class="p">,</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="p">});</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">    </span><span class="nx">map</span><span class="p">.</span><span class="nx">addControl</span><span class="p">(</span><span class="ow">new</span><span class="w"> </span><span class="nx">maplibregl</span><span class="p">.</span><span class="nx">NavigationControl</span><span class="p">());</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">  </span><span class="p">&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</span></code></pre></div>
+<p><img alt="The finished self-hosted basemap of Monaco" src="../images/selfhosted-basemap.png" /></p>
+<p>The page loads the style from Martin, and the style pulls the tiles, glyphs, and sprites from Martin.
+The complete map is served from your machine.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, <code>martin-cp</code> copies zoom by zoom and never fetches the tiles below an empty tile.
-This means that even sparse sources can usually be fairly performant.</p>
+<p>Small extracts may not contain every layer the style references.
+Monaco has no aerodrome, so the browser console warns that the <code>aerodrome_label</code> source layer does not exist.
+The map renders fine regardless.</p>
 </div>
-<h2 id="arguments">Arguments</h2>
-<p>Use <code>martin-cp --help</code> to see a list of available options:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Usage: martin-cp [OPTIONS] --output-file &lt;OUTPUT_FILE&gt; [CONNECTION]...
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Arguments:
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  [CONNECTION]...
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>          Connection strings, e.g. postgres://... or /path/to/files
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Options:
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  -s, --source &lt;SOURCE&gt;
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>          Name of the source to copy from. Not required if there is only one source
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  -o, --output-file &lt;OUTPUT_FILE&gt;
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>          Path to the mbtiles file to copy to
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --mbtiles-type &lt;SCHEMA&gt;
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>          Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>          [possible values: flat, flat-with-hash, normalized]
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>      --url-query &lt;URL_QUERY&gt;
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>          Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions).
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>      --encoding &lt;ENCODING&gt;
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>          Optional accepted encoding parameter as if the browser sent it in the HTTP request.
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>          If set to multiple values like gzip,br, martin-cp will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>          [default: gzip]
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>
-</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>      --on-duplicate &lt;ON_DUPLICATE&gt;
-</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
-</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>
-</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>          [possible values: override, ignore, abort]
-</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>
-</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>      --concurrency &lt;CONCURRENCY&gt;
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>          Number of concurrent connections to use
-</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>
-</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>          [default: 1]
-</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>
-</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>      --bbox &lt;BBOX&gt;
-</span><span id="__span-2-42"><a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>          Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds
-</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>
-</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>          If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
-</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>
-</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>          [default: -180,-85.05112877980659,180,85.0511287798066]
-</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a>
-</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>      --min-zoom &lt;MIN_ZOOM&gt;
-</span><span id="__span-2-49"><a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a>          Minimum zoom level to copy
-</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>
-</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>      --max-zoom &lt;MAX_ZOOM&gt;
-</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>          Maximum zoom level to copy
-</span><span id="__span-2-53"><a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>
-</span><span id="__span-2-54"><a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a>  -z, --zoom-levels &lt;ZOOM_LEVELS&gt;
-</span><span id="__span-2-55"><a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>          List of zoom levels to copy
-</span><span id="__span-2-56"><a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a>
-</span><span id="__span-2-57"><a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a>      --skip-agg-tiles-hash
-</span><span id="__span-2-58"><a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a>          Skip generating a global hash for mbtiles validation. By default, martin-cp will compute and update agg_tiles_hash metadata value
-</span><span id="__span-2-59"><a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>
-</span><span id="__span-2-60"><a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a>      --set-meta &lt;KEY=VALUE&gt;
-</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>          Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times
-</span><span id="__span-2-62"><a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a>
-</span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>  -c, --config &lt;CONFIG&gt;
-</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>          Path to config file. If set, no tile source-related parameters are allowed
-</span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>
-</span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>      --save-config &lt;SAVE_CONFIG&gt;
-</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
-</span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>
-</span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>  -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
-</span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>          Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
-</span><span id="__span-2-71"><a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a>
-</span><span id="__span-2-72"><a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a>          Possible values:
-</span><span id="__span-2-73"><a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a>          - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
-</span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>          - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes
-</span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>          - skip:  Skip bounds calculation. The bounds will be set to the whole world
-</span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>
-</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>      --ca-root-file &lt;CA_ROOT_FILE&gt;
-</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
-</span><span id="__span-2-79"><a id="__codelineno-2-79" name="__codelineno-2-79" href="#__codelineno-2-79"></a>
-</span><span id="__span-2-80"><a id="__codelineno-2-80" name="__codelineno-2-80" href="#__codelineno-2-80"></a>  -d, --default-srid &lt;DEFAULT_SRID&gt;
-</span><span id="__span-2-81"><a id="__codelineno-2-81" name="__codelineno-2-81" href="#__codelineno-2-81"></a>          If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
-</span><span id="__span-2-82"><a id="__codelineno-2-82" name="__codelineno-2-82" href="#__codelineno-2-82"></a>
-</span><span id="__span-2-83"><a id="__codelineno-2-83" name="__codelineno-2-83" href="#__codelineno-2-83"></a>  -p, --pool-size &lt;POOL_SIZE&gt;
-</span><span id="__span-2-84"><a id="__codelineno-2-84" name="__codelineno-2-84" href="#__codelineno-2-84"></a>          Maximum Postgres connections pool size [DEFAULT: 20]
-</span><span id="__span-2-85"><a id="__codelineno-2-85" name="__codelineno-2-85" href="#__codelineno-2-85"></a>
-</span><span id="__span-2-86"><a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a>  -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
-</span><span id="__span-2-87"><a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>          Limit the number of geo features per tile.
-</span><span id="__span-2-88"><a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>
-</span><span id="__span-2-89"><a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
-</span><span id="__span-2-90"><a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
-</span><span id="__span-2-91"><a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>
-</span><span id="__span-2-92"><a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>          Can be either a positive integer or unlimited if omitted.
-</span><span id="__span-2-93"><a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>
-</span><span id="__span-2-94"><a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>      --ssl-cert &lt;SSL_CERT&gt;
-</span><span id="__span-2-95"><a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>          A file with a client SSL certificate
-</span><span id="__span-2-96"><a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>
-</span><span id="__span-2-97"><a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>      --ssl-key &lt;SSL_KEY&gt;
-</span><span id="__span-2-98"><a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>          A file with the key for the client SSL certificate
-</span><span id="__span-2-99"><a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>
-</span><span id="__span-2-100"><a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>  -h, --help
-</span><span id="__span-2-101"><a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>          Print help (see a summary with '-h')
-</span><span id="__span-2-102"><a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>
-</span><span id="__span-2-103"><a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>  -V, --version
-</span><span id="__span-2-104"><a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>          Print version
-</span><span id="__span-2-105"><a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>
-</span><span id="__span-2-106"><a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
-</span></code></pre></div>
+<h2 id="where-to-go-from-here">Where to go from here</h2>
+<ul>
+<li><a href="../recipe-basemap-postgis/">Overlay your own data from PostGIS on this basemap</a></li>
+<li>Put Martin behind a <a href="../run-with-reverse-proxy/">reverse proxy</a> for TLS, caching, and a public hostname, and update the three URLs in the style to the public one</li>
+<li>Pre-generate tiles for offline use or for seeding a cache with <a href="../martin-cp/"><code>martin-cp</code></a></li>
+<li><a href="../sources-styles/rendering/">Render the style into raster tiles server-side</a></li>
+</ul>
 
 
   <nav class="md-tags" >
@@ -2032,14 +2087,14 @@ This means that even sparse sources can usually be fairly performant.</p>
       
       
       
-        <span class="md-tag">tooling</span>
+        <span class="md-tag">recipes</span>
       
     
       
       
       
       
-        <span class="md-tag">mbtiles</span>
+        <span class="md-tag">getting-started</span>
       
     
   </nav>
@@ -2084,7 +2139,7 @@ This means that even sparse sources can usually be fairly performant.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../pg-ssl-certificates/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Using PostgreSQL with SSL Certificates">
+          <a href="../using-guides/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Guides">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2094,20 +2149,20 @@ This means that even sparse sources can usually be fairly performant.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Using PostgreSQL with SSL Certificates
+                Guides
               </div>
             </div>
           </a>
         
         
           
-          <a href="../mbtiles/" class="md-footer__link md-footer__link--next" aria-label="Next: Working with MBTiles archives">
+          <a href="../using-with-renderer/" class="md-footer__link md-footer__link--next" aria-label="Next: Map renderer specific">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Working with MBTiles archives
+                Map renderer specific
               </div>
             </div>
             <div class="md-footer__button md-icon">
