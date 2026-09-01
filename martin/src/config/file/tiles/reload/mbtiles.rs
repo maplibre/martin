@@ -57,9 +57,11 @@ impl MbtilesReloader {
                 Ok(Box::new(src) as BoxedSource)
             })
         });
+        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive);
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             config,
+            recursive,
             &["mbtiles"],
             id_resolver,
             &process,
@@ -79,10 +81,11 @@ impl MbtilesReloader {
     /// Spawns the reload driver. Does nothing if no directories are configured.
     pub fn start(self) -> notify::Result<()> {
         let directories = self.driver.discovery().directories();
+        let recursive = self.driver.discovery().recursive();
         if directories.is_empty() {
             return Ok(());
         }
-        let trigger = NotifyTrigger::new(&directories)?;
+        let trigger = NotifyTrigger::new(&directories, recursive)?;
         self.driver.spawn(trigger, Baseline::Initialized);
         Ok(())
     }

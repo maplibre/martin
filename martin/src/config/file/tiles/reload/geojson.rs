@@ -29,6 +29,7 @@ impl GeoJsonReloader {
                 GeoJsonConfig::default()
             }
         };
+        let recursive = geojson_config.recursive;
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = geojson_config.clone();
             Box::pin(async move { config.new_sources(id, path, policy).await })
@@ -36,6 +37,7 @@ impl GeoJsonReloader {
         let discovery = FsDiscovery::from_config(
             FileKind::GeoJson,
             config,
+            recursive,
             &["json", "geojson"],
             id_resolver,
             &ProcessConfig::default(),
@@ -54,10 +56,11 @@ impl GeoJsonReloader {
     /// Spawns the reload driver. Does nothing if no directories are configured.
     pub fn start(self) -> notify::Result<()> {
         let directories = self.driver.discovery().directories();
+        let recursive = self.driver.discovery().recursive();
         if directories.is_empty() {
             return Ok(());
         }
-        let trigger = NotifyTrigger::new(&directories)?;
+        let trigger = NotifyTrigger::new(&directories, recursive)?;
         self.driver.spawn(trigger, Baseline::Initialized);
         Ok(())
     }

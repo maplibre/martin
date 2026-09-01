@@ -85,6 +85,9 @@ cog:
     - /path/to/cog/directory
 ```
 
+Set `recursive: true` next to `paths` to scan subdirectories too.
+A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.tif` becomes `2024.roads`.
+
 The following events are handled automatically:
 
 - **File added** - the new source appears in the catalog.

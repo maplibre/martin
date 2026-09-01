@@ -69,6 +69,7 @@ impl PmtilesReloader {
         let local = FsDiscovery::from_config(
             FileKind::Pmtiles,
             config,
+            pmt_config.recursive,
             &[PMTILES_EXT],
             id_resolver.clone(),
             &process,
@@ -93,6 +94,7 @@ impl PmtilesReloader {
         let Self { local, remote } = self;
 
         let directories = local.discovery().directories();
+        let recursive = local.discovery().recursive();
         let has_remote = !remote.discovery().remote_prefixes().is_empty();
         let interval = remote.discovery().reload_interval();
 
@@ -101,7 +103,7 @@ impl PmtilesReloader {
         }
 
         if !directories.is_empty() {
-            let trigger = NotifyTrigger::new(&directories)?;
+            let trigger = NotifyTrigger::new(&directories, recursive)?;
             local.spawn(trigger, Baseline::Initialized);
         }
 

@@ -119,6 +119,10 @@ pub struct PmtConfig {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
+    /// Whether `paths` are scanned recursively
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recursive: bool,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -154,6 +158,7 @@ impl Default for PmtConfig {
             convert_to_mlt: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: None,
+            recursive: false,
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
             aws_credentials: None,
@@ -170,6 +175,7 @@ impl PartialEq for PmtConfig {
             && self.reload_interval == other.reload_interval
             && self.profile == other.profile
             && self.options == other.options
+            && self.recursive == other.recursive
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let base = base
