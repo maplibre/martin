@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 use std::num::NonZeroI32;
 
 use martin_core::tiles::duckdb::DuckDBPool;
+use tracing::warn;
 
 use crate::config::file::tiles::duckdb::resolver::errors::{GeoparquetError, GeoparquetResult};
+use crate::config::file::tiles::duckdb::resolver::geoparquet::mvt_types::mvt_property_type;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sql_string};
 
@@ -12,6 +14,8 @@ use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sq
 pub struct GeoParquetIntrospection {
     pub geometry_column: String,
     pub srid: NonZeroI32,
+    /// Column name to the `DuckDB` type it must be cast to for `ST_AsMVT`, not the type it
+    /// has on disk. Columns with no MVT representation are excluded.
     pub property_columns: BTreeMap<String, String>,
 }
 
@@ -48,14 +52,12 @@ pub(crate) async fn introspect(
         return Err(GeoparquetError::IdColumnNotFound(id_column.clone()));
     }
 
-    let property_columns = all_columns
-        .iter()
-        .filter(|(name, _)| {
-            name.as_str() != geometry_column.as_str()
-                && entry.id_column.as_deref() != Some(name.as_str())
-        })
-        .map(|(name, column_type)| (name.clone(), column_type.clone()))
-        .collect();
+    let property_columns = select_property_columns(
+        &all_columns,
+        &geometry_column,
+        entry.id_column.as_deref(),
+        source_label,
+    );
 
     let srid = match entry.srid {
         Some(srid) => NonZeroI32::new(srid).ok_or_else(|| {
@@ -73,6 +75,39 @@ pub(crate) async fn introspect(
         srid,
         property_columns,
     })
+}
+
+fn select_property_columns(
+    all_columns: &BTreeMap<String, String>,
+    geometry_column: &str,
+    id_column: Option<&str>,
+    source_label: &str,
+) -> BTreeMap<String, String> {
+    let mut properties = BTreeMap::new();
+    let mut dropped = Vec::new();
+
+    for (name, column_type) in all_columns {
+        if name == geometry_column || id_column == Some(name.as_str()) {
+            continue;
+        }
+        match mvt_property_type(column_type) {
+            Some(mvt_type) => {
+                properties.insert(name.clone(), mvt_type.to_owned());
+            }
+            None => dropped.push(format!("{name} ({column_type})")),
+        }
+    }
+
+    if !dropped.is_empty() {
+        warn!(
+            "Ignoring {} column(s) of {source_label} with no MVT representation: {}. \
+             Vector tiles can only carry text, numeric and boolean properties.",
+            dropped.len(),
+            dropped.join(", ")
+        );
+    }
+
+    properties
 }
 
 fn select_geometry_column(

@@ -50,6 +50,15 @@ duckdb:
       srid: 4326
 ";
 
+const MIXED_TYPES: &str = "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_mixed_types.parquet
+      layer_id: mixed
+      geometry_column: geom
+      srid: 4326
+";
+
 fn temp_dir() -> TempDir {
     tempfile::tempdir().expect("failed to create a temp dir")
 }
@@ -235,4 +244,58 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
         "Tile source resolution warning: Source polygons_bad: {warning}"
     ));
     martin.assert_log_contains(r#"ERROR error="Source polygons_bad does not exist""#);
+}
+
+#[tokio::test]
+async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, MIXED_TYPES).await;
+
+    let tilejson = martin.get("/mixed").await.json();
+    insta::assert_json_snapshot!(tilejson["vector_layers"], @r#"
+    [
+      {
+        "fields": {
+          "id": "INTEGER",
+          "name": "VARCHAR",
+          "opened": "VARCHAR",
+          "ratio": "DOUBLE",
+          "visitors": "INTEGER"
+        },
+        "id": "mixed"
+      }
+    ]
+    "#);
+
+    let tile = martin.get("/mixed/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: mixed
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)[OUTER]
+        properties:
+          id = 1 (int)
+          name = "boundary_span"
+          opened = "2020-01-02"
+          ratio = 0.5 (double)
+          visitors = 120 (int)
+      feature: 1
+        id: (none)
+        geometry: RING[count=5](3186 3631,2958 3631,2958 3380,3186 3380,3186 3631)[OUTER]
+        properties:
+          id = 2 (int)
+          name = "inside_west"
+          opened = "2021-06-30"
+          ratio = 12.25 (double)
+          visitors = -3 (int)
+    "#);
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Ignoring 3 column(s) of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), tags (VARCHAR[]), thumbnail (BLOB)",
+    );
 }
