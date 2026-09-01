@@ -62,8 +62,8 @@ You should also consider
     Ignored for non-encodable tiles like PNG and JPEG.
 
 !!! note
-    When the source guarantees that an empty tile only has empty tiles below it, `martin-cp` copies zoom by zoom and never fetches the tiles below an empty tile.
-    PostgreSQL table sources give that guarantee, so a sparse table over a large bbox no longer pays one query per empty tile at every zoom.
+    When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin-cp` copies zoom by zoom and never fetches the tiles below an empty tile.
+    This means that even sparse sources can usually be fairly performant.
 
 ## Arguments
 
