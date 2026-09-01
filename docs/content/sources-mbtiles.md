@@ -41,8 +41,9 @@ mbtiles:
     - /path/to/mbtiles/directory
 ```
 
-Set `recursive: true` next to `paths` to scan subdirectories too.
-A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.mbtiles` becomes `2024.roads`.
+!!! tip "Scanning subdirectories"
+    Set `recursive: true` next to `paths` to scan subdirectories too.
+    A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.mbtiles` becomes `2024.roads`.
 
 The following events are handled automatically:
 
