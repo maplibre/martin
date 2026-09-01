@@ -20,15 +20,14 @@ A rendered basemap needs four things:
 
 We will produce each one, then wire them together.
 
-## Prerequisites
+!!! note "Prerequisites"
+    We expect you have the following already installed:
+    
+    - [Docker](https://docker.io) to generate the tile archive
+    - [Martin binary](installation.md)
+    - `git` and `curl` to fetch the style and fonts
 
-We expect you have the following already installed:
-
-- [Docker](https://docker.io) to generate the tile archive
-- [Martin binary](installation.md)
-- `git` and `curl` to fetch the style and fonts
-
-All commands below run from one working directory.
+    All commands below run from one working directory.
 
 ## Generate a tile archive from OpenStreetMap
 
@@ -129,7 +128,7 @@ For more control over what is published and how, see the [configuration file](co
 
 Save this as `index.html` in the working directory and open it in your browser:
 
-```html
+```html title="index.html"
 <!DOCTYPE html>
 <html>
 <head>
