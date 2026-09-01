@@ -61,6 +61,12 @@ You should also consider
     Use `identity` to disable compression.
     Ignored for non-encodable tiles like PNG and JPEG.
 
+!!! tip
+    `--skip-empty-subtrees` copies zoom by zoom and never fetches the children of a tile that came back empty.
+    A sparse source over a large bbox spends most of its time on empty tiles, so this can cut the run down by the share of the bbox the data does not cover.
+    It is safe for PostgreSQL table sources, whose tile envelope contains the envelopes of its children.
+    Do not use it with function sources that return different rows per zoom, or with archives that have gaps in their pyramid, since an empty parent tile would hide filled children.
+
 ## Arguments
 
 Use `martin-cp --help` to see a list of available options:
