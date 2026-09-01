@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use duckdb::{Connection, OptionalExt as _, params};
+use duckdb::{Connection, OptionalExt as _, named_params};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{instrument, trace};
@@ -103,7 +103,8 @@ impl Source for DuckDBSource {
 #[derive(Clone, Debug)]
 /// SQL query information for `DuckDB` tile sources.
 pub struct DuckDBSqlInfo {
-    /// SQL query string.
+    /// SQL query string. It takes the tile coordinates as the named parameters `$z`, `$x` and
+    /// `$y`, each of which it must reference at least once.
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
@@ -142,7 +143,11 @@ fn execute_tile_query(
     trace!(%sql, %xyz, "duckdb tile query");
     let tile = stmt
         .query_one(
-            params![i16::from(xyz.z), i64::from(xyz.x), i64::from(xyz.y)],
+            named_params! {
+                "z": i16::from(xyz.z),
+                "x": i64::from(xyz.x),
+                "y": i64::from(xyz.y),
+            },
             |row| row.get::<_, Option<TileData>>(0),
         )
         .optional()
