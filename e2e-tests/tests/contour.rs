@@ -287,6 +287,29 @@ async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
 }
 
 #[tokio::test]
+async fn a_contoured_source_transcodes_to_mlt_on_request() {
+    let files = upstream().await;
+    let martin = start(
+        &files,
+        "convert_to_contour: auto\n      convert_to_mlt: auto",
+    )
+    .await;
+
+    let response = martin
+        .get_with_headers(&tile_path(), &[("Accept", "application/vnd.maplibre-tile")])
+        .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.header("content-type"),
+        Some("application/vnd.maplibre-tile"),
+        "the traced tile must run through the MLT transcoder like any other MVT"
+    );
+    let layers = response.mlt();
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name(), "contour");
+}
+
+#[tokio::test]
 async fn a_disabled_source_still_advertises_the_raster() {
     let files = upstream().await;
     let martin = start(&files, "convert_to_contour: disabled").await;
