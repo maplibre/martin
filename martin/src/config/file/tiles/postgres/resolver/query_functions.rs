@@ -105,9 +105,11 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
                 .insert(
                     function.clone(),
                     (
-                        PostgresSqlInfo::new(
-                            query,
-                            input_types.len() == 4,
+PostgresSqlInfo::new(
+query,
+input_types.len() == 4,
+                        // a function may return different rows per zoom, so an empty tile says nothing about its children
+                            false,
                             format!(
                                 "{schema}.{function}({}) -> {ret_inf}",
                                 input_types.join(", ")

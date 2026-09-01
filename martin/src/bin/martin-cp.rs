@@ -4,13 +4,15 @@
 )]
 
 use std::borrow::Cow;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -449,23 +451,68 @@ async fn produce_tiles(
     tiles: Vec<TileRect>,
     concurrency: usize,
     tx: Sender<TileXyz>,
+    prune_empty_subtrees: bool,
 ) -> MartinCpResult<()> {
-    stream::iter(iterate_tiles(tiles))
-        .map(MartinCpResult::Ok)
-        .try_for_each_concurrent(concurrency, |xyz| {
-            let tx = tx.clone();
-            async move {
-                let tile = src.get_tile_content(xyz).await?;
-                tx.send(TileXyz {
-                    xyz,
-                    data: tile.data,
-                })
-                .await
-                .expect("The receive half of the channel is not closed");
-                Ok(())
-            }
-        })
-        .await
+    let mut by_zoom: BTreeMap<u8, Vec<TileRect>> = BTreeMap::new();
+    for rect in tiles {
+        by_zoom.entry(rect.zoom).or_default().push(rect);
+    }
+
+    let mut empty_parents: Option<(u8, HashSet<TileCoord>)> = None;
+    let skipped = AtomicU64::new(0);
+    for (zoom, rects) in by_zoom {
+        let empty_here = Mutex::new(HashSet::new());
+        let pruned_by = empty_parents
+            .take()
+            .filter(|(parent_zoom, _)| prune_empty_subtrees && *parent_zoom + 1 == zoom)
+            .map(|(_, set)| set)
+            .unwrap_or_default();
+
+        stream::iter(iterate_tiles(rects))
+            .map(MartinCpResult::Ok)
+            .try_for_each_concurrent(concurrency, |xyz| {
+                let tx = tx.clone();
+                let pruned_by = &pruned_by;
+                let empty_here = &empty_here;
+                let skipped = &skipped;
+                async move {
+                    let parent = TileCoord {
+                        z: zoom.saturating_sub(1),
+                        x: xyz.x / 2,
+                        y: xyz.y / 2,
+                    };
+                    let data = if pruned_by.contains(&parent) {
+                        skipped.fetch_add(1, Ordering::Relaxed);
+                        Vec::new()
+                    } else {
+                        src.get_tile_content(xyz).await?.data
+                    };
+                    if prune_empty_subtrees && data.is_empty() {
+                        empty_here
+                            .lock()
+                            .expect("the empty tile set is only locked here")
+                            .insert(xyz);
+                    }
+                    tx.send(TileXyz { xyz, data })
+                        .await
+                        .expect("The receive half of the channel is not closed");
+                    Ok(())
+                }
+            })
+            .await?;
+
+        empty_parents = Some((
+            zoom,
+            empty_here
+                .into_inner()
+                .expect("the empty tile set is only locked here"),
+        ));
+    }
+    let skipped = skipped.into_inner();
+    if skipped > 0 {
+        info!("Skipped {skipped} tiles below empty tiles");
+    }
+    Ok(())
 }
 
 /// Waits for the spawned consumer task to finish and return the `SQLite` connection.
@@ -592,7 +639,11 @@ where
     ));
 
     // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
-    let produce = produce_tiles(src, tiles, concurrency, tx.clone());
+    let prune_empty_subtrees = src
+        .sources
+        .iter()
+        .all(|(s, _)| s.empty_tile_implies_empty_children());
+    let produce = produce_tiles(src, tiles, concurrency, tx.clone(), prune_empty_subtrees);
     tokio::pin!(produce);
     tokio::pin!(interrupt);
     let interrupted = match select_future(produce, interrupt).await {
@@ -747,6 +798,10 @@ mod tests {
         pub data: TileData,
         // When set, `get_tile` sets this flag then blocks forever (for interrupt tests).
         pub block_after_fetch: Option<Arc<AtomicBool>>,
+        // Counts `get_tile` calls.
+        pub fetches: Option<Arc<AtomicU64>>,
+        // Tiles this returns empty for.
+        pub empty_if: Option<fn(TileCoord) -> bool>,
     }
 
     #[async_trait]
@@ -771,6 +826,10 @@ mod tests {
             CacheZoomRange::default()
         }
 
+        fn empty_tile_implies_empty_children(&self) -> bool {
+            true
+        }
+
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -779,6 +838,12 @@ mod tests {
             if let Some(flag) = &self.block_after_fetch {
                 flag.store(true, Ordering::Release);
                 std::future::pending::<()>().await;
+            }
+            if let Some(fetches) = &self.fetches {
+                fetches.fetch_add(1, Ordering::Relaxed);
+            }
+            if self.empty_if.is_some_and(|f| f(_xyz)) {
+                return Ok(Vec::new());
             }
             Ok(self.data.clone())
         }
@@ -820,24 +885,32 @@ mod tests {
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
         ]])
     }
@@ -849,6 +922,8 @@ mod tests {
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]])
     }
 
@@ -859,6 +934,8 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]])
     }
 
@@ -985,6 +1062,8 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("completed.mbtiles");
@@ -1012,6 +1091,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn never_fetches_below_an_empty_tile() {
+        // Copies z0..=2 of a source whose left half is empty above z0.
+        // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
+        // z2: 16 tiles, the 8 below the empty z1 tiles are never fetched, 8 filled.
+        let fetches = Arc::new(AtomicU64::new(0));
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1],
+            block_after_fetch: None,
+            fetches: Some(Arc::clone(&fetches)),
+            empty_if: Some(|xyz| xyz.z > 0 && xyz.x < (1u32 << xyz.z) / 2),
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("sparse.mbtiles");
+        let args = CopyArgs {
+            source: Some("test_source".to_owned()),
+            output_file: output_file.clone(),
+            min_zoom: Some(0),
+            max_zoom: Some(2),
+            ..Default::default()
+        };
+        run_tile_copy_with_interrupt(args, state, std::future::pending::<()>())
+            .await
+            .unwrap();
+
+        let mbt = Mbtiles::new(&output_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let mut written = 0;
+        for z in 0..=2u8 {
+            for x in 0..(1u32 << z) {
+                for y in 0..(1u32 << z) {
+                    if mbt.get_tile(&mut conn, z, x, y).await.unwrap().is_some() {
+                        written += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!((fetches.load(Ordering::Relaxed), written), (13, 11));
+    }
+
+    #[tokio::test]
     async fn run_tile_copy_interrupt_skips_metadata_finalization() {
         let fetch_started = Arc::new(AtomicBool::new(false));
         let state = test_state(vec![vec![Box::new(MockSource {
@@ -1020,6 +1141,8 @@ mod tests {
             data: Vec::default(),
             // nonstop fetching for testing interruption
             block_after_fetch: Some(Arc::clone(&fetch_started)),
+            fetches: None,
+            empty_if: None,
         })]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("interrupted.mbtiles");
