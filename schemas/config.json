@@ -363,6 +363,10 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "type": "boolean"
+        },
         "reload_interval": {
           "description": "How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.\nHas no effect on local directories, which are watched via filesystem events.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling.",
           "examples": ["10m"],
@@ -406,6 +410,10 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "type": "boolean"
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -435,6 +443,10 @@
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
+        },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "type": "boolean"
         },
         "sources": {
           "additionalProperties": {
