@@ -50,6 +50,8 @@ use crate::config::file::FileConfigEnum;
     feature = "geojson"
 ))]
 use crate::config::file::FileConfigSrc;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
@@ -94,6 +96,17 @@ impl Config {
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
             pg.finalize().await?;
+        }
+
+        #[cfg(feature = "_tiles")]
+        {
+            let tile_grids = TileGrids::resolve(&self.tile_grids)?;
+            #[cfg(feature = "postgres")]
+            for pg in self.postgres.iter() {
+                pg.check_tile_grids(&tile_grids)?;
+            }
+            #[cfg(not(feature = "postgres"))]
+            let _ = tile_grids;
         }
 
         #[cfg(feature = "pmtiles")]

@@ -10,6 +10,8 @@ use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD};
 pub struct PgTileGrid {
     grid: TileGrid,
     srid: i32,
+    /// Whether a geographic pole lies inside the zoom-0 tile
+    contains_pole: bool,
 }
 
 impl PgTileGrid {
@@ -19,13 +21,32 @@ impl PgTileGrid {
         Self {
             grid: WEB_MERCATOR_QUAD,
             srid: 3857,
+            contains_pole: false,
         }
     }
 
     /// Pairs `grid` with the SRID `PostGIS` uses for its CRS.
     #[must_use]
     pub const fn new(grid: TileGrid, srid: i32) -> Self {
-        Self { grid, srid }
+        Self {
+            grid,
+            srid,
+            contains_pole: false,
+        }
+    }
+
+    /// Records that a geographic pole lies inside the zoom-0 tile.
+    ///
+    /// Transforming such a tile's envelope into another CRS loses the pole, which sits inside the envelope rather than on its boundary.
+    /// Tables stored in another CRS may miss features there.
+    pub const fn mark_pole_inside(&mut self) {
+        self.contains_pole = true;
+    }
+
+    /// Whether a geographic pole lies inside the zoom-0 tile.
+    #[must_use]
+    pub const fn contains_pole(&self) -> bool {
+        self.contains_pole
     }
 
     /// The grid itself.

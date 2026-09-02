@@ -8,7 +8,7 @@ use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError,
-    SourceBuildResult,
+    SourceBuildResult, TileGrids,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::SourceProvenance;
@@ -26,6 +26,8 @@ pub struct PostgresDiscovery {
     process: ProcessConfig,
     /// The connection level resolved, for every source without its own settings.
     resolved: ResolvedProcess,
+    /// The grids sources may be served in.
+    tile_grids: TileGrids,
     builder: OnceCell<PostgresAutoDiscoveryBuilder>,
 }
 
@@ -37,6 +39,7 @@ impl PostgresDiscovery {
         id_resolver: IdResolver,
         default_cache: CachePolicy,
         process: ProcessConfig,
+        tile_grids: TileGrids,
     ) -> Self {
         Self {
             config,
@@ -46,6 +49,7 @@ impl PostgresDiscovery {
                 .resolve()
                 .expect("the connection level carries no range-checked settings"),
             process,
+            tile_grids,
             builder: OnceCell::new(),
         }
     }
@@ -77,6 +81,7 @@ impl PostgresDiscovery {
                     &self.config,
                     self.id_resolver.clone(),
                     self.default_cache,
+                    &self.tile_grids,
                 )
                 .await
                 .map_err(SourceBuildError::from)
@@ -214,6 +219,7 @@ mod tests {
             IdResolver::default(),
             CachePolicy::default(),
             ProcessConfig::default(),
+            TileGrids::default(),
         )
     }
 

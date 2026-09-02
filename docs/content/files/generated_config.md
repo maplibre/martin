@@ -510,6 +510,10 @@ postgres:
   ssl_root_cert: ./root.crt
   # Associative arrays of table sources
   tables: {}
+  # Tile grid the sources of this connection are served in, unless a source names its own [default: `WebMercatorQuad`]
+  #
+  # One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+  tile_grid: WebMercatorQuad
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.
@@ -567,6 +571,18 @@ styles:
     workers: null
   # A map of source IDs to file paths or config objects
   sources: {}
+# Tile grids sources can be served in, besides the built-in `WebMercatorQuad`
+#
+# A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+# Sources refer to a grid by its name here.
+# ```yaml
+# tile_grids:
+#   NZTM2000Quad:
+#     crs: EPSG:2193
+#     origin: [-3260586.7284, 10438190.1652]
+#     extent_at_zoom0: 10018754.1714
+# ```
+tile_grids: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)
 # will be embedded in the `TileJSON` `tiles` URL, with the set identifier.
 # This is useful to give clients a better way to cache-bust a CDN:

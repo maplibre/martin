@@ -17,6 +17,7 @@ pub const WEB_MERCATOR_QUAD: TileGrid = TileGrid {
     crs: Cow::Borrowed("EPSG:3857"),
     origin: [-EARTH_CIRCUMFERENCE / 2.0, EARTH_CIRCUMFERENCE / 2.0],
     extent_at_zoom0: EARTH_CIRCUMFERENCE,
+    wraps: true,
 };
 
 /// A square power-of-two quad tile grid in a coordinate reference system.
@@ -35,6 +36,8 @@ pub struct TileGrid {
     crs: Cow<'static, str>,
     origin: [f64; 2],
     extent_at_zoom0: f64,
+    #[serde(skip)]
+    wraps: bool,
 }
 
 /// Why a [`TileGrid`] could not be constructed.
@@ -56,6 +59,8 @@ impl TileGrid {
     /// A grid named `id` in the coordinate reference system `crs`, whose zoom-0 tile has its top-left corner at `origin` and side `extent_at_zoom0`, both in CRS units.
     ///
     /// `crs` is an authority-prefixed identifier such as `EPSG:2193` or `IAU_2015:49900`.
+    /// Grids built here never wrap.
+    /// Only [`WEB_MERCATOR_QUAD`] does.
     pub fn new(
         id: impl Into<String>,
         crs: impl Into<String>,
@@ -84,6 +89,7 @@ impl TileGrid {
             crs: Cow::Owned(crs),
             origin,
             extent_at_zoom0,
+            wraps: false,
         })
     }
 
@@ -99,6 +105,18 @@ impl TileGrid {
         &self.crs
     }
 
+    /// The authority part of [`crs`](Self::crs), e.g. `EPSG`.
+    #[must_use]
+    pub fn crs_authority(&self) -> &str {
+        self.crs.split_once(':').map_or(&*self.crs, |(a, _)| a)
+    }
+
+    /// The code part of [`crs`](Self::crs), e.g. `3857`.
+    #[must_use]
+    pub fn crs_code(&self) -> &str {
+        self.crs.split_once(':').map_or("", |(_, c)| c)
+    }
+
     /// Top-left corner of the zoom-0 tile, in CRS units.
     #[must_use]
     pub fn origin(&self) -> [f64; 2] {
@@ -109,6 +127,12 @@ impl TileGrid {
     #[must_use]
     pub fn extent_at_zoom0(&self) -> f64 {
         self.extent_at_zoom0
+    }
+
+    /// Whether columns continue past the last one, as they do on the cylindrical Web Mercator grid.
+    #[must_use]
+    pub fn wraps(&self) -> bool {
+        self.wraps
     }
 
     /// Whether this is the built-in [`WEB_MERCATOR_QUAD`].
@@ -136,10 +160,22 @@ mod tests {
     }
 
     #[test]
-    fn only_the_built_in_grid_is_web_mercator() {
+    fn web_mercator_is_the_only_wrapping_grid() {
+        assert!(WEB_MERCATOR_QUAD.wraps());
         assert!(WEB_MERCATOR_QUAD.is_web_mercator());
         assert_eq!(WEB_MERCATOR_QUAD.crs(), "EPSG:3857");
-        assert!(!nztm2000quad().is_web_mercator());
+        let nztm = nztm2000quad();
+        assert!(!nztm.wraps());
+        assert!(!nztm.is_web_mercator());
+    }
+
+    #[test]
+    fn crs_splits_into_authority_and_code() {
+        let mars = TileGrid::new("mars", "IAU_2015:49900", [-180.0, 90.0], 360.0).unwrap();
+        assert_eq!(mars.crs_authority(), "IAU_2015");
+        assert_eq!(mars.crs_code(), "49900");
+        assert_eq!(WEB_MERCATOR_QUAD.crs_authority(), "EPSG");
+        assert_eq!(WEB_MERCATOR_QUAD.crs_code(), "3857");
     }
 
     #[rstest]

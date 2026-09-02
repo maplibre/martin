@@ -747,6 +747,11 @@
         },
         "path": {
           "type": "string"
+        },
+        "tile_grid": {
+          "description": "Tile grid this source's tiles are on \\[default: `WebMercatorQuad`\\]\n\nOne of the grids under the top-level `tile_grids`, or a built-in one.\nOnly `MBTiles` and `PMTiles` sources can be declared to be on another grid.",
+          "examples": ["WebMercatorQuad"],
+          "type": ["string", "null"]
         }
       },
       "required": ["path"],
@@ -856,6 +861,11 @@
           "description": "Schema name (required)",
           "examples": ["public"],
           "type": "string"
+        },
+        "tile_grid": {
+          "description": "Tile grid the function's tiles are in \\[default: the connection's `tile_grid`\\]\n\nThe function is trusted to produce tiles in that grid.\nMartin only advertises it in the `TileJSON`.",
+          "examples": ["WebMercatorQuad"],
+          "type": ["string", "null"]
         }
       },
       "required": ["schema", "function"],
@@ -1541,6 +1551,11 @@
           },
           "description": "Associative arrays of table sources",
           "type": ["object", "null"]
+        },
+        "tile_grid": {
+          "description": "Tile grid the sources of this connection are served in, unless a source names its own \\[default: `WebMercatorQuad`\\]\n\nOne of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.",
+          "examples": ["WebMercatorQuad"],
+          "type": ["string", "null"]
         }
       },
       "type": "object"
@@ -1694,9 +1709,55 @@
           "description": "Table name (required)",
           "examples": ["table_source"],
           "type": "string"
+        },
+        "tile_grid": {
+          "description": "Tile grid this table is served in \\[default: the connection's `tile_grid`\\]\n\nOne of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.",
+          "examples": ["WebMercatorQuad"],
+          "type": ["string", "null"]
         }
       },
       "required": ["schema", "table", "srid", "geometry_column"],
+      "type": "object"
+    },
+    "TileGridConfig": {
+      "description": "One named tile grid, a square power-of-two quad grid in a coordinate reference system.\n\nThe three values are what a tile matrix set document publishes for its zoom-0 tile.\nThey are also what `MapLibre GL JS` takes as `tileMatrix` when registering a custom projection.",
+      "properties": {
+        "crs": {
+          "description": "Coordinate reference system of the grid, as `AUTHORITY:CODE`.\n\n`EPSG` codes resolve on their own.\nAny other authority, such as `IAU_2015:49900` for Mars, must be present in the database's `spatial_ref_sys` table under that `auth_name` and `auth_srid`.",
+          "examples": ["EPSG:2193"],
+          "type": "string"
+        },
+        "extent_at_zoom0": {
+          "description": "Side of the zoom-0 tile, in CRS units.\nEvery zoom level halves it.",
+          "examples": [10018754.1714],
+          "format": "double",
+          "type": "number"
+        },
+        "matrix_at_zoom0": {
+          "description": "How many tile `[columns, rows]` zoom 0 has \\[default: `[1, 1]`\\]\n\n`[2, 1]` for grids like `WorldCRS84Quad` and most planetary geographic grids, `[1, 2]` for the OGC UTM quads.",
+          "examples": [[2, 1]],
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": ["array", "null"]
+        },
+        "origin": {
+          "description": "Top-left corner `[x, y]` of the zoom-0 tile, in CRS units.",
+          "examples": [[-3260586.7284, 10438190.1652]],
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": ["crs", "origin", "extent_at_zoom0"],
       "type": "object"
     },
     "WebUiMode": {
@@ -1863,6 +1924,13 @@
     "styles": {
       "$ref": "#/$defs/FileConfigEnum5",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
+    },
+    "tile_grids": {
+      "additionalProperties": {
+        "$ref": "#/$defs/TileGridConfig"
+      },
+      "description": "Tile grids sources can be served in, besides the built-in `WebMercatorQuad`\n\nA grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.\nSources refer to a grid by its name here.\n```yaml\ntile_grids:\n  NZTM2000Quad:\n    crs: EPSG:2193\n    origin: [-3260586.7284, 10438190.1652]\n    extent_at_zoom0: 10018754.1714\n```",
+      "type": "object"
     },
     "tilejson_url_version_param": {
       "description": "If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)\nwill be embedded in the `TileJSON` `tiles` URL, with the set identifier.\nThis is useful to give clients a better way to cache-bust a CDN:\n1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.\n2. maplibre requests each tile it requires, with the tiles URL in the tilejson.\n3. Add `Control: public, max-age=..., immutable` on the tile responses\n   optimize browser/CDN cache hit rates, while also making sure that\n   old tiles aren't served when a new tileset is deployed.\n\nThe CDN must handle query parameters for caching to work correctly.\nMany CDNs ignore them by default.\n\nFor example, if\n- the setting here is `version`, and\n- the `PMTiles` tileset version is `1.0.0`, the\n`TileJSON` will be:\n`{ ..., \"tiles\": [\".../{z}/{x}/{y}?version=1.0.0\"], ... }`",

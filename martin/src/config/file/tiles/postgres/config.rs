@@ -10,7 +10,7 @@ use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, UnrecognizedValues,
+    ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -73,6 +73,11 @@ pub struct PostgresConfig {
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub default_srid: Option<i32>,
+    /// Tile grid the sources of this connection are served in, unless a source names its own \[default: `WebMercatorQuad`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
     /// Specify how bounds should be computed for the spatial PG tables \[default: quick\]
     ///
     /// Options:
@@ -178,6 +183,7 @@ impl Default for PostgresConfig {
             connection_string: None,
             ssl_certificates: PostgresSslCerts::default(),
             default_srid: None,
+            tile_grid: None,
             auto_bounds: None,
             max_feature_count: None,
             pool_size: None,
@@ -304,6 +310,38 @@ pub struct PostgresCfgPublishFuncs {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+impl PostgresConfig {
+    /// Errors if this connection, or one of its sources, names a tile grid that is not configured.
+    pub fn check_tile_grids(&self, grids: &TileGrids) -> ConfigFileResult<()> {
+        let connection = self
+            .tile_grid
+            .as_deref()
+            .map(|grid| ("The connection's tile_grid".to_owned(), grid));
+        let tables = self.tables.iter().flatten().filter_map(|(id, table)| {
+            let grid = table.tile_grid.as_deref()?;
+            Some((format!("Table source {id}"), grid))
+        });
+        let functions = self
+            .functions
+            .iter()
+            .flatten()
+            .filter_map(|(id, function)| {
+                let grid = function.tile_grid.as_deref()?;
+                Some((format!("Function source {id}"), grid))
+            });
+        for (what, grid) in connection.into_iter().chain(tables).chain(functions) {
+            if grids.get(grid).is_none() {
+                return Err(ConfigFileError::UnknownTileGrid {
+                    what,
+                    grid: grid.to_owned(),
+                    known: grids.names().join(", "),
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {

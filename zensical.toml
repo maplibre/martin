@@ -70,6 +70,7 @@ nav = [
         {"Passthrough Sources" = "sources-passthrough.md"},
         {"Composite Sources" = "sources-composite.md"}
     ]},
+    {"Tile Grids" = "tile-grids.md"},
     {"Postprocessing" = [
         "postprocessing/index.md",
         {"MVT/MLT Conversion" = "postprocessing/mlt.md"},

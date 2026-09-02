@@ -24,12 +24,19 @@ pub type Slot = Option<(TileData, String)>;
 
 /// Coordinate of the neighbour `(dx, dy)` away from `centre`, if one exists.
 ///
-/// The projection is
-/// - cylindrical in x, so a tile at the antimeridian has real neighbours on its far side and x wraps rather than clamping.
-/// - It is not cylindrical in y as past a pole there is no tile at all, so the slot is left empty and the assembler edge-clamps it.
-pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32) -> Option<TileCoord> {
+/// On a grid that `wraps` (Web Mercator) x is cylindrical, so a tile at the antimeridian has real neighbours on its far side and x wraps rather than clamping.
+/// y never wraps, and neither axis does on any other grid.
+/// Past such an edge there is no tile at all, so the slot is left empty and the assembler edge-clamps it.
+pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32, wraps: bool) -> Option<TileCoord> {
     let side = 1i64 << centre.z;
-    let x = (i64::from(centre.x) + i64::from(dx)).rem_euclid(side);
+    let x = i64::from(centre.x) + i64::from(dx);
+    let x = if wraps {
+        x.rem_euclid(side)
+    } else if (0..side).contains(&x) {
+        x
+    } else {
+        return None;
+    };
     let y = i64::from(centre.y) + i64::from(dy);
     if y < 0 || y >= side {
         return None;
@@ -75,9 +82,10 @@ pub async fn gather(
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<[Slot; NEIGHBOURHOOD_LEN], Arc<MartinCoreError>> {
+    let wraps = source.tile_grid().wraps();
     let reads = (0..NEIGHBOURHOOD_LEN).map(|index| async move {
         let (dx, dy) = Neighbourhood::offset(index);
-        let Some(coord) = neighbour_coord(xyz, dx, dy) else {
+        let Some(coord) = neighbour_coord(xyz, dx, dy, wraps) else {
             return (index, Ok(None));
         };
         let result = fetch_raw(source, coord, cache).await;
@@ -118,23 +126,28 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case::interior_is_offset(4, 8, 8, -1, -1, Some((7, 7)))]
-    #[case::interior_se_is_offset(4, 8, 8, 1, 1, Some((9, 9)))]
-    #[case::wrap_west_cylindrically(2, 0, 2, -1, 0, Some((3, 2)))]
-    #[case::wrap_east_cylindrically(2, 3, 2, 1, 0, Some((0, 2)))]
-    #[case::past_north_pole(2, 1, 0, 0, -1, None)]
-    #[case::past_south_pole(2, 1, 3, 0, 1, None)]
-    #[case::zoom_zero_wraps(0, 0, 0, 1, 0, Some((0, 0)))]
-    #[case::zoom_zero_no_row(0, 0, 0, 0, 1, None)]
-    fn neighbour_coordinates_wrap_in_x_and_stop_at_the_poles(
+    #[case::interior_is_offset(4, 8, 8, -1, -1, true, Some((7, 7)))]
+    #[case::interior_se_is_offset(4, 8, 8, 1, 1, true, Some((9, 9)))]
+    #[case::wrap_west_cylindrically(2, 0, 2, -1, 0, true, Some((3, 2)))]
+    #[case::wrap_east_cylindrically(2, 3, 2, 1, 0, true, Some((0, 2)))]
+    #[case::past_north_pole(2, 1, 0, 0, -1, true, None)]
+    #[case::past_south_pole(2, 1, 3, 0, 1, true, None)]
+    #[case::zoom_zero_wraps(0, 0, 0, 1, 0, true, Some((0, 0)))]
+    #[case::zoom_zero_no_row(0, 0, 0, 0, 1, true, None)]
+    #[case::planar_interior_is_offset(4, 8, 8, -1, -1, false, Some((7, 7)))]
+    #[case::planar_west_edge_stops(2, 0, 2, -1, 0, false, None)]
+    #[case::planar_east_edge_stops(2, 3, 2, 1, 0, false, None)]
+    #[case::planar_zoom_zero_has_no_neighbours(0, 0, 0, 1, 0, false, None)]
+    fn neighbour_coordinates_wrap_in_x_only_on_wrapping_grids(
         #[case] z: u8,
         #[case] x: u32,
         #[case] y: u32,
         #[case] dx: i32,
         #[case] dy: i32,
+        #[case] wraps: bool,
         #[case] expected: Option<(u32, u32)>,
     ) {
-        let got = neighbour_coord(TileCoord::new_unchecked(z, x, y), dx, dy);
+        let got = neighbour_coord(TileCoord::new_unchecked(z, x, y), dx, dy, wraps);
         assert_eq!(got.map(|c| (c.x, c.y)), expected);
         if let Some(coord) = got {
             assert_eq!(coord.z, z, "a neighbour is always at the same zoom");
@@ -145,7 +158,7 @@ mod tests {
     fn the_centre_offset_is_the_tile_itself() {
         let xyz = TileCoord::new_unchecked(5, 10, 12);
         let (dx, dy) = Neighbourhood::offset(Neighbourhood::CENTRE);
-        assert_eq!(neighbour_coord(xyz, dx, dy), Some(xyz));
+        assert_eq!(neighbour_coord(xyz, dx, dy, true), Some(xyz));
     }
 
     #[test]
@@ -153,7 +166,7 @@ mod tests {
         let xyz = TileCoord::new_unchecked(6, 30, 30);
         let resolved: Vec<_> = (0..NEIGHBOURHOOD_LEN)
             .map(Neighbourhood::offset)
-            .filter_map(|(dx, dy)| neighbour_coord(xyz, dx, dy))
+            .filter_map(|(dx, dy)| neighbour_coord(xyz, dx, dy, false))
             .collect();
         assert_eq!(resolved.len(), NEIGHBOURHOOD_LEN);
         // All nine are distinct, so the pass reads nine different tiles.

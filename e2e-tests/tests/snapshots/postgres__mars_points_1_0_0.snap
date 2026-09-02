@@ -1,0 +1,13 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: dump
+---
+layer: 0
+  name: mars_points
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(2999,1532)
+    properties:
+      site = "Viking 1"

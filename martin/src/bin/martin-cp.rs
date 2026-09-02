@@ -327,6 +327,10 @@ enum MartinCpError {
     Mbt(#[from] MbtError),
     #[error(transparent)]
     Mbtiles(#[from] MbtilesError),
+    #[error(
+        "Source {0} is served in tile grid {1}, and martin-cp can only copy Web Mercator sources"
+    )]
+    UnsupportedTileGrid(String, String),
     #[error("No sources found")]
     NoSources,
     #[error(
@@ -586,6 +590,18 @@ where
         },
     )?;
 
+    // Tile ranges below are computed on the Web Mercator grid, so only sources in it can be copied.
+    if let Some((source, _)) = src
+        .sources
+        .iter()
+        .find(|(source, _)| !source.tile_grid().is_web_mercator())
+    {
+        return Err(MartinCpError::UnsupportedTileGrid(
+            source.get_id().to_owned(),
+            source.tile_grid().id().to_owned(),
+        ));
+    }
+
     // Track in-flight postgres queries so ctrl+c can abort them.
     #[cfg(feature = "postgres")]
     let registries: Vec<ActiveQueryRegistry> = src
@@ -758,6 +774,7 @@ async fn main() {
             | MartinCpError::NoSources
             | MartinCpError::MultipleSources(_)
             | MartinCpError::InvalidBoundingBox(..)
+            | MartinCpError::UnsupportedTileGrid(..)
             | MartinCpError::Args(_)
             | MartinCpError::Mbtiles(_)) => format!("{other}"),
         };

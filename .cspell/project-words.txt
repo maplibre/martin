@@ -49,6 +49,7 @@ keepalives
 linestring
 linestrings
 lldb
+longlat
 mapbox
 maplibre
 maplibregl
@@ -68,6 +69,7 @@ mypass
 nixpkgs
 notnull
 noto
+NZTM
 onthegomap
 openlayers
 openmaptiles
@@ -88,6 +90,7 @@ postgis
 qgis
 reproject
 reprojected
+reprojection
 reprojects
 rgba
 rustaceanvim

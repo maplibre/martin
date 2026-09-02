@@ -439,7 +439,7 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
 
     let geometry_column = escape_identifier(&info.geometry_column);
     let filter = row_filter(info, "WHERE")?;
-    Ok(cn
+    let bounds = cn
         .query_one(
             &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table}{filter})
@@ -454,10 +454,48 @@ SELECT ST_Transform(
 FROM {schema}.{table}{filter};"),
             &[],
         )
-        .await
-        .map_err(|e| PostgresError(e, "querying table bounds"))?
+        .await;
+    let row = match bounds {
+        Ok(row) => row,
+        Err(e) => {
+            // A CRS from another authority, such as a planetary one, need not map onto WGS84 at all.
+            // That table can still be served, it just cannot advertise TileJSON bounds.
+            // The connection goes back first: on a pool of one, holding it would deadlock the lookup.
+            drop(cn);
+            if let Some(authority) = non_epsg_authority(pool, srid).await {
+                warn!(
+                    "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them.",
+                    info.format_id()
+                );
+                return Ok(None);
+            }
+            return Err(PostgresError(e, "querying table bounds"));
+        }
+    };
+    Ok(row
         .get::<_, Option<ewkb::Polygon>>("bounds")
         .and_then(|p| polygon_to_bbox(&p)))
+}
+
+/// The `AUTHORITY:CODE` of `srid` when `spatial_ref_sys` knows it under an authority other than EPSG.
+async fn non_epsg_authority(pool: &PostgresPool, srid: i32) -> Option<String> {
+    let row = pool
+        .get()
+        .await
+        .ok()?
+        .query_opt(
+            "SELECT auth_name, auth_srid FROM spatial_ref_sys WHERE srid = $1",
+            &[&srid],
+        )
+        .await
+        .ok()??;
+    let authority: Option<String> = row.get("auth_name");
+    let code: Option<i32> = row.get("auth_srid");
+    let authority = authority?;
+    if authority.eq_ignore_ascii_case("EPSG") {
+        return None;
+    }
+    Some(code.map_or_else(|| authority.clone(), |code| format!("{authority}:{code}")))
 }
 
 #[must_use]

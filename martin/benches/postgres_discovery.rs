@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
-use martin::config::file::{CachePolicy, init_aws_lc_tls};
+use martin::config::file::{CachePolicy, TileGrids, init_aws_lc_tls};
 use martin::config::primitives::IdResolver;
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 use testcontainers_modules::postgres::Postgres;
@@ -252,9 +252,14 @@ async fn populate_functions(connection_string: &str, count: usize) {
 
 /// Builds a discovery builder with its connection pool, ready to time [`discover`](PostgresAutoDiscoveryBuilder::discover) in isolation.
 async fn build_discovery(config: &PostgresConfig) -> PostgresAutoDiscoveryBuilder {
-    PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
-        .await
-        .expect("Failed to create builder")
+    PostgresAutoDiscoveryBuilder::new(
+        config,
+        IdResolver::default(),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .expect("Failed to create builder")
 }
 
 /// Time only the discovery query: one cheap catalog round-trip per source kind, with no instantiation.
