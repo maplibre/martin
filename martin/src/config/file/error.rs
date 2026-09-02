@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 #[cfg(feature = "fonts")]
 use martin_core::fonts::FontError;
+#[cfg(feature = "sprites")]
+use martin_core::sprites::SpriteError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
@@ -96,6 +98,10 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to configure font alias: {0}")]
     FontAliasResolutionFailed(#[source] FontError),
+
+    #[cfg(feature = "sprites")]
+    #[error("Failed to configure sprite alias: {0}")]
+    SpriteAliasResolutionFailed(#[source] SpriteError),
 
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
@@ -286,6 +292,8 @@ impl Diagnostic for ConfigFileError {
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
             #[cfg(feature = "fonts")]
             Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
+            #[cfg(feature = "sprites")]
+            Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(feature = "pmtiles")]
@@ -337,6 +345,10 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "fonts")]
             Self::FontAliasResolutionFailed(_) => {
                 "Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases."
+            }
+            #[cfg(feature = "sprites")]
+            Self::SpriteAliasResolutionFailed(_) => {
+                "Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases."
             }
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
