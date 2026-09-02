@@ -29,6 +29,7 @@ impl TileReloaders {
         not(feature = "postgres"),
         expect(clippy::unused_async, clippy::unused_async_trait_impl)
     )]
+    #[expect(clippy::too_many_lines, reason = "one block per file kind")]
     pub async fn init(
         config: &Config,
         catalog: &TileSourceManager,
@@ -52,21 +53,29 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.mbtiles,
+            config.cache.policy(),
             &global_process,
         );
         #[cfg(feature = "unstable-cog")]
-        let mut cog = super::cog::CogReloader::new(catalog.clone(), resolver.clone(), &config.cog);
+        let mut cog = super::cog::CogReloader::new(
+            catalog.clone(),
+            resolver.clone(),
+            &config.cog,
+            config.cache.policy(),
+        );
         #[cfg(feature = "geojson")]
         let mut geojson = super::geojson::GeoJsonReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.geojson,
+            config.cache.policy(),
         );
         #[cfg(feature = "pmtiles")]
         let mut pmtiles = super::pmtiles::PmtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.pmtiles,
+            config.cache.policy(),
             &global_process,
         );
         #[cfg(feature = "mbtiles")]
