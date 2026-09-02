@@ -99,19 +99,20 @@ fn select_property_columns(
     }
 
     match dropped.as_slice() {
-        [] => {}
-        [col] => warn!(
+        [] => {},
+        [col] => { warn!(
             "Ignoring {col} column of {source_label} with no MVT representation. \
              Vector tiles can only carry text, numeric and boolean properties.",
             dropped.len(),
             dropped.join(", ")
         );
-        cols => warn!(
+        },
+        cols => { warn!(
             "Ignoring {} column of {source_label} with no MVT representation. \
              Vector tiles can only carry text, numeric and boolean properties.",
             cols.len(),
             cols.join(", ")
-        );
+        ); },
     }
 
     properties
