@@ -73,7 +73,7 @@ async fn sorted_log(files: &StaticFiles) -> String {
 #[tokio::test]
 async fn an_elevation_source_is_served_as_traced_contours() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -103,12 +103,13 @@ async fn an_elevation_source_is_served_as_traced_contours() {
         .map(|(key, _)| key.as_str())
         .collect::<Vec<_>>();
     assert_eq!(tags, ["ele", "major"]);
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_traced_tile_reprojects_to_contour_lines_over_the_fixture_tile() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -136,12 +137,13 @@ async fn a_traced_tile_reprojects_to_contour_lines_over_the_fixture_tile() {
     }
 
     insta::assert_snapshot!(response.geojson_dump(10, 163, 396));
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn tracing_one_tile_reads_exactly_nine_upstream_tiles() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
 
@@ -163,12 +165,13 @@ async fn tracing_one_tile_reads_exactly_nine_upstream_tiles() {
     GET /10/164/396 no range
     GET /10/164/397 no range
     ");
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_disabled_source_serves_the_elevation_tile_unchanged() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: disabled").await;
+    let mut martin = start(&files, "convert_to_contour: disabled").await;
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -181,6 +184,7 @@ async fn a_disabled_source_serves_the_elevation_tile_unchanged() {
         upstream_bytes,
         "a disabled pass must pass the raw elevation tile through"
     );
+    martin.stop().await;
 }
 
 #[tokio::test]
@@ -210,7 +214,7 @@ async fn an_out_of_range_setting_is_rejected_at_startup() {
 #[tokio::test]
 async fn query_overrides_are_ignored_unless_opted_in() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     let plain = martin.get(&tile_path()).await;
     let overridden = martin
@@ -224,12 +228,13 @@ async fn query_overrides_are_ignored_unless_opted_in() {
         overridden.body(),
         "without allow_request_overrides the query must not change the trace"
     );
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_contoured_source_advertises_vector_tiles() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     let catalog = martin.get("/catalog").await.json();
     insta::assert_json_snapshot!(catalog["tiles"]["elevation"], @r#"
@@ -261,12 +266,13 @@ async fn a_contoured_source_advertises_vector_tiles() {
       ]
     }
     "#);
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: auto").await;
+    let mut martin = start(&files, "convert_to_contour: auto").await;
 
     let response = martin
         .get_with_headers(
@@ -284,12 +290,13 @@ async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
         Some("application/x-protobuf")
     );
     assert_eq!(response.mvt().layers[0].name, "contour");
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_contoured_source_transcodes_to_mlt_on_request() {
     let files = upstream().await;
-    let martin = start(
+    let mut martin = start(
         &files,
         "convert_to_contour: auto\n      convert_to_mlt: auto",
     )
@@ -307,16 +314,18 @@ async fn a_contoured_source_transcodes_to_mlt_on_request() {
     let layers = response.mlt();
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name(), "contour");
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_disabled_source_still_advertises_the_raster() {
     let files = upstream().await;
-    let martin = start(&files, "convert_to_contour: disabled").await;
+    let mut martin = start(&files, "convert_to_contour: disabled").await;
 
     let catalog = martin.get("/catalog").await.json();
     assert_eq!(catalog["tiles"]["elevation"]["content_type"], "image/png");
 
     let tilejson = martin.get("/elevation").await.json();
     assert!(tilejson["vector_layers"].is_null());
+    martin.stop().await;
 }

@@ -43,7 +43,6 @@ async fn the_configured_cache_control_is_sent_on_every_content_endpoint() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -60,7 +59,6 @@ async fn the_health_endpoint_keeps_its_no_cache_policy() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -83,7 +81,6 @@ pmtiles:
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 async fn martin_with_per_source_overrides() -> (tempfile::TempDir, Martin) {
@@ -131,7 +128,6 @@ async fn a_per_source_cache_control_overrides_the_server_default() {
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -150,7 +146,6 @@ async fn a_composite_request_uses_the_override_only_when_all_sources_agree() {
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]

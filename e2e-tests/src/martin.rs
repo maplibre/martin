@@ -53,6 +53,7 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
     "Environment variable DATABASE_URL is deprecated",
+    "aborting query. Use --auto-bounds=calc",
 ];
 
 fn martin_command() -> Command {
@@ -159,17 +160,19 @@ impl MartinBuilder {
             .build()
             .expect("failed to build the http client");
 
-        let mut martin = Martin {
+        let mut process = Subprocess {
             child,
-            addr: String::new(),
-            client,
             log,
             readers,
-            log_lines: None,
-            _config_dir: self.config_dir,
+            stopped: false,
         };
-        martin.wait_ready().await?;
-        Ok(martin)
+        let addr = process.wait_ready(&client).await?;
+        Ok(Martin {
+            process,
+            addr,
+            client,
+            _config_dir: self.config_dir,
+        })
     }
 }
 
@@ -185,68 +188,60 @@ fn spawn_log_reader(
     })
 }
 
-/// A running (or stopped) martin subprocess.
+/// The martin subprocess and the log its readers collect, held while martin starts up and,
+/// once it is ready, by the [`Martin`] the test drives.
 #[derive(Debug)]
-pub struct Martin {
+struct Subprocess {
     child: Child,
-    /// The resolved `host:port` martin listens on, parsed from its startup
-    /// log line; set by `wait_ready` before `start` returns.
-    addr: String,
-    client: Client,
     log: Arc<Mutex<Vec<String>>>,
     readers: Vec<JoinHandle<()>>,
-    /// Populated by [`Martin::stop`]; log-assertion methods consume lines from it.
-    log_lines: Option<Vec<String>>,
+    /// Whether [`Subprocess::stop`] already ran, keeping it idempotent.
+    stopped: bool,
+}
+
+/// A ready martin subprocess.
+///
+/// Dropping an instance asserts that [`Martin::stop`] read its log to the end and that the log
+/// holds no unexpected `WARN` or `ERROR` line, so a test that expects one must consume it with
+/// [`Martin::assert_log_contains`] or [`Martin::take_log_lines`].
+#[derive(Debug)]
+pub struct Martin {
+    process: Subprocess,
+    /// The resolved `host:port` martin listens on, parsed from its startup
+    /// log line by `wait_ready` before `start` returns.
+    addr: String,
+    client: Client,
     /// Holds the config file [`MartinBuilder::config`] wrote for as long as martin runs.
     _config_dir: Option<TempDir>,
 }
 
-impl Martin {
-    #[must_use]
-    pub fn builder() -> MartinBuilder {
-        MartinBuilder::default()
-    }
-
-    /// The resolved `host:port` this instance listens on.
-    #[must_use]
-    pub fn addr(&self) -> &str {
-        &self.addr
-    }
-
-    /// Replace this instance's `host:port` with a stable placeholder so the
-    /// value can be snapshotted.
-    #[must_use]
-    pub fn redact(&self, text: &str) -> String {
-        text.replace(&self.addr, "[ADDR]")
-    }
-
+impl Subprocess {
     /// Ready means the startup log announced the listen address (martin only
     /// binds its socket once all sources are configured) and any HTTP
     /// response arrived on it, whatever its status. This stays correct when
     /// `--route-prefix` (as an argument or through a config file) moves the
     /// endpoints around.
-    async fn wait_ready(&mut self) -> Result<(), StartError> {
+    async fn wait_ready(&mut self, client: &Client) -> Result<String, StartError> {
         let announced =
             Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
         let deadline = Instant::now() + ready_timeout();
-        loop {
-            let addr = self
+        let addr = loop {
+            let announced = self
                 .log
                 .lock()
                 .expect("log lock poisoned")
                 .iter()
                 .find_map(|line| Some(announced.captures(line)?.get(1)?.as_str().to_owned()));
-            if let Some(addr) = addr {
-                self.addr = addr;
-                break;
+            if let Some(addr) = announced {
+                break addr;
             }
             self.poll_startup(deadline).await?;
-        }
-        let url = format!("http://{}/health", self.addr);
-        while self.client.get(&url).send().await.is_err() {
+        };
+        let url = format!("http://{addr}/health");
+        while client.get(&url).send().await.is_err() {
             self.poll_startup(deadline).await?;
         }
-        Ok(())
+        Ok(addr)
     }
 
     /// One startup poll step: fail if martin exited or `deadline` passed,
@@ -266,6 +261,89 @@ impl Martin {
         }
         sleep(READY_POLL_INTERVAL).await;
         Ok(())
+    }
+
+    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// the end, so the assertions on it see every line. Idempotent.
+    async fn stop(&mut self) {
+        if self.stopped {
+            return;
+        }
+        self.stopped = true;
+        if self
+            .child
+            .try_wait()
+            .expect("failed to poll martin")
+            .is_none()
+        {
+            terminate(&self.child);
+            match timeout(STOP_TIMEOUT, self.child.wait()).await {
+                Ok(status) => {
+                    status.expect("failed to wait for martin");
+                }
+                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
+            }
+        }
+        self.drain_readers().await;
+    }
+
+    /// Remove every log line containing `needle` and return them in the order
+    /// martin logged them.
+    fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
+        self.log
+            .lock()
+            .expect("log lock poisoned")
+            .extract_if(.., |line| line.contains(needle))
+            .collect()
+    }
+
+    /// Wait for the log readers to reach EOF so the log is complete.
+    async fn drain_readers(&mut self) {
+        for reader in self.readers.drain(..) {
+            let _ = reader.await;
+        }
+    }
+
+    /// The `WARN` and `ERROR` lines left in the log, after [`ALLOWED_LOG_LINES`] and the lines
+    /// already consumed by [`Martin::assert_log_contains`].
+    fn unexpected_log_lines(&self) -> Vec<String> {
+        let problem = Regex::new(r"\b(ERROR|WARN)\b").expect("valid regex");
+        self.log
+            .lock()
+            .expect("log lock poisoned")
+            .iter()
+            .filter(|line| problem.is_match(line))
+            .filter(|line| {
+                !ALLOWED_LOG_LINES
+                    .iter()
+                    .any(|allowed| line.contains(allowed))
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn raw_log(&self) -> String {
+        self.log.lock().expect("log lock poisoned").join("\n")
+    }
+}
+
+impl Martin {
+    #[must_use]
+    pub fn builder() -> MartinBuilder {
+        MartinBuilder::default()
+    }
+
+    /// The resolved `host:port` this instance listens on.
+    #[must_use]
+    pub fn addr(&self) -> &str {
+        &self.addr
+    }
+
+    /// Replace this instance's `host:port` with a stable placeholder so the
+    /// value can be snapshotted.
+    #[must_use]
+    pub fn redact(&self, text: &str) -> String {
+        text.replace(&self.addr, "[ADDR]")
     }
 
     /// Perform a GET request, advertising `Accept-Encoding: br, gzip`; the body is
@@ -360,7 +438,8 @@ impl Martin {
     /// The line stays in the log, so [`Martin::assert_log_contains`] still sees it after [`Martin::stop`].
     pub async fn wait_for_log(&self, needle: &str) {
         self.wait_until(&format!("{needle:?} in the log"), async || {
-            self.log
+            self.process
+                .log
                 .lock()
                 .expect("log lock poisoned")
                 .iter()
@@ -405,98 +484,60 @@ impl Martin {
         }
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and
-    /// collect its log for the `assert_log_*` methods. Idempotent.
+    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
+    /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
-        if self.log_lines.is_some() {
-            return;
-        }
-        if self
-            .child
-            .try_wait()
-            .expect("failed to poll martin")
-            .is_none()
-        {
-            terminate(&self.child);
-            match timeout(STOP_TIMEOUT, self.child.wait()).await {
-                Ok(status) => {
-                    status.expect("failed to wait for martin");
-                }
-                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
-            }
-        }
-        self.drain_readers().await;
-        let lines = self.log.lock().expect("log lock poisoned").clone();
-        self.log_lines = Some(lines);
+        self.process.stop().await;
     }
 
     /// Remove every log line containing `needle` and return them in the order
-    /// martin logged them. Must be called after [`Martin::stop`].
+    /// martin logged them.
     pub fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
-        self.collected_log()
-            .extract_if(.., |line| line.contains(needle))
-            .collect()
+        self.process.take_log_lines(needle)
     }
 
-    /// Assert that at least one log line contains `needle`, and consume every
-    /// matching line. Must be called after [`Martin::stop`].
+    /// Assert that at least one log line contains `needle`, and consume every matching line.
     pub fn assert_log_contains(&mut self, needle: &str) {
         let taken = self.take_log_lines(needle);
         assert!(
             !taken.is_empty(),
             "log does not contain {needle:?}; log:\n{}",
-            self.collected_log().join("\n")
+            self.raw_log()
         );
-    }
-
-    /// The log [`Martin::stop`] collected, which the assertions below consume from.
-    const fn collected_log(&mut self) -> &mut Vec<String> {
-        self.log_lines
-            .as_mut()
-            .expect("log assertions must be called after stop()")
     }
 
     /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
     /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the `AWS_SKIP_CREDENTIALS`
     /// variable [`MartinBuilder::start`] sets.
-    /// Must be called after [`Martin::stop`].
     pub fn assert_startup_warnings(&mut self) {
         self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
         self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
     }
 
-    /// Assert that no unexpected `WARN` or `ERROR` lines remain in the log
-    /// after [`ALLOWED_LOG_LINES`] and the lines already consumed by
-    /// [`Martin::assert_log_contains`]. Must be called after [`Martin::stop`].
-    pub fn assert_log_clean(&mut self) {
-        let lines = self.collected_log();
-        lines.retain(|line| {
-            !ALLOWED_LOG_LINES
-                .iter()
-                .any(|allowed| line.contains(allowed))
-        });
-        let problem = Regex::new(r"\b(ERROR|WARN)\b").expect("valid regex");
-        let unexpected = lines
-            .iter()
-            .filter(|line| problem.is_match(line))
-            .cloned()
-            .collect::<Vec<_>>();
+    fn raw_log(&self) -> String {
+        self.process.raw_log()
+    }
+}
+
+impl Drop for Martin {
+    /// Assert that the log was read to the end and holds nothing unexpected, unless the test is
+    /// already failing: panicking while panicking aborts the process and takes the original
+    /// failure's message with it.
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
+        assert!(
+            self.process.stopped,
+            "martin must be stopped before it is dropped, so that its whole log is asserted on"
+        );
+        let unexpected = self.process.unexpected_log_lines();
         assert!(
             unexpected.is_empty(),
             "log has unexpected warnings or errors:\n{}",
             unexpected.join("\n")
         );
-    }
-
-    /// Wait for the log readers to reach EOF so the log is complete.
-    async fn drain_readers(&mut self) {
-        for reader in self.readers.drain(..) {
-            let _ = reader.await;
-        }
-    }
-
-    fn raw_log(&self) -> String {
-        self.log.lock().expect("log lock poisoned").join("\n")
     }
 }
 

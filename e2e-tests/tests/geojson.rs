@@ -86,7 +86,6 @@ async fn every_geojson_file_becomes_a_source() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -127,7 +126,6 @@ async fn the_saved_config_names_every_discovered_file() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -178,7 +176,6 @@ async fn a_tilejson_points_back_at_the_source() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -211,7 +208,6 @@ async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -230,7 +226,6 @@ async fn a_tilejson_bounds_the_features(#[case] source_id: &str, #[case] bounds:
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -257,7 +252,6 @@ async fn a_source_serves_one_layer_named_after_itself(
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -276,7 +270,6 @@ async fn a_tile_is_served_gzipped_with_an_etag() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -304,7 +297,6 @@ async fn property_types_survive_the_round_trip() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -332,7 +324,6 @@ async fn clipping_keeps_the_features_a_tile_overlaps(#[case] path: &str, #[case]
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -345,7 +336,6 @@ async fn a_tile_without_features_is_no_content() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -407,5 +397,4 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Removed source source.id=feature_collection_1");
     martin.assert_log_contains(r#"ERROR error="Source feature_collection_1 does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }

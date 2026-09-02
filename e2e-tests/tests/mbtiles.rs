@@ -71,7 +71,6 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
     assert_eq!(tile.body(), b"\xff\xd8\xff\xff\xff\xd9");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -115,7 +114,6 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
     assert_eq!(tile.body(), b"\x89PNG\r\n\x1a\n\x01");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -160,7 +158,6 @@ async fn an_mvt_source_serves_its_tilejson() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -244,7 +241,6 @@ async fn an_mvt_source_serves_a_decodable_tile() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -281,7 +277,6 @@ async fn a_normalized_source_serves_its_tilejson() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -316,7 +311,6 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -334,7 +328,6 @@ async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] q
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[cfg(not(windows))]
@@ -403,7 +396,6 @@ async fn reload_adds_and_updates_a_source() {
     martin.assert_log_contains("Added source source.id=world_cities");
     martin.assert_log_contains("Updated source source.id=world_cities");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[cfg(not(windows))]
@@ -435,5 +427,4 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_log_contains("Removed source source.id=world_cities");
     martin.assert_log_contains(r#"ERROR error="Source world_cities does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }

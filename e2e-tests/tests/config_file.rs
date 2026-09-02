@@ -19,7 +19,7 @@ async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
 }
 
 /// The keys named by every `Ignoring unrecognized configuration key '<key>'` line, sorted.
-/// The lines are consumed, so [`Martin::assert_log_clean`] no longer sees them.
+/// The lines are consumed, so the assertion [`Martin`] drops with no longer sees them.
 fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
     let mut keys = martin
         .take_log_lines("Ignoring unrecognized configuration key")
@@ -83,7 +83,6 @@ fonts:
     warning
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -120,7 +119,6 @@ pmtiles:
         ["pmtiles.warning", "warning"]
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -143,7 +141,6 @@ cog:
         "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -171,7 +168,6 @@ pmtiles:
         "`connect_timeout` names the same object store option set, so its scalar value is accepted"
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -204,7 +200,6 @@ pmtiles:
         ["pmtiles.warning", "warning"]
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[cfg(feature = "test-pg")]
@@ -242,7 +237,6 @@ postgres:
     postgres.tables.points1.warning
     postgres.warning
     ");
-    martin.assert_log_clean();
 }
 
 #[cfg(feature = "test-pg")]
@@ -279,5 +273,4 @@ postgres:
     ] {
         martin.assert_log_contains(unindexed);
     }
-    martin.assert_log_clean();
 }

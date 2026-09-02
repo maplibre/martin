@@ -36,7 +36,6 @@ async fn a_sprite_directory_is_discovered_recursively() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -79,7 +78,6 @@ async fn an_index_places_every_icon_on_the_sheet() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -96,7 +94,6 @@ async fn a_sheet_is_served_as_png() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -115,7 +112,6 @@ async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (
     assert_eq!(response.image_size(), size);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -138,7 +134,6 @@ async fn a_2x_index_doubles_every_dimension() {
     }
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -188,7 +183,6 @@ async fn an_sdf_index_flags_every_icon() {
     }
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -205,7 +199,6 @@ async fn a_composite_index_merges_every_source() {
     assert_eq!(names, ["another_bicycle", "bear", "bicycle", "sub/circle"]);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -224,7 +217,6 @@ async fn an_unknown_sprite_source_is_not_found(#[case] path: &str) {
     martin.stop().await;
     martin.assert_log_contains(r#"error=SpriteNotFound("nope")"#);
     martin.assert_log_contains(r#"error="Sprite nope not found""#);
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -243,5 +235,4 @@ async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location:
     assert_eq!(martin.get(location).await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }

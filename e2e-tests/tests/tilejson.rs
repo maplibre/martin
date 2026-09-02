@@ -70,7 +70,6 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -84,7 +83,6 @@ async fn a_tilejson_answers_head_without_a_body() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -108,7 +106,6 @@ async fn proxy_headers_set_the_scheme_and_authority(
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -122,7 +119,6 @@ async fn an_x_forwarded_for_does_not_change_the_url() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -139,7 +135,6 @@ async fn a_rewrite_header_replaces_the_path(
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -157,7 +152,6 @@ async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -175,7 +169,6 @@ async fn only_the_path_of_a_rewrite_header_is_used() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -189,7 +182,6 @@ async fn the_request_query_string_is_carried_into_the_tiles_url() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -213,7 +205,6 @@ async fn base_path_sets_the_path_prefix(#[case] headers: &[(&str, &str)]) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -236,7 +227,6 @@ async fn route_prefix_sets_the_path_prefix(#[case] headers: &[(&str, &str)]) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -258,5 +248,4 @@ async fn base_path_wins_over_route_prefix() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
