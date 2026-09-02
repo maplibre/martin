@@ -23,6 +23,7 @@ impl CogReloader {
         config: &FileConfigEnum<CogConfig>,
         default_cache: CachePolicy,
     ) -> Self {
+        let default_cache = config.cache_or(default_cache);
         // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
         // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
         let build: FsSourceBuilder = Box::new(|id, path, policy| {

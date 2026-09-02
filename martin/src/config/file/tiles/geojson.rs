@@ -63,6 +63,14 @@ pub struct GeoJsonConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
     pub recursive: Option<bool>,
+    /// Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -75,6 +83,7 @@ impl Default for GeoJsonConfig {
             extent: default_extent(),
             buffer: default_buffer(),
             recursive: None,
+            cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -83,6 +92,10 @@ impl Default for GeoJsonConfig {
 impl TileSourceConfiguration for GeoJsonConfig {
     fn parse_urls() -> bool {
         false
+    }
+
+    fn cache(&self) -> CachePolicy {
+        self.cache
     }
 
     async fn new_sources(

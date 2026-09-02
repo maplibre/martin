@@ -27,6 +27,14 @@ pub struct CogConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
     pub recursive: Option<bool>,
+    /// Zoom-level bounds for caching the tiles of every COG source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -36,6 +44,10 @@ pub struct CogConfig {
 impl TileSourceConfiguration for CogConfig {
     fn parse_urls() -> bool {
         false
+    }
+
+    fn cache(&self) -> CachePolicy {
+        self.cache
     }
 
     async fn new_sources(

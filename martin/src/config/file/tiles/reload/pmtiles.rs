@@ -30,6 +30,7 @@ impl PmtilesReloader {
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
     ) -> Self {
+        let default_cache = config.cache_or(default_cache);
         #[cfg(feature = "_process")]
         let process = {
             let source_type = match config {

@@ -69,6 +69,10 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     #[must_use]
     fn parse_urls() -> bool;
 
+    /// The kind level cache bounds, for every source of this kind without its own.
+    #[must_use]
+    fn cache(&self) -> CachePolicy;
+
     /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
@@ -289,6 +293,18 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     }
 }
 
+#[cfg(feature = "_tiles")]
+impl<T: TileSourceConfiguration> FileConfigEnum<T> {
+    /// The kind level cache bounds over the top level ones.
+    #[must_use]
+    pub fn cache_or(&self, global: CachePolicy) -> CachePolicy {
+        match self {
+            Self::Config(cfg) => cfg.custom.cache().or(global),
+            Self::None | Self::Path(_) | Self::Paths(_) => global,
+        }
+    }
+}
+
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         self.custom.finalize().await
@@ -450,6 +466,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     extension: &[&str],
     default_cache: CachePolicy,
 ) -> ResolutionResult {
+    let default_cache = config.cache_or(default_cache);
     let Some(cfg) = config.extract_file_config() else {
         return Ok((vec![], vec![]));
     };
@@ -1555,6 +1572,29 @@ mod deserialize_tests {
     // not addressable via a top-level YAML path. We exercise the deserializer directly here
     // and rely on the `cache:` and per-source `cache:` block tests above to cover the
     // user-visible diagnostic surface.
+
+    #[cfg(feature = "mbtiles")]
+    #[test]
+    fn cache_or_layers_the_kind_level_over_the_global_one() {
+        use crate::config::file::mbtiles::MbtConfig;
+
+        let global = CachePolicy::new(CacheZoomRange::new(Some(1), Some(10)));
+        let kind = FileConfigEnum::Config(FileConfig {
+            custom: MbtConfig {
+                cache: CachePolicy::new(CacheZoomRange::new(None, Some(5))),
+                ..MbtConfig::default()
+            },
+            ..FileConfig::default()
+        });
+        assert_eq!(
+            kind.cache_or(global).zoom(),
+            CacheZoomRange::new(Some(1), Some(5))
+        );
+        assert_eq!(
+            FileConfigEnum::<MbtConfig>::None.cache_or(global).zoom(),
+            global.zoom()
+        );
+    }
 
     #[test]
     fn cache_policy_disable_string() {
