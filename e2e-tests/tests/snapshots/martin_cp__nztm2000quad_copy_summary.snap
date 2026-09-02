@@ -1,0 +1,64 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: summary
+---
+{
+  "avg_tile_size": 99.33333333333331,
+  "bbox": [
+    -180.0,
+    -85.0511287798066,
+    180.0,
+    85.0511287798066
+  ],
+  "file_path": "[path]",
+  "file_size": "[size]",
+  "max_tile_size": 126,
+  "max_zoom": 2,
+  "mbt_type": "Flat",
+  "min_tile_size": 74,
+  "min_zoom": 0,
+  "page_count": 11,
+  "page_size": 512,
+  "tile_count": 9,
+  "zoom_info": [
+    {
+      "avg_tile_size": 126.0,
+      "bbox": [
+        -180.0,
+        -85.0511287798066,
+        180.0,
+        85.0511287798066
+      ],
+      "max_tile_size": 126,
+      "min_tile_size": 126,
+      "tile_count": 1,
+      "zoom": 0
+    },
+    {
+      "avg_tile_size": 96.0,
+      "bbox": [
+        -180.0,
+        -85.0511287798066,
+        180.0,
+        85.0511287798066
+      ],
+      "max_tile_size": 106,
+      "min_tile_size": 74,
+      "tile_count": 4,
+      "zoom": 1
+    },
+    {
+      "avg_tile_size": 96.0,
+      "bbox": [
+        -90.0,
+        -66.51326044311186,
+        90.0,
+        66.51326044311186
+      ],
+      "max_tile_size": 106,
+      "min_tile_size": 74,
+      "tile_count": 4,
+      "zoom": 2
+    }
+  ]
+}

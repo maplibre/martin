@@ -75,6 +75,8 @@ The `TileJSON` of a source on a non-default grid carries the grid in a `tileGrid
 
 The `/catalog` entry of such a source names the grid in `tile_grid`. Sources on different grids cannot be combined into one composite source.
 
+`martin-cp` copies a source on its own grid. Without `--bbox` it copies the whole grid, and with one the bounds are `min_x,min_y,max_x,max_y` in the grid's CRS units rather than longitude and latitude. The `TileJSON` metadata written into the archive carries the `tileGrid` key, so the archive can be served back with the same `tile_grid` declared.
+
 ## Poles and other curved edges
 
 When a table is stored in a different CRS than its grid, Martin transforms each tile's envelope into the table's CRS to search the spatial index. The envelope is densified first, so edges that curve in the table's CRS still cover the tile. What no transform can recover is a pole that lies inside the envelope rather than on its boundary, as it does on the zoom-0 tile of a polar grid. Martin detects that at startup and warns for every table in another CRS. Store polar data in the grid's CRS, and the search needs no transform at all.

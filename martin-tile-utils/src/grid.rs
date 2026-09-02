@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use serde::Serialize;
 
-use crate::{EARTH_CIRCUMFERENCE, MAX_ZOOM};
+use crate::{EARTH_CIRCUMFERENCE, MAX_ZOOM, TileRect};
 
 /// Identifier of the built-in Web Mercator grid, [`WEB_MERCATOR_QUAD`].
 pub const WEB_MERCATOR_QUAD_ID: &str = "WebMercatorQuad";
@@ -192,6 +192,16 @@ impl TileGrid {
         self.crs == SIMPLE_CRS
     }
 
+    /// Side of one tile at `zoom`, in CRS units.
+    ///
+    /// # Panics
+    /// Panics if `zoom` is greater than [`MAX_ZOOM`].
+    #[must_use]
+    pub fn tile_side(&self, zoom: u8) -> f64 {
+        assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+        self.extent_at_zoom0 / f64::from(1_u32 << zoom)
+    }
+
     /// Bounds of everything the grid covers as `[min_x, min_y, max_x, max_y]`, in CRS units.
     #[must_use]
     pub fn bounds(&self) -> [f64; 4] {
@@ -213,6 +223,24 @@ impl TileGrid {
         }
         let [columns, rows] = self.matrix_at_zoom0;
         u64::from(x) < u64::from(columns) << z && u64::from(y) < u64::from(rows) << z
+    }
+
+    /// The tiles at `zoom` that intersect `[min_x, min_y, max_x, max_y]`, given in CRS units.
+    ///
+    /// The box is clamped to the grid, so a box beyond it yields the grid's edge tiles.
+    ///
+    /// # Panics
+    /// Panics if `zoom` is greater than [`MAX_ZOOM`].
+    #[must_use]
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    pub fn tile_range(&self, bounds: [f64; 4], zoom: u8) -> TileRect {
+        let side = self.tile_side(zoom);
+        let [columns, rows] = self.matrix_at_zoom0;
+        let (max_col, max_row) = ((columns << zoom) - 1, (rows << zoom) - 1);
+        let col = |x: f64| (((x - self.origin[0]) / side).floor().max(0.0) as u32).min(max_col);
+        let row = |y: f64| (((self.origin[1] - y) / side).floor().max(0.0) as u32).min(max_row);
+        let [min_x, min_y, max_x, max_y] = bounds;
+        TileRect::new(zoom, col(min_x), row(max_y), col(max_x), row(min_y))
     }
 
     /// Whether columns continue past the last one, as they do on the cylindrical Web Mercator grid.
@@ -282,6 +310,28 @@ mod tests {
         assert_eq!(
             WORLD_CRS84_QUAD.bounds().map(f64::to_bits),
             [-180.0_f64, -90.0, 180.0, 90.0].map(f64::to_bits)
+        );
+        assert_eq!(WORLD_CRS84_QUAD.tile_side(1).to_bits(), 90.0_f64.to_bits());
+        // the whole world at zoom 1 is four columns and two rows
+        assert_eq!(
+            WORLD_CRS84_QUAD.tile_range([-180.0, -90.0, 180.0, 90.0], 1),
+            TileRect::new(1, 0, 0, 3, 1)
+        );
+        // a box beyond the grid clamps to its edge tiles
+        assert_eq!(
+            WORLD_CRS84_QUAD.tile_range([100.0, -400.0, 400.0, 10.0], 0),
+            TileRect::new(0, 1, 0, 1, 0)
+        );
+    }
+
+    #[test]
+    fn a_tile_range_follows_the_mercator_helper() {
+        let (min_x, min_y, max_x, max_y) = crate::bbox_to_xyz(-10.0, -10.0, 10.0, 10.0, 4);
+        let bounds = crate::wgs84_to_webmercator(-10.0, -10.0);
+        let upper = crate::wgs84_to_webmercator(10.0, 10.0);
+        assert_eq!(
+            WEB_MERCATOR_QUAD.tile_range([bounds.0, bounds.1, upper.0, upper.1], 4),
+            TileRect::new(4, min_x, min_y, max_x, max_y)
         );
     }
 

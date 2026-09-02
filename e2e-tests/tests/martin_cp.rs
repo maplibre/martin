@@ -346,3 +346,58 @@ mod postgres {
         );
     }
 }
+
+/// A source on another grid is copied on that grid, the whole grid when no bbox is given.
+#[cfg(feature = "test-pg")]
+#[tokio::test]
+async fn copies_a_source_on_another_tile_grid() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        "
+tile_grids:
+  NZTM2000Quad:
+    crs: EPSG:2193
+    origin: [-3260586.7284, 10438190.1652]
+    extent_at_zoom0: 10018754.1714
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 1
+  tables:
+    nz_points:
+      schema: public
+      table: nz_points
+      srid: 2193
+      geometry_column: geom
+      tile_grid: NZTM2000Quad
+      properties:
+        city: text
+",
+    )
+    .expect("write config");
+    let output = dir.path().join("nz.mbtiles");
+
+    MartinCp::new()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--source")
+        .arg("nz_points")
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--min-zoom")
+        .arg("0")
+        .arg("--max-zoom")
+        .arg("2")
+        .run()
+        .await;
+
+    let summary = summary(&output).run_json().await;
+    insta::assert_json_snapshot!("nztm2000quad_copy_summary", summary, {".file_size" => "[size]", ".file_path" => "[path]"});
+    let metadata = metadata(&output).await;
+    insta::assert_snapshot!(metadata["tileGrid"], @r#"{"id":"NZTM2000Quad","crs":"EPSG:2193","origin":[-3260586.7284,10438190.1652],"extentAtZoom0":10018754.1714}"#);
+    validate(&output).await;
+}
