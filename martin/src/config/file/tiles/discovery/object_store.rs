@@ -8,9 +8,9 @@ use futures::stream::TryStreamExt as _;
 use object_store::ObjectStore as _;
 use url::Url;
 
-use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::{ProcessConfig, ResolvedProcess};
+use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _,
@@ -37,18 +37,14 @@ impl ObjectStoreDiscovery {
         process: &ProcessConfig,
     ) -> Self {
         let mut remote_prefixes: Vec<Url> = vec![];
-        let mut collect = |path: &PathBuf| {
-            if !is_remote_url(path) {
-                return;
+        let mut collect = |path: &PathBuf| match SourceLocation::classify_path(path) {
+            Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
+                remote_prefixes.push(url);
             }
-            let Some(url) = path.to_str().and_then(|s| Url::parse(s).ok()) else {
-                tracing::warn!(
-                    "remote URL prefix {:?} could not be parsed as URL; skipping",
-                    path
-                );
-                return;
-            };
-            remote_prefixes.push(url);
+            Ok(SourceLocation::Local(_)) => {}
+            Err(e) => tracing::warn!(
+                "remote URL prefix {path:?} could not be parsed as URL ({e}); skipping"
+            ),
         };
 
         match config {

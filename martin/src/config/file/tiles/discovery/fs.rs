@@ -9,7 +9,7 @@ use futures::future::BoxFuture;
 use martin_core::tiles::BoxedSource;
 use tokio::fs::{self, DirEntry};
 
-use crate::config::file::file_config::is_remote_url;
+use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
@@ -83,9 +83,9 @@ impl FsDiscovery {
         {
             for (id, src) in sources {
                 let path = src.get_path();
-                if is_remote_url(path) {
+                let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
                     continue;
-                }
+                };
                 let Ok(canonical) = path.canonicalize() else {
                     tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
                     continue;
@@ -103,9 +103,9 @@ impl FsDiscovery {
 
         let mut warnings: Vec<TileSourceWarning> = vec![];
         let mut push_local = |path: &PathBuf| {
-            if is_remote_url(path) {
+            let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
                 return;
-            }
+            };
             let probed = path
                 .canonicalize()
                 .and_then(|p| std::fs::read_dir(&p).map(|_| p));

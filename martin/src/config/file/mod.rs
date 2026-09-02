@@ -1,6 +1,11 @@
 mod file_config;
 pub use file_config::*;
 
+#[cfg(feature = "_tiles")]
+mod source_location;
+#[cfg(feature = "_tiles")]
+pub use source_location::SourceLocation;
+
 mod collect_unrecognized;
 pub use collect_unrecognized::*;
 

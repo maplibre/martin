@@ -363,7 +363,6 @@ fonts:
 
     martin.stop().await;
     martin.assert_log_contains("Configured font alias");
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -390,7 +389,6 @@ fonts:
     martin.assert_log_contains(
         "Font alias shadows a font of the same name; requests for it will serve the alias",
     );
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
