@@ -4,6 +4,8 @@ use std::num::{NonZeroI32, NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(feature = "postgres")]
+use martin_core::tiles::postgres::ConnectionRetries;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
@@ -171,6 +173,8 @@ impl_empty_collect_unrecognized!(
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 impl_empty_collect_unrecognized!(BoundsCalcType);
+#[cfg(feature = "postgres")]
+impl_empty_collect_unrecognized!(ConnectionRetries);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);

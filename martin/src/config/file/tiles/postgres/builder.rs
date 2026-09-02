@@ -98,7 +98,7 @@ impl PostgresAutoDiscoveryBuilder {
         id_resolver: IdResolver,
         default_cache: CachePolicy,
     ) -> ConfigFileResult<Self> {
-        let pool = PostgresPool::new(
+        let pool = PostgresPool::new_with_retries(
             config
                 .connection_string
                 .as_ref()
@@ -108,6 +108,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
             config.pool_size.unwrap_or(DEFAULT_POOL_SIZE).get(),
+            config.connection_retries.unwrap_or_default(),
         )
         .await
         .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
