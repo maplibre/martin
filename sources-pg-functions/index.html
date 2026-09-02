@@ -2099,7 +2099,7 @@
 <p>A Function Source is a database function which can be used to
 query <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a>. When started, Martin will look for the functions with
 a suitable signature.</p>
-<p>A function can be used as a Function Source if it returns either a <code>bytea</code> value, or a record with <code>bytea</code> and a <code>text</code> values.  The <code>text</code> value is expected to be a user-defined hash, e.g. an MD5 value, and it will eventually be used as an <a href="https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag">ETag</a>.</p>
+<p>A function can be used as a Function Source if it returns either a <code>bytea</code> value, or a record with <code>bytea</code> and a <code>text</code> values.  The <code>text</code> value is expected to be a user-defined hash, e.g. an MD5 value, and it is served as the tile's <a href="https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag">ETag</a>.</p>
 <p>A valid function must also have these arguments:</p>
 <table>
 <thead>
