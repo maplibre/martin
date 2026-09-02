@@ -10,7 +10,8 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
-use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
+use martin_core::cache::CacheKey as _;
+use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
     encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
@@ -429,13 +430,63 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
+        let served = self.served_key(xyz);
+        if let Some((cache, key)) = &served
+            && let Some(tile) = cache.get(key).await
+        {
+            key.record_outcome(true);
+            return Ok(tile);
+        }
+
         let tiles: Vec<Tile> = stream::iter(&self.sources)
             .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
             .buffered(MAX_CONCURRENT_TILE_FETCHES)
             .try_collect()
             .await?;
 
-        self.merge_tiles(tiles)
+        let produced = tiles.first().map(|t| t.info.encoding);
+        let tile = self.merge_tiles(tiles)?;
+        // Only a re-encoded tile earns a second entry, otherwise the produced one already is the response.
+        if let Some((cache, key)) = served
+            && produced != Some(tile.info.encoding)
+        {
+            cache.insert(key, tile.clone()).await;
+        }
+        Ok(tile)
+    }
+
+    /// The key of this request's response in the encoding the client receives.
+    /// `None` when the response is merged or stitched after the cache, or not cached at all.
+    fn served_key(&self, xyz: TileCoord) -> Option<(&'a TileCache, TileCacheKey)> {
+        let [(s, pc)] = self.sources.as_slice() else {
+            return None;
+        };
+        if pc.is_post_processed() {
+            return None;
+        }
+        let cache = self.cache.filter(|_| s.cache_zoom().contains(xyz.z))?;
+        let key = TileCacheKey::new_request_dynamic(
+            s.get_id(),
+            xyz,
+            self.source_query().map(|q| q.0.to_owned()),
+            self.accepted_format,
+            Some(self.negotiated_encoding()?),
+        );
+        Some((cache, key))
+    }
+
+    /// The encoding a tile is re-encoded into for this request.
+    /// `None` when the `Accept-Encoding` header cannot be negotiated.
+    fn negotiated_encoding(&self) -> Option<Encoding> {
+        let Some(accept_enc) = &self.headers.accept_enc else {
+            return Some(Encoding::Uncompressed);
+        };
+        let negotiated = self.decide_encoding(accept_enc).ok()?;
+        Some(
+            negotiated
+                .and_then(to_encoding)
+                .unwrap_or(Encoding::Uncompressed),
+        )
     }
 
     async fn get_tile_content_from_one_source(
@@ -547,11 +598,12 @@ impl<'a> DynTileSource<'a> {
         if let (Some(cache), true) = (self.cache, cache_zoom) {
             cache
                 .get_or_insert(
-                    martin_core::tiles::TileCacheKey::new_request_dynamic(
+                    TileCacheKey::new_request_dynamic(
                         src_id,
                         xyz,
                         self.source_query().map(|q| q.0.to_owned()),
                         self.accepted_format,
+                        None,
                     ),
                     compute,
                 )
@@ -1086,6 +1138,107 @@ mod tests {
             decoded, expected_raw,
             "decoded content mismatch for src={src_enc:?}, accept={accept:?}"
         );
+    }
+
+    const ORIGIN: TileCoord = TileCoord { z: 0, x: 0, y: 0 };
+
+    fn cached_test_manager(sources: Vec<BoxedSource>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| (s, ResolvedProcess::default()))
+            .collect();
+        TileSourceManager::from_sources(
+            Some(TileCache::new(1_000_000, None, None)),
+            OnInvalid::Abort,
+            vec![sources],
+        )
+    }
+
+    fn mvt_source(id: &'static str, raw: &[u8], encoding: Encoding) -> BoxedSource {
+        let data = if encoding == Encoding::Uncompressed {
+            raw.to_vec()
+        } else {
+            compress_with(raw, encoding)
+        };
+        Box::new(CompressedTestSource {
+            id,
+            tj: tilejson! { tiles: vec![] },
+            data,
+            encoding,
+        })
+    }
+
+    fn accept(accept_enc: Option<&str>) -> TileRequestHeaders {
+        TileRequestHeaders {
+            accept_enc: accept_enc.map(|s| AcceptEncoding(vec![s.parse().unwrap()])),
+            ..Default::default()
+        }
+    }
+
+    #[rstest]
+    #[case::uncompressed_to_gzip(Encoding::Uncompressed, Some("gzip"), Encoding::Gzip, 2)]
+    #[case::uncompressed_to_brotli(Encoding::Uncompressed, Some("br"), Encoding::Brotli, 2)]
+    #[case::gzip_served_as_produced(Encoding::Gzip, Some("gzip"), Encoding::Gzip, 1)]
+    #[case::gzip_decoded_without_header(Encoding::Gzip, None, Encoding::Uncompressed, 2)]
+    #[case::uncompressed_without_header(Encoding::Uncompressed, None, Encoding::Uncompressed, 1)]
+    #[actix_rt::test]
+    async fn a_re_encoded_tile_is_cached_in_the_encoding_it_is_served_in(
+        #[case] produced: Encoding,
+        #[case] accept_enc: Option<&str>,
+        #[case] served: Encoding,
+        #[case] entries: u64,
+    ) {
+        let raw = b"raw mvt bytes";
+        let mgr = cached_test_manager(vec![mvt_source("src", raw, produced)]);
+        let src = DynTileSource::new(&mgr, "src", None, "", accept(accept_enc)).unwrap();
+
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.encoding, served);
+        assert_eq!(decompress_tile(&tile.data, served), raw);
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(cache.entry_count(), entries);
+        let served_key = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, Some(served));
+        assert_eq!(
+            cache.contains_key(&served_key),
+            entries == 2,
+            "a served entry exists iff the tile was re-encoded"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn a_composite_keeps_only_the_produced_entries() {
+        let mgr = cached_test_manager(vec![
+            mvt_source("a", b"aaa", Encoding::Uncompressed),
+            mvt_source("b", b"bbb", Encoding::Uncompressed),
+        ]);
+        let src = DynTileSource::new(&mgr, "a,b", None, "", accept(Some("gzip"))).unwrap();
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.encoding, Encoding::Gzip);
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(
+            cache.entry_count(),
+            2,
+            "the merge is re-encoded per request"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn an_empty_tile_earns_no_served_entry() {
+        let mgr = cached_test_manager(vec![mvt_source("src", b"", Encoding::Uncompressed)]);
+        let src = DynTileSource::new(&mgr, "src", None, "", accept(Some("gzip"))).unwrap();
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert!(
+            tile.data.is_empty(),
+            "an empty tile is never encoded, so it stays a 204"
+        );
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(cache.entry_count(), 1);
     }
 
     #[rstest]

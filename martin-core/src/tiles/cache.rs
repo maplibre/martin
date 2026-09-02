@@ -1,10 +1,11 @@
-use martin_tile_utils::{Format, TileCoord};
+use martin_tile_utils::{Encoding, Format, TileCoord};
 
 use crate::cache::{CacheKey, Cacheable, ResourceCache};
 use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data, keyed by source ID, tile
-/// coordinate, query string, and `Accept`-driven output format.
+/// coordinate, query string, `Accept`-driven output format, and the
+/// `Accept-Encoding`-negotiated encoding.
 pub type TileCache = ResourceCache<TileCacheKey, Tile>;
 
 /// Optional wrapper for [`TileCache`].
@@ -27,6 +28,9 @@ pub enum TileCacheKey {
         /// Format requested via the `Accept` header
         /// `None` if absent.
         format: Option<Format>,
+        /// Encoding negotiated via the `Accept-Encoding` header.
+        /// `None` for the tile as the pre-cache pipeline produced it.
+        encoding: Option<Encoding>,
     },
 
     /// A tile exactly as its source produced it, before any post-cache processing.
@@ -46,12 +50,14 @@ impl TileCacheKey {
         xyz: TileCoord,
         query: Option<String>,
         format: Option<Format>,
+        encoding: Option<Encoding>,
     ) -> Self {
         Self::Dynamic {
             source_id: source_id.into(),
             xyz,
             query,
             format,
+            encoding,
         }
     }
 
