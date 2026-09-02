@@ -351,6 +351,6 @@ async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest()
 
     martin.stop().await;
     martin.assert_log_contains(
-        "Ignoring 5 column(s) of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB)",
+        "Ignoring 5 columns of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB). Vector tiles can only carry text, numeric and boolean properties.",
     );
 }
