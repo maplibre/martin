@@ -1429,6 +1429,10 @@
           "$ref": "#/$defs/OptBoolObj",
           "description": "Enable automatic discovery of tables and functions. \\[default: null\\]\n\nOptions:\n- `true`: run automatic discovery (`true` may be omitted if further configuration is provided)\n- `false`: disable automatic discovery\n- null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null"
         },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of this connection.\nEvery table and function without its own `cache` takes them, over the top-level `cache` bounds."
+        },
         "connection_string": {
           "description": "Database connection string.\n\nYou can use environment variables too, for example:\n`connection_string: $DATABASE_URL`\n`connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`",
           "examples": ["postgres://postgres@localhost:5432/db"],

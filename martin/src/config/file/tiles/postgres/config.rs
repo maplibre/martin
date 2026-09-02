@@ -8,8 +8,8 @@ use tilejson::TileJSON;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    ConfigurationLivecycleHooks, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -94,6 +94,14 @@ pub struct PostgresConfig {
     /// Maximum Postgres connections pool size \[default: 20\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<NonZeroUsize>,
+    /// Zoom-level bounds for caching the tiles of this connection.
+    /// Every table and function without its own `cache` takes them, over the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
     /// How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
     /// functions, update changed ones, and drop removed ones at runtime, without a restart.
     ///
@@ -166,6 +174,7 @@ impl Default for PostgresConfig {
             auto_bounds: None,
             max_feature_count: None,
             pool_size: None,
+            cache: CachePolicy::default(),
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
             tables: None,
@@ -383,6 +392,29 @@ mod tests {
             &Config {
                 postgres: One(PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
+                    auto_publish: OptBoolObj::Bool(true),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn parse_pg_cache() {
+        assert_config(
+            indoc! {"
+            postgres:
+              connection_string: 'postgresql://postgres@localhost/db'
+              cache:
+                minzoom: 1
+                maxzoom: 10
+        "},
+            &Config {
+                postgres: One(PostgresConfig {
+                    connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
+                    cache: CachePolicy::new(martin_core::CacheZoomRange::new(Some(1), Some(10))),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
                 }),

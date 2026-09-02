@@ -408,6 +408,19 @@ postgres:
       # Optionally set how source ID should be generated based on the table's name,
       # schema, and geometry column
       source_id_format: table.{schema}.{table}.{column}
+  # Zoom-level bounds for caching the tiles of this connection.
+  # Every table and function without its own `cache` takes them, over the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
   # Database connection string.
   #
   # You can use environment variables too, for example:

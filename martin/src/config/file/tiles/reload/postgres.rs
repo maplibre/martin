@@ -54,6 +54,7 @@ impl PostgresReloader {
             ProcessConfig::default()
         };
 
+        let default_cache = config.cache.or(default_cache);
         let discovery = PostgresDiscovery::new(config, id_resolver, default_cache, process);
         Self {
             driver: ReloadDriver::new(discovery, tsm),
