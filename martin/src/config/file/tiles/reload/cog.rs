@@ -6,7 +6,7 @@ use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
-use crate::config::file::{FileConfigEnum, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
@@ -21,6 +21,7 @@ impl CogReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<CogConfig>,
+        default_cache: CachePolicy,
     ) -> Self {
         // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
         // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
@@ -37,6 +38,7 @@ impl CogReloader {
             recursive,
             &["tif", "tiff"],
             id_resolver,
+            default_cache,
             &ProcessConfig::default(),
             build,
         );

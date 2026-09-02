@@ -428,3 +428,48 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_log_contains(r#"ERROR error="Source world_cities does not exist""#);
     martin.assert_startup_warnings();
 }
+
+#[tokio::test]
+async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let watched = WatchedDir::new();
+    mbtiles_fixture(watched.dir(), "world_cities").await;
+    let dir = watched.dir();
+
+    let mut bounded = Martin::builder()
+        .config(&format!(
+            "cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n",
+            dir.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(bounded.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = bounded.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    bounded.stop().await;
+
+    // The same directory without a lower bound shows what the cache would have counted.
+    let mut unbounded = Martin::builder()
+        .config(&format!("mbtiles:\n  paths: {}\n", dir.display()))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(unbounded.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = unbounded.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @r#"
+    martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
+    martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
+    "#);
+    unbounded.stop().await;
+}

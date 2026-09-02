@@ -8,6 +8,7 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body, read_b
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
+use martin::config::file::CachePolicy;
 use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
@@ -157,6 +158,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,
+        CachePolicy::default(),
         &ProcessConfig::default(),
     );
     reloader.start().expect("reloader start");
@@ -271,6 +273,7 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,
+        CachePolicy::default(),
         &ProcessConfig::default(),
     );
     reloader.start().expect("reloader start");
