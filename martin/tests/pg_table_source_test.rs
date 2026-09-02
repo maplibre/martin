@@ -29,6 +29,12 @@ async fn table_source() {
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
+    curves:
+      content_type: application/x-protobuf
+      description: public.curves.geom
+    curves_untyped:
+      content_type: application/x-protobuf
+      description: public.curves_untyped.geom
     empty_bounds:
       content_type: application/x-protobuf
       description: public.empty_bounds.geom
