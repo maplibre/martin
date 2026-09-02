@@ -429,18 +429,15 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_startup_warnings();
 }
 
-/// The `martin_tile_cache_requests_total` lines of a metrics scrape, so a test can say what the
-/// tile cache saw without pinning the rest of the scrape.
-fn tile_cache_lines(scrape: &str) -> String {
-    scrape
-        .lines()
-        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 #[tokio::test]
 async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
     let watched = WatchedDir::new();
     mbtiles_fixture(watched.dir(), "world_cities").await;
     let dir = watched.dir();
