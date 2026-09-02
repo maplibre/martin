@@ -6,17 +6,8 @@ use url::Url;
 
 use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, SourceLocation, UnrecognizedValues,
 };
-
-/// URL schemes `DuckDB` reads remotely through `read_parquet`.
-///
-/// This is deliberately not the table behind [`crate::config::file::SourceLocation`]: that list
-/// describes the object stores Martin reaches through `object_store`, so it carries Hadoop-style
-/// schemes (`s3a`, `adl`, `abfs`) `DuckDB` does not recognise while missing ones it does.
-const REMOTE_SCHEMES: &[&str] = &[
-    "http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf",
-];
 
 /// Characters that make a path segment a `DuckDB` glob rather than a file name.
 ///
@@ -38,14 +29,19 @@ pub enum GeoParquetLocation {
 impl GeoParquetLocation {
     /// Parse a config string and, for local paths, canonicalize to an existing file.
     pub fn from_config(raw: &str) -> ConfigFileResult<Self> {
-        let path = match Url::parse(raw) {
-            Ok(url) if REMOTE_SCHEMES.contains(&url.scheme()) => return Ok(Self::Remote(url)),
-            // `file://` names a local file; hand it to the local branch as a plain path so it
-            // gets a local pool instead of one that loads httpfs.
-            Ok(url) if url.scheme() == "file" => url
+        if let Some(url) = SourceLocation::parse_remote(
+            raw,
+            &[
+                "http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf",
+            ],
+        )? {
+            return Ok(Self::Remote(url));
+        }
+        let path = match SourceLocation::parse_remote(raw, &["file"])? {
+            Some(url) => url
                 .to_file_path()
                 .map_err(|()| ConfigFileError::InvalidFilePath(PathBuf::from(raw)))?,
-            _ => PathBuf::from(raw),
+            None => PathBuf::from(raw),
         };
 
         let canonical = path
@@ -226,13 +222,13 @@ mod tests {
         assert_matches!(location, GeoParquetLocation::Local(_));
     }
 
-    #[test]
-    fn from_config_rejects_schemes_duckdb_cannot_read() {
-        let error = GeoParquetLocation::from_config("ftp://example.org/data.parquet")
-            .expect_err("ftp is not a DuckDB remote scheme");
-        assert!(
-            error.to_string().contains("ftp://example.org/data.parquet"),
-            "unexpected error: {error}"
-        );
+    #[rstest]
+    #[case::unsupported_scheme("ftp://example.org/data.parquet")]
+    #[case::hadoop_scheme_duckdb_lacks("s3a://bucket/data.parquet")]
+    #[case::without_authority("s3:bucket/data.parquet")]
+    #[case::uppercase_scheme("S3://bucket/data.parquet")]
+    fn from_config_treats_anything_else_as_a_local_path(#[case] raw: &str) {
+        let error = GeoParquetLocation::from_config(raw).expect_err("not a DuckDB remote URL");
+        assert!(error.to_string().contains(raw), "unexpected error: {error}");
     }
 }

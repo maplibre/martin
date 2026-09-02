@@ -6,14 +6,6 @@ use url::Url;
 
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 
-/// Schemes served through `object_store`.
-const OBJECT_STORE_SCHEMES: &[&str] = &[
-    "s3", "s3a", "gs", "az", "adl", "azure", "abfs", "abfss", "file",
-];
-
-/// Schemes served over plain HTTP.
-const HTTP_SCHEMES: &[&str] = &["http", "https"];
-
 /// Where a configured tile source lives.
 ///
 /// Produced by [`SourceLocation::classify`], which owns the scheme table and the URL parsing
@@ -39,20 +31,39 @@ impl SourceLocation {
     /// Returns [`ConfigFileError::InvalidSourceUrl`] if the string carries a recognised remote
     /// scheme but is not a valid URL.
     pub fn classify(raw: &str) -> ConfigFileResult<Self> {
-        let Some(scheme) = raw.split_once("://").map(|(scheme, _)| scheme) else {
-            return Ok(Self::Local(PathBuf::from(raw)));
-        };
-        let is_http = HTTP_SCHEMES.contains(&scheme);
-        if !is_http && !OBJECT_STORE_SCHEMES.contains(&scheme) {
-            return Ok(Self::Local(PathBuf::from(raw)));
+        if let Some(url) = Self::parse_remote(raw, &["http", "https"])? {
+            return Ok(Self::Http(url));
         }
-        let url =
-            Url::parse(raw).map_err(|e| ConfigFileError::InvalidSourceUrl(e, raw.to_owned()))?;
-        Ok(if is_http {
-            Self::Http(url)
-        } else {
-            Self::ObjectStore(url)
-        })
+        if let Some(url) = Self::parse_remote(
+            raw,
+            &[
+                "s3", "s3a", "gs", "az", "adl", "azure", "abfs", "abfss", "file",
+            ],
+        )? {
+            return Ok(Self::ObjectStore(url));
+        }
+        Ok(Self::Local(PathBuf::from(raw)))
+    }
+
+    /// Parse `raw` as a URL if it carries one of `schemes` in `scheme://` form, and `None`
+    /// otherwise - a local path.
+    ///
+    /// Callers that reach a store through something other than `object_store` - `DuckDB`, which
+    /// knows its own set of schemes - pass their own table and get the same parsing rules.
+    ///
+    /// # Errors
+    /// Returns [`ConfigFileError::InvalidSourceUrl`] if the string carries one of `schemes` but is
+    /// not a valid URL.
+    pub fn parse_remote(raw: &str, schemes: &[&str]) -> ConfigFileResult<Option<Url>> {
+        let Some((scheme, _)) = raw.split_once("://") else {
+            return Ok(None);
+        };
+        if !schemes.contains(&scheme) {
+            return Ok(None);
+        }
+        Url::parse(raw)
+            .map(Some)
+            .map_err(|e| ConfigFileError::InvalidSourceUrl(e, raw.to_owned()))
     }
 
     /// Classify a configured source path. Paths that are not valid UTF-8 are always local.
@@ -96,7 +107,7 @@ mod tests {
     use rstest::rstest;
     use url::Url;
 
-    use super::{HTTP_SCHEMES, OBJECT_STORE_SCHEMES, SourceLocation};
+    use super::*;
 
     #[rstest]
     #[case::s3("s3")]
@@ -129,13 +140,6 @@ mod tests {
             SourceLocation::Http(raw.parse().expect("valid url"))
         );
         assert!(location.is_remote());
-    }
-
-    #[test]
-    fn the_two_scheme_sets_are_disjoint() {
-        for scheme in OBJECT_STORE_SCHEMES {
-            assert!(!HTTP_SCHEMES.contains(scheme), "{scheme}");
-        }
     }
 
     #[rstest]
@@ -192,6 +196,21 @@ mod tests {
             location.into_url().map(|url| url.to_string()),
             Some("s3://bucket/tiles.pmtiles".to_owned())
         );
+    }
+
+    #[rstest]
+    #[case::in_the_table(
+        "hf://datasets/org/set/data.parquet",
+        Some("hf://datasets/org/set/data.parquet")
+    )]
+    #[case::not_in_the_table("s3://bucket/data.parquet", None)]
+    #[case::without_authority("hf:datasets/org/set/data.parquet", None)]
+    fn a_caller_table_parses_the_schemes_it_lists_and_no_others(
+        #[case] raw: &str,
+        #[case] expected: Option<&str>,
+    ) {
+        let url = SourceLocation::parse_remote(raw, &["hf"]).expect("parsing should succeed");
+        assert_eq!(url.as_ref().map(Url::as_str), expected);
     }
 
     #[test]
