@@ -727,11 +727,11 @@ postgres:
     let metrics = unbounded.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);
     let tile_cache_lines = metrics
-            .text()
-            .lines()
-            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
-            .collect::<Vec<_>>()
-            .join("\n");
+        .text()
+        .lines()
+        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+        .collect::<Vec<_>>()
+        .join("\n");
     insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
     bounded.stop().await;
     assert_discovery_warnings(&mut bounded);
@@ -758,11 +758,11 @@ postgres:
     let metrics = unbounded.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);
     let tile_cache_lines = metrics
-            .text()
-            .lines()
-            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
-            .collect::<Vec<_>>()
-            .join("\n");
+        .text()
+        .lines()
+        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+        .collect::<Vec<_>>()
+        .join("\n");
     insta::assert_snapshot!(tile_cache_lines, @r#"
     martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
     martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
