@@ -22,6 +22,47 @@ pub enum FontError {
         max: usize,
     },
 
+    /// A font alias name is empty or contains a comma.
+    #[error(
+        "Font alias {0:?} is invalid: alias names must be non-empty and must not contain commas"
+    )]
+    InvalidAliasName(String),
+
+    /// A font alias does not reference any fonts.
+    #[error("Font alias {0:?} does not reference any fonts")]
+    EmptyAlias(String),
+
+    /// A font alias references more fonts than a single request may use.
+    #[error("Font alias {alias:?} references {requested} fonts, but at most {max} are allowed")]
+    TooManyFontsInAlias {
+        /// Alias name.
+        alias: String,
+        /// Referenced font count.
+        requested: usize,
+        /// Allowed maximum.
+        max: usize,
+    },
+
+    /// A font alias references another alias instead of a font.
+    #[error(
+        "Font alias {alias:?} references {font:?}, which is itself an alias; aliases may only reference fonts"
+    )]
+    AliasWithinAlias {
+        /// Alias name.
+        alias: String,
+        /// The referenced alias.
+        font: String,
+    },
+
+    /// A font alias references a font that was not discovered.
+    #[error("Font alias {alias:?} references unknown font {font:?}")]
+    AliasFontNotFound {
+        /// Alias name.
+        alias: String,
+        /// The referenced font.
+        font: String,
+    },
+
     /// The font range start value is greater than the end value.
     #[error("Font range start ({start}) must be <= end ({end})")]
     InvalidFontRangeStartEnd {
@@ -85,7 +126,12 @@ impl crate::Classify for FontError {
             | Self::InvalidFontRangeStartEnd { .. }
             | Self::InvalidFontRangeStart(_)
             | Self::InvalidFontRangeEnd(_)
-            | Self::InvalidFontRange(_, _) => InvalidInput,
+            | Self::InvalidFontRange(_, _)
+            | Self::InvalidAliasName(_)
+            | Self::EmptyAlias(_)
+            | Self::TooManyFontsInAlias { .. }
+            | Self::AliasWithinAlias { .. }
+            | Self::AliasFontNotFound { .. } => InvalidInput,
             Self::FreeType(_)
             | Self::IoError(..)
             | Self::InvalidFontFilePath(_)

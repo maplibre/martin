@@ -503,6 +503,16 @@
     },
     "FileConfig6": {
       "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Named font stacks.\n\nEach alias can be requested like a font and serves the listed fonts combined, in fallback order.\nAliases may only reference discovered fonts, not other aliases.\nAn alias sharing the name of a discovered font takes precedence over it.",
+          "type": "object"
+        },
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for fonts.\nUse `cache: disable` to disable font caching."

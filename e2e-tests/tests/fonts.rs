@@ -1,6 +1,6 @@
 //! Font glyph ranges rendered from `.ttf`/`.otf` files.
 
-use martin_e2e_tests::{Martin, TestResponse, fixture};
+use martin_e2e_tests::{Martin, StartError, TestResponse, fixture};
 use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs};
 use rstest::rstest;
@@ -321,4 +321,109 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
         "Ignoring duplicate font: already configured from another path font.name=Overpass Mono Regular",
     );
     martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn an_alias_serves_the_fonts_it_combines() {
+    let mut martin = Martin::builder()
+        .config(
+            "
+fonts:
+  paths: tests/fixtures/fonts
+  aliases:
+    Overpass Mono: [Overpass Mono Regular, Overpass Mono Light]
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["fonts"], @r#"
+    {
+      "Overpass Mono": {
+        "end": 128276,
+        "family": "Overpass Mono",
+        "glyphs": 934,
+        "start": 0
+      },
+      "Overpass Mono Light": {
+        "end": 128276,
+        "family": "Overpass Mono",
+        "format": "otf",
+        "glyphs": 988,
+        "start": 0,
+        "style": "Light"
+      },
+      "Overpass Mono Regular": {
+        "end": 128276,
+        "family": "Overpass Mono",
+        "format": "ttf",
+        "glyphs": 988,
+        "start": 0,
+        "style": "Regular"
+      }
+    }
+    "#);
+
+    let aliased = martin.get("/font/Overpass%20Mono/0-255").await;
+    assert_eq!(aliased.status(), 200);
+    let explicit = martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await;
+    assert_eq!(aliased.body(), explicit.body());
+    let stack = fontstack(&aliased);
+    assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
+
+    martin.stop().await;
+    martin.assert_log_contains("Configured font alias");
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn an_alias_may_shadow_the_font_it_extends() {
+    let mut martin = Martin::builder()
+        .config(
+            "
+fonts:
+  paths: tests/fixtures/fonts
+  aliases:
+    Overpass Mono Regular: [Overpass Mono Regular, Overpass Mono Light]
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
+    assert_eq!(response.status(), 200);
+    let stack = fontstack(&response);
+    assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Font alias shadows a font of the same name; requests for it will serve the alias",
+    );
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn an_alias_naming_an_unknown_font_fails_startup() {
+    let error = Martin::builder()
+        .config(
+            "
+fonts:
+  paths: tests/fixtures/fonts
+  aliases:
+    Overpass Mono: [Overpass Mono Regular, Nonexistent]
+",
+        )
+        .start()
+        .await
+        .expect_err("martin must reject an alias naming an unknown font");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains(r#"Font alias "Overpass Mono" references unknown font "Nonexistent""#),
+        "log must name the alias and the missing font; log:\n{log}"
+    );
 }

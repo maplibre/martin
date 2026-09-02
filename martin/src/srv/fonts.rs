@@ -56,9 +56,12 @@ pub async fn get_font(
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
     let result = if let Some(cache) = cache.as_ref() {
+        // Key the cache by the fonts the request resolves to, not by the alias,
+        // so invalidating a font also evicts entries reached through an alias.
+        let expanded_ids = fonts.expand_font_ids(&path.fontstack);
         cache
             .get_or_insert(
-                FontCacheKey::new(normalize_font_ids(&path.fontstack), path.start, path.end),
+                FontCacheKey::new(normalize_font_ids(&expanded_ids), path.start, path.end),
                 async || fonts.get_font_range(&path.fontstack, path.start, path.end),
             )
             .await
