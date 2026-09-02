@@ -2,6 +2,8 @@
 
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
+use martin::config::file::parse_config;
+use martin::config::primitives::env::{Env as _, FauxEnv};
 use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
@@ -385,12 +387,12 @@ async fn tables_tile_grid_must_be_configured() {
               geometry_column: geom
               tile_grid: NZTM2000quad
     "};
-    let env: martin::config::primitives::env::FauxEnv = std::env::var("DATABASE_URL")
+    let env: FauxEnv = std::env::var("DATABASE_URL")
         .map(|url| vec![("DATABASE_URL", url.into())].into_iter().collect())
         .unwrap_or_default();
-    let mut cfg = martin::config::file::parse_config(
+    let mut cfg = parse_config(
         yaml,
-        &martin::config::primitives::env::Env::as_property_map(&env),
+        &env.as_property_map(),
         std::path::Path::new("test.yaml"),
     )
     .expect("config parses");
@@ -400,7 +402,7 @@ async fn tables_tile_grid_must_be_configured() {
         .expect_err("an unknown tile grid is a config error");
     assert_eq!(
         err.to_string(),
-        "Table source nz_points refers to tile grid NZTM2000quad, which is not configured. Known grids: NZTM2000Quad, WebMercatorQuad"
+        "Table source nz_points refers to tile grid NZTM2000quad, which is not configured. Known grids: NZTM2000Quad, WebMercatorQuad, WorldCRS84Quad"
     );
 }
 

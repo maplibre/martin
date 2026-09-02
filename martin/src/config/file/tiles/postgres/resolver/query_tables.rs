@@ -138,7 +138,16 @@ pub async fn table_to_query(
 ) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
     let srid = info.srid;
 
-    if info.bounds.is_none() {
+    if info.bounds.is_none() && grid.grid().is_simple() {
+        // plain planar units have no place in WGS84 bounds
+        debug!(
+            "Not computing the bounds of {id}: tile grid {} is not geographic",
+            grid.grid().id()
+        );
+    } else if info.bounds.is_none()
+        && bounds_type != BoundsCalcType::Skip
+        && transforms_to_wgs84(&pool, &info, srid).await?
+    {
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
@@ -350,9 +359,16 @@ fn grid_sql(
     let [x0, y0] = grid.grid().origin();
     let extent_at_zoom0 = grid.grid().extent_at_zoom0();
     // the zoom-0 square, spelled with the configured numbers so the query reads like the config
-    let envelope = format!(
-        "ST_TileEnvelope({TILE}, ST_MakeEnvelope({x0}, {y0} - {extent_at_zoom0}, {x0} + {extent_at_zoom0}, {y0}, {grid_srid}))"
-    );
+    let envelope = if grid.grid().matrix_at_zoom0() == [1, 1] {
+        format!(
+            "ST_TileEnvelope({TILE}, ST_MakeEnvelope({x0}, {y0} - {extent_at_zoom0}, {x0} + {extent_at_zoom0}, {y0}, {grid_srid}))"
+        )
+    } else {
+        // two tiles at zoom 0 are one zoom level of a square twice the size, anchored at the same corner
+        format!(
+            "ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope({x0}, {y0} - 2 * {extent_at_zoom0}, {x0} + 2 * {extent_at_zoom0}, {y0}, {grid_srid}))"
+        )
+    };
     let geometry = if table_srid == grid_srid {
         geometry.to_owned()
     } else {
@@ -439,7 +455,7 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
 
     let geometry_column = escape_identifier(&info.geometry_column);
     let filter = row_filter(info, "WHERE")?;
-    let bounds = cn
+    Ok(cn
         .query_one(
             &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table}{filter})
@@ -454,27 +470,46 @@ SELECT ST_Transform(
 FROM {schema}.{table}{filter};"),
             &[],
         )
-        .await;
-    let row = match bounds {
-        Ok(row) => row,
-        Err(e) => {
-            // A CRS from another authority, such as a planetary one, need not map onto WGS84 at all.
-            // That table can still be served, it just cannot advertise TileJSON bounds.
-            // The connection goes back first: on a pool of one, holding it would deadlock the lookup.
-            drop(cn);
-            if let Some(authority) = non_epsg_authority(pool, srid).await {
-                warn!(
-                    "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them.",
-                    info.format_id()
-                );
-                return Ok(None);
-            }
-            return Err(PostgresError(e, "querying table bounds"));
-        }
-    };
-    Ok(row
+        .await
+        .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")
         .and_then(|p| polygon_to_bbox(&p)))
+}
+
+/// Whether `PostGIS` can transform `srid` into WGS84, which `TileJSON` bounds are expressed in.
+///
+/// EPSG systems always can. A CRS from another authority, such as a planetary one, need not map onto WGS84 at all.
+/// That table can still be served, it just cannot advertise bounds, and the warning says so.
+/// The probe transforms an empty geometry, so the answer never waits on a table scan or a bounds timeout.
+/// A failed projection leaves `PostGIS` state behind that breaks later transforms on the same connection,
+/// so that connection is closed instead of being returned to the pool.
+async fn transforms_to_wgs84(
+    pool: &PostgresPool,
+    info: &TableInfo,
+    srid: i32,
+) -> PostgresResult<bool> {
+    let Some(authority) = non_epsg_authority(pool, srid).await else {
+        return Ok(true);
+    };
+    let cn = pool.get().await?;
+    let probe = cn
+        .query_one(
+            "SELECT ST_Transform(ST_GeomFromText('POINT EMPTY', $1), 4326)",
+            &[&srid],
+        )
+        .await;
+    let Err(e) = probe else {
+        return Ok(true);
+    };
+    PostgresPool::discard(cn);
+    let reason = e
+        .as_db_error()
+        .map_or_else(|| e.to_string(), |db| db.message().to_owned());
+    warn!(
+        "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84 ({reason}). Set bounds in the config to advertise them.",
+        info.format_id()
+    );
+    Ok(false)
 }
 
 /// The `AUTHORITY:CODE` of `srid` when `spatial_ref_sys` knows it under an authority other than EPSG.
@@ -615,6 +650,36 @@ mod tests {
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_Transform(ST_CurveToLine("geom"::geometry), 2193)"#);
         insta::assert_snapshot!(sql.bbox_search, @"ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 4326)");
+    }
+
+    #[test]
+    fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
+        let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
+        let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, true);
+        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326))");
+        insta::assert_snapshot!(sql.bbox_search, @"ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer)");
+    }
+
+    #[test]
+    fn a_simple_grid_needs_no_transform_at_all() {
+        let plan = TileGrid::new(
+            "floor",
+            martin_tile_utils::SIMPLE_CRS,
+            [0.0, 1000.0],
+            1000.0,
+        )
+        .unwrap();
+        let sql = grid_sql(
+            &PgTileGrid::new(plan, 0),
+            0,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            0,
+            0.0,
+            true,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
+        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
+        insta::assert_snapshot!(sql.bbox_search, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
     }
 
     #[test]

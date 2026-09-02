@@ -113,6 +113,20 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    floor_plan:
+      schema: public
+      table: floor_plan
+      srid: 900913
+      geometry_column: geom
+      bounds:
+      - 0.0010779783
+      - 0.0013565542
+      - 0.0062882069
+      - 0.0081393252
+      geometry_type: POINT
+      properties:
+        gid: int4
+        room: text
     linestring_bounds:
       schema: public
       table: linestring_bounds

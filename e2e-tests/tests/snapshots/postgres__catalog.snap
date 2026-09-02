@@ -39,6 +39,10 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.empty_bounds.geom"
   },
+  "floor_plan": {
+    "content_type": "application/x-protobuf",
+    "description": "public.floor_plan.geom"
+  },
   "function_Mixed_Name": {
     "content_type": "application/x-protobuf",
     "description": "a function source with MixedCase name"

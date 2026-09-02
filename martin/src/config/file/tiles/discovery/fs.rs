@@ -7,14 +7,16 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::{BoxedSource, DeclaredGridSource};
+use martin_tile_utils::TileGrid;
 use tokio::fs::{self, DirEntry};
 
+use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
-    SourceBuildResult, TileSourceWarning, subdirectories,
+    SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::{FileKind, SourceProvenance};
@@ -41,6 +43,8 @@ struct ConfiguredSource {
     /// Per-source `convert_to_*` / `cache_control` override layered over the kind level.
     /// Resolved when the source is built so a bad parameter fails that source alone.
     process: Option<ProcessConfig>,
+    /// The grid the config declares the source to be on, when it is not Web Mercator.
+    grid: Option<TileGrid>,
     /// The entry as configured, preserved verbatim for `--save-config`.
     src: FileConfigSrc,
 }
@@ -70,6 +74,7 @@ pub struct FsDiscovery {
 impl FsDiscovery {
     /// Collects the local watch directories and per-path config entries.
     /// Remote URLs are skipped.
+    /// `tile_grids` is `None` for kinds that only produce Web Mercator tiles.
     #[expect(
         clippy::too_many_arguments,
         reason = "one call per file kind, and every argument is a distinct kind-level input"
@@ -83,6 +88,7 @@ impl FsDiscovery {
         default_cache: CachePolicy,
         process: &ProcessConfig,
         build: FsSourceBuilder,
+        tile_grids: Option<&TileGrids>,
     ) -> Self {
         let mut directories: Vec<PathBuf> = vec![];
         let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
@@ -100,11 +106,14 @@ impl FsDiscovery {
                     tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
                     continue;
                 };
+                // finalize() already rejected unknown names, so a miss here only means "no grid"
+                let grid = declared_tile_grid(id, src, tile_grids).ok().flatten();
                 configured.insert(
                     canonical,
                     ConfiguredSource {
                         policy: src.cache_zoom().or(default_cache),
                         process: per_source_process(process, src),
+                        grid,
                         src: src.clone(),
                     },
                 );
@@ -292,9 +301,12 @@ impl Discovery for FsDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
-        let process = self
-            .configured
-            .get(&args.0)
+        let configured = self.configured.get(&args.0);
+        let source = match configured.and_then(|cfg| cfg.grid.as_ref()) {
+            Some(grid) => Box::new(DeclaredGridSource::new(source, grid.clone())),
+            None => source,
+        };
+        let process = configured
             .and_then(|cfg| cfg.process.as_ref())
             .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
             .transpose()?;
@@ -529,6 +541,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let snapshot = discovery.discover().await.expect("discover").sources;
@@ -562,6 +575,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
         let mut ids: Vec<String> = recursive
             .discover()
@@ -582,6 +596,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
         let ids: Vec<String> = flat
             .discover()
@@ -613,6 +628,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Warn);
         ReloadDriver::new(discovery, catalog.clone())
@@ -641,6 +657,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Abort);
         let error = ReloadDriver::new(discovery, catalog)
@@ -690,6 +707,7 @@ mod tests {
                     #[cfg(all(feature = "contour", feature = "_tiles"))]
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
+                    tile_grid: None,
                 })),
             )])),
             ..FileConfig::<()>::default()
@@ -703,6 +721,7 @@ mod tests {
             CachePolicy::new(CacheZoomRange::new(Some(1), Some(10))),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let snapshot = discovery.discover().await.expect("discover").sources;
@@ -733,6 +752,7 @@ mod tests {
                 (
                     "overridden".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: overridden.clone(),
                         convert_to_mlt: Some(AutoOption::Disabled),
                         convert_to_mvt: None,
@@ -764,6 +784,7 @@ mod tests {
             CachePolicy::default(),
             &kind_level,
             unreachable_builder(),
+            None,
         );
 
         let configured = |path: &PathBuf| {
@@ -795,6 +816,7 @@ mod tests {
             sources: Some(BTreeMap::from([(
                 "pinned".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
+                    tile_grid: None,
                     path: pinned.clone(),
                     #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     convert_to_mlt: None,
@@ -821,6 +843,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let canonical = pinned.canonicalize().expect("canonicalize");
@@ -857,6 +880,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o755))
             .expect("restore permissions");
@@ -896,6 +920,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let canonical = dir

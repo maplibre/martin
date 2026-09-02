@@ -3,7 +3,7 @@ use futures::future::try_join_all;
 
 use crate::StartupResult;
 use crate::config::file::Config;
-#[cfg(feature = "postgres")]
+#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
 use crate::config::file::process::ProcessConfig;
@@ -50,6 +50,9 @@ impl TileReloaders {
             pc
         };
 
+        #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
+        let tile_grids = TileGrids::resolve(&config.tile_grids)?;
+
         #[cfg(feature = "mbtiles")]
         let mut mbtiles = super::mbtiles::MbtilesReloader::new(
             catalog.clone(),
@@ -57,6 +60,7 @@ impl TileReloaders {
             &config.mbtiles,
             config.cache.policy(),
             &global_process,
+            &tile_grids,
         );
         #[cfg(feature = "unstable-cog")]
         let mut cog = super::cog::CogReloader::new(
@@ -79,6 +83,7 @@ impl TileReloaders {
             &config.pmtiles,
             config.cache.policy(),
             &global_process,
+            &tile_grids,
         );
         #[cfg(feature = "mbtiles")]
         {
@@ -103,7 +108,6 @@ impl TileReloaders {
 
         #[cfg(feature = "postgres")]
         let postgres = {
-            let tile_grids = TileGrids::resolve(&config.tile_grids)?;
             let mut reloaders: Vec<_> = config
                 .postgres
                 .iter()

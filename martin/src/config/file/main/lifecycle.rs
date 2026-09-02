@@ -105,7 +105,15 @@ impl Config {
             for pg in self.postgres.iter() {
                 pg.check_tile_grids(&tile_grids)?;
             }
-            #[cfg(not(feature = "postgres"))]
+            #[cfg(feature = "mbtiles")]
+            TileGrids::check_file_sources(&self.mbtiles, Some(&tile_grids))?;
+            #[cfg(feature = "pmtiles")]
+            TileGrids::check_file_sources(&self.pmtiles, Some(&tile_grids))?;
+            #[cfg(feature = "unstable-cog")]
+            TileGrids::check_file_sources(&self.cog, None)?;
+            #[cfg(feature = "geojson")]
+            TileGrids::check_file_sources(&self.geojson, None)?;
+            #[cfg(not(any(feature = "postgres", feature = "mbtiles", feature = "pmtiles")))]
             let _ = tile_grids;
         }
 
@@ -405,6 +413,8 @@ impl Config {
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+        #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+        let tile_grids = TileGrids::resolve(&self.tile_grids)?;
         #[cfg_attr(
             not(any(
                 feature = "pmtiles",
@@ -430,14 +440,26 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = resolve_files(cfg, idr, &["pmtiles"], self.cache.policy());
+            let val = resolve_files(
+                cfg,
+                idr,
+                &["pmtiles"],
+                self.cache.policy(),
+                Some(&tile_grids),
+            );
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = resolve_files(cfg, idr, &["mbtiles"], self.cache.policy());
+            let val = resolve_files(
+                cfg,
+                idr,
+                &["mbtiles"],
+                self.cache.policy(),
+                Some(&tile_grids),
+            );
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -450,7 +472,7 @@ impl Config {
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy());
+            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy(), None);
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -463,7 +485,7 @@ impl Config {
         #[cfg(feature = "geojson")]
         if !self.geojson.is_empty() {
             let cfg = &mut self.geojson;
-            let val = resolve_files(cfg, idr, &["json", "geojson"], self.cache.policy());
+            let val = resolve_files(cfg, idr, &["json", "geojson"], self.cache.policy(), None);
             sources_and_warnings.push(Box::pin(val));
         }
 

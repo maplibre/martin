@@ -180,6 +180,7 @@ mod tests {
                 (
                     "pm-src2".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
@@ -200,6 +201,7 @@ mod tests {
                 (
                     "pm-src4".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,

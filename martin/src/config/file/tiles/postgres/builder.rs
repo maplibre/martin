@@ -85,6 +85,10 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
     if grid.is_web_mercator() {
         return Ok(PgTileGrid::web_mercator());
     }
+    if grid.is_simple() {
+        // plain planar units are PostGIS's "unknown" SRID, and never contain a pole
+        return Ok(PgTileGrid::new(grid.clone(), 0));
+    }
     let code: i32 = grid.crs_code().parse().map_err(|_not_an_integer| {
         ConfigFileError::TileGridCrsCodeNotNumeric {
             grid: grid.id().to_owned(),
@@ -131,8 +135,7 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
 /// Answered by the database, which knows the projection.
 /// Any failure counts as "no", since this only feeds a warning.
 async fn pole_inside(pool: &PostgresPool, grid: &PgTileGrid) -> bool {
-    let [x0, y0] = grid.grid().origin();
-    let extent = grid.grid().extent_at_zoom0();
+    let [min_x, min_y, max_x, max_y] = grid.grid().bounds();
     let srid = grid.srid();
     let sql = "
 SELECT ST_Contains(env, ST_Transform(ST_SetSRID(ST_MakePoint(0, 90), 4326), $5::integer))
@@ -142,7 +145,7 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
         return false;
     };
     match conn
-        .query_one(sql, &[&x0, &(y0 - extent), &(x0 + extent), &y0, &srid])
+        .query_one(sql, &[&min_x, &min_y, &max_x, &max_y, &srid])
         .await
     {
         Ok(row) => row.get::<_, Option<bool>>(0).unwrap_or(false),
@@ -151,6 +154,8 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
                 tile_grid = grid.grid().id(),
                 "Could not check whether a pole lies inside the grid: {e}"
             );
+            // a failed projection leaves PostGIS state behind that breaks later transforms on this connection
+            PostgresPool::discard(conn);
             false
         }
     }
@@ -533,8 +538,18 @@ impl PostgresAutoDiscoveryBuilder {
             "geometry column",
             id,
         )?;
+        // a table on a simple grid stores plain planar coordinates, which is PostGIS's SRID 0
+        let default_srid = if self
+            .tile_grid_for(table_info_from_config.tile_grid.as_deref())
+            .grid()
+            .is_simple()
+        {
+            Some(0)
+        } else {
+            self.default_srid
+        };
         let merged_table_info = table_info_for_geometry_column
-            .append_cfg_info(table_info_from_config, id, self.default_srid)
+            .append_cfg_info(table_info_from_config, id, default_srid)
             .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
         Ok(merged_table_info)
     }

@@ -128,6 +128,12 @@ pub enum ConfigFileError {
     InvalidTileGrid(#[from] martin_tile_utils::TileGridError),
 
     #[cfg(feature = "_tiles")]
+    #[error(
+        "{what} names a tile grid, but only PostgreSQL, MBTiles and PMTiles sources can be served on one"
+    )]
+    TileGridNotSupported { what: String },
+
+    #[cfg(feature = "_tiles")]
     #[error("{what} refers to tile grid {grid}, which is not configured. Known grids: {known}")]
     UnknownTileGrid {
         what: String,
@@ -340,6 +346,8 @@ impl Diagnostic for ConfigFileError {
             Self::InvalidTileGrid(_) => "martin::config::tile_grids::invalid",
             #[cfg(feature = "_tiles")]
             Self::UnknownTileGrid { .. } => "martin::config::tile_grids::unknown",
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => "martin::config::tile_grids::unsupported_kind",
             #[cfg(feature = "postgres")]
             Self::TileGridCrsCodeNotNumeric { .. } => "martin::config::tile_grids::crs_code",
             #[cfg(feature = "postgres")]
@@ -412,7 +420,11 @@ impl Diagnostic for ConfigFileError {
             }
             #[cfg(feature = "_tiles")]
             Self::UnknownTileGrid { .. } => {
-                "A `tile_grid` must name a grid defined under the top-level `tile_grids`, or `WebMercatorQuad`."
+                "A `tile_grid` must name a grid defined under the top-level `tile_grids`, or a built-in one."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => {
+                "COG, GeoJSON and DuckDB sources produce Web Mercator tiles. Remove the `tile_grid` from this source."
             }
             #[cfg(feature = "postgres")]
             Self::TileGridCrsCodeNotNumeric { .. } => {

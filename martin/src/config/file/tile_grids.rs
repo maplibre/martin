@@ -2,11 +2,14 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID};
+use martin_tile_utils::{
+    TileGrid, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID,
+};
 use serde::{Deserialize, Serialize};
 
+use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, FileConfigEnum, UnrecognizedValues,
 };
 
 /// The configured grids by name, as written in the config file.
@@ -39,22 +42,28 @@ pub struct TileGridConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &10_018_754.171_4))]
     pub extent_at_zoom0: f64,
 
+    /// How many tile `[columns, rows]` zoom 0 has \[default: `[1, 1]`\]
+    ///
+    /// `[2, 1]` for grids like `WorldCRS84Quad` and most planetary geographic grids, `[1, 2]` for the OGC UTM quads.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &[2u32, 1u32]))]
+    pub matrix_at_zoom0: Option<[u32; 2]>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
-/// Every grid a source can be served in, the built-in [`WEB_MERCATOR_QUAD`] plus the configured ones.
+/// Every grid a source can be served in, the built-in [`WEB_MERCATOR_QUAD`] and [`WORLD_CRS84_QUAD`] plus the configured ones.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TileGrids(HashMap<String, TileGrid>);
 
 impl Default for TileGrids {
-    /// Just the built-in Web Mercator grid.
+    /// Just the built-in grids.
     fn default() -> Self {
-        Self(HashMap::from([(
-            WEB_MERCATOR_QUAD_ID.to_owned(),
-            WEB_MERCATOR_QUAD,
-        )]))
+        Self(HashMap::from([
+            (WEB_MERCATOR_QUAD_ID.to_owned(), WEB_MERCATOR_QUAD),
+            (WORLD_CRS84_QUAD_ID.to_owned(), WORLD_CRS84_QUAD),
+        ]))
     }
 }
 
@@ -63,15 +72,18 @@ impl TileGrids {
     pub fn resolve(config: &TileGridsConfig) -> ConfigFileResult<Self> {
         let mut grids = Self::default();
         for (name, cfg) in config {
-            if name == WEB_MERCATOR_QUAD_ID {
+            if grids.0.contains_key(name) {
                 return Err(ConfigFileError::TileGridRedefinesBuiltIn(name.clone()));
             }
-            let grid = TileGrid::new(
+            let mut grid = TileGrid::new(
                 name.clone(),
                 cfg.crs.clone(),
                 cfg.origin,
                 cfg.extent_at_zoom0,
             )?;
+            if let Some(matrix) = cfg.matrix_at_zoom0 {
+                grid = grid.with_matrix_at_zoom0(matrix)?;
+            }
             grids.0.insert(name.clone(), grid);
         }
         Ok(grids)
@@ -81,6 +93,22 @@ impl TileGrids {
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&TileGrid> {
         self.0.get(name)
+    }
+
+    /// Errors if a source of a file-backed kind declares a grid it cannot have.
+    ///
+    /// Kinds that only produce Web Mercator tiles pass `None` for `grids`, which turns any declaration into an error.
+    pub fn check_file_sources<T>(
+        config: &FileConfigEnum<T>,
+        grids: Option<&Self>,
+    ) -> ConfigFileResult<()> {
+        let FileConfigEnum::Config(cfg) = config else {
+            return Ok(());
+        };
+        for (id, source) in cfg.sources.iter().flatten() {
+            declared_tile_grid(id, source, grids)?;
+        }
+        Ok(())
     }
 
     /// Every grid name, sorted.
@@ -110,11 +138,37 @@ NZTM2000Quad:
     }
 
     #[test]
-    fn web_mercator_is_always_there() {
+    fn the_built_in_grids_are_always_there() {
         let grids = TileGrids::resolve(&TileGridsConfig::new()).unwrap();
         assert!(grids.get(WEB_MERCATOR_QUAD_ID).unwrap().is_web_mercator());
-        assert_eq!(grids.names(), vec![WEB_MERCATOR_QUAD_ID]);
+        assert_eq!(
+            grids.get(WORLD_CRS84_QUAD_ID).unwrap().matrix_at_zoom0(),
+            [2, 1]
+        );
+        assert_eq!(
+            grids.names(),
+            vec![WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD_ID]
+        );
         assert_eq!(grids, TileGrids::default());
+    }
+
+    #[test]
+    fn a_configured_matrix_is_applied() {
+        let config: TileGridsConfig = serde_saphyr::from_str(
+            "
+MarsGeographic:
+  crs: IAU_2015:49900
+  origin: [-180, 90]
+  extent_at_zoom0: 180
+  matrix_at_zoom0: [2, 1]
+",
+        )
+        .unwrap();
+        let grids = TileGrids::resolve(&config).unwrap();
+        assert_eq!(
+            grids.get("MarsGeographic").unwrap().matrix_at_zoom0(),
+            [2, 1]
+        );
     }
 
     #[test]
@@ -126,7 +180,10 @@ NZTM2000Quad:
             grid.origin().map(f64::to_bits),
             [-3_260_586.728_4_f64, 10_438_190.165_2_f64].map(f64::to_bits)
         );
-        assert_eq!(grids.names(), vec!["NZTM2000Quad", WEB_MERCATOR_QUAD_ID]);
+        assert_eq!(
+            grids.names(),
+            vec!["NZTM2000Quad", WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD_ID]
+        );
         assert!(grids.get("nope").is_none());
     }
 
