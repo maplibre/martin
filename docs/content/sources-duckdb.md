@@ -106,8 +106,7 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
     SRID auto-detection supports EPSG codes and `OGC:CRS84` only.
     If the file has more than one geometry column, set `geometry_column` explicitly.
 
-!!! note
-    Vector tiles can only carry text, numeric and boolean properties.
+!!! warning "Vector tiles can only carry text, numeric and boolean properties"
     Martin casts every other scalar column - dates, timestamps, `DECIMAL`, `UUID`, `ENUM`, and small or unsigned integers - to the nearest type MVT supports.
     Columns with no MVT representation at all, such as `STRUCT`, `LIST`, `MAP` and `BLOB`, are dropped and named in a startup warning.
     The TileJSON `vector_layers[].fields` reports the type each property is served as, not the type it has on disk.
