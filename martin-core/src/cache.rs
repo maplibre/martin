@@ -98,6 +98,17 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         Ok(entry.into_value())
     }
 
+    /// Reads a cached value without computing one on a miss.
+    /// Records no hit or miss, that is left to the caller.
+    pub async fn get(&self, key: &K) -> Option<V> {
+        self.inner.get(key).await
+    }
+
+    /// Stores a value, replacing any entry under `key`.
+    pub async fn insert(&self, key: K, value: V) {
+        self.inner.insert(key, value).await;
+    }
+
     /// Invalidates entries whose key matches `source_id`.
     /// Eviction is asynchronous.
     /// Flush the cache via [`Self::run_pending_tasks`].
