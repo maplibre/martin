@@ -2039,6 +2039,12 @@ DuckDB sources can be combined with other sources via <a href="../sources-compos
 <p>SRID auto-detection supports EPSG codes and <code>OGC:CRS84</code> only.
 If the file has more than one geometry column, set <code>geometry_column</code> explicitly.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Vector tiles can only carry text, numeric and boolean properties</p>
+<p>Martin casts every other scalar column - dates, timestamps, <code>DECIMAL</code>, <code>UUID</code>, <code>ENUM</code>, and small or unsigned integers - to the nearest type MVT supports.
+Columns with no MVT representation at all, such as <code>STRUCT</code>, <code>LIST</code>, <code>MAP</code> and <code>BLOB</code>, are dropped and named in a startup warning.
+The TileJSON <code>vector_layers[].fields</code> reports the type each property is served as, not the type it has on disk.</p>
+</div>
 <h2 id="database-sources">Database sources</h2>
 <p>A <code>database:</code> entry names a DuckDB database file.
 The configuration parser accepts the <code>auto_publish</code>, <code>tables</code>, and <code>macros</code> blocks shown below, but does not interpret them yet.
