@@ -911,6 +911,7 @@ mod tests {
             use_url_query: false,
             empty_tile_implies_empty_children: false,
             signature: "public.my_func(integer, integer, integer) -> bytea",
+            has_etag_column: false,
         }
         "#);
 

@@ -358,6 +358,28 @@ async fn every_function_calling_convention_serves_the_same_tile() {
 }
 
 #[tokio::test]
+async fn a_function_returning_a_key_column_serves_it_as_the_etag() {
+    let mut martin = martin_with_postgres().await;
+
+    let response = martin.get("/function_zxy_row_key/6/57/29").await;
+    assert_eq!(response.status(), 200);
+    // the function's `key` column, `md5(mvt)`, not a hash Martin computed
+    let etag = response
+        .header("etag")
+        .expect("a keyed function tile must carry an etag")
+        .to_owned();
+    insta::assert_snapshot!(etag, @r#""2cab831e0c201dcbd5f081954ab45562""#);
+
+    let cached = martin
+        .get_with_headers("/function_zxy_row_key/6/57/29", &[("if-none-match", &etag)])
+        .await;
+    assert_eq!(cached.status(), 304);
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
 async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
     let mut martin = martin_with_postgres().await;
 

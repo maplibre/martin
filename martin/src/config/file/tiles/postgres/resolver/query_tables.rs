@@ -260,6 +260,7 @@ FROM (
             // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
             true,
             info.format_id(),
+            false,
         ),
         info,
     ))

@@ -214,6 +214,7 @@ mod tests {
             false,
             false,
             "public.tiles(integer,integer,integer)".to_owned(),
+            false,
         );
         (info, sql)
     }
