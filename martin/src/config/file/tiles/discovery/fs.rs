@@ -55,6 +55,8 @@ pub struct FsDiscovery {
     /// Canonical path -> configured entry for explicitly-configured sources.
     configured: BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: IdResolver,
+    /// The kind level cache bounds, for every source without its own.
+    default_cache: CachePolicy,
     /// The kind level, resolved once for every source without its own override.
     process: ResolvedProcess,
     build: FsSourceBuilder,
@@ -65,12 +67,17 @@ pub struct FsDiscovery {
 impl FsDiscovery {
     /// Collects the local watch directories and per-path config entries.
     /// Remote URLs are skipped.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call per file kind, and every argument is a distinct kind-level input"
+    )]
     pub fn from_config<C>(
         kind: FileKind,
         config: &FileConfigEnum<C>,
         recursive: bool,
         extensions: &'static [&'static str],
         id_resolver: IdResolver,
+        default_cache: CachePolicy,
         process: &ProcessConfig,
         build: FsSourceBuilder,
     ) -> Self {
@@ -93,7 +100,7 @@ impl FsDiscovery {
                 configured.insert(
                     canonical,
                     ConfiguredSource {
-                        policy: src.cache_zoom(),
+                        policy: src.cache_zoom().or(default_cache),
                         process: per_source_process(process, src),
                         src: src.clone(),
                     },
@@ -143,6 +150,7 @@ impl FsDiscovery {
             extensions,
             configured,
             id_resolver,
+            default_cache,
             process: process
                 .resolve()
                 .expect("the kind level carries no range-checked settings"),
@@ -222,6 +230,7 @@ impl Discovery for FsDiscovery {
             self.extensions,
             &self.configured,
             &self.id_resolver,
+            self.default_cache,
         )
         .await?;
 
@@ -330,6 +339,7 @@ async fn discover_sources_by_ext(
     extensions: &[&str],
     configured: &BTreeMap<PathBuf, ConfiguredSource>,
     id_resolver: &IdResolver,
+    default_cache: CachePolicy,
 ) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
     let mut out = BTreeMap::new();
     for directory in directories {
@@ -362,8 +372,7 @@ async fn discover_sources_by_ext(
                 };
                 let policy = configured
                     .get(&e.path)
-                    .map(|cfg| cfg.policy)
-                    .unwrap_or_default();
+                    .map_or(default_cache, |cfg| cfg.policy);
                 let id = id_resolver.resolve(&name, e.path_str.clone());
                 out.insert(id, (e.path, e.modified_ms, policy));
             }
@@ -466,6 +475,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
         );
@@ -498,6 +508,7 @@ mod tests {
             true,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
         );
@@ -517,6 +528,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
         );
@@ -547,6 +559,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
         );
@@ -574,6 +587,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
         );
@@ -590,6 +604,59 @@ mod tests {
             .to_string_lossy()
             .to_string();
         assert_yaml_snapshot!(error.to_string().replace(&prefix, "<DIR>"), @r#""Source path is not a file: <DIR>/bad_0.mbtiles""#);
+    }
+
+    #[tokio::test]
+    async fn discovered_files_take_the_kind_level_cache_bounds() {
+        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::primitives::OptOneMany;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let scanned = dir.path().join("scanned.mbtiles");
+        let configured = dir.path().join("configured.mbtiles");
+        File::create(&scanned).expect("create scanned");
+        File::create(&configured).expect("create configured");
+
+        let config = FileConfigEnum::Config(FileConfig {
+            paths: OptOneMany::One(dir.path().to_path_buf()),
+            sources: Some(BTreeMap::from([(
+                "configured".to_owned(),
+                FileConfigSrc::Obj(Box::new(FileConfigSource {
+                    path: configured.clone(),
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mlt: None,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    convert_to_mvt: None,
+                    cache_control: None,
+                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    convert_to_hillshade: None,
+                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    convert_to_contour: None,
+                    cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
+                })),
+            )])),
+            ..FileConfig::<()>::default()
+        });
+        let discovery = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            &config,
+            false,
+            &["mbtiles"],
+            IdResolver::new(&[]),
+            CachePolicy::new(CacheZoomRange::new(Some(1), Some(10))),
+            &ProcessConfig::default(),
+            unreachable_builder(),
+        );
+
+        let snapshot = discovery.discover().await.expect("discover").sources;
+        let (_, (_, scanned)) = &snapshot["scanned"];
+        assert_eq!(scanned.zoom(), CacheZoomRange::new(Some(1), Some(10)));
+        let (_, (_, configured)) = &snapshot["configured"];
+        assert_eq!(
+            configured.zoom(),
+            CacheZoomRange::new(Some(3), Some(10)),
+            "a configured bound wins and the other is filled from the kind level"
+        );
     }
 
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
@@ -637,6 +704,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &kind_level,
             unreachable_builder(),
         );
@@ -693,6 +761,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
         );
@@ -728,6 +797,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
         );
@@ -766,6 +836,7 @@ mod tests {
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
+            CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
         );

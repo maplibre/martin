@@ -4,7 +4,7 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::{
-    FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -20,6 +20,7 @@ impl GeoJsonReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<GeoJsonConfig>,
+        default_cache: CachePolicy,
     ) -> Self {
         // Discovered files inherit the configured extent and buffer, so the builder closes over the
         // custom config and delegates to its `new_sources` (see `PmtilesReloader::new`).
@@ -40,6 +41,7 @@ impl GeoJsonReloader {
             recursive,
             &["json", "geojson"],
             id_resolver,
+            default_cache,
             &ProcessConfig::default(),
             build,
         );

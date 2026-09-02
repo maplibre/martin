@@ -24,6 +24,8 @@ pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
     id_resolver: IdResolver,
     config: PmtConfig,
+    /// The kind level cache bounds, for every remote source.
+    default_cache: CachePolicy,
     /// The kind level, which every remote prefix serves with.
     process: ResolvedProcess,
 }
@@ -34,6 +36,7 @@ impl ObjectStoreDiscovery {
     pub fn from_config(
         config: &FileConfigEnum<PmtConfig>,
         id_resolver: IdResolver,
+        default_cache: CachePolicy,
         process: &ProcessConfig,
     ) -> Self {
         let mut remote_prefixes: Vec<Url> = vec![];
@@ -72,6 +75,7 @@ impl ObjectStoreDiscovery {
             remote_prefixes,
             id_resolver,
             config: pmt_config,
+            default_cache,
             process: process
                 .resolve()
                 .expect("the kind level carries no range-checked settings"),
@@ -116,7 +120,7 @@ impl Discovery for ObjectStoreDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         self.config
-            .new_sources_url(id.to_owned(), args.clone(), CachePolicy::default())
+            .new_sources_url(id.to_owned(), args.clone(), self.default_cache)
             .await
             .map(Into::into)
     }

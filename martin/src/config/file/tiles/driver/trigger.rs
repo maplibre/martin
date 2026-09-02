@@ -65,16 +65,27 @@ impl Trigger for NotifyTrigger {
     }
 }
 
-/// Fires on a fixed interval, first tick immediate. Never ends the loop.
+/// Fires on a fixed interval. Never ends the loop.
 pub struct PollTrigger {
     ticker: tokio::time::Interval,
 }
 
 impl PollTrigger {
+    /// Fires immediately, then once per interval.
     /// `interval` must be non-zero; the wiring skips spawning when it is zero.
     #[must_use]
     pub fn new(interval: Duration) -> Self {
-        let mut ticker = tokio::time::interval_at(Instant::now(), interval);
+        Self::starting_at(Instant::now(), interval)
+    }
+
+    /// Fires one interval from now, then once per interval, for a catalog that `init` has already loaded.
+    #[must_use]
+    pub fn after_interval(interval: Duration) -> Self {
+        Self::starting_at(Instant::now() + interval, interval)
+    }
+
+    fn starting_at(start: Instant, interval: Duration) -> Self {
+        let mut ticker = tokio::time::interval_at(start, interval);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
         Self { ticker }
     }
@@ -104,6 +115,19 @@ mod tests {
         // auto-advances virtual time to the next deadline, so the timing is exact.
         assert_eq!(trigger.next().await, Some(()));
         assert_eq!(started.elapsed(), interval);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn poll_trigger_after_interval_skips_the_immediate_tick() {
+        let interval = Duration::from_secs(30);
+        let started = Instant::now();
+        let mut trigger = PollTrigger::after_interval(interval);
+
+        assert_eq!(trigger.next().await, Some(()));
+        assert_eq!(started.elapsed(), interval);
+
+        assert_eq!(trigger.next().await, Some(()));
+        assert_eq!(started.elapsed(), interval * 2);
     }
 
     #[tokio::test]

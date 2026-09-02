@@ -4,7 +4,7 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -27,6 +27,7 @@ impl PmtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<PmtConfig>,
+        default_cache: CachePolicy,
         global_process: &ProcessConfig,
     ) -> Self {
         #[cfg(feature = "_process")]
@@ -72,10 +73,12 @@ impl PmtilesReloader {
             pmt_config.recursive.unwrap_or_default(),
             &[PMTILES_EXT],
             id_resolver.clone(),
+            default_cache,
             &process,
             build,
         );
-        let remote = ObjectStoreDiscovery::from_config(config, id_resolver, &process);
+        let remote =
+            ObjectStoreDiscovery::from_config(config, id_resolver, default_cache, &process);
 
         Self {
             local: ReloadDriver::new(local, tsm.clone()),
@@ -140,7 +143,13 @@ mod tests {
     fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PmtilesReloader {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let resolver = IdResolver::new(&[]);
-        PmtilesReloader::new(tsm, resolver, config, &ProcessConfig::default())
+        PmtilesReloader::new(
+            tsm,
+            resolver,
+            config,
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+        )
     }
 
     #[derive(serde::Serialize)]
