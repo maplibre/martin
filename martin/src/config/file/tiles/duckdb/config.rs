@@ -7,7 +7,8 @@ use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
+    UnrecognizedValues,
 };
 
 const DEFAULT_POOL_SIZE: usize = 4;
@@ -52,6 +53,14 @@ pub struct DuckDbConfig {
     /// Ordered source definitions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<DuckDbSourceEntry>,
+    /// Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -65,6 +74,7 @@ impl Default for DuckDbConfig {
             memory_limit_mb: None,
             auto_bounds: BoundsCalcType::default(),
             sources: Vec::new(),
+            cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -240,6 +250,12 @@ sources:
                     },
                 ),
             ],
+            cache: CachePolicy {
+                zoom: CacheZoomRange {
+                    minzoom: None,
+                    maxzoom: None,
+                },
+            },
             unrecognized: UnrecognizedValues(
                 {},
             ),
@@ -326,6 +342,12 @@ sources:
                     },
                 ),
             ],
+            cache: CachePolicy {
+                zoom: CacheZoomRange {
+                    minzoom: None,
+                    maxzoom: None,
+                },
+            },
             unrecognized: UnrecognizedValues(
                 {},
             ),

@@ -651,3 +651,26 @@ async fn reload_removes_a_source_present_at_startup() {
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_startup_warnings();
 }
+
+#[tokio::test]
+async fn a_kind_level_cache_bound_covers_a_configured_file() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let mut martin = Martin::builder()
+        .config("pmtiles:\n  paths: tests/fixtures/pmtiles/png.pmtiles\n  cache:\n    minzoom: 1\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(martin.get("/png/0/0/0").await.status(), 200);
+    }
+    let scrape = martin.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    martin.stop().await;
+    martin.assert_startup_warnings();
+}

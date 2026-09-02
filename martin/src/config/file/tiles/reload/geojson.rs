@@ -22,6 +22,7 @@ impl GeoJsonReloader {
         config: &FileConfigEnum<GeoJsonConfig>,
         default_cache: CachePolicy,
     ) -> Self {
+        let default_cache = config.cache_or(default_cache);
         // Discovered files inherit the configured extent and buffer, so the builder closes over the
         // custom config and delegates to its `new_sources` (see `PmtilesReloader::new`).
         let geojson_config = match config {

@@ -148,6 +148,19 @@ geojson:
   # Clip margin kept around each tile edge, in tile units, defaulting to 64.
   # Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
   buffer: 64
+  # Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
   # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
   extent: 4096
   # A list of file paths
@@ -162,6 +175,19 @@ keep_alive: 75
 listen_addresses: 0.0.0.0:3000
 # Publish `MBTiles` files
 mbtiles:
+  # Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -208,6 +234,19 @@ on_invalid: abort
 # Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
 # Each upstream is configured under `sources`.
 passthrough:
+  # Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
   # MVT->MLT encoder settings for all passthrough sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -248,6 +287,19 @@ passthrough:
       url: https://api.example.com/{z}/{x}/{y}
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
+  # Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
   # MVT->MLT encoder settings for all `PMTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:

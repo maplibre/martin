@@ -473,3 +473,51 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
     "#);
     unbounded.stop().await;
 }
+
+#[tokio::test]
+async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_it() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let watched = WatchedDir::new();
+    let file = mbtiles_fixture(watched.dir(), "world_cities").await;
+    let dir = watched.dir();
+
+    let mut kind_level = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n",
+            dir.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(kind_level.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = kind_level.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    kind_level.stop().await;
+
+    let mut overridden = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n  sources:\n    world_cities:\n      path: {}\n      cache:\n        minzoom: 0\n",
+            dir.display(),
+            file.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(overridden.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = overridden.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @r#"
+    martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
+    martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
+    "#);
+    overridden.stop().await;
+}

@@ -70,6 +70,15 @@ pub struct PassthroughConfig {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
+    /// Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
+
     /// Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
     ///
     /// Each value is one of:
@@ -108,6 +117,7 @@ impl PassthroughConfig {
         idr: &IdResolver,
         default_cache: CachePolicy,
     ) -> ResolutionResult {
+        let default_cache = self.cache.or(default_cache);
         let mut results = Vec::new();
         let mut warnings = Vec::new();
 
