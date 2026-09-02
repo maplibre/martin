@@ -79,6 +79,32 @@ postgres:
       properties:
         big_feat_id: int8
         id: int4
+    curves:
+      schema: public
+      table: curves
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -0.8284271247
+      - -0.8284271247
+      - 14.8284271247
+      - 14.8284271247
+      geometry_type: CURVEPOLYGON
+      properties:
+        gid: int4
+    curves_untyped:
+      schema: public
+      table: curves_untyped
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -0.2071067811
+      - 0.0
+      - 2.0
+      - 1.2071067811
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
     empty_bounds:
       schema: public
       table: empty_bounds

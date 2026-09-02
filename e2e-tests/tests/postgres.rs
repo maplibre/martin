@@ -380,6 +380,22 @@ async fn a_function_returning_a_key_column_serves_it_as_the_etag() {
 }
 
 #[tokio::test]
+async fn a_curve_column_is_linearized_before_encoding() {
+    let mut martin = martin_with_postgres().await;
+
+    // A typed curve column and an untyped column holding curves both keep the linearization,
+    // which is the only way ST_AsMVTGeom can encode them at all.
+    insta::assert_snapshot!("curves_0_0_0", tile_dump(&martin, "/curves/0/0/0").await);
+    insta::assert_snapshot!(
+        "curves_untyped_0_0_0",
+        tile_dump(&martin, "/curves_untyped/0/0/0").await
+    );
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
 async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
     let mut martin = martin_with_postgres().await;
 
