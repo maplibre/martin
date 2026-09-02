@@ -333,6 +333,10 @@
     },
     "FileConfig": {
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -385,6 +389,10 @@
     },
     "FileConfig2": {
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -434,6 +442,10 @@
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "extent": {
           "description": "Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.",
@@ -1162,6 +1174,10 @@
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
