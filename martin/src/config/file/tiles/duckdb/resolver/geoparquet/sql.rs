@@ -44,8 +44,11 @@ pub fn build_mvt_sql(
 
     let properties = introspection
         .property_columns
-        .keys()
-        .map(|column| format!(", {}", escape_identifier(column)))
+        .iter()
+        .map(|(column, mvt_type)| {
+            let escaped = escape_identifier(column);
+            format!(", {escaped}::{mvt_type} AS {escaped}")
+        })
         .collect::<String>();
 
     let (id_name, id_field) = if let Some(id_column) = &entry.id_column {
@@ -138,7 +141,7 @@ mod tests {
                 ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
                 4096::BIGINT, 64::BIGINT, true
             ) AS geom
-            , "category", "name"
+            , "category"::VARCHAR AS "category", "name"::VARCHAR AS "name"
           FROM read_parquet('/data/points.parquet'), tile, bounds
           WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Expand(bounds.envelope, ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, tile.z)))
         ) AS tile;
@@ -177,7 +180,7 @@ mod tests {
                 ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
                 4096::BIGINT, 64::BIGINT, true
             ) AS geom
-            , "category", "name"
+            , "category"::VARCHAR AS "category", "name"::VARCHAR AS "name"
           FROM read_parquet('/data/points.parquet'), tile, bounds
           WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:3857'), 'EPSG:3857', 'EPSG:3857', always_xy := true), ST_Expand(bounds.envelope, ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, tile.z)))
         ) AS tile;
@@ -220,7 +223,7 @@ mod tests {
                 ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
                 4096::BIGINT, 0::BIGINT, true
             ) AS geom
-            , "category", "name"
+            , "category"::VARCHAR AS "category", "name"::VARCHAR AS "name"
           FROM read_parquet('/data/points.parquet'), tile, bounds
           WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), bounds.envelope)
         ) AS tile;

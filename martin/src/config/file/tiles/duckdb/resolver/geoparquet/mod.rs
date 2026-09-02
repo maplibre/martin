@@ -1,5 +1,6 @@
 mod introspect;
 mod metadata;
+mod mvt_types;
 mod resolve;
 mod sql;
 
