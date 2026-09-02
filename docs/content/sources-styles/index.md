@@ -26,6 +26,24 @@ Use the `/style/<style_id>` API to get a `<style_id>`'s JSON content.
 Changes or removals of styles are reflected immediately, but additions are not.
 A restart of Martin is required to see new styles.
 
+### Configuring with Config File
+
+Styles are configured with the `styles` key.
+`paths` lists files or directories, and every `.json` file found is published under its file name.
+`sources` maps a `<style_id>` to one file.
+`collections` lists directories of per-project directories, and a style at `/projects/styles/project1/basic.json` is published as `project1.basic`.
+
+```yaml
+styles:
+  paths:
+    - /path/to/style.json
+    - /path/to/style_dir
+  sources:
+    my_style: /path/to/another_style.json
+  collections:
+    - /projects/styles
+```
+
 ### Server-side raster tile rendering
 
 On Linux, Martin can also render a style server-side into raster images -

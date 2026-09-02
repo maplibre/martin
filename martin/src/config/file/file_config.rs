@@ -57,6 +57,11 @@ pub trait ConfigurationLivecycleHooks:
     fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         async { Ok(()) }
     }
+
+    /// Whether the section configures sources through keys other than `paths` and `sources`.
+    fn has_content(&self) -> bool {
+        false
+    }
 }
 
 /// Configuration which all of our tile sources implement to make configuring them easier
@@ -289,7 +294,10 @@ pub struct FileConfig<T> {
 impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
+        self.paths.is_none()
+            && self.sources.is_none()
+            && !self.custom.has_content()
+            && self.get_unrecognized_keys().is_empty()
     }
 }
 
