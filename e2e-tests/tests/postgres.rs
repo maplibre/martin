@@ -704,20 +704,9 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
     assert_unindexed_table_warnings(&mut martin);
 }
 
-/// The `martin_tile_cache_requests_total` lines of a metrics scrape, so a test can say what the
-/// tile cache saw without pinning the rest of the scrape.
-fn tile_cache_lines(scrape: &str) -> String {
-    scrape
-        .lines()
-        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// A server that auto-publishes everything, like [`martin_with_postgres`], from a config that
-/// carries the given connection-level keys.
-async fn martin_auto_publishing_with(connection_keys: &str) -> Martin {
-    Martin::builder()
+#[tokio::test]
+async fn an_auto_discovered_table_takes_the_connection_level_cache_bounds() {
+    let mut bounded = Martin::builder()
         .with_postgres()
         .config(&format!(
             "
@@ -726,31 +715,55 @@ postgres:
   default_srid: 900913
   auto_bounds: calc
   pool_size: 1
-{connection_keys}"
+  cache:
+    minzoom: 1"
         ))
         .start()
         .await
-        .expect("failed to start martin")
-}
-
-#[tokio::test]
-async fn an_auto_discovered_table_takes_the_connection_level_cache_bounds() {
-    let mut bounded = martin_auto_publishing_with("  cache:\n    minzoom: 1\n").await;
+        .expect("failed to start martin");
     for _ in 0..2 {
         assert_eq!(bounded.get("/table_source/0/0/0").await.status(), 200);
     }
-    let scrape = bounded.get("/_/metrics").await.text();
+    let metrics = unbounded.get("/_/metrics").await;
+    assert_eq!(metrics.status(), 200);
+    let tile_cache_lines = metrics
+            .text()
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n");
     insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
     bounded.stop().await;
     assert_discovery_warnings(&mut bounded);
+}
 
-    // The same connection without bounds shows what the cache would have counted.
-    let mut unbounded = martin_auto_publishing_with("").await;
+#[tokio::test]
+async fn an_auto_discovered_table_takes_the_default_cache_bounds() {
+    let mut bounded = Martin::builder()
+        .with_postgres()
+        .config(&format!(
+            "
+postgres:
+  connection_string: ${{DATABASE_URL}}
+  default_srid: 900913
+  auto_bounds: calc
+  pool_size: 1"
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
     for _ in 0..2 {
         assert_eq!(unbounded.get("/table_source/0/0/0").await.status(), 200);
     }
-    let scrape = unbounded.get("/_/metrics").await.text();
-    insta::assert_snapshot!(tile_cache_lines(&scrape), @r#"
+    let metrics = unbounded.get("/_/metrics").await;
+    assert_eq!(metrics.status(), 200);
+    let tile_cache_lines = metrics
+            .text()
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n");
+    insta::assert_snapshot!(tile_cache_lines, @r#"
     martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
     martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
     "#);
