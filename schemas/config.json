@@ -463,6 +463,16 @@
     },
     "FileConfig4": {
       "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Named combinations of sprite sources.\n\nEach alias can be requested like a sprite source and serves the listed sources combined.\nAliases may only reference configured sprite sources, not other aliases.\nAn alias sharing the name of a sprite source takes precedence over it.",
+          "type": "object"
+        },
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."

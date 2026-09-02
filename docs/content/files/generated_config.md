@@ -440,6 +440,12 @@ preferred_encoding: brotli
 route_prefix: null
 # Sprite configuration
 sprites:
+  # Named combinations of sprite sources.
+  #
+  # Each alias can be requested like a sprite source and serves the listed sources combined.
+  # Aliases may only reference configured sprite sources, not other aliases.
+  # An alias sharing the name of a sprite source takes precedence over it.
+  aliases: {}
   # Cache configuration for sprites.
   # Use `cache: disable` to disable sprite caching.
   cache:
