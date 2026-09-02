@@ -108,7 +108,7 @@ fn select_property_columns(
         }
         cols => {
             warn!(
-                "Ignoring {} column of {source_label} with no MVT representation. \
+                "Ignoring {} columns of {source_label} with no MVT representation: {}. \
              Vector tiles can only carry text, numeric and boolean properties.",
                 cols.len(),
                 cols.join(", ")
