@@ -164,6 +164,10 @@ impl PostgresAutoDiscoveryBuilder {
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
+        if self.tables.is_empty() && self.auto_tables.is_none() {
+            // No table source can come out of this, so the catalog query is skipped.
+            return Ok(());
+        }
         let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
         let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
 
@@ -243,6 +247,10 @@ impl PostgresAutoDiscoveryBuilder {
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
+        if self.functions.is_empty() && self.auto_functions.is_none() {
+            // No function source can come out of this, so the catalog query is skipped.
+            return Ok(());
+        }
         let mut db_funcs_info = query_available_function(&self.pool).await?;
 
         // Match configured function sources against the discovered catalog.
