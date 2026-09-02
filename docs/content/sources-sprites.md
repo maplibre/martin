@@ -96,3 +96,34 @@ sprites:
 ```
 
 The sprites are now available at `/sprite/my_images,some_dir.png`/ ...
+
+### Sprite Aliases
+
+An alias is a named combination of sprite sources that a style requests like a single source.
+Each alias combines the listed sources exactly like a [combined sprite request](#combining-multiple-sprites).
+
+```yaml
+sprites:
+  paths:
+    - /path/to/base_icons
+    - /path/to/brand_icons
+  # Each alias can be requested like a sprite source and serves the listed sources combined.
+  aliases:
+    icons: [base_icons, brand_icons]
+```
+
+Aliases may only reference configured sprite sources, not other aliases.
+An alias may share the name of a source it references; requests for that name then serve the alias.
+This extends an existing sprite source without changing the name a style uses:
+
+```yaml
+sprites:
+  paths:
+    - /path/to/base_icons
+    - /path/to/brand_icons
+  aliases:
+    # Requests for "base_icons" also get the brand icons.
+    base_icons: [base_icons, brand_icons]
+```
+
+Aliases are listed in the catalog under their own name with the images of every source they combine.

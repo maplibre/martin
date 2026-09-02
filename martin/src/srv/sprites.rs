@@ -62,9 +62,15 @@ pub async fn get_sprite_png(
 ) -> ActixResult<HttpResponse> {
     let is_sdf = false;
     let png = if let Some(cache) = cache.as_ref() {
+        // Key the cache by the sources the request resolves to, not by the alias,
+        // so invalidating a source also evicts entries reached through an alias.
         cache
             .get_or_insert(
-                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, false),
+                SpriteCacheKey::new(
+                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
+                    is_sdf,
+                    false,
+                ),
                 async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -132,7 +138,11 @@ pub async fn get_sprite_sdf_png(
     let png = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, false),
+                SpriteCacheKey::new(
+                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
+                    is_sdf,
+                    false,
+                ),
                 async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -201,7 +211,11 @@ pub async fn get_sprite_json(
     let json = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, true),
+                SpriteCacheKey::new(
+                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
+                    is_sdf,
+                    true,
+                ),
                 async || get_index(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
@@ -270,7 +284,11 @@ pub async fn get_sprite_sdf_json(
     let json = if let Some(cache) = cache.as_ref() {
         cache
             .get_or_insert(
-                SpriteCacheKey::new(normalize_sprite_ids(&path.source_ids), is_sdf, true),
+                SpriteCacheKey::new(
+                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
+                    is_sdf,
+                    true,
+                ),
                 async || get_index(&path.source_ids, &sprites, is_sdf).await,
             )
             .await
