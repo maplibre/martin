@@ -30,7 +30,7 @@ CREATE TABLE mixed_types (
     thumbnail BLOB,
     tags VARCHAR[],
     address STRUCT(street VARCHAR, city VARCHAR),
-    attributes MAP(VARCHAR, VARCHAR),
+    attributes MAP(VARCHAR, VARCHAR), -- noqa: LT01
     centroid GEOMETRY,
     geom GEOMETRY
 );
@@ -61,8 +61,8 @@ INSERT INTO mixed_types VALUES
     '{"kind":"park"}',
     '\xDE\xAD'::BLOB,
     ['a', 'b'],
-    {'street': 'Main', 'city': 'Springfield'},
-    MAP {'wheelchair': 'yes'},
+    {'street': 'Main', 'city': 'Springfield'}, -- noqa: LT01
+    MAP {'wheelchair': 'yes'}, -- noqa: CP02, PRS
     ST_SETCRS(ST_GEOMFROMTEXT('POINT(0 25)'), 'EPSG:4326'),
     ST_SETCRS(
         ST_GEOMFROMTEXT('POLYGON((-5 20, 5 20, 5 30, -5 30, -5 20))'),
@@ -94,8 +94,8 @@ INSERT INTO mixed_types VALUES
     '{"kind":"museum"}',
     '\xBE\xEF'::BLOB,
     ['c'],
-    {'street': 'Elm', 'city': 'Shelbyville'},
-    MAP {'wheelchair': 'no'},
+    {'street': 'Elm', 'city': 'Shelbyville'}, -- noqa: LT01
+    MAP {'wheelchair': 'no'}, -- noqa: CP02, PRS
     ST_SETCRS(ST_GEOMFROMTEXT('POINT(-45 25)'), 'EPSG:4326'),
     ST_SETCRS(
         ST_GEOMFROMTEXT('POLYGON((-50 20, -40 20, -40 30, -50 30, -50 20))'),
