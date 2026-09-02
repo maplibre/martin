@@ -606,7 +606,6 @@ mod tests {
         assert_yaml_snapshot!(error.to_string().replace(&prefix, "<DIR>"), @r#""Source path is not a file: <DIR>/bad_0.mbtiles""#);
     }
 
-    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[tokio::test]
     async fn discovered_files_take_the_kind_level_cache_bounds() {
         use crate::config::file::{FileConfig, FileConfigSource};
@@ -624,9 +623,12 @@ mod tests {
                 "configured".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     path: configured.clone(),
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     convert_to_mlt: None,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     convert_to_mvt: None,
                     cache_control: None,
+                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
                     convert_to_hillshade: None,
                     #[cfg(all(feature = "contour", feature = "_tiles"))]
                     convert_to_contour: None,
@@ -657,6 +659,7 @@ mod tests {
         );
     }
 
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
         use crate::config::file::{FileConfig, FileConfigSource};
