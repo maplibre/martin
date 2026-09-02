@@ -27,6 +27,8 @@ use url::Url;
 use crate::config::file::ContourProcessConfig;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
     CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     UnrecognizedValues,
@@ -767,24 +769,11 @@ fn sanitize_url(url: &Url) -> String {
 }
 
 #[cfg(feature = "_tiles")]
-#[must_use]
-pub fn is_remote_url(path: &Path) -> bool {
-    const REMOTE_SCHEMES: &[&str] = &[
-        "s3://", "s3a://", "gs://", "az://", "adl://", "azure://", "abfs://", "abfss://",
-        "http://", "https://", "file://",
-    ];
-    path.to_str()
-        .is_some_and(|s| REMOTE_SCHEMES.iter().any(|scheme| s.starts_with(scheme)))
-}
-
-#[cfg(feature = "_tiles")]
 fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
-    if !is_enabled || !is_remote_url(path) {
+    if !is_enabled {
         return Ok(None);
     }
-    path.to_str()
-        .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_owned())))
-        .transpose()
+    Ok(SourceLocation::classify_path(path)?.into_url())
 }
 
 /// Cache configuration for a tile source. Currently holds zoom-level bounds;
