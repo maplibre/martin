@@ -250,6 +250,12 @@ sources:
                     },
                 ),
             ],
+            cache: CachePolicy {
+                zoom: CacheZoomRange {
+                    minzoom: None,
+                    maxzoom: None,
+                },
+            },
             unrecognized: UnrecognizedValues(
                 {},
             ),
@@ -336,6 +342,12 @@ sources:
                     },
                 ),
             ],
+            cache: CachePolicy {
+                zoom: CacheZoomRange {
+                    minzoom: None,
+                    maxzoom: None,
+                },
+            },
             unrecognized: UnrecognizedValues(
                 {},
             ),
