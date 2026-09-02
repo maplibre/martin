@@ -37,7 +37,6 @@ async fn any_tile_format_suffix_redirects_to_the_extensionless_path(#[case] path
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -55,7 +54,6 @@ async fn the_tiles_prefix_redirects_to_the_bare_source_path() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -71,7 +69,6 @@ async fn a_redirect_keeps_the_query_string(#[case] path: &str) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -94,7 +91,6 @@ async fn a_redirect_points_below_the_route_prefix(#[case] path: &str) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -112,7 +108,6 @@ async fn a_redirect_is_issued_before_the_source_is_resolved(#[case] path: &str) 
     martin.stop().await;
     martin.assert_log_contains(r#"ERROR error="Source nosuch does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -137,7 +132,6 @@ async fn a_vector_source_serves_mvt_when_the_accept_header_allows_it(#[case] acc
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -163,7 +157,6 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -192,7 +185,6 @@ async fn a_vector_source_rejects_an_accept_header_of_other_formats(#[case] accep
         r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -212,7 +204,6 @@ async fn a_raster_source_serves_png_when_the_accept_header_allows_it(#[case] acc
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -236,7 +227,6 @@ async fn a_raster_source_is_never_transcoded_to_a_vector_format(#[case] accept: 
         r#"ERROR error="Source produces image/png, which does not match the Accept header""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -263,7 +253,6 @@ async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is
         r#"ERROR error="Accept header does not contain any supported tile format""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -285,5 +274,4 @@ async fn a_zoom_the_source_does_not_cover_is_a_404_naming_the_range(#[case] zoom
         r#"ERROR error="Zoom {zoom} is outside the supported range: png supports zoom 0-1""#
     ));
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }

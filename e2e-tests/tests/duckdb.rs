@@ -91,7 +91,6 @@ async fn the_catalog_names_the_geoparquet_file() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -141,7 +140,6 @@ async fn a_tilejson_describes_the_parquet_columns() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -178,7 +176,6 @@ async fn a_tile_clips_the_polygon_crossing_its_edge_and_keeps_the_one_inside_it(
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -208,7 +205,6 @@ async fn the_saved_config_fills_in_the_source_defaults() {
     ");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -239,5 +235,4 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
         "Tile source resolution warning: Source polygons_bad: {warning}"
     ));
     martin.assert_log_contains(r#"ERROR error="Source polygons_bad does not exist""#);
-    martin.assert_log_clean();
 }

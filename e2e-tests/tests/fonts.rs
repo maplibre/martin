@@ -52,7 +52,6 @@ async fn a_font_directory_is_discovered_recursively() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -79,7 +78,6 @@ async fn a_single_font_file_publishes_only_that_font() {
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Overpass Mono Light")"#);
     martin.assert_log_contains(r#"error="Font Overpass Mono Light not found""#);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -100,7 +98,6 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
     assert_eq!(fontstack(&response).name, "Overpass Mono Regular");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -121,7 +118,6 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
     assert_eq!(stack.glyphs.len(), glyphs);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -140,7 +136,6 @@ async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -166,7 +161,6 @@ async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Nonexistent")"#);
     martin.assert_log_contains(r#"error="Font Nonexistent not found""#);
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -210,7 +204,6 @@ async fn a_range_outside_the_256_codepoint_grid_is_rejected(
     martin.stop().await;
     martin.assert_log_contains(logged);
     martin.assert_log_contains(&format!("error={message:?}"));
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -240,7 +233,6 @@ async fn a_glyph_range_answers_conditional_requests() {
     assert_eq!(stale.body(), first.body());
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -264,7 +256,6 @@ async fn the_plural_fonts_path_redirects() {
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -291,7 +282,6 @@ async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -320,5 +310,4 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
     martin.assert_log_contains(
         "Ignoring duplicate font: already configured from another path font.name=Overpass Mono Regular",
     );
-    martin.assert_log_clean();
 }

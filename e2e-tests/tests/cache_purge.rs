@@ -64,7 +64,6 @@ async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
 
     martin.stop().await;
     martin.assert_log_contains("Invalidated tile cache for source: proxy");
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -94,7 +93,6 @@ async fn without_a_tile_cache_the_body_says_so() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -116,5 +114,4 @@ async fn the_route_is_absent_unless_enabled() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }

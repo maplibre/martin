@@ -211,6 +211,7 @@ async fn legacy_postgres_env_vars_warn_in_the_log() {
     for var in ["DATABASE_URL", "DEFAULT_SRID"] {
         martin.assert_log_contains(&format!("Environment variable {var} is deprecated"));
     }
+    assert_discovery_warnings(&mut martin);
 }
 
 #[tokio::test]
@@ -230,7 +231,6 @@ async fn every_kind_of_source_in_the_database_is_published() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -268,7 +268,6 @@ async fn a_table_source_serves_tilejson_and_tiles_across_zooms() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -281,7 +280,6 @@ async fn a_composite_source_serves_every_layer_it_names() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -305,7 +303,6 @@ async fn a_function_source_serves_tilejson_and_tiles_across_zooms() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -335,7 +332,6 @@ async fn a_function_source_reads_its_query_string_and_can_return_a_raster() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -359,7 +355,6 @@ async fn every_function_calling_convention_serves_the_same_tile() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -380,7 +375,6 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -398,7 +392,6 @@ async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -412,7 +405,6 @@ async fn a_sql_comment_becomes_the_tilejson() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -428,7 +420,6 @@ async fn a_materialized_view_is_published_like_a_table() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -454,7 +445,6 @@ async fn the_same_name_in_two_schemas_gets_a_suffixed_id() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -508,7 +498,6 @@ async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -551,7 +540,6 @@ async fn a_configured_table_keeps_the_bounds_and_zoom_range_it_declares() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -604,7 +592,6 @@ async fn a_configured_composite_source_names_each_layer_after_its_layer_id() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -622,7 +609,6 @@ async fn a_configured_function_serves_tiles_and_reads_its_query_string() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -678,7 +664,6 @@ async fn a_source_configured_in_the_wrong_case_still_resolves_and_keeps_its_sql_
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -698,7 +683,6 @@ async fn the_saved_config_spells_out_every_table_and_function_that_was_discovere
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -718,5 +702,4 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }

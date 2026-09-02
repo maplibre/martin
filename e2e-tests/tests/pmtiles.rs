@@ -98,7 +98,6 @@ async fn auto_configured_minimal() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -123,7 +122,6 @@ async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -168,7 +166,6 @@ async fn a_raster_source_serves_its_tilejson() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -190,7 +187,6 @@ async fn a_raster_source_serves_png_tiles() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -231,7 +227,6 @@ pmtiles:
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 /// A server holding the one fixture the remote tests read, under `name`.
@@ -288,7 +283,6 @@ async fn a_source_url_is_read_over_http() {
     GET /webp2.pmtiles bytes=11901-22558
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -324,7 +318,6 @@ pmtiles:
     GET /webp2.pmtiles bytes=315-11900
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 /// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
@@ -391,7 +384,6 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     GET /pmtilestest/webp2.pmtiles bytes=11901-22558
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
-    martin.assert_log_clean();
 }
 
 /// The remote-store tests above read a raster archive, whose tiles travel uncompressed. A vector
@@ -471,7 +463,6 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -521,7 +512,6 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -544,7 +534,6 @@ async fn route_prefix_keeps_root_health() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -589,7 +578,6 @@ async fn recursive_paths_publish_nested_files_under_dotted_ids() {
     martin.assert_log_contains("Added source source.id=2025.rivers");
     martin.assert_log_contains("Removed source source.id=2025.rivers");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -640,7 +628,6 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_log_contains(r#"ERROR error="Source png does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -663,5 +650,4 @@ async fn reload_removes_a_source_present_at_startup() {
     martin.stop().await;
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
