@@ -94,7 +94,6 @@ fonts:
     To support this, we have `aliases`.
     Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](#composite-font-request).
 
-
 ```yaml
 fonts:
   paths:
