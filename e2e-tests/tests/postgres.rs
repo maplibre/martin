@@ -708,23 +708,23 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 async fn an_auto_discovered_table_takes_the_connection_level_cache_bounds() {
     let mut bounded = Martin::builder()
         .with_postgres()
-        .config(&format!(
+        .config(
             "
 postgres:
-  connection_string: ${{DATABASE_URL}}
+  connection_string: ${DATABASE_URL}
   default_srid: 900913
   auto_bounds: calc
   pool_size: 1
   cache:
-    minzoom: 1"
-        ))
+    minzoom: 1",
+        )
         .start()
         .await
         .expect("failed to start martin");
     for _ in 0..2 {
         assert_eq!(bounded.get("/table_source/0/0/0").await.status(), 200);
     }
-    let metrics = unbounded.get("/_/metrics").await;
+    let metrics = bounded.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);
     let tile_cache_lines = metrics
         .text()
@@ -732,23 +732,23 @@ postgres:
         .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
         .collect::<Vec<_>>()
         .join("\n");
-    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    insta::assert_snapshot!(tile_cache_lines, @"");
     bounded.stop().await;
     assert_discovery_warnings(&mut bounded);
 }
 
 #[tokio::test]
 async fn an_auto_discovered_table_takes_the_default_cache_bounds() {
-    let mut bounded = Martin::builder()
+    let mut unbounded = Martin::builder()
         .with_postgres()
-        .config(&format!(
+        .config(
             "
 postgres:
-  connection_string: ${{DATABASE_URL}}
+  connection_string: ${DATABASE_URL}
   default_srid: 900913
   auto_bounds: calc
-  pool_size: 1"
-        ))
+  pool_size: 1",
+        )
         .start()
         .await
         .expect("failed to start martin");
