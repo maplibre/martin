@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.57">
+      <meta name="generator" content="zensical-0.0.58">
     
     
       
@@ -2286,63 +2286,69 @@ Unstable sources such as duckdb or cog are not included.</p>
 </span><span id="__span-2-429"><a id="__codelineno-2-429" name="__codelineno-2-429" href="#__codelineno-2-429"></a><span class="nt">route_prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
 </span><span id="__span-2-430"><a id="__codelineno-2-430" name="__codelineno-2-430" href="#__codelineno-2-430"></a><span class="c1"># Sprite configuration</span>
 </span><span id="__span-2-431"><a id="__codelineno-2-431" name="__codelineno-2-431" href="#__codelineno-2-431"></a><span class="nt">sprites</span><span class="p">:</span>
-</span><span id="__span-2-432"><a id="__codelineno-2-432" name="__codelineno-2-432" href="#__codelineno-2-432"></a><span class="w">  </span><span class="c1"># Cache configuration for sprites.</span>
-</span><span id="__span-2-433"><a id="__codelineno-2-433" name="__codelineno-2-433" href="#__codelineno-2-433"></a><span class="w">  </span><span class="c1"># Use `cache: disable` to disable sprite caching.</span>
-</span><span id="__span-2-434"><a id="__codelineno-2-434" name="__codelineno-2-434" href="#__codelineno-2-434"></a><span class="w">  </span><span class="nt">cache</span><span class="p">:</span>
-</span><span id="__span-2-435"><a id="__codelineno-2-435" name="__codelineno-2-435" href="#__codelineno-2-435"></a><span class="w">    </span><span class="c1"># Maximum lifetime for cache entries.</span>
-</span><span id="__span-2-436"><a id="__codelineno-2-436" name="__codelineno-2-436" href="#__codelineno-2-436"></a><span class="w">    </span><span class="c1"># default: null (inherits from `cache.expiry`)</span>
-</span><span id="__span-2-437"><a id="__codelineno-2-437" name="__codelineno-2-437" href="#__codelineno-2-437"></a><span class="w">    </span><span class="nt">expiry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1h</span>
-</span><span id="__span-2-438"><a id="__codelineno-2-438" name="__codelineno-2-438" href="#__codelineno-2-438"></a><span class="w">    </span><span class="c1"># Maximum idle time for cache entries.</span>
-</span><span id="__span-2-439"><a id="__codelineno-2-439" name="__codelineno-2-439" href="#__codelineno-2-439"></a><span class="w">    </span><span class="c1"># default: null (inherits from `cache.idle_timeout`)</span>
-</span><span id="__span-2-440"><a id="__codelineno-2-440" name="__codelineno-2-440" href="#__codelineno-2-440"></a><span class="w">    </span><span class="nt">idle_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30m</span>
-</span><span id="__span-2-441"><a id="__codelineno-2-441" name="__codelineno-2-441" href="#__codelineno-2-441"></a><span class="w">    </span><span class="c1"># Size of the cache in MB (0 to disable).</span>
-</span><span id="__span-2-442"><a id="__codelineno-2-442" name="__codelineno-2-442" href="#__codelineno-2-442"></a><span class="w">    </span><span class="c1"># default: inherits from `cache.size_mb` (with a per-source split)</span>
-</span><span id="__span-2-443"><a id="__codelineno-2-443" name="__codelineno-2-443" href="#__codelineno-2-443"></a><span class="w">    </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
-</span><span id="__span-2-444"><a id="__codelineno-2-444" name="__codelineno-2-444" href="#__codelineno-2-444"></a><span class="w">  </span><span class="c1"># A list of file paths</span>
-</span><span id="__span-2-445"><a id="__codelineno-2-445" name="__codelineno-2-445" href="#__codelineno-2-445"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-</span><span id="__span-2-446"><a id="__codelineno-2-446" name="__codelineno-2-446" href="#__codelineno-2-446"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
-</span><span id="__span-2-447"><a id="__codelineno-2-447" name="__codelineno-2-447" href="#__codelineno-2-447"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-2-448"><a id="__codelineno-2-448" name="__codelineno-2-448" href="#__codelineno-2-448"></a><span class="c1"># Publish `MapLibre` style files</span>
-</span><span id="__span-2-449"><a id="__codelineno-2-449" name="__codelineno-2-449" href="#__codelineno-2-449"></a><span class="c1"># You can also configure us to render the styles on the server side.</span>
-</span><span id="__span-2-450"><a id="__codelineno-2-450" name="__codelineno-2-450" href="#__codelineno-2-450"></a><span class="nt">styles</span><span class="p">:</span>
-</span><span id="__span-2-451"><a id="__codelineno-2-451" name="__codelineno-2-451" href="#__codelineno-2-451"></a><span class="w">  </span><span class="c1"># A list of file paths</span>
-</span><span id="__span-2-452"><a id="__codelineno-2-452" name="__codelineno-2-452" href="#__codelineno-2-452"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-</span><span id="__span-2-453"><a id="__codelineno-2-453" name="__codelineno-2-453" href="#__codelineno-2-453"></a><span class="w">  </span><span class="c1"># Allows static, server side, style rendering</span>
-</span><span id="__span-2-454"><a id="__codelineno-2-454" name="__codelineno-2-454" href="#__codelineno-2-454"></a><span class="w">  </span><span class="c1">#</span>
-</span><span id="__span-2-455"><a id="__codelineno-2-455" name="__codelineno-2-455" href="#__codelineno-2-455"></a><span class="w">  </span><span class="c1"># Note on EXPERIMENTAL status:</span>
-</span><span id="__span-2-456"><a id="__codelineno-2-456" name="__codelineno-2-456" href="#__codelineno-2-456"></a><span class="w">  </span><span class="c1"># We are not currently happy with the performance of this endpoint and intend to improve this in the future</span>
-</span><span id="__span-2-457"><a id="__codelineno-2-457" name="__codelineno-2-457" href="#__codelineno-2-457"></a><span class="w">  </span><span class="c1"># Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0</span>
-</span><span id="__span-2-458"><a id="__codelineno-2-458" name="__codelineno-2-458" href="#__codelineno-2-458"></a><span class="w">  </span><span class="nt">rendering</span><span class="p">:</span>
-</span><span id="__span-2-459"><a id="__codelineno-2-459" name="__codelineno-2-459" href="#__codelineno-2-459"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-2-460"><a id="__codelineno-2-460" name="__codelineno-2-460" href="#__codelineno-2-460"></a><span class="w">    </span><span class="c1"># Number of render worker threads. Unset picks a platform default.</span>
-</span><span id="__span-2-461"><a id="__codelineno-2-461" name="__codelineno-2-461" href="#__codelineno-2-461"></a><span class="w">    </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
-</span><span id="__span-2-462"><a id="__codelineno-2-462" name="__codelineno-2-462" href="#__codelineno-2-462"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
-</span><span id="__span-2-463"><a id="__codelineno-2-463" name="__codelineno-2-463" href="#__codelineno-2-463"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-2-464"><a id="__codelineno-2-464" name="__codelineno-2-464" href="#__codelineno-2-464"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
-</span><span id="__span-2-465"><a id="__codelineno-2-465" name="__codelineno-2-465" href="#__codelineno-2-465"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
-</span><span id="__span-2-466"><a id="__codelineno-2-466" name="__codelineno-2-466" href="#__codelineno-2-466"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
-</span><span id="__span-2-467"><a id="__codelineno-2-467" name="__codelineno-2-467" href="#__codelineno-2-467"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
-</span><span id="__span-2-468"><a id="__codelineno-2-468" name="__codelineno-2-468" href="#__codelineno-2-468"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
-</span><span id="__span-2-469"><a id="__codelineno-2-469" name="__codelineno-2-469" href="#__codelineno-2-469"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
-</span><span id="__span-2-470"><a id="__codelineno-2-470" name="__codelineno-2-470" href="#__codelineno-2-470"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
-</span><span id="__span-2-471"><a id="__codelineno-2-471" name="__codelineno-2-471" href="#__codelineno-2-471"></a><span class="c1">#    old tiles aren't served when a new tileset is deployed.</span>
-</span><span id="__span-2-472"><a id="__codelineno-2-472" name="__codelineno-2-472" href="#__codelineno-2-472"></a><span class="c1">#</span>
-</span><span id="__span-2-473"><a id="__codelineno-2-473" name="__codelineno-2-473" href="#__codelineno-2-473"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
-</span><span id="__span-2-474"><a id="__codelineno-2-474" name="__codelineno-2-474" href="#__codelineno-2-474"></a><span class="c1"># Many CDNs ignore them by default.</span>
-</span><span id="__span-2-475"><a id="__codelineno-2-475" name="__codelineno-2-475" href="#__codelineno-2-475"></a><span class="c1">#</span>
-</span><span id="__span-2-476"><a id="__codelineno-2-476" name="__codelineno-2-476" href="#__codelineno-2-476"></a><span class="c1"># For example, if</span>
-</span><span id="__span-2-477"><a id="__codelineno-2-477" name="__codelineno-2-477" href="#__codelineno-2-477"></a><span class="c1"># - the setting here is `version`, and</span>
-</span><span id="__span-2-478"><a id="__codelineno-2-478" name="__codelineno-2-478" href="#__codelineno-2-478"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
-</span><span id="__span-2-479"><a id="__codelineno-2-479" name="__codelineno-2-479" href="#__codelineno-2-479"></a><span class="c1"># `TileJSON` will be:</span>
-</span><span id="__span-2-480"><a id="__codelineno-2-480" name="__codelineno-2-480" href="#__codelineno-2-480"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
-</span><span id="__span-2-481"><a id="__codelineno-2-481" name="__codelineno-2-481" href="#__codelineno-2-481"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
-</span><span id="__span-2-482"><a id="__codelineno-2-482" name="__codelineno-2-482" href="#__codelineno-2-482"></a><span class="c1"># Enable or disable Martin web UI. [default: disable]</span>
-</span><span id="__span-2-483"><a id="__codelineno-2-483" name="__codelineno-2-483" href="#__codelineno-2-483"></a><span class="c1">#</span>
-</span><span id="__span-2-484"><a id="__codelineno-2-484" name="__codelineno-2-484" href="#__codelineno-2-484"></a><span class="c1"># At the moment, only allows `enable-for-all`, which enables the web UI for all connections.</span>
-</span><span id="__span-2-485"><a id="__codelineno-2-485" name="__codelineno-2-485" href="#__codelineno-2-485"></a><span class="c1"># This may be undesirable in a production environment</span>
-</span><span id="__span-2-486"><a id="__codelineno-2-486" name="__codelineno-2-486" href="#__codelineno-2-486"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
-</span><span id="__span-2-487"><a id="__codelineno-2-487" name="__codelineno-2-487" href="#__codelineno-2-487"></a><span class="c1"># Number of web server workers</span>
-</span><span id="__span-2-488"><a id="__codelineno-2-488" name="__codelineno-2-488" href="#__codelineno-2-488"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-2-432"><a id="__codelineno-2-432" name="__codelineno-2-432" href="#__codelineno-2-432"></a><span class="w">  </span><span class="c1"># Named combinations of sprite sources.</span>
+</span><span id="__span-2-433"><a id="__codelineno-2-433" name="__codelineno-2-433" href="#__codelineno-2-433"></a><span class="w">  </span><span class="c1">#</span>
+</span><span id="__span-2-434"><a id="__codelineno-2-434" name="__codelineno-2-434" href="#__codelineno-2-434"></a><span class="w">  </span><span class="c1"># Each alias can be requested like a sprite source and serves the listed sources combined.</span>
+</span><span id="__span-2-435"><a id="__codelineno-2-435" name="__codelineno-2-435" href="#__codelineno-2-435"></a><span class="w">  </span><span class="c1"># Aliases may only reference configured sprite sources, not other aliases.</span>
+</span><span id="__span-2-436"><a id="__codelineno-2-436" name="__codelineno-2-436" href="#__codelineno-2-436"></a><span class="w">  </span><span class="c1"># An alias sharing the name of a sprite source takes precedence over it.</span>
+</span><span id="__span-2-437"><a id="__codelineno-2-437" name="__codelineno-2-437" href="#__codelineno-2-437"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-2-438"><a id="__codelineno-2-438" name="__codelineno-2-438" href="#__codelineno-2-438"></a><span class="w">  </span><span class="c1"># Cache configuration for sprites.</span>
+</span><span id="__span-2-439"><a id="__codelineno-2-439" name="__codelineno-2-439" href="#__codelineno-2-439"></a><span class="w">  </span><span class="c1"># Use `cache: disable` to disable sprite caching.</span>
+</span><span id="__span-2-440"><a id="__codelineno-2-440" name="__codelineno-2-440" href="#__codelineno-2-440"></a><span class="w">  </span><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-2-441"><a id="__codelineno-2-441" name="__codelineno-2-441" href="#__codelineno-2-441"></a><span class="w">    </span><span class="c1"># Maximum lifetime for cache entries.</span>
+</span><span id="__span-2-442"><a id="__codelineno-2-442" name="__codelineno-2-442" href="#__codelineno-2-442"></a><span class="w">    </span><span class="c1"># default: null (inherits from `cache.expiry`)</span>
+</span><span id="__span-2-443"><a id="__codelineno-2-443" name="__codelineno-2-443" href="#__codelineno-2-443"></a><span class="w">    </span><span class="nt">expiry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1h</span>
+</span><span id="__span-2-444"><a id="__codelineno-2-444" name="__codelineno-2-444" href="#__codelineno-2-444"></a><span class="w">    </span><span class="c1"># Maximum idle time for cache entries.</span>
+</span><span id="__span-2-445"><a id="__codelineno-2-445" name="__codelineno-2-445" href="#__codelineno-2-445"></a><span class="w">    </span><span class="c1"># default: null (inherits from `cache.idle_timeout`)</span>
+</span><span id="__span-2-446"><a id="__codelineno-2-446" name="__codelineno-2-446" href="#__codelineno-2-446"></a><span class="w">    </span><span class="nt">idle_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30m</span>
+</span><span id="__span-2-447"><a id="__codelineno-2-447" name="__codelineno-2-447" href="#__codelineno-2-447"></a><span class="w">    </span><span class="c1"># Size of the cache in MB (0 to disable).</span>
+</span><span id="__span-2-448"><a id="__codelineno-2-448" name="__codelineno-2-448" href="#__codelineno-2-448"></a><span class="w">    </span><span class="c1"># default: inherits from `cache.size_mb` (with a per-source split)</span>
+</span><span id="__span-2-449"><a id="__codelineno-2-449" name="__codelineno-2-449" href="#__codelineno-2-449"></a><span class="w">    </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+</span><span id="__span-2-450"><a id="__codelineno-2-450" name="__codelineno-2-450" href="#__codelineno-2-450"></a><span class="w">  </span><span class="c1"># A list of file paths</span>
+</span><span id="__span-2-451"><a id="__codelineno-2-451" name="__codelineno-2-451" href="#__codelineno-2-451"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</span><span id="__span-2-452"><a id="__codelineno-2-452" name="__codelineno-2-452" href="#__codelineno-2-452"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
+</span><span id="__span-2-453"><a id="__codelineno-2-453" name="__codelineno-2-453" href="#__codelineno-2-453"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-2-454"><a id="__codelineno-2-454" name="__codelineno-2-454" href="#__codelineno-2-454"></a><span class="c1"># Publish `MapLibre` style files</span>
+</span><span id="__span-2-455"><a id="__codelineno-2-455" name="__codelineno-2-455" href="#__codelineno-2-455"></a><span class="c1"># You can also configure us to render the styles on the server side.</span>
+</span><span id="__span-2-456"><a id="__codelineno-2-456" name="__codelineno-2-456" href="#__codelineno-2-456"></a><span class="nt">styles</span><span class="p">:</span>
+</span><span id="__span-2-457"><a id="__codelineno-2-457" name="__codelineno-2-457" href="#__codelineno-2-457"></a><span class="w">  </span><span class="c1"># A list of file paths</span>
+</span><span id="__span-2-458"><a id="__codelineno-2-458" name="__codelineno-2-458" href="#__codelineno-2-458"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</span><span id="__span-2-459"><a id="__codelineno-2-459" name="__codelineno-2-459" href="#__codelineno-2-459"></a><span class="w">  </span><span class="c1"># Allows static, server side, style rendering</span>
+</span><span id="__span-2-460"><a id="__codelineno-2-460" name="__codelineno-2-460" href="#__codelineno-2-460"></a><span class="w">  </span><span class="c1">#</span>
+</span><span id="__span-2-461"><a id="__codelineno-2-461" name="__codelineno-2-461" href="#__codelineno-2-461"></a><span class="w">  </span><span class="c1"># Note on EXPERIMENTAL status:</span>
+</span><span id="__span-2-462"><a id="__codelineno-2-462" name="__codelineno-2-462" href="#__codelineno-2-462"></a><span class="w">  </span><span class="c1"># We are not currently happy with the performance of this endpoint and intend to improve this in the future</span>
+</span><span id="__span-2-463"><a id="__codelineno-2-463" name="__codelineno-2-463" href="#__codelineno-2-463"></a><span class="w">  </span><span class="c1"># Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0</span>
+</span><span id="__span-2-464"><a id="__codelineno-2-464" name="__codelineno-2-464" href="#__codelineno-2-464"></a><span class="w">  </span><span class="nt">rendering</span><span class="p">:</span>
+</span><span id="__span-2-465"><a id="__codelineno-2-465" name="__codelineno-2-465" href="#__codelineno-2-465"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-2-466"><a id="__codelineno-2-466" name="__codelineno-2-466" href="#__codelineno-2-466"></a><span class="w">    </span><span class="c1"># Number of render worker threads. Unset picks a platform default.</span>
+</span><span id="__span-2-467"><a id="__codelineno-2-467" name="__codelineno-2-467" href="#__codelineno-2-467"></a><span class="w">    </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span><span id="__span-2-468"><a id="__codelineno-2-468" name="__codelineno-2-468" href="#__codelineno-2-468"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
+</span><span id="__span-2-469"><a id="__codelineno-2-469" name="__codelineno-2-469" href="#__codelineno-2-469"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-2-470"><a id="__codelineno-2-470" name="__codelineno-2-470" href="#__codelineno-2-470"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
+</span><span id="__span-2-471"><a id="__codelineno-2-471" name="__codelineno-2-471" href="#__codelineno-2-471"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
+</span><span id="__span-2-472"><a id="__codelineno-2-472" name="__codelineno-2-472" href="#__codelineno-2-472"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
+</span><span id="__span-2-473"><a id="__codelineno-2-473" name="__codelineno-2-473" href="#__codelineno-2-473"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
+</span><span id="__span-2-474"><a id="__codelineno-2-474" name="__codelineno-2-474" href="#__codelineno-2-474"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
+</span><span id="__span-2-475"><a id="__codelineno-2-475" name="__codelineno-2-475" href="#__codelineno-2-475"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
+</span><span id="__span-2-476"><a id="__codelineno-2-476" name="__codelineno-2-476" href="#__codelineno-2-476"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
+</span><span id="__span-2-477"><a id="__codelineno-2-477" name="__codelineno-2-477" href="#__codelineno-2-477"></a><span class="c1">#    old tiles aren't served when a new tileset is deployed.</span>
+</span><span id="__span-2-478"><a id="__codelineno-2-478" name="__codelineno-2-478" href="#__codelineno-2-478"></a><span class="c1">#</span>
+</span><span id="__span-2-479"><a id="__codelineno-2-479" name="__codelineno-2-479" href="#__codelineno-2-479"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
+</span><span id="__span-2-480"><a id="__codelineno-2-480" name="__codelineno-2-480" href="#__codelineno-2-480"></a><span class="c1"># Many CDNs ignore them by default.</span>
+</span><span id="__span-2-481"><a id="__codelineno-2-481" name="__codelineno-2-481" href="#__codelineno-2-481"></a><span class="c1">#</span>
+</span><span id="__span-2-482"><a id="__codelineno-2-482" name="__codelineno-2-482" href="#__codelineno-2-482"></a><span class="c1"># For example, if</span>
+</span><span id="__span-2-483"><a id="__codelineno-2-483" name="__codelineno-2-483" href="#__codelineno-2-483"></a><span class="c1"># - the setting here is `version`, and</span>
+</span><span id="__span-2-484"><a id="__codelineno-2-484" name="__codelineno-2-484" href="#__codelineno-2-484"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
+</span><span id="__span-2-485"><a id="__codelineno-2-485" name="__codelineno-2-485" href="#__codelineno-2-485"></a><span class="c1"># `TileJSON` will be:</span>
+</span><span id="__span-2-486"><a id="__codelineno-2-486" name="__codelineno-2-486" href="#__codelineno-2-486"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
+</span><span id="__span-2-487"><a id="__codelineno-2-487" name="__codelineno-2-487" href="#__codelineno-2-487"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
+</span><span id="__span-2-488"><a id="__codelineno-2-488" name="__codelineno-2-488" href="#__codelineno-2-488"></a><span class="c1"># Enable or disable Martin web UI. [default: disable]</span>
+</span><span id="__span-2-489"><a id="__codelineno-2-489" name="__codelineno-2-489" href="#__codelineno-2-489"></a><span class="c1">#</span>
+</span><span id="__span-2-490"><a id="__codelineno-2-490" name="__codelineno-2-490" href="#__codelineno-2-490"></a><span class="c1"># At the moment, only allows `enable-for-all`, which enables the web UI for all connections.</span>
+</span><span id="__span-2-491"><a id="__codelineno-2-491" name="__codelineno-2-491" href="#__codelineno-2-491"></a><span class="c1"># This may be undesirable in a production environment</span>
+</span><span id="__span-2-492"><a id="__codelineno-2-492" name="__codelineno-2-492" href="#__codelineno-2-492"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
+</span><span id="__span-2-493"><a id="__codelineno-2-493" name="__codelineno-2-493" href="#__codelineno-2-493"></a><span class="c1"># Number of web server workers</span>
+</span><span id="__span-2-494"><a id="__codelineno-2-494" name="__codelineno-2-494" href="#__codelineno-2-494"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 <h2 id="validating-your-config">Validating your config</h2>
 <p>Martin publishes a JSON Schema for the config file at
@@ -2506,7 +2512,7 @@ With <a href="https://docs.astral.sh/uv/"><code>uv</code></a> installed:</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.49251538.min.js"></script>
+      <script src="../assets/javascripts/bundle.6970bfe9.min.js"></script>
       
     
   </body>
