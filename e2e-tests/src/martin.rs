@@ -53,6 +53,7 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
     "Environment variable DATABASE_URL is deprecated",
+    "aborting query. Use --auto-bounds=calc",
 ];
 
 fn martin_command() -> Command {
