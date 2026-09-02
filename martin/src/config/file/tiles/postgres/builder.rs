@@ -15,8 +15,8 @@ use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
 };
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PostgresCfgPublish, PostgresCfgPublishFuncs,
-    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish,
+    PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -41,6 +41,8 @@ pub struct PostgresAutoDiscoveryBuilder {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
+    /// The tile grid every source of this connection is served in
+    tile_grid: PgTileGrid,
     auto_functions: Option<PostgresAutoDiscoveryBuilderFunctions>,
     auto_tables: Option<PostgresAutoDiscoveryBuilderTables>,
     id_resolver: IdResolver,
@@ -121,6 +123,7 @@ impl PostgresAutoDiscoveryBuilder {
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
+            tile_grid: PgTileGrid::web_mercator(),
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
@@ -337,6 +340,7 @@ impl PostgresAutoDiscoveryBuilder {
                     self.pool.clone(),
                     self.auto_bounds,
                     self.max_feature_count,
+                    &self.tile_grid,
                 )
                 .await?;
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");

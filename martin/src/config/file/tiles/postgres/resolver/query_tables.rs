@@ -15,7 +15,7 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PostgresInfo as _, TableInfo};
+use crate::config::file::postgres::{PgTileGrid, PostgresInfo as _, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -134,6 +134,7 @@ pub async fn table_to_query(
     pool: PostgresPool,
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
+    grid: &PgTileGrid,
 ) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
     let srid = info.srid;
 
@@ -196,39 +197,6 @@ pub async fn table_to_query(
     let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
     let margin = f64::from(buffer) / f64::from(extent);
-
-    // When calculating the bounding box to search within, a few considerations must be made when
-    // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857.
-    // For SRID 4326, ST_Expand is used and provided with SRID 4326 specific units (degrees).
-    // If the table uses a non-standard SRID, it will fall back to existing behavior.
-    //
-    // For more context, if SRID 4326 were to be used with ST_TileEnvelope and margin
-    // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
-    // incorrectly. For example, with a margin of 2 units, the antimeridian edge would transform
-    // from -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
-    // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
-    // resulting bbox covers none of the original tile. In contrast, for this example, ST_Expand
-    // will result in a westernmost edge (minus margin) of -182.
-    let bbox_search = if buffer == 0 {
-        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
-    } else if pool.supports_tile_margin() && srid == 3857 {
-        format!(
-            "ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})"
-        )
-    } else if srid == 4326 {
-        format!(
-            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
-        )
-    } else {
-        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
-    };
-
-    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-    let filter = row_filter(&info, "AND")?;
-    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
-    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
     // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
     let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
@@ -236,6 +204,25 @@ pub async fn table_to_query(
     } else {
         format!("{geometry_column}::geometry")
     };
+    let GridSql {
+        geometry,
+        envelope,
+        bbox_search,
+    } = grid_sql(
+        grid,
+        srid,
+        &geometry,
+        buffer,
+        margin,
+        pool.supports_tile_margin(),
+    );
+
+    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
+    let filter = row_filter(&info, "AND")?;
+    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
+    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
     let query = format!(
         r"
 SELECT
@@ -243,8 +230,8 @@ SELECT
 FROM (
   SELECT
     ST_AsMVTGeom(
-        ST_Transform({geometry}, 3857),
-        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+        {geometry},
+        {envelope},
         {extent}, {buffer}, {clip_geom}
     ) AS geom
     {id_field}{properties}
@@ -301,6 +288,95 @@ fn may_contain_arcs(geometry_type: Option<&str>) -> bool {
         base,
         "POINT" | "MULTIPOINT" | "LINESTRING" | "MULTILINESTRING" | "POLYGON" | "MULTIPOLYGON"
     )
+}
+
+/// The three SQL fragments of a table query that depend on the grid it is served in.
+struct GridSql {
+    /// The geometry, in the grid's CRS.
+    geometry: String,
+    /// The requested tile's envelope, in the grid's CRS.
+    envelope: String,
+    /// What the table's geometry column is index-searched against, in the table's CRS.
+    bbox_search: String,
+}
+
+/// Builds the grid-dependent parts of a table query.
+///
+/// For the default Web Mercator grid this is the SQL martin has always generated.
+/// Any other grid passes its zoom-0 square to `ST_TileEnvelope` as the `bounds` argument.
+/// It skips the geometry transform when the table already stores the grid's CRS.
+/// It densifies the envelope before transforming it into the table's CRS, so that edges which curve in that CRS still cover the tile.
+fn grid_sql(
+    grid: &PgTileGrid,
+    table_srid: i32,
+    geometry: &str,
+    buffer: u32,
+    margin: f64,
+    supports_tile_margin: bool,
+) -> GridSql {
+    const TILE: &str = "$1::integer, $2::integer, $3::integer";
+    if grid.is_web_mercator() {
+        // When calculating the bounding box to search within, a few considerations must be made when
+        // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857.
+        // For SRID 4326, ST_Expand is used and provided with SRID 4326 specific units (degrees).
+        // If the table uses a non-standard SRID, it will fall back to existing behavior.
+        //
+        // For more context, if SRID 4326 were to be used with ST_TileEnvelope and margin
+        // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
+        // incorrectly. For example, with a margin of 2 units, the antimeridian edge would transform
+        // from -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
+        // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
+        // resulting bbox covers none of the original tile. In contrast, for this example, ST_Expand
+        // will result in a westernmost edge (minus margin) of -182.
+        let bbox_search = if buffer == 0 {
+            format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
+        } else if supports_tile_margin && table_srid == 3857 {
+            format!("ST_Transform(ST_TileEnvelope({TILE}, margin => {margin}), {table_srid})")
+        } else if table_srid == 4326 {
+            format!(
+                "ST_Expand(ST_Transform(ST_TileEnvelope({TILE}), {table_srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
+            )
+        } else {
+            format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
+        };
+        return GridSql {
+            geometry: format!("ST_Transform({geometry}, 3857)"),
+            envelope: format!("ST_TileEnvelope({TILE})"),
+            bbox_search,
+        };
+    }
+
+    let grid_srid = grid.srid();
+    let [x0, y0] = grid.grid().origin();
+    let extent_at_zoom0 = grid.grid().extent_at_zoom0();
+    // the zoom-0 square, spelled with the configured numbers so the query reads like the config
+    let envelope = format!(
+        "ST_TileEnvelope({TILE}, ST_MakeEnvelope({x0}, {y0} - {extent_at_zoom0}, {x0} + {extent_at_zoom0}, {y0}, {grid_srid}))"
+    );
+    let geometry = if table_srid == grid_srid {
+        geometry.to_owned()
+    } else {
+        format!("ST_Transform({geometry}, {grid_srid})")
+    };
+    // the margin is applied in grid units, like the 4326 branch above does in degrees
+    let search = if buffer == 0 {
+        envelope.clone()
+    } else {
+        format!("ST_Expand({envelope}, ({margin} * {extent_at_zoom0}) / 2^$1::integer)")
+    };
+    // a transformed envelope is only as good as its vertices: eight per side keeps curved edges covered
+    let bbox_search = if table_srid == grid_srid {
+        search
+    } else {
+        format!(
+            "ST_Transform(ST_Segmentize({search}, {extent_at_zoom0} / 2^$1::integer / 8), {table_srid})"
+        )
+    };
+    GridSql {
+        geometry,
+        envelope,
+        bbox_search,
+    }
 }
 
 /// How [`calc_bounds`] should compute a table's geometry bounds.
@@ -401,4 +477,118 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
             None
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_tile_utils::TileGrid;
+    use rstest::rstest;
+
+    use super::*;
+
+    const MARGIN: f64 = 64.0 / 4096.0;
+
+    fn nztm2000quad() -> PgTileGrid {
+        PgTileGrid::new(
+            TileGrid::new(
+                "NZTM2000Quad",
+                "EPSG:2193",
+                [-3_260_586.728_4, 10_438_190.165_2],
+                10_018_754.171_4,
+            )
+            .unwrap(),
+            2193,
+        )
+    }
+
+    /// The default grid keeps producing the SQL martin generated before grids existed, byte for byte.
+    #[rstest]
+    #[case::mercator_table_with_margin(3857, 64, true,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)")]
+    #[case::mercator_table_old_postgis(
+        3857,
+        64,
+        false,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 3857)"
+    )]
+    #[case::wgs84_table(4326, 64, true,
+        r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)")]
+    #[case::other_table(
+        25832,
+        64,
+        true,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 25832)"
+    )]
+    #[case::no_buffer(
+        4326,
+        0,
+        true,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326)"
+    )]
+    fn web_mercator_sql_is_unchanged(
+        #[case] table_srid: i32,
+        #[case] buffer: u32,
+        #[case] supports_tile_margin: bool,
+        #[case] bbox_search: &str,
+    ) {
+        let sql = grid_sql(
+            &PgTileGrid::web_mercator(),
+            table_srid,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            buffer,
+            MARGIN,
+            supports_tile_margin,
+        );
+        assert_eq!(
+            sql.geometry,
+            r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
+        );
+        assert_eq!(
+            sql.envelope,
+            "ST_TileEnvelope($1::integer, $2::integer, $3::integer)"
+        );
+        assert_eq!(sql.bbox_search, bbox_search);
+    }
+
+    #[test]
+    fn a_table_stored_in_the_grid_crs_is_never_transformed() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            2193,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            64,
+            MARGIN,
+            true,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
+        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193))");
+        insta::assert_snapshot!(sql.bbox_search, @"ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer)");
+    }
+
+    #[test]
+    fn a_table_in_another_crs_is_transformed_and_searched_through_a_densified_envelope() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            4326,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            64,
+            MARGIN,
+            true,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_Transform(ST_CurveToLine("geom"::geometry), 2193)"#);
+        insta::assert_snapshot!(sql.bbox_search, @"ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 4326)");
+    }
+
+    #[test]
+    fn no_buffer_means_no_expansion() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            4326,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            0,
+            0.0,
+            true,
+        );
+        insta::assert_snapshot!(sql.bbox_search, @"ST_Transform(ST_Segmentize(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), 10018754.1714 / 2^$1::integer / 8), 4326)");
+    }
 }

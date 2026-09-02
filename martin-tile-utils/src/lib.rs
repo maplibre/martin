@@ -21,6 +21,8 @@ pub const MAX_ZOOM: u8 = 30;
 
 mod decoders;
 pub use decoders::*;
+mod grid;
+pub use grid::{TileGrid, TileGridError, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID};
 mod rectangle;
 pub use rectangle::{TileRect, append_rect};
 
