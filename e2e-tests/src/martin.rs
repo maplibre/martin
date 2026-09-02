@@ -498,10 +498,6 @@ impl Martin {
     }
 
     /// Assert that at least one log line contains `needle`, and consume every matching line.
-    ///
-    /// Only the lines the readers have collected so far are searched, so a line martin writes
-    /// while answering a request may not have arrived yet: assert on those after [`Martin::stop`],
-    /// which reads the log to the end, or wait for them with [`Martin::wait_for_log`].
     pub fn assert_log_contains(&mut self, needle: &str) {
         let taken = self.take_log_lines(needle);
         assert!(
