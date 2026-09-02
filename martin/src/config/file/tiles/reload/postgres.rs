@@ -93,7 +93,7 @@ impl PostgresReloader {
         }
         Some(
             self.driver
-                .spawn(PollTrigger::new(interval), Baseline::Initialized),
+                .spawn(PollTrigger::after_interval(interval), Baseline::Initialized),
         )
     }
 }
