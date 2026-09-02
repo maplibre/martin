@@ -11,9 +11,9 @@ use crate::config::file::{
 
 /// URL schemes `DuckDB` reads remotely through `read_parquet`.
 ///
-/// This is deliberately not [`crate::config::file::is_remote_url`]: that list describes the
-/// object stores Martin reaches through `object_store`, so it carries Hadoop-style schemes
-/// (`s3a`, `adl`, `abfs`) `DuckDB` does not recognise while missing ones it does.
+/// This is deliberately not the table behind [`crate::config::file::SourceLocation`]: that list
+/// describes the object stores Martin reaches through `object_store`, so it carries Hadoop-style
+/// schemes (`s3a`, `adl`, `abfs`) `DuckDB` does not recognise while missing ones it does.
 const REMOTE_SCHEMES: &[&str] = &[
     "http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf",
 ];
