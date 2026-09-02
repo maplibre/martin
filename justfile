@@ -209,7 +209,11 @@ bless:
     done
 
     echo "Blessing end-to-end tests"
-    {{just}} bless-e2e
+    for target in bless-e2e bless-cog bless-duckdb {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
+      echo "::group::just $target"
+      {{just}} $target
+      echo "::endgroup::"
+    done
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-insta')
@@ -224,6 +228,25 @@ bless-pg: fetch start  (cargo-install 'cargo-insta')
     cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --package martin --lib
     cargo insta test --accept --force-update-snapshots --features test-pg --package martin-core --no-default-features --lib
+
+# Bless the COG/GeoTIFF tests, including the end-to-end ones
+bless-cog: fetch (cargo-install 'cargo-insta')
+    cargo insta test --accept --force-update-snapshots -p martin --features unstable-cog --no-default-features --lib
+    cargo insta test --accept --force-update-snapshots -p martin-core --features unstable-cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features unstable-cog
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-cog --test cog
+
+# Bless the DuckDB/GeoParquet tests, including the end-to-end ones
+bless-duckdb: fetch (cargo-install 'cargo-insta')
+    cargo insta test --accept --force-update-snapshots -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-duckdb --test duckdb
+
+# Bless the style rendering tests end-to-end
+[linux]
+bless-rendering: fetch (cargo-install 'cargo-insta')
+    cargo build --package martin --no-default-features --features rendering
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering -- --test-threads=2
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
