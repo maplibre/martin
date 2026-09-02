@@ -229,6 +229,12 @@ pub async fn table_to_query(
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
+    // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
+    let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
+        format!("ST_CurveToLine({geometry_column}::geometry)")
+    } else {
+        format!("{geometry_column}::geometry")
+    };
     let query = format!(
         r"
 SELECT
@@ -236,7 +242,7 @@ SELECT
 FROM (
   SELECT
     ST_AsMVTGeom(
-        ST_Transform(ST_CurveToLine({geometry_column}::geometry), 3857),
+        ST_Transform({geometry}, 3857),
         ST_TileEnvelope($1::integer, $2::integer, $3::integer),
         {extent}, {buffer}, {clip_geom}
     ) AS geom
@@ -264,6 +270,24 @@ FROM (
         ),
         info,
     ))
+}
+
+/// Whether a column of this geometry type can hold circular arcs.
+/// Everything but the six linear types is assumed to, including the generic `GEOMETRY` and an unknown type.
+fn may_contain_arcs(geometry_type: Option<&str>) -> bool {
+    let Some(geometry_type) = geometry_type else {
+        return true;
+    };
+    let upper = geometry_type.trim().to_ascii_uppercase();
+    let base = upper
+        .strip_suffix("ZM")
+        .or_else(|| upper.strip_suffix('Z'))
+        .or_else(|| upper.strip_suffix('M'))
+        .unwrap_or(&upper);
+    !matches!(
+        base,
+        "POINT" | "MULTIPOINT" | "LINESTRING" | "MULTILINESTRING" | "POLYGON" | "MULTIPOLYGON"
+    )
 }
 
 /// How [`calc_bounds`] should compute a table's geometry bounds.
@@ -362,4 +386,45 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
             None
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::may_contain_arcs;
+
+    #[test]
+    fn linear_types_skip_linearization_in_any_spelling() {
+        for t in [
+            "POINT",
+            "MULTIPOINT",
+            "LINESTRING",
+            "MULTILINESTRING",
+            "POLYGON",
+            "MULTIPOLYGON",
+            "Point",
+            "MultiPolygon",
+            "POINTZ",
+            "POINTM",
+            "MULTIPOLYGONZM",
+        ] {
+            assert!(!may_contain_arcs(Some(t)), "{t}");
+        }
+    }
+
+    #[test]
+    fn everything_else_is_linearized() {
+        for t in [
+            "GEOMETRY",
+            "GEOMETRYCOLLECTION",
+            "CIRCULARSTRING",
+            "COMPOUNDCURVE",
+            "CURVEPOLYGON",
+            "MULTICURVE",
+            "MULTISURFACE",
+            "",
+        ] {
+            assert!(may_contain_arcs(Some(t)), "{t}");
+        }
+        assert!(may_contain_arcs(None));
+    }
 }
