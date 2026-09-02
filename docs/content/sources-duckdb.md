@@ -92,7 +92,7 @@ Each GeoParquet source supports:
 
 - **`geoparquet`**
   - a remote URL of the GeoParquet file (`http`, `https`, `s3`, `gs`, `gcs`, `r2`, `az`, `azure`, `abfss` and `hf` URLs). A remote URL may be a glob such as `s3://bucket/prefix/*.parquet`, which DuckDB expands into every matching part file.
-  - a local path or `file://` URLs. Local paths must name a single file. 
+  - a local path or `file://` URLs. Local paths must name a single file.
 - **`layer_id`** - MVT `source-layer` and the base for the source id (defaults to the file or URL stem).
 - **`geometry_column`** - geometry column name. Auto-detected when the file has exactly one geometry column.
 - **`id_column`** - optional table column to use as the MVT feature id.
