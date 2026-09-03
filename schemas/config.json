@@ -337,6 +337,10 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -393,6 +397,10 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -447,6 +455,10 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "extent": {
           "description": "Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.",
           "examples": [4096],
@@ -491,7 +503,7 @@
         },
         "collections": {
           "$ref": "#/$defs/OptOneMany2",
-          "description": "Directories whose subdirectories are each published as a sprite source named after them."
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -511,7 +523,7 @@
       "properties": {
         "collections": {
           "$ref": "#/$defs/OptOneMany2",
-          "description": "Directories whose subdirectories each hold the styles of one project.\nA style found in `<root>/<project>/<file>.json` is published as `<project>.<file>`."
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -546,6 +558,10 @@
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for fonts.\nUse `cache: disable` to disable font caching."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
