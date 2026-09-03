@@ -86,6 +86,15 @@ fonts:
   - /path/to/font_dir
 ```
 
+A directory of per-project font directories is loaded in one line with `collections`.
+Every directory directly inside it is loaded like a `paths` entry, since a font is named by the family inside the file.
+
+```yaml
+fonts:
+  collections:
+    - /projects/fonts
+```
+
 ### Font Aliases
 
 !!! tip "Supporting multiple writing systems via `aliases`"

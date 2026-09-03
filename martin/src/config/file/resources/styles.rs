@@ -9,16 +9,23 @@ use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::config::file::resources::subdirectories;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues,
+    FileConfigEnum, UnrecognizedValues, subdirectories,
 };
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
-use crate::config::primitives::OptOneMany;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
@@ -29,11 +36,6 @@ pub struct InnerStyleConfig {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
-
-    /// Directories whose subdirectories each hold the styles of one project.
-    /// A style found in `<root>/<project>/<file>.json` is published as `<project>.<file>`.
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub collections: OptOneMany<PathBuf>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -64,12 +66,6 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-impl ConfigurationLivecycleHooks for InnerStyleConfig {
-    fn has_content(&self) -> bool {
-        !self.collections.is_none()
-    }
-}
-
 pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
 
 impl StyleConfig {
@@ -150,8 +146,11 @@ impl StyleConfig {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        for root in cfg.custom.collections.iter() {
-            for (project, dir) in subdirectories(root)? {
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (project, dir) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
                 for path in list_contained_files(&dir, "json")? {
                     let Some(stem) = path.file_stem() else {
                         continue;
@@ -162,7 +161,7 @@ impl StyleConfig {
             }
         }
 
-        *self = Self::new_extended(paths_with_names, configs, cfg.custom);
+        *self = Self::new_extended(paths_with_names, collections, configs, cfg.custom);
 
         Ok(results)
     }
@@ -203,22 +202,6 @@ mod tests {
 
     use super::*;
     use crate::config::file::FileConfigSrc;
-
-    #[test]
-    fn styles_parse_collections() {
-        let yaml = indoc! {"
-            collections: /projects/styles
-        "};
-        let cfg: StyleConfig =
-            serde_saphyr::from_str(yaml).expect("styles with collections must parse");
-        let StyleConfig::Config(cfg) = cfg else {
-            panic!("expected Config variant, got {cfg:?}");
-        };
-        assert_eq!(
-            cfg.custom.collections.iter().collect::<Vec<_>>(),
-            vec![&PathBuf::from("/projects/styles")]
-        );
-    }
 
     #[test]
     fn styles_parse_paths_only_without_rendering_field() {
@@ -307,7 +290,8 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg = StyleConfig::new_extended(vec![], configs, InnerStyleConfig::default());
+        let mut cfg =
+            StyleConfig::new_extended(vec![], vec![], configs, InnerStyleConfig::default());
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);

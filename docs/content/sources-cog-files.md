@@ -89,6 +89,9 @@ cog:
     Set `recursive: true` next to `paths` to scan subdirectories too.
     A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.tif` becomes `2024.roads`.
 
+!!! tip "Per-project directories"
+    List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/elevation.tif` becomes `project1.elevation`.
+
 The following events are handled automatically:
 
 - **File added** - the new source appears in the catalog.

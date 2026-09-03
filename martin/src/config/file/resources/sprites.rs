@@ -1,16 +1,13 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::config::file::resources::subdirectories;
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues,
+    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
 };
-use crate::config::primitives::OptOneMany;
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
 impl SpriteConfig {
@@ -42,8 +39,11 @@ impl SpriteConfig {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        for root in cfg.custom.collections.iter() {
-            for (name, path) in subdirectories(root)? {
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (name, path) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
                 results.add_source(name, path);
             }
         }
@@ -54,14 +54,23 @@ impl SpriteConfig {
                 .map_err(ConfigFileError::SpriteAliasResolutionFailed)?;
         }
 
-        *self = Self::new_extended(directories, configs, cfg.custom);
+        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerSpriteConfig {
     /// Cache configuration for sprites.
@@ -72,10 +81,6 @@ pub struct InnerSpriteConfig {
         schemars(with = "crate::config::file::CacheSizeConfigShape")
     )]
     pub cache: CacheSizeConfig,
-
-    /// Directories whose subdirectories are each published as a sprite source named after them.
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub collections: OptOneMany<PathBuf>,
 
     /// Named combinations of sprite sources.
     ///
@@ -88,34 +93,4 @@ pub struct InnerSpriteConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-impl ConfigurationLivecycleHooks for InnerSpriteConfig {
-    fn has_content(&self) -> bool {
-        !self.collections.is_none()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use indoc::indoc;
-
-    use super::*;
-
-    #[test]
-    fn sprites_parse_collections() {
-        let yaml = indoc! {"
-            collections:
-              - /projects/sprites
-        "};
-        let cfg: SpriteConfig =
-            serde_saphyr::from_str(yaml).expect("sprites with collections must parse");
-        let SpriteConfig::Config(cfg) = cfg else {
-            panic!("expected Config variant, got {cfg:?}");
-        };
-        assert_eq!(
-            cfg.custom.collections.iter().collect::<Vec<_>>(),
-            vec![&PathBuf::from("/projects/sprites")]
-        );
-    }
 }

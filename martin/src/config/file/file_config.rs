@@ -4,7 +4,12 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem;
-#[cfg(feature = "_tiles")]
+#[cfg(any(
+    feature = "_tiles",
+    feature = "sprites",
+    feature = "styles",
+    feature = "fonts"
+))]
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -56,11 +61,6 @@ pub trait ConfigurationLivecycleHooks:
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
     fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         async { Ok(()) }
-    }
-
-    /// Whether the section configures sources through keys other than `paths` and `sources`.
-    fn has_content(&self) -> bool {
-        false
     }
 }
 
@@ -170,21 +170,22 @@ where
 impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     #[must_use]
     pub fn new(paths: Vec<PathBuf>) -> Self {
-        Self::new_extended(paths, BTreeMap::new(), T::default())
+        Self::new_extended(paths, vec![], BTreeMap::new(), T::default())
     }
 
     #[must_use]
     pub fn new_extended(
         paths: Vec<PathBuf>,
+        collections: Vec<PathBuf>,
         configs: BTreeMap<String, FileConfigSrc>,
         custom: T,
     ) -> Self {
-        // Collapse to the simpler `Path` / `Paths` / `None` variants only when both `configs`
-        // and `custom` carry no information; otherwise preserve `custom` by emitting `Config`.
+        // Collapse to the simpler `Path` / `Paths` / `None` variants only when `collections`,
+        // `configs` and `custom` carry no information; otherwise preserve them by emitting `Config`.
         // Without this, custom settings (e.g. `pmtiles.reload_interval` or s3 options
         // needed by the reloader) would silently disappear after `resolve_files` rebuilds
         // the enum for an empty source set.
-        if configs.is_empty() && custom == T::default() {
+        if collections.is_empty() && configs.is_empty() && custom == T::default() {
             match paths.len() {
                 0 => Self::None,
                 1 => Self::Path(paths.into_iter().next().expect("one path exists")),
@@ -193,6 +194,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         } else {
             Self::Config(FileConfig {
                 paths: OptOneMany::new(paths),
+                collections: OptOneMany::new(collections),
                 sources: if configs.is_empty() {
                     None
                 } else {
@@ -215,7 +217,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
             Self::Paths(paths) => paths,
             Self::Config(_) => unreachable!("handled above"),
         };
-        *self = Self::new_extended(paths, BTreeMap::from([(id, src)]), T::default());
+        *self = Self::new_extended(paths, vec![], BTreeMap::from([(id, src)]), T::default());
     }
 
     #[must_use]
@@ -254,11 +256,13 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         match self {
             Self::Path(path) => Self::Config(FileConfig {
                 paths: OptOneMany::One(path),
+                collections: OptOneMany::NoVals,
                 sources: None,
                 custom: T::default(),
             }),
             Self::Paths(paths) => Self::Config(FileConfig {
                 paths: OptOneMany::Many(paths),
+                collections: OptOneMany::NoVals,
                 sources: None,
                 custom: T::default(),
             }),
@@ -284,6 +288,9 @@ pub struct FileConfig<T> {
     /// A list of file paths
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub paths: OptOneMany<PathBuf>,
+    /// A list of directories whose subdirectories are each published under the subdirectory's name
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    pub collections: OptOneMany<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
     /// Any customizations related to the specifics of the configuration section
@@ -295,10 +302,33 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.paths.is_none()
+            && self.collections.is_none()
             && self.sources.is_none()
-            && !self.custom.has_content()
             && self.get_unrecognized_keys().is_empty()
     }
+}
+
+/// The directories directly inside a collection, sorted by name, as `(name, path)` pairs.
+///
+/// Files and hidden directories are skipped.
+#[cfg(any(
+    feature = "_file_kinds",
+    feature = "sprites",
+    feature = "styles",
+    feature = "fonts"
+))]
+pub(crate) fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf)>> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(collection)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if path.is_dir() && !name.starts_with('.') {
+            found.push((name, path));
+        }
+    }
+    found.sort();
+    Ok(found)
 }
 
 #[cfg(feature = "_tiles")]
@@ -550,7 +580,8 @@ async fn resolve_int<T: TileSourceConfiguration>(
         }
     }
 
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
+    let collections = cfg.collections.into_iter().collect();
+    *config = FileConfigEnum::new_extended(directories, collections, configs, cfg.custom);
 
     Ok((results, warnings))
 }
@@ -1637,6 +1668,7 @@ mod mbtiles_tests {
         );
         let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
             paths: OptOneMany::One(invalid_path.clone()),
+            collections: OptOneMany::NoVals,
             sources: Some(file_sources),
             custom: MbtConfig::default(),
         });
@@ -1668,6 +1700,7 @@ mod pmtiles_tests {
         );
         let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
             paths: OptOneMany::One(invalid_path.clone()),
+            collections: OptOneMany::NoVals,
             sources: Some(file_sources),
             custom: PmtConfig::default(),
         });
