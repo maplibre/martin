@@ -375,6 +375,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn merges_layers_and_rewrites_structurally_identical_source_aliases() {
         let base = parse(json!({
             "version": 8,
@@ -425,38 +426,69 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(
-            dump(&merged),
-            json!({
-                "version": 8,
-                "name": "base",
-                "metadata": {"keep": true},
-                "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
-                "font-faces": {
-                    "Base Font": "https://fonts.example/base.ttf",
-                    "Overlay Font": "https://fonts.example/overlay.ttf"
-                },
-                "state": {
-                    "base-visible": {"default": true},
-                    "overlay-opacity": {"default": 0.5}
-                },
-                "sources": {
-                    "canonical": {"type": "vector", "url": "https://example.com/tiles.json"},
-                    "points": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}
-                },
-                "layers": [
-                    {"id": "base-layer", "type": "fill", "source": "canonical"},
-                    {"id": "alias-layer", "type": "line", "source": "canonical"},
-                    {
-                        "id": "points-layer",
-                        "type": "symbol",
-                        "source": "points",
-                        "layout": {"text-font": ["Overlay Font"]},
-                        "paint": {"text-opacity": ["global-state", "overlay-opacity"]}
-                    }
+        insta::assert_json_snapshot!(dump(&merged), @r#"
+        {
+          "font-faces": {
+            "Base Font": "https://fonts.example/base.ttf",
+            "Overlay Font": "https://fonts.example/overlay.ttf"
+          },
+          "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+          "layers": [
+            {
+              "id": "base-layer",
+              "source": "canonical",
+              "type": "fill"
+            },
+            {
+              "id": "alias-layer",
+              "source": "canonical",
+              "type": "line"
+            },
+            {
+              "id": "points-layer",
+              "layout": {
+                "text-font": [
+                  "Overlay Font"
                 ]
-            })
-        );
+              },
+              "paint": {
+                "text-opacity": [
+                  "global-state",
+                  "overlay-opacity"
+                ]
+              },
+              "source": "points",
+              "type": "symbol"
+            }
+          ],
+          "metadata": {
+            "keep": true
+          },
+          "name": "base",
+          "sources": {
+            "canonical": {
+              "type": "vector",
+              "url": "https://example.com/tiles.json"
+            },
+            "points": {
+              "data": {
+                "features": [],
+                "type": "FeatureCollection"
+              },
+              "type": "geojson"
+            }
+          },
+          "state": {
+            "base-visible": {
+              "default": true
+            },
+            "overlay-opacity": {
+              "default": 0.5
+            }
+          },
+          "version": 8
+        }
+        "#);
     }
 
     #[test]
@@ -687,13 +719,18 @@ mod tests {
             ("overlay".to_owned(), overlay),
         ])
         .unwrap();
-        assert_eq!(
-            dump(&merged)["sprite"],
-            json!([
-                {"id": "base", "url": "https://example.com/base"},
-                {"id": "poi", "url": "https://example.com/poi"}
-            ])
-        );
+        insta::assert_json_snapshot!(dump(&merged)["sprite"], @r#"
+        [
+          {
+            "id": "base",
+            "url": "https://example.com/base"
+          },
+          {
+            "id": "poi",
+            "url": "https://example.com/poi"
+          }
+        ]
+        "#);
 
         let conflict = parse(json!({
             "sprite": [{"id": "base", "url": "https://example.com/different"}],
