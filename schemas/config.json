@@ -489,6 +489,10 @@
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."
         },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "Directories whose subdirectories are each published as a sprite source named after them."
+        },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
@@ -505,6 +509,10 @@
     },
     "FileConfig5": {
       "properties": {
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "Directories whose subdirectories each hold the styles of one project.\nA style found in `<root>/<project>/<file>.json` is published as `<project>.<file>`."
+        },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"

@@ -523,6 +523,8 @@ sprites:
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64
+  # Directories whose subdirectories are each published as a sprite source named after them.
+  collections: []
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
@@ -530,6 +532,9 @@ sprites:
 # Publish `MapLibre` style files
 # You can also configure us to render the styles on the server side.
 styles:
+  # Directories whose subdirectories each hold the styles of one project.
+  # A style found in `<root>/<project>/<file>.json` is published as `<project>.<file>`.
+  collections: []
   # A list of file paths
   paths: []
   # Allows static, server side, style rendering
