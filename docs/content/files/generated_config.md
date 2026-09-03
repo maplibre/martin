@@ -421,6 +421,11 @@ postgres:
     # Can be overridden with `cache.minzoom` on an individual source.
     # default: null (no lower bound, all zoom levels cached)
     minzoom: 0
+  # How many times the first connection is retried, one second apart, before startup fails [default: 30]
+  #
+  # A number, or `infinite` to wait until the database answers.
+  # `0` fails on the first refused connection.
+  connection_retries: infinite
   # Database connection string.
   #
   # You can use environment variables too, for example:
