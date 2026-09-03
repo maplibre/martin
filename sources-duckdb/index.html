@@ -1961,8 +1961,7 @@ Its behavior may change in patch releases.</p>
 <li>DuckDB sources are not included in default binaries, Homebrew, or the Docker image</li>
 <li>There is no CLI shorthand for <code>.parquet</code> or <code>.duckdb</code> files</li>
 <li>DuckDB database sources (<code>database:</code>) are not yet supported</li>
-<li>Local GeoParquet must be a file; directories are rejected</li>
-<li>Remote GeoParquet is <code>http://</code> / <code>https://</code> only</li>
+<li>Local GeoParquet must be a single file; directories and globs are rejected</li>
 <li>Hot reload is not implemented</li>
 <li>MLT postprocessing is not supported</li>
 <li>The published configuration schema does not yet include DuckDB sources</li>
@@ -2005,6 +2004,11 @@ Once a DuckDB configuration exists, <code>martin --config config.yaml --save-con
 </span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">    </span><span class="c1"># Remote GeoParquet over HTTP(S)</span>
 </span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">geoparquet</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.org/data/places.parquet</span>
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">      </span><span class="nt">layer_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">places</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="c1"># Remote GeoParquet in an object store, optionally a glob over many part files</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">geoparquet</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://overturemaps-us-west-2/release/2026-08-19.0/theme=places/type=place/*.parquet</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">      </span><span class="nt">layer_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">overture_places</span>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geometry</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">      </span><span class="nt">srid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4326</span>
 </span></code></pre></div>
 <p>The top-level <code>pool_size</code>, <code>threads</code>, <code>memory_limit_mb</code>, and <code>auto_bounds</code> apply to every DuckDB source unless overridden on that source:</p>
 <ul>
@@ -2018,7 +2022,9 @@ Once a DuckDB configuration exists, <code>martin --config config.yaml --save-con
 </ul>
 <p>Each GeoParquet source supports:</p>
 <ul>
-<li><strong><code>geoparquet</code></strong> - local path or <code>http://</code> / <code>https://</code> URL of the GeoParquet file.</li>
+<li><strong><code>geoparquet</code></strong></li>
+<li>a remote URL of the GeoParquet file (<code>http</code>, <code>https</code>, <code>s3</code>, <code>gs</code>, <code>gcs</code>, <code>r2</code>, <code>az</code>, <code>azure</code>, <code>abfss</code> and <code>hf</code> URLs). A remote URL may be a glob such as <code>s3://bucket/prefix/*.parquet</code>, which DuckDB expands into every matching part file.</li>
+<li>a local path or <code>file://</code> URLs. Local paths must name a single file.</li>
 <li><strong><code>layer_id</code></strong> - MVT <code>source-layer</code> and the base for the source id (defaults to the file or URL stem).</li>
 <li><strong><code>geometry_column</code></strong> - geometry column name. Auto-detected when the file has exactly one geometry column.</li>
 <li><strong><code>id_column</code></strong> - optional table column to use as the MVT feature id.</li>
@@ -2083,7 +2089,10 @@ Do not rely on any of the database source options above yet; they are included t
 <p>Parquet is a columnar file format.
 GeoParquet adds a standard way to store geometry columns and CRS information inside that file.</p>
 <p>Martin reads GeoParquet with DuckDB <code>read_parquet</code>, loads the DuckDB <code>spatial</code> extension, and generates MVT tiles on each request.
-Remote <code>http://</code> / <code>https://</code> URLs also load the DuckDB <code>httpfs</code> extension.</p>
+Remote URLs also load the DuckDB <code>httpfs</code> extension.</p>
+<p>Martin passes remote URLs to DuckDB unchanged and does not manage credentials for them.
+Public buckets work with no further configuration.
+Private ones need DuckDB's own credential configuration, such as the standard AWS environment variables.</p>
 <p>You may want to visit these specs:</p>
 <ul>
 <li><a href="https://geoparquet.org/">GeoParquet</a></li>
