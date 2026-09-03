@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(feature = "postgres")]
-use martin_core::tiles::postgres::ConnectionRetries;
+use martin_core::tiles::postgres::RetryTimeout;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
@@ -174,7 +174,7 @@ impl_empty_collect_unrecognized!(
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 impl_empty_collect_unrecognized!(BoundsCalcType);
 #[cfg(feature = "postgres")]
-impl_empty_collect_unrecognized!(ConnectionRetries);
+impl_empty_collect_unrecognized!(RetryTimeout);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);

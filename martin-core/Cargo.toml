@@ -61,6 +61,7 @@ contour = [
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:humantime",
     "dep:postgres",
     "dep:regex",
     "dep:rustls",
@@ -138,6 +139,7 @@ geo-index = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
 hotpath.workspace = true
+humantime = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 jxl-oxide = { workspace = true, optional = true }
