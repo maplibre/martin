@@ -87,8 +87,8 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
         .run()
         .await;
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO Copying [TMP]/world_cities.mbtiles (flat) to a new file [TMP]/cache.mbtiles (cache)
-    INFO Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
+    INFO copy: Copying [TMP]/world_cities.mbtiles (flat) to a new file [TMP]/cache.mbtiles (cache)
+    INFO copy: Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
     ");
 
     let summary = summary(&cache).run_json().await;
@@ -161,10 +161,10 @@ async fn validating_a_cache_file_skips_the_per_tile_hashes() {
     let output = MbtilesCli::new("validate").arg(&cache).run().await;
 
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO Integrity check passed mbtiles.file=[TMP]/cache.mbtiles integrity_check=Quick
-    INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/cache.mbtiles
-    INFO Skipping per-tile hash validation because this is a cache MBTiles file mbtiles.file=[TMP]/cache.mbtiles
-    INFO agg_tiles_hash has been verified mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F
+    INFO validate: Integrity check passed mbtiles.file=[TMP]/cache.mbtiles integrity_check=Quick
+    INFO validate: All values in the `tiles` table/view are valid mbtiles.file=[TMP]/cache.mbtiles
+    INFO validate: Skipping per-tile hash validation because this is a cache MBTiles file mbtiles.file=[TMP]/cache.mbtiles
+    INFO validate: agg_tiles_hash has been verified mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F
     ");
 }
 
@@ -366,12 +366,12 @@ async fn applying_a_patch_announces_the_hashes_it_expects() {
     // Re-gzip-ing may change the bytes, so the resulting hash is deliberately not validated,
     // and the run says so.
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO The patch file [TMP]/patch.mbtiles expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying
-    INFO Applying patch from [TMP]/patch.mbtiles (flat) to [TMP]/world_cities.mbtiles (flat) into a new file [TMP]/applied.mbtiles (flat) with bin-diff on gzip-ed tiles
-    INFO Processing bindiff patches bindiff.cpus=[CPUS]
-    INFO Finished processing bindiff tiles bindiff.inserted=0
-    INFO Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/applied.mbtiles agg_tiles_hash=72D8C992AF67EC97093B0087933FA160
-    INFO Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value
+    INFO copy: The patch file [TMP]/patch.mbtiles expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying
+    INFO copy: Applying patch from [TMP]/patch.mbtiles (flat) to [TMP]/world_cities.mbtiles (flat) into a new file [TMP]/applied.mbtiles (flat) with bin-diff on gzip-ed tiles
+    INFO copy: Processing bindiff patches bindiff.cpus=[CPUS]
+    INFO copy: Finished processing bindiff tiles bindiff.inserted=0
+    INFO copy: Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/applied.mbtiles agg_tiles_hash=72D8C992AF67EC97093B0087933FA160
+    INFO copy: Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value
     ");
 }
 

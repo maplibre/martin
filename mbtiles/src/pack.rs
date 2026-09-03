@@ -8,6 +8,9 @@ use std::sync::Once;
 
 use futures::StreamExt as _;
 use martin_tile_utils::{Encoding, Format, TileInfo, decode_gzip, decode_zlib, encode_gzip};
+use sqlx::query_scalar;
+use tracing::Span;
+use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use walkdir::WalkDir;
 
 use crate::{
@@ -156,9 +159,11 @@ pub async fn pack(
 
     let mut format: Option<Format> = None;
     let mut batch: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(PACK_BATCH_SIZE);
+    let progress = Span::current();
 
     while let Some(tile) = reads.next().await {
         let (z, x, y, detected, path, encoded) = tile?;
+        progress.pb_inc(1);
         match format {
             None => format = Some(detected),
             Some(f) if f != detected => {
@@ -237,6 +242,14 @@ pub async fn unpack(
 
     tokio::fs::create_dir_all(output_directory).await?;
 
+    let progress = Span::current();
+    if let Ok(total) = query_scalar::<_, i64>("SELECT count(*) FROM tiles")
+        .fetch_one(&mut conn)
+        .await
+    {
+        progress.pb_set_length(total.try_into().unwrap_or(0));
+    }
+
     // Write tiles concurrently; order does not matter.
     let writes = mbt
         .stream_tiles(&mut conn)
@@ -270,6 +283,7 @@ pub async fn unpack(
     futures::pin_mut!(writes);
     while let Some(result) = writes.next().await {
         result?;
+        progress.pb_inc(1);
     }
 
     // TODO: write metadata.json file with minzoom, maxzoom, bounds, etc?

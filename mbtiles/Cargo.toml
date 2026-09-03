@@ -26,7 +26,13 @@ required-features = ["transcode"]
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:serde-saphyr", "dep:tracing-subscriber"]
+cli = [
+    "dep:anyhow",
+    "dep:clap",
+    "dep:indicatif",
+    "dep:serde-saphyr",
+    "dep:tracing-subscriber",
+]
 hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
@@ -45,6 +51,7 @@ enum-display.workspace = true
 flume.workspace = true
 futures.workspace = true
 hotpath.workspace = true
+indicatif = { workspace = true, optional = true }
 itertools.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
@@ -64,6 +71,7 @@ thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["fs", "rt-multi-thread"] }
 tracing.workspace = true
+tracing-indicatif.workspace = true
 tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "fmt", "std", "ansi"], optional = true }
 walkdir.workspace = true
 xxhash-rust.workspace = true
