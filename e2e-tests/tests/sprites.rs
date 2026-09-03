@@ -326,3 +326,32 @@ async fn an_alias_naming_an_unknown_source_fails_startup() {
         "log must name the alias and the missing source; log:\n{log}"
     );
 }
+
+#[tokio::test]
+async fn a_collection_publishes_each_subdirectory_as_a_sprite() {
+    let mut martin = Martin::builder()
+        .config("sprites:\n  collections: tests/fixtures/sprites\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["sprites"], @r#"
+    {
+      "src1": {
+        "images": [
+          "another_bicycle",
+          "bear",
+          "sub/circle"
+        ]
+      },
+      "src2": {
+        "images": [
+          "bicycle"
+        ]
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/sprite/src1,src2.json").await.status(), 200);
+
+    martin.stop().await;
+}

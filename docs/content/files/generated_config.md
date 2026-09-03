@@ -146,6 +146,8 @@ fonts:
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
@@ -168,6 +170,8 @@ geojson:
     # Can be overridden with `cache.minzoom` on an individual source.
     # default: null (no lower bound, all zoom levels cached)
     minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
   extent: 4096
   # A list of file paths
@@ -195,6 +199,8 @@ mbtiles:
     # Can be overridden with `cache.minzoom` on an individual source.
     # default: null (no lower bound, all zoom levels cached)
     minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -307,6 +313,8 @@ pmtiles:
     # Can be overridden with `cache.minzoom` on an individual source.
     # default: null (no lower bound, all zoom levels cached)
     minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # MVT->MLT encoder settings for all `PMTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
@@ -535,6 +543,8 @@ sprites:
     # Size of the cache in MB (0 to disable).
     # default: inherits from `cache.size_mb` (with a per-source split)
     size_mb: 64
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
@@ -542,6 +552,8 @@ sprites:
 # Publish `MapLibre` style files
 # You can also configure us to render the styles on the server side.
 styles:
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
   # A list of file paths
   paths: []
   # Allows static, server side, style rendering

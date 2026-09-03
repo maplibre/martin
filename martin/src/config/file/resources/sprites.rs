@@ -6,7 +6,7 @@ use tracing::warn;
 
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues,
+    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
@@ -39,13 +39,22 @@ impl SpriteConfig {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (name, path) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
+                results.add_source(name, path);
+            }
+        }
+
         for (alias, sprites) in &cfg.custom.aliases {
             results
                 .add_alias(alias.clone(), sprites.clone())
                 .map_err(ConfigFileError::SpriteAliasResolutionFailed)?;
         }
 
-        *self = Self::new_extended(directories, configs, cfg.custom);
+        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }

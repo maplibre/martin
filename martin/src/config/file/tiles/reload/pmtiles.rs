@@ -192,6 +192,7 @@ mod tests {
     #[test]
     fn new_partitions_local_and_remote_paths() {
         let cfg = FileConfigEnum::Config(FileConfig {
+            collections: OptOneMany::NoVals,
             paths: OptOneMany::Many(vec![
                 PathBuf::from("s3://bucket-a/"),
                 PathBuf::from("s3://bucket-b/folder/"),
@@ -217,6 +218,7 @@ mod tests {
     #[test]
     fn new_dedups_remote_prefixes() {
         let cfg = FileConfigEnum::Config(FileConfig {
+            collections: OptOneMany::NoVals,
             paths: OptOneMany::Many(vec![
                 PathBuf::from("s3://bucket/"),
                 PathBuf::from("s3://bucket/"),
@@ -248,6 +250,7 @@ mod tests {
             })),
         );
         let cfg = FileConfigEnum::Config(FileConfig {
+            collections: OptOneMany::NoVals,
             paths: OptOneMany::NoVals,
             sources: Some(sources),
             custom: PmtConfig::default(),

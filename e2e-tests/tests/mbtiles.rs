@@ -429,6 +429,62 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_startup_warnings();
 }
 
+#[cfg(not(windows))]
+#[tokio::test]
+async fn reload_publishes_and_removes_a_project_of_a_collection() {
+    let watched = WatchedDir::new();
+    let original = watched.outside("original.mbtiles");
+    mbtiles_from_sql(fixture("mbtiles/world_cities.sql"), &original).await;
+
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  collections: {}\n",
+            watched.dir().display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(
+        martin.get("/catalog").await.json()["tiles"],
+        serde_json::json!({})
+    );
+
+    // The staged file already sits next to the watched directory, so the rename is atomic.
+    let project = watched.dir().join("project1");
+    std::fs::create_dir_all(&project).expect("failed to create the project directory");
+    std::fs::rename(&original, project.join("world_cities.mbtiles"))
+        .expect("failed to move the file into the project");
+    martin.wait_for_source("project1.world_cities").await;
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "project1.world_cities": {
+        "content_encoding": "gzip",
+        "content_type": "application/x-protobuf",
+        "description": "Major cities from Natural Earth data",
+        "name": "Major cities from Natural Earth data"
+      }
+    }
+    "#);
+    assert_eq!(
+        martin.get("/project1.world_cities/0/0/0").await.status(),
+        200
+    );
+
+    std::fs::remove_dir_all(&project).expect("failed to remove the project directory");
+    martin
+        .wait_for_source_removed("project1.world_cities")
+        .await;
+    assert_eq!(
+        martin.get("/catalog").await.json()["tiles"],
+        serde_json::json!({})
+    );
+
+    martin.stop().await;
+    martin.assert_log_contains("Added source source.id=project1.world_cities");
+    martin.assert_log_contains("Removed source source.id=project1.world_cities");
+}
+
 #[tokio::test]
 async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
     fn tile_cache_lines(scrape: &str) -> String {

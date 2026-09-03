@@ -470,3 +470,28 @@ async fn the_plural_styles_path_redirects() {
 
     martin.stop().await;
 }
+
+#[tokio::test]
+async fn a_collection_publishes_each_subdirectory_as_a_project() {
+    let mut martin = Martin::builder()
+        .config("styles:\n  collections: tests/fixtures/styles\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let mut styles = martin.get("/catalog").await.json()["styles"].clone();
+    normalize_paths(&mut styles);
+    insta::assert_json_snapshot!(styles, @r#"
+    {
+      "src2.maptiler_basic": {
+        "path": "tests/fixtures/styles/src2/maptiler_basic.json"
+      },
+      "src2.osm-liberty-lite": {
+        "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/style/src2.maptiler_basic").await.status(), 200);
+
+    martin.stop().await;
+}

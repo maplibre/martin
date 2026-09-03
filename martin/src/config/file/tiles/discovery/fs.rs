@@ -13,7 +13,7 @@ use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
-    SourceBuildResult, TileSourceWarning,
+    SourceBuildResult, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::{FileKind, SourceProvenance};
@@ -49,6 +49,8 @@ pub struct FsDiscovery {
     kind: FileKind,
     /// The watched directories as configured.
     directories: Vec<PathBuf>,
+    /// The collections as configured, each subdirectory of which is scanned as a project.
+    collections: Vec<PathBuf>,
     /// Whether the watched directories are scanned recursively.
     recursive: bool,
     extensions: &'static [&'static str],
@@ -109,26 +111,30 @@ impl FsDiscovery {
         }
 
         let mut warnings: Vec<TileSourceWarning> = vec![];
-        let mut push_local = |path: &PathBuf| {
+        let mut readable = |path: &PathBuf| -> Option<PathBuf> {
             let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
-                return;
+                return None;
             };
             let probed = path
                 .canonicalize()
                 .and_then(|p| std::fs::read_dir(&p).map(|_| p));
             match probed {
-                Ok(canonical) => {
-                    if seen.insert(canonical) {
-                        directories.push(path.clone());
-                    }
-                }
+                Ok(canonical) => Some(canonical),
                 Err(e) => {
                     tracing::warn!(directory = ?path, error = %e, "cannot read watch directory");
                     warnings.push(TileSourceWarning::PathError {
                         path: path.clone(),
                         error: e.to_string(),
                     });
+                    None
                 }
+            }
+        };
+        let mut push_local = |path: &PathBuf| {
+            if let Some(canonical) = readable(path)
+                && seen.insert(canonical)
+            {
+                directories.push(path.clone());
             }
         };
 
@@ -143,9 +149,29 @@ impl FsDiscovery {
             FileConfigEnum::None => {}
         }
 
+        let mut collections: Vec<PathBuf> = vec![];
+        if let FileConfigEnum::Config(cfg) = config {
+            let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
+            for collection in cfg.collections.iter() {
+                if !matches!(
+                    SourceLocation::classify_path(collection),
+                    Ok(SourceLocation::Local(_))
+                ) {
+                    tracing::warn!(collection = ?collection, "a collection must be a local directory");
+                    continue;
+                }
+                if let Some(canonical) = readable(collection)
+                    && seen.insert(canonical)
+                {
+                    collections.push(collection.clone());
+                }
+            }
+        }
+
         Self {
             kind,
             directories,
+            collections,
             recursive,
             extensions,
             configured,
@@ -159,19 +185,20 @@ impl FsDiscovery {
         }
     }
 
-    /// The canonical watched directories, for wiring a `NotifyTrigger`.
+    /// The canonical watched directories and collections, for wiring a `NotifyTrigger`.
     #[must_use]
     pub fn directories(&self) -> Vec<PathBuf> {
         self.directories
             .iter()
+            .chain(&self.collections)
             .filter_map(|dir| dir.canonicalize().ok())
             .collect()
     }
 
-    /// Whether the watched directories are scanned recursively, for wiring a `NotifyTrigger`.
+    /// Whether the directories are watched recursively, which a collection needs as its projects sit one level below it.
     #[must_use]
     pub fn recursive(&self) -> bool {
-        self.recursive
+        self.recursive || !self.collections.is_empty()
     }
 
     /// The config-file entry for a discovered file.
@@ -183,6 +210,7 @@ impl FsDiscovery {
         let as_configured = self
             .directories
             .iter()
+            .chain(&self.collections)
             .filter_map(|dir| {
                 let canonical_dir = dir.canonicalize().ok()?;
                 let relative = canonical.strip_prefix(&canonical_dir).ok()?;
@@ -224,15 +252,19 @@ impl Discovery for FsDiscovery {
     type Args = (PathBuf, CachePolicy);
 
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
-        let discovered = discover_sources_by_ext(
-            &self.directories,
-            self.recursive,
-            self.extensions,
-            &self.configured,
-            &self.id_resolver,
-            self.default_cache,
-        )
-        .await?;
+        let mut discovered = BTreeMap::new();
+        for directory in &self.directories {
+            let root = directory.canonicalize().map_err(SourceBuildError::Io)?;
+            self.scan(&root, "", &mut discovered).await?;
+        }
+        for collection in &self.collections {
+            let root = collection.canonicalize().map_err(SourceBuildError::Io)?;
+            for (project, dir) in subdirectories(&root).map_err(SourceBuildError::Io)? {
+                let dir = dir.canonicalize().map_err(SourceBuildError::Io)?;
+                self.scan(&dir, &format!("{project}."), &mut discovered)
+                    .await?;
+            }
+        }
 
         Ok(Discovered::new(
             discovered
@@ -332,20 +364,16 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
     })
 }
 
-/// Scans `directories` for files matching `extensions`, resolving ids and cache policies.
-async fn discover_sources_by_ext(
-    directories: &[PathBuf],
-    recursive: bool,
-    extensions: &[&str],
-    configured: &BTreeMap<PathBuf, ConfiguredSource>,
-    id_resolver: &IdResolver,
-    default_cache: CachePolicy,
-) -> SourceBuildResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
-    let mut out = BTreeMap::new();
-    for directory in directories {
-        let root = directory.canonicalize().map_err(SourceBuildError::Io)?;
+impl FsDiscovery {
+    /// Scans `root` for files matching the extensions, naming each one `prefix` plus its name under `root`.
+    async fn scan(
+        &self,
+        root: &Path,
+        prefix: &str,
+        out: &mut BTreeMap<String, (PathBuf, u128, CachePolicy)>,
+    ) -> SourceBuildResult<()> {
         let mut visited: BTreeSet<PathBuf> = BTreeSet::new();
-        let mut pending = vec![root.clone()];
+        let mut pending = vec![root.to_path_buf()];
         while let Some(dir) = pending.pop() {
             if !visited.insert(dir.clone()) {
                 continue;
@@ -355,30 +383,33 @@ async fn discover_sources_by_ext(
                 let Some(e) = resolve_dir_entry(&entry) else {
                     continue;
                 };
-                if recursive && e.path.is_dir() {
+                if self.recursive && e.path.is_dir() {
                     pending.push(e.path);
                     continue;
                 }
                 if !e.path.is_file()
                     || e.path
                         .extension()
-                        .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
+                        .is_none_or(|ext| !self.extensions.iter().any(|ex| *ex == ext))
                 {
                     continue;
                 }
-                let Some(name) = source_name(&root, &e.path) else {
+                let Some(name) = source_name(root, &e.path) else {
                     tracing::warn!(path = ?e.path, "failed to resolve source name");
                     continue;
                 };
-                let policy = configured
+                let policy = self
+                    .configured
                     .get(&e.path)
-                    .map_or(default_cache, |cfg| cfg.policy);
-                let id = id_resolver.resolve(&name, e.path_str.clone());
+                    .map_or(self.default_cache, |cfg| cfg.policy);
+                let id = self
+                    .id_resolver
+                    .resolve(&format!("{prefix}{name}"), e.path_str.clone());
                 out.insert(id, (e.path, e.modified_ms, policy));
             }
         }
+        Ok(())
     }
-    Ok(out)
 }
 
 #[cfg(test)]

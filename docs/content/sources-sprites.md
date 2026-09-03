@@ -97,6 +97,15 @@ sprites:
 
 The sprites are now available at `/sprite/my_images,some_dir.png`/ ...
 
+A directory of per-project sprite directories is published in one line with `collections`.
+Every directory directly inside it becomes a sprite source named after that directory, so `/projects/sprites/project1/*.svg` is served as `/sprite/project1.png`.
+
+```yaml
+sprites:
+  collections:
+    - /projects/sprites
+```
+
 ### Sprite Aliases
 
 An alias is a named combination of sprite sources that a style requests like a single source.

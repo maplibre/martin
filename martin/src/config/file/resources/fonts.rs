@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues,
+    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
 };
 
 #[serde_with::skip_serializing_none]
@@ -71,13 +71,24 @@ impl FontConfig {
                 .map_err(|e| ConfigFileError::FontResolutionFailed(e, base_path.clone()))?;
         }
 
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (_name, path) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
+                results
+                    .recursively_add_directory(path.clone())
+                    .map_err(|e| ConfigFileError::FontResolutionFailed(e, path))?;
+            }
+        }
+
         for (alias, fonts) in &cfg.custom.aliases {
             results
                 .add_alias(alias.clone(), fonts.clone())
                 .map_err(ConfigFileError::FontAliasResolutionFailed)?;
         }
 
-        *self = Self::new_extended(directories, configs, cfg.custom);
+        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }
