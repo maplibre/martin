@@ -288,7 +288,7 @@ sources:
         };
         assert_eq!(entry.geoparquet, GEOPARQUET_FIXTURE);
         assert_matches!(entry.location, Some(GeoParquetLocation::Local(_)));
-        insta::assert_debug_snapshot!(entry.settings, @r#"
+        insta::assert_debug_snapshot!(entry.settings, @"
         DuckDbSourceSettings {
             pool_size: Some(
                 3,
@@ -303,7 +303,7 @@ sources:
                 Skip,
             ),
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -395,7 +395,7 @@ sources:
 
         insta::assert_snapshot!(
             serde_saphyr::to_string(&config).expect("serialize config"),
-            @r#"
+            @"
         duckdb:
           pool_size: 8
           threads: 2
@@ -412,7 +412,7 @@ sources:
             threads: 2
             memory_limit_mb: 256
             auto_bounds: skip
-        "#
+        "
         );
     }
 }
