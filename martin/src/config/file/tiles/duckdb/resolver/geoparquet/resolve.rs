@@ -97,11 +97,6 @@ mod tests {
     }
 
     /// The tile one request produced, and the physical operators `DuckDB` used to produce it.
-    ///
-    /// The operators are the point: when the covering predicate reaches the Parquet reader,
-    /// `DuckDB` resolves it against the file's own statistics and a tile that matches nothing
-    /// becomes an `EMPTY_RESULT` with no scan at all. Without pushdown the same tile has to
-    /// scan the file and filter row by row, which is the 5-minute-tile behaviour this guards.
     async fn tile_and_operators(
         pool: &DuckDBPool,
         introspection: &GeoParquetIntrospection,

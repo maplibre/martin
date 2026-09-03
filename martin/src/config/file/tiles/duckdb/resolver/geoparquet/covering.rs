@@ -7,10 +7,6 @@ use tracing::debug;
 use crate::config::file::tiles::duckdb::sql_utils::escape_identifier;
 
 /// SQL accessors for the four corners of a `GeoParquet` 1.1 `covering` bounding box.
-///
-/// The columns behind them carry per-row-group min/max statistics, so a comparison against
-/// them prunes row groups before any geometry is read. The paths come from the file, not from
-/// convention: the spec lets the covering live in any column, at any struct depth.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoveringBbox {
     pub xmin: String,
@@ -68,9 +64,6 @@ pub(crate) fn parse_covering(geo_metadata: &str, geometry_column: &str) -> Optio
 }
 
 /// Reads the `covering` declaration out of the Parquet `geo` key, if the file has one.
-///
-/// Pruning is an optimization, so every failure here is reported at debug level and answered
-/// with [`None`]: the tile SQL simply falls back to filtering on geometry alone.
 pub(crate) async fn query_covering(
     pool: &DuckDBPool,
     source_literal: &str,

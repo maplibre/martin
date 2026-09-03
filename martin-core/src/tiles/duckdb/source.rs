@@ -103,8 +103,7 @@ impl Source for DuckDBSource {
 #[derive(Clone, Debug)]
 /// SQL query information for `DuckDB` tile sources.
 pub struct DuckDBSqlInfo {
-    /// SQL query string. It takes the tile coordinates as the named parameters `$z`, `$x` and
-    /// `$y`, each of which it must reference at least once.
+    /// SQL query string with named `x`,`y`,`z` params. 
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,

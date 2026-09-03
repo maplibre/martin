@@ -113,13 +113,8 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
     If the file has more than one geometry column, set `geometry_column` explicitly.
 
 !!! tip "Row-group pruning"
-    A tile request over a large Parquet file spends nearly all of its time waiting on I/O, so what matters is how much of the file it has to read.
-    Martin reads the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup.
-    When a file has one, every tile query compares that bounding box against the tile before touching a geometry, and DuckDB resolves the comparison against per-row-group statistics, skipping whole row groups instead of decoding them.
-    On an 81 MB remote file one tile went from 62 range requests and 43.6 MB read to 8 requests and 2.9 MB, producing a byte-identical tile.
-
-    Files without a `covering` still work; every tile just reads the whole geometry column.
-    Writers such as [Overture Maps](https://overturemaps.org/), GDAL and GeoPandas emit one.
+    To reduce the IO nessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
+    
     Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
 
 !!! warning "Vector tiles can only carry text, numeric and boolean properties"
