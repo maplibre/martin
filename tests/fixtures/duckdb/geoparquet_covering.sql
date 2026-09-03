@@ -12,7 +12,7 @@ SELECT
     i AS id,
     (-179.99 + i * 0.0087)::DOUBLE AS lon,
     (-60.0 + (i % 121) * 1.0)::DOUBLE AS lat
-FROM range(0, 20480) AS t (i);
+FROM range(0, 20480) AS t (i); -- noqa: AL05
 
 COPY (
     SELECT
@@ -20,10 +20,10 @@ COPY (
         {
             'xmin': lon, 'ymin': lat, 'xmax': lon, 'ymax': lat
         }::STRUCT(xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE) AS bbox,
-        ST_ASWKB(ST_POINT(lon, lat)) AS geom
+        ST_ASWKB(ST_POINT(lon, lat)) AS geom -- noqa: CP03
     FROM covering_points
     ORDER BY lon
-) TO 'tests/fixtures/duckdb/geoparquet_covering.parquet' (
+) TO 'tests/fixtures/duckdb/geoparquet_covering.parquet' ( -- noqa: PRS
     FORMAT PARQUET,
     ROW_GROUP_SIZE 2048,
     KV_METADATA {
