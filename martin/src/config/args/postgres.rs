@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use martin_core::tiles::postgres::RetryTimeout;
 use tracing::{info, warn};
 
 use super::bounds::BoundsCalcType;
@@ -27,6 +28,9 @@ pub struct PostgresArgs {
     pub default_srid: Option<i32>,
     #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
     pub pool_size: Option<NonZeroUsize>,
+    /// How long the first PostgreSQL connection is retried before startup fails, a duration like `30s` or `infinite`. [DEFAULT: 30s]
+    #[arg(long)]
+    pub pg_retry_timeout: Option<RetryTimeout>,
     /// Limit the number of geo features per tile.
     ///
     /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
@@ -64,6 +68,7 @@ impl PostgresArgs {
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
                 cache: CachePolicy::default(),
+                retry_timeout: self.pg_retry_timeout,
                 reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
@@ -89,6 +94,7 @@ impl PostgresArgs {
         let Self {
             default_srid,
             pool_size,
+            pg_retry_timeout,
             auto_bounds,
             max_feature_count,
             ca_root_file,
@@ -110,6 +116,14 @@ impl PostgresArgs {
             );
             pg_config.iter_mut().for_each(|c| {
                 c.pool_size = pool_size;
+            });
+        }
+        if let Some(value) = pg_retry_timeout {
+            info!(
+                "Overriding retry_timeout to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.retry_timeout = pg_retry_timeout;
             });
         }
         if let Some(value) = auto_bounds {

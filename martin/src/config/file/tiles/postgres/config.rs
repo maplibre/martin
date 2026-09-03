@@ -1,6 +1,7 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::Duration;
 
+use martin_core::tiles::postgres::RetryTimeout;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -102,6 +103,12 @@ pub struct PostgresConfig {
         schemars(with = "crate::config::file::CachePolicyShape")
     )]
     pub cache: CachePolicy,
+    /// How long the first connection is retried before startup fails \[default: 30s\]
+    ///
+    /// A duration like `30s`, or `infinite` to wait until the database answers.
+    /// `0s` fails on the first refused connection.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>", example = &"30s"))]
+    pub retry_timeout: Option<RetryTimeout>,
     /// How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
     /// functions, update changed ones, and drop removed ones at runtime, without a restart.
     ///
@@ -175,6 +182,7 @@ impl Default for PostgresConfig {
             max_feature_count: None,
             pool_size: None,
             cache: CachePolicy::default(),
+            retry_timeout: None,
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
             tables: None,
@@ -415,6 +423,27 @@ mod tests {
                 postgres: One(PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     cache: CachePolicy::new(martin_core::CacheZoomRange::new(Some(1), Some(10))),
+                    auto_publish: OptBoolObj::Bool(true),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn parse_pg_retry_timeout() {
+        assert_config(
+            indoc! {"
+            postgres:
+              connection_string: 'postgresql://postgres@localhost/db'
+              retry_timeout: infinite
+        "},
+            &Config {
+                postgres: One(PostgresConfig {
+                    connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
+                    retry_timeout: Some(RetryTimeout::Infinite),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
                 }),

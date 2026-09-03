@@ -108,6 +108,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
             config.pool_size.unwrap_or(DEFAULT_POOL_SIZE).get(),
+            config.retry_timeout.unwrap_or_default(),
         )
         .await
         .map_err(ConfigFileError::PostgresPoolCreationFailed)?;

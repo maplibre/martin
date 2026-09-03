@@ -5429,6 +5429,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "hotpath 0.24.0",
+ "humantime",
  "image",
  "insta",
  "itertools 0.15.0",

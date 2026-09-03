@@ -1491,6 +1491,11 @@
           "examples": ["10m"],
           "type": "string"
         },
+        "retry_timeout": {
+          "description": "How long the first connection is retried before startup fails \\[default: 30s\\]\n\nA duration like `30s`, or `infinite` to wait until the database answers.\n`0s` fails on the first refused connection.",
+          "examples": ["30s"],
+          "type": ["string", "null"]
+        },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
           "examples": ["./postgresql.crt"],

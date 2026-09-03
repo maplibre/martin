@@ -489,6 +489,11 @@ postgres:
   # Supports human-readable formats: "10m", "1h", "30s".
   # Defaults to "10m". Set to "0s" to disable runtime reloading.
   reload_interval: 10m
+  # How long the first connection is retried before startup fails [default: 30s]
+  #
+  # A duration like `30s`, or `infinite` to wait until the database answers.
+  # `0s` fails on the first refused connection.
+  retry_timeout: 30s
   # Same as `PGSSLCERT` for `psql`
   ssl_cert: ./postgresql.crt
   # Same as `PGSSLKEY` for `psql`

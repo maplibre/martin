@@ -12,7 +12,7 @@ use martin::config::file::ProcessConfig;
 use martin::config::file::reload::postgres::PostgresReloader;
 use martin::config::file::srv::SrvConfig;
 use martin::config::primitives::IdResolver;
-use martin_core::tiles::postgres::PostgresPool;
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 use serde_json::Value;
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
@@ -41,7 +41,7 @@ async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
 }
 
 async fn seed(connstr: &str, sql: &str) {
-    let pool = PostgresPool::new(connstr, None, None, None, 2)
+    let pool = PostgresPool::new(connstr, None, None, None, 2, RetryTimeout::default())
         .await
         .expect("open seed pool");
     pool.get()
