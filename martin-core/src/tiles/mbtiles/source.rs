@@ -12,7 +12,7 @@ use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
@@ -78,6 +78,17 @@ impl MbtSource {
             })
             .await
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
+
+        match mbt.missing_tile_index().await {
+            Ok(Some(table)) => warn!(
+                source.id = %id,
+                mbtiles.file = %path.display(),
+                "Table {table} has no index on (zoom_level, tile_column, tile_row), so every tile lookup scans it. \
+                 Create one with: CREATE UNIQUE INDEX {table}_index ON {table} (zoom_level, tile_column, tile_row)"
+            ),
+            Ok(None) => {}
+            Err(e) => debug!(source.id = %id, error = %e, "Could not check the tile index"),
+        }
 
         let tile_info = mbt
             .detect_format(&meta.tilejson)
