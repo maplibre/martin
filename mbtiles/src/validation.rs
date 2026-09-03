@@ -489,30 +489,74 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         debug!("Detecting MBTiles type for {self}");
-        let typ = if is_normalized_tables_type(&mut *conn).await? {
-            MbtType::Normalized {
-                hash_view: has_tiles_with_hash(&mut *conn).await?,
-                schema: NormalizedSchema::Hash,
-            }
-        } else if is_dedup_id_normalized_tables_type(&mut *conn).await? {
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::DedupId,
-            }
-        } else if is_flat_with_hash_tables_type(&mut *conn).await? {
-            MbtType::FlatWithHash
-        } else if is_flat_tables_type(&mut *conn).await? {
-            MbtType::Flat
-        } else if is_cache_tables_type(&mut *conn).await? {
-            MbtType::Cache
-        } else {
-            return Err(MbtError::InvalidDataFormat(self.filepath().to_owned()));
-        };
+        let typ = self.detect_layout(&mut *conn).await?;
 
         self.check_for_uniqueness_constraint(&mut *conn, typ)
             .await?;
 
         Ok(typ)
+    }
+
+    /// Detects the table layout without checking the tile index.
+    async fn detect_layout<T>(&self, conn: &mut T) -> MbtResult<MbtType>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if is_normalized_tables_type(&mut *conn).await? {
+            Ok(MbtType::Normalized {
+                hash_view: has_tiles_with_hash(&mut *conn).await?,
+                schema: NormalizedSchema::Hash,
+            })
+        } else if is_dedup_id_normalized_tables_type(&mut *conn).await? {
+            Ok(MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            })
+        } else if is_flat_with_hash_tables_type(&mut *conn).await? {
+            Ok(MbtType::FlatWithHash)
+        } else if is_flat_tables_type(&mut *conn).await? {
+            Ok(MbtType::Flat)
+        } else if is_cache_tables_type(&mut *conn).await? {
+            Ok(MbtType::Cache)
+        } else {
+            Err(MbtError::InvalidDataFormat(self.filepath().to_owned()))
+        }
+    }
+
+    /// The table that lookups by tile coordinate read from.
+    fn tile_table(mbt_type: MbtType) -> &'static str {
+        match mbt_type {
+            MbtType::Flat => "tiles",
+            MbtType::FlatWithHash => "tiles_with_hash",
+            MbtType::Normalized { schema, .. } => schema.map_table(),
+            MbtType::Cache => "tile_cache",
+        }
+    }
+
+    /// The tile table when no index, unique or not, covers `(zoom_level, tile_column, tile_row)`.
+    pub async fn missing_tile_index<T>(&self, conn: &mut T) -> MbtResult<Option<&'static str>>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let table_name = Self::tile_table(self.detect_layout(&mut *conn).await?);
+        let indexes = query("SELECT name FROM pragma_index_list(?)")
+            .bind(table_name)
+            .fetch_all(&mut *conn)
+            .await?;
+        for index in indexes {
+            let rows = query("SELECT DISTINCT name FROM pragma_index_info(?)")
+                .bind(index.get::<String, _>("name"))
+                .fetch_all(&mut *conn)
+                .await?;
+            let columns: HashSet<String> = rows.iter().map(|row| row.get("name")).collect();
+            if ["zoom_level", "tile_column", "tile_row"]
+                .iter()
+                .all(|column| columns.contains(*column))
+            {
+                return Ok(None);
+            }
+        }
+        Ok(Some(table_name))
     }
 
     async fn check_for_uniqueness_constraint<T>(
@@ -523,12 +567,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let table_name = match mbt_type {
-            MbtType::Flat => "tiles",
-            MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { schema, .. } => schema.map_table(),
-            MbtType::Cache => "tile_cache",
-        };
+        let table_name = Self::tile_table(mbt_type);
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
             .bind(table_name)
