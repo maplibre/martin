@@ -1433,11 +1433,6 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for caching the tiles of this connection.\nEvery table and function without its own `cache` takes them, over the top-level `cache` bounds."
         },
-        "connection_retries": {
-          "description": "How many times the first connection is retried, one second apart, before startup fails \\[default: 30\\]\n\nA number, or `infinite` to wait until the database answers.\n`0` fails on the first refused connection.",
-          "examples": ["infinite"],
-          "type": ["string", "null"]
-        },
         "connection_string": {
           "description": "Database connection string.\n\nYou can use environment variables too, for example:\n`connection_string: $DATABASE_URL`\n`connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`",
           "examples": ["postgres://postgres@localhost:5432/db"],
@@ -1495,6 +1490,11 @@
           "description": "How often the `PostgresReloader` re-runs catalog discovery to publish new tables and\nfunctions, update changed ones, and drop removed ones at runtime, without a restart.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable runtime reloading.",
           "examples": ["10m"],
           "type": "string"
+        },
+        "retry_timeout": {
+          "description": "How long the first connection is retried before startup fails \\[default: 30s\\]\n\nA duration like `30s`, or `infinite` to wait until the database answers.\n`0s` fails on the first refused connection.",
+          "examples": ["30s"],
+          "type": ["string", "null"]
         },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
