@@ -234,13 +234,23 @@ impl Config {
                 .collect::<Vec<_>>()
         };
 
+        #[cfg(feature = "_tiles")]
+        let tile_manager = TileSourceManager::from_sources(
+            cache_config.create_tile_cache(),
+            self.on_invalid.unwrap_or_default(),
+            tile_sources_with_process,
+        );
+        #[cfg(feature = "_tiles")]
+        for (alias, sources) in &self.aliases {
+            tile_manager
+                .tile_sources()
+                .add_alias(alias.clone(), sources.clone())
+                .map_err(ConfigFileError::TileAliasResolutionFailed)?;
+        }
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tile_manager: TileSourceManager::from_sources(
-                cache_config.create_tile_cache(),
-                self.on_invalid.unwrap_or_default(),
-                tile_sources_with_process,
-            ),
+            tile_manager,
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
