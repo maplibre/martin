@@ -40,7 +40,6 @@ such as camera, projection, terrain, light, and metadata come from the first
 style. The `font-faces` and `state` maps are merged by key so layers retain
 their font and global-state dependencies. Identical entries are de-duplicated.
 The same key with different definitions returns `400 Bad Request`.
-the same key with different definitions returns `400 Bad Request`.
 
 Sources with identical complete definitions are de-duplicated. If the same
 definition has different names, layers are rewritten to use the first name. A
