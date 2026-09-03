@@ -13,7 +13,9 @@ use crate::config::file::srv::SrvConfig;
 use crate::maplibre_style::{Style, merge_styles};
 use crate::srv::server::DebouncedWarning;
 
+/// Same limit as composite tile requests.
 const MAX_STYLE_IDS_PER_REQUEST: usize = 128;
+/// Style files read from disk at once for one request.
 const MAX_CONCURRENT_STYLE_READS: usize = 16;
 
 #[derive(Deserialize, Debug)]
@@ -61,8 +63,7 @@ pub async fn get_style_json(
     styles: Data<StyleSources>,
     srv_config: Data<SrvConfig>,
 ) -> HttpResponse {
-    let requested_id = path.style_id.trim_end_matches(".json");
-    let style_ids: Vec<&str> = requested_id.split(',').map(str::trim).collect();
+    let style_ids: Vec<&str> = path.style_id.split(',').map(str::trim).collect();
     if style_ids.iter().any(|id| id.is_empty()) {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())

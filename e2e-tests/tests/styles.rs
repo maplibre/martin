@@ -217,7 +217,10 @@ async fn composite_style_validation_errors_are_bad_requests() {
 
     let conflict = martin.get("/style/maplibre_demo,relative_urls").await;
     assert_eq!(conflict.status(), 400);
-    assert!(conflict.text().contains("glyph URLs are different"));
+    assert_eq!(
+        conflict.text(),
+        "Cannot merge styles \"maplibre_demo\" and \"relative_urls\": glyph URLs are different"
+    );
 
     let missing = martin.get("/style/composite_base,nope").await;
     assert_eq!(missing.status(), 404);
