@@ -5,6 +5,9 @@ use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::warn;
 
 use crate::config::file::tiles::duckdb::resolver::errors::{GeoparquetError, GeoparquetResult};
+use crate::config::file::tiles::duckdb::resolver::geoparquet::covering::{
+    CoveringBbox, query_covering,
+};
 use crate::config::file::tiles::duckdb::resolver::geoparquet::mvt_types::mvt_property_type;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sql_string};
@@ -17,17 +20,25 @@ pub struct GeoParquetIntrospection {
     /// Column name to the `DuckDB` type it must be cast to for `ST_AsMVT`, not the type it
     /// has on disk. Columns with no MVT representation are excluded.
     pub property_columns: BTreeMap<String, String>,
+    /// The file's `GeoParquet` 1.1 `covering` bounding box, when it declares one.
+    pub covering: Option<CoveringBbox>,
+}
+
+/// The finalized location as a `DuckDB` string literal, for functions that take a path.
+fn geoparquet_source_literal(entry: &GeoParquetEntry) -> String {
+    escape_sql_string(
+        &entry
+            .location
+            .as_ref()
+            .expect("GeoParquetEntry must be finalized before resolve")
+            .to_source_string(),
+    )
 }
 
 /// Builds the `DuckDB` `FROM` expression from the finalized location.
 pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
-    let source = entry
-        .location
-        .as_ref()
-        .expect("GeoParquetEntry must be finalized before resolve")
-        .to_source_string();
     (
-        format!("read_parquet({})", escape_sql_string(&source)),
+        format!("read_parquet({})", geoparquet_source_literal(entry)),
         entry.geoparquet.clone(),
     )
 }
@@ -70,10 +81,19 @@ pub(crate) async fn introspect(
         None => query_srid(pool, from_expr, source_label, &geometry_column).await?,
     };
 
+    let covering = query_covering(
+        pool,
+        &geoparquet_source_literal(entry),
+        &geometry_column,
+        source_label,
+    )
+    .await;
+
     Ok(GeoParquetIntrospection {
         geometry_column,
         srid,
         property_columns,
+        covering,
     })
 }
 
