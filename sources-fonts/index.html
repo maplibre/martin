@@ -2070,6 +2070,12 @@ The glyph range will be empty if none of the fonts contain the glyph.</p>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font/file.ttf</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font_dir</span>
 </span></code></pre></div>
+<p>A directory of per-project font directories is loaded in one line with <code>collections</code>.
+Every directory directly inside it is loaded like a <code>paths</code> entry, since a font is named by the family inside the file.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">fonts</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">collections</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/projects/fonts</span>
+</span></code></pre></div>
 <h3 id="font-aliases">Font Aliases</h3>
 <div class="admonition tip">
 <p class="admonition-title">Supporting multiple writing systems via <code>aliases</code></p>
@@ -2078,22 +2084,22 @@ Sadly, not every font that you might want to use supports this or looks good in 
 To support this, we have <code>aliases</code>.
 Each alias combines the listed fonts in the given fallback order, exactly like a <a href="#composite-font-request">composite font request</a>.</p>
 </div>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">fonts</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font_dir</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="c1"># Each alias can be requested like a font and serves the listed fonts combined, in fallback order.</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">Noto Sans Stack</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Noto Sans Regular</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Arabic Regular</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Thai Regular</span><span class="p p-Indicator">]</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">fonts</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font_dir</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="c1"># Each alias can be requested like a font and serves the listed fonts combined, in fallback order.</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">Noto Sans Stack</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Noto Sans Regular</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Arabic Regular</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Thai Regular</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <p>Aliases may only reference discovered fonts, not other aliases.
 An alias may share the name of a font it references; requests for that name then serve the alias.
 This extends an existing font with fallbacks without changing the name a style uses:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">fonts</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font_dir</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="c1"># Requests for "Noto Sans Bold Italic" also get the Arabic glyphs as fallback.</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">Noto Sans Bold Italic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Noto Sans Bold Italic</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Arabic Bold</span><span class="p p-Indicator">]</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">fonts</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/font_dir</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="c1"># Requests for "Noto Sans Bold Italic" also get the Arabic glyphs as fallback.</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">Noto Sans Bold Italic</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Noto Sans Bold Italic</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Arabic Bold</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <p>Aliases are listed in the catalog under their own name.
 The <code>glyphs</code> value of an alias counts the distinct code points covered by its fonts.</p>

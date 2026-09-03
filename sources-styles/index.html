@@ -1943,6 +1943,20 @@ but in the future, we may optimize Martin which may result in additional restric
 <p>Use the <code>/style/&lt;style_id&gt;</code> API to get a <code>&lt;style_id&gt;</code>'s JSON content.</p>
 <p>Changes or removals of styles are reflected immediately, but additions are not.
 A restart of Martin is required to see new styles.</p>
+<h3 id="configuring-with-config-file">Configuring with Config File</h3>
+<p>Styles are configured with the <code>styles</code> key.
+<code>paths</code> lists files or directories, and every <code>.json</code> file found is published under its file name.
+<code>sources</code> maps a <code>&lt;style_id&gt;</code> to one file.
+<code>collections</code> lists directories of per-project directories, and a style at <code>/projects/styles/project1/basic.json</code> is published as <code>project1.basic</code>.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">styles</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/style.json</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/style_dir</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">my_style</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/another_style.json</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">collections</span><span class="p">:</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/projects/styles</span>
+</span></code></pre></div>
 <h3 id="server-side-raster-tile-rendering">Server-side raster tile rendering</h3>
 <p>On Linux, Martin can also render a style server-side into raster images -
 both as XYZ tiles and as a single static image at a chosen camera, with an

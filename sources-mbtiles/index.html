@@ -2063,6 +2063,10 @@ When <code>.mbtiles</code> files are added, modified, or removed from a watched 
 <p>Set <code>recursive: true</code> next to <code>paths</code> to scan subdirectories too.
 A nested file is named by its path relative to the scanned directory with <code>/</code> replaced by <code>.</code>, so <code>2024/roads.mbtiles</code> becomes <code>2024.roads</code>.</p>
 </div>
+<div class="admonition tip">
+<p class="admonition-title">Per-project directories</p>
+<p>List a directory of project directories under <code>collections</code> to publish every file inside a project as <code>&lt;project&gt;.&lt;file&gt;</code>, so <code>/projects/tiles/project1/roads.mbtiles</code> becomes <code>project1.roads</code>.</p>
+</div>
 <p>The following events are handled automatically:</p>
 <ul>
 <li><strong>File added</strong> - the new source appears in the catalog.</li>

@@ -2374,6 +2374,11 @@ it and use it with <code>--config my-config.yaml</code> option.</p>
 <p>Set <code>recursive: true</code> next to <code>paths</code> to scan subdirectories too.
 A nested file is named by its path relative to the scanned directory with <code>/</code> replaced by <code>.</code>, so <code>2024/roads.pmtiles</code> becomes <code>2024.roads</code>.</p>
 </div>
+<div class="admonition tip">
+<p class="admonition-title">Per-project directories</p>
+<p>List a directory of project directories under <code>collections</code> to publish every file inside a project as <code>&lt;project&gt;.&lt;file&gt;</code>, so <code>/projects/tiles/project1/roads.pmtiles</code> becomes <code>project1.roads</code>.
+A collection is a local directory.</p>
+</div>
 <p>For remote object-storage prefixes (<code>s3://bucket/prefix/</code>, <code>gs://bucket/prefix/</code>, <code>https://host/prefix/</code>, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
 object <code>ETag</code> or <code>Last-Modified</code> headers to detect updates to an existing source.
 There is no event channel from blob storage to subscribe to.
