@@ -19,6 +19,8 @@ use crate::source::TileSources;
 #[derive(Clone)]
 pub struct TileSourceManager {
     tile_sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+    /// Named combinations of tile sources, served like a single source.
+    aliases: Arc<DashMap<String, Vec<String>>>,
     /// Kept beside the serving map so `--save-config` can serialize what is actually served.
     provenance: Arc<DashMap<String, SourceProvenance>>,
     tile_cache: OptTileCache,
@@ -31,6 +33,7 @@ impl TileSourceManager {
     pub fn new(tile_cache: OptTileCache, on_invalid: OnInvalid) -> Self {
         Self {
             tile_sources: Arc::new(DashMap::new()),
+            aliases: Arc::new(DashMap::new()),
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
@@ -53,6 +56,7 @@ impl TileSourceManager {
             .collect();
         Self {
             tile_sources: Arc::new(map),
+            aliases: Arc::new(DashMap::new()),
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
@@ -62,7 +66,7 @@ impl TileSourceManager {
     /// Returns a [`TileSources`] view for read-only tile serving.
     #[must_use]
     pub fn tile_sources(&self) -> TileSources {
-        TileSources::from_dashmap(Arc::clone(&self.tile_sources))
+        TileSources::from_maps(Arc::clone(&self.tile_sources), Arc::clone(&self.aliases))
     }
 
     /// Returns a reference to the optional tile cache.

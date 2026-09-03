@@ -11,6 +11,13 @@
 ```yaml title="config.yaml"
 # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
 
+# Named combinations of tile sources.
+#
+# Each alias can be requested like a tile source and serves the listed sources combined,
+# exactly like the composite request `/{source1},{source2}`.
+# Aliases may only reference tile sources, not other aliases.
+# An alias sharing the name of a tile source takes precedence over it.
+aliases: {}
 # Set `TileJSON` URL path prefix.
 # This overrides the default path prefix for URLs in `TileJSON` responses.
 # If both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.

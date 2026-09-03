@@ -296,8 +296,9 @@ impl<'a> DynTileSource<'a> {
 
         if resolved.sources.is_empty() {
             let z = zoom.expect("sources are only filtered out when a zoom is requested");
-            let supported = source_ids
-                .split(',')
+            let supported = tile_sources
+                .expand_ids(source_ids)
+                .iter()
                 .filter_map(|id| {
                     let (src, _) = tile_sources.get_source(id).ok()?;
                     let tj = src.get_tilejson();

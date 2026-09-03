@@ -1683,6 +1683,16 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
+    "aliases": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "Named combinations of tile sources.\n\nEach alias can be requested like a tile source and serves the listed sources combined,\nexactly like the composite request `/{source1},{source2}`.\nAliases may only reference tile sources, not other aliases.\nAn alias sharing the name of a tile source takes precedence over it.",
+      "type": "object"
+    },
     "base_path": {
       "description": "Set `TileJSON` URL path prefix.\nThis overrides the default path prefix for URLs in `TileJSON` responses.\nIf both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.\nIf neither is set, the `X-Rewrite-URL` header is respected.\nMust begin with a `/`.\nExamples: `/`, `/tiles`",
       "type": ["string", "null"]
