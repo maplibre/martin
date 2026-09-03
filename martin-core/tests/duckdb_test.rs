@@ -232,7 +232,7 @@ async fn source_serves_tiles_and_cloned_source_remains_usable() {
     let db = TestDatabase::new();
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     assert_eq!(source.get_id(), SOURCE_ID);
@@ -261,7 +261,7 @@ async fn source_returns_empty_tiles_for_missing_or_null_rows() {
     let db = TestDatabase::new();
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     let missing = source
@@ -285,9 +285,9 @@ async fn source_generates_mvt_with_duckdb_spatial_functions() {
         "
 WITH bounds AS (
     SELECT ST_TileEnvelope(
-        CAST(? AS INTEGER),
-        CAST(? AS INTEGER),
-        CAST(? AS INTEGER)
+        CAST($z AS INTEGER),
+        CAST($x AS INTEGER),
+        CAST($y AS INTEGER)
     ) AS geom
 ),
 features AS (
@@ -337,7 +337,7 @@ async fn end_to_end_tile_retrieval_at_multiple_zoom_levels() {
 
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     // Test zoom level 0
@@ -387,7 +387,7 @@ async fn concurrent_tile_requests_from_different_coordinates() {
 
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     // Create concurrent requests for different tiles

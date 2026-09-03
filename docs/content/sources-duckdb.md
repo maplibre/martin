@@ -112,6 +112,11 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
     SRID auto-detection supports EPSG codes and `OGC:CRS84` only.
     If the file has more than one geometry column, set `geometry_column` explicitly.
 
+!!! tip "Row-group pruning"
+    To reduce the IO necessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
+
+    Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
+
 !!! warning "Vector tiles can only carry text, numeric and boolean properties"
     Martin casts every other scalar column - dates, timestamps, `DECIMAL`, `UUID`, `ENUM`, and small or unsigned integers - to the nearest type MVT supports.
     Columns with no MVT representation at all, such as `STRUCT`, `LIST`, `MAP` and `BLOB`, are dropped and named in a startup warning.
