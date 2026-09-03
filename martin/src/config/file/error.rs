@@ -103,6 +103,10 @@ pub enum ConfigFileError {
     #[error("Failed to configure sprite alias: {0}")]
     SpriteAliasResolutionFailed(#[source] SpriteError),
 
+    #[cfg(feature = "_tiles")]
+    #[error("Failed to configure tile source alias: {0}")]
+    TileAliasResolutionFailed(#[source] crate::source::TileAliasError),
+
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
@@ -294,6 +298,8 @@ impl Diagnostic for ConfigFileError {
             Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
             #[cfg(feature = "sprites")]
             Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
+            #[cfg(feature = "_tiles")]
+            Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(feature = "pmtiles")]
@@ -349,6 +355,10 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "sprites")]
             Self::SpriteAliasResolutionFailed(_) => {
                 "Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::TileAliasResolutionFailed(_) => {
+                "Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases."
             }
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,

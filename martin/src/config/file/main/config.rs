@@ -155,6 +155,16 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub geojson: FileConfigEnum<GeoJsonConfig>,
 
+    /// Named combinations of tile sources.
+    ///
+    /// Each alias can be requested like a tile source and serves the listed sources combined,
+    /// exactly like the composite request `/{source1},{source2}`.
+    /// Aliases may only reference tile sources, not other aliases.
+    /// An alias sharing the name of a tile source takes precedence over it.
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub aliases: std::collections::BTreeMap<String, Vec<String>>,
+
     /// Sprite configuration
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]

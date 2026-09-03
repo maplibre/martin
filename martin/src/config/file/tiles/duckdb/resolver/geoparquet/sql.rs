@@ -123,6 +123,7 @@ mod tests {
         );
 
         insta::assert_snapshot!(sql, @r#"
+
         WITH tile AS (
             SELECT
                 ?::INTEGER AS z,
@@ -162,6 +163,7 @@ mod tests {
         );
 
         insta::assert_snapshot!(sql, @r#"
+
         WITH tile AS (
             SELECT
                 ?::INTEGER AS z,
@@ -205,6 +207,7 @@ mod tests {
         );
 
         insta::assert_snapshot!(sql, @r#"
+
         WITH tile AS (
             SELECT
                 ?::INTEGER AS z,
