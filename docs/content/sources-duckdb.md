@@ -24,8 +24,7 @@ tags:
     - DuckDB sources are not included in default binaries, Homebrew, or the Docker image
     - There is no CLI shorthand for `.parquet` or `.duckdb` files
     - DuckDB database sources (`database:`) are not yet supported
-    - Local GeoParquet must be a file; directories are rejected
-    - Remote GeoParquet is `http://` / `https://` only
+    - Local GeoParquet must be a single file; directories and globs are rejected
     - Hot reload is not implemented
     - MLT postprocessing is not supported
     - The published configuration schema does not yet include DuckDB sources
@@ -72,6 +71,11 @@ duckdb:
     # Remote GeoParquet over HTTP(S)
     - geoparquet: https://example.org/data/places.parquet
       layer_id: places
+    # Remote GeoParquet in an object store, optionally a glob over many part files
+    - geoparquet: s3://overturemaps-us-west-2/release/2026-08-19.0/theme=places/type=place/*.parquet
+      layer_id: overture_places
+      geometry_column: geometry
+      srid: 4326
 ```
 
 The top-level `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` apply to every DuckDB source unless overridden on that source:
@@ -86,7 +90,9 @@ The top-level `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` apply
 
 Each GeoParquet source supports:
 
-- **`geoparquet`** - local path or `http://` / `https://` URL of the GeoParquet file.
+- **`geoparquet`**
+  - a remote URL of the GeoParquet file (`http`, `https`, `s3`, `gs`, `gcs`, `r2`, `az`, `azure`, `abfss` and `hf` URLs). A remote URL may be a glob such as `s3://bucket/prefix/*.parquet`, which DuckDB expands into every matching part file.
+  - a local path or `file://` URLs. Local paths must name a single file.
 - **`layer_id`** - MVT `source-layer` and the base for the source id (defaults to the file or URL stem).
 - **`geometry_column`** - geometry column name. Auto-detected when the file has exactly one geometry column.
 - **`id_column`** - optional table column to use as the MVT feature id.
@@ -157,7 +163,11 @@ Parquet is a columnar file format.
 GeoParquet adds a standard way to store geometry columns and CRS information inside that file.
 
 Martin reads GeoParquet with DuckDB `read_parquet`, loads the DuckDB `spatial` extension, and generates MVT tiles on each request.
-Remote `http://` / `https://` URLs also load the DuckDB `httpfs` extension.
+Remote URLs also load the DuckDB `httpfs` extension.
+
+Martin passes remote URLs to DuckDB unchanged and does not manage credentials for them.
+Public buckets work with no further configuration.
+Private ones need DuckDB's own credential configuration, such as the standard AWS environment variables.
 
 You may want to visit these specs:
 

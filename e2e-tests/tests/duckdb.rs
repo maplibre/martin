@@ -83,12 +83,12 @@ async fn the_catalog_names_the_geoparquet_file() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @r"
-      content-encoding: br
-      content-type: application/json
-      etag: [ETAG]
-      transfer-encoding: chunked
-      vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @"
+    content-encoding: br
+    content-type: application/json
+    etag: [ETAG]
+    transfer-encoding: chunked
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
     insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
     {
@@ -110,7 +110,7 @@ async fn a_tilejson_describes_the_parquet_columns() {
     let response = martin.get("/polygons").await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]
@@ -199,7 +199,7 @@ async fn the_saved_config_fills_in_the_source_defaults() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
