@@ -8,17 +8,17 @@
   "dependencies": {
     "date-fns": "^4.4.0",
     "debounce": "3.0.0",
-    "maplibre-gl": "^5.23.0",
+    "maplibre-gl": "^6.0.0",
     "normalize.css": "8.0.1",
     "react": "19.2.8",
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.8",
     "react-map-gl": "^8.1.1",
     "react-scroll-parallax": "3.5.0",
-    "styled-components": "6.5.1"
+    "styled-components": "6.5.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.10",
+    "@biomejs/biome": "2.5.11",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/debounce": "^1.2.4",
     "@types/node": "^26.0.1",

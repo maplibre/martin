@@ -85,11 +85,17 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
             query.push(')');
 
             // TODO: Rewrite as a if-let chain:  if Some(names) = output_record_names && output_type == "record" { ... }
+            let mut has_etag_column = false;
             let ret_inf = if let (Some(names), "record") = (output_record_names, output_type.as_str()) {
-                 // SELECT mvt FROM "public"."function_zxy_row2"(
+                 // SELECT "mvt", "key" FROM "public"."function_zxy_row_key"(
                  //    "z" => $1::integer, "x" => $2::integer, "y" => $3::integer
                  // );
                  query.insert_str(0, " FROM ");
+                 if let Some(key) = names.get(1) {
+                     has_etag_column = true;
+                     query.insert_str(0, &escape_identifier(key.as_str()));
+                     query.insert_str(0, ", ");
+                 }
                  query.insert_str(0, &escape_identifier(names[0].as_str()));
                  query.insert_str(0, "SELECT ");
                  format!("[{}]", names.join(", "))
@@ -105,13 +111,16 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
                 .insert(
                     function.clone(),
                     (
-                        PostgresSqlInfo::new(
-                            query,
-                            input_types.len() == 4,
+PostgresSqlInfo::new(
+query,
+input_types.len() == 4,
+                        // a function may return different rows per zoom, so an empty tile says nothing about its children
+                            false,
                             format!(
                                 "{schema}.{function}({}) -> {ret_inf}",
                                 input_types.join(", ")
                             ),
+                            has_etag_column,
                         ),
                         FunctionInfo::new(schema, function, tilejson)
                     ),

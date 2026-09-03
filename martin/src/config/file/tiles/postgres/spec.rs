@@ -212,7 +212,9 @@ mod tests {
         let sql = PostgresSqlInfo::new(
             "SELECT mvt FROM public.tiles($1, $2, $3)".to_owned(),
             false,
+            false,
             "public.tiles(integer,integer,integer)".to_owned(),
+            false,
         );
         (info, sql)
     }

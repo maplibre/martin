@@ -5,6 +5,8 @@
     not(feature = "styles")
 ))]
 
+use std::assert_matches;
+
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
@@ -76,6 +78,12 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      curves:
+        content_type: application/x-protobuf
+        description: public.curves.geom
+      curves_untyped:
+        content_type: application/x-protobuf
+        description: public.curves_untyped.geom
       empty_bounds:
         content_type: application/x-protobuf
         description: public.empty_bounds.geom
@@ -1075,9 +1083,9 @@ tables:
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
-    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
+    assert_matches!(&src.properties, Some(v) if v.len() == 1);
     let src = source(&mock, "no_id");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -1094,7 +1102,7 @@ tables:
     name: no_id
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1110,7 +1118,7 @@ tables:
       TABLE: text
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1127,7 +1135,7 @@ tables:
       giD: int4
     ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326

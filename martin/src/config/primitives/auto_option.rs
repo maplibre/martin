@@ -36,7 +36,7 @@ impl<T> AutoOption<T> {
     pub fn as_explicit(&self) -> Option<&T> {
         match self {
             Self::Explicit(v) => Some(v),
-            _ => None,
+            Self::Auto | Self::Disabled => None,
         }
     }
 }

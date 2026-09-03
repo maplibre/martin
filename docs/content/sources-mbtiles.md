@@ -41,11 +41,18 @@ mbtiles:
     - /path/to/mbtiles/directory
 ```
 
+!!! tip "Scanning subdirectories"
+    Set `recursive: true` next to `paths` to scan subdirectories too.
+    A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.mbtiles` becomes `2024.roads`.
+
+!!! tip "Per-project directories"
+    List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/roads.mbtiles` becomes `project1.roads`.
+
 The following events are handled automatically:
 
 - **File added** - the new source appears in the catalog.
 - **File modified** - the source is reloaded and its tile cache is invalidated.
-  Not avaliable on windows due to OS-limtations (SQLite not allowing `FILE_SHARE_DELETE`).
+  Not available on windows due to OS-limitations (SQLite not allowing `FILE_SHARE_DELETE`).
 - **File removed** - the source is removed from the catalog.
 
 !!! note

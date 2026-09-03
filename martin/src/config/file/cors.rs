@@ -10,7 +10,6 @@ use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     UnrecognizedValues,
 };
-use crate::{MartinError, MartinResult};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -133,10 +132,10 @@ impl CorsConfig {
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(&self) -> MartinResult<()> {
+    pub fn validate(&self) -> ConfigFileResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
-            Self::Properties(properties) => properties.validate().map_err(MartinError::from),
+            Self::Properties(properties) => properties.validate(),
         }
     }
 
@@ -178,6 +177,8 @@ impl CorsConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use indoc::indoc;
 
     use super::*;
@@ -346,10 +347,10 @@ mod tests {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert!(matches!(
+            assert_matches!(
                 settings.validate(),
                 Err(ConfigFileError::CorsNoOriginsConfigured)
-            ));
+            );
         } else {
             panic!("Expected Properties variant");
         }
@@ -374,10 +375,10 @@ mod tests {
             unrecognized: UnrecognizedValues::default(),
         };
 
-        assert!(matches!(
+        assert_matches!(
             properties.validate(),
             Err(ConfigFileError::CorsNoOriginsConfigured)
-        ));
+        );
     }
 
     #[test]

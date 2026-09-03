@@ -1,6 +1,11 @@
 mod file_config;
 pub use file_config::*;
 
+#[cfg(feature = "_tiles")]
+mod source_location;
+#[cfg(feature = "_tiles")]
+pub use source_location::SourceLocation;
+
 mod collect_unrecognized;
 pub use collect_unrecognized::*;
 
@@ -9,19 +14,35 @@ pub use main::*;
 pub mod cache;
 pub mod cors;
 pub mod srv;
+pub use srv::CacheControlHeader;
 
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+mod contour;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+pub use contour::{
+    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings,
+    FilteredThreshold, ResolvedContour,
+};
+
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod hillshade;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+pub use hillshade::{
+    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
+    ResolvedHillshade,
+};
+
 pub mod process;
-pub use process::ProcessConfig;
-#[cfg(all(
-    feature = "mlt",
-    any(feature = "mbtiles", feature = "pmtiles", feature = "postgres")
-))]
-pub(crate) use process::resolve_process_config;
+#[cfg(any(feature = "postgres", feature = "_file_kinds"))]
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-pub use process::{MltEncoderConfig, MltProcessConfig, MvtEncoderConfig, MvtProcessConfig};
+pub use process::{
+    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,
+    MvtProcessConfig,
+};
+pub use process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
 
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 mod resources;

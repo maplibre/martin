@@ -72,7 +72,9 @@ nav = [
     ]},
     {"Postprocessing" = [
         "postprocessing/index.md",
-        {"MVT/MLT Conversion" = "postprocessing/mlt.md"}
+        {"MVT/MLT Conversion" = "postprocessing/mlt.md"},
+        {"Hillshade" = "postprocessing/hillshade.md"},
+        {"Contours" = "postprocessing/contour.md"}
     ]},
     {"Supporting Resources" = [
         {"Sprites" = "sources-sprites.md"},
@@ -86,6 +88,7 @@ nav = [
   {"Available API Endpoints" = "using.md"},
   {"Guides" = [
     "using-guides/index.md",
+    {"Self-hosting a basemap from scratch" = "recipe-basemap-selfhosted.md"},
     {"Map renderer specific" = [
         "using-with-renderer/index.md",
         {"MapLibre" = "using-with-maplibre.md"},

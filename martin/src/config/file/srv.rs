@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-#[cfg(feature = "metrics")]
+#[cfg(any(feature = "metrics", feature = "_tiles"))]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
 use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
@@ -116,7 +116,11 @@ pub struct SrvConfig {
     /// At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
     /// This may be undesirable in a production environment
     #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
+    /// Optional endpoints, each off unless enabled here.
+    #[cfg(feature = "_tiles")]
+    pub endpoints: Option<EndpointsConfig>,
     /// CORS Configuration
     ///
     /// Defaults to `cors: true`, which allows all origins.
@@ -214,6 +218,31 @@ pub struct MetricsConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
+/// Optional endpoints, each off unless enabled here.
+#[cfg(feature = "_tiles")]
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct EndpointsConfig {
+    /// Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \[default: false\]
+    ///
+    /// The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub purge_cache: Option<bool>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
@@ -296,13 +325,13 @@ mod tests {
             render_failure(indoc::indoc! {"
                 cache_control: max-age=invalid
             "}),
-            @r"
-martin::config::yaml (https://maplibre.org/martin/config-file/)
+            @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-  × invalid Cache-Control header value 'max-age=invalid': no valid directives
-  help: Check the highlighted token in your YAML. The error usually indicates
-        a mismatched type or an unexpected shape.
-");
+          × invalid Cache-Control header value 'max-age=invalid': no valid directives
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]
@@ -311,13 +340,13 @@ martin::config::yaml (https://maplibre.org/martin/config-file/)
             render_failure(indoc::indoc! {"
                 cache_control: ''
             "}),
-            @r"
-martin::config::yaml (https://maplibre.org/martin/config-file/)
+            @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-  × invalid Cache-Control header value '': no valid directives
-  help: Check the highlighted token in your YAML. The error usually indicates
-        a mismatched type or an unexpected shape.
-");
+          × invalid Cache-Control header value '': no valid directives
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]

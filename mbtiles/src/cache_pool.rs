@@ -171,6 +171,8 @@ impl MbtilesCache {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use crate::CacheEntryMeta;
 
@@ -265,6 +267,6 @@ mod tests {
         drop(conn);
 
         let err = MbtilesCache::open(&path).await.unwrap_err();
-        assert!(matches!(err, MbtError::NotACacheFile(_)), "got {err:?}");
+        assert_matches!(err, MbtError::NotACacheFile(_));
     }
 }

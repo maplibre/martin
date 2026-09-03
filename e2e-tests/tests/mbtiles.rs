@@ -71,7 +71,6 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
     assert_eq!(tile.body(), b"\xff\xd8\xff\xff\xff\xd9");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -115,7 +114,6 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
     assert_eq!(tile.body(), b"\x89PNG\r\n\x1a\n\x01");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -160,7 +158,6 @@ async fn an_mvt_source_serves_its_tilejson() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -244,7 +241,6 @@ async fn an_mvt_source_serves_a_decodable_tile() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -281,7 +277,6 @@ async fn a_normalized_source_serves_its_tilejson() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -316,7 +311,6 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -334,7 +328,6 @@ async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] q
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[cfg(not(windows))]
@@ -403,7 +396,6 @@ async fn reload_adds_and_updates_a_source() {
     martin.assert_log_contains("Added source source.id=world_cities");
     martin.assert_log_contains("Updated source source.id=world_cities");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[cfg(not(windows))]
@@ -435,5 +427,181 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_log_contains("Removed source source.id=world_cities");
     martin.assert_log_contains(r#"ERROR error="Source world_cities does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn reload_publishes_and_removes_a_project_of_a_collection() {
+    let watched = WatchedDir::new();
+    let original = watched.outside("original.mbtiles");
+    mbtiles_from_sql(fixture("mbtiles/world_cities.sql"), &original).await;
+
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  collections: {}\n",
+            watched.dir().display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(
+        martin.get("/catalog").await.json()["tiles"],
+        serde_json::json!({})
+    );
+
+    // The staged file already sits next to the watched directory, so the rename is atomic.
+    let project = watched.dir().join("project1");
+    std::fs::create_dir_all(&project).expect("failed to create the project directory");
+    std::fs::rename(&original, project.join("world_cities.mbtiles"))
+        .expect("failed to move the file into the project");
+    martin.wait_for_source("project1.world_cities").await;
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "project1.world_cities": {
+        "content_encoding": "gzip",
+        "content_type": "application/x-protobuf",
+        "description": "Major cities from Natural Earth data",
+        "name": "Major cities from Natural Earth data"
+      }
+    }
+    "#);
+    assert_eq!(
+        martin.get("/project1.world_cities/0/0/0").await.status(),
+        200
+    );
+
+    std::fs::remove_dir_all(&project).expect("failed to remove the project directory");
+    martin
+        .wait_for_source_removed("project1.world_cities")
+        .await;
+    assert_eq!(
+        martin.get("/catalog").await.json()["tiles"],
+        serde_json::json!({})
+    );
+
+    martin.stop().await;
+    martin.assert_log_contains("Added source source.id=project1.world_cities");
+    martin.assert_log_contains("Removed source source.id=project1.world_cities");
+}
+
+#[tokio::test]
+async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let watched = WatchedDir::new();
+    mbtiles_fixture(watched.dir(), "world_cities").await;
+    let dir = watched.dir();
+
+    let mut bounded = Martin::builder()
+        .config(&format!(
+            "cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n",
+            dir.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(bounded.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = bounded.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    bounded.stop().await;
+
+    // The same directory without a lower bound shows what the cache would have counted.
+    let mut unbounded = Martin::builder()
+        .config(&format!("mbtiles:\n  paths: {}\n", dir.display()))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(unbounded.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = unbounded.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @r#"
+    martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
+    martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
+    "#);
+    unbounded.stop().await;
+}
+
+#[tokio::test]
+async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_it() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let watched = WatchedDir::new();
+    let file = mbtiles_fixture(watched.dir(), "world_cities").await;
+    let dir = watched.dir();
+
+    let mut kind_level = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n",
+            dir.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(kind_level.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = kind_level.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    kind_level.stop().await;
+
+    let mut overridden = Martin::builder()
+        .config(&format!(
+            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n  sources:\n    world_cities:\n      path: {}\n      cache:\n        minzoom: 0\n",
+            dir.display(),
+            file.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(overridden.get("/world_cities/0/0/0").await.status(), 200);
+    }
+    let scrape = overridden.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @r#"
+    martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
+    martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
+    "#);
+    overridden.stop().await;
+}
+
+#[tokio::test]
+async fn a_source_without_a_tile_index_is_served_with_a_warning() {
+    use sqlx::Connection as _;
+
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let path = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut conn = sqlx::SqliteConnection::connect(&format!("sqlite://{}", path.display()))
+        .await
+        .expect("failed to open the fixture");
+    sqlx::query("DROP INDEX tile_index")
+        .execute(&mut conn)
+        .await
+        .expect("failed to drop the tile index");
+    conn.close().await.expect("failed to close the fixture");
+
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/world_cities/0/0/0").await;
+    assert_eq!(tile.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains("Table tiles has no index on (zoom_level, tile_column, tile_row)");
 }

@@ -1,6 +1,6 @@
 //! Spritesheets generated from directories of SVG files.
 
-use martin_e2e_tests::{Martin, fixture};
+use martin_e2e_tests::{Martin, StartError, fixture};
 use rstest::rstest;
 
 async fn martin_with_sprite_dirs() -> Martin {
@@ -36,7 +36,6 @@ async fn a_sprite_directory_is_discovered_recursively() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -79,7 +78,6 @@ async fn an_index_places_every_icon_on_the_sheet() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -96,7 +94,6 @@ async fn a_sheet_is_served_as_png() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -115,7 +112,6 @@ async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (
     assert_eq!(response.image_size(), size);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -138,7 +134,6 @@ async fn a_2x_index_doubles_every_dimension() {
     }
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -188,7 +183,6 @@ async fn an_sdf_index_flags_every_icon() {
     }
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -205,7 +199,6 @@ async fn a_composite_index_merges_every_source() {
     assert_eq!(names, ["another_bicycle", "bear", "bicycle", "sub/circle"]);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -224,7 +217,6 @@ async fn an_unknown_sprite_source_is_not_found(#[case] path: &str) {
     martin.stop().await;
     martin.assert_log_contains(r#"error=SpriteNotFound("nope")"#);
     martin.assert_log_contains(r#"error="Sprite nope not found""#);
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -243,5 +235,123 @@ async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location:
     assert_eq!(martin.get(location).await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_clean();
+}
+
+async fn martin_with_sprite_alias(alias: &str) -> Result<Martin, StartError> {
+    Martin::builder()
+        .config(&format!(
+            "
+sprites:
+  paths:
+    - tests/fixtures/sprites/src1
+    - tests/fixtures/sprites/src2
+  aliases:
+    {alias}
+"
+        ))
+        .start()
+        .await
+}
+
+#[tokio::test]
+async fn an_alias_serves_the_sources_it_combines() {
+    let mut martin = martin_with_sprite_alias("icons: [src1, src2]")
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["sprites"], @r#"
+    {
+      "icons": {
+        "images": [
+          "another_bicycle",
+          "bear",
+          "bicycle",
+          "sub/circle"
+        ]
+      },
+      "src1": {
+        "images": [
+          "another_bicycle",
+          "bear",
+          "sub/circle"
+        ]
+      },
+      "src2": {
+        "images": [
+          "bicycle"
+        ]
+      }
+    }
+    "#);
+
+    for suffix in [".json", ".png", "@2x.json", "@2x.png"] {
+        let aliased = martin.get(&format!("/sprite/icons{suffix}")).await;
+        assert_eq!(aliased.status(), 200, "{suffix}");
+        let explicit = martin.get(&format!("/sprite/src1,src2{suffix}")).await;
+        assert_eq!(aliased.body(), explicit.body(), "{suffix}");
+    }
+
+    martin.stop().await;
+    martin.assert_log_contains("Configured sprite alias");
+}
+
+#[tokio::test]
+async fn an_alias_may_shadow_the_source_it_extends() {
+    let mut martin = martin_with_sprite_alias("src1: [src1, src2]")
+        .await
+        .expect("failed to start martin");
+
+    let shadowed = martin.get("/sprite/src1.json").await;
+    assert_eq!(shadowed.status(), 200);
+    let explicit = martin.get("/sprite/src1,src2.json").await;
+    assert_eq!(shadowed.body(), explicit.body());
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Sprite alias shadows a sprite source of the same name; requests for it will serve the alias",
+    );
+}
+
+#[tokio::test]
+async fn an_alias_naming_an_unknown_source_fails_startup() {
+    let error = martin_with_sprite_alias("icons: [src1, nonexistent]")
+        .await
+        .expect_err("martin must reject an alias naming an unknown sprite source");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains(r#"Sprite alias "icons" references unknown sprite source "nonexistent""#),
+        "log must name the alias and the missing source; log:\n{log}"
+    );
+}
+
+#[tokio::test]
+async fn a_collection_publishes_each_subdirectory_as_a_sprite() {
+    let mut martin = Martin::builder()
+        .config("sprites:\n  collections: tests/fixtures/sprites\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["sprites"], @r#"
+    {
+      "src1": {
+        "images": [
+          "another_bicycle",
+          "bear",
+          "sub/circle"
+        ]
+      },
+      "src2": {
+        "images": [
+          "bicycle"
+        ]
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/sprite/src1,src2.json").await.status(), 200);
+
+    martin.stop().await;
 }

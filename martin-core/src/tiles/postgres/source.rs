@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
@@ -10,7 +11,7 @@ use crate::tiles::postgres::PostgresError::{
 };
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::postgres::{ActiveQueryRegistry, PostgresPool};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
@@ -72,6 +73,10 @@ impl Source for PostgresSource {
         true
     }
 
+    fn empty_tile_implies_empty_children(&self) -> bool {
+        self.info.empty_tile_implies_empty_children
+    }
+
     fn cache_zoom(&self) -> CacheZoomRange {
         self.cache_zoom
     }
@@ -80,6 +85,44 @@ impl Source for PostgresSource {
         Some(self.pool.active_query_registry().clone())
     }
 
+    async fn get_tile(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<TileData> {
+        Ok(self
+            .query_row(xyz, url_query)
+            .await?
+            .and_then(|row| row.get::<_, Option<TileData>>(0))
+            .unwrap_or_default())
+    }
+
+    async fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Tile> {
+        if !self.info.has_etag_column {
+            let data = self.get_tile(xyz, url_query).await?;
+            return Ok(Tile::new_hash_etag(data, self.tile_info));
+        }
+        let row = self.query_row(xyz, url_query).await?;
+        let data: TileData = row
+            .as_ref()
+            .and_then(|row| row.get::<_, Option<TileData>>(0))
+            .unwrap_or_default();
+        let etag: Option<String> = row.and_then(|row| row.get::<_, Option<String>>(1));
+        match etag {
+            Some(etag) if !data.is_empty() && !etag.is_empty() => {
+                Ok(Tile::new_with_etag(data, self.tile_info, etag))
+            }
+            _ => Ok(Tile::new_hash_etag(data, self.tile_info)),
+        }
+    }
+}
+
+impl PostgresSource {
+    /// Runs the tile query, returning the row when the query produced one.
     #[instrument(
         level = "debug",
         skip_all,
@@ -91,11 +134,11 @@ impl Source for PostgresSource {
         ),
         err(Debug),
     )]
-    async fn get_tile(
+    async fn query_row(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    ) -> MartinCoreResult<Option<Row>> {
         let conn = self.pool.get().await?;
 
         let cancel_token = conn.cancel_token();
@@ -139,21 +182,13 @@ impl Source for PostgresSource {
             .await
         };
 
-        let tile = tile
-            .map(|row| {
-                let r = row?;
-                r.get::<_, Option<TileData>>(0)
-            })
-            .map_err(|e| {
-                if self.support_url_query() {
-                    GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
-                } else {
-                    GetTileError(e, self.id.clone(), xyz)
-                }
-            })?
-            .unwrap_or_default();
-
-        Ok(tile)
+        Ok(tile.map_err(|e| {
+            if self.support_url_query() {
+                GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
+            } else {
+                GetTileError(e, self.id.clone(), xyz)
+            }
+        })?)
     }
 }
 
@@ -164,18 +199,30 @@ pub struct PostgresSqlInfo {
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
+    /// Whether an empty tile implies that all tiles below it are empty.
+    pub empty_tile_implies_empty_children: bool,
     /// Signature of the query.
     pub signature: String,
+    /// Whether the query's second column is the tile's `ETag`.
+    pub has_etag_column: bool,
 }
 
 impl PostgresSqlInfo {
     /// Creates new SQL query information.
     #[must_use]
-    pub const fn new(query: String, has_query_params: bool, signature: String) -> Self {
+    pub const fn new(
+        query: String,
+        has_query_params: bool,
+        empty_tile_implies_empty_children: bool,
+        signature: String,
+        has_etag_column: bool,
+    ) -> Self {
         Self {
             sql_query: query,
             use_url_query: has_query_params,
+            empty_tile_implies_empty_children,
             signature,
+            has_etag_column,
         }
     }
 }

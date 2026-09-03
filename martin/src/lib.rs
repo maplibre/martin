@@ -20,7 +20,7 @@ mod tile_source_manager;
 pub use tile_source_manager::TileSourceManager;
 
 mod error;
-pub use error::{MartinError, MartinResult};
+pub use error::{StartupError, StartupResult};
 
 #[cfg(all(test, feature = "_tiles"))]
 mod test_support;

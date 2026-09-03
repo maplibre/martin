@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues,
+    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
 };
 
 #[serde_with::skip_serializing_none]
@@ -29,6 +29,14 @@ pub struct InnerFontConfig {
         schemars(with = "crate::config::file::CacheSizeConfigShape")
     )]
     pub cache: CacheSizeConfig,
+
+    /// Named font stacks.
+    ///
+    /// Each alias can be requested like a font and serves the listed fonts combined, in fallback order.
+    /// Aliases may only reference discovered fonts, not other aliases.
+    /// An alias sharing the name of a discovered font takes precedence over it.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub aliases: BTreeMap<String, Vec<String>>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -63,7 +71,24 @@ impl FontConfig {
                 .map_err(|e| ConfigFileError::FontResolutionFailed(e, base_path.clone()))?;
         }
 
-        *self = Self::new_extended(directories, configs, cfg.custom);
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (_name, path) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
+                results
+                    .recursively_add_directory(path.clone())
+                    .map_err(|e| ConfigFileError::FontResolutionFailed(e, path))?;
+            }
+        }
+
+        for (alias, fonts) in &cfg.custom.aliases {
+            results
+                .add_alias(alias.clone(), fonts.clone())
+                .map_err(ConfigFileError::FontAliasResolutionFailed)?;
+        }
+
+        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }

@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use martin_core::tiles::BoxedSource;
 
-use crate::MartinResult;
-use crate::config::file::{ProcessConfig, TileSourceWarning};
+use crate::config::file::{ResolvedProcess, SourceBuildResult, TileSourceWarning};
+use crate::reload::SourceProvenance;
 
 /// Per-Source change-detection value. `Opaque` sources only diff on presence, never update.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -20,7 +20,7 @@ pub enum Version {
 pub struct Discovered<A> {
     /// id -> (version, source arguments)
     pub sources: BTreeMap<String, (Version, A)>,
-    /// Non-fatal findings (a misconfigured source, an unreadable path).
+    /// Non-fatal findings (a misconfigured source, an unreadable path). Abortable at startup, warn-only live.
     pub warnings: Vec<TileSourceWarning>,
 }
 
@@ -37,14 +37,17 @@ impl<A> Discovered<A> {
 /// A built source, with anything source-specific the catalog must apply alongside it.
 pub struct BuiltSource {
     pub source: BoxedSource,
+    /// What `--save-config` needs to write the source back to a config file.
+    pub provenance: Option<SourceProvenance>,
     /// Per-source override of the kind's [`Discovery::process`], if the source configures one.
-    pub process: Option<ProcessConfig>,
+    pub process: Option<ResolvedProcess>,
 }
 
 impl From<BoxedSource> for BuiltSource {
     fn from(source: BoxedSource) -> Self {
         Self {
             source,
+            provenance: None,
             process: None,
         }
     }
@@ -56,15 +59,20 @@ pub trait Discovery: Send + Sync + 'static {
     type Args: Clone + Send + Sync + 'static;
 
     /// Cheap snapshot of id -> (version, source arguments); an `Err` makes the driver retain its baseline.
-    fn discover(&self) -> impl Future<Output = MartinResult<Discovered<Self::Args>>> + Send;
+    fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<Self::Args>>> + Send;
 
     /// Builds one source; an `Err` rides into that source's `NewSource`.
     fn build(
         &self,
         id: &str,
         args: &Self::Args,
-    ) -> impl Future<Output = MartinResult<BuiltSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send;
 
-    /// `ProcessConfig` stamped onto every source this kind emits.
-    fn process(&self) -> ProcessConfig;
+    /// `ResolvedProcess` stamped onto every source this kind emits.
+    fn process(&self) -> ResolvedProcess;
+
+    /// Findings from constructing this discovery, reported once through `init()`.
+    fn construction_warnings(&self) -> Vec<TileSourceWarning> {
+        Vec::new()
+    }
 }

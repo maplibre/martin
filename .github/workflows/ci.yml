@@ -59,7 +59,9 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           rendering: true
-          cache: true
+          # The 10GB cache quota only has room for the Linux entry; a macOS entry
+          # gets evicted before the next run can restore it (see #3156).
+          cache: ${{ matrix.os == 'ubuntu-latest' }}
           coverage: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Run cargo test
         run: just test-packages-ci
@@ -79,7 +81,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { cache: true, coverage: true }
+        with: { coverage: true }
       - name: Run COG tests
         run: just test-cog
       - uses: ./.github/actions/upload-coverage
@@ -171,7 +173,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with: { toolchain: none }
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: just test-schemas
   lint-rust-dependencies:
@@ -271,7 +273,7 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-gnu
@@ -506,7 +508,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: ./.github/actions/setup-rust
-        with: { tools: 'just,fast-mvt', rendering: true }
+        with: { tools: 'just,fast-mvt', rendering: true, cache: true }
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes

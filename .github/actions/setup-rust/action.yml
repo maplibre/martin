@@ -58,7 +58,7 @@ runs:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
     - if: inputs.tools != ''
-      uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
+      uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
       with: { tool: '${{ inputs.tools }}' }
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
@@ -67,7 +67,7 @@ runs:
       shell: bash
       run: just env-info
     - if: inputs.coverage == 'true'
-      uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
+      uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
       with: { tool: 'cargo-llvm-cov' }
     - if: inputs.coverage == 'true'
       shell: bash

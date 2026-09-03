@@ -15,7 +15,7 @@ To edit these styles, we recommend using <https://maputnik.github.io/editor/>.
 
 Martin can serve [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/).
 Currently, Martin will use any valid [`JSON`](https://json.org) file as a style,
-but in the future, we may optimise Martin which may result in additional restrictions.
+but in the future, we may optimize Martin which may result in additional restrictions.
 
 Use the `/catalog` API to see all the `<style_id>`s.
 
@@ -58,6 +58,24 @@ performed.
 
 Tile sources remain separate in the merged style. Server-side raster and static
 rendering continue to accept one style ID only.
+
+### Configuring with Config File
+
+Styles are configured with the `styles` key.
+`paths` lists files or directories, and every `.json` file found is published under its file name.
+`sources` maps a `<style_id>` to one file.
+`collections` lists directories of per-project directories, and a style at `/projects/styles/project1/basic.json` is published as `project1.basic`.
+
+```yaml
+styles:
+  paths:
+    - /path/to/style.json
+    - /path/to/style_dir
+  sources:
+    my_style: /path/to/another_style.json
+  collections:
+    - /projects/styles
+```
 
 ### Server-side raster tile rendering
 

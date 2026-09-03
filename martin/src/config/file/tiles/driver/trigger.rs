@@ -6,8 +6,6 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 use tokio::time::{Instant, MissedTickBehavior};
 
-use crate::{MartinError, MartinResult};
-
 /// Decides when a [`ReloadDriver`](super::ReloadDriver) reconciles. `None` ends the loop.
 pub trait Trigger: Send + 'static {
     fn next(&mut self) -> impl Future<Output = Option<()>> + Send;
@@ -21,7 +19,7 @@ pub struct NotifyTrigger {
 }
 
 impl NotifyTrigger {
-    pub fn new(directories: &[PathBuf]) -> MartinResult<Self> {
+    pub fn new(directories: &[PathBuf], recursive: bool) -> notify::Result<Self> {
         let (tx, rx) = mpsc::channel::<Event>(256);
 
         let mut watcher = RecommendedWatcher::new(
@@ -33,13 +31,14 @@ impl NotifyTrigger {
                 }
             },
             Config::default(),
-        )
-        .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
+        )?;
+        let mode = if recursive {
+            notify::RecursiveMode::Recursive
+        } else {
+            notify::RecursiveMode::NonRecursive
+        };
         for dir in directories {
-            // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-            watcher
-                .watch(dir, notify::RecursiveMode::NonRecursive)
-                .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
+            watcher.watch(dir, mode)?;
         }
 
         Ok(Self {
@@ -66,16 +65,27 @@ impl Trigger for NotifyTrigger {
     }
 }
 
-/// Fires on a fixed interval, first tick immediate. Never ends the loop.
+/// Fires on a fixed interval. Never ends the loop.
 pub struct PollTrigger {
     ticker: tokio::time::Interval,
 }
 
 impl PollTrigger {
+    /// Fires immediately, then once per interval.
     /// `interval` must be non-zero; the wiring skips spawning when it is zero.
     #[must_use]
     pub fn new(interval: Duration) -> Self {
-        let mut ticker = tokio::time::interval_at(Instant::now(), interval);
+        Self::starting_at(Instant::now(), interval)
+    }
+
+    /// Fires one interval from now, then once per interval, for a catalog that `init` has already loaded.
+    #[must_use]
+    pub fn after_interval(interval: Duration) -> Self {
+        Self::starting_at(Instant::now() + interval, interval)
+    }
+
+    fn starting_at(start: Instant, interval: Duration) -> Self {
+        let mut ticker = tokio::time::interval_at(start, interval);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
         Self { ticker }
     }
@@ -107,10 +117,23 @@ mod tests {
         assert_eq!(started.elapsed(), interval);
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn poll_trigger_after_interval_skips_the_immediate_tick() {
+        let interval = Duration::from_secs(30);
+        let started = Instant::now();
+        let mut trigger = PollTrigger::after_interval(interval);
+
+        assert_eq!(trigger.next().await, Some(()));
+        assert_eq!(started.elapsed(), interval);
+
+        assert_eq!(trigger.next().await, Some(()));
+        assert_eq!(started.elapsed(), interval * 2);
+    }
+
     #[tokio::test]
     async fn notify_trigger_fires_on_file_creation() {
         let dir = tempfile::tempdir().unwrap();
-        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()]).unwrap();
+        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()], false).unwrap();
 
         // Let the watcher register before mutating the directory.
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -135,7 +158,7 @@ mod tests {
         std::fs::write(&file, b"hi").unwrap();
 
         // Start watching only after the file exists, so the create event is not observed.
-        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()]).unwrap();
+        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()], false).unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         // Reading the file mutates nothing; the trigger must stay silent.

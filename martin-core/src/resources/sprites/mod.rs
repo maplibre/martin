@@ -16,7 +16,7 @@
 //! # }
 //! ```
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -83,7 +83,12 @@ fn split_and_dedup_ids(ids: &str) -> (Vec<&str>, u8) {
 #[must_use]
 pub fn normalize_sprite_ids(ids: &str) -> String {
     let (unique_ids, dpi) = split_and_dedup_ids(ids);
-    let joined = unique_ids.join(",");
+    join_ids(&unique_ids, dpi)
+}
+
+/// Joins sprite ids back into request-path form, with the `@2x` suffix for the high-DPI ratio.
+fn join_ids<S: AsRef<str>>(ids: &[S], dpi: u8) -> String {
+    let joined = ids.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(",");
     if dpi == 2 {
         format!("{joined}@2x")
     } else {
@@ -118,18 +123,25 @@ pub struct CatalogSpriteEntry {
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
-pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
+pub type SpriteCatalog = BTreeMap<String, CatalogSpriteEntry>;
 
 /// Thread-safe sprite source manager for serving sprites as `.png` or `.json`.
 #[derive(Debug, Clone, Default)]
-pub struct SpriteSources(DashMap<String, SpriteSource>);
+pub struct SpriteSources {
+    /// Map of sprite source id to its directory.
+    sources: DashMap<String, SpriteSource>,
+    /// Map of alias name to the sprite source ids it combines.
+    aliases: DashMap<String, Vec<String>>,
+}
 
 impl SpriteSources {
-    /// Returns a catalog of all sprite sources.
+    /// Returns a catalog of all sprite sources and aliases.
+    ///
+    /// An alias is listed under its own name with the images of every source it combines.
     pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
-        for source in &self.0 {
+        for source in &self.sources {
             let paths = discover_svgs(&source.path)?;
             let mut images = Vec::with_capacity(paths.len());
             for path in paths {
@@ -150,7 +162,109 @@ impl SpriteSources {
                 },
             );
         }
+        let aliases = self
+            .aliases
+            .iter()
+            .map(|alias| {
+                let mut images: Vec<String> = alias
+                    .value()
+                    .iter()
+                    .filter_map(|source| entries.get(source))
+                    .flat_map(|entry| entry.images.iter().cloned())
+                    .collect();
+                images.sort();
+                images.dedup();
+                (
+                    alias.key().clone(),
+                    CatalogSpriteEntry {
+                        images,
+                        size_in_bytes: None,
+                        last_modified_at: None,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        entries.extend(aliases);
         Ok(entries)
+    }
+
+    /// Registers a named combination of sprite sources that serves like a single source.
+    ///
+    /// Every member must name a configured sprite source, not another alias.
+    /// An alias may share the name of a source it references.
+    /// Requests for such a name serve the alias.
+    pub fn add_alias(&self, name: String, sprites: Vec<String>) -> Result<(), SpriteError> {
+        if name.is_empty() || name.contains(',') || name.ends_with("@2x") {
+            return Err(SpriteError::InvalidAliasName(name));
+        }
+        if sprites.is_empty() {
+            return Err(SpriteError::EmptyAlias(name));
+        }
+        if sprites.len() > MAX_SPRITE_IDS_PER_REQUEST {
+            return Err(SpriteError::TooManySpritesInAlias {
+                alias: name,
+                requested: sprites.len(),
+                max: MAX_SPRITE_IDS_PER_REQUEST,
+            });
+        }
+        for sprite in &sprites {
+            if self.aliases.contains_key(sprite) {
+                return Err(SpriteError::AliasWithinAlias {
+                    alias: name,
+                    sprite: sprite.clone(),
+                });
+            }
+            if !self.sources.contains_key(sprite) {
+                return Err(SpriteError::AliasSpriteNotFound {
+                    alias: name,
+                    sprite: sprite.clone(),
+                });
+            }
+        }
+        if self.sources.contains_key(&name) {
+            info!(
+                sprite.alias = %name,
+                "Sprite alias shadows a sprite source of the same name; requests for it will serve the alias"
+            );
+        }
+        info!(
+            sprite.alias = %name,
+            source.ids = %sprites.join(", "),
+            "Configured sprite alias"
+        );
+        self.aliases.insert(name, sprites);
+        Ok(())
+    }
+
+    /// Splits a request id list, replaces every alias with its member sources, and returns
+    /// the sorted, deduplicated ids with the requested pixel ratio.
+    fn expanded_ids(&self, ids: &str) -> (Vec<String>, u8) {
+        let (unique_ids, dpi) = split_and_dedup_ids(ids);
+        let mut expanded: Vec<String> = Vec::with_capacity(unique_ids.len());
+        for id in unique_ids {
+            if let Some(alias) = self.aliases.get(id) {
+                expanded.extend(alias.value().iter().cloned());
+            } else {
+                expanded.push(id.to_owned());
+            }
+        }
+        expanded.sort_unstable();
+        expanded.dedup();
+        (expanded, dpi)
+    }
+
+    /// Expands every alias in a request id list into its member sources, normalized like
+    /// [`normalize_sprite_ids`].
+    ///
+    /// Callers that need the sources a request actually resolves to use this,
+    /// e.g. to build cache keys that can be invalidated per source.
+    #[must_use]
+    pub fn expand_sprite_ids(&self, ids: &str) -> String {
+        if self.aliases.is_empty() {
+            return ids.to_owned();
+        }
+        let (expanded, dpi) = self.expanded_ids(ids);
+        join_ids(&expanded, dpi)
     }
 
     /// Adds a sprite source directory containing SVG files.
@@ -164,7 +278,7 @@ impl SpriteSources {
                 "Ignoring non-directory sprite source"
             );
         } else {
-            match self.0.entry(id) {
+            match self.sources.entry(id) {
                 Entry::Occupied(v) => {
                     warn!(
                         source.id = %v.key(),
@@ -197,6 +311,7 @@ impl SpriteSources {
 
     /// Generates a spritesheet from comma-separated sprite source IDs.
     ///
+    /// Ids may name aliases registered via [`Self::add_alias`], which expand to their member sources.
     /// Append "@2x" for high-DPI sprites.
     /// Set `as_sdf` for SDF sprites.
     #[instrument(
@@ -206,7 +321,7 @@ impl SpriteSources {
         err(Debug),
     )]
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
-        let (unique_ids, dpi) = split_and_dedup_ids(ids);
+        let (unique_ids, dpi) = self.expanded_ids(ids);
 
         if unique_ids.len() > MAX_SPRITE_IDS_PER_REQUEST {
             return Err(SpriteError::TooManySpriteIds {
@@ -216,7 +331,7 @@ impl SpriteSources {
         }
 
         let sprite_ids = unique_ids
-            .into_iter()
+            .iter()
             .map(|id| self.get(id))
             .collect::<Result<Vec<_>, SpriteError>>()?;
 
@@ -224,7 +339,7 @@ impl SpriteSources {
     }
 
     fn get(&self, id: &str) -> Result<SpriteSource, SpriteError> {
-        match self.0.get(id) {
+        match self.sources.get(id) {
             Some(v) => Ok(v.clone()),
             None => Err(SpriteError::SpriteNotFound(id.to_owned())),
         }
@@ -310,6 +425,8 @@ pub async fn get_spritesheet(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -338,6 +455,98 @@ mod tests {
         assert_eq!(single.encode_png().unwrap(), repeated.encode_png().unwrap());
     }
 
+    fn two_sources() -> SpriteSources {
+        let sprites = SpriteSources::default();
+        sprites.add_source(
+            "src1".to_owned(),
+            PathBuf::from("../tests/fixtures/sprites/src1"),
+        );
+        sprites.add_source(
+            "src2".to_owned(),
+            PathBuf::from("../tests/fixtures/sprites/src2"),
+        );
+        sprites
+    }
+
+    #[tokio::test]
+    async fn an_alias_serves_the_same_sheet_as_the_explicit_composite() {
+        let sprites = two_sources();
+        sprites
+            .add_alias(
+                "icons".to_owned(),
+                vec!["src1".to_owned(), "src2".to_owned()],
+            )
+            .unwrap();
+
+        assert_eq!(sprites.expand_sprite_ids("icons"), "src1,src2");
+        assert_eq!(sprites.expand_sprite_ids("icons@2x"), "src1,src2@2x");
+        assert_eq!(
+            sprites.expand_sprite_ids("src2,icons"),
+            "src1,src2",
+            "a source shared between the request and the alias appears once"
+        );
+        let aliased = sprites.get_sprites("icons", false).await.unwrap();
+        let explicit = sprites.get_sprites("src1,src2", false).await.unwrap();
+        assert_eq!(
+            serde_json::to_value(aliased.get_index()).unwrap(),
+            serde_json::to_value(explicit.get_index()).unwrap()
+        );
+        assert_eq!(
+            aliased.encode_png().unwrap(),
+            explicit.encode_png().unwrap()
+        );
+    }
+
+    #[test]
+    fn invalid_aliases_are_rejected() {
+        let sprites = two_sources();
+
+        for name in ["", "has,comma", "icons@2x"] {
+            let err = sprites
+                .add_alias(name.to_owned(), vec!["src1".to_owned()])
+                .unwrap_err();
+            assert_matches!(err, SpriteError::InvalidAliasName(_), "{name:?}");
+        }
+
+        let err = sprites.add_alias("empty".to_owned(), vec![]).unwrap_err();
+        assert_matches!(err, SpriteError::EmptyAlias(_));
+
+        let err = sprites
+            .add_alias("unknown".to_owned(), vec!["nonexistent".to_owned()])
+            .unwrap_err();
+        assert_matches!(err, SpriteError::AliasSpriteNotFound { .. });
+
+        sprites
+            .add_alias("icons".to_owned(), vec!["src1".to_owned()])
+            .unwrap();
+        let err = sprites
+            .add_alias("nested".to_owned(), vec!["icons".to_owned()])
+            .unwrap_err();
+        assert_matches!(err, SpriteError::AliasWithinAlias { .. });
+
+        let too_many = vec!["src1".to_owned(); MAX_SPRITE_IDS_PER_REQUEST + 1];
+        let err = sprites.add_alias("big".to_owned(), too_many).unwrap_err();
+        assert_matches!(err, SpriteError::TooManySpritesInAlias { .. });
+    }
+
+    #[test]
+    fn the_catalog_lists_aliases_with_merged_images() {
+        let sprites = two_sources();
+        sprites
+            .add_alias(
+                "icons".to_owned(),
+                vec!["src1".to_owned(), "src2".to_owned()],
+            )
+            .unwrap();
+
+        let catalog = sprites.get_catalog().unwrap();
+        let entry = catalog.get("icons").expect("alias is cataloged");
+        assert_eq!(
+            entry.images,
+            ["another_bicycle", "bear", "bicycle", "sub/circle"]
+        );
+    }
+
     #[tokio::test]
     async fn too_many_ids_are_rejected_before_any_work() {
         let sprites = SpriteSources::default();
@@ -354,7 +563,7 @@ mod tests {
         let Err(err) = sprites.get_sprites(&ids, false).await else {
             panic!("expected TooManySpriteIds, got Ok");
         };
-        assert!(matches!(err, SpriteError::TooManySpriteIds { .. }));
+        assert_matches!(err, SpriteError::TooManySpriteIds { .. });
     }
 
     #[tokio::test]
@@ -369,7 +578,7 @@ mod tests {
         let Err(err) = sprites.get_sprites(&ids, false).await else {
             panic!("expected SpriteNotFound, got Ok");
         };
-        assert!(matches!(err, SpriteError::SpriteNotFound(_)));
+        assert_matches!(err, SpriteError::SpriteNotFound(_));
     }
 
     #[tokio::test]
@@ -384,11 +593,11 @@ mod tests {
             PathBuf::from("../tests/fixtures/sprites/src2"),
         );
 
-        assert_eq!(sprites.0.len(), 2);
+        assert_eq!(sprites.sources.len(), 2);
 
         for generate_sdf in [true, false] {
             let paths = sprites
-                .0
+                .sources
                 .iter()
                 .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
@@ -468,7 +677,7 @@ mod tests {
             panic!("expected NoSpriteFilesFound, got Ok");
         };
 
-        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
+        assert_matches!(err, SpriteError::NoSpriteFilesFound(_));
     }
 
     async fn test_src(

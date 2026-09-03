@@ -3,9 +3,44 @@ use std::collections::{BTreeMap, BTreeSet};
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::BoxedSource;
 
-use crate::MartinResult;
+#[cfg(feature = "_file_kinds")]
+use crate::config::file::FileConfigSrc;
 use crate::config::file::discovery::BuiltSource;
-use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ProcessConfig};
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::SourceSpec;
+use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, ResolvedProcess, SourceBuildResult};
+
+/// Which config section a directory-discovered file serializes under.
+#[cfg(feature = "_file_kinds")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FileKind {
+    #[cfg(feature = "mbtiles")]
+    Mbtiles,
+    #[cfg(feature = "pmtiles")]
+    Pmtiles,
+    #[cfg(feature = "unstable-cog")]
+    Cog,
+    #[cfg(feature = "geojson")]
+    GeoJson,
+}
+
+/// Where a catalog entry came from, in enough detail to write it back to a config file.
+#[derive(Clone, Debug)]
+pub enum SourceProvenance {
+    #[cfg(feature = "postgres")]
+    Postgres {
+        /// The `connection_string` of the `postgres` config entry that discovered it.
+        connection_string: String,
+        spec: Box<SourceSpec>,
+    },
+    #[cfg(feature = "_file_kinds")]
+    File {
+        /// The config section the entry serializes under.
+        kind: FileKind,
+        /// The entry `--save-config` writes into that section's `sources`.
+        src: FileConfigSrc,
+    },
+}
 
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
 #[derive(Debug)]
@@ -13,25 +48,29 @@ pub struct NewSource {
     /// Resolved source ID.
     pub id: String,
     /// The tile source implementation, or an error if initialization failed.
-    pub source: MartinResult<BoxedSource>,
+    pub source: SourceBuildResult<BoxedSource>,
     /// Resolved process config for this source (per-source > source-type > global > default).
-    pub process: ProcessConfig,
+    pub process: ResolvedProcess,
+    /// Retained by the catalog so `--save-config` can serialize what is actually served.
+    pub provenance: Option<SourceProvenance>,
 }
 
 impl NewSource {
     /// `process` is the kind-level fallback; a per-source override carried by the
     /// [`BuiltSource`] wins over it.
-    fn new(id: String, built: MartinResult<BuiltSource>, process: ProcessConfig) -> Self {
+    fn new(id: String, built: SourceBuildResult<BuiltSource>, process: ResolvedProcess) -> Self {
         match built {
             Ok(built) => Self {
                 id,
                 source: Ok(built.source),
                 process: built.process.unwrap_or(process),
+                provenance: built.provenance,
             },
             Err(e) => Self {
                 id,
                 source: Err(e),
                 process,
+                provenance: None,
             },
         }
     }
@@ -65,10 +104,10 @@ impl ReloadAdvisory {
         previous_ids: &BTreeSet<String>,
         next_ids: &BTreeSet<String>,
         initializer: F,
-        process: ProcessConfig,
+        process: ResolvedProcess,
     ) -> Self
     where
-        F: AsyncFn(String) -> MartinResult<BuiltSource>,
+        F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
     {
         let removals = previous_ids
             .difference(next_ids)
@@ -97,10 +136,10 @@ impl ReloadAdvisory {
         previous_map: &BTreeMap<String, V>,
         next_map: &BTreeMap<String, V>,
         initializer: F,
-        process: ProcessConfig,
+        process: ResolvedProcess,
     ) -> Self
     where
-        F: AsyncFn(String) -> MartinResult<BuiltSource>,
+        F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
     {
         let removals = previous_map
             .keys()
@@ -136,10 +175,10 @@ impl ReloadAdvisory {
 async fn build_all<F>(
     ids: impl IntoIterator<Item = String>,
     initializer: &F,
-    process: &ProcessConfig,
+    process: &ResolvedProcess,
 ) -> Vec<NewSource>
 where
-    F: AsyncFn(String) -> MartinResult<BuiltSource>,
+    F: AsyncFn(String) -> SourceBuildResult<BuiltSource>,
 {
     stream::iter(ids)
         .map(|id| async move {
@@ -194,7 +233,7 @@ mod tests {
         }
     }
 
-    async fn make_source(id: String) -> MartinResult<BuiltSource> {
+    async fn make_source(id: String) -> SourceBuildResult<BuiltSource> {
         let source: BoxedSource = Box::new(TestSource {
             id,
             tj: tilejson! {
@@ -230,8 +269,8 @@ mod tests {
         let prev = BTreeSet::new();
         let next = BTreeSet::new();
         let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates: []
         removals: []
@@ -243,8 +282,8 @@ mod tests {
         let prev = BTreeSet::new();
         let next: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - a
           - b
@@ -258,8 +297,8 @@ mod tests {
         let prev: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let next = BTreeSet::new();
         let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates: []
         removals:
@@ -273,8 +312,8 @@ mod tests {
         let prev: BTreeSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
         let next: BTreeSet<String> = ["b", "c", "d"].into_iter().map(String::from).collect();
         let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - d
         updates: []
@@ -288,8 +327,8 @@ mod tests {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("b".into(), 2), ("c".into(), 3)].into_iter().collect();
         let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - c
         updates: []
@@ -303,8 +342,8 @@ mod tests {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 5)].into_iter().collect();
         let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates:
           - b
@@ -321,8 +360,8 @@ mod tests {
             .into_iter()
             .collect();
         let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - d
         updates:

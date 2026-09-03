@@ -37,9 +37,10 @@ async fn auto_configured_minimal() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @"
     content-encoding: br
     content-type: application/json
+    etag: [ETAG]
     transfer-encoding: chunked
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
@@ -85,7 +86,7 @@ async fn auto_configured_minimal() {
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       paths: tests/fixtures/pmtiles2
@@ -97,7 +98,6 @@ async fn auto_configured_minimal() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -122,7 +122,6 @@ async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -132,7 +131,7 @@ async fn a_raster_source_serves_its_tilejson() {
     let response = martin.get("/stamen_toner__raster_CC-BY-ODbL_z3").await;
     assert_eq!(response.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
-        insta::assert_snapshot!(response.headers_snapshot(), @r"
+        insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
         content-type: application/json
         etag: [ETAG]
@@ -167,7 +166,6 @@ async fn a_raster_source_serves_its_tilejson() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -189,7 +187,6 @@ async fn a_raster_source_serves_png_tiles() {
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -230,7 +227,6 @@ pmtiles:
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 /// A server holding the one fixture the remote tests read, under `name`.
@@ -262,7 +258,7 @@ async fn a_source_url_is_read_over_http() {
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![(r"http://127\.0\.0\.1:\d+", "http://[STATICS]")]}, {
-        insta::assert_snapshot!(saved, @r"
+        insta::assert_snapshot!(saved, @"
         listen_addresses: 127.0.0.1:0
         pmtiles:
           sources:
@@ -287,7 +283,6 @@ async fn a_source_url_is_read_over_http() {
     GET /webp2.pmtiles bytes=11901-22558
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -323,7 +318,6 @@ pmtiles:
     GET /webp2.pmtiles bytes=315-11900
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 /// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
@@ -390,7 +384,6 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     GET /pmtilestest/webp2.pmtiles bytes=11901-22558
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
-    martin.assert_log_clean();
 }
 
 /// The remote-store tests above read a raster archive, whose tiles travel uncompressed. A vector
@@ -470,7 +463,6 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -511,7 +503,7 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     assert_eq!(layers[0].features.len(), 6523);
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       sources:
@@ -520,7 +512,6 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -543,7 +534,50 @@ async fn route_prefix_keeps_root_health() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn recursive_paths_publish_nested_files_under_dotted_ids() {
+    let watched = WatchedDir::new();
+    fs::create_dir_all(watched.dir().join("2024")).expect("failed to create 2024");
+    watched.seed(fixture("pmtiles2/webp2.pmtiles"), "webp2.pmtiles");
+    watched.seed(fixture("pmtiles/png.pmtiles"), "2024/roads.pmtiles");
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "pmtiles:\n  paths: {}\n  recursive: true\n",
+            watched.dir().display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "2024.roads": {
+        "content_type": "image/png",
+        "name": "ne2sr"
+      },
+      "webp2": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/2024.roads/0/0/0").await.status(), 200);
+
+    fs::create_dir_all(watched.dir().join("2025")).expect("failed to create 2025");
+    fs::create_dir_all(watched.outside("2025")).expect("failed to create the staging dir");
+    watched.install(fixture("pmtiles/png.pmtiles"), "2025/rivers.pmtiles");
+    martin.wait_for_source("2025.rivers").await;
+    assert_eq!(martin.get("/2025.rivers/0/0/0").await.status(), 200);
+
+    watched.remove("2025/rivers.pmtiles");
+    martin.wait_for_source_removed("2025.rivers").await;
+
+    martin.stop().await;
+    martin.assert_log_contains("Added source source.id=2025.rivers");
+    martin.assert_log_contains("Removed source source.id=2025.rivers");
+    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -557,9 +591,10 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.json()["tiles"], serde_json::json!({}));
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @"
     content-encoding: br
     content-type: application/json
+    etag: [ETAG]
     transfer-encoding: chunked
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
@@ -593,7 +628,6 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_log_contains(r#"ERROR error="Source png does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -616,5 +650,27 @@ async fn reload_removes_a_source_present_at_startup() {
     martin.stop().await;
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_kind_level_cache_bound_covers_a_configured_file() {
+    fn tile_cache_lines(scrape: &str) -> String {
+        scrape
+            .lines()
+            .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    let mut martin = Martin::builder()
+        .config("pmtiles:\n  paths: tests/fixtures/pmtiles/png.pmtiles\n  cache:\n    minzoom: 1\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(martin.get("/png/0/0/0").await.status(), 200);
+    }
+    let scrape = martin.get("/_/metrics").await.text();
+    insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
+    martin.stop().await;
+    martin.assert_startup_warnings();
 }

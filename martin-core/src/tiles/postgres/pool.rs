@@ -1,11 +1,14 @@
 //! `PostgreSQL` connection pool implementation.
 
 use std::collections::HashMap;
+use std::error::Error as _;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
+use deadpool_postgres::tokio_postgres::error::SqlState;
 use deadpool_postgres::tokio_postgres::{CancelToken, NoTls};
-use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
+use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, PoolError, RecyclingMethod};
 use postgres::config::SslMode;
 use semver::Version;
 use tracing::{info, warn};
@@ -14,10 +17,10 @@ use crate::tiles::postgres::PostgresError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
-use crate::tiles::postgres::PostgresResult;
 use crate::tiles::postgres::tls::{
     PgTlsConnector, SslModeOverride, make_connector, parse_conn_str,
 };
+use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>
@@ -31,6 +34,12 @@ const ST_TILE_ENVELOPE_POSTGIS_VERSION: Version = Version::new(3, 1, 0);
 const MISSING_GEOM_FIXED_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
 /// Minimum version of postgres required for [`RECOMMENDED_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
 const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
+/// Pause between two attempts at the first connection.
+const RETRY_INTERVAL: Duration = Duration::from_millis(500);
+/// How long the first connection may take before Martin says it is still retrying.
+const RETRY_WARN_AFTER: Duration = Duration::from_secs(2);
+/// How often Martin repeats that it is still retrying.
+const RETRY_WARN_EVERY: Duration = Duration::from_secs(10);
 
 /// `PostgreSQL` connection pool with `PostGIS` support.
 #[derive(Clone, Debug)]
@@ -54,12 +63,14 @@ impl PostgresPool {
     /// - `ssl_key`: Same as PGSSLKEY ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
     /// - `ssl_root_cert`: Same as PGSSLROOTCERT ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
     /// - `pool_size`: Maximum number of connections in the pool
+    /// - `retry_timeout`: How long the first connection is retried while the database is not reachable yet
     pub async fn new(
         connection_string: &str,
         ssl_cert: Option<&PathBuf>,
         ssl_key: Option<&PathBuf>,
         ssl_root_cert: Option<&PathBuf>,
         pool_size: usize,
+        retry_timeout: RetryTimeout,
     ) -> PostgresResult<Self> {
         let (id, mgr, tls) =
             Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
@@ -74,7 +85,7 @@ impl PostgresPool {
             supports_tile_margin: false,
             active_query_registry: ActiveQueryRegistry::new(tls),
         };
-        let conn = res.get().await?;
+        let conn = res.first_connection(retry_timeout).await?;
         let pg_ver = get_postgres_version(&conn).await?;
         if pg_ver < MINIMUM_POSTGRES_VERSION {
             return Err(PostgresqlTooOld {
@@ -172,6 +183,35 @@ impl PostgresPool {
         Ok((id, mgr, tls))
     }
 
+    /// The first connection, retried while the database is not reachable yet and `retry_timeout` allows.
+    async fn first_connection(&self, retry_timeout: RetryTimeout) -> PostgresResult<Object> {
+        let started = Instant::now();
+        let mut attempts = 0;
+        let mut last_warning: Option<Instant> = None;
+        loop {
+            let error = match self.get().await {
+                Ok(conn) => return Ok(conn),
+                Err(error) if retry_timeout.allows(started.elapsed()) && is_transient(&error) => {
+                    error
+                }
+                Err(error) => return Err(error),
+            };
+            attempts += 1;
+            let warn_due = last_warning.is_none_or(|at| at.elapsed() >= RETRY_WARN_EVERY);
+            if started.elapsed() >= RETRY_WARN_AFTER && warn_due {
+                warn!(
+                    source.id = %self.id,
+                    postgres.attempts = attempts,
+                    postgres.retry_timeout = %retry_timeout,
+                    error = %error,
+                    "PostgreSQL is not accepting connections yet, retrying. Set `postgres.retry_timeout: 0s` or `--pg-retry-timeout 0s` to fail at once"
+                );
+                last_warning = Some(Instant::now());
+            }
+            tokio::time::sleep(RETRY_INTERVAL).await;
+        }
+    }
+
     /// Retrieves an [`Object`] from this [`PostgresPool`] or waits for one to become available.
     ///
     /// # Errors
@@ -203,6 +243,37 @@ impl PostgresPool {
     #[must_use]
     pub const fn supports_tile_margin(&self) -> bool {
         self.supports_tile_margin
+    }
+}
+
+/// Whether a failed first connection is worth retrying.
+///
+/// A database that is starting, restarting, full or unreachable is.
+/// A rejected password, an unknown database or a failed TLS handshake is not.
+fn is_transient(error: &super::PostgresError) -> bool {
+    let PostgresPoolConnError(pool_error, _) = error else {
+        return false;
+    };
+    match pool_error {
+        PoolError::Timeout(_) => true,
+        PoolError::Backend(backend) => match backend.as_db_error() {
+            None => {
+                backend.is_closed()
+                    || matches!(backend.source(), Some(cause) if cause.is::<std::io::Error>())
+            }
+            Some(db) => matches!(
+                *db.code(),
+                SqlState::CANNOT_CONNECT_NOW
+                    | SqlState::ADMIN_SHUTDOWN
+                    | SqlState::CRASH_SHUTDOWN
+                    | SqlState::TOO_MANY_CONNECTIONS
+                    | SqlState::CONNECTION_EXCEPTION
+                    | SqlState::CONNECTION_FAILURE
+                    | SqlState::SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION
+                    | SqlState::SQLSERVER_REJECTED_ESTABLISHMENT_OF_SQLCONNECTION
+            ),
+        },
+        PoolError::Closed | PoolError::NoRuntimeSpecified | PoolError::PostCreateHook(_) => false,
     }
 }
 
@@ -548,6 +619,7 @@ mod tests {
             None,
             Some(&ca_path),
             2,
+            RetryTimeout::default(),
         )
         .await;
         assert!(
@@ -561,6 +633,7 @@ mod tests {
             None,
             Some(&ca_path),
             2,
+            RetryTimeout::default(),
         )
         .await;
         assert!(
@@ -571,7 +644,9 @@ mod tests {
     }
 
     async fn assert_cancel_all_interrupts_sleep(url: &str) {
-        let pool = PostgresPool::new(url, None, None, None, 2).await.unwrap();
+        let pool = PostgresPool::new(url, None, None, None, 2, RetryTimeout::default())
+            .await
+            .unwrap();
 
         let pool_for_sleep_task = pool.clone();
         let (registered_tx, registered_rx) = tokio::sync::oneshot::channel();

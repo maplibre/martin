@@ -114,7 +114,7 @@ async fn wait_and_flush(cache: &TileCache, duration: Duration) {
 }
 
 fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>) -> TileCacheKey {
-    TileCacheKey::new(source.into(), xyz, query.map(Into::into), format)
+    TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format, None)
 }
 
 async fn insert(
@@ -222,4 +222,92 @@ async fn cache_differentiates_by_format() {
         recomputed_none,
         "format=None should be a separate cache entry from format=Some(Mvt)"
     );
+}
+
+#[tokio::test]
+async fn raw_and_rendered_entries_never_collide() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    let raw = TileCacheKey::new_request_static("src", ORIGIN);
+    let rendered = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None);
+
+    assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
+
+    let stored = cache
+        .get_or_insert(raw.clone(), async || {
+            Ok::<_, Infallible>(test_tile(b"raw-normals"))
+        })
+        .await
+        .unwrap();
+    assert_eq!(stored.data, b"raw-normals");
+
+    // The rendered key must still miss: it is a different entry entirely.
+    let mut recomputed = false;
+    let served = cache
+        .get_or_insert(rendered.clone(), || {
+            recomputed = true;
+            async { Ok::<_, Infallible>(test_tile(b"baked-hillshade")) }
+        })
+        .await
+        .unwrap();
+    assert!(recomputed, "a rendered key must not hit a raw entry");
+    assert_eq!(served.data, b"baked-hillshade");
+
+    // ...and the raw entry is untouched by the rendered one.
+    let reread = cache
+        .get_or_insert::<_, _, Infallible>(raw, async || {
+            panic!("the raw entry should still be cached");
+        })
+        .await
+        .unwrap();
+    assert_eq!(reread.data, b"raw-normals");
+}
+
+#[tokio::test]
+async fn raw_entries_ignore_request_shape() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
+        .await
+        .unwrap();
+
+    // A second raw request for the same tile hits, whatever the caller was
+    // asked for, because a raw key cannot express a request shape at all.
+    let hit = cache
+        .get_or_insert::<_, _, Infallible>(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || {
+                panic!("raw entries must be shared across request shapes");
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(hit.data, b"normals");
+}
+
+#[tokio::test]
+async fn invalidation_reaches_raw_and_rendered_entries() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
+        .await
+        .unwrap();
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None),
+            async || Ok::<_, Infallible>(test_tile(b"baked")),
+        )
+        .await
+        .unwrap();
+    cache.run_pending_tasks().await;
+    assert_eq!(cache.entry_count(), 2);
+
+    cache.invalidate_source("src");
+    cache.run_pending_tasks().await;
+    assert_eq!(cache.entry_count(), 0, "both entries must be invalidated");
 }

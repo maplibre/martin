@@ -1,6 +1,6 @@
 //! Routing behaviour shared by every tile source: redirects from a format suffix and from the `/tiles/` prefix, `Accept` header negotiation, and the zoom range a source covers.
 
-use martin_e2e_tests::Martin;
+use martin_e2e_tests::{Martin, StartError, mbtiles_fixture};
 use rstest::rstest;
 
 async fn martin_with_a_pmtiles_source() -> Martin {
@@ -37,7 +37,6 @@ async fn any_tile_format_suffix_redirects_to_the_extensionless_path(#[case] path
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -55,7 +54,6 @@ async fn the_tiles_prefix_redirects_to_the_bare_source_path() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -71,7 +69,6 @@ async fn a_redirect_keeps_the_query_string(#[case] path: &str) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -94,7 +91,6 @@ async fn a_redirect_points_below_the_route_prefix(#[case] path: &str) {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -112,7 +108,6 @@ async fn a_redirect_is_issued_before_the_source_is_resolved(#[case] path: &str) 
     martin.stop().await;
     martin.assert_log_contains(r#"ERROR error="Source nosuch does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -137,7 +132,6 @@ async fn a_vector_source_serves_mvt_when_the_accept_header_allows_it(#[case] acc
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -163,7 +157,6 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -192,7 +185,6 @@ async fn a_vector_source_rejects_an_accept_header_of_other_formats(#[case] accep
         r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -212,7 +204,6 @@ async fn a_raster_source_serves_png_when_the_accept_header_allows_it(#[case] acc
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -236,7 +227,6 @@ async fn a_raster_source_is_never_transcoded_to_a_vector_format(#[case] accept: 
         r#"ERROR error="Source produces image/png, which does not match the Accept header""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -263,7 +253,6 @@ async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is
         r#"ERROR error="Accept header does not contain any supported tile format""#,
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -285,5 +274,88 @@ async fn a_zoom_the_source_does_not_cover_is_a_404_naming_the_range(#[case] zoom
         r#"ERROR error="Zoom {zoom} is outside the supported range: png supports zoom 0-1""#
     ));
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
+}
+
+async fn martin_with_tile_alias(alias: &str) -> (tempfile::TempDir, Result<Martin, StartError>) {
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let cities = cities.to_str().expect("fixture path is valid utf-8");
+    let martin = Martin::builder()
+        .config(&format!(
+            "
+mbtiles:
+  sources:
+    cities: {cities}
+    more_cities: {cities}
+aliases:
+  {alias}
+"
+        ))
+        .start()
+        .await;
+    (dir, martin)
+}
+
+#[tokio::test]
+async fn an_alias_serves_the_sources_it_combines() {
+    let (_dir, martin) = martin_with_tile_alias("basemap: [cities, more_cities]").await;
+    let mut martin = martin.expect("failed to start martin");
+
+    let catalog = martin.get("/catalog").await.json();
+    assert!(catalog["tiles"]["cities"].is_object());
+    insta::assert_json_snapshot!(catalog["tiles"]["basemap"], @r#"
+    {
+      "content_encoding": "gzip",
+      "content_type": "application/x-protobuf"
+    }
+    "#);
+
+    let tilejson = martin.get("/basemap").await;
+    assert_eq!(tilejson.status(), 200);
+    let tiles_url = tilejson.json()["tiles"][0]
+        .as_str()
+        .expect("tilejson lists a tiles url")
+        .to_owned();
+    assert!(
+        tiles_url.ends_with("/basemap/{z}/{x}/{y}"),
+        "tiles url must use the alias: {tiles_url}"
+    );
+
+    let aliased = martin.get("/basemap/0/0/0").await;
+    assert_eq!(aliased.status(), 200);
+    let explicit = martin.get("/cities,more_cities/0/0/0").await;
+    assert_eq!(aliased.body(), explicit.body());
+
+    martin.stop().await;
+    martin.assert_log_contains("Configured tile source alias");
+}
+
+#[tokio::test]
+async fn an_alias_may_shadow_the_source_it_extends() {
+    let (_dir, martin) = martin_with_tile_alias("cities: [cities, more_cities]").await;
+    let mut martin = martin.expect("failed to start martin");
+
+    let shadowed = martin.get("/cities/0/0/0").await;
+    assert_eq!(shadowed.status(), 200);
+    let explicit = martin.get("/cities,more_cities/0/0/0").await;
+    assert_eq!(shadowed.body(), explicit.body());
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Tile source alias shadows a tile source of the same name; requests for it will serve the alias",
+    );
+}
+
+#[tokio::test]
+async fn an_alias_naming_an_unknown_source_fails_startup() {
+    let (_dir, martin) = martin_with_tile_alias("basemap: [cities, nonexistent]").await;
+    let error = martin.expect_err("martin must reject an alias naming an unknown tile source");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains(r#"Tile source alias "basemap" references unknown tile source "nonexistent""#),
+        "log must name the alias and the missing source; log:\n{log}"
+    );
 }

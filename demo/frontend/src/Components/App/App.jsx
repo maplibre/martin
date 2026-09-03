@@ -1,7 +1,6 @@
 import { ParallaxProvider } from "react-scroll-parallax";
 import Description from "../Description";
 import Development from "../Development/Development";
-import Features from "../Fatures";
 import Footer from "../Footer/Footer";
 import Intro from "../Intro";
 import MaplibreMap from "../MaplibreMap";
@@ -13,14 +12,10 @@ const App = () => (
     <GlobalStyle />
     <Head />
     <Intro />
-    <Description>Martin is an Open Source PostGIS vector tile server</Description>
-    <Features />
+    <Description>Martin is an open source tile server for PostGIS, PMTiles, MBTiles and GeoJSON</Description>
     <TryIt>
       <p>
-       This demo uses a 2017 New York City taxi trips dataset - 114 million records served as vector tiles.
-      </p>
-      <p>
-       Martin uses a database function to filter data by date, day of week, and hour, and to aggregate values by area.
+        This demo serves 114 million 2017 New York City taxi trips as vector tiles, filtered and aggregated on the fly by a database function.
       </p>
     </TryIt>
     <MaplibreMap />

@@ -69,7 +69,7 @@ async fn a_directory_publishes_a_source_per_file() {
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     let saved = saved.replace(std::path::MAIN_SEPARATOR, "/");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     cog:
       paths: tests/fixtures/cog
@@ -82,7 +82,6 @@ async fn a_directory_publishes_a_source_per_file() {
     ");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -102,7 +101,6 @@ async fn a_file_is_published_under_its_stem() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -129,7 +127,6 @@ cog:
     assert_eq!(martin.get("/naip/13/1334/3042").await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -159,7 +156,6 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
     );
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -191,7 +187,6 @@ async fn the_tilejson_bounds_are_the_area_the_image_covers() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -241,7 +236,6 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
     assert_eq!(tile.image_size(), (tile_size, tile_size));
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -257,7 +251,6 @@ async fn the_shape_of_a_tile_response() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -269,7 +262,6 @@ async fn a_tile_the_image_does_not_cover_is_empty() {
     assert!(tile.body().is_empty(), "an empty tile has no body");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -291,7 +283,6 @@ async fn a_zoom_no_overview_resolves_to_is_rejected(#[case] coordinates: &str) {
 
     martin.stop().await;
     martin.assert_log_contains(&format!("ERROR error=\"{expected}\""));
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -350,5 +341,4 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Updated source source.id=usda_naip_128_none_z2");
     martin.assert_log_contains("Removed source source.id=usda_naip_128_none_z2");
     martin.assert_log_contains(r#"ERROR error="Source usda_naip_128_none_z2 does not exist""#);
-    martin.assert_log_clean();
 }

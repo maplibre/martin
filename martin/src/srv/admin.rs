@@ -1,15 +1,16 @@
 #[cfg(feature = "_tiles")]
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
+use actix_middleware_etag::Etag;
 use actix_web::web::Data;
 use actix_web::{HttpResponse, Responder, middleware, route};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinResult;
 #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
 use crate::config::file::ServerState;
+use crate::srv::ServerStartError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(
@@ -17,7 +18,7 @@ use crate::config::file::ServerState;
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
 pub struct Catalog {
-    // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
+    // utoipa <=5.4 names every `BTreeMap<K, V>` as `BTreeMap`, so the four
     // catalog fields would collide on a single `$ref` if we let them factor
     // out - `#[schema(inline)]` keeps the schema for each field inline and
     // distinct.
@@ -52,10 +53,10 @@ pub struct CatalogSettings {
 impl Catalog {
     pub fn new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))] state: &ServerState,
-    ) -> MartinResult<Self> {
+    ) -> Result<Self, ServerStartError> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
-            tiles: HashMap::default(),
+            tiles: BTreeMap::default(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
@@ -82,6 +83,7 @@ impl Catalog {
     "/catalog",
     method = "GET",
     method = "HEAD",
+    wrap = "Etag::default()",
     wrap = "middleware::Compress::default()"
 )]
 #[hotpath::measure]

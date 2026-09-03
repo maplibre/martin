@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/maplibre/martin/compare/martin-core-v0.11.0...martin-core-v0.11.1) - 2026-08-31
+
+### Added
+
+- add contour processing ([#3183](https://github.com/maplibre/martin/pull/3183))
+- jxl support ([#3181](https://github.com/maplibre/martin/pull/3181))
+
+### Fixed
+
+- *(catalog)* serialize the catalog in a stable key order ([#3189](https://github.com/maplibre/martin/pull/3189))
+
+### Other
+
+- implement hillshade-postprocessing ([#3180](https://github.com/maplibre/martin/pull/3180))
+- minor test cleanup ([#3179](https://github.com/maplibre/martin/pull/3179))
+- *(clippy)* warn on wildcard_enum_match_arm ([#3168](https://github.com/maplibre/martin/pull/3168))
+- *(tests)* use assert_matches! instead of assert!(matches!(..)) ([#3166](https://github.com/maplibre/martin/pull/3166))
+- *(errors)* split MartinError into different error types ([#3162](https://github.com/maplibre/martin/pull/3162))
+- *(cache)* fix some CI flakes by widening font + sprite cache expiry margins ([#3146](https://github.com/maplibre/martin/pull/3146))
+- adopt clippy 1.98 ([#3137](https://github.com/maplibre/martin/pull/3137))
+- fix fmt ([#3135](https://github.com/maplibre/martin/pull/3135))
+- *(test)* migrate the save-config e2e tests to rust and retire tests/test.sh ([#3105](https://github.com/maplibre/martin/pull/3105))
+
 ## [0.11.0](https://github.com/maplibre/martin/compare/martin-core-v0.10.0...martin-core-v0.11.0) - 2026-08-17
 
 ### Security

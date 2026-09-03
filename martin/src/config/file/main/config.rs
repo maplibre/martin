@@ -17,6 +17,8 @@ use tracing::{error, instrument, warn};
     feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
+#[cfg(feature = "_tiles")]
+use crate::config::file::SourceBuildResult;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
@@ -40,15 +42,17 @@ use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "styles")]
 use crate::config::file::styles::StyleConfig;
-use crate::config::file::{CollectUnrecognizedKeys, GlobalCacheConfig, UnrecognizedValues};
+use crate::config::file::{
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
+    UnrecognizedValues,
+};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
-use crate::{MartinError, MartinResult};
 
 /// Warnings that can occur during tile source resolution
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum TileSourceWarning {
     #[error("Source {source_id}: {error}")]
     SourceError { source_id: String, error: String },
@@ -58,7 +62,7 @@ pub enum TileSourceWarning {
 }
 
 #[cfg(feature = "_tiles")]
-pub type ResolutionResult = MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>;
+pub type ResolutionResult = SourceBuildResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>;
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
@@ -101,6 +105,7 @@ pub struct Config {
     /// - `warn`: log warning messages
     /// - `abort`: log warnings as error messages, abort startup
     #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"abort"))]
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
@@ -149,6 +154,16 @@ pub struct Config {
     #[cfg(feature = "geojson")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub geojson: FileConfigEnum<GeoJsonConfig>,
+
+    /// Named combinations of tile sources.
+    ///
+    /// Each alias can be requested like a tile source and serves the listed sources combined,
+    /// exactly like the composite request `/{source1},{source2}`.
+    /// Aliases may only reference tile sources, not other aliases.
+    /// An alias sharing the name of a tile source takes precedence over it.
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub aliases: std::collections::BTreeMap<String, Vec<String>>,
 
     /// Sprite configuration
     #[cfg(feature = "sprites")]
@@ -223,7 +238,7 @@ fn fmt_warnings(warnings: &[TileSourceWarning]) -> String {
 impl OnInvalid {
     /// Handle warnings based on `policy`
     #[instrument(skip_all, fields(warnings.count = warnings.len()), err(Debug))]
-    pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
+    pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> ConfigFileResult<()> {
         if warnings.is_empty() {
             return Ok(());
         }
@@ -239,20 +254,20 @@ impl OnInvalid {
         }
 
         match self {
-            Self::Abort => Err(MartinError::TileResolutionWarningsIssued),
+            Self::Abort => Err(ConfigFileError::TileResolutionWarningsIssued),
             Self::Warn => Ok(()),
         }
     }
 }
 
-pub fn parse_base_path(path: &str) -> MartinResult<String> {
+pub fn parse_base_path(path: &str) -> ConfigFileResult<String> {
     if !path.starts_with('/') {
-        return Err(MartinError::BasePathError(path.to_owned()));
+        return Err(ConfigFileError::InvalidBasePath(path.to_owned()));
     }
     if let Ok(uri) = path.parse::<actix_web::http::Uri>() {
         return Ok(uri.path().trim_end_matches('/').to_owned());
     }
-    Err(MartinError::BasePathError(path.to_owned()))
+    Err(ConfigFileError::InvalidBasePath(path.to_owned()))
 }
 
 pub fn init_aws_lc_tls() {
@@ -272,8 +287,7 @@ mod tests {
     use martin_core::CacheZoomRange;
 
     use super::*;
-    use crate::MartinError;
-    use crate::config::file::CachePolicy;
+    use crate::config::file::{CachePolicy, ConfigFileError};
     use crate::config::test_helpers::render_finalize_failure;
     use crate::logging::LogFormat;
 
@@ -282,8 +296,9 @@ mod tests {
         // For errors that don't carry source location info, JSON mode still emits a JSON
         // document so downstream tools can keep parsing rather than choking on a free-form
         // log line.
-        let envelope = MartinError::BasePathError("not-a-path".to_owned())
-            .render_diagnostic_with(LogFormat::Json);
+        let envelope =
+            crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
+                .render_diagnostic_with(LogFormat::Json);
         let parsed: serde_json::Value =
             serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
         let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");

@@ -1,5 +1,49 @@
 {
   "$defs": {
+    "AutoOption_ContourSettings": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `ContourSettings` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/ContourSettings"
+        }
+      ]
+    },
+    "AutoOption_HillshadeSettings": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `HillshadeSettings` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/HillshadeSettings"
+        }
+      ]
+    },
     "AutoOption_MltEncoderConfig": {
       "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `MltEncoderConfig` - explicit  settings",
       "oneOf": [
@@ -68,13 +112,15 @@
       "properties": {
         "maxzoom": {
           "description": "Default maximum zoom level (inclusive) for tile caching.\nTiles further zoomed in than this will bypass the cache entirely.\nCan be overridden per-source.\ndefault: null (no upper bound, all zoom levels cached)",
+          "examples": [14],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
           "type": ["integer", "null"]
         },
         "minzoom": {
-          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden with `cache.minzoom` on an individual source.\ndefault: null (no lower bound, all zoom levels cached)",
+          "examples": [0],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -98,10 +144,12 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for cache entries.\ndefault: null (inherits from `cache.expiry`)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "idle_timeout": {
           "description": "Maximum idle time for cache entries.\ndefault: null (inherits from `cache.idle_timeout`)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "size_mb": {
@@ -123,6 +171,119 @@
           "$ref": "#/$defs/CacheSizeConfig"
         }
       ]
+    },
+    "ContourElevationUnits": {
+      "description": "Units elevations are reported in on the output features.",
+      "oneOf": [
+        {
+          "const": "meters",
+          "description": "Report elevations in meters.",
+          "type": "string"
+        },
+        {
+          "const": "feet",
+          "description": "Report elevations in feet.",
+          "type": "string"
+        }
+      ]
+    },
+    "ContourSettings": {
+      "description": "Contour settings as they appear in a config file.",
+      "properties": {
+        "allow_request_overrides": {
+          "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
+        "elevation_units": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContourElevationUnits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Units elevations are declared and reported in.\nDefaults to `meters`.",
+          "examples": ["meters"]
+        },
+        "extent": {
+          "description": "MVT tile extent.\nDefaults to `4096`.",
+          "examples": [4096],
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "fetch_margin": {
+          "description": "Apron in source pixels traced past the tile edge so a line meets its\ncontinuation in the next tile, then transformed back out.\nDefaults to `32`.",
+          "examples": [32.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "filtered_threshold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilteredThreshold"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An elevation whose contour is suppressed, or `disabled` to draw them all.\nDefaults to `0` (sea level).",
+          "examples": [0.0]
+        },
+        "layer_name": {
+          "description": "MVT layer the contour features are written into.\nDefaults to `contour`.",
+          "examples": ["contour"],
+          "type": ["string", "null"]
+        },
+        "major_interval": {
+          "description": "How often a major (bolded) contour line is generated. `0` disables them.\nDefaults to `5`.",
+          "examples": [5.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "min_feature_length": {
+          "description": "Contour lines shorter than this are dropped.\nDefaults to `50`.",
+          "examples": [50.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "resolution": {
+          "description": "Sampling step the isolines are traced at; higher is smoother.\nDefaults to `10`.",
+          "examples": [10.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "simplification_tolerance": {
+          "description": "Douglas-Peucker tolerance. Higher means smaller tiles and coarser lines;\n`0` disables simplification.\nDefaults to `10`.",
+          "examples": [10.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "zoom_intervals": {
+          "additionalProperties": false,
+          "description": "Contour interval per zoom level, as `zoom: interval` in\n[`Self::elevation_units`]. An interval of `0` disables contours from that\nzoom until the next entry.\nDefaults to a cartographic ramp from `400` at z4 down to `50` at z12.",
+          "examples": [
+            {
+              "0": 0.0,
+              "4": 400.0,
+              "6": 200.0,
+              "8": 150.0,
+              "10": 100.0,
+              "12": 50.0
+            }
+          ],
+          "patternProperties": {
+            "^\\d+$": {
+              "format": "float",
+              "type": "number"
+            }
+          },
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
     },
     "CorsConfig": {
       "anyOf": [
@@ -159,8 +320,27 @@
       "enum": ["disable"],
       "type": "string"
     },
+    "EndpointsConfig": {
+      "description": "Optional endpoints, each off unless enabled here.",
+      "properties": {
+        "purge_cache": {
+          "description": "Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. \\[default: false\\]\n\nThe route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        }
+      },
+      "type": "object"
+    },
     "FileConfig": {
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -191,6 +371,11 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
         "reload_interval": {
           "description": "How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.\nHas no effect on local directories, which are watched via filesystem events.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling.",
           "examples": ["10m"],
@@ -208,6 +393,14 @@
     },
     "FileConfig2": {
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -234,6 +427,11 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -246,9 +444,66 @@
     },
     "FileConfig3": {
       "properties": {
+        "buffer": {
+          "description": "Clip margin kept around each tile edge, in tile units, defaulting to 64.\nIncrease it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.",
+          "examples": [64],
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
+        "extent": {
+          "description": "Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.",
+          "examples": [4096],
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig4": {
+      "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Named combinations of sprite sources.\n\nEach alias can be requested like a sprite source and serves the listed sources combined.\nAliases may only reference configured sprite sources, not other aliases.\nAn alias sharing the name of a sprite source takes precedence over it.",
+          "type": "object"
+        },
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -264,8 +519,12 @@
       },
       "type": "object"
     },
-    "FileConfig4": {
+    "FileConfig5": {
       "properties": {
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
@@ -284,11 +543,25 @@
       },
       "type": "object"
     },
-    "FileConfig5": {
+    "FileConfig6": {
       "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Named font stacks.\n\nEach alias can be requested like a font and serves the listed fonts combined, in fallback order.\nAliases may only reference discovered fonts, not other aliases.\nAn alias sharing the name of a discovered font takes precedence over it.",
+          "type": "object"
+        },
         "cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Cache configuration for fonts.\nUse `cache: disable` to disable font caching."
+        },
+        "collections": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -399,11 +672,56 @@
         }
       ]
     },
+    "FileConfigEnum6": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig6"
+        }
+      ]
+    },
     "FileConfigSource": {
       "properties": {
         "cache": {
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it describes what this source serves rather than a server-wide policy."
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -445,6 +763,24 @@
       ],
       "description": "A serde helper to store a boolean as an object."
     },
+    "FilteredThreshold": {
+      "description": "An elevation whose contour line is suppressed:\n\n- A number - skip the contour at this elevation\n- `\"disabled\"` or boolean `false` - draw every threshold",
+      "oneOf": [
+        {
+          "description": "Elevation to skip.",
+          "type": "number"
+        },
+        {
+          "description": "Draw every threshold.",
+          "enum": ["disabled", "off", "none"],
+          "type": "string"
+        },
+        {
+          "description": "false = draw every threshold.",
+          "type": "boolean"
+        }
+      ]
+    },
     "FunctionInfo": {
       "properties": {
         "bounds": {
@@ -468,6 +804,10 @@
             }
           ],
           "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -526,21 +866,25 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for all cache entries (time-to-live from creation).\nEntries are evicted after this duration regardless of access.\nSupports human-readable formats: \"1h\", \"30m\", \"1d\", \"3600s\".\ndefault: null (no expiry, entries only evicted by size pressure)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "idle_timeout": {
           "description": "Maximum idle time for all cache entries (time-to-idle since last access).\nEntries are evicted if not accessed within this duration.\ndefault: null (no idle timeout)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "maxzoom": {
           "description": "Default maximum zoom level (inclusive) for tile caching.\nTiles further zoomed in than this will bypass the cache entirely.\nCan be overridden per-source.\ndefault: null (no upper bound, all zoom levels cached)",
+          "examples": [14],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
           "type": ["integer", "null"]
         },
         "minzoom": {
-          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
+          "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden with `cache.minzoom` on an individual source.\ndefault: null (no lower bound, all zoom levels cached)",
+          "examples": [0],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -555,10 +899,12 @@
         },
         "tile_expiry": {
           "description": "Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.\ndefault: null (inherits from `cache.expiry`)",
+          "examples": ["1h"],
           "type": ["string", "null"]
         },
         "tile_idle_timeout": {
           "description": "Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.\ndefault: null (inherits from `cache.idle_timeout`)",
+          "examples": ["30m"],
           "type": ["string", "null"]
         },
         "tile_size_mb": {
@@ -580,6 +926,98 @@
           "$ref": "#/$defs/GlobalCacheConfig"
         }
       ]
+    },
+    "HillshadeFormat": {
+      "description": "Image format for the baked hillshade.",
+      "oneOf": [
+        {
+          "const": "png",
+          "description": "Lossless PNG. Universally supported.",
+          "type": "string"
+        },
+        {
+          "const": "webp",
+          "description": "Lossless WebP. Around a third smaller than PNG on banded output.",
+          "type": "string"
+        },
+        {
+          "const": "jxl",
+          "description": "Lossless JPEG XL, encoded with the pure-Rust `zune-jpegxl` encoder.",
+          "type": "string"
+        }
+      ]
+    },
+    "HillshadeSettings": {
+      "description": "Hillshade settings as they appear in a config file.",
+      "properties": {
+        "allow_request_overrides": {
+          "description": "Whether a request may override these settings with query parameters.\nDefaults to `false`.",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
+        "altitude": {
+          "description": "Height of the light above the horizon in degrees.\nDefaults to `45`.",
+          "examples": [45.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "ambient": {
+          "description": "Shadow floor, so shadows read as shaded rather than black.\nDefaults to `0.2`.",
+          "examples": [0.2],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "azimuth": {
+          "description": "Compass bearing the light shines from, in degrees clockwise from north.\nDefaults to `300` (north-west) by cartographic convention.",
+          "examples": [300.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "contrast": {
+          "description": "Separation between lit and shadowed slopes.\nDefaults to `2.5`.",
+          "examples": [2.5],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "elevation_scale": {
+          "description": "How strongly high terrain deepens the contrast.\nDefaults to `0`, which shades high and low terrain alike.",
+          "examples": [0.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HillshadeFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Output image format.\nDefaults to `png`.",
+          "examples": ["png"]
+        },
+        "padding": {
+          "description": "Apron width in pixels at 256-core scale, rescaled with the core.\nDefaults to `0`, so the served tile is a 512x512 square.",
+          "examples": [0],
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "toon_bands": {
+          "description": "Number of hard shading bands; below `2` the shading is a smooth gradient instead.\nDefaults to `6`.",
+          "examples": [6.0],
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "vertical_exaggeration": {
+          "description": "Scales the terrain's horizontal gradient before lighting, exaggerating relief.\n`1` is true-to-source.\nDefaults to `2.5`.",
+          "examples": [2.5],
+          "format": "double",
+          "type": ["number", "null"]
+        }
+      },
+      "type": "object"
     },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
@@ -760,6 +1198,10 @@
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
         "convert_to_mlt": {
           "anyOf": [
             {
@@ -827,6 +1269,32 @@
         "cache": {
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (elevation data in Terrarium format)."
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs.\nSettable per source only, since it is tied to what this source serves (raster data in Mapzen format)."
         },
         "convert_to_mlt": {
           "anyOf": [
@@ -978,11 +1446,16 @@
               "type": "null"
             }
           ],
-          "description": "Specify how bounds should be computed for the spatial PG tables \\[default: quick\\]\n\nOptions:\n- `calc` compute table geometry bounds on startup.\n- `quick` same as 'calc', but the calculation will be aborted after 5 seconds.\n- `skip` does not compute table geometry bounds on startup."
+          "description": "Specify how bounds should be computed for the spatial PG tables \\[default: quick\\]\n\nOptions:\n- `calc` compute table geometry bounds on startup.\n- `quick` same as 'calc', but the calculation will be aborted after 5 seconds.\n- `skip` does not compute table geometry bounds on startup.",
+          "examples": ["quick"]
         },
         "auto_publish": {
           "$ref": "#/$defs/OptBoolObj",
           "description": "Enable automatic discovery of tables and functions. \\[default: null\\]\n\nOptions:\n- `true`: run automatic discovery (`true` may be omitted if further configuration is provided)\n- `false`: disable automatic discovery\n- null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null"
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of this connection.\nEvery table and function without its own `cache` takes them, over the top-level `cache` bounds."
         },
         "connection_string": {
           "description": "Database connection string.\n\nYou can use environment variables too, for example:\n`connection_string: $DATABASE_URL`\n`connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`",
@@ -1041,6 +1514,11 @@
           "description": "How often the `PostgresReloader` re-runs catalog discovery to publish new tables and\nfunctions, update changed ones, and drop removed ones at runtime, without a restart.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable runtime reloading.",
           "examples": ["10m"],
           "type": "string"
+        },
+        "retry_timeout": {
+          "description": "How long the first connection is retried before startup fails \\[default: 30s\\]\n\nA duration like `30s`, or `infinite` to wait until the database answers.\n`0s` fails on the first refused connection.",
+          "examples": ["30s"],
+          "type": ["string", "null"]
         },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
@@ -1116,6 +1594,10 @@
             }
           ],
           "description": "Zoom-level bounds for tile caching (overrides top-level cache).\ndefault: null (inherit from top-level default)\nUse `cache: disable` to disable caching for this source."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
         },
         "clip_geom": {
           "description": "Boolean to control if geometries should be clipped or encoded as is",
@@ -1212,10 +1694,34 @@
       },
       "required": ["schema", "table", "srid", "geometry_column"],
       "type": "object"
+    },
+    "WebUiMode": {
+      "oneOf": [
+        {
+          "const": "disable",
+          "description": "Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***",
+          "type": "string"
+        },
+        {
+          "const": "enableforall",
+          "description": "Enable Web UI interface on all connections",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
+    "aliases": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "Named combinations of tile sources.\n\nEach alias can be requested like a tile source and serves the listed sources combined,\nexactly like the composite request `/{source1},{source2}`.\nAliases may only reference tile sources, not other aliases.\nAn alias sharing the name of a tile source takes precedence over it.",
+      "type": "object"
+    },
     "base_path": {
       "description": "Set `TileJSON` URL path prefix.\nThis overrides the default path prefix for URLs in `TileJSON` responses.\nIf both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.\nIf neither is set, the `X-Rewrite-URL` header is respected.\nMust begin with a `/`.\nExamples: `/`, `/tiles`",
       "type": ["string", "null"]
@@ -1261,9 +1767,24 @@
       ],
       "description": "CORS Configuration\n\nDefaults to `cors: true`, which allows all origins.\nSending/Acting on CORS headers can be completely disabled via `cors: false`"
     },
+    "endpoints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EndpointsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional endpoints, each off unless enabled here."
+    },
     "fonts": {
-      "$ref": "#/$defs/FileConfigEnum5",
+      "$ref": "#/$defs/FileConfigEnum6",
       "description": "Font configuration"
+    },
+    "geojson": {
+      "$ref": "#/$defs/FileConfigEnum3",
+      "description": "Publish `GeoJSON` files as vector tile sources"
     },
     "keep_alive": {
       "description": "Connection keep alive timeout \\[default: 75\\]",
@@ -1301,7 +1822,8 @@
           "type": "null"
         }
       ],
-      "description": "The policy for handling invalid sources during startup. \\[default: abort\\]\n\nInvalid sources are those that are missing (file not found, table doesn't exist, ...),\nreference columns that don't exist, and so on.\nCurrently limited to tile sources; broader rollout is planned.\n\nOptions:\n- `warn`: log warning messages\n- `abort`: log warnings as error messages, abort startup"
+      "description": "The policy for handling invalid sources during startup. \\[default: abort\\]\n\nInvalid sources are those that are missing (file not found, table doesn't exist, ...),\nreference columns that don't exist, and so on.\nCurrently limited to tile sources; broader rollout is planned.\n\nOptions:\n- `warn`: log warning messages\n- `abort`: log warnings as error messages, abort startup",
+      "examples": ["abort"]
     },
     "passthrough": {
       "$ref": "#/$defs/PassthroughConfig",
@@ -1331,17 +1853,29 @@
       "type": ["string", "null"]
     },
     "sprites": {
-      "$ref": "#/$defs/FileConfigEnum3",
+      "$ref": "#/$defs/FileConfigEnum4",
       "description": "Sprite configuration"
     },
     "styles": {
-      "$ref": "#/$defs/FileConfigEnum4",
+      "$ref": "#/$defs/FileConfigEnum5",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tilejson_url_version_param": {
       "description": "If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)\nwill be embedded in the `TileJSON` `tiles` URL, with the set identifier.\nThis is useful to give clients a better way to cache-bust a CDN:\n1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.\n2. maplibre requests each tile it requires, with the tiles URL in the tilejson.\n3. Add `Control: public, max-age=..., immutable` on the tile responses\n   optimize browser/CDN cache hit rates, while also making sure that\n   old tiles aren't served when a new tileset is deployed.\n\nThe CDN must handle query parameters for caching to work correctly.\nMany CDNs ignore them by default.\n\nFor example, if\n- the setting here is `version`, and\n- the `PMTiles` tileset version is `1.0.0`, the\n`TileJSON` will be:\n`{ ..., \"tiles\": [\".../{z}/{x}/{y}?version=1.0.0\"], ... }`",
       "examples": ["version"],
       "type": ["string", "null"]
+    },
+    "web_ui": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WebUiMode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment",
+      "examples": ["disable"]
     },
     "worker_processes": {
       "description": "Number of web server workers",

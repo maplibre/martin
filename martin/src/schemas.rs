@@ -35,6 +35,7 @@ pub fn config_json_schema() -> serde_json::Value {
         crate::srv::get_catalog,
         crate::srv::get_source_info,
         crate::srv::get_tile,
+        crate::srv::purge_source,
         crate::srv::get_sprite_png,
         crate::srv::get_sprite_sdf_png,
         crate::srv::get_sprite_json,
@@ -298,7 +299,12 @@ mod config_doc {
                     out.push_str(line);
                 }
             }
-            _ => {
+            Value::Null
+            | Value::Bool(_)
+            | Value::Number(_)
+            | Value::String(_)
+            | Value::Array(_)
+            | Value::Object(_) => {
                 out.push(' ');
                 let yaml = serde_saphyr::to_string(value).unwrap_or_default();
                 out.push_str(yaml.trim_end());
@@ -326,7 +332,7 @@ mod config_doc {
                 .find(|t| *t != "null")
                 .or_else(|| a.iter().find_map(Value::as_str))
                 .map(str::to_owned),
-            _ => None,
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::Object(_) => None,
         }
     }
 

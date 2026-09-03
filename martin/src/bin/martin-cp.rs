@@ -4,13 +4,15 @@
 )]
 
 use std::borrow::Cow;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -23,10 +25,19 @@ use futures::TryStreamExt as _;
 use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
+use martin::StartupError;
 #[cfg(feature = "postgres")]
 use martin::config::args::PostgresArgs;
-use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
-use martin::config::file::{Config, ServerState, read_config};
+use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+use martin::config::file::reload::TileReloaders;
+use martin::config::file::{Config, ResolvedProcess, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
@@ -35,7 +46,6 @@ use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_trac
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
-use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
@@ -185,7 +195,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename, &env).map_err(MartinError::from)?
+        read_config(cfg_filename, &env).map_err(StartupError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
@@ -217,10 +227,24 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         )
         .await?;
 
+    // The reload loops are never started: martin-cp only needs the initial publication.
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    drop(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?);
+
     if let Some(file_name) = save_config {
         config
-            .save_to_file(file_name.as_path())
-            .map_err(MartinError::from)?;
+            .save_to_file(
+                file_name.as_path(),
+                #[cfg(feature = "_tiles")]
+                &sources.tile_manager,
+            )
+            .map_err(StartupError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }
@@ -292,13 +316,17 @@ type MartinCpResult<T> = Result<T, MartinCpError>;
 #[derive(thiserror::Error, Debug)]
 enum MartinCpError {
     #[error(transparent)]
-    Martin(#[from] MartinError),
+    Martin(#[from] StartupError),
+    #[error(transparent)]
+    Args(#[from] ArgsError),
     #[error("Unable to parse encodings argument: {0}")]
     EncodingParse(#[from] ParseError),
     #[error(transparent)]
     Actix(#[from] actix_web::Error),
     #[error(transparent)]
     Mbt(#[from] MbtError),
+    #[error(transparent)]
+    Mbtiles(#[from] MbtilesError),
     #[error("No sources found")]
     NoSources,
     #[error(
@@ -394,8 +422,7 @@ async fn write_tiles_to_mbtiles(
             ));
             if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                 mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await
-                    .map_err(MbtilesError::from)?;
+                    .await?;
                 batch.clear();
                 last_saved = Instant::now();
             }
@@ -413,8 +440,7 @@ async fn write_tiles_to_mbtiles(
     // Flush whatever is left once the channel closes (all senders dropped).
     if !batch.is_empty() {
         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-            .await
-            .map_err(MbtilesError::from)?;
+            .await?;
     }
     Ok(conn)
 }
@@ -425,26 +451,68 @@ async fn produce_tiles(
     tiles: Vec<TileRect>,
     concurrency: usize,
     tx: Sender<TileXyz>,
-) -> MartinResult<()> {
-    stream::iter(iterate_tiles(tiles))
-        .map(MartinResult::Ok)
-        .try_for_each_concurrent(concurrency, |xyz| {
-            let tx = tx.clone();
-            async move {
-                let tile = src
-                    .get_tile_content(xyz)
-                    .await
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
-                tx.send(TileXyz {
-                    xyz,
-                    data: tile.data,
-                })
-                .await
-                .expect("The receive half of the channel is not closed");
-                Ok(())
-            }
-        })
-        .await
+    prune_empty_subtrees: bool,
+) -> MartinCpResult<()> {
+    let mut by_zoom: BTreeMap<u8, Vec<TileRect>> = BTreeMap::new();
+    for rect in tiles {
+        by_zoom.entry(rect.zoom).or_default().push(rect);
+    }
+
+    let mut empty_parents: Option<(u8, HashSet<TileCoord>)> = None;
+    let skipped = AtomicU64::new(0);
+    for (zoom, rects) in by_zoom {
+        let empty_here = Mutex::new(HashSet::new());
+        let pruned_by = empty_parents
+            .take()
+            .filter(|(parent_zoom, _)| prune_empty_subtrees && *parent_zoom + 1 == zoom)
+            .map(|(_, set)| set)
+            .unwrap_or_default();
+
+        stream::iter(iterate_tiles(rects))
+            .map(MartinCpResult::Ok)
+            .try_for_each_concurrent(concurrency, |xyz| {
+                let tx = tx.clone();
+                let pruned_by = &pruned_by;
+                let empty_here = &empty_here;
+                let skipped = &skipped;
+                async move {
+                    let parent = TileCoord {
+                        z: zoom.saturating_sub(1),
+                        x: xyz.x / 2,
+                        y: xyz.y / 2,
+                    };
+                    let data = if pruned_by.contains(&parent) {
+                        skipped.fetch_add(1, Ordering::Relaxed);
+                        Vec::new()
+                    } else {
+                        src.get_tile_content(xyz).await?.data
+                    };
+                    if prune_empty_subtrees && data.is_empty() {
+                        empty_here
+                            .lock()
+                            .expect("the empty tile set is only locked here")
+                            .insert(xyz);
+                    }
+                    tx.send(TileXyz { xyz, data })
+                        .await
+                        .expect("The receive half of the channel is not closed");
+                    Ok(())
+                }
+            })
+            .await?;
+
+        empty_parents = Some((
+            zoom,
+            empty_here
+                .into_inner()
+                .expect("the empty tile set is only locked here"),
+        ));
+    }
+    let skipped = skipped.into_inner();
+    if skipped > 0 {
+        info!("Skipped {skipped} tiles below empty tiles");
+    }
+    Ok(())
 }
 
 /// Waits for the spawned consumer task to finish and return the `SQLite` connection.
@@ -466,13 +534,11 @@ async fn join_consumer(
         // Normal path
         consumer_task.await
     };
-    let conn = join_result
-        .map_err(|e| {
-            MartinError::from(std::io::Error::other(format!(
-                "consumer task panicked: {e}"
-            )))
-        })?
-        .map_err(MartinError::from)?;
+    let conn = join_result.map_err(|e| {
+        StartupError::from(std::io::Error::other(format!(
+            "consumer task panicked: {e}"
+        )))
+    })??;
     Ok(Some(conn))
 }
 
@@ -550,8 +616,7 @@ where
 
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
-    let just_sources: Vec<_> = src.sources.iter().map(|(s, _)| s.clone()).collect();
-    let mbt_type = init_schema(&mbt, &mut conn, &just_sources, src.info, &args).await?;
+    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, src.info, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
     // Shared with the spawned consumer (updates) and this task (finish / stats).
     let progress = Arc::new(TileCopyProgress::new(total_size));
@@ -574,7 +639,11 @@ where
     ));
 
     // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
-    let produce = produce_tiles(src, tiles, concurrency, tx.clone());
+    let prune_empty_subtrees = src
+        .sources
+        .iter()
+        .all(|(s, _)| s.empty_tile_implies_empty_children());
+    let produce = produce_tiles(src, tiles, concurrency, tx.clone(), prune_empty_subtrees);
     tokio::pin!(produce);
     tokio::pin!(interrupt);
     let interrupted = match select_future(produce, interrupt).await {
@@ -635,53 +704,42 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[BoxedSource],
+    sources: &[(BoxedSource, ResolvedProcess)],
     tile_info: TileInfo,
     args: &CopyArgs,
-) -> Result<MbtType, MartinError> {
-    Ok(
-        if is_empty_database(&mut *conn)
-            .await
-            .map_err(MbtilesError::from)?
-        {
-            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
-                MbtTypeCli::Flat => MbtType::Flat,
-                MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized {
-                    hash_view: true,
-                    schema: mbtiles::NormalizedSchema::Hash,
-                },
-                MbtTypeCli::Cache => MbtType::Cache,
-            };
-            init_mbtiles_schema(&mut *conn, mbt_type, false)
-                .await
-                .map_err(MbtilesError::from)?;
-            let mut tj = merge_tilejson(sources, String::new());
-            tj.other.insert(
-                "format".to_owned(),
-                serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
-            );
-            tj.other.insert(
-                "generator".to_owned(),
-                serde_json::Value::String(format!("martin-cp v{VERSION}")),
-            );
-            let zooms = get_zooms(args);
-            if let Some(min_zoom) = zooms.iter().min() {
-                tj.minzoom = Some(*min_zoom);
-            }
-            if let Some(max_zoom) = zooms.iter().max() {
-                tj.maxzoom = Some(*max_zoom);
-            }
-            mbt.insert_metadata(&mut *conn, &tj)
-                .await
-                .map_err(MbtilesError::from)?;
-            mbt_type
-        } else {
-            mbt.detect_type(&mut *conn)
-                .await
-                .map_err(MbtilesError::from)?
-        },
-    )
+) -> MartinCpResult<MbtType> {
+    Ok(if is_empty_database(&mut *conn).await? {
+        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+            MbtTypeCli::Flat => MbtType::Flat,
+            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
+            MbtTypeCli::Normalized => MbtType::Normalized {
+                hash_view: true,
+                schema: mbtiles::NormalizedSchema::Hash,
+            },
+            MbtTypeCli::Cache => MbtType::Cache,
+        };
+        init_mbtiles_schema(&mut *conn, mbt_type, false).await?;
+        let mut tj = merge_tilejson(sources, String::new());
+        tj.other.insert(
+            "format".to_owned(),
+            serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
+        );
+        tj.other.insert(
+            "generator".to_owned(),
+            serde_json::Value::String(format!("martin-cp v{VERSION}")),
+        );
+        let zooms = get_zooms(args);
+        if let Some(min_zoom) = zooms.iter().min() {
+            tj.minzoom = Some(*min_zoom);
+        }
+        if let Some(max_zoom) = zooms.iter().max() {
+            tj.maxzoom = Some(*max_zoom);
+        }
+        mbt.insert_metadata(&mut *conn, &tj).await?;
+        mbt_type
+    } else {
+        mbt.detect_type(&mut *conn).await?
+    })
 }
 
 #[tokio::main]
@@ -694,7 +752,14 @@ async fn main() {
     if let Err(e) = start(args).await {
         let rendered: String = match e {
             MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
-            other => format!("{other}"),
+            other @ (MartinCpError::EncodingParse(_)
+            | MartinCpError::Actix(_)
+            | MartinCpError::Mbt(_)
+            | MartinCpError::NoSources
+            | MartinCpError::MultipleSources(_)
+            | MartinCpError::InvalidBoundingBox(..)
+            | MartinCpError::Args(_)
+            | MartinCpError::Mbtiles(_)) => format!("{other}"),
         };
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");
@@ -707,6 +772,7 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::path::Path;
     use std::str::FromStr as _;
     use std::sync::Arc;
@@ -715,7 +781,7 @@ mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
-    use martin::config::file::{OnInvalid, ProcessConfig, ServerState};
+    use martin::config::file::{OnInvalid, ResolvedProcess, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
@@ -732,6 +798,10 @@ mod tests {
         pub data: TileData,
         // When set, `get_tile` sets this flag then blocks forever (for interrupt tests).
         pub block_after_fetch: Option<Arc<AtomicBool>>,
+        // Counts `get_tile` calls.
+        pub fetches: Option<Arc<AtomicU64>>,
+        // Tiles this returns empty for.
+        pub empty_if: Option<fn(TileCoord) -> bool>,
     }
 
     #[async_trait]
@@ -756,6 +826,10 @@ mod tests {
             CacheZoomRange::default()
         }
 
+        fn empty_tile_implies_empty_children(&self) -> bool {
+            true
+        }
+
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -764,6 +838,12 @@ mod tests {
             if let Some(flag) = &self.block_after_fetch {
                 flag.store(true, Ordering::Release);
                 std::future::pending::<()>().await;
+            }
+            if let Some(fetches) = &self.fetches {
+                fetches.fetch_add(1, Ordering::Relaxed);
+            }
+            if self.empty_if.is_some_and(|f| f(_xyz)) {
+                return Ok(Vec::new());
             }
             Ok(self.data.clone())
         }
@@ -774,7 +854,7 @@ mod tests {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|s| (s, ProcessConfig::default()))
+                    .map(|s| (s, ResolvedProcess::default()))
                     .collect()
             })
             .collect();
@@ -805,24 +885,32 @@ mod tests {
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
                 data: Vec::default(),
                 block_after_fetch: None,
+                fetches: None,
+                empty_if: None,
             }),
         ]])
     }
@@ -834,6 +922,8 @@ mod tests {
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]])
     }
 
@@ -844,6 +934,8 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]])
     }
 
@@ -924,10 +1016,10 @@ mod tests {
                 assert_eq!(result.unwrap(), vec![expected_bound]);
             }
             Err(expected_coord) => {
-                assert!(matches!(
+                assert_matches!(
                     result,
                     Err(MartinCpError::InvalidBoundingBox(coord, _, _)) if coord == expected_coord
-                ));
+                );
             }
         }
     }
@@ -970,6 +1062,8 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
             block_after_fetch: None,
+            fetches: None,
+            empty_if: None,
         })]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("completed.mbtiles");
@@ -997,6 +1091,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn never_fetches_below_an_empty_tile() {
+        // Copies z0..=2 of a source whose left half is empty above z0.
+        // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
+        // z2: 16 tiles, the 8 below the empty z1 tiles are never fetched, 8 filled.
+        let fetches = Arc::new(AtomicU64::new(0));
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1],
+            block_after_fetch: None,
+            fetches: Some(Arc::clone(&fetches)),
+            empty_if: Some(|xyz| xyz.z > 0 && xyz.x < (1u32 << xyz.z) / 2),
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("sparse.mbtiles");
+        let args = CopyArgs {
+            source: Some("test_source".to_owned()),
+            output_file: output_file.clone(),
+            min_zoom: Some(0),
+            max_zoom: Some(2),
+            ..Default::default()
+        };
+        run_tile_copy_with_interrupt(args, state, std::future::pending::<()>())
+            .await
+            .unwrap();
+
+        let mbt = Mbtiles::new(&output_file).unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        let mut written = 0;
+        for z in 0..=2u8 {
+            for x in 0..(1u32 << z) {
+                for y in 0..(1u32 << z) {
+                    if mbt.get_tile(&mut conn, z, x, y).await.unwrap().is_some() {
+                        written += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!((fetches.load(Ordering::Relaxed), written), (13, 11));
+    }
+
+    #[tokio::test]
     async fn run_tile_copy_interrupt_skips_metadata_finalization() {
         let fetch_started = Arc::new(AtomicBool::new(false));
         let state = test_state(vec![vec![Box::new(MockSource {
@@ -1005,6 +1141,8 @@ mod tests {
             data: Vec::default(),
             // nonstop fetching for testing interruption
             block_after_fetch: Some(Arc::clone(&fetch_started)),
+            fetches: None,
+            empty_if: None,
         })]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("interrupted.mbtiles");

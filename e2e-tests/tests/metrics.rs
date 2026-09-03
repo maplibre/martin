@@ -44,7 +44,6 @@ async fn a_scrape_reports_every_family_with_a_series_per_route_pattern() {
     martin.stop().await;
     martin.assert_log_contains(r#"ERROR error="Source no_such_source does not exist""#);
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -64,7 +63,6 @@ async fn a_path_matching_no_route_is_counted_under_a_single_masked_label() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -81,7 +79,6 @@ async fn a_repeated_tile_request_is_counted_as_a_tile_cache_hit() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -91,7 +88,7 @@ async fn metrics_are_served_as_prometheus_text_without_compressing_them() {
     let metrics = martin.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);
     insta::with_settings!({filters => vec![(r"(?m)^content-length: \d+$", "content-length: [LENGTH]")]}, {
-        insta::assert_snapshot!(metrics.headers_snapshot(), @r"
+        insta::assert_snapshot!(metrics.headers_snapshot(), @"
         content-length: [LENGTH]
         content-type: text/plain; version=0.0.4; charset=utf-8
         vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
@@ -100,5 +97,4 @@ async fn metrics_are_served_as_prometheus_text_without_compressing_them() {
 
     martin.stop().await;
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }

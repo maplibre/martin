@@ -282,8 +282,9 @@ async fn pack_fails_on_a_missing_directory() {
 async fn pack_rejects_an_unsupported_tile_extension() {
     let dir = temp_dir();
     let tree_dir = dir.path().join("bad_extension");
-    fs::create_dir_all(tree_dir.join("0/0")).expect("failed to create a tile directory");
-    fs::write(tree_dir.join("0/0/0.txt"), "not a tile").expect("failed to write a tile");
+    fs::create_dir_all(tree_dir.join("0").join("0")).expect("failed to create a tile directory");
+    fs::write(tree_dir.join("0").join("0").join("0.txt"), "not a tile")
+        .expect("failed to write a tile");
 
     let output = MbtilesCli::new("pack")
         .arg(&tree_dir)
@@ -301,10 +302,12 @@ async fn pack_rejects_an_unsupported_tile_extension() {
 async fn pack_rejects_inconsistent_tile_formats() {
     let dir = temp_dir();
     let tree_dir = dir.path().join("mixed");
-    fs::create_dir_all(tree_dir.join("0/0")).expect("failed to create a tile directory");
-    fs::create_dir_all(tree_dir.join("1/0")).expect("failed to create a tile directory");
-    fs::write(tree_dir.join("0/0/0.pbf"), "vector").expect("failed to write a tile");
-    fs::write(tree_dir.join("1/0/0.png"), "raster").expect("failed to write a tile");
+    fs::create_dir_all(tree_dir.join("0").join("0")).expect("failed to create a tile directory");
+    fs::create_dir_all(tree_dir.join("1").join("0")).expect("failed to create a tile directory");
+    fs::write(tree_dir.join("0").join("0").join("0.pbf"), "vector")
+        .expect("failed to write a tile");
+    fs::write(tree_dir.join("1").join("0").join("0.png"), "raster")
+        .expect("failed to write a tile");
 
     let output = MbtilesCli::new("pack")
         .arg(&tree_dir)

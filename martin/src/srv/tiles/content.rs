@@ -4,13 +4,14 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    Accept, AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
-    LOCATION, Preference,
+    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc,
+    EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
-use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
+use martin_core::cache::CacheKey as _;
+use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
     encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
@@ -19,12 +20,22 @@ use serde::Deserialize;
 use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
-use crate::config::file::ProcessConfig;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ResolvedContour;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::ResolvedHillshade;
+use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
-use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::server::{DebouncedWarning, map_error};
+#[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
+use crate::srv::tiles::process::ProcessError;
 use crate::srv::tiles::process::apply_pre_cache_processors;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::srv::tiles::process::bake_hillshade;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::srv::tiles::process::trace_contour;
 use crate::tile_source_manager::TileSourceManager;
 
 /// Maximum number of source tiles fetched concurrently for one composite response.
@@ -34,7 +45,7 @@ const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::zstd(),
-    //probably dont need deflate here, most clients don't support
+    // Deflate omitted since most clients don't support it.
     HeaderEnc::identity(),
 ];
 
@@ -256,9 +267,12 @@ fn redirect_tile_with_query(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<(BoxedSource, ProcessConfig)>,
+    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
     pub info: TileInfo,
+    /// The request's query string and its parsed form, when the request carried one.
     pub query: Option<(&'a str, UrlQuery)>,
+    /// Whether the resolved sources take their parameters from that query.
+    use_url_query: bool,
     /// The format requested via the `Accept` header.
     /// `None` means no `Accept` header was present (or it was a wildcard).
     pub accepted_format: Option<Format>,
@@ -282,8 +296,9 @@ impl<'a> DynTileSource<'a> {
 
         if resolved.sources.is_empty() {
             let z = zoom.expect("sources are only filtered out when a zoom is requested");
-            let supported = source_ids
-                .split(',')
+            let supported = tile_sources
+                .expand_ids(source_ids)
+                .iter()
                 .filter_map(|id| {
                     let (src, _) = tile_sources.get_source(id).ok()?;
                     let tj = src.get_tilejson();
@@ -306,17 +321,17 @@ impl<'a> DynTileSource<'a> {
             resolved.info.format,
         )?;
 
-        let query = if resolved.use_url_query && !query.is_empty() {
-            let o = Query::<UrlQuery>::from_query(query)?.into_inner();
-            Some((query, o))
-        } else {
+        let query = if query.is_empty() {
             None
+        } else {
+            Some((query, Query::<UrlQuery>::from_query(query)?.into_inner()))
         };
 
         Ok(Self {
             sources: resolved.sources,
             info: resolved.info,
             query,
+            use_url_query: resolved.use_url_query,
             accepted_format,
             headers,
             cache,
@@ -324,11 +339,11 @@ impl<'a> DynTileSource<'a> {
         })
     }
 
-    /// Checks the pre-parsed accepted formats against the source format. The
-    /// pre-cache pipeline can transcode between MVT and MLT in either
-    /// direction, so when the Accept header lists the opposite vector format
-    /// the request resolves to that target. Otherwise the source format must
-    /// appear in the accepted list verbatim.
+    /// Checks the pre-parsed accepted formats against the source format.
+    ///
+    /// The pre-cache pipeline can transcode between MVT and MLT, so a request
+    /// accepting the opposite vector format resolves to that target.
+    /// Otherwise the source format must appear in the accepted list verbatim.
     fn resolve_accepted_format(
         accepted: Option<&[Format]>,
         source_format: Format,
@@ -365,12 +380,15 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        let etag = EntityTag::new_strong(tile.etag.clone());
+        // An empty etag means the tile couldn't be identified from its inputs;
+        // omit the header rather than send `ETag: ""`, which would let clients
+        // treat unrelated tiles as identical.
+        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.clone()));
 
-        if let Some(if_none_match) = &self.headers.if_none_match {
+        if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag.as_ref()) {
             let dominated_by = match if_none_match {
                 IfNoneMatch::Any => true,
-                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(&etag)),
+                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(etag)),
             };
             if dominated_by {
                 return Ok(HttpResponse::NotModified().finish());
@@ -379,11 +397,25 @@ impl<'a> DynTileSource<'a> {
 
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
-        response.insert_header((ETAG, etag));
+        if let Some(etag) = etag {
+            response.insert_header((ETAG, etag));
+        }
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
+        if let Some(cache_control) = self.cache_control_header() {
+            response.insert_header((CACHE_CONTROL, cache_control));
+        }
         Ok(response.body(tile.data))
+    }
+
+    /// The per-source `Cache-Control` value, when every source of this request agrees on one.
+    fn cache_control_header(&self) -> Option<HeaderValue> {
+        let mut configured = self.sources.iter().map(|(_, pc)| &pc.cache_control);
+        let first = configured.next()?.as_ref()?;
+        configured
+            .all(|c| c.as_ref() == Some(first))
+            .then(|| first.header_value())
     }
 
     #[hotpath::measure]
@@ -399,55 +431,143 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
+        let served = self.served_key(xyz);
+        if let Some((cache, key)) = &served
+            && let Some(tile) = cache.get(key).await
+        {
+            key.record_outcome(true);
+            return Ok(tile);
+        }
+
         let tiles: Vec<Tile> = stream::iter(&self.sources)
             .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
             .buffered(MAX_CONCURRENT_TILE_FETCHES)
             .try_collect()
             .await?;
 
-        self.merge_tiles(tiles)
+        let produced = tiles.first().map(|t| t.info.encoding);
+        let tile = self.merge_tiles(tiles)?;
+        // Only a re-encoded tile earns a second entry, otherwise the produced one already is the response.
+        if let Some((cache, key)) = served
+            && produced != Some(tile.info.encoding)
+        {
+            cache.insert(key, tile.clone()).await;
+        }
+        Ok(tile)
+    }
+
+    /// The key of this request's response in the encoding the client receives.
+    /// `None` when the response is merged or stitched after the cache, or not cached at all.
+    fn served_key(&self, xyz: TileCoord) -> Option<(&'a TileCache, TileCacheKey)> {
+        let [(s, pc)] = self.sources.as_slice() else {
+            return None;
+        };
+        if pc.is_post_processed() {
+            return None;
+        }
+        let cache = self.cache.filter(|_| s.cache_zoom().contains(xyz.z))?;
+        let key = TileCacheKey::new_request_dynamic(
+            s.get_id(),
+            xyz,
+            self.source_query().map(|q| q.0.to_owned()),
+            self.accepted_format,
+            Some(self.negotiated_encoding()?),
+        );
+        Some((cache, key))
+    }
+
+    /// The encoding a tile is re-encoded into for this request.
+    /// `None` when the `Accept-Encoding` header cannot be negotiated.
+    fn negotiated_encoding(&self) -> Option<Encoding> {
+        let Some(accept_enc) = &self.headers.accept_enc else {
+            return Some(Encoding::Uncompressed);
+        };
+        let negotiated = self.decide_encoding(accept_enc).ok()?;
+        Some(
+            negotiated
+                .and_then(to_encoding)
+                .unwrap_or(Encoding::Uncompressed),
+        )
     }
 
     async fn get_tile_content_from_one_source(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        if let Some(settings) = self.resolve_hillshade(pc)? {
+            return match bake_hillshade(s, settings, xyz, self.cache).await {
+                Err(ProcessError::HillshadeSourceNeedsReload) => {
+                    let fresh_src = self.reload_source(s, pc).await?;
+                    Ok(bake_hillshade(&fresh_src, settings, xyz, self.cache).await?)
+                }
+                result => Ok(result?),
+            };
+        }
+
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        if let Some(settings) = self.resolve_contour(pc)? {
+            let traced = match trace_contour(s, settings.clone(), xyz, self.cache).await {
+                Err(ProcessError::ContourSourceNeedsReload) => {
+                    let fresh_src = self.reload_source(s, pc).await?;
+                    trace_contour(&fresh_src, settings, xyz, self.cache).await?
+                }
+                result => result?,
+            };
+            return Ok(apply_pre_cache_processors(
+                traced,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                pc,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                self.accepted_format,
+            )?);
+        }
+
         match self.fetch_tile_content_with_cache(s, pc, xyz).await {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
             }
-            result => result.map_err(|e| map_internal_error(e.as_ref())),
+            result => result.map_err(|e| map_error(e.as_ref())),
         }
+    }
+
+    /// Reloads `s`, publishes the fresh instance, and hands it back.
+    ///
+    /// Publishing also invalidates the source's cached tiles, so a retry reads fresh data.
+    async fn reload_source(
+        &self,
+        s: &BoxedSource,
+        pc: &ResolvedProcess,
+    ) -> ActixResult<BoxedSource> {
+        let fresh_src = s.try_reload().await.map_err(|e| map_error(&e))?;
+        warn!(source.id = s.get_id(), "Source modified; reloading");
+        let advisory = ReloadAdvisory {
+            updates: vec![NewSource {
+                id: s.get_id().to_owned(),
+                source: Ok(fresh_src.clone_source()),
+                process: pc.clone(),
+                provenance: None,
+            }],
+            ..Default::default()
+        };
+        if let Err(e) = self.manager.apply_changes(advisory).await {
+            warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+        }
+        Ok(fresh_src)
     }
 
     async fn reload_source_and_retry_get_tile(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        match s.try_reload().await {
-            Ok(fresh_src) => {
-                warn!(source.id = s.get_id(), "Source modified; reloading");
-                let advisory = ReloadAdvisory {
-                    updates: vec![NewSource {
-                        id: s.get_id().to_owned(),
-                        source: Ok(fresh_src.clone_source()),
-                        process: pc.clone(),
-                    }],
-                    ..Default::default()
-                };
-                if let Err(e) = self.manager.apply_changes(advisory).await {
-                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
-                }
-                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
-                    .await
-                    .map_err(|e| map_internal_error(e.as_ref()))
-            }
-            Err(e) => Err(map_internal_error(&e)),
-        }
+        let fresh_src = self.reload_source(s, pc).await?;
+        self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+            .await
+            .map_err(|e| map_error(e.as_ref()))
     }
 
     #[cfg_attr(
@@ -457,7 +577,7 @@ impl<'a> DynTileSource<'a> {
     async fn fetch_tile_content_with_cache(
         &self,
         s: &BoxedSource,
-        pc: &ProcessConfig,
+        pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z);
@@ -465,7 +585,7 @@ impl<'a> DynTileSource<'a> {
         let src = s.clone_source();
         let compute = || async move {
             let t = src
-                .get_tile_with_etag(xyz, self.query.as_ref().map(|q| &q.1))
+                .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
                 .await?;
             apply_pre_cache_processors(
                 t,
@@ -479,11 +599,12 @@ impl<'a> DynTileSource<'a> {
         if let (Some(cache), true) = (self.cache, cache_zoom) {
             cache
                 .get_or_insert(
-                    martin_core::tiles::TileCacheKey::new(
+                    TileCacheKey::new_request_dynamic(
                         src_id,
                         xyz,
-                        self.query.as_ref().map(|q| q.0.to_owned()),
+                        self.source_query().map(|q| q.0.to_owned()),
                         self.accepted_format,
+                        None,
                     ),
                     compute,
                 )
@@ -491,6 +612,53 @@ impl<'a> DynTileSource<'a> {
         } else {
             compute().await.map_err(Arc::new)
         }
+    }
+
+    /// The query the sources read their own parameters from, `None` when they ignore it.
+    fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
+        self.query.as_ref().filter(|_| self.use_url_query)
+    }
+
+    /// Resolves this source's contour settings for the current request.
+    /// Returns `None` when the source is not contoured.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    fn resolve_contour(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedContour>> {
+        let Some(settings) = pc.contour.clone() else {
+            return Ok(None);
+        };
+
+        let Some((_, overrides)) = self
+            .query
+            .as_ref()
+            .filter(|_| settings.allow_request_overrides)
+        else {
+            return Ok(Some(settings));
+        };
+        let settings = settings
+            .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+        Ok(Some(settings))
+    }
+
+    /// Resolves this source's hillshade settings for the current request.
+    /// Returns `None` when the source is not hillshaded.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    fn resolve_hillshade(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedHillshade>> {
+        let Some(settings) = pc.hillshade else {
+            return Ok(None);
+        };
+
+        let Some((_, overrides)) = self
+            .query
+            .as_ref()
+            .filter(|_| settings.allow_request_overrides)
+        else {
+            return Ok(Some(settings));
+        };
+        let settings = settings
+            .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+        Ok(Some(settings))
     }
 
     fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
@@ -507,13 +675,12 @@ impl<'a> DynTileSource<'a> {
             0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
             1 => tiles.swap_remove(last_non_empty_layer),
             _ => {
-                // Pre-cache processors may have flipped each tile's format
-                // (e.g. MVT->MLT for `Accept: application/vnd.maplibre-tile`),
-                // so resolve the merge target from the actual tiles rather
-                // than the source's native `self.info`.
+                // Pre-cache processors may have flipped a tile's format (e.g.
+                // MVT->MLT), so resolve the merge target from the actual tiles
+                // rather than the source's native `self.info`.
                 let merged_info = tiles[last_non_empty_layer].info;
-                // Both MVT (protobuf) and MLT layers are independent binary blobs
-                // that can be concatenated to form a valid composite tile.
+                // MVT and MLT layers are independent binary blobs that can be
+                // concatenated to form a valid composite tile.
                 let can_join = (merged_info.format == Format::Mvt
                     || merged_info.format == Format::Mlt)
                     && tiles.iter().all(|t| t.info == merged_info);
@@ -535,9 +702,8 @@ impl<'a> DynTileSource<'a> {
                     merged_info.encoding,
                     Encoding::Uncompressed | Encoding::Gzip | Encoding::Zstd
                 ) {
-                    // Gzip (RFC 1952 §2.2) and Zstd (RFC 8878 §3.1.1) support
-                    // multi-stream/multi-frame concatenation, so we can avoid
-                    // decompressing and recompressing entirely.
+                    // Gzip and Zstd support stream/frame concatenation, so we
+                    // can avoid decompressing and recompressing entirely.
                     let data = tiles
                         .into_iter()
                         .map(|t| t.data)
@@ -545,9 +711,8 @@ impl<'a> DynTileSource<'a> {
                         .concat();
                     Tile::new_with_etag(data, merged_info, combined_etag)
                 } else {
-                    // Brotli, zlib, etc. don't support stream concatenation,
-                    // so decompress all tiles, concat raw, and leave uncompressed
-                    // for later recompression.
+                    // Brotli and zlib don't support stream concatenation, so
+                    // decompress, concat raw, and leave uncompressed for later recompression.
                     let mut combined = Vec::new();
                     for tile in tiles {
                         let decoded = decode(tile)?;
@@ -566,6 +731,10 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "actix's ContentEncoding is #[non_exhaustive]; only the three encodings we can produce are tracked"
+    )]
     fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
         let mut q_gzip = None;
         let mut q_brotli = None;
@@ -656,6 +825,10 @@ impl<'a> DynTileSource<'a> {
 /// Brotli quality level for on-the-fly response compression
 const BROTLI_ENCODE_QUALITY: u32 = 6;
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "actix's ContentEncoding is #[non_exhaustive]; anything we cannot encode is served as-is"
+)]
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     hotpath::dbg!("encode", enc);
@@ -711,7 +884,7 @@ pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
                 info.encoding(Encoding::Uncompressed),
                 etag,
             ),
-            _ => {
+            Encoding::Uncompressed | Encoding::Internal => {
                 return Err(ErrorBadRequest(format!(
                     "Tile is stored as {info}, but the client does not accept this encoding"
                 )));
@@ -749,7 +922,7 @@ mod tests {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|s| (s, ProcessConfig::default()))
+                    .map(|s| (s, ResolvedProcess::default()))
                     .collect()
             })
             .collect();
@@ -866,13 +1039,9 @@ mod tests {
         }
     }
 
-    /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
-    /// must reload the source from the manager and retry the tile request.
     #[actix_rt::test]
     async fn source_needs_reload_is_retried() {
-        // `SourceNeedsReloadSource` returns SourceNeedsReload unless it was instantiated by `try_reload()`, the
-        // internal machanics for a Source's self-reload.
-        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
+        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3], Format::Mvt);
         let mgr = test_manager(vec![vec![Box::new(source)]]);
         let src = DynTileSource::new(
             &mgr,
@@ -896,7 +1065,9 @@ mod tests {
             Encoding::Brotli => encode_brotli_with_quality(data, BROTLI_ENCODE_QUALITY).unwrap(),
             Encoding::Zlib => encode_zlib(data).unwrap(),
             Encoding::Zstd => encode_zstd(data).unwrap(),
-            _ => panic!("compress_with: unsupported encoding {encoding:?}"),
+            Encoding::Uncompressed | Encoding::Internal => {
+                panic!("compress_with: unsupported encoding {encoding:?}")
+            }
         }
     }
 
@@ -970,6 +1141,107 @@ mod tests {
         );
     }
 
+    const ORIGIN: TileCoord = TileCoord { z: 0, x: 0, y: 0 };
+
+    fn cached_test_manager(sources: Vec<BoxedSource>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| (s, ResolvedProcess::default()))
+            .collect();
+        TileSourceManager::from_sources(
+            Some(TileCache::new(1_000_000, None, None)),
+            OnInvalid::Abort,
+            vec![sources],
+        )
+    }
+
+    fn mvt_source(id: &'static str, raw: &[u8], encoding: Encoding) -> BoxedSource {
+        let data = if encoding == Encoding::Uncompressed {
+            raw.to_vec()
+        } else {
+            compress_with(raw, encoding)
+        };
+        Box::new(CompressedTestSource {
+            id,
+            tj: tilejson! { tiles: vec![] },
+            data,
+            encoding,
+        })
+    }
+
+    fn accept(accept_enc: Option<&str>) -> TileRequestHeaders {
+        TileRequestHeaders {
+            accept_enc: accept_enc.map(|s| AcceptEncoding(vec![s.parse().unwrap()])),
+            ..Default::default()
+        }
+    }
+
+    #[rstest]
+    #[case::uncompressed_to_gzip(Encoding::Uncompressed, Some("gzip"), Encoding::Gzip, 2)]
+    #[case::uncompressed_to_brotli(Encoding::Uncompressed, Some("br"), Encoding::Brotli, 2)]
+    #[case::gzip_served_as_produced(Encoding::Gzip, Some("gzip"), Encoding::Gzip, 1)]
+    #[case::gzip_decoded_without_header(Encoding::Gzip, None, Encoding::Uncompressed, 2)]
+    #[case::uncompressed_without_header(Encoding::Uncompressed, None, Encoding::Uncompressed, 1)]
+    #[actix_rt::test]
+    async fn a_re_encoded_tile_is_cached_in_the_encoding_it_is_served_in(
+        #[case] produced: Encoding,
+        #[case] accept_enc: Option<&str>,
+        #[case] served: Encoding,
+        #[case] entries: u64,
+    ) {
+        let raw = b"raw mvt bytes";
+        let mgr = cached_test_manager(vec![mvt_source("src", raw, produced)]);
+        let src = DynTileSource::new(&mgr, "src", None, "", accept(accept_enc)).unwrap();
+
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.encoding, served);
+        assert_eq!(decompress_tile(&tile.data, served), raw);
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(cache.entry_count(), entries);
+        let served_key = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, Some(served));
+        assert_eq!(
+            cache.contains_key(&served_key),
+            entries == 2,
+            "a served entry exists iff the tile was re-encoded"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn a_composite_keeps_only_the_produced_entries() {
+        let mgr = cached_test_manager(vec![
+            mvt_source("a", b"aaa", Encoding::Uncompressed),
+            mvt_source("b", b"bbb", Encoding::Uncompressed),
+        ]);
+        let src = DynTileSource::new(&mgr, "a,b", None, "", accept(Some("gzip"))).unwrap();
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.encoding, Encoding::Gzip);
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(
+            cache.entry_count(),
+            2,
+            "the merge is re-encoded per request"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn an_empty_tile_earns_no_served_entry() {
+        let mgr = cached_test_manager(vec![mvt_source("src", b"", Encoding::Uncompressed)]);
+        let src = DynTileSource::new(&mgr, "src", None, "", accept(Some("gzip"))).unwrap();
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert!(
+            tile.data.is_empty(),
+            "an empty tile is never encoded, so it stays a 204"
+        );
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(cache.entry_count(), 1);
+    }
+
     #[rstest]
     #[case::no_header(None)]
     #[case::empty(Some(Accept(vec![])))]
@@ -986,7 +1258,6 @@ mod tests {
 
     #[test]
     fn parse_accept_q_zero_rejected() {
-        // A known format with q=0 means "do not want" - should 406
         let accept = Some(Accept(vec![QualityItem::new(
             "application/x-protobuf".parse().unwrap(),
             Quality::ZERO,
@@ -1031,8 +1302,6 @@ mod tests {
         result.unwrap_err();
     }
 
-    /// Without the `mlt` feature, the MVT<->MLT conversion branches are gated
-    /// out and these accept-vs-source pairs must surface as 406.
     #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
     #[rstest]
     #[case::mlt_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
@@ -1043,9 +1312,6 @@ mod tests {
         result.unwrap_err();
     }
 
-    /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
-    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
-    /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
@@ -1057,9 +1323,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    /// `Accept: mvt` against an MLT source resolves to MVT - the pre-cache
-    /// pipeline decodes on first miss unless `process.convert_to_mvt` is
-    /// explicitly disabled.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mvt_only(&["application/x-protobuf"])]
@@ -1070,7 +1333,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
-    /// Compositing sources with mismatched formats (MVT + MLT) should return an error.
     #[actix_rt::test]
     async fn mixed_mvt_mlt_merge_fails() {
         let mvt_source = TestSource {
@@ -1087,11 +1349,40 @@ mod tests {
         };
         let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
 
-        // Mixed MVT+MLT composite should fail at source validation (format mismatch)
         let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
         assert!(
             result.is_err(),
             "Compositing MVT and MLT sources should return an error"
         );
+    }
+
+    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
+    #[actix_rt::test]
+    async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
+        let normal_tile =
+            include_bytes!("../../../../tests/fixtures/terrain/normal/10_163_396.png").to_vec();
+        let pc = ResolvedProcess {
+            hillshade: Some(ResolvedHillshade::default()),
+            ..Default::default()
+        };
+        let src = SourceNeedsReloadTestSource::new("terrain", normal_tile, Format::Png);
+        let mgr = TileSourceManager::from_sources(
+            None,
+            OnInvalid::Abort,
+            vec![vec![(Box::new(src), pc)]],
+        );
+        let dyn_src =
+            DynTileSource::new(&mgr, "terrain", None, "", TileRequestHeaders::default()).unwrap();
+
+        let tile = dyn_src
+            .get_tile_content(TileCoord {
+                z: 10,
+                x: 163,
+                y: 396,
+            })
+            .await
+            .expect("the bake must be retried after the reload, not fail");
+        assert_eq!(tile.info.format, Format::Png);
+        assert!(!tile.data.is_empty());
     }
 }

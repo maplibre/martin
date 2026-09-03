@@ -2,9 +2,16 @@ use std::path::{Path, PathBuf};
 
 #[cfg(feature = "fonts")]
 use martin_core::fonts::FontError;
+#[cfg(feature = "sprites")]
+use martin_core::sprites::SpriteError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
+
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::contour::ContourRangeError;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::hillshade::HillshadeRangeError;
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
@@ -50,6 +57,28 @@ pub enum ConfigFileError {
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
 
+    #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
+    InvalidBasePath(String),
+
+    #[error("warnings issued during tile source resolution")]
+    TileResolutionWarningsIssued,
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Source {source_id} has an invalid hillshade configuration: {source}")]
+    InvalidHillshade {
+        source_id: String,
+        #[source]
+        source: Box<HillshadeRangeError>,
+    },
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Source {source_id} has an invalid contour configuration: {source}")]
+    InvalidContour {
+        source_id: String,
+        #[source]
+        source: Box<ContourRangeError>,
+    },
+
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(#[source] walkdir::Error, PathBuf),
@@ -65,6 +94,18 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] FontError, PathBuf),
+
+    #[cfg(feature = "fonts")]
+    #[error("Failed to configure font alias: {0}")]
+    FontAliasResolutionFailed(#[source] FontError),
+
+    #[cfg(feature = "sprites")]
+    #[error("Failed to configure sprite alias: {0}")]
+    SpriteAliasResolutionFailed(#[source] SpriteError),
+
+    #[cfg(feature = "_tiles")]
+    #[error("Failed to configure tile source alias: {0}")]
+    TileAliasResolutionFailed(#[source] crate::source::TileAliasError),
 
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
@@ -101,18 +142,16 @@ impl ConfigFileError {
     /// Render this error as a [`miette::Report`] for graphical display, when applicable.
     #[must_use]
     pub fn to_miette_report(&self) -> Option<miette::Report> {
-        match self {
-            Self::YamlParseError(details) => {
-                let inner = serde_saphyr::miette::to_miette_report(
-                    &details.error,
-                    details.named_source.inner(),
-                    details.named_source.name(),
-                );
-                let kind = YamlReportKind::for_error(&details.error);
-                Some(miette::Report::new(YamlParseReport { inner, kind }))
-            }
-            _ => None,
-        }
+        let Self::YamlParseError(details) = self else {
+            return None;
+        };
+        let inner = serde_saphyr::miette::to_miette_report(
+            &details.error,
+            details.named_source.inner(),
+            details.named_source.name(),
+        );
+        let kind = YamlReportKind::for_error(&details.error);
+        Some(miette::Report::new(YamlParseReport { inner, kind }))
     }
 }
 
@@ -123,6 +162,10 @@ enum YamlReportKind {
 }
 
 impl YamlReportKind {
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "serde_saphyr::Error is #[non_exhaustive] with dozens of variants that all render as plain YAML errors"
+    )]
     fn for_error(err: &serde_saphyr::Error) -> Self {
         use serde_saphyr::Error::{
             InvalidPropertyName, PropertyRequiredButEmpty, PropertyRequiredButUnset,
@@ -237,6 +280,12 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => "martin::config::passthrough::invalid_format",
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
+            Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
+            Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            Self::InvalidContour { .. } => "martin::config::contour::invalid",
             #[cfg(feature = "styles")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
@@ -245,6 +294,12 @@ impl Diagnostic for ConfigFileError {
             Self::PostgresPoolCreationFailed(_) => "martin::config::postgres::pool_creation",
             #[cfg(feature = "fonts")]
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
+            #[cfg(feature = "fonts")]
+            Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
+            #[cfg(feature = "sprites")]
+            Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
+            #[cfg(feature = "_tiles")]
+            Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(feature = "pmtiles")]
@@ -266,7 +321,49 @@ impl Diagnostic for ConfigFileError {
             Self::YamlParseError { .. } => {
                 "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."
             }
-            _ => return None,
+            Self::IoError(..)
+            | Self::ConfigLoadError(..)
+            | Self::ConfigWriteError(..)
+            | Self::InvalidFilePath(_)
+            | Self::InvalidSourceUrl(..)
+            | Self::PathNotConvertibleToUrl(_)
+            | Self::InvalidSourceFilePath(..)
+            | Self::InvalidBasePath(_)
+            | Self::TileResolutionWarningsIssued => return None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            Self::InvalidHillshade { .. } => {
+                "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            Self::InvalidContour { .. } => {
+                "Check the `contour` block of the named source: every parameter must lie inside the range given above."
+            }
+            #[cfg(feature = "passthrough")]
+            Self::InvalidPassthroughFormat { .. } => return None,
+            #[cfg(feature = "styles")]
+            Self::DirectoryWalking(..) => return None,
+            #[cfg(feature = "postgres")]
+            Self::PostgresConnectionStringMissing | Self::PostgresPoolCreationFailed(_) => {
+                return None;
+            }
+            #[cfg(feature = "fonts")]
+            Self::FontResolutionFailed(..) => return None,
+            #[cfg(feature = "fonts")]
+            Self::FontAliasResolutionFailed(_) => {
+                "Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases."
+            }
+            #[cfg(feature = "sprites")]
+            Self::SpriteAliasResolutionFailed(_) => {
+                "Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::TileAliasResolutionFailed(_) => {
+                "Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases."
+            }
+            #[cfg(feature = "pmtiles")]
+            Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
+            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            Self::RendererPoolSpawnFailed(_) => return None,
         };
         Some(Box::new(help))
     }
@@ -278,10 +375,10 @@ impl Diagnostic for ConfigFileError {
     // Carets and labels come from `to_miette_report`.
     // Surface the file here so direct rendering still shows it.
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        match self {
-            Self::YamlParseError(details) => Some(&details.named_source),
-            _ => None,
-        }
+        let Self::YamlParseError(details) = self else {
+            return None;
+        };
+        Some(&details.named_source)
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {

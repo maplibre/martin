@@ -949,6 +949,8 @@ const fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use insta::assert_snapshot;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
@@ -1252,7 +1254,7 @@ mod tests {
         );
         assert_snapshot!(
             get_table_sql(&mut dst_conn, "bsdiffraw").await,
-            @r#"
+            @"
         CREATE TABLE bsdiffraw (
                      zoom_level integer NOT NULL,
                      tile_column integer NOT NULL,
@@ -1260,7 +1262,7 @@ mod tests {
                      patch_data blob NOT NULL,
                      tile_xxh3_64_hash integer NOT NULL,
                      PRIMARY KEY(zoom_level, tile_column, tile_row)) STRICT
-        "#
+        "
         );
     }
 
@@ -1342,10 +1344,7 @@ mod tests {
             ..Default::default()
         };
 
-        assert!(matches!(
-            opt.run().await.unwrap_err(),
-            MbtError::RusqliteError(..)
-        ));
+        assert_matches!(opt.run().await.unwrap_err(), MbtError::RusqliteError(..));
     }
 
     #[actix_rt::test]

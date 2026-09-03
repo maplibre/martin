@@ -29,6 +29,12 @@ async fn table_source() {
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
+    curves:
+      content_type: application/x-protobuf
+      description: public.curves.geom
+    curves_untyped:
+      content_type: application/x-protobuf
+      description: public.curves_untyped.geom
     empty_bounds:
       content_type: application/x-protobuf
       description: public.empty_bounds.geom
@@ -118,7 +124,7 @@ async fn table_source() {
     });
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: table_source
     srid: 4326
@@ -134,7 +140,7 @@ async fn table_source() {
     ");
 
     let source2 = table(&mock, "table_source_geog");
-    assert_yaml_snapshot!(source2, @r"
+    assert_yaml_snapshot!(source2, @"
     schema: public
     table: table_source_geog
     srid: 4326
@@ -170,7 +176,7 @@ async fn table_source() {
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "table_source");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -245,7 +251,7 @@ async fn table_source_schemas() {
     "})
     .await;
     let sources = mock_sources(cfg).await.0;
-    assert_yaml_snapshot!(sources.tile_manager.tile_sources().get_catalog(), @r"
+    assert_yaml_snapshot!(sources.tile_manager.tile_sources().get_catalog(), @"
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
@@ -296,7 +302,7 @@ async fn table_bounds_linestring_vertical_ok() {
 async fn table_bounds_single_point_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "point_bounds");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: point_bounds
     srid: 4326
@@ -316,7 +322,7 @@ async fn table_bounds_single_point_ok() {
 async fn table_bounds_empty_table_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "empty_bounds");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: empty_bounds
     srid: 4326

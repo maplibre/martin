@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -209,21 +209,44 @@ bless:
     done
 
     echo "Blessing end-to-end tests"
-    {{just}} bless-e2e
+    for target in bless-e2e bless-cog bless-duckdb {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
+      echo "::group::just $target"
+      {{just}} $target
+      echo "::endgroup::"
+    done
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --workspace {{args}}
+    cargo insta test --accept --force-update-snapshots --all-targets --workspace {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-insta')
     cargo build --package martin --package mbtiles
-    cargo insta test --accept --package martin-e2e-tests --features test-pg {{args}}
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-pg {{args}}
 
 bless-pg: fetch start  (cargo-install 'cargo-insta')
-    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo insta test --accept --features test-pg --no-default-features --package martin --lib
-    cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
+    cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    cargo insta test --accept --force-update-snapshots --features test-pg --no-default-features --package martin --lib
+    cargo insta test --accept --force-update-snapshots --features test-pg --package martin-core --no-default-features --lib
+
+# Bless the COG/GeoTIFF tests, including the end-to-end ones
+bless-cog: fetch (cargo-install 'cargo-insta')
+    cargo insta test --accept --force-update-snapshots -p martin --features unstable-cog --no-default-features --lib
+    cargo insta test --accept --force-update-snapshots -p martin-core --features unstable-cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features unstable-cog
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-cog --test cog
+
+# Bless the DuckDB/GeoParquet tests, including the end-to-end ones
+bless-duckdb: fetch (cargo-install 'cargo-insta')
+    cargo insta test --accept --force-update-snapshots -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-duckdb --test duckdb
+
+# Bless the style rendering tests end-to-end
+[linux]
+bless-rendering: fetch (cargo-install 'cargo-insta')
+    cargo build --package martin --no-default-features --features rendering
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering -- --test-threads=2
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -284,7 +307,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -369,7 +392,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.14.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.15.0 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -402,6 +425,10 @@ fmt: fetch
         echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
         cargo fmt --all
     fi
+
+# Spellcheck the docs using cspell
+spellcheck *args:
+    npx --yes cspell@10.1.1 lint --no-progress {{args}}
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
@@ -470,7 +497,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run common lints
-lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
 
 # Run mbtiles command
 mbtiles *args: fetch
@@ -610,10 +637,8 @@ test-cog: fetch
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch
-    cargo test -p martin --features test-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
-    cargo build --package martin --no-default-features --features unstable-duckdb
+    cargo test -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     cargo test --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette

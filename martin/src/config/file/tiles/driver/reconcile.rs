@@ -7,8 +7,8 @@ use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
+use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
 use crate::reload::ReloadAdvisory;
-use crate::{MartinError, MartinResult};
 
 /// What the catalog already holds for a driver's sources when it starts.
 ///
@@ -16,6 +16,8 @@ use crate::{MartinError, MartinResult};
 /// next discovery.
 #[derive(Clone, Copy)]
 pub enum Baseline {
+    /// Populated by [`ReloadDriver::init`], which is the only writer of these sources.
+    Initialized,
     /// Loaded into the catalog at startup by `config.resolve()` (local directories): seed the
     /// baseline from the current discovery, so only later changes apply and removals diff correctly.
     StartupResolved,
@@ -44,10 +46,31 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         }
     }
 
+    #[must_use]
+    pub fn discovery(&self) -> &D {
+        &self.discovery
+    }
+
+    /// Loads everything discovered into the sink and records it as the baseline, so the catalog
+    /// is populated by exactly one observation before serving starts.
+    ///
+    /// Construction and discovery warnings are returned for the caller's `on_invalid` policy.
+    /// A discovery or apply error leaves the baseline unset and is returned.
+    pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
+        let discovered = self.discovery.discover().await?;
+        let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
+        self.sink.apply_changes(advisory).await?;
+        self.baseline = Some(discovered.sources);
+        let mut warnings = self.discovery.construction_warnings();
+        warnings.extend(discovered.warnings);
+        Ok(warnings)
+    }
+
     /// Establishes the [`Baseline`], then reconciles once per `trigger.next()`.
     pub fn spawn(mut self, mut trigger: impl Trigger, initial: Baseline) -> JoinHandle<()> {
         tokio::spawn(async move {
             match initial {
+                Baseline::Initialized => {}
                 Baseline::StartupResolved => self.seed().await,
                 Baseline::Empty => self.baseline = Some(BTreeMap::new()),
             }
@@ -88,37 +111,44 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
             return;
         };
 
-        let prev_versions: BTreeMap<String, Version> =
-            prev.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
-        let next_versions: BTreeMap<String, Version> =
-            next.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
-
-        let process = self.discovery.process();
-        let discovery = Arc::clone(&self.discovery);
-        let args_by_id: BTreeMap<String, D::Args> = next
-            .iter()
-            .map(|(id, (_, args))| (id.clone(), args.clone()))
-            .collect();
-
-        let advisory = ReloadAdvisory::from_maps(
-            &prev_versions,
-            &next_versions,
-            async move |id: String| -> MartinResult<BuiltSource> {
-                let args = args_by_id
-                    .get(&id)
-                    .ok_or_else(|| MartinError::SourceNotFound(id.clone()))?;
-                discovery.build(&id, args).await
-            },
-            process,
-        )
-        .await;
-
+        let advisory = Self::advisory(&self.discovery, prev, &next).await;
         match self.sink.apply_changes(advisory).await {
             Ok(()) => self.baseline = Some(next),
             Err(error) => {
                 tracing::warn!(?error, "reload apply failed; retaining baseline for retry");
             }
         }
+    }
+
+    async fn advisory(
+        discovery: &Arc<D>,
+        prev: &BTreeMap<String, (Version, D::Args)>,
+        next: &BTreeMap<String, (Version, D::Args)>,
+    ) -> ReloadAdvisory {
+        let prev_versions: BTreeMap<String, Version> =
+            prev.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
+        let next_versions: BTreeMap<String, Version> =
+            next.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
+
+        let process = discovery.process();
+        let discovery = Arc::clone(discovery);
+        let args_by_id: BTreeMap<String, D::Args> = next
+            .iter()
+            .map(|(id, (_, args))| (id.clone(), args.clone()))
+            .collect();
+
+        ReloadAdvisory::from_maps(
+            &prev_versions,
+            &next_versions,
+            async move |id: String| -> SourceBuildResult<BuiltSource> {
+                let args = args_by_id
+                    .get(&id)
+                    .ok_or_else(|| SourceBuildError::SourceNotFound(id.clone()))?;
+                discovery.build(&id, args).await
+            },
+            process,
+        )
+        .await
     }
 }
 
@@ -135,7 +165,7 @@ mod tests {
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
-    use crate::config::file::ProcessConfig;
+    use crate::config::file::ResolvedProcess;
     use crate::config::file::tiles::discovery::Discovered;
 
     /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
@@ -218,11 +248,11 @@ mod tests {
 
     /// Replays a scripted sequence of `discover()` results.
     struct FakeDiscovery {
-        snapshots: Mutex<VecDeque<MartinResult<Snapshot>>>,
+        snapshots: Mutex<VecDeque<SourceBuildResult<Snapshot>>>,
     }
 
     impl FakeDiscovery {
-        fn new(snapshots: Vec<MartinResult<Snapshot>>) -> Self {
+        fn new(snapshots: Vec<SourceBuildResult<Snapshot>>) -> Self {
             Self {
                 snapshots: Mutex::new(snapshots.into()),
             }
@@ -232,7 +262,7 @@ mod tests {
     impl Discovery for FakeDiscovery {
         type Args = ();
 
-        fn discover(&self) -> impl Future<Output = MartinResult<Discovered<()>>> + Send {
+        fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<()>>> + Send {
             let snap = self
                 .snapshots
                 .lock()
@@ -246,13 +276,13 @@ mod tests {
             &self,
             id: &str,
             _args: &(),
-        ) -> impl Future<Output = MartinResult<BuiltSource>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
             let source: BoxedSource = Box::new(TestSource::new(id));
             std::future::ready(Ok(source.into()))
         }
 
-        fn process(&self) -> ProcessConfig {
-            ProcessConfig::default()
+        fn process(&self) -> ResolvedProcess {
+            ResolvedProcess::default()
         }
     }
 
@@ -285,7 +315,7 @@ mod tests {
     #[derive(Clone)]
     struct SpySink {
         applied: Arc<Mutex<Vec<AdvisorySnapshot>>>,
-        results: Arc<Mutex<VecDeque<MartinResult<()>>>>,
+        results: Arc<Mutex<VecDeque<SourceBuildResult<()>>>>,
     }
 
     impl SpySink {
@@ -296,7 +326,7 @@ mod tests {
             }
         }
 
-        fn with_results(results: Vec<MartinResult<()>>) -> Self {
+        fn with_results(results: Vec<SourceBuildResult<()>>) -> Self {
             let s = Self::new();
             *s.results.lock().expect("SpySink results mutex poisoned") = results.into();
             s
@@ -311,7 +341,7 @@ mod tests {
         fn apply_changes(
             &self,
             advisory: ReloadAdvisory,
-        ) -> impl Future<Output = MartinResult<()>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<()>> + Send {
             self.applied
                 .lock()
                 .expect("SpySink applied mutex poisoned")
@@ -425,7 +455,7 @@ mod tests {
     async fn failed_seed_then_success_does_not_flood() {
         // Seed fails (baseline stays None); the first good tick establishes it without applying.
         let discovery = FakeDiscovery::new(vec![
-            Err(MartinError::SourceNotFound("seed boom".into())),
+            Err(SourceBuildError::SourceNotFound("seed boom".into())),
             Ok(snapshot(&[
                 ("a", Version::Tracked(1)),
                 ("b", Version::Tracked(1)),
@@ -446,11 +476,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn init_applies_full_discovery_then_ticks_diff_against_it() {
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
+        ]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        let mut driver = ReloadDriver::new(discovery, sink);
+        let warnings = driver.init().await.expect("init");
+        assert!(warnings.is_empty());
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: ids(&["a", "b"]),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: ids(&[]),
+                    updates: ids(&[]),
+                    removals: ids(&["b"]),
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn init_propagates_discovery_and_apply_errors() {
+        let discovery =
+            FakeDiscovery::new(vec![Err(SourceBuildError::SourceNotFound("boom".into()))]);
+        let mut driver = ReloadDriver::new(discovery, SpySink::new());
+        assert!(
+            driver.init().await.is_err(),
+            "discovery error must fail init"
+        );
+
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
+        let sink =
+            SpySink::with_results(vec![Err(SourceBuildError::SourceNotFound("apply".into()))]);
+        let mut driver = ReloadDriver::new(discovery, sink);
+        assert!(driver.init().await.is_err(), "apply error must fail init");
+    }
+
+    #[tokio::test]
     async fn failed_discover_retains_baseline() {
         // The failed middle tick keeps the baseline, so only `b` diffs on the last tick.
         let discovery = FakeDiscovery::new(vec![
             Ok(snapshot(&[("a", Version::Tracked(1))])),
-            Err(MartinError::SourceNotFound("tick boom".into())),
+            Err(SourceBuildError::SourceNotFound("tick boom".into())),
             Ok(snapshot(&[
                 ("a", Version::Tracked(1)),
                 ("b", Version::Tracked(1)),
@@ -483,7 +567,7 @@ mod tests {
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_results(vec![
-            Err(MartinError::SourceNotFound("apply boom".into())),
+            Err(SourceBuildError::SourceNotFound("apply boom".into())),
             Ok(()),
         ]);
         let recorded = sink.recorded();

@@ -7,10 +7,9 @@ use martin_core::tiles::geojson::source::GeoJsonSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 
 /// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
@@ -51,12 +50,27 @@ const fn is_default_buffer(buffer: &u32) -> bool {
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
     #[serde(default = "default_extent", skip_serializing_if = "is_default_extent")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: NonZeroU32,
 
     /// Clip margin kept around each tile edge, in tile units, defaulting to 64.
     /// Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
     #[serde(default = "default_buffer", skip_serializing_if = "is_default_buffer")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: u32,
+
+    /// Whether `paths` are scanned recursively
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub recursive: Option<bool>,
+    /// Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -68,6 +82,8 @@ impl Default for GeoJsonConfig {
         Self {
             extent: default_extent(),
             buffer: default_buffer(),
+            recursive: None,
+            cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -78,12 +94,16 @@ impl TileSourceConfiguration for GeoJsonConfig {
         false
     }
 
+    fn cache(&self) -> CachePolicy {
+        self.cache
+    }
+
     async fn new_sources(
         &self,
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         let geojson_source =
             GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
         Ok(Box::new(geojson_source))
@@ -98,7 +118,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -159,14 +179,19 @@ mod tests {
                 ),
                 (
                     "pm-src2".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
-                    })
+                        cache_control: None,
+                    }))
                 ),
                 (
                     "pm-src3".to_owned(),
@@ -174,14 +199,19 @@ mod tests {
                 ),
                 (
                     "pm-src4".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
-                    })
+                        cache_control: None,
+                    }))
                 ),
             ]))
         );

@@ -9,6 +9,8 @@ Martin **can run without** a reverse proxy.
 Doing so has a few downsides:
 
 - Martin does not support HTTPS connections (TLS termination).
+- Martin does not authenticate requests.
+  If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with [`auth_request` in NGINX](../run-with-nginx.md#authenticating-requests).
 - We do not check `HOST`-headers - we just serve on a port.
   This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on.
   Using a reverse proxy makes this abuse obvious.
@@ -20,7 +22,7 @@ Doing so has a few downsides:
     - [Varnish](https://varnish-cache.org/)
     - [Apache](https://httpd.apache.org/)
 
-  For client- and CDN-side caching, Martin can set a default `Cache-Control` response header itself via the `cache_control` option in the [configuration file](../config-file/index.md).
+  For client- and CDN-side caching, Martin can set the `Cache-Control` response header itself via the `cache_control` option in the [configuration file](../config-file/index.md), both as a server-wide default and per tile source.
 - You may need to host more than just tiles/resources on the domain name.
 - Martin has a fixed public API, but your site may require a different structure.
   For example, you may want to serve tiles from `/{sourceID}/tiles?z={z}&x={x}&y={y}` instead of `/{sourceID}/{z}/{x}/{y}`.

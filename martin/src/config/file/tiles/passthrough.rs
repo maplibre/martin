@@ -11,10 +11,14 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
-use crate::MartinResult;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ContourProcessConfig;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigurationLivecycleHooks,
-    ResolutionResult, TileSourceWarning, UnrecognizedValues,
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
+    ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
+    UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -66,6 +70,15 @@ pub struct PassthroughConfig {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
+    /// Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
+
     /// Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
     ///
     /// Each value is one of:
@@ -98,12 +111,13 @@ impl PassthroughConfig {
     /// [`TileSourceWarning`]s so one bad upstream does not abort the others.
     ///
     /// The `sources` map is rewritten so its keys become the [`IdResolver`]-assigned source ids,
-    /// matching what [`build_process_config_map`](crate::config::file::Config) later keys on.
+    /// matching what [`resolved_process_map`](crate::config::file::Config) later keys on.
     pub async fn resolve(
         &mut self,
         idr: &IdResolver,
         default_cache: CachePolicy,
     ) -> ResolutionResult {
+        let default_cache = self.cache.or(default_cache);
         let mut results = Vec::new();
         let mut warnings = Vec::new();
 
@@ -248,6 +262,12 @@ pub struct PassthroughSourceConfig {
     )]
     pub cache: CachePolicy,
 
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
+
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -258,6 +278,22 @@ pub struct PassthroughSourceConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    /// Settable per source only, since it is tied to what this source serves (raster data in Mapzen format).
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
+    /// Trace contour lines from this source's tiles.
+    ///
+    /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
+    /// See the contour documentation for the knobs.
+    /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_contour: Option<ContourProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -276,10 +312,15 @@ impl Default for PassthroughSourceConfig {
             bounds: None,
             attribution: None,
             cache: CachePolicy::default(),
+            cache_control: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: None,
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: None,
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            convert_to_hillshade: None,
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            convert_to_contour: None,
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -288,7 +329,11 @@ impl Default for PassthroughSourceConfig {
 impl PassthroughSourceConfig {
     /// Build the upstream into a live [`BoxedSource`], fetching the upstream `TileJSON` once for a
     /// document upstream.
-    async fn build(&self, id: String, default_cache: CachePolicy) -> MartinResult<BoxedSource> {
+    async fn build(
+        &self,
+        id: String,
+        default_cache: CachePolicy,
+    ) -> SourceBuildResult<BoxedSource> {
         let format = match self.format.as_deref() {
             Some(value) => Some(Format::parse(value).ok_or_else(|| {
                 ConfigFileError::InvalidPassthroughFormat {

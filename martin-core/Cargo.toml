@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.11.0"
+version = "0.11.1"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -16,9 +16,16 @@ name = "geojson_tiles"
 harness = false
 required-features = ["geojson"]
 
+[[bench]]
+name = "hillshade"
+harness = false
+required-features = ["hillshade"]
+
 [features]
 default = [
+    "contour",
     "fonts",
+    "hillshade",
     "mbtiles",
     "metrics",
     "passthrough",
@@ -29,6 +36,7 @@ default = [
     "unstable-cog",
     "geojson",
 ]
+hillshade = ["_neighbourhood", "_raster", "_tiles", "dep:multiversion"]
 geojson = [
     "_tiles",
     "dep:geo",
@@ -41,9 +49,19 @@ geojson = [
     "dep:tokio",
     "tokio/fs",
 ]
+contour = [
+    "_neighbourhood",
+    "_tiles",
+    "dep:contour",
+    "dep:geo",
+    "dep:geo-types",
+    "dep:mlt-core",
+]
+
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:humantime",
     "dep:postgres",
     "dep:regex",
     "dep:rustls",
@@ -55,6 +73,7 @@ postgres = [
     "dep:url",
     "dep:tokio",
     "tokio/sync",
+    "tokio/time",
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:serde_json", "_tiles"]
@@ -92,6 +111,8 @@ unstable-duckdb = [
     "tokio/rt-multi-thread",
 ]
 _tiles = ["dep:base64"]
+_raster = ["dep:image", "dep:jxl-oxide", "dep:zune-core", "dep:zune-jpegxl"]
+_neighbourhood = ["_raster", "_tiles"]
 test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
@@ -105,6 +126,7 @@ backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 chrono.workspace = true
+contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
@@ -117,11 +139,15 @@ geo-index = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
 hotpath.workspace = true
+humantime = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
+jxl-oxide = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
+multiversion = { workspace = true, optional = true }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
@@ -151,6 +177,8 @@ url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
+zune-core = { workspace = true, optional = true }
+zune-jpegxl = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-web.workspace = true
@@ -164,6 +192,7 @@ insta = { workspace = true, features = ["json", "yaml"] }
 rcgen.workspace = true
 rstest.workspace = true
 serde_json.workspace = true
+strum.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true

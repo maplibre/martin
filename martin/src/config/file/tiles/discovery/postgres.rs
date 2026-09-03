@@ -6,9 +6,12 @@ use tokio::sync::OnceCell;
 
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
-use crate::config::file::{CachePolicy, ProcessConfig};
+use crate::config::file::{
+    CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError,
+    SourceBuildResult,
+};
 use crate::config::primitives::IdResolver;
-use crate::{MartinError, MartinResult};
+use crate::reload::SourceProvenance;
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
 ///
@@ -19,7 +22,10 @@ pub struct PostgresDiscovery {
     config: PostgresConfig,
     id_resolver: IdResolver,
     default_cache: CachePolicy,
+    /// The connection level, which per-source settings layer over.
     process: ProcessConfig,
+    /// The connection level resolved, for every source without its own settings.
+    resolved: ResolvedProcess,
     builder: OnceCell<PostgresAutoDiscoveryBuilder>,
 }
 
@@ -36,6 +42,9 @@ impl PostgresDiscovery {
             config,
             id_resolver,
             default_cache,
+            resolved: process
+                .resolve()
+                .expect("the connection level carries no range-checked settings"),
             process,
             builder: OnceCell::new(),
         }
@@ -48,9 +57,20 @@ impl PostgresDiscovery {
         self.config.reload_interval
     }
 
+    #[must_use]
+    pub fn config(&self) -> &PostgresConfig {
+        &self.config
+    }
+
+    /// The pool id (database name), once the first `discover` has connected.
+    #[must_use]
+    pub fn pool_id(&self) -> Option<&str> {
+        self.builder.get().map(PostgresAutoDiscoveryBuilder::get_id)
+    }
+
     /// The builder, created on first use. A bad connection string surfaces here as an `Err`,
     /// which the driver treats like any other discovery failure (retain the baseline, retry).
-    async fn builder(&self) -> MartinResult<&PostgresAutoDiscoveryBuilder> {
+    async fn builder(&self) -> SourceBuildResult<&PostgresAutoDiscoveryBuilder> {
         self.builder
             .get_or_try_init(|| async {
                 PostgresAutoDiscoveryBuilder::new(
@@ -59,7 +79,7 @@ impl PostgresDiscovery {
                     self.default_cache,
                 )
                 .await
-                .map_err(MartinError::from)
+                .map_err(SourceBuildError::from)
             })
             .await
     }
@@ -68,7 +88,7 @@ impl PostgresDiscovery {
 impl Discovery for PostgresDiscovery {
     type Args = SourceSpec;
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let (specs, warnings) = self.builder().await?.discover().await?;
         Ok(Discovered {
             sources: specs
@@ -79,48 +99,103 @@ impl Discovery for PostgresDiscovery {
         })
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let (source, spec) = self.builder().await?.instantiate(id, args.clone()).await?;
+        log_published(id, &spec);
         Ok(BuiltSource {
             source,
-            process: Some(per_source_process(&self.process, &spec)),
+            process: Some(
+                per_source_process(&self.process, &spec)
+                    .map_err(|e| e.for_source(id.to_owned()))?,
+            ),
+            provenance: Some(SourceProvenance::Postgres {
+                connection_string: self
+                    .config
+                    .connection_string
+                    .clone()
+                    .expect("connection_string is set after PostgresConfig::finalize()"),
+                spec: Box::new(spec),
+            }),
         })
     }
 
-    fn process(&self) -> ProcessConfig {
-        self.process.clone()
+    fn process(&self) -> ResolvedProcess {
+        self.resolved.clone()
     }
 }
 
-/// Per-source `convert_to_*` settings override the connection-level [`ProcessConfig`].
-#[cfg(feature = "mlt")]
-fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> ProcessConfig {
-    use crate::config::file::resolve_process_config;
-
+/// Per-source `convert_to_*` and `cache_control` settings layered over the connection level.
+fn per_source_process(
+    connection: &ProcessConfig,
+    spec: &SourceSpec,
+) -> Result<ResolvedProcess, ProcessResolveError> {
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: info.convert_to_mlt.clone(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
+            cache_control: info.cache_control.clone(),
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         },
         SourceSpec::Function(info, _) => ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: info.convert_to_mlt.clone(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mvt: info.convert_to_mvt.clone(),
+            cache_control: info.cache_control.clone(),
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         },
     };
-    resolve_process_config(connection, &ProcessConfig::default(), &per_source)
+    ProcessConfig::layered(connection, &ProcessConfig::default(), &per_source).resolve()
 }
 
-#[cfg(not(feature = "mlt"))]
-fn per_source_process(connection: &ProcessConfig, _spec: &SourceSpec) -> ProcessConfig {
-    connection.clone()
+fn log_published(id: &str, spec: &SourceSpec) {
+    match spec {
+        SourceSpec::Table(info) => {
+            let kind = match info.relkind {
+                Some('v') => "view",
+                Some('m') => "materialized view",
+                _ => "table",
+            };
+            tracing::info!(
+                source.id = %id,
+                source.kind = kind,
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                geometry_type = info.geometry_type.as_deref().unwrap_or("unknown"),
+                srid = info.srid,
+                id_column = info.id_column.as_deref().unwrap_or("none"),
+                "Published source"
+            );
+        }
+        SourceSpec::Function(info, sql) => {
+            tracing::info!(
+                source.id = %id,
+                source.kind = "function",
+                schema = %info.schema,
+                function = %info.function,
+                function.signature = %sql.signature,
+                "Published source"
+            );
+        }
+    }
 }
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use std::collections::BTreeMap;
 
+    use super::*;
     use crate::config::file::CachePolicy;
-    use crate::config::file::discovery::{Discovery as _, PostgresDiscovery, Version};
+    use crate::config::file::discovery::{PostgresDiscovery, Version};
     use crate::config::file::postgres::{PostgresConfig, SourceSpec};
     use crate::config::file::process::ProcessConfig;
     use crate::config::primitives::IdResolver;
@@ -243,6 +318,7 @@ mod tests {
 
         let built = discovery.build("points", spec).await.expect("build");
         assert_eq!(built.source.get_id(), "points");
+        assert!(built.provenance.is_some());
     }
 
     #[tokio::test]
@@ -262,10 +338,16 @@ mod tests {
     #[test]
     fn per_source_convert_overrides_the_connection_level() {
         use crate::config::file::postgres::TableInfo;
+        use crate::config::file::process::MltConversion;
         use crate::config::primitives::AutoOption;
         let connection = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
+            cache_control: None,
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
         };
 
         let with_override = SourceSpec::Table(TableInfo {
@@ -273,15 +355,15 @@ mod tests {
             ..TableInfo::default()
         });
         assert_eq!(
-            per_source_process(&connection, &with_override).convert_to_mlt,
-            Some(AutoOption::Disabled),
+            per_source_process(&connection, &with_override).unwrap().mlt,
+            MltConversion::Disabled,
             "a per-table convert_to_mlt must win over the connection-level setting"
         );
 
         let without_override = SourceSpec::Table(TableInfo::default());
         assert_eq!(
-            per_source_process(&connection, &without_override),
-            connection,
+            per_source_process(&connection, &without_override).unwrap(),
+            connection.resolve().unwrap(),
             "a table without overrides must inherit the connection-level setting"
         );
     }

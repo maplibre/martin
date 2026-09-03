@@ -19,7 +19,7 @@ async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
 }
 
 /// The keys named by every `Ignoring unrecognized configuration key '<key>'` line, sorted.
-/// The lines are consumed, so [`Martin::assert_log_clean`] no longer sees them.
+/// The lines are consumed, so the assertion [`Martin`] drops with no longer sees them.
 fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
     let mut keys = martin
         .take_log_lines("Ignoring unrecognized configuration key")
@@ -70,7 +70,7 @@ fonts:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     cors.warning
     fonts.warning
     geojson.warning
@@ -83,7 +83,6 @@ fonts:
     warning
     ");
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -120,7 +119,6 @@ pmtiles:
         ["pmtiles.warning", "warning"]
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -143,7 +141,6 @@ cog:
         "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -171,7 +168,6 @@ pmtiles:
         "`connect_timeout` names the same object store option set, so its scalar value is accepted"
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -191,7 +187,7 @@ pmtiles:
     .await;
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
       sources:
@@ -204,7 +200,6 @@ pmtiles:
         ["pmtiles.warning", "warning"]
     );
     martin.assert_startup_warnings();
-    martin.assert_log_clean();
 }
 
 #[cfg(feature = "test-pg")]
@@ -237,12 +232,11 @@ postgres:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     postgres.functions.function_zxy_query.warning
     postgres.tables.points1.warning
     postgres.warning
     ");
-    martin.assert_log_clean();
 }
 
 #[cfg(feature = "test-pg")]
@@ -267,7 +261,7 @@ postgres:
     .await;
 
     martin.stop().await;
-    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @r"
+    insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
     postgres.auto_publish.functions.warning
     postgres.auto_publish.tables.warning
     postgres.auto_publish.warning
@@ -279,5 +273,4 @@ postgres:
     ] {
         martin.assert_log_contains(unindexed);
     }
-    martin.assert_log_clean();
 }

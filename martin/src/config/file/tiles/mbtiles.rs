@@ -6,10 +6,9 @@ use martin_core::tiles::mbtiles::MbtSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
+    TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -39,6 +38,19 @@ pub struct MbtConfig {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
+    /// Whether `paths` are scanned recursively
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
+    pub recursive: Option<bool>,
+    /// Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.
+    /// Overrides the top-level `cache` bounds.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -48,12 +60,16 @@ impl TileSourceConfiguration for MbtConfig {
     fn parse_urls() -> bool {
         false
     }
+
+    fn cache(&self) -> CachePolicy {
+        self.cache
+    }
     async fn new_sources(
         &self,
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
@@ -66,7 +82,7 @@ impl TileSourceConfiguration for MbtConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> MartinResult<BoxedSource> {
+    ) -> SourceBuildResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -133,14 +149,19 @@ mod tests {
                 ),
                 (
                     "pm-src2".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
-                    })
+                        cache_control: None,
+                    }))
                 ),
                 (
                     "pm-src3".to_owned(),
@@ -148,25 +169,35 @@ mod tests {
                 ),
                 (
                     "pm-src4".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::default(),
-                    })
+                        cache_control: None,
+                    }))
                 ),
                 (
                     "pm-src5".to_owned(),
-                    FileConfigSrc::Obj(FileConfigSource {
+                    FileConfigSrc::Obj(Box::new(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mvt: None,
+                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        convert_to_hillshade: None,
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
-                    })
+                        cache_control: None,
+                    }))
                 ),
             ]))
         );

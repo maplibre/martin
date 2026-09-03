@@ -12,6 +12,7 @@ use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
+use crate::config::file::ResolvedProcess;
 use crate::config::file::srv::SrvConfig;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -108,14 +109,19 @@ pub async fn get_source_info(
         .map(|tiles_url| tiles_url.to_string())
         .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
 
-    let just_sources: Vec<_> = resolved.sources.into_iter().map(|(s, _)| s).collect();
-    Ok(HttpResponse::Ok().json(merge_tilejson(&just_sources, tiles_url)))
+    Ok(HttpResponse::Ok().json(merge_tilejson(&resolved.sources, tiles_url)))
 }
 
+/// Merges what each source advertises after post-processing into one [`TileJSON`].
 #[must_use]
-pub fn merge_tilejson(sources: &[BoxedSource], tiles_url: String) -> TileJSON {
-    if sources.len() == 1 {
-        let mut tj = sources[0].get_tilejson().clone();
+pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: String) -> TileJSON {
+    let mut advertised: Vec<TileJSON> = sources
+        .iter()
+        .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
+        .collect();
+
+    if advertised.len() == 1 {
+        let mut tj = advertised.swap_remove(0);
         tj.tiles = vec![tiles_url];
         return tj;
     }
@@ -127,9 +133,7 @@ pub fn merge_tilejson(sources: &[BoxedSource], tiles_url: String) -> TileJSON {
         tiles: vec![tiles_url],
     };
 
-    for src in sources {
-        let tj = src.get_tilejson();
-
+    for tj in &advertised {
         if let Some(vector_layers) = &tj.vector_layers {
             if let Some(ref mut a) = result.vector_layers {
                 a.extend(vector_layers.iter().cloned());
@@ -236,7 +240,13 @@ pub mod tests {
             data: Vec::default(),
             format: Format::Mvt,
         };
-        let tj = merge_tilejson(&[Box::new(src1.clone())], url.clone());
+        let tj = merge_tilejson(
+            &[(
+                Box::new(src1.clone()) as BoxedSource,
+                ResolvedProcess::default(),
+            )],
+            url.clone(),
+        );
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
@@ -264,7 +274,16 @@ pub mod tests {
             format: Format::Mvt,
         };
 
-        let tj = merge_tilejson(&[Box::new(src1.clone()), Box::new(src2)], url.clone());
+        let tj = merge_tilejson(
+            &[
+                (
+                    Box::new(src1.clone()) as BoxedSource,
+                    ResolvedProcess::default(),
+                ),
+                (Box::new(src2) as BoxedSource, ResolvedProcess::default()),
+            ],
+            url.clone(),
+        );
         assert_eq!(tj.tiles, vec![url]);
         assert_eq!(tj.name, Some("layer1,layer2".to_owned()));
         assert_eq!(tj.minzoom, Some(5));

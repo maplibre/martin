@@ -271,7 +271,15 @@ fn flatten_geometry_collections<T: geo_types::CoordNum>(
                 );
             }
         }
-        geom => out.push(PreparedFeature {
+        geom @ (Geometry::Point(_)
+        | Geometry::Line(_)
+        | Geometry::LineString(_)
+        | Geometry::Polygon(_)
+        | Geometry::MultiPoint(_)
+        | Geometry::MultiLineString(_)
+        | Geometry::MultiPolygon(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)) => out.push(PreparedFeature {
             geom,
             properties: f.properties,
         }),
@@ -291,7 +299,9 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
-            .join("tests/fixtures/geojson")
+            .join("tests")
+            .join("fixtures")
+            .join("geojson")
     }
 
     #[tokio::test]

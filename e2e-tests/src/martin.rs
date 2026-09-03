@@ -9,8 +9,11 @@ use std::{env, fs};
 
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
+use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
 use image::{ImageFormat, ImageReader};
-use mlt_core::fast_mvt::{MvtReaderRef, MvtTile};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
+use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
+use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
@@ -50,6 +53,7 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
     "Environment variable DATABASE_URL is deprecated",
+    "aborting query. Use --auto-bounds=calc",
 ];
 
 fn martin_command() -> Command {
@@ -156,17 +160,19 @@ impl MartinBuilder {
             .build()
             .expect("failed to build the http client");
 
-        let mut martin = Martin {
+        let mut process = Subprocess {
             child,
-            addr: String::new(),
-            client,
             log,
             readers,
-            log_lines: None,
-            _config_dir: self.config_dir,
+            stopped: false,
         };
-        martin.wait_ready().await?;
-        Ok(martin)
+        let addr = process.wait_ready(&client).await?;
+        Ok(Martin {
+            process,
+            addr,
+            client,
+            _config_dir: self.config_dir,
+        })
     }
 }
 
@@ -182,68 +188,60 @@ fn spawn_log_reader(
     })
 }
 
-/// A running (or stopped) martin subprocess.
+/// The martin subprocess and the log its readers collect, held while martin starts up and,
+/// once it is ready, by the [`Martin`] the test drives.
 #[derive(Debug)]
-pub struct Martin {
+struct Subprocess {
     child: Child,
-    /// The resolved `host:port` martin listens on, parsed from its startup
-    /// log line; set by `wait_ready` before `start` returns.
-    addr: String,
-    client: Client,
     log: Arc<Mutex<Vec<String>>>,
     readers: Vec<JoinHandle<()>>,
-    /// Populated by [`Martin::stop`]; log-assertion methods consume lines from it.
-    log_lines: Option<Vec<String>>,
+    /// Whether [`Subprocess::stop`] already ran, keeping it idempotent.
+    stopped: bool,
+}
+
+/// A ready martin subprocess.
+///
+/// Dropping an instance asserts that [`Martin::stop`] read its log to the end and that the log
+/// holds no unexpected `WARN` or `ERROR` line, so a test that expects one must consume it with
+/// [`Martin::assert_log_contains`] or [`Martin::take_log_lines`].
+#[derive(Debug)]
+pub struct Martin {
+    process: Subprocess,
+    /// The resolved `host:port` martin listens on, parsed from its startup
+    /// log line by `wait_ready` before `start` returns.
+    addr: String,
+    client: Client,
     /// Holds the config file [`MartinBuilder::config`] wrote for as long as martin runs.
     _config_dir: Option<TempDir>,
 }
 
-impl Martin {
-    #[must_use]
-    pub fn builder() -> MartinBuilder {
-        MartinBuilder::default()
-    }
-
-    /// The resolved `host:port` this instance listens on.
-    #[must_use]
-    pub fn addr(&self) -> &str {
-        &self.addr
-    }
-
-    /// Replace this instance's `host:port` with a stable placeholder so the
-    /// value can be snapshotted.
-    #[must_use]
-    pub fn redact(&self, text: &str) -> String {
-        text.replace(&self.addr, "[ADDR]")
-    }
-
+impl Subprocess {
     /// Ready means the startup log announced the listen address (martin only
     /// binds its socket once all sources are configured) and any HTTP
     /// response arrived on it, whatever its status. This stays correct when
     /// `--route-prefix` (as an argument or through a config file) moves the
     /// endpoints around.
-    async fn wait_ready(&mut self) -> Result<(), StartError> {
+    async fn wait_ready(&mut self, client: &Client) -> Result<String, StartError> {
         let announced =
             Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
         let deadline = Instant::now() + ready_timeout();
-        loop {
-            let addr = self
+        let addr = loop {
+            let announced = self
                 .log
                 .lock()
                 .expect("log lock poisoned")
                 .iter()
                 .find_map(|line| Some(announced.captures(line)?.get(1)?.as_str().to_owned()));
-            if let Some(addr) = addr {
-                self.addr = addr;
-                break;
+            if let Some(addr) = announced {
+                break addr;
             }
             self.poll_startup(deadline).await?;
-        }
-        let url = format!("http://{}/health", self.addr);
-        while self.client.get(&url).send().await.is_err() {
+        };
+        let url = format!("http://{addr}/health");
+        while client.get(&url).send().await.is_err() {
             self.poll_startup(deadline).await?;
         }
-        Ok(())
+        Ok(addr)
     }
 
     /// One startup poll step: fail if martin exited or `deadline` passed,
@@ -265,6 +263,89 @@ impl Martin {
         Ok(())
     }
 
+    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// the end, so the assertions on it see every line. Idempotent.
+    async fn stop(&mut self) {
+        if self.stopped {
+            return;
+        }
+        self.stopped = true;
+        if self
+            .child
+            .try_wait()
+            .expect("failed to poll martin")
+            .is_none()
+        {
+            terminate(&self.child);
+            match timeout(STOP_TIMEOUT, self.child.wait()).await {
+                Ok(status) => {
+                    status.expect("failed to wait for martin");
+                }
+                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
+            }
+        }
+        self.drain_readers().await;
+    }
+
+    /// Remove every log line containing `needle` and return them in the order
+    /// martin logged them.
+    fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
+        self.log
+            .lock()
+            .expect("log lock poisoned")
+            .extract_if(.., |line| line.contains(needle))
+            .collect()
+    }
+
+    /// Wait for the log readers to reach EOF so the log is complete.
+    async fn drain_readers(&mut self) {
+        for reader in self.readers.drain(..) {
+            let _ = reader.await;
+        }
+    }
+
+    /// The `WARN` and `ERROR` lines left in the log, after [`ALLOWED_LOG_LINES`] and the lines
+    /// already consumed by [`Martin::assert_log_contains`].
+    fn unexpected_log_lines(&self) -> Vec<String> {
+        let problem = Regex::new(r"\b(ERROR|WARN)\b").expect("valid regex");
+        self.log
+            .lock()
+            .expect("log lock poisoned")
+            .iter()
+            .filter(|line| problem.is_match(line))
+            .filter(|line| {
+                !ALLOWED_LOG_LINES
+                    .iter()
+                    .any(|allowed| line.contains(allowed))
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn raw_log(&self) -> String {
+        self.log.lock().expect("log lock poisoned").join("\n")
+    }
+}
+
+impl Martin {
+    #[must_use]
+    pub fn builder() -> MartinBuilder {
+        MartinBuilder::default()
+    }
+
+    /// The resolved `host:port` this instance listens on.
+    #[must_use]
+    pub fn addr(&self) -> &str {
+        &self.addr
+    }
+
+    /// Replace this instance's `host:port` with a stable placeholder so the
+    /// value can be snapshotted.
+    #[must_use]
+    pub fn redact(&self, text: &str) -> String {
+        text.replace(&self.addr, "[ADDR]")
+    }
+
     /// Perform a GET request, advertising `Accept-Encoding: br, gzip`; the body is
     /// transparently decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
@@ -283,6 +364,11 @@ impl Martin {
 
     pub async fn head_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         self.request(Method::HEAD, path, headers).await
+    }
+
+    /// Perform a DELETE request.
+    pub async fn delete(&self, path: &str) -> TestResponse {
+        self.request(Method::DELETE, path, &[]).await
     }
 
     /// Perform a POST request carrying a JSON `body`.
@@ -352,7 +438,8 @@ impl Martin {
     /// The line stays in the log, so [`Martin::assert_log_contains`] still sees it after [`Martin::stop`].
     pub async fn wait_for_log(&self, needle: &str) {
         self.wait_until(&format!("{needle:?} in the log"), async || {
-            self.log
+            self.process
+                .log
                 .lock()
                 .expect("log lock poisoned")
                 .iter()
@@ -397,99 +484,60 @@ impl Martin {
         }
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and
-    /// collect its log for the `assert_log_*` methods. Idempotent.
+    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
+    /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
-        if self.log_lines.is_some() {
-            return;
-        }
-        if self
-            .child
-            .try_wait()
-            .expect("failed to poll martin")
-            .is_none()
-        {
-            terminate(&self.child);
-            match timeout(STOP_TIMEOUT, self.child.wait()).await {
-                Ok(status) => {
-                    status.expect("failed to wait for martin");
-                }
-                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
-            }
-        }
-        self.drain_readers().await;
-        let lines = self.log.lock().expect("log lock poisoned").clone();
-        self.log_lines = Some(lines);
+        self.process.stop().await;
     }
 
     /// Remove every log line containing `needle` and return them in the order
-    /// martin logged them. Must be called after [`Martin::stop`].
+    /// martin logged them.
     pub fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
-        self.collected_log()
-            .extract_if(.., |line| line.contains(needle))
-            .collect()
+        self.process.take_log_lines(needle)
     }
 
-    /// Assert that at least one log line contains `needle`, and consume every
-    /// matching line. Must be called after [`Martin::stop`].
+    /// Assert that at least one log line contains `needle`, and consume every matching line.
     pub fn assert_log_contains(&mut self, needle: &str) {
         let taken = self.take_log_lines(needle);
         assert!(
             !taken.is_empty(),
             "log does not contain {needle:?}; log:\n{}",
-            self.collected_log().join("\n")
+            self.raw_log()
         );
     }
 
-    /// The log [`Martin::stop`] collected, which the assertions below consume from.
-    const fn collected_log(&mut self) -> &mut Vec<String> {
-        self.log_lines
-            .as_mut()
-            .expect("log assertions must be called after stop()")
-    }
-
     /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
-    /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the two `AWS_*` variables
-    /// [`MartinBuilder::start`] sets.
-    /// Must be called after [`Martin::stop`].
+    /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the `AWS_SKIP_CREDENTIALS`
+    /// variable [`MartinBuilder::start`] sets.
     pub fn assert_startup_warnings(&mut self) {
         self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
         self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
-        self.assert_log_contains("Environment variable AWS_REGION is deprecated");
     }
 
-    /// Assert that no unexpected `WARN` or `ERROR` lines remain in the log
-    /// after [`ALLOWED_LOG_LINES`] and the lines already consumed by
-    /// [`Martin::assert_log_contains`]. Must be called after [`Martin::stop`].
-    pub fn assert_log_clean(&mut self) {
-        let lines = self.collected_log();
-        lines.retain(|line| {
-            !ALLOWED_LOG_LINES
-                .iter()
-                .any(|allowed| line.contains(allowed))
-        });
-        let problem = Regex::new(r"\b(ERROR|WARN)\b").expect("valid regex");
-        let unexpected = lines
-            .iter()
-            .filter(|line| problem.is_match(line))
-            .cloned()
-            .collect::<Vec<_>>();
+    fn raw_log(&self) -> String {
+        self.process.raw_log()
+    }
+}
+
+impl Drop for Martin {
+    /// Assert that the log was read to the end and holds nothing unexpected, unless the test is
+    /// already failing: panicking while panicking aborts the process and takes the original
+    /// failure's message with it.
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
+        assert!(
+            self.process.stopped,
+            "martin must be stopped before it is dropped, so that its whole log is asserted on"
+        );
+        let unexpected = self.process.unexpected_log_lines();
         assert!(
             unexpected.is_empty(),
             "log has unexpected warnings or errors:\n{}",
             unexpected.join("\n")
         );
-    }
-
-    /// Wait for the log readers to reach EOF so the log is complete.
-    async fn drain_readers(&mut self) {
-        for reader in self.readers.drain(..) {
-            let _ = reader.await;
-        }
-    }
-
-    fn raw_log(&self) -> String {
-        self.log.lock().expect("log lock poisoned").join("\n")
     }
 }
 
@@ -610,10 +658,54 @@ impl TestResponse {
         )
     }
 
+    /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.
+    #[must_use]
+    pub fn geojson(&self, z: u8, x: u32, y: u32) -> FeatureCollection {
+        let features = self
+            .mvt()
+            .layers
+            .iter()
+            .flat_map(|layer| {
+                let (name, extent) = (layer.name.clone(), f64::from(layer.extent.get()));
+                layer.features.iter().map(move |feature| {
+                    let mut properties = properties(feature);
+                    properties.insert("_layer".to_owned(), name.clone().into());
+                    Feature {
+                        bbox: None,
+                        geometry: Some(to_wgs84(&feature.geometry, z, x, y, extent)),
+                        id: None,
+                        properties: Some(properties),
+                        foreign_members: None,
+                    }
+                })
+            })
+            .collect();
+        FeatureCollection {
+            bbox: None,
+            features,
+            foreign_members: None,
+        }
+    }
+
+    /// [`geojson`](Self::geojson) rendered one feature per line.
+    #[must_use]
+    pub fn geojson_dump(&self, z: u8, x: u32, y: u32) -> String {
+        let features = self
+            .geojson(z, x, y)
+            .features
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        format!(
+            "{{\"type\":\"FeatureCollection\",\"features\":[\n{}\n]}}",
+            features.join(",\n")
+        )
+    }
+
     /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
     ///
     /// The format is read out of the bytes themselves, so this panics on a body that is not a
-    /// PNG, JPEG or WebP whatever the `content-type` header says.
+    /// PNG, JPEG, WebP, or JPEG XL, whatever the `content-type` header says.
     #[must_use]
     pub fn image_size(&self) -> (u32, u32) {
         self.image_reader()
@@ -622,6 +714,10 @@ impl TestResponse {
     }
 
     /// Format the decompressed response body is encoded in, read out of the bytes themselves.
+    ///
+    /// # Panics
+    /// On a JPEG XL body: `image::ImageFormat` has no variant for it, even once the crate can
+    /// decode one. Use [`image_size`](Self::image_size), which does not need the enum, instead.
     #[must_use]
     pub fn image_format(&self) -> ImageFormat {
         self.image_reader()
@@ -630,6 +726,7 @@ impl TestResponse {
     }
 
     fn image_reader(&self) -> ImageReader<Cursor<&Vec<u8>>> {
+        crate::ensure_jxl_decoding_hook();
         ImageReader::new(Cursor::new(&self.body))
             .with_guessed_format()
             .expect("reading from memory cannot fail")
@@ -647,6 +744,86 @@ impl TestResponse {
         lines.sort();
         lines.join("\n")
     }
+
+    /// [`Self::headers_snapshot`] with the `etag` value masked, for bodies
+    /// whose bytes differ per platform.
+    #[must_use]
+    pub fn headers_snapshot_masking_etag(&self) -> String {
+        self.headers_snapshot()
+            .lines()
+            .map(|line| {
+                if line.starts_with("etag: ") {
+                    "etag: [ETAG]"
+                } else {
+                    line
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+/// Reprojects an MVT geometry from tile-local coordinates into WGS84 degrees.
+fn to_wgs84(geometry: &Geometry<i32>, z: u8, x: u32, y: u32, extent: f64) -> GjGeometry {
+    let place = |c: &Coord<i32>| tile_coord_to_wgs84(z, x, y, extent, *c);
+    let line = |l: &LineString<i32>| l.0.iter().map(place).collect::<Vec<_>>();
+    let rings = |p: &Polygon<i32>| {
+        std::iter::once(line(p.exterior()))
+            .chain(p.interiors().iter().map(line))
+            .collect::<Vec<_>>()
+    };
+    GjGeometry::new(match geometry {
+        Geometry::Point(p) => GeometryValue::Point {
+            coordinates: place(&p.0),
+        },
+        Geometry::MultiPoint(m) => GeometryValue::MultiPoint {
+            coordinates: m.0.iter().map(|p| place(&p.0)).collect(),
+        },
+        Geometry::LineString(l) => GeometryValue::LineString {
+            coordinates: line(l),
+        },
+        Geometry::MultiLineString(m) => GeometryValue::MultiLineString {
+            coordinates: m.0.iter().map(line).collect(),
+        },
+        Geometry::Polygon(p) => GeometryValue::Polygon {
+            coordinates: rings(p),
+        },
+        Geometry::MultiPolygon(m) => GeometryValue::MultiPolygon {
+            coordinates: m.0.iter().map(rings).collect(),
+        },
+        other @ (Geometry::Line(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)
+        | Geometry::GeometryCollection(_)) => panic!("a vector tile cannot carry {other:?}"),
+    })
+}
+
+/// Places one tile-local coordinate on the globe as `[longitude, latitude]` in degrees.
+///
+/// Rounded to six decimals: ~0.1 m, finer than a tile unit at any zoom martin serves, so the
+/// integer grid survives while float noise does not.
+fn tile_coord_to_wgs84(z: u8, x: u32, y: u32, extent: f64, coord: Coord<i32>) -> geojson::Position {
+    let span = EARTH_CIRCUMFERENCE / f64::from(1_u32 << z);
+    let [west, _, _, north] = tile_bbox(x, y, span);
+    let unit = span / extent;
+    let (lng, lat) = webmercator_to_wgs84(
+        f64::from(coord.x).mul_add(unit, west),
+        f64::from(coord.y).mul_add(-unit, north),
+    );
+    [(lng * 1e6).round() / 1e6, (lat * 1e6).round() / 1e6].into()
+}
+
+/// An MVT feature's tags as `GeoJSON` properties.
+fn properties(feature: &MvtFeature) -> JsonObject {
+    feature
+        .properties
+        .iter()
+        .map(|(key, value)| {
+            let value = serde_json::Value::try_from(value.clone())
+                .expect("an MVT tag is representable as JSON");
+            (key.clone(), value)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -713,6 +890,66 @@ mod tests {
         );
     }
 
+    fn dump(z: u8, x: u32, y: u32, line: &[(i32, i32)]) -> String {
+        use std::num::NonZeroU32;
+
+        use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
+
+        let mut layer = MvtTileBuilder::with_capacity(1)
+            .layer_with_capacity("contour", 1)
+            .expect("failed to open a layer");
+        layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
+        let geometry = Geometry::LineString(LineString::from(line.to_vec()));
+        let mut feature = layer.feature(&geometry).expect("failed to add a feature");
+        feature
+            .tag("ele", MvtValue::auto_int(500))
+            .and_then(|f| f.tag("major", MvtValue::Bool(true)))
+            .expect("failed to tag a feature");
+        layer = feature.end();
+        let response = TestResponse {
+            status: 200,
+            headers: Vec::new(),
+            body: layer.end().encode(),
+        };
+        response.geojson_dump(z, x, y)
+    }
+
+    #[test]
+    fn a_world_tile_reprojects_to_the_whole_globe() {
+        insta::assert_snapshot!(dump(0, 0, 0, &[(0, 0), (2048, 2048), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-180.0,85.051129],[0.0,0.0],[180.0,-85.051129]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn a_tile_reprojects_onto_its_own_bounds() {
+        insta::assert_snapshot!(dump(10, 163, 396, &[(0, 0), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.695313,37.71859],[-122.34375,37.439974]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn a_neighbouring_tile_starts_where_its_predecessor_ends() {
+        insta::assert_snapshot!(dump(10, 164, 397, &[(0, 0), (4096, 4096)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.34375,37.439974],[-121.992188,37.160317]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
+    #[test]
+    fn coordinates_outside_the_extent_reach_into_the_neighbours() {
+        insta::assert_snapshot!(dump(10, 163, 396, &[(-512, -512), (4608, 4608)]), @r#"
+        {"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[-122.739258,37.753344],[-122.299805,37.405074]]},"properties":{"_layer":"contour","ele":500,"major":true}}
+        ]}
+        "#);
+    }
+
     #[test]
     fn headers_snapshot_sorts_and_drops_date() {
         let response = TestResponse {
@@ -730,6 +967,22 @@ mod tests {
         assert_eq!(
             response.headers_snapshot(),
             "content-encoding: br\ncontent-type: application/json"
+        );
+    }
+
+    #[test]
+    fn headers_snapshot_masking_etag_keeps_the_line() {
+        let response = TestResponse {
+            status: 200,
+            headers: vec![
+                ("etag".to_owned(), "W/\"445-abc==\"".to_owned()),
+                ("content-type".to_owned(), "application/json".to_owned()),
+            ],
+            body: Vec::new(),
+        };
+        assert_eq!(
+            response.headers_snapshot_masking_etag(),
+            "content-type: application/json\netag: [ETAG]"
         );
     }
 }

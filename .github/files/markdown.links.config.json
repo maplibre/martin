@@ -23,6 +23,14 @@
     },
     {
       "pattern": "^http://opensource.org"
+    },
+    {
+      "__comment__": "Geofabrik drops the checker's connection (socket hang up), which fails every docs build that links a download page",
+      "pattern": "^https://download.geofabrik.de"
+    },
+    {
+      "__comment__": "DigitalOcean drops the checker's connection (socket hang up) on its product pages, which fails every docs build that links the managed Postgres recipe",
+      "pattern": "^https://[a-z]+.digitalocean.com"
     }
   ],
   "replacementPatterns": [

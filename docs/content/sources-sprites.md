@@ -7,7 +7,7 @@ tags:
 
 # Sprite Sources
 
-Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.
+Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and high-resolution displays.
 The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
 The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
 For example `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
@@ -96,3 +96,43 @@ sprites:
 ```
 
 The sprites are now available at `/sprite/my_images,some_dir.png`/ ...
+
+A directory of per-project sprite directories is published in one line with `collections`.
+Every directory directly inside it becomes a sprite source named after that directory, so `/projects/sprites/project1/*.svg` is served as `/sprite/project1.png`.
+
+```yaml
+sprites:
+  collections:
+    - /projects/sprites
+```
+
+### Sprite Aliases
+
+An alias is a named combination of sprite sources that a style requests like a single source.
+Each alias combines the listed sources exactly like a [combined sprite request](#combining-multiple-sprites).
+
+```yaml
+sprites:
+  paths:
+    - /path/to/base_icons
+    - /path/to/brand_icons
+  # Each alias can be requested like a sprite source and serves the listed sources combined.
+  aliases:
+    icons: [base_icons, brand_icons]
+```
+
+Aliases may only reference configured sprite sources, not other aliases.
+An alias may share the name of a source it references; requests for that name then serve the alias.
+This extends an existing sprite source without changing the name a style uses:
+
+```yaml
+sprites:
+  paths:
+    - /path/to/base_icons
+    - /path/to/brand_icons
+  aliases:
+    # Requests for "base_icons" also get the brand icons.
+    base_icons: [base_icons, brand_icons]
+```
+
+Aliases are listed in the catalog under their own name with the images of every source they combine.

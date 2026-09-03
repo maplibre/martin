@@ -20,7 +20,7 @@ use tracing::{info, instrument, warn};
 use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 #[cfg(feature = "_tiles")]
 use super::{ResolutionResult, TileSourceWarning};
-use crate::MartinResult;
+use crate::StartupResult;
 #[cfg(any(
     feature = "postgres",
     feature = "pmtiles",
@@ -36,17 +36,33 @@ use crate::MartinResult;
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
     feature = "sprites",
     feature = "fonts",
-    all(feature = "mlt", feature = "mbtiles"),
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "passthrough",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
 use crate::config::file::process::ProcessConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::process::ResolvedProcess;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -62,7 +78,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub async fn finalize(&mut self) -> MartinResult<()> {
+    pub async fn finalize(&mut self) -> StartupResult<()> {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -113,6 +129,11 @@ impl Config {
 
         #[cfg(feature = "fonts")]
         self.fonts.finalize().await?;
+
+        // Resolving every source's process settings range-checks them; the map itself is
+        // rebuilt by `resolve()`.
+        #[cfg(feature = "_tiles")]
+        self.resolved_process_map()?;
 
         if self.has_no_sources() {
             Err(ConfigFileError::NoSources.into())
@@ -173,7 +194,7 @@ impl Config {
     pub async fn resolve(
         &mut self,
         #[cfg(feature = "_tiles")] idr: &IdResolver,
-    ) -> MartinResult<ServerState> {
+    ) -> StartupResult<ServerState> {
         init_aws_lc_tls();
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
@@ -198,18 +219,14 @@ impl Config {
 
         #[cfg(feature = "_tiles")]
         let tile_sources_with_process = {
-            let process_map = self.build_process_config_map();
-            let global_process = ProcessConfig::default();
+            let process_map = self.resolved_process_map()?;
             tile_sources
                 .into_iter()
                 .map(|group| {
                     group
                         .into_iter()
                         .map(|src| {
-                            let pc = process_map
-                                .get(src.get_id())
-                                .cloned()
-                                .unwrap_or_else(|| global_process.clone());
+                            let pc = process_map.get(src.get_id()).cloned().unwrap_or_default();
                             (src, pc)
                         })
                         .collect::<Vec<_>>()
@@ -217,13 +234,23 @@ impl Config {
                 .collect::<Vec<_>>()
         };
 
+        #[cfg(feature = "_tiles")]
+        let tile_manager = TileSourceManager::from_sources(
+            cache_config.create_tile_cache(),
+            self.on_invalid.unwrap_or_default(),
+            tile_sources_with_process,
+        );
+        #[cfg(feature = "_tiles")]
+        for (alias, sources) in &self.aliases {
+            tile_manager
+                .tile_sources()
+                .add_alias(alias.clone(), sources.clone())
+                .map_err(ConfigFileError::TileAliasResolutionFailed)?;
+        }
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tile_manager: TileSourceManager::from_sources(
-                cache_config.create_tile_cache(),
-                self.on_invalid.unwrap_or_default(),
-                tile_sources_with_process,
-            ),
+            tile_manager,
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
@@ -348,7 +375,6 @@ impl Config {
     #[instrument(skip_all, err(Debug))]
     #[cfg_attr(
         not(any(
-            feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
@@ -356,16 +382,18 @@ impl Config {
             feature = "unstable-duckdb",
             feature = "geojson"
         )),
-        expect(unused_variables, reason = "idr is only consumed by tile backends")
+        expect(
+            unused_variables,
+            reason = "idr is only consumed by file tile backends"
+        )
     )]
     async fn resolve_tile_sources(
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+    ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
         #[cfg_attr(
             not(any(
-                feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
                 feature = "passthrough",
@@ -373,14 +401,9 @@ impl Config {
                 feature = "unstable-duckdb",
                 feature = "geojson"
             )),
-            expect(unused_mut, reason = "tile backends push resolved sources here")
+            expect(unused_mut, reason = "file tile backends push resolved sources here")
         )]
         let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
-
-        #[cfg(feature = "postgres")]
-        for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache.policy())));
-        }
 
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
@@ -441,148 +464,276 @@ impl Config {
         ))
     }
 
-    /// Build a map from source ID -> resolved [`ProcessConfig`].
+    /// The processing settings configured at the top level of the config file, which every source inherits unless it overrides them.
+    #[cfg(any(
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "passthrough",
+        feature = "unstable-cog",
+        feature = "geojson"
+    ))]
+    fn global_process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(feature = "mlt")]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            #[cfg(feature = "mlt")]
+            convert_to_mvt: self.convert_to_mvt.clone(),
+            // applied by middleware from the server-level default, not carried here
+            cache_control: None,
+            // `None` since deliberately does not exist at top level
+            #[cfg(feature = "hillshade")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "contour")]
+            convert_to_contour: None,
+        }
+    }
+
+    /// Source ID -> what it is served with, every level folded and range-checked.
     ///
     /// Uses full-override semantics: per-source > source-type > global > default.
     #[cfg(feature = "_tiles")]
-    fn build_process_config_map(&self) -> HashMap<String, ProcessConfig> {
+    fn resolved_process_map(&self) -> StartupResult<HashMap<String, ResolvedProcess>> {
         #[allow(unused_mut)]
         let mut map = HashMap::new();
 
-        #[cfg(all(
-            feature = "mlt",
-            any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "passthrough"
-            )
+        #[cfg(any(
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "passthrough",
+            feature = "unstable-cog",
+            feature = "geojson"
         ))]
         {
-            let global = ProcessConfig {
-                convert_to_mlt: self.convert_to_mlt.clone(),
-                convert_to_mvt: self.convert_to_mvt.clone(),
-            };
+            let global = self.global_process_config();
 
-            #[cfg(feature = "postgres")]
-            for pg in self.postgres.iter() {
-                let source_type = ProcessConfig {
-                    convert_to_mlt: pg.convert_to_mlt.clone(),
-                    convert_to_mvt: pg.convert_to_mvt.clone(),
-                };
-                if let Some(tables) = &pg.tables {
-                    Self::insert_source_configs(&mut map, &global, &source_type, tables, |info| {
-                        ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                            convert_to_mvt: info.convert_to_mvt.clone(),
-                        }
-                    });
+            #[cfg(all(feature = "pmtiles", feature = "mlt"))]
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| {
+                ProcessConfig {
+                    convert_to_mlt: c.convert_to_mlt.clone(),
+                    convert_to_mvt: c.convert_to_mvt.clone(),
+                    cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
                 }
-                if let Some(functions) = &pg.functions {
-                    Self::insert_source_configs(
-                        &mut map,
-                        &global,
-                        &source_type,
-                        functions,
-                        |info| ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                            convert_to_mvt: info.convert_to_mvt.clone(),
-                        },
-                    );
+            })?;
+            #[cfg(all(feature = "pmtiles", not(feature = "mlt")))]
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |_| {
+                ProcessConfig::default()
+            })?;
+
+            #[cfg(all(feature = "mbtiles", feature = "mlt"))]
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| {
+                ProcessConfig {
+                    convert_to_mlt: c.convert_to_mlt.clone(),
+                    convert_to_mvt: c.convert_to_mvt.clone(),
+                    cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
                 }
-            }
+            })?;
+            #[cfg(all(feature = "mbtiles", not(feature = "mlt")))]
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |_| {
+                ProcessConfig::default()
+            })?;
 
-            #[cfg(feature = "pmtiles")]
-            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
-                convert_to_mlt: c.convert_to_mlt.clone(),
-                convert_to_mvt: c.convert_to_mvt.clone(),
-            });
+            // COG and GeoJSON have no kind-level conversion settings.
+            // COG cannot be hillshaded either: shading reads Mapzen *normal* tiles, whose surface
+            // gradients are already per-pixel, whereas a COG holds elevation - which would need
+            // metres-per-pixel scaling and its own quantisation handling, a separate feature.
+            #[cfg(feature = "unstable-cog")]
+            Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
+                ProcessConfig::default()
+            })?;
 
-            #[cfg(feature = "mbtiles")]
-            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| ProcessConfig {
-                convert_to_mlt: c.convert_to_mlt.clone(),
-                convert_to_mvt: c.convert_to_mvt.clone(),
-            });
+            #[cfg(feature = "geojson")]
+            Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {
+                ProcessConfig::default()
+            })?;
 
             #[cfg(feature = "passthrough")]
             if let Some(sources) = &self.passthrough.sources {
                 use crate::config::file::passthrough::PassthroughSrc;
 
                 let source_type = ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
+                    cache_control: None,
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: None,
+                    #[cfg(feature = "contour")]
+                    convert_to_contour: None,
                 };
                 Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
                     match src {
                         PassthroughSrc::Detailed(obj) => ProcessConfig {
+                            #[cfg(feature = "mlt")]
                             convert_to_mlt: obj.convert_to_mlt.clone(),
+                            #[cfg(feature = "mlt")]
                             convert_to_mvt: obj.convert_to_mvt.clone(),
+                            cache_control: obj.cache_control.clone(),
+                            #[cfg(feature = "hillshade")]
+                            convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                            #[cfg(all(feature = "contour", feature = "_tiles"))]
+                            convert_to_contour: obj.convert_to_contour.clone(),
                         },
                         PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                     }
-                });
+                })?;
             }
         }
 
-        // COG sources produce raster tiles (TIFF), not vector tiles (MVT),
-        // so process config (MLT conversion, compression) does not apply.
-        // They fall through to the global default, which is a no-op for raster formats.
-
-        map
+        Ok(map)
     }
 
-    /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
+    /// Resolve and insert the effective [`ResolvedProcess`] for each source in a map, layering
     /// per-source settings over the source-type and global defaults.
-    #[cfg(all(
-        feature = "mlt",
-        any(
-            feature = "postgres",
-            feature = "pmtiles",
-            feature = "mbtiles",
-            feature = "passthrough"
-        )
+    #[cfg(any(
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "passthrough",
+        feature = "unstable-cog",
+        feature = "geojson"
     ))]
     fn insert_source_configs<'a, S: 'a>(
-        map: &mut HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
         source_type: &ProcessConfig,
         sources: impl IntoIterator<Item = (&'a String, &'a S)>,
         get_per_source_pc: impl Fn(&S) -> ProcessConfig,
-    ) {
-        use crate::config::file::process::resolve_process_config;
-
+    ) -> StartupResult<()> {
         for (id, src) in sources {
-            map.insert(
-                id.clone(),
-                resolve_process_config(global, source_type, &get_per_source_pc(src)),
-            );
+            let resolved = ProcessConfig::layered(global, source_type, &get_per_source_pc(src))
+                .resolve()
+                .map_err(|e| e.for_source(id.clone()))?;
+            map.insert(id.clone(), resolved);
         }
+        Ok(())
     }
 
-    /// Helper to resolve process configs for file-based source types (pmtiles, mbtiles).
-    #[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
+    /// Helper to resolve process configs for file-based source types.
+    #[cfg(any(
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson"
+    ))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
-        map: &mut HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
         file_cfg: &FileConfigEnum<T>,
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
-    ) {
+    ) -> StartupResult<()> {
         if let FileConfigEnum::Config(cfg) = file_cfg {
             let source_type = get_source_type_pc(&cfg.custom);
             if let Some(sources) = &cfg.sources {
                 Self::insert_source_configs(map, global, &source_type, sources, |src| match src {
                     FileConfigSrc::Obj(obj) => ProcessConfig {
+                        #[cfg(feature = "mlt")]
                         convert_to_mlt: obj.convert_to_mlt.clone(),
+                        #[cfg(feature = "mlt")]
                         convert_to_mvt: obj.convert_to_mvt.clone(),
+                        cache_control: obj.cache_control.clone(),
+                        #[cfg(feature = "hillshade")]
+                        convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        convert_to_contour: obj.convert_to_contour.clone(),
                     },
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
-                });
+                })?;
             }
         }
+        Ok(())
     }
 
-    pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
-        let yaml = serde_saphyr::to_string(&self).expect("Unable to serialize config");
+    /// A copy of this config whose sections carry the sources currently in the catalog:
+    /// `postgres` entries get their `tables`/`functions` matched by `connection_string`, and
+    /// file-backed sections get an entry per discovered file.
+    #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
+    #[must_use]
+    pub fn with_catalog(&self, catalog: &TileSourceManager) -> Self {
+        let mut config = self.clone();
+        #[cfg(not(any(feature = "postgres", feature = "_file_kinds")))]
+        let _ = catalog;
+
+        #[cfg(feature = "postgres")]
+        for pg in config.postgres.iter_mut() {
+            use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
+            use crate::reload::SourceProvenance;
+
+            let mut tables = TableInfoSources::new();
+            let mut functions = FuncInfoSources::new();
+            for (id, provenance) in catalog.provenance() {
+                match provenance {
+                    SourceProvenance::Postgres {
+                        connection_string,
+                        spec,
+                    } => {
+                        if Some(&connection_string) != pg.connection_string.as_ref() {
+                            continue;
+                        }
+                        match *spec {
+                            SourceSpec::Table(info) => {
+                                tables.insert(id, info);
+                            }
+                            SourceSpec::Function(info, _) => {
+                                functions.insert(id, info);
+                            }
+                        }
+                    }
+                    #[cfg(feature = "_file_kinds")]
+                    SourceProvenance::File { .. } => {}
+                }
+            }
+            pg.tables = Some(tables);
+            pg.functions = Some(functions);
+        }
+
+        #[cfg(feature = "_file_kinds")]
+        for (id, provenance) in catalog.provenance() {
+            use crate::reload::{FileKind, SourceProvenance};
+
+            match provenance {
+                SourceProvenance::File { kind, src } => match kind {
+                    #[cfg(feature = "mbtiles")]
+                    FileKind::Mbtiles => config.mbtiles.insert_source(id, src),
+                    #[cfg(feature = "pmtiles")]
+                    FileKind::Pmtiles => config.pmtiles.insert_source(id, src),
+                    #[cfg(feature = "unstable-cog")]
+                    FileKind::Cog => config.cog.insert_source(id, src),
+                    #[cfg(feature = "geojson")]
+                    FileKind::GeoJson => config.geojson.insert_source(id, src),
+                },
+                #[cfg(feature = "postgres")]
+                SourceProvenance::Postgres { .. } => {}
+            }
+        }
+
+        config
+    }
+
+    /// Writes the running configuration, with the tile sources materialized from the catalog so
+    /// the file describes what is actually served.
+    pub fn save_to_file(
+        &self,
+        file_name: &Path,
+        #[cfg(feature = "_tiles")] catalog: &TileSourceManager,
+    ) -> ConfigFileResult<()> {
+        #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
+        let config = self.with_catalog(catalog);
+        #[cfg(all(
+            feature = "_tiles",
+            not(any(feature = "postgres", feature = "_file_kinds"))
+        ))]
+        let _ = catalog;
+        #[cfg(not(any(feature = "postgres", feature = "_file_kinds")))]
+        let config = self;
+        let yaml = serde_saphyr::to_string(&config).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
             #[expect(
@@ -610,6 +761,60 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use crate::config::test_helpers::render_finalize_failure;
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn finalize_rejects_an_out_of_range_hillshade() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                passthrough:
+                  sources:
+                    terrain:
+                      url: https://example.org/normal/{z}/{x}/{y}.png
+                      convert_to_hillshade:
+                        azimuth: 400
+            "})
+            .await,
+            @"Source terrain has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`"
+        );
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn hillshade_cannot_be_configured_globally() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config: super::Config = serde_saphyr::from_str(indoc::indoc! {"
+            convert_to_hillshade: auto
+            passthrough:
+              sources:
+                terrain: https://example.org/normal/{z}/{x}/{y}.png
+        "})
+        .expect("parses, with the stray key collected rather than rejected");
+
+        let keys = config.get_unrecognized_keys();
+        let keys = keys.iter().collect::<Vec<_>>();
+        assert_eq!(keys.as_slice(), ["convert_to_hillshade"]);
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "passthrough"))]
+    #[tokio::test]
+    async fn finalize_accepts_a_valid_hillshade() {
+        let mut config: super::Config = serde_saphyr::from_str(indoc::indoc! {"
+            passthrough:
+              sources:
+                terrain:
+                  url: https://example.org/normal/{z}/{x}/{y}.png
+                  convert_to_hillshade:
+                    azimuth: 315
+                    format: webp
+        "})
+        .expect("parses");
+        config
+            .finalize()
+            .await
+            .expect("valid hillshade must start up");
+    }
 
     #[tokio::test]
     async fn finalize_no_sources() {

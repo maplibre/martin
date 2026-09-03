@@ -6,8 +6,8 @@ use clap::builder::styling::AnsiColor;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
-use crate::MartinError::ConfigAndConnectionsError;
-use crate::MartinResult;
+use crate::config::args::ArgsError::ConfigAndConnections;
+use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
 #[cfg(any(
@@ -102,9 +102,9 @@ impl Args {
         self,
         config: &mut Config,
         #[cfg(feature = "postgres")] env: &impl Env,
-    ) -> MartinResult<()> {
+    ) -> ArgsResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
-            return Err(ConfigAndConnectionsError(self.meta.connection));
+            return Err(ConfigAndConnections(self.meta.connection));
         }
 
         #[cfg(feature = "postgres")]
@@ -281,13 +281,15 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
-    use crate::MartinError::UnrecognizableConnections;
+    use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
     #[cfg(feature = "postgres")]
     use crate::config::primitives::env::FauxEnv;
 
-    fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
+    fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
@@ -411,7 +413,7 @@ mod tests {
         let err = args
             .merge_into_config(&mut config, &FauxEnv::default())
             .unwrap_err();
-        assert!(matches!(err, ConfigAndConnectionsError(..)));
+        assert_matches!(err, ConfigAndConnections(..));
     }
 
     #[test]
@@ -427,7 +429,7 @@ mod tests {
             )
             .unwrap_err();
         let bad = vec!["foobar".to_owned()];
-        assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
+        assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
@@ -496,9 +498,7 @@ mod tests {
             &FauxEnv::default(),
         )
         .unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"
-        geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
-        "#);
+        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
     }
 
     /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`
@@ -524,7 +524,9 @@ mod tests {
 
         let pg = match config.postgres {
             OptOneMany::One(pg) => pg,
-            other => panic!("expected exactly one postgres config, got: {other:?}"),
+            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
+                panic!("expected exactly one postgres config, got: {other:?}")
+            }
         };
         assert_eq!(
             pg.connection_string.as_deref(),

@@ -8,13 +8,12 @@ use futures::stream::TryStreamExt as _;
 use object_store::ObjectStore as _;
 use url::Url;
 
-use crate::MartinResult;
-use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
-use crate::config::file::process::ProcessConfig;
+use crate::config::file::process::{ProcessConfig, ResolvedProcess};
+use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, TileSourceConfiguration as _,
+    CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 
@@ -25,7 +24,10 @@ pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
     id_resolver: IdResolver,
     config: PmtConfig,
-    process: ProcessConfig,
+    /// The kind level cache bounds, for every remote source.
+    default_cache: CachePolicy,
+    /// The kind level, which every remote prefix serves with.
+    process: ResolvedProcess,
 }
 
 impl ObjectStoreDiscovery {
@@ -34,21 +36,18 @@ impl ObjectStoreDiscovery {
     pub fn from_config(
         config: &FileConfigEnum<PmtConfig>,
         id_resolver: IdResolver,
-        process: ProcessConfig,
+        default_cache: CachePolicy,
+        process: &ProcessConfig,
     ) -> Self {
         let mut remote_prefixes: Vec<Url> = vec![];
-        let mut collect = |path: &PathBuf| {
-            if !is_remote_url(path) {
-                return;
+        let mut collect = |path: &PathBuf| match SourceLocation::classify_path(path) {
+            Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
+                remote_prefixes.push(url);
             }
-            let Some(url) = path.to_str().and_then(|s| Url::parse(s).ok()) else {
-                tracing::warn!(
-                    "remote URL prefix {:?} could not be parsed as URL; skipping",
-                    path
-                );
-                return;
-            };
-            remote_prefixes.push(url);
+            Ok(SourceLocation::Local(_)) => {}
+            Err(e) => tracing::warn!(
+                "remote URL prefix {path:?} could not be parsed as URL ({e}); skipping"
+            ),
         };
 
         match config {
@@ -67,14 +66,19 @@ impl ObjectStoreDiscovery {
 
         let pmt_config = match config {
             FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            _ => PmtConfig::default(),
+            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                PmtConfig::default()
+            }
         };
 
         Self {
             remote_prefixes,
             id_resolver,
             config: pmt_config,
-            process,
+            default_cache,
+            process: process
+                .resolve()
+                .expect("the kind level carries no range-checked settings"),
         }
     }
 
@@ -94,7 +98,7 @@ impl ObjectStoreDiscovery {
 impl Discovery for ObjectStoreDiscovery {
     type Args = Url;
 
-    async fn discover(&self) -> MartinResult<Discovered<Self::Args>> {
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         // Per-prefix failures are logged and skipped so a transient outage doesn't flap the catalog.
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
@@ -114,14 +118,14 @@ impl Discovery for ObjectStoreDiscovery {
         Ok(Discovered::new(out))
     }
 
-    async fn build(&self, id: &str, args: &Self::Args) -> MartinResult<BuiltSource> {
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         self.config
-            .new_sources_url(id.to_owned(), args.clone(), CachePolicy::default())
+            .new_sources_url(id.to_owned(), args.clone(), self.default_cache)
             .await
             .map(Into::into)
     }
 
-    fn process(&self) -> ProcessConfig {
+    fn process(&self) -> ResolvedProcess {
         self.process.clone()
     }
 }
@@ -144,7 +148,7 @@ async fn list_remote_prefix(
     prefix: &Url,
     config: &PmtConfig,
     id_resolver: &IdResolver,
-) -> MartinResult<Vec<(String, Url, Version)>> {
+) -> SourceBuildResult<Vec<(String, Url, Version)>> {
     let (store, base) = config
         .parse_url_opts(prefix)
         .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;

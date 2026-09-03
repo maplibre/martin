@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 #![expect(clippy::panic)]
 
+use std::assert_matches;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -29,7 +30,9 @@ fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("tests/fixtures/pmtiles")
+        .join("tests")
+        .join("fixtures")
+        .join("pmtiles")
 }
 
 async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> PmtilesSource {
@@ -115,11 +118,9 @@ async fn nonexistent_file_returns_error() {
     .await;
 
     let err = result.expect_err("Expected error for nonexistent file");
-    assert!(
-        matches!(
-            err,
-            PmtilesError::PmtError(_) | PmtilesError::PmtErrorWithCtx(_, _)
-        ),
+    assert_matches!(
+        err,
+        PmtilesError::PmtError(_) | PmtilesError::PmtErrorWithCtx(_, _),
         "Expected PMTiles-related error for nonexistent file, got: {err:?}"
     );
 }
@@ -466,10 +467,7 @@ async fn source_returns_error_after_object_store_update() {
         .get_tile(coord, None)
         .await
         .expect_err("should fail after ETag change");
-    assert!(
-        matches!(err, MartinCoreError::SourceNeedsReload),
-        "expected SourceNeedsReload, got: {err:?}"
-    );
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
 }
 
 #[tokio::test]

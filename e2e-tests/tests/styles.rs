@@ -75,7 +75,6 @@ async fn styles_are_discovered_from_files_and_directories() {
     "#);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -94,7 +93,6 @@ async fn a_style_is_served_as_json() {
     assert_eq!(response.json(), fixture_json("styles/maplibre_demo.json"));
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -113,7 +111,6 @@ async fn the_json_suffix_is_optional(#[case] style_id: &str, #[case] fixture_pat
     assert_eq!(bare.body(), suffixed.body());
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -266,7 +263,6 @@ async fn relative_urls_expand_against_the_listen_address() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -308,7 +304,6 @@ async fn relative_urls_expand_against_the_host_header() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -350,7 +345,6 @@ async fn relative_urls_expand_against_a_host_with_a_port() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -395,7 +389,6 @@ async fn relative_urls_expand_against_a_forwarded_host() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -437,7 +430,6 @@ async fn relative_urls_expand_against_a_forwarded_prefix() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -479,7 +471,6 @@ async fn relative_urls_expand_against_a_forwarded_prefix_without_its_trailing_sl
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -524,7 +515,6 @@ async fn relative_urls_ignore_a_forwarded_for() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -569,7 +559,6 @@ async fn relative_urls_ignore_a_rewritten_url() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[rstest]
@@ -585,7 +574,6 @@ async fn an_unknown_style_is_not_found(#[case] path: &str) {
     assert_eq!(response.text(), "No such style exists");
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -604,5 +592,29 @@ async fn the_plural_styles_path_redirects() {
     assert_eq!(target.json(), fixture_json("styles/maplibre_demo.json"));
 
     martin.stop().await;
-    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_collection_publishes_each_subdirectory_as_a_project() {
+    let mut martin = Martin::builder()
+        .config("styles:\n  collections: tests/fixtures/styles\n")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let mut styles = martin.get("/catalog").await.json()["styles"].clone();
+    normalize_paths(&mut styles);
+    insta::assert_json_snapshot!(styles, @r#"
+    {
+      "src2.maptiler_basic": {
+        "path": "tests/fixtures/styles/src2/maptiler_basic.json"
+      },
+      "src2.osm-liberty-lite": {
+        "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/style/src2.maptiler_basic").await.status(), 200);
+
+    martin.stop().await;
 }

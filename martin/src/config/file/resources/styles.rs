@@ -11,7 +11,7 @@ use tracing::warn;
 
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues,
+    FileConfigEnum, UnrecognizedValues, subdirectories,
 };
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
@@ -146,7 +146,22 @@ impl StyleConfig {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        *self = Self::new_extended(paths_with_names, configs, cfg.custom);
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (project, dir) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
+                for path in list_contained_files(&dir, "json")? {
+                    let Some(stem) = path.file_stem() else {
+                        continue;
+                    };
+                    let style_id = format!("{project}.{}", stem.to_string_lossy().trim());
+                    results.add_style(style_id, path);
+                }
+            }
+        }
+
+        *self = Self::new_extended(paths_with_names, collections, configs, cfg.custom);
 
         Ok(results)
     }
@@ -275,7 +290,8 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg = StyleConfig::new_extended(vec![], configs, InnerStyleConfig::default());
+        let mut cfg =
+            StyleConfig::new_extended(vec![], vec![], configs, InnerStyleConfig::default());
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);

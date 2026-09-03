@@ -1,6 +1,8 @@
 #![expect(clippy::unreadable_literal)]
 #![allow(clippy::unwrap_used)]
 
+use std::assert_matches;
+
 use insta::assert_snapshot;
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use mbtiles::MbtError::InvalidTileIndex;
@@ -49,13 +51,11 @@ macro_rules! err {
     ($($vals:tt)*) => {
         let vals = format!($($vals)*);
         let (mbt, mut conn) = new(&vals).await;
-        match mbt.check_tiles_type_validity(&mut conn).await {
-            Ok(()) => panic!("check_tiles_xyz_validity({vals}) was expected to fail"),
-            Err(e) => match e {
-                InvalidTileIndex { .. } => {}
-                _ => panic!("check_tiles_xyz_validity({vals}) = Err({e:?}), expected Err(InvalidTileIndex)"),
-            },
-        }
+        assert_matches!(
+            mbt.check_tiles_type_validity(&mut conn).await,
+            Err(InvalidTileIndex { .. }),
+            "check_tiles_xyz_validity({vals}) expected Err(InvalidTileIndex)"
+        );
     };
 }
 
@@ -189,8 +189,9 @@ async fn flat_tables_accept_int_type() {
     .unwrap();
 
     let result = is_flat_tables_type(&mut conn).await;
-    assert!(
-        matches!(result, Ok(true)),
+    assert_matches!(
+        result,
+        Ok(true),
         "is_flat_tables_type should accept INT type, got: {result:?}"
     );
 }
@@ -224,8 +225,9 @@ async fn normalized_tables_accept_int_type() {
     .unwrap();
 
     let result = is_normalized_tables_type(&mut conn).await;
-    assert!(
-        matches!(result, Ok(true)),
+    assert_matches!(
+        result,
+        Ok(true),
         "is_normalized_tables_type should accept INT type, got: {result:?}"
     );
 }
@@ -253,8 +255,9 @@ async fn int_containing_types_accepted() {
         .unwrap();
 
     let result_flat = is_flat_tables_type(&mut conn_flat).await;
-    assert!(
-        matches!(result_flat, Ok(true)),
+    assert_matches!(
+        result_flat,
+        Ok(true),
         "is_flat_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_flat:?}"
     );
 
@@ -285,8 +288,9 @@ async fn int_containing_types_accepted() {
         .unwrap();
 
     let result_norm = is_normalized_tables_type(&mut conn_norm).await;
-    assert!(
-        matches!(result_norm, Ok(true)),
+    assert_matches!(
+        result_norm,
+        Ok(true),
         "is_normalized_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_norm:?}"
     );
 }
@@ -313,8 +317,9 @@ async fn tiles_with_hash_accepts_int_type() {
     .unwrap();
 
     let result = has_tiles_with_hash(&mut conn).await;
-    assert!(
-        matches!(result, Ok(true)),
+    assert_matches!(
+        result,
+        Ok(true),
         "has_tiles_with_hash should accept INT type, got: {result:?}"
     );
 }
@@ -340,8 +345,9 @@ async fn patch_tables_accept_int_type() {
     .unwrap();
 
     let result = get_patch_type(&mut conn).await;
-    assert!(
-        matches!(result, Ok(Some(_))),
+    assert_matches!(
+        result,
+        Ok(Some(_)),
         "get_patch_type should accept INT-containing types, got: {result:?}"
     );
 }

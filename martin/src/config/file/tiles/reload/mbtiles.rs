@@ -1,20 +1,18 @@
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
-use crate::config::file::FileConfigEnum;
+use crate::TileSourceManager;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
+use crate::config::file::{CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
-use crate::{MartinResult, TileSourceManager};
+use crate::reload::FileKind;
 
 /// Watches configured directories for `.mbtiles` changes.
 pub struct MbtilesReloader {
-    tile_source_manager: TileSourceManager,
-    discovery: FsDiscovery,
+    driver: ReloadDriver<FsDiscovery, TileSourceManager>,
 }
 
 impl MbtilesReloader {
@@ -24,20 +22,27 @@ impl MbtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<MbtConfig>,
+        default_cache: CachePolicy,
         global_process: &ProcessConfig,
     ) -> Self {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        let default_cache = config.cache_or(default_cache);
+        #[cfg(feature = "_process")]
         let process = {
             let source_type = match config {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
+                    #[cfg(feature = "mlt")]
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
                     convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                    ..Default::default()
                 },
-                _ => ProcessConfig::default(),
+                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                    ProcessConfig::default()
+                }
             };
-            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
+            ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
-        #[cfg(not(feature = "mlt"))]
+        #[cfg(not(feature = "_process"))]
         let process = {
             let _ = (config, global_process);
             ProcessConfig::default()
@@ -54,23 +59,37 @@ impl MbtilesReloader {
                 Ok(Box::new(src) as BoxedSource)
             })
         });
-        let discovery = FsDiscovery::from_config(config, &["mbtiles"], id_resolver, process, build);
+        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());
+        let discovery = FsDiscovery::from_config(
+            FileKind::Mbtiles,
+            config,
+            recursive,
+            &["mbtiles"],
+            id_resolver,
+            default_cache,
+            &process,
+            build,
+        );
 
         Self {
-            tile_source_manager: tsm,
-            discovery,
+            driver: ReloadDriver::new(discovery, tsm),
         }
     }
 
+    /// Publishes every discovered source into the catalog and returns the discovery warnings.
+    pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
+        self.driver.init().await
+    }
+
     /// Spawns the reload driver. Does nothing if no directories are configured.
-    pub fn start(self) -> MartinResult<()> {
-        let directories = self.discovery.directories().to_vec();
+    pub fn start(self) -> notify::Result<()> {
+        let directories = self.driver.discovery().directories();
+        let recursive = self.driver.discovery().recursive();
         if directories.is_empty() {
             return Ok(());
         }
-        let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager)
-            .spawn(trigger, Baseline::StartupResolved);
+        let trigger = NotifyTrigger::new(&directories, recursive)?;
+        self.driver.spawn(trigger, Baseline::Initialized);
         Ok(())
     }
 }

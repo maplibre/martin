@@ -233,6 +233,12 @@ impl MbtilesPool {
         self.mbtiles.detect_format(tilejson, &mut *conn).await
     }
 
+    /// See [`Mbtiles::missing_tile_index`].
+    pub async fn missing_tile_index(&self) -> MbtResult<Option<&'static str>> {
+        let mut conn = self.pool.acquire().await?;
+        self.mbtiles.missing_tile_index(&mut *conn).await
+    }
+
     /// Retrieves a tile from the pool by its coordinates.
     ///
     /// Automatically acquires a connection from the pool, fetches the tile data,

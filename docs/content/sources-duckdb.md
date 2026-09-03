@@ -11,7 +11,7 @@ tags:
 
 !!! warning
     This feature is currently unstable and thus not included in the default build.
-    Its behaviour may change in patch releases.
+    Its behavior may change in patch releases.
 
     To experiment with it on any supported platform, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install Martin with the unstable feature:
 
@@ -24,13 +24,12 @@ tags:
     - DuckDB sources are not included in default binaries, Homebrew, or the Docker image
     - There is no CLI shorthand for `.parquet` or `.duckdb` files
     - DuckDB database sources (`database:`) are not yet supported
-    - Local GeoParquet must be a file; directories are rejected
-    - Remote GeoParquet is `http://` / `https://` only
+    - Local GeoParquet must be a single file; directories and globs are rejected
     - Hot reload is not implemented
     - MLT postprocessing is not supported
     - The published configuration schema does not yet include DuckDB sources
 
-    We welcome contributions to help stabilise this feature!
+    We welcome contributions to help stabilize this feature!
 
 Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files via [DuckDB](https://duckdb.org/).
 Instead of incurring the overhead of serving them directly, we serve them as vector tiles.
@@ -72,6 +71,11 @@ duckdb:
     # Remote GeoParquet over HTTP(S)
     - geoparquet: https://example.org/data/places.parquet
       layer_id: places
+    # Remote GeoParquet in an object store, optionally a glob over many part files
+    - geoparquet: s3://overturemaps-us-west-2/release/2026-08-19.0/theme=places/type=place/*.parquet
+      layer_id: overture_places
+      geometry_column: geometry
+      srid: 4326
 ```
 
 The top-level `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` apply to every DuckDB source unless overridden on that source:
@@ -86,7 +90,9 @@ The top-level `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` apply
 
 Each GeoParquet source supports:
 
-- **`geoparquet`** - local path or `http://` / `https://` URL of the GeoParquet file.
+- **`geoparquet`**
+  - a remote URL of the GeoParquet file (`http`, `https`, `s3`, `gs`, `gcs`, `r2`, `az`, `azure`, `abfss` and `hf` URLs). A remote URL may be a glob such as `s3://bucket/prefix/*.parquet`, which DuckDB expands into every matching part file.
+  - a local path or `file://` URLs. Local paths must name a single file.
 - **`layer_id`** - MVT `source-layer` and the base for the source id (defaults to the file or URL stem).
 - **`geometry_column`** - geometry column name. Auto-detected when the file has exactly one geometry column.
 - **`id_column`** - optional table column to use as the MVT feature id.
@@ -105,6 +111,16 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
 !!! note
     SRID auto-detection supports EPSG codes and `OGC:CRS84` only.
     If the file has more than one geometry column, set `geometry_column` explicitly.
+
+!!! tip "Row-group pruning"
+    To reduce the IO necessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
+
+    Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
+
+!!! warning "Vector tiles can only carry text, numeric and boolean properties"
+    Martin casts every other scalar column - dates, timestamps, `DECIMAL`, `UUID`, `ENUM`, and small or unsigned integers - to the nearest type MVT supports.
+    Columns with no MVT representation at all, such as `STRUCT`, `LIST`, `MAP` and `BLOB`, are dropped and named in a startup warning.
+    The TileJSON `vector_layers[].fields` reports the type each property is served as, not the type it has on disk.
 
 ## Database sources
 
@@ -152,7 +168,11 @@ Parquet is a columnar file format.
 GeoParquet adds a standard way to store geometry columns and CRS information inside that file.
 
 Martin reads GeoParquet with DuckDB `read_parquet`, loads the DuckDB `spatial` extension, and generates MVT tiles on each request.
-Remote `http://` / `https://` URLs also load the DuckDB `httpfs` extension.
+Remote URLs also load the DuckDB `httpfs` extension.
+
+Martin passes remote URLs to DuckDB unchanged and does not manage credentials for them.
+Public buckets work with no further configuration.
+Private ones need DuckDB's own credential configuration, such as the standard AWS environment variables.
 
 You may want to visit these specs:
 

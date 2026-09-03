@@ -211,6 +211,7 @@ async fn legacy_postgres_env_vars_warn_in_the_log() {
     for var in ["DATABASE_URL", "DEFAULT_SRID"] {
         martin.assert_log_contains(&format!("Environment variable {var} is deprecated"));
     }
+    assert_discovery_warnings(&mut martin);
 }
 
 #[tokio::test]
@@ -219,9 +220,10 @@ async fn every_kind_of_source_in_the_database_is_published() {
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
-    insta::assert_snapshot!(catalog.headers_snapshot(), @r"
+    insta::assert_snapshot!(catalog.headers_snapshot_masking_etag(), @"
     content-encoding: br
     content-type: application/json
+    etag: [ETAG]
     transfer-encoding: chunked
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
@@ -229,7 +231,6 @@ async fn every_kind_of_source_in_the_database_is_published() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -267,7 +268,6 @@ async fn a_table_source_serves_tilejson_and_tiles_across_zooms() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -280,7 +280,6 @@ async fn a_composite_source_serves_every_layer_it_names() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -304,7 +303,6 @@ async fn a_function_source_serves_tilejson_and_tiles_across_zooms() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -334,7 +332,6 @@ async fn a_function_source_reads_its_query_string_and_can_return_a_raster() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -358,7 +355,44 @@ async fn every_function_calling_convention_serves_the_same_tile() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_function_returning_a_key_column_serves_it_as_the_etag() {
+    let mut martin = martin_with_postgres().await;
+
+    let response = martin.get("/function_zxy_row_key/6/57/29").await;
+    assert_eq!(response.status(), 200);
+    // the function's `key` column, `md5(mvt)`, not a hash Martin computed
+    let etag = response
+        .header("etag")
+        .expect("a keyed function tile must carry an etag")
+        .to_owned();
+    insta::assert_snapshot!(etag, @r#""2cab831e0c201dcbd5f081954ab45562""#);
+
+    let cached = martin
+        .get_with_headers("/function_zxy_row_key/6/57/29", &[("if-none-match", &etag)])
+        .await;
+    assert_eq!(cached.status(), 304);
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_curve_column_is_linearized_before_encoding() {
+    let mut martin = martin_with_postgres().await;
+
+    // A typed curve column and an untyped column holding curves both keep the linearization,
+    // which is the only way ST_AsMVTGeom can encode them at all.
+    insta::assert_snapshot!("curves_0_0_0", tile_dump(&martin, "/curves/0/0/0").await);
+    insta::assert_snapshot!(
+        "curves_untyped_0_0_0",
+        tile_dump(&martin, "/curves_untyped/0/0/0").await
+    );
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
 }
 
 #[tokio::test]
@@ -379,7 +413,6 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -397,7 +430,6 @@ async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -411,7 +443,6 @@ async fn a_sql_comment_becomes_the_tilejson() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -427,7 +458,6 @@ async fn a_materialized_view_is_published_like_a_table() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -453,7 +483,6 @@ async fn the_same_name_in_two_schemas_gets_a_suffixed_id() {
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -507,7 +536,6 @@ async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -550,7 +578,6 @@ async fn a_configured_table_keeps_the_bounds_and_zoom_range_it_declares() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -603,7 +630,6 @@ async fn a_configured_composite_source_names_each_layer_after_its_layer_id() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -621,7 +647,6 @@ async fn a_configured_function_serves_tiles_and_reads_its_query_string() {
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -677,7 +702,6 @@ async fn a_source_configured_in_the_wrong_case_still_resolves_and_keeps_its_sql_
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -697,7 +721,6 @@ async fn the_saved_config_spells_out_every_table_and_function_that_was_discovere
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -717,5 +740,71 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 
     martin.stop().await;
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn an_auto_discovered_table_takes_the_connection_level_cache_bounds() {
+    let mut bounded = Martin::builder()
+        .with_postgres()
+        .config(
+            "
+postgres:
+  connection_string: ${DATABASE_URL}
+  default_srid: 900913
+  auto_bounds: calc
+  pool_size: 1
+  cache:
+    minzoom: 1",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(bounded.get("/table_source/0/0/0").await.status(), 200);
+    }
+    let metrics = bounded.get("/_/metrics").await;
+    assert_eq!(metrics.status(), 200);
+    let tile_cache_lines = metrics
+        .text()
+        .lines()
+        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    insta::assert_snapshot!(tile_cache_lines, @"");
+    bounded.stop().await;
+    assert_discovery_warnings(&mut bounded);
+}
+
+#[tokio::test]
+async fn an_auto_discovered_table_takes_the_default_cache_bounds() {
+    let mut unbounded = Martin::builder()
+        .with_postgres()
+        .config(
+            "
+postgres:
+  connection_string: ${DATABASE_URL}
+  default_srid: 900913
+  auto_bounds: calc
+  pool_size: 1",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+    for _ in 0..2 {
+        assert_eq!(unbounded.get("/table_source/0/0/0").await.status(), 200);
+    }
+    let metrics = unbounded.get("/_/metrics").await;
+    assert_eq!(metrics.status(), 200);
+    let tile_cache_lines = metrics
+        .text()
+        .lines()
+        .filter(|line| line.starts_with("martin_tile_cache_requests_total"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    insta::assert_snapshot!(tile_cache_lines, @r#"
+    martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} 1
+    martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} 1
+    "#);
+    unbounded.stop().await;
+    assert_discovery_warnings(&mut unbounded);
 }

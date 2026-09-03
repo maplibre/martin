@@ -120,7 +120,7 @@ impl<'de> Deserialize<'de> for CameraRequest {
 }
 
 impl CameraRequest {
-    fn validate(self) -> Result<Self, HttpResponse> {
+    fn validate(self) -> Result<Self, Box<HttpResponse>> {
         if let Self::BoundingBox {
             min_lon,
             min_lat,
@@ -129,9 +129,11 @@ impl CameraRequest {
         } = self
             && (max_lon < min_lon || max_lat < min_lat)
         {
-            return Err(HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body("Bounding box is inverted: max must be greater than or equal to min"));
+            return Err(Box::new(
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body("Bounding box is inverted: max must be greater than or equal to min"),
+            ));
         }
         Ok(self)
     }
@@ -153,30 +155,38 @@ const MAX_HEIGHT: u32 = 2048;
 const MAX_SCALE: u8 = 4;
 
 impl SizeRequest {
-    fn validate(self) -> Result<Self, HttpResponse> {
+    fn validate(self) -> Result<Self, Box<HttpResponse>> {
         if self.width == 0 || self.height == 0 {
-            return Err(HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body("Image dimensions must be greater than zero"));
+            return Err(Box::new(
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body("Image dimensions must be greater than zero"),
+            ));
         }
         if self.width > MAX_WIDTH || self.height > MAX_HEIGHT {
-            return Err(HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!(
-                    "Image dimensions exceed maximum allowed ({MAX_WIDTH}x{MAX_HEIGHT})"
-                )));
+            return Err(Box::new(
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body(format!(
+                        "Image dimensions exceed maximum allowed ({MAX_WIDTH}x{MAX_HEIGHT})"
+                    )),
+            ));
         }
         if !self.scale.is_finite() || self.scale <= 0.0 {
-            return Err(HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body("Scale factor must be a positive finite number"));
+            return Err(Box::new(
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body("Scale factor must be a positive finite number"),
+            ));
         }
         if self.scale > f32::from(MAX_SCALE) {
-            return Err(HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!(
-                    "Scale factor exceeds maximum allowed ({MAX_SCALE})"
-                )));
+            return Err(Box::new(
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body(format!(
+                        "Scale factor exceeds maximum allowed ({MAX_SCALE})"
+                    )),
+            ));
         }
         Ok(self)
     }
@@ -370,12 +380,12 @@ async fn handle_static_request(
 
     let size = match path.size.validate() {
         Ok(size) => size,
-        Err(resp) => return resp,
+        Err(resp) => return *resp,
     };
 
     let camera_req = match path.camera.validate() {
         Ok(c) => c,
-        Err(resp) => return resp,
+        Err(resp) => return *resp,
     };
 
     let camera = resolve_camera(camera_req, size);
@@ -392,7 +402,7 @@ async fn handle_static_request(
 
     let image = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
         Ok(img) => img,
-        Err(resp) => return resp,
+        Err(resp) => return *resp,
     };
 
     encode_image_response(image.as_image(), path.format)
@@ -475,7 +485,7 @@ async fn render_with_overlays(
     camera: &Camera,
     size: SizeRequest,
     overlays: Arc<OverlaySpec>,
-) -> Result<martin_core::styles::StaticImage, HttpResponse> {
+) -> Result<martin_core::styles::StaticImage, Box<HttpResponse>> {
     use martin_core::styles::StyleError;
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
@@ -489,25 +499,31 @@ async fn render_with_overlays(
     .with_size(size.width, size.height, size.scale)
     .with_orientation(camera.bearing, camera.pitch)
     .with_overlays(overlays);
-    styles.render_static(params).await.map_err(|e| match e {
-        StyleError::RenderingIsDisabled => {
-            warn!("Failed to render static image because rendering is disabled");
-            HttpResponse::Forbidden()
-                .content_type(ContentType::plaintext())
-                .body("Rendering is disabled")
-        }
-        StyleError::OverlayApply(err) => {
-            warn!("Overlay application failed: {err}");
-            HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!("Overlay application failed: {err}"))
-        }
-        other => {
-            error!("Failed to render static image: {other}");
-            HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .body("Failed to render static image")
-        }
+    styles.render_static(params).await.map_err(|e| {
+        Box::new(match e {
+            StyleError::RenderingIsDisabled => {
+                warn!("Failed to render static image because rendering is disabled");
+                HttpResponse::Forbidden()
+                    .content_type(ContentType::plaintext())
+                    .body("Rendering is disabled")
+            }
+            StyleError::OverlayApply(err) => {
+                warn!("Overlay application failed: {err}");
+                HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body(format!("Overlay application failed: {err}"))
+            }
+            other @ (StyleError::IoError(_)
+            | StyleError::StyleLoadError(_)
+            | StyleError::RenderingError(_)
+            | StyleError::FailedToSendRequest
+            | StyleError::FailedToReceiveResponse) => {
+                error!("Failed to render static image: {other}");
+                HttpResponse::InternalServerError()
+                    .content_type(ContentType::plaintext())
+                    .body("Failed to render static image")
+            }
+        })
     })
 }
 
