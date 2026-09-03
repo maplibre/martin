@@ -1175,6 +1175,25 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Composite Sources
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -1192,6 +1211,37 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#source-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Source Aliases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1889,6 +1939,25 @@ at <code>/{source1},...,{sourceN}</code>, and tiles are available at <code>/{sou
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Whole world as a single tile</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>curl<span class="w"> </span>localhost:3000/points,lines/0/0/0
 </span></code></pre></div>
+<h2 id="source-aliases">Source Aliases</h2>
+<p>An alias is a named combination of tile sources that a client requests like a single source.
+Each alias serves the listed sources exactly like the composite request <code>/{source1},...,{sourceN}</code>.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">mbtiles</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/roads.mbtiles</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/buildings.mbtiles</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Each alias can be requested like a tile source and serves the listed sources combined.</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">basemap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">roads</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">buildings</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<p>Aliases may only reference tile sources, not other aliases.
+An alias may share the name of a source it references; requests for that name then serve the alias.
+This extends an existing source without changing the name a style uses:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="c1"># Requests for "roads" also get the buildings.</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">roads</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">roads</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">buildings</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<p>Aliases are listed in the catalog under their own name with the format of the sources they combine.</p>
 
 
   <nav class="md-tags" >
