@@ -12,7 +12,7 @@ const App = () => (
     <GlobalStyle />
     <Head />
     <Intro />
-    <Description>Martin is an open source tile server for PostGIS, PMTiles, MBTiles and Cloud Optimized GeoTIFFs</Description>
+    <Description>Martin is an open source tile server for PostGIS, PMTiles, MBTiles and GeoJSON</Description>
     <TryIt>
       <p>
         This demo serves 114 million 2017 New York City taxi trips as vector tiles, filtered and aggregated on the fly by a database function.
