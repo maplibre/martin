@@ -382,10 +382,7 @@ async fn copying_several_sources_needs_on_duplicate() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("needs --on-duplicate"),
-        "unexpected output:\n{output}"
-    );
+    insta::assert_snapshot!(output, @"ERROR copying 2 sources into one file needs --on-duplicate to say what happens when two of them hold the same tile");
     assert!(!merged.exists(), "nothing is copied before the check");
 }
 
@@ -406,8 +403,5 @@ async fn copy_with_a_diff_file_takes_one_source() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("take exactly one source file"),
-        "unexpected output:\n{output}"
-    );
+    insta::assert_snapshot!(output, @"ERROR --diff-with-file and --apply-patch take exactly one source file, got 2");
 }

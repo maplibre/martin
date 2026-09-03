@@ -174,11 +174,12 @@ enum Commands {
 
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
-    /// `MBTiles` file to read from
-    src_file: PathBuf,
-    /// Further `MBTiles` files to read from, followed by the file to write to
-    #[arg(required = true, num_args = 1.., value_name = "FILE")]
-    files: Vec<PathBuf>,
+    /// `MBTiles` files to read from
+    #[arg(required = true, num_args = 1..)]
+    src_files: Vec<PathBuf>,
+    /// `MBTiles` file to write to
+    #[arg(required = true)]
+    dst_file: PathBuf,
     #[command(flatten)]
     pub options: SharedCopyOpts,
     /// Compare source file with this file, and only copy non-identical tiles to destination.
@@ -449,11 +450,8 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
 
 /// Copies every source file in `args` into the last one, in order.
 async fn copy(args: CopyArgs) -> anyhow::Result<()> {
-    let (dst_file, more) = args
-        .files
-        .split_last()
-        .expect("clap requires the destination");
-    let src_files: Vec<&PathBuf> = std::iter::once(&args.src_file).chain(more).collect();
+    let src_files = &args.src_files;
+    let dst_file = &args.dst_file;
     if src_files.len() > 1 {
         if args.diff_with_file.is_some() || args.apply_patch.is_some() {
             anyhow::bail!(
@@ -560,8 +558,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     ..Default::default()
                 })
             }
@@ -575,12 +573,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("a"),
-                    files: vec![
-                        PathBuf::from("b"),
-                        PathBuf::from("c"),
-                        PathBuf::from("dst_file"),
-                    ],
+                    src_files: vec![PathBuf::from("a"), PathBuf::from("b"), PathBuf::from("c")],
+                    dst_file: PathBuf::from("dst_file"),
                     ..Default::default()
                 })
             }
@@ -604,8 +598,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         min_zoom: Some(1),
                         max_zoom: Some(100),
@@ -624,8 +618,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         strict: true,
                         ..Default::default()
@@ -688,8 +682,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         zoom_levels: vec![3, 7, 1],
                         ..Default::default()
@@ -714,8 +708,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     diff_with_file: Some(PathBuf::from("no_file")),
                     ..Default::default()
                 })
@@ -737,8 +731,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         on_duplicate: Some(CopyDuplicateMode::Override),
                         ..Default::default()
@@ -758,8 +752,8 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
-                    files: vec![PathBuf::from("dst_file")],
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         copy: CopyType::Metadata,
                         ..Default::default()
