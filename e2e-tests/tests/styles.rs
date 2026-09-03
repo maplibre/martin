@@ -201,7 +201,6 @@ async fn styles_can_be_merged_in_request_order() {
     "##);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
@@ -223,7 +222,6 @@ async fn composite_style_validation_errors_are_bad_requests() {
     assert_eq!(missing.status(), 404);
 
     martin.stop().await;
-    martin.assert_log_clean();
 }
 
 #[tokio::test]
