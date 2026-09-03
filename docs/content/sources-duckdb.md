@@ -114,7 +114,7 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
 
 !!! tip "Row-group pruning"
     To reduce the IO nessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
-    
+
     Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
 
 !!! warning "Vector tiles can only carry text, numeric and boolean properties"

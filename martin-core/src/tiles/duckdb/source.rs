@@ -103,7 +103,7 @@ impl Source for DuckDBSource {
 #[derive(Clone, Debug)]
 /// SQL query information for `DuckDB` tile sources.
 pub struct DuckDBSqlInfo {
-    /// SQL query string with named `x`,`y`,`z` params. 
+    /// SQL query string with named `x`,`y`,`z` params.
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
