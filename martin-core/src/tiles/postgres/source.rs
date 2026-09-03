@@ -126,14 +126,10 @@ impl Source for PostgresSource {
 impl PostgresSource {
     /// The declared tile info, with the encoding the bytes carry when the function compressed them.
     fn tile_info_for(&self, data: &[u8]) -> TileInfo {
-        let encoding = if data.starts_with(b"\x1f\x8b") {
-            Encoding::Gzip
-        } else if data.starts_with(b"\x78\x9c") {
-            Encoding::Zlib
-        } else {
-            return self.tile_info;
-        };
-        TileInfo::new(self.tile_info.format, encoding)
+        match Encoding::detect(data) {
+            Some(encoding) => TileInfo::new(self.tile_info.format, encoding),
+            None => self.tile_info,
+        }
     }
 
     /// Runs the tile query, returning the row when the query produced one.

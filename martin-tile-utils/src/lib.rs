@@ -241,6 +241,18 @@ impl Encoding {
             Self::Gzip | Self::Zlib | Self::Brotli | Self::Zstd => true,
         }
     }
+
+    /// The compression the magic bytes of `value` announce, without decompressing anything
+    #[must_use]
+    pub fn detect(value: &[u8]) -> Option<Self> {
+        if value.starts_with(b"\x1f\x8b") {
+            Some(Self::Gzip)
+        } else if value.starts_with(b"\x78\x9c") {
+            Some(Self::Zlib)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -258,24 +270,24 @@ impl TileInfo {
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
-        // Try GZIP decompression
-        if value.starts_with(b"\x1f\x8b") {
-            if let Ok(decompressed) = decode_gzip(value) {
-                let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Self::new(inner_format, Encoding::Gzip);
+        match Encoding::detect(value) {
+            Some(encoding @ Encoding::Gzip) => {
+                if let Ok(decompressed) = decode_gzip(value) {
+                    let inner_format = Self::detect_vectorish_format(&decompressed);
+                    return Self::new(inner_format, encoding);
+                }
+                // If decompression fails or format is unknown, assume MVT
+                return Self::new(Format::Mvt, encoding);
             }
-            // If decompression fails or format is unknown, assume MVT
-            return Self::new(Format::Mvt, Encoding::Gzip);
-        }
-
-        // Try Zlib decompression
-        if value.starts_with(b"\x78\x9c") {
-            if let Ok(decompressed) = decode_zlib(value) {
-                let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Self::new(inner_format, Encoding::Zlib);
+            Some(encoding @ Encoding::Zlib) => {
+                if let Ok(decompressed) = decode_zlib(value) {
+                    let inner_format = Self::detect_vectorish_format(&decompressed);
+                    return Self::new(inner_format, encoding);
+                }
+                // If decompression fails or format is unknown, assume MVT
+                return Self::new(Format::Mvt, encoding);
             }
-            // If decompression fails or format is unknown, assume MVT
-            return Self::new(Format::Mvt, Encoding::Zlib);
+            _ => {}
         }
         if let Some(raster_format) = Self::detect_raster_formats(value) {
             Self::new(raster_format, Encoding::Internal)
@@ -554,6 +566,17 @@ mod tests {
     #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
     fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
         assert_eq!(TileInfo::detect(data), expected);
+    }
+
+    #[test]
+    fn encoding_detect_reads_the_magic_bytes_only() {
+        assert_eq!(
+            Encoding::detect(b"\x1f\x8b\x08\x00rest"),
+            Some(Encoding::Gzip)
+        );
+        assert_eq!(Encoding::detect(b"\x78\x9c\x03\x00"), Some(Encoding::Zlib));
+        assert_eq!(Encoding::detect(b"\x89PNG\r\n\x1a\n"), None);
+        assert_eq!(Encoding::detect(b""), None);
     }
 
     /// Test detection of compressed content (JSON, MLT, MVT)
