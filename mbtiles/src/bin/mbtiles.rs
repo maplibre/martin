@@ -10,6 +10,7 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
+use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
     Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType,
@@ -17,8 +18,12 @@ use mbtiles::{
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
-use tracing::error;
-use tracing_subscriber::EnvFilter;
+use tracing::{Instrument as _, error, info_span};
+use tracing_indicatif::IndicatifLayer;
+use tracing_indicatif::span_ext::IndicatifSpanExt as _;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
+use tracing_subscriber::{EnvFilter, Layer as _};
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -287,13 +292,18 @@ async fn main() {
     let env_filter = EnvFilter::builder()
         .with_default_directive("mbtiles=info".parse().expect("valid default directive"))
         .from_env_lossy();
-    tracing_subscriber::fmt()
-        .compact()
-        .without_time()
-        .with_target(false)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_writer(std::io::stderr)
-        .with_env_filter(env_filter)
+    let indicatif_layer = IndicatifLayer::new().with_progress_style(spinner_style());
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .compact()
+                .without_time()
+                .with_target(false)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_writer(indicatif_layer.get_stderr_writer())
+                .with_filter(env_filter),
+        )
+        .with(indicatif_layer)
         .init();
 
     if let Err(err) = main_int().await {
@@ -302,6 +312,7 @@ async fn main() {
     }
 }
 
+#[expect(clippy::too_many_lines)]
 async fn main_int() -> anyhow::Result<()> {
     let args = Args::parse();
     match args.command {
@@ -322,7 +333,7 @@ async fn main_int() -> anyhow::Result<()> {
                 args.apply_patch,
                 args.patch_type,
             );
-            copier.run().await?;
+            copier.run().instrument(info_span!("copy")).await?;
         }
         Commands::Diff(args) => {
             let copier = args.options.into_copier(
@@ -332,14 +343,16 @@ async fn main_int() -> anyhow::Result<()> {
                 None,
                 args.patch_type,
             );
-            copier.run().await?;
+            copier.run().instrument(info_span!("diff")).await?;
         }
         Commands::ApplyPatch {
             base_file,
             patch_file,
             force,
         } => {
-            apply_patch(base_file, patch_file, force).await?;
+            apply_patch(base_file, patch_file, force)
+                .instrument(info_span!("apply-patch"))
+                .await?;
         }
         Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -363,7 +376,9 @@ async fn main_int() -> anyhow::Result<()> {
                 }
             });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.open_and_validate(integrity_check, agg_hash).await?;
+            mbt.open_and_validate(integrity_check, agg_hash)
+                .instrument(info_span!("validate"))
+                .await?;
         }
         Commands::Summary { file, format } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -381,14 +396,22 @@ async fn main_int() -> anyhow::Result<()> {
             scheme,
             compress,
         } => {
-            pack(&input_directory, &output_file, scheme, compress).await?;
+            let span = info_span!("pack");
+            span.pb_set_style(&counting_style());
+            pack(&input_directory, &output_file, scheme, compress)
+                .instrument(span)
+                .await?;
         }
         Commands::Unpack {
             input_file,
             output_directory,
             scheme,
         } => {
-            unpack(&input_file, &output_directory, scheme).await?;
+            let span = info_span!("unpack");
+            span.pb_set_style(&bar_style());
+            unpack(&input_file, &output_directory, scheme)
+                .instrument(span)
+                .await?;
         }
         Commands::CachePurge { file, max_size } => {
             cache_purge(file.as_path(), max_size).await?;
@@ -450,6 +473,36 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
     } else {
         mbt.delete_metadata_value(&mut conn, key).await
     }
+}
+
+/// Spinner with the command name and elapsed time.
+fn spinner_style() -> ProgressStyle {
+    ProgressStyle::with_template("{spinner} {span_name} {elapsed}")
+        .expect("valid progress template")
+}
+
+/// Progress bar for a command that knows how many tiles it will handle.
+fn bar_style() -> ProgressStyle {
+    ProgressStyle::with_template(
+        "{span_name} {elapsed_precise} [{bar:40.cyan/blue} {percent}%] {human_pos}/{human_len} ({rate}/s)",
+    )
+    .expect("valid progress template")
+    .with_key("rate", rate)
+    .progress_chars("█▓▒░ ")
+}
+
+/// Progress line for a command that counts tiles as it goes.
+fn counting_style() -> ProgressStyle {
+    ProgressStyle::with_template(
+        "{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)",
+    )
+    .expect("valid progress template")
+    .with_key("rate", rate)
+}
+
+/// Tiles per second, rounded to a whole number.
+fn rate(state: &ProgressState, w: &mut dyn std::fmt::Write) {
+    let _ = write!(w, "{:.0}", state.per_sec());
 }
 
 #[cfg(test)]

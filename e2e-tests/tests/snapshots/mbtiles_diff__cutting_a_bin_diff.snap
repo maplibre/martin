@@ -2,7 +2,7 @@
 source: e2e-tests/tests/mbtiles_diff.rs
 expression: "redact(&dir, &cutting)"
 ---
- INFO Comparing [TMP]/world_cities.mbtiles (flat) and [TMP]/world_cities_modified.mbtiles (flat) into a new file [TMP]/patch.mbtiles (flat) with bin-diff on gzip-ed tiles
- INFO Processing bindiff patches bindiff.cpus=[CPUS]
- INFO Finished processing bindiff tiles bindiff.inserted=0
- INFO Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/patch.mbtiles agg_tiles_hash=9FDA1E9908727A8C2ACB295210355E56
+ INFO copy: Comparing [TMP]/world_cities.mbtiles (flat) and [TMP]/world_cities_modified.mbtiles (flat) into a new file [TMP]/patch.mbtiles (flat) with bin-diff on gzip-ed tiles
+ INFO copy: Processing bindiff patches bindiff.cpus=[CPUS]
+ INFO copy: Finished processing bindiff tiles bindiff.inserted=0
+ INFO copy: Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/patch.mbtiles agg_tiles_hash=9FDA1E9908727A8C2ACB295210355E56
