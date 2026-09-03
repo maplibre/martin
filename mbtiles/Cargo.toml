@@ -26,7 +26,13 @@ required-features = ["transcode"]
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:indicatif", "dep:serde-saphyr", "dep:tracing-subscriber"]
+cli = [
+    "dep:anyhow",
+    "dep:clap",
+    "dep:indicatif",
+    "dep:serde-saphyr",
+    "dep:tracing-subscriber",
+]
 hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
