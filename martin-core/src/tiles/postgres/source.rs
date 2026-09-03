@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use martin_tile_utils::{TileCoord, TileData, TileInfo};
+use martin_tile_utils::{Encoding, TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
@@ -104,7 +104,8 @@ impl Source for PostgresSource {
     ) -> MartinCoreResult<Tile> {
         if !self.info.has_etag_column {
             let data = self.get_tile(xyz, url_query).await?;
-            return Ok(Tile::new_hash_etag(data, self.tile_info));
+            let info = self.tile_info_for(&data);
+            return Ok(Tile::new_hash_etag(data, info));
         }
         let row = self.query_row(xyz, url_query).await?;
         let data: TileData = row
@@ -112,16 +113,29 @@ impl Source for PostgresSource {
             .and_then(|row| row.get::<_, Option<TileData>>(0))
             .unwrap_or_default();
         let etag: Option<String> = row.and_then(|row| row.get::<_, Option<String>>(1));
+        let info = self.tile_info_for(&data);
         match etag {
             Some(etag) if !data.is_empty() && !etag.is_empty() => {
-                Ok(Tile::new_with_etag(data, self.tile_info, etag))
+                Ok(Tile::new_with_etag(data, info, etag))
             }
-            _ => Ok(Tile::new_hash_etag(data, self.tile_info)),
+            _ => Ok(Tile::new_hash_etag(data, info)),
         }
     }
 }
 
 impl PostgresSource {
+    /// The declared tile info, with the encoding the bytes carry when the function compressed them.
+    fn tile_info_for(&self, data: &[u8]) -> TileInfo {
+        let encoding = if data.starts_with(b"\x1f\x8b") {
+            Encoding::Gzip
+        } else if data.starts_with(b"\x78\x9c") {
+            Encoding::Zlib
+        } else {
+            return self.tile_info;
+        };
+        TileInfo::new(self.tile_info.format, encoding)
+    }
+
     /// Runs the tile query, returning the row when the query produced one.
     #[instrument(
         level = "debug",
