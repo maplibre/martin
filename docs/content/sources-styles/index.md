@@ -38,7 +38,8 @@ The `.json` suffix remains optional. Martin appends layers in request order, so
 layers from later styles render above layers from earlier styles. Root settings
 such as camera, projection, terrain, light, and metadata come from the first
 style. The `font-faces` and `state` maps are merged by key so layers retain
-their font and global-state dependencies. Identical entries are de-duplicated;
+their font and global-state dependencies. Identical entries are de-duplicated.
+The same key with different definitions returns `400 Bad Request`.
 the same key with different definitions returns `400 Bad Request`.
 
 Sources with identical complete definitions are de-duplicated. If the same
@@ -52,7 +53,7 @@ the composite sprite endpoint only when they point to the Martin instance
 serving the style, and multiple-sprite arrays are merged by sprite ID. Distinct
 external sprite URLs and other conflicting sprite definitions return
 `400 Bad Request`. Composite sprites retain Martin's existing behavior when two
-sprite sources contain the same image name; no automatic image renaming is
+sprite sources contain the same image name. No automatic image renaming is
 performed.
 
 Tile sources remain separate in the merged style. Server-side raster and static
