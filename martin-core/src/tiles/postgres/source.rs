@@ -102,7 +102,7 @@ impl Source for PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        if !self.info.has_etag_column {
+        if !self.sql_for(url_query).has_etag_column {
             let data = self.get_tile(xyz, url_query).await?;
             let info = self.tile_info_for(&data);
             return Ok(Tile::new_hash_etag(data, info));
@@ -124,6 +124,14 @@ impl Source for PostgresSource {
 }
 
 impl PostgresSource {
+    /// The query answering a request, by whether the request carries a query string.
+    fn sql_for(&self, url_query: Option<&UrlQuery>) -> &PostgresSqlInfo {
+        match (&self.info.queryless, url_query) {
+            (Some(queryless), None) => queryless,
+            _ => &self.info,
+        }
+    }
+
     /// The declared tile info, with the encoding the bytes carry when the function compressed them.
     fn tile_info_for(&self, data: &[u8]) -> TileInfo {
         match Encoding::detect(data) {
@@ -156,24 +164,25 @@ impl PostgresSource {
         // Auto-clean up if task completes or is interrupted
         let _query_guard = self.pool.active_query_registry().register(cancel_token);
 
-        let param_types: &[Type] = if self.support_url_query() {
+        let info = self.sql_for(url_query);
+        let param_types: &[Type] = if info.use_url_query {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
         } else {
             &[Type::INT2, Type::INT8, Type::INT8]
         };
 
-        let sql = &self.info.sql_query;
+        let sql = &info.sql_query;
         let prep_query = conn
             .prepare_typed_cached(sql, param_types)
             .await
             .map_err(|e| PrepareQueryError {
                 source: e,
                 source_id: self.id.clone(),
-                signature: self.info.signature.clone(),
-                query: self.info.sql_query.clone(),
+                signature: info.signature.clone(),
+                query: info.sql_query.clone(),
             })?;
 
-        let tile = if self.support_url_query() {
+        let tile = if info.use_url_query {
             let json = query_to_json(url_query);
             debug!("SQL: {sql} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[
@@ -193,7 +202,7 @@ impl PostgresSource {
         };
 
         Ok(tile.map_err(|e| {
-            if self.support_url_query() {
+            if info.use_url_query {
                 GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
             } else {
                 GetTileError(e, self.id.clone(), xyz)
@@ -215,6 +224,8 @@ pub struct PostgresSqlInfo {
     pub signature: String,
     /// Whether the query's second column is the tile's `ETag`.
     pub has_etag_column: bool,
+    /// The variant to run for a request without a query string, when the function has one.
+    pub queryless: Option<Box<Self>>,
 }
 
 impl PostgresSqlInfo {
@@ -233,6 +244,14 @@ impl PostgresSqlInfo {
             empty_tile_implies_empty_children,
             signature,
             has_etag_column,
+            queryless: None,
         }
+    }
+
+    /// This query with `queryless` answering the requests that carry no query string.
+    #[must_use]
+    pub fn with_queryless(mut self, queryless: Self) -> Self {
+        self.queryless = Some(Box::new(queryless));
+        self
     }
 }

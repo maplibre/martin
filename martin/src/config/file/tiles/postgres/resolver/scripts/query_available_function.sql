@@ -57,13 +57,11 @@ outputs AS (
 
 --
 comments AS (
-    -- list of all comments associated with the function
+    -- the comment of each function, keyed like information_schema keys an overload
     SELECT
-        pg_namespace.nspname AS schema, -- noqa: RF04
-        pg_proc.proname AS name, -- noqa: RF04
+        pg_proc.proname || '_' || pg_proc.oid AS specific_name,
         obj_description(pg_proc.oid, 'pg_proc') AS description
     FROM pg_proc
-    INNER JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
 )
 
 SELECT
@@ -78,11 +76,7 @@ SELECT
 FROM information_schema.routines
 INNER JOIN inputs ON routines.specific_name = inputs.specific_name
 LEFT JOIN outputs ON routines.specific_name = outputs.specific_name
-LEFT JOIN
-    comments
-    ON
-        routines.specific_schema = comments.schema
-        AND routines.routine_name = comments.name
+LEFT JOIN comments ON routines.specific_name = comments.specific_name
 WHERE
     jsonb_array_length(inputs.input_names) IN (3, 4) -- 3 or 4 input parameters
     -- the first int param is either z or zoom
