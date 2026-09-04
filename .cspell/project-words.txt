@@ -64,6 +64,7 @@ multipolygon
 multisurface
 mydb
 mypass
+nixpkgs
 notnull
 noto
 onthegomap
