@@ -286,8 +286,5 @@ async fn the_dashboard_refuses_to_start_without_a_terminal() {
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    assert!(
-        log.contains("--tui needs an interactive terminal"),
-        "log must say why; log:\n{log}"
-    );
+    insta::assert_snapshot!(log, @"--tui needs an interactive terminal");
 }
