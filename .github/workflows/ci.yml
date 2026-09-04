@@ -30,6 +30,7 @@ jobs:
       rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
       ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+      demo: ${{ github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true' }}
       schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
@@ -65,6 +66,9 @@ jobs:
               - '**/*.md'
               - 'docs/**'
               - 'zensical.toml'
+            demo:
+              - *shared
+              - 'demo/**'
             schemas:
               - *shared
               - 'schemas/**'
@@ -107,6 +111,13 @@ jobs:
     permissions:
       contents: read
 
+  demo:
+    needs: changes
+    if: needs.changes.outputs.demo == 'true'
+    uses: ./.github/workflows/demo.yml
+    permissions:
+      contents: read
+
   # Packaging and publishing. Gated on the suites rather than on `done`, which
   # in turn waits for this job, so a broken release process still blocks merge.
   release:
@@ -140,6 +151,7 @@ jobs:
       - ui
       - docs
       - schemas
+      - demo
       - release
     if: always()
     runs-on: ubuntu-latest

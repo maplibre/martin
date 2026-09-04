@@ -1,26 +1,19 @@
-name: Demo
+name: Demo CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'demo/**'
-  release:
-    types: [ published ]
+  workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'release' }}
+defaults:
+  run:
+    shell: bash
 
 permissions:
   contents: read
 
 jobs:
-  demo:
-    name: Demo
+  build-demo:
+    name: Build the demo images
     runs-on: ubuntu-latest
     permissions:
       contents: read
