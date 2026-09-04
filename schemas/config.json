@@ -1633,6 +1633,11 @@
           "minimum": 1,
           "type": ["integer", "null"]
         },
+        "filter": {
+          "description": "CQL2 filter that limits which rows are served, translated to SQL and added to the tile query with `AND`",
+          "examples": ["population > 100000"],
+          "type": ["string", "null"]
+        },
         "geometry_column": {
           "description": "Geometry column name (required)",
           "examples": ["geom"],

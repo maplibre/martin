@@ -58,6 +58,29 @@ The TileJSON:
 By default the `description` and `name` is database identifies about this table, and the bounds is queried from database.
 You can fine tune these by adjusting `auto_publish` section in [configuration file](config-file/index.md#full-configuration).
 
+## Filtering rows
+
+A table source serves every row whose geometry intersects the tile.
+Add a `filter` to serve only the rows that match it.
+The filter is written in [CQL2 text](https://docs.ogc.org/is/21-065r2/21-065r2.html), the OGC Common Query Language, and Martin translates it to SQL when it starts.
+A filter that does not parse stops Martin at startup with the reason.
+
+```yaml
+postgres:
+  tables:
+    big_cities:
+      schema: public
+      table: cities
+      srid: 4326
+      geometry_column: geom
+      filter: population > 100000 AND name NOT LIKE 'Old %'
+      properties:
+        name: text
+```
+
+The filter also applies when Martin computes the bounds of the source.
+Column names are CQL2 identifiers, so a mixed-case column is written in double quotes.
+
 ## Postprocessing
 
 Table sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.

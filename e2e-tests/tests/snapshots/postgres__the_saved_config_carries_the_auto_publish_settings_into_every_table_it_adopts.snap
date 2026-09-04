@@ -83,6 +83,21 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    points1_filtered:
+      layer_id: filtered
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 142.8404063069
+      - 11.9267418460
+      - 142.8414336000
+      - 11.9273833360
+      filter: gid <= 3
+      geometry_type: POINT
+      properties:
+        gid: int4
     points2:
       schema: public
       table: points2
