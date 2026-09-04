@@ -200,7 +200,7 @@ utoipa = { version = "5.4", default-features = false, features = ["chrono", "mac
 walkdir = "2.5.0"
 wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-zstd = "0.13"
+zstd = "0.14"
 zune-core = "0.5"
 zune-jpegxl = "0.5"
 
