@@ -30,6 +30,7 @@ jobs:
       rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
       ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+      schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
       # The Windows and macOS builds, and the publish dry-run, re-prove on a
       # second platform what the Linux lane already covers, so they are deferred
       # for pull requests sitting below the top of their stack. A pull request
@@ -54,19 +55,24 @@ jobs:
           rust=false
           ui=false
           docs=false
+          schemas=false
           while IFS= read -r f; do
             case "$f" in
               # Shared tooling: every suite reads these.
               .github/*|justfile)
-                rust=true; ui=true; docs=true ;;
+                rust=true; ui=true; docs=true; schemas=true ;;
               # martin/build.rs compiles the frontend into the server binary,
               # so a broken frontend breaks every Rust job too.
               martin/martin-ui/*)
                 ui=true; rust=true ;;
+              schemas/*)
+                schemas=true ;;
               # validate-schemas checks the generated example in here against
               # schemas/config.json.
               docs/content/files/*)
-                docs=true; rust=true ;;
+                docs=true; schemas=true ;;
+              e2e-tests/tests/snapshots/save_config__*)
+                rust=true; schemas=true ;;
               docs/*|zensical.toml)
                 docs=true ;;
               # Nothing builds or tests these.
@@ -81,15 +87,16 @@ jobs:
           done < files.txt
 
           if [[ ! -s files.txt ]]; then
-            rust=true; ui=true; docs=true
+            rust=true; ui=true; docs=true; schemas=true
           fi
 
           {
             echo "rust=$rust"
             echo "ui=$ui"
             echo "docs=$docs"
+            echo "schemas=$schemas"
           } >> "$GITHUB_OUTPUT"
-          echo "rust=$rust ui=$ui docs=$docs"
+          echo "rust=$rust ui=$ui docs=$docs schemas=$schemas"
 
   rust:
     needs: changes
@@ -122,6 +129,13 @@ jobs:
     permissions:
       contents: write
 
+  schemas:
+    needs: changes
+    if: needs.changes.outputs.schemas == 'true'
+    uses: ./.github/workflows/schemas.yml
+    permissions:
+      contents: read
+
   # Packaging and publishing. Gated on the suites rather than on `done`, which
   # in turn waits for this job, so a broken release process still blocks merge.
   release:
@@ -130,6 +144,7 @@ jobs:
       - rust
       - ui
       - docs
+      - schemas
     if: |
       always()
       && !contains(needs.*.result, 'failure')
@@ -153,6 +168,7 @@ jobs:
       - rust
       - ui
       - docs
+      - schemas
       - release
     if: always()
     runs-on: ubuntu-latest

@@ -138,28 +138,6 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with: { rendering: true, cache: true }
       - run: just check --partition ${{ matrix.partition }}
-  validate-schemas:
-    name: Validate generated config + OpenAPI schemas
-    permissions:
-      contents: read
-    # Run after lint-rust just to keep CI lane concurrency reasonable. The
-    # `schemas/` files this validates are kept up to date by the `gen-schemas`
-    # job in `.github/workflows/autofix.yml`, which regenerates and commits
-    # them on every PR push - so this job only needs to read the committed
-    # files, no Rust toolchain required.
-    needs:
-      - lint-rust
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
-        with: { toolchain: none }
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
-      - run: just test-schemas
   lint-rust-dependencies:
     name: Lint Rust dependencies
     permissions:
@@ -787,7 +765,10 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    if: inputs.run-heavy
+    # A from-scratch package and build of the whole workspace. What it guards
+    # is the release itself, so on pull requests it only runs for the one
+    # release-plz opens; pushes and releases always run it.
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-')
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
