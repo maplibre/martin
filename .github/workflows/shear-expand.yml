@@ -3,7 +3,7 @@ name: Shear (expand)
 # `cargo shear --expand` compiles the whole workspace (including the bundled DuckDB
 # and maplibre-native C++ trees) under nightly to detect dependencies that are only
 # used inside macro expansions. That full build is far too slow to gate every PR, so
-# the fast compile-free `cargo shear` runs in ci.yml and this catches the rare
+# the fast compile-free `cargo shear` runs in rust.yml and this catches the rare
 # macro-only case on a schedule.
 
 on:
@@ -32,6 +32,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: nightly-2026-07-12, tools: 'cargo-shear,just', rendering: true, cache: true }
       - run: just shear --expand

@@ -11,23 +11,93 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+defaults:
+  run:
+    shell: bash
+
 permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Decide which scans this change can affect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+      cargo-deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true' }}
+      deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
+      codeql-languages: ${{ steps.codeql.outputs.languages }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            shared: &shared
+              - '.github/**'
+            cargo-manifests: &cargo-manifests
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'deny.toml'
+            npm-manifests: &npm-manifests
+              - 'martin/martin-ui/package.json'
+              - 'martin/martin-ui/package-lock.json'
+              - 'demo/frontend/package.json'
+              - 'demo/frontend/package-lock.json'
+            actions:
+              - *shared
+            rust:
+              - *shared
+              - *cargo-manifests
+              - '**/*.rs'
+            js:
+              - *shared
+              - *npm-manifests
+              - 'martin/martin-ui/**'
+              - 'demo/frontend/**'
+            cargo-deps:
+              - *shared
+              - *cargo-manifests
+            deps:
+              - *shared
+              - *cargo-manifests
+              - *npm-manifests
+      # CodeQL is one job per language, so the languages a change cannot affect
+      # are dropped from the matrix rather than from the job as a whole.
+      - name: Collect the CodeQL languages worth analysing
+        id: codeql
+        env:
+          ACTIONS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+          JS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.js == 'true' }}
+          RUST: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+        run: |
+          languages=()
+          if [[ "$ACTIONS" == 'true' ]]; then languages+=('"actions"'); fi
+          if [[ "$JS" == 'true' ]]; then languages+=('"javascript-typescript"'); fi
+          if [[ "$RUST" == 'true' ]]; then languages+=('"rust"'); fi
+          printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
+
   zizmor:
-      runs-on: ubuntu-latest
-      permissions:
-        security-events: write
-        contents: read
-        actions: read
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-          with: { persist-credentials: false }
-        - name: Run zizmor
-          uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+    needs: changes
+    if: needs.changes.outputs.actions == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
   audit:
+    needs: changes
+    if: needs.changes.outputs.cargo-deps == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,10 +132,11 @@ jobs:
           # RUSTSEC-2026-0195 = quick-xml unbounded namespace-declaration dos; same object_store 0.13 pin, patched only in quick-xml 0.41
           # RUSTSEC-2026-0258 = h2 unbounded empty DATA frames dos; remaining leg is h2@0.3.27 pinned by actix-http (still on h2 "0.3" even at 3.13.3), no patched 0.3.x release exists
   dependency-review:
+    needs: changes
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.deps == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -83,6 +154,8 @@ jobs:
           command: check bans licenses sources
   codeql:
     name: CodeQL (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.codeql-languages != '[]'
     runs-on: ubuntu-latest
     permissions:
       # required for all workflows
@@ -98,10 +171,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - language: actions
-        - language: javascript-typescript
-        - language: rust
+        language: ${{ fromJSON(needs.changes.outputs.codeql-languages) }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -115,3 +185,25 @@ jobs:
       uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
       with:
         category: "/language:${{matrix.language}}"
+
+  # This final step is needed to mark the whole workflow as successful
+  # Don't change its name - it is used by the merge protection rules
+  done:
+    name: Security Finished
+    needs:
+      - changes
+      - zizmor
+      - audit
+      - dependency-review
+      - codeql
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Result of the needed steps
+        run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
+      # A skip is a pass here: `changes` drops the scans a pull request cannot
+      # affect, and `dependency-review` only ever runs on pull requests.
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        name: Security Result
+        run: exit 1

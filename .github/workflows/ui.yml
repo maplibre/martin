@@ -1,4 +1,4 @@
-name: Demo CI
+name: Frontend CI
 
 on:
   workflow_call:
@@ -12,16 +12,20 @@ permissions:
   contents: read
 
 jobs:
-  build-demo:
-    name: Build the demo images
-    runs-on: ubuntu-latest
+  lint-unit-test-js:
+    name: Lint and Unit test the frontend
     permissions:
       contents: read
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
-      - run: just demo::build
+      - run: npm clean-install --no-fund
+        working-directory: martin/martin-ui
+      - run: just ui::biome
+      - run: just ui::test
+      - run: just ui::type-check
+      - run: just ui::build

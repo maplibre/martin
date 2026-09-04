@@ -1,0 +1,33 @@
+name: Schemas CI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  validate-schemas:
+    name: Validate generated config + OpenAPI schemas
+    permissions:
+      contents: read
+    # The `schemas/` files this validates are kept up to date by the
+    # `gen-schemas` job in `.github/workflows/autofix.yml`, which regenerates
+    # and commits them on every PR push - so this job only needs to read the
+    # committed files, no Rust toolchain required.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { toolchain: none }
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      - run: just test-schemas

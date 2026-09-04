@@ -1,0 +1,192 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      run-heavy:
+        description: >-
+          Packaging consumes every build-binary artifact, including the ones
+          that only run at the top of a stack.
+        type: boolean
+        default: true
+    secrets:
+      GH_HOMEBREW_MARTIN_TOKEN:
+        description: Fine-grained PAT for maplibre/homebrew-martin, see below
+        required: false
+      RELEASE_PLZ_TOKEN:
+        description: PAT release-plz publishes releases and release PRs with
+        required: false
+  workflow_dispatch:
+    inputs:
+      run-heavy:
+        description: Package the release artifacts
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    permissions:
+      # for writing attestations
+      id-token: write
+      attestations: write
+      # for writing release artifacts
+      contents: write
+    # Packaging downloads every build-binary artifact rust.yml produced, and
+    # the Homebrew config needs the macOS one, so it can only run when the
+    # heavy builds did. ci.yml only reaches this workflow once the rust, ui
+    # and docs suites have passed.
+    if: inputs.run-heavy
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { toolchain: none }
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: 'build-*', path: 'target' }
+
+      - name: Package
+        run: |
+          set -x
+
+          for dir in target/build-*; do
+            target="${dir#target/build-}"
+            mv "$dir" "target/$target"
+            just package-assets "$target"
+          done
+
+      - name: Create Homebrew config
+        run: |
+          set -x
+
+          # Extract Github release version only without the "martin-v" prefix from release tag names (martin-vX.Y.Z)
+          # On non-release events, this still generates a config with not-a-release as the version to test the release process
+          MARTIN_VERSION=$(echo "$GITHUB_EVENT_RELEASE_TAG_NAME" | sed -e 's/martin-v//')
+
+          mkdir -p target/homebrew
+          cd target
+
+          cat << EOF > homebrew_config.yaml
+          version: "$MARTIN_VERSION"
+          macos_arm_sha256: "$(shasum -a 256 files/martin-aarch64-apple-darwin.tar.gz | cut -d' ' -f1)"
+          linux_arm_sha256: "$(shasum -a 256 files/martin-aarch64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
+          linux_intel_sha256: "$(shasum -a 256 files/martin-x86_64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
+          EOF
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name || 'not-a-release' }}
+
+      - name: Save Homebrew Config
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
+
+      - name: Generate SLSA build provenance attestation
+        if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with: { subject-path: 'target/files/*' }
+      - name: Publish with artifacts
+        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! compgen -G "target/files/*" > /dev/null; then
+            echo "No release artifacts matched target/files/*" >&2
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
+      - name: Publish without artifacts
+        if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest=false
+
+        # Create a personal access token
+        #     Gen:  https://github.com/settings/personal-access-tokens/new
+        #           Can also use "regenerate token" button in the expired token screen
+        #     Set:  https://github.com/maplibre/martin/settings/secrets/actions/GH_HOMEBREW_MARTIN_TOKEN
+        #     Docs: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token
+        #   Name: anything descriptive
+        #   One year long (sadly that's max)
+        #   Repository owner and repo: maplibre/homebrew-martin
+        #   Access Contents: Read and write
+        #   Access Metadata: Read-only
+        #   Access Pull requests: Read and write
+      - name: Checkout maplibre/homebrew-martin
+        if: github.event_name == 'release'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: maplibre/homebrew-martin
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
+          path: target/homebrew
+          persist-credentials: false
+
+      - name: Create Homebrew formula
+        uses: cuchi/jinja2-action@8bd801365a8d36a0b20f45ee969161685de7785a # master
+        with:
+          template: .github/files/homebrew.martin.rb.j2
+          output_file: target/homebrew/martin.rb
+          data_file: target/homebrew_config.yaml
+
+      - name: Create a PR for maplibre/homebrew-martin
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
+          commit-message: 'Update to ${{ github.event.release.tag_name }}'
+          title: 'Update to ${{ github.event.release.tag_name }}'
+          body: 'Update to ${{ github.event.release.tag_name }}'
+          branch: 'update-to-${{ github.event.release.tag_name }}'
+          branch-suffix: timestamp
+          base: 'main'
+          labels: 'auto-update'
+          assignees: 'nyurik'
+          draft: false
+          delete-branch: true
+          path: target/homebrew
+
+  # Release unpublished packages or create a PR with changes
+  release-plz:
+    needs: [ package ]
+    if: |
+      always()
+      && needs.package.result == 'success'
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && github.repository_owner == 'maplibre'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { rendering: true }
+      - name: Publish to crates.io if crate's version is newer
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        id: release
+        with: { command: release }
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: If version is the same, create a PR proposing new version and changelog for the next release
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        with: { command: release-pr }
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
