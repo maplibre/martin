@@ -781,6 +781,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#arch-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Arch Linux
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Nix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1238,10 +1260,9 @@ with <a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a> a
 <p>To install with apt source and others, we need your help
 to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for various platforms</a>.</p>
 <h4 id="homebrew">Homebrew</h4>
-<p>If you are using macOS and <a href="https://brew.sh/">Homebrew</a> you can install martin using Homebrew tap.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brew<span class="w"> </span>tap<span class="w"> </span>maplibre/martin
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>brew<span class="w"> </span>install<span class="w"> </span>martin
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>martin<span class="w"> </span>--help
+<p>If you are using <a href="https://brew.sh/">Homebrew</a> you can install martin using</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brew<span class="w"> </span>install<span class="w"> </span>martin
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>martin<span class="w"> </span>--help
 </span></code></pre></div>
 <h4 id="debian-packages-x86_64-manually">Debian packages (x86_64) manually</h4>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
@@ -1249,15 +1270,25 @@ to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>martin<span class="w"> </span>--help
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>rm<span class="w"> </span>./debian-x86_64.deb
 </span></code></pre></div>
+<h4 id="arch-linux">Arch Linux</h4>
+<p>The <a href="https://aur.archlinux.org/packages/martin">AUR</a> carries <code>martin</code> and <code>martin-cp</code>, maintained by the community.
+With an AUR helper such as <code>yay</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>yay<span class="w"> </span>-S<span class="w"> </span>martin
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>martin<span class="w"> </span>--help
+</span></code></pre></div>
+<h4 id="nix">Nix</h4>
+<p><a href="https://search.nixos.org/packages?query=martin">nixpkgs</a> carries <code>martin</code>, usually a release or two behind.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nix-shell<span class="w"> </span>-p<span class="w"> </span>martin<span class="w"> </span>--run<span class="w"> </span><span class="s1">'martin --help'</span>
+</span></code></pre></div>
 <h3 id="building-from-source">Building from source</h3>
 <p>If you <a href="https://www.rust-lang.org/tools/install">install Rust</a>, you can build martin from source with Cargo:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>martin<span class="w"> </span>--help
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>martin<span class="w"> </span>--help
 </span></code></pre></div>
 <h4 id="optional-features">Optional features</h4>
 <p><code>unstable-foobar</code> features are <strong>not included</strong> in default builds, Homebrew, Debian packages, or the Docker image.
 To experiment with them, build Martin from source with the feature enabled:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="o">=</span>unstable-foobar
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="o">=</span>unstable-foobar
 </span></code></pre></div>
 <h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
 <h5 id="windows">Windows</h5>
