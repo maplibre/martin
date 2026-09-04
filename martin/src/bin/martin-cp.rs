@@ -749,7 +749,7 @@ async fn main() {
     init_tracing(&filter, log_format, true);
 
     let args = CopierArgs::parse();
-    if let Err(e) = start(args).await {
+    if let Err(e) = Box::pin(start(args)).await {
         let rendered: String = match e {
             MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
             other @ (MartinCpError::EncodingParse(_)

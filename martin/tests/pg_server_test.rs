@@ -58,7 +58,6 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    settings: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
@@ -141,9 +140,9 @@ postgres:
         content_type: application/x-protobuf
         description: public.points1.geom
       points1_vw:
-        attribution: some attribution from SQL comment
         content_type: application/x-protobuf
         description: description from SQL comment
+        attribution: some attribution from SQL comment
       points2:
         content_type: application/x-protobuf
         description: public.points2.geom
@@ -172,6 +171,7 @@ postgres:
       view_name_existing_two_schemas.1:
         content_type: application/x-protobuf
         description: schema_b.view_name_existing_two_schemas.b_geom
+    settings: {}
     "#);
 }
 
