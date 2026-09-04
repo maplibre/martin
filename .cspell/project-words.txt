@@ -106,6 +106,7 @@ tileserver
 tileset
 tilesets
 toon
+tui
 undecoded
 urlencode
 varchar

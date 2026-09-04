@@ -1,0 +1,98 @@
+//! A dashboard for the terminal Martin was started from.
+//!
+//! `martin --tui` replaces the log stream with a live view of the server.
+//! It shows the sources and how often each is asked for, the request rate, where on the world tiles are being requested, and the log itself.
+
+use std::io::IsTerminal as _;
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use tokio::sync::oneshot;
+use tracing::error;
+
+mod log;
+mod observer;
+mod render;
+mod state;
+#[cfg(test)]
+mod tests;
+
+pub use observer::observe;
+pub use state::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
+
+/// The dashboard of this process, once `--tui` installed it.
+static DASHBOARD: OnceLock<Arc<Dashboard>> = OnceLock::new();
+
+/// Whether stdout is a terminal the dashboard can draw on.
+#[must_use]
+pub fn is_available() -> bool {
+    std::io::stdout().is_terminal()
+}
+
+/// Installs the dashboard for this process, routing the log into it, and returns it.
+///
+/// # Panics
+/// Panics if a dashboard was installed before.
+pub fn install(log_filter: &str) -> Arc<Dashboard> {
+    let dashboard = Arc::new(Dashboard::new());
+    crate::logging::init_tracing_into(log_filter, dashboard.log());
+    assert!(
+        DASHBOARD.set(Arc::clone(&dashboard)).is_ok(),
+        "the dashboard is installed once per process"
+    );
+    dashboard
+}
+
+/// Whether `--tui` installed a dashboard, so requests are worth observing.
+#[must_use]
+pub fn is_installed() -> bool {
+    DASHBOARD.get().is_some()
+}
+
+/// The dashboard installed for this process, if any.
+fn installed() -> Option<&'static Arc<Dashboard>> {
+    DASHBOARD.get()
+}
+
+/// Draws the dashboard on its own thread until `q` is pressed, then completes `quit`.
+pub fn run(dashboard: Arc<Dashboard>, quit: oneshot::Sender<()>) {
+    std::thread::Builder::new()
+        .name("martin-tui".to_owned())
+        .spawn(move || {
+            let mut terminal = ratatui::init();
+            let result = show(&mut terminal, &dashboard);
+            ratatui::restore();
+            if let Err(e) = result {
+                error!("The dashboard stopped: {e}");
+            }
+            let _ = quit.send(());
+        })
+        .expect("failed to spawn the dashboard thread");
+}
+
+/// Redraws ten times a second and reacts to the keys until the user quits.
+fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::io::Result<()> {
+    loop {
+        let view = dashboard.snapshot();
+        terminal.draw(|frame| render::frame(frame, &view))?;
+        if !event::poll(Duration::from_millis(100))? {
+            continue;
+        }
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
+        if key.kind != KeyEventKind::Press {
+            continue;
+        }
+        let control = key.modifiers.contains(KeyModifiers::CONTROL);
+        if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
+            || (control && key.code == KeyCode::Char('c'))
+        {
+            return Ok(());
+        }
+        if key.code == KeyCode::Char('c') {
+            dashboard.clear();
+        }
+    }
+}

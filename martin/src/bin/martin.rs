@@ -4,6 +4,8 @@
 )]
 
 use std::env;
+#[cfg(feature = "tui")]
+use std::sync::Arc;
 
 use clap::Parser as _;
 use martin::StartupResult;
@@ -26,12 +28,19 @@ use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_trac
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
+#[cfg(feature = "tui")]
+use martin::tui;
+#[cfg(feature = "tui")]
+use tokio::sync::oneshot;
 use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
-async fn start(args: Args) -> StartupResult<()> {
+async fn start(
+    args: Args,
+    #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
+) -> StartupResult<()> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv;
@@ -117,18 +126,49 @@ async fn start(args: Args) -> StartupResult<()> {
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");
 
+    #[cfg(feature = "tui")]
+    if let Some(dashboard) = dashboard {
+        dashboard.set_address(base_url);
+        let (quit, quit_rx) = oneshot::channel();
+        tui::run(dashboard, quit);
+        tokio::select! {
+            result = server => return Ok(result?),
+            _ = quit_rx => {
+                info!("Dashboard closed, stopping");
+                return Ok(());
+            }
+        }
+    }
+
     Ok(server.await?)
 }
 
 #[tokio::main]
 #[hotpath::main]
 async fn main() {
+    let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
     let log_format = LogFormat::from_env();
+    #[cfg(feature = "tui")]
+    let dashboard = if args.meta.tui {
+        if !tui::is_available() {
+            eprintln!("--tui needs an interactive terminal");
+            std::process::exit(2);
+        }
+        Some(tui::install(&filter))
+    } else {
+        init_tracing(&filter, log_format, false);
+        None
+    };
+    #[cfg(not(feature = "tui"))]
     init_tracing(&filter, log_format, false);
 
-    let args = Args::parse();
-    if let Err(e) = Box::pin(start(args)).await {
+    let started = start(
+        args,
+        #[cfg(feature = "tui")]
+        dashboard,
+    );
+    if let Err(e) = Box::pin(started).await {
         let rendered = e.render_diagnostic_with(log_format);
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");
