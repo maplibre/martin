@@ -94,7 +94,6 @@ pub struct TableInfo {
     pub clip_geom: Option<bool>,
 
     /// CQL2 filter that limits which rows are served, translated to SQL and added to the tile query with `AND`
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"population > 100000"))]
     pub filter: Option<String>,
 
     /// Geometry type

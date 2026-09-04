@@ -138,20 +138,12 @@ A name with spaces or other special characters goes in double quotes.
     filter: T_DURING(updated_at, INTERVAL('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z'))
     ```
 
-=== "Spatial"
+=== "Spatial and other functions"
 
     `S_INTERSECTS`, `S_WITHIN`, `S_CONTAINS`, `S_DISJOINT` and the other spatial operators compare the geometry column with a `BBOX(xmin, ymin, xmax, ymax)` or a WKT literal such as `POLYGON((...))`.
     The literal reaches PostGIS without an SRID, and PostGIS refuses to compare geometries whose SRIDs differ, so give the literal the column's SRID with `st_setsrid`.
 
-    ```yaml
-    # Rows within a bounding box, for a column in SRID 4326
-    filter: S_INTERSECTS(geom, st_setsrid(BBOX(5.9, 45.8, 10.5, 47.8), 4326))
-    # Rows inside a polygon
-    filter: S_WITHIN(geom, st_setsrid(POLYGON((5.9 45.8, 10.5 45.8, 10.5 47.8, 5.9 47.8, 5.9 45.8)), 4326))
-    ```
-
-A function CQL2 does not define is passed on to PostgreSQL by name, which is how `st_setsrid` works above.
-Write such functions in lower case, since `st_area(geom) > 10` calls PostGIS while `ST_Area(geom) > 10` looks for a function named `"ST_Area"` and fails.
+    
 
 ## Postprocessing
 

@@ -942,8 +942,5 @@ postgres:
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    assert!(
-        log.contains("Filter 'gid <=' is not valid CQL2"),
-        "log must name the filter; log:\n{log}"
-    );
+    insta::assert_snapshot!(log, @"");
 }
