@@ -96,7 +96,7 @@ aws-runtime = "1.8"
 backon = "1.6.0"
 base64 = "0.23.0"
 bit-set = "0.11"
-brotli = ">=5, <9"
+brotli = ">=5, <10"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
