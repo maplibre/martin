@@ -41,7 +41,11 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Install hotpath-utils CLI
-        run: cargo install hotpath --features=utils --bin hotpath-utils --locked
+        # The version Cargo.lock pins, so the CLI reads the metrics the profile wrote
+        run: |
+          set -euo pipefail
+          version=$(grep -A1 '^name = "hotpath"$' Cargo.lock | tail -1 | sed 's/version = "\(.*\)"/\1/')
+          cargo install "hotpath@$version" --features=utils --bin hotpath-utils --locked
 
       - name: Post PR comment
         env:

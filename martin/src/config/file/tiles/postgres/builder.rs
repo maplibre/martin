@@ -9,7 +9,7 @@ use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
-    query_available_function, query_available_tables, query_schemas, table_to_query,
+    function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
 };
 use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
@@ -310,7 +310,7 @@ impl PostgresAutoDiscoveryBuilder {
                     let source_id = auto_funcs
                         .source_id_format
                         .replace("{schema}", &schema)
-                        .replace("{function}", &func);
+                        .replace("{function}", function_name(&func));
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     specs.insert(id2, SourceSpec::Function(db_inf, pg_sql));
                 }
@@ -928,6 +928,7 @@ mod tests {
             empty_tile_implies_empty_children: false,
             signature: "public.my_func(integer, integer, integer) -> bytea",
             has_etag_column: false,
+            queryless: None,
         }
         "#);
 

@@ -96,7 +96,7 @@ aws-runtime = "1.8"
 backon = "1.6.0"
 base64 = "0.23.0"
 bit-set = "0.11"
-brotli = ">=5, <9"
+brotli = ">=5, <10"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
@@ -201,7 +201,7 @@ utoipa = { version = "5.4", default-features = false, features = ["chrono", "mac
 walkdir = "2.5.0"
 wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-zstd = "0.13"
+zstd = "0.14"
 zune-core = "0.5"
 zune-jpegxl = "0.5"
 
