@@ -59,6 +59,9 @@ async fn table_source() {
     function_zxy2:
       content_type: application/x-protobuf
       description: public.function_zxy2
+    function_zxy_gzip:
+      content_type: application/x-protobuf
+      description: a function source returning gzip-compressed tiles
     function_zxy_query:
       content_type: application/x-protobuf
     function_zxy_query_jsonb:

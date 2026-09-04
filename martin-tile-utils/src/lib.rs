@@ -241,6 +241,22 @@ impl Encoding {
             Self::Gzip | Self::Zlib | Self::Brotli | Self::Zstd => true,
         }
     }
+
+    /// The compression the leading bytes of `value` announce, without decompressing anything
+    #[must_use]
+    pub fn detect(value: &[u8]) -> Option<Self> {
+        match value {
+            [0x1f, 0x8b, ..] => Some(Self::Gzip),
+            [cmf, flg, ..] if is_zlib_header(*cmf, *flg) => Some(Self::Zlib),
+            _ => None,
+        }
+    }
+}
+
+/// Whether `cmf` and `flg` form a zlib header per RFC 1950 §2.2: deflate with a window of at most
+/// 32K, and a `FCHECK` that makes the pair a multiple of 31, which admits every `FLEVEL`.
+fn is_zlib_header(cmf: u8, flg: u8) -> bool {
+    cmf & 0x0f == 8 && cmf >> 4 <= 7 && (u16::from(cmf) * 256 + u16::from(flg)) % 31 == 0
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -258,24 +274,24 @@ impl TileInfo {
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
-        // Try GZIP decompression
-        if value.starts_with(b"\x1f\x8b") {
-            if let Ok(decompressed) = decode_gzip(value) {
-                let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Self::new(inner_format, Encoding::Gzip);
+        match Encoding::detect(value) {
+            Some(encoding @ Encoding::Gzip) => {
+                if let Ok(decompressed) = decode_gzip(value) {
+                    let inner_format = Self::detect_vectorish_format(&decompressed);
+                    return Self::new(inner_format, encoding);
+                }
+                // If decompression fails or format is unknown, assume MVT
+                return Self::new(Format::Mvt, encoding);
             }
-            // If decompression fails or format is unknown, assume MVT
-            return Self::new(Format::Mvt, Encoding::Gzip);
-        }
-
-        // Try Zlib decompression
-        if value.starts_with(b"\x78\x9c") {
-            if let Ok(decompressed) = decode_zlib(value) {
-                let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Self::new(inner_format, Encoding::Zlib);
+            Some(encoding @ Encoding::Zlib) => {
+                if let Ok(decompressed) = decode_zlib(value) {
+                    let inner_format = Self::detect_vectorish_format(&decompressed);
+                    return Self::new(inner_format, encoding);
+                }
+                // If decompression fails or format is unknown, assume MVT
+                return Self::new(Format::Mvt, encoding);
             }
-            // If decompression fails or format is unknown, assume MVT
-            return Self::new(Format::Mvt, Encoding::Zlib);
+            _ => {}
         }
         if let Some(raster_format) = Self::detect_raster_formats(value) {
             Self::new(raster_format, Encoding::Internal)
@@ -554,6 +570,31 @@ mod tests {
     #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
     fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
         assert_eq!(TileInfo::detect(data), expected);
+    }
+
+    #[test]
+    fn encoding_detect_reads_the_leading_bytes_only() {
+        assert_eq!(
+            Encoding::detect(b"\x1f\x8b\x08\x00rest"),
+            Some(Encoding::Gzip)
+        );
+        // every zlib compression level with the usual 32K window
+        for header in [b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"] {
+            assert_eq!(
+                Encoding::detect(header),
+                Some(Encoding::Zlib),
+                "{header:02x?}"
+            );
+        }
+        // a smaller window is a zlib header too
+        assert_eq!(Encoding::detect(b"\x68\x81"), Some(Encoding::Zlib));
+        // a failed FCHECK, a non-deflate method, and a window over 32K are not
+        assert_eq!(Encoding::detect(b"\x78\x00"), None);
+        assert_eq!(Encoding::detect(b"\x79\x9c"), None);
+        assert_eq!(Encoding::detect(b"\x88\x98"), None);
+        assert_eq!(Encoding::detect(b"\x89PNG\r\n\x1a\n"), None);
+        assert_eq!(Encoding::detect(b"\x78"), None);
+        assert_eq!(Encoding::detect(b""), None);
     }
 
     /// Test detection of compressed content (JSON, MLT, MVT)
