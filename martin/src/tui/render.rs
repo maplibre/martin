@@ -107,7 +107,7 @@ fn world_map(view: &Snapshot) -> Canvas<'static, impl Fn(&mut Context<'_>)> {
         .paint(move |ctx| {
             ctx.draw(&Map {
                 resolution: MapResolution::High,
-                color: Color::DarkGray,
+                color: Color::Gray,
             });
             ctx.draw(&Points {
                 coords: &older,
