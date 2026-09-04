@@ -36,6 +36,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
+      # `audit-check` installs cargo-audit without `--locked` when it is absent. Preinstall from
+      # cargo-audit's published lockfile so a broken transitive release cannot prevent the audit.
+      - name: Install cargo-audit from its lockfile
+        run: cargo install cargo-audit --locked
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
