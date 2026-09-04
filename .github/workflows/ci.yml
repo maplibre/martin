@@ -78,8 +78,6 @@ jobs:
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets: inherit
-    # The union of what rust.yml's own jobs ask for; each of them narrows this
-    # down to what it actually needs.
     permissions:
       contents: read
       id-token: write
