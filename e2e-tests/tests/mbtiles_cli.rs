@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, mbtiles_fixture, temp_dir, tiles};
+use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, temp_dir, tiles};
 use rstest::rstest;
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -319,4 +319,89 @@ async fn pack_rejects_inconsistent_tile_formats() {
         output.contains("Inconsistent tile formats"),
         "unexpected output:\n{output}"
     );
+}
+
+#[tokio::test]
+async fn copy_merges_several_sources_in_order() {
+    let dir = temp_dir();
+    let first = mbtiles_fixture(dir.path(), "world_cities").await;
+    let second = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let first_tiles = tiles(&first).await;
+    let second_tiles = tiles(&second).await;
+    assert_ne!(
+        first_tiles, second_tiles,
+        "the fixtures must differ for the order to show"
+    );
+
+    let merged = dir.path().join("merged.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&first)
+        .arg(&second)
+        .arg(&merged)
+        .arg("--on-duplicate")
+        .arg("override")
+        .run()
+        .await;
+
+    // Every tile of both files, the later one in `order` winning where they share a coordinate.
+    let union = |order: [&Vec<Tile>; 2]| {
+        let mut expected = BTreeMap::new();
+        for (z, x, y, data) in order.into_iter().flatten() {
+            expected.insert((*z, *x, *y), data.clone());
+        }
+        expected
+            .into_iter()
+            .map(|((z, x, y), data)| (z, x, y, data))
+            .collect::<Vec<Tile>>()
+    };
+    assert_eq!(tiles(&merged).await, union([&first_tiles, &second_tiles]));
+
+    let kept = dir.path().join("kept.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&first)
+        .arg(&second)
+        .arg(&kept)
+        .arg("--on-duplicate")
+        .arg("ignore")
+        .run()
+        .await;
+    assert_eq!(tiles(&kept).await, union([&second_tiles, &first_tiles]));
+}
+
+#[tokio::test]
+async fn copying_several_sources_needs_on_duplicate() {
+    let dir = temp_dir();
+    let first = mbtiles_fixture(dir.path(), "world_cities").await;
+    let second = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let merged = dir.path().join("merged.mbtiles");
+
+    let output = MbtilesCli::new("copy")
+        .arg(&first)
+        .arg(&second)
+        .arg(&merged)
+        .run_failing()
+        .await;
+
+    insta::assert_snapshot!(output, @"ERROR copying 2 sources into one file needs --on-duplicate to say what happens when two of them hold the same tile");
+    assert!(!merged.exists(), "nothing is copied before the check");
+}
+
+#[tokio::test]
+async fn copy_with_a_diff_file_takes_one_source() {
+    let dir = temp_dir();
+    let first = mbtiles_fixture(dir.path(), "world_cities").await;
+    let second = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+
+    let output = MbtilesCli::new("copy")
+        .arg(&first)
+        .arg(&second)
+        .arg(dir.path().join("merged.mbtiles"))
+        .arg("--diff-with-file")
+        .arg(&second)
+        .arg("--on-duplicate")
+        .arg("override")
+        .run_failing()
+        .await;
+
+    insta::assert_snapshot!(output, @"ERROR --diff-with-file and --apply-patch take exactly one source file, got 2");
 }
