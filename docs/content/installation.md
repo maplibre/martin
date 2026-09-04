@@ -66,10 +66,9 @@ to [improve packaging for various platforms](https://github.com/maplibre/martin/
 
 #### Homebrew
 
-If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
+If you are using [Homebrew](https://brew.sh/) you can install martin using
 
 ```bash
-brew tap maplibre/martin
 brew install martin
 martin --help
 ```
@@ -81,6 +80,24 @@ curl -O https://github.com/maplibre/martin/releases/latest/download/debian-x86_6
 sudo dpkg -i ./debian-x86_64.deb
 martin --help
 rm ./debian-x86_64.deb
+```
+
+#### Arch Linux
+
+The [AUR](https://aur.archlinux.org/packages/martin) carries `martin` and `martin-cp`, maintained by the community.
+With an AUR helper such as `yay`:
+
+```bash
+yay -S martin
+martin --help
+```
+
+#### Nix
+
+[nixpkgs](https://search.nixos.org/packages?query=martin) carries `martin`, usually a release or two behind.
+
+```bash
+nix-shell -p martin --run 'martin --help'
 ```
 
 ### Building from source
