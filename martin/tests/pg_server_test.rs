@@ -91,11 +91,12 @@ postgres:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
       function_dup:
+        attribution: from the queryless comment
         content_type: application/x-protobuf
-        description: the variant that takes a query
+        description: the json variant
       function_dup.1:
         content_type: application/x-protobuf
-        description: "public.function_dup(integer, integer, integer, jsonb)"
+        description: the jsonb variant
       function_null:
         content_type: application/x-protobuf
         description: public.function_null
@@ -105,6 +106,24 @@ postgres:
       function_null_row2:
         content_type: application/x-protobuf
         description: public.function_null_row2
+      function_pair_json:
+        content_type: application/x-protobuf
+        description: public.function_pair_json
+      function_pair_jsonb:
+        content_type: application/x-protobuf
+        description: public.function_pair_jsonb
+      function_pair_query:
+        content_type: application/x-protobuf
+        description: public.function_pair_query
+      function_pair_query.1:
+        content_type: application/x-protobuf
+        description: "public.function_pair_query(integer, integer, integer, jsonb)"
+      function_two_schemas:
+        content_type: application/x-protobuf
+        description: the schema_a comment
+      function_two_schemas.1:
+        content_type: application/x-protobuf
+        description: the schema_b comment
       function_zoom_xy:
         content_type: application/x-protobuf
         description: public.function_zoom_xy

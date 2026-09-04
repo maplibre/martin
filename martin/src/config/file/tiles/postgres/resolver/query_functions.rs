@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use martin_core::tiles::postgres::PostgresError::PostgresError;
-use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo, Row};
+use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 use tracing::{debug, warn};
@@ -56,7 +56,15 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
 
     let mut by_name = BTreeMap::<(String, String), Vec<Variant>>::new();
     for row in &rows {
-        let variant = parse_variant(row);
+        let variant = parse_variant(
+            row.get("schema"),
+            row.get("name"),
+            row.get("output_type"),
+            jsonb_to_vec(row.get("output_record_types")).as_deref(),
+            jsonb_to_vec(row.get("output_record_names")),
+            jsonb_to_vec(row.get("input_types")).expect("Can't get input types"),
+            row.get("description"),
+        );
         by_name
             .entry((variant.schema.clone(), variant.function.clone()))
             .or_default()
@@ -109,16 +117,17 @@ fn merge_comments(queryless: Option<Value>, query: Option<Value>) -> Option<Valu
     }
 }
 
-/// Reads one row of the discovery query into the variant it describes.
-fn parse_variant(row: &Row) -> Variant {
-    let schema: String = row.get("schema");
-    let function: String = row.get("name");
-    let output_type: String = row.get("output_type");
-    let output_record_types = jsonb_to_vec(row.get("output_record_types"));
-    let output_record_names = jsonb_to_vec(row.get("output_record_names"));
-    let input_types = jsonb_to_vec(row.get("input_types")).expect("Can't get input types");
-    let input_names = jsonb_to_vec(row.get("input_names")).expect("Can't get input names");
-    let tilejson = if let Some(text) = row.get("description") {
+/// Turns one row of the discovery query into the variant it describes.
+fn parse_variant(
+    schema: String,
+    function: String,
+    output_type: String,
+    output_record_types: Option<&[String]>,
+    output_record_names: Option<Vec<String>>,
+    input_types: Vec<String>,
+    description: Option<&str>,
+) -> Variant {
+    let tilejson = if let Some(text) = description {
         match serde_json::from_str::<Value>(text) {
             Ok(v) => Some(v),
             Err(e) => {
@@ -135,14 +144,13 @@ fn parse_variant(row: &Row) -> Variant {
         None
     };
 
-    assert!(input_types.len() >= 3 && input_types.len() <= 4);
-    assert_eq!(input_types.len(), input_names.len());
-    match (&output_record_names, &output_record_types) {
+    assert!(input_types.len() == 3 || input_types.len() == 4);
+    match (&output_record_names, output_record_types) {
         (Some(n), Some(t)) if n.len() == 1 && n.len() == t.len() => {
-            assert_eq!(t, &["bytea"]);
+            assert_eq!(t, ["bytea"]);
         }
         (Some(n), Some(t)) if n.len() == 2 && n.len() == t.len() => {
-            assert_eq!(t, &["bytea", "text"]);
+            assert_eq!(t, ["bytea", "text"]);
         }
         (None, None) => {}
         #[expect(
@@ -159,9 +167,10 @@ fn parse_variant(row: &Row) -> Variant {
 
     let mut query = function_call(&schema, &function, &input_types);
 
-    // TODO: Rewrite as a if-let chain:  if Some(names) = output_record_names && output_type == "record" { ... }
     let mut has_etag_column = false;
-    let ret_inf = if let (Some(names), "record") = (output_record_names, output_type.as_str()) {
+    let ret_inf = if let Some(names) = output_record_names
+        && output_type == "record"
+    {
         // SELECT "mvt", "key" FROM "public"."function_zxy_row_key"(
         //    "z" => $1::integer, "x" => $2::integer, "y" => $3::integer
         // );

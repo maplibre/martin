@@ -396,6 +396,24 @@ postgres:
     function_null_row2:
       schema: public
       function: function_null_row2
+    function_pair_json:
+      schema: public
+      function: function_pair_json
+    function_pair_jsonb:
+      schema: public
+      function: function_pair_jsonb
+    function_pair_query:
+      schema: public
+      function: function_pair_query
+    function_pair_query.1:
+      schema: public
+      function: function_pair_query(integer, integer, integer, jsonb)
+    function_two_schemas:
+      schema: schema_a
+      function: function_two_schemas
+    function_two_schemas.1:
+      schema: schema_b
+      function: function_two_schemas
     function_zoom_xy:
       schema: public
       function: function_zoom_xy
