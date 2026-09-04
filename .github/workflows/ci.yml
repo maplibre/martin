@@ -31,72 +31,50 @@ jobs:
       ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
       schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
-      # The Windows and macOS builds, and the publish dry-run, re-prove on a
-      # second platform what the Linux lane already covers, so they are deferred
-      # for pull requests sitting below the top of their stack. A pull request
-      # that is not stacked counts as its own top, and pushes and releases run
-      # everything.
+      # Windows/macOS builds and the publish dry-run re-prove on a second platform
+      # what the Linux lane already covers, so they are deferred for pull requests
+      # below the top of their stack. An unstacked pull request is its own top.
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
-      - name: Classify the changed files
+      # Only pull requests are filtered; pushes and releases run everything.
+      # `dorny/paths-filter` reads the changed files from the API, so no checkout.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' > files.txt
-          cat files.txt
-
-          # A file that matches nothing below claims the Rust suite, so a new
-          # directory can never silently lose its coverage.
-          rust=false
-          ui=false
-          docs=false
-          schemas=false
-          while IFS= read -r f; do
-            case "$f" in
-              # Shared tooling: every suite reads these.
-              .github/*|justfile)
-                rust=true; ui=true; docs=true; schemas=true ;;
-              # martin/build.rs compiles the frontend into the server binary,
-              # so a broken frontend breaks every Rust job too.
-              martin/martin-ui/*)
-                ui=true; rust=true ;;
-              schemas/*)
-                schemas=true ;;
-              # validate-schemas checks the generated example in here against
-              # schemas/config.json.
-              docs/content/files/*)
-                docs=true; schemas=true ;;
-              e2e-tests/tests/snapshots/save_config__*)
-                rust=true; schemas=true ;;
-              docs/*|zensical.toml)
-                docs=true ;;
-              # Nothing builds or tests these.
-              graphics/*|logo.png|CITATION.cff|LICENSE-APACHE|LICENSE-MIT)
-                ;;
-              # Crate READMEs are pulled in with include_str! and are doc-tested.
-              *.md)
-                docs=true; rust=true ;;
-              *)
-                rust=true ;;
-            esac
-          done < files.txt
-
-          if [[ ! -s files.txt ]]; then
-            rust=true; ui=true; docs=true; schemas=true
-          fi
-
-          {
-            echo "rust=$rust"
-            echo "ui=$ui"
-            echo "docs=$docs"
-            echo "schemas=$schemas"
-          } >> "$GITHUB_OUTPUT"
-          echo "rust=$rust ui=$ui docs=$docs schemas=$schemas"
+        with:
+          filters: |
+            shared: &shared
+              - '.github/**'
+              - 'justfile'
+            rust:
+              - *shared
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'clippy.toml'
+              - 'deny.toml'
+              - 'release-plz.toml'
+              - 'docker-compose.yml'
+              - 'debian/**'
+              - 'e2e-tests/**'
+              - 'tests/**'
+              - 'mbtiles/**'
+              # Covers every crate, their READMEs (doc-tested via include_str!)
+              # and martin-ui, which build.rs compiles into the server binary.
+              - 'martin*/**'
+            ui:
+              - *shared
+              - 'biome.json'
+              - 'martin/martin-ui/**'
+            docs:
+              - *shared
+              - '**/*.md'
+              - 'docs/**'
+              - 'zensical.toml'
+            schemas:
+              - *shared
+              - 'schemas/**'
+              - 'docs/content/files/generated_config.md'
+              - 'e2e-tests/tests/snapshots/save_config__*'
 
   rust:
     needs: changes
