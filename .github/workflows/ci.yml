@@ -3,9 +3,6 @@ name: CI
 on:
   push:
     branches: [ main ]
-  # Deliberately unfiltered: stacked pull requests are based on their parent
-  # branch, and they need CI before they reach the top of the stack. `changes`
-  # and run-heavy are what keep those runs small.
   pull_request:
   release:
     types: [ published ]
