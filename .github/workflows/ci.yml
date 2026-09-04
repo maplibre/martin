@@ -54,9 +54,15 @@ jobs:
               - 'e2e-tests/**'
               - 'tests/**'
               - 'mbtiles/**'
-              # Covers every crate, their READMEs (doc-tested via include_str!)
-              # and martin-ui, which build.rs compiles into the server binary.
-              - 'martin*/**'
+              # Covers every crate and their READMEs (doc-tested via include_str!).
+              # martin-ui is deliberately not here: build.rs embeds it, but no Rust
+              # test asserts on it, so `ui` builds it instead of dragging the whole
+              # Rust suite into npm-only changes.
+              - 'martin-*/**'
+              - 'martin/*'
+              - 'martin/benches/**'
+              - 'martin/src/**'
+              - 'martin/tests/**'
             ui:
               - *shared
               - 'biome.json'
