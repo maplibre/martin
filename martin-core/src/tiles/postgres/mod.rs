@@ -15,4 +15,7 @@ pub use retry_timeout::RetryTimeout;
 mod source;
 pub use source::{PostgresSource, PostgresSqlInfo};
 
+/// A row of a query run through the pool.
+pub use deadpool_postgres::tokio_postgres::Row;
+
 pub(crate) mod utils;

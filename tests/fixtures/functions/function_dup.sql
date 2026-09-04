@@ -1,7 +1,8 @@
 DROP FUNCTION IF EXISTS public.function_dup(integer, integer, integer);
 DROP FUNCTION IF EXISTS public.function_dup(integer, integer, integer, json);
+DROP FUNCTION IF EXISTS public.function_dup(integer, integer, integer, jsonb);
 
--- One name with two signatures, each handing off to a function whose layer name tells them apart.
+-- One name with three signatures, each handing off to a function whose layer name tells them apart.
 CREATE OR REPLACE FUNCTION public.function_dup(
     z integer, x integer, y integer
 ) RETURNS bytea AS $$
@@ -15,6 +16,14 @@ CREATE OR REPLACE FUNCTION public.function_dup(
 ) RETURNS bytea AS $$
 BEGIN
   RETURN public.function_zxy_query(z, x, y, query);
+END
+$$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OR REPLACE FUNCTION public.function_dup(
+    z integer, x integer, y integer, query jsonb
+) RETURNS bytea AS $$
+BEGIN
+  RETURN public.function_zxy_query_jsonb(z, x, y, query);
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 

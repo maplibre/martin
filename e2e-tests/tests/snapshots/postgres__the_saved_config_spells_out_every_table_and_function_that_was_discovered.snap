@@ -383,10 +383,10 @@ postgres:
       function: function_Mixed_Name
     function_dup:
       schema: public
-      function: function_dup(integer, integer, integer)
+      function: function_dup
     function_dup.1:
       schema: public
-      function: function_dup(integer, integer, integer, json)
+      function: function_dup(integer, integer, integer, jsonb)
     function_null:
       schema: public
       function: function_null

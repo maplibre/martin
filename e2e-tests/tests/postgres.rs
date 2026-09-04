@@ -850,28 +850,20 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 }
 
 #[tokio::test]
-async fn an_overloaded_function_is_published_once_per_signature() {
+async fn an_overloaded_function_routes_by_the_query_string() {
     let mut martin = martin_with_postgres().await;
 
-    // function_dup exists with and without a query argument, each handing off to a function
-    // whose layer name tells them apart, and only the query variant carries a comment.
+    // function_dup exists without a query argument, with a json one and with a jsonb one, each
+    // handing off to a function whose layer name tells them apart. The first two are one source
+    // that picks by the request, the jsonb one is its own source. Only the json variant carries
+    // a comment, which the shared source inherits.
     insta::assert_json_snapshot!(tilejson(&martin, "/function_dup").await, @r#"
     {
-      "description": "public.function_dup(integer, integer, integer)",
+      "description": "the variant that takes a query",
       "name": "function_dup",
       "tilejson": "3.0.0",
       "tiles": [
         "http://[ADDR]/function_dup/{z}/{x}/{y}"
-      ]
-    }
-    "#);
-    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup.1").await, @r#"
-    {
-      "description": "the variant that takes a query",
-      "name": "function_dup.1",
-      "tilejson": "3.0.0",
-      "tiles": [
-        "http://[ADDR]/function_dup.1/{z}/{x}/{y}"
       ]
     }
     "#);
@@ -921,9 +913,65 @@ async fn an_overloaded_function_is_published_once_per_signature() {
         geometry: POINT(1614,3539)
         properties: (none)
     ");
-    insta::assert_snapshot!(tile_dump(&martin, "/function_dup.1/6/57/29").await, @"
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup/6/57/29?answer=42").await, @"
     layer: 0
       name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup.1").await, @r#"
+    {
+      "description": "public.function_dup(integer, integer, integer, jsonb)",
+      "name": "function_dup.1",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_dup.1/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup.1/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
       version: 2
       extent: 4096
       feature: 0
@@ -973,39 +1021,74 @@ async fn an_overloaded_function_is_published_once_per_signature() {
 }
 
 #[tokio::test]
-async fn a_configured_function_names_the_signature_of_an_overload() {
+async fn a_configured_function_names_a_further_variant_by_its_signature() {
     let mut martin = Martin::builder()
         .with_postgres()
         .config(
             "
-on_invalid: warn
 postgres:
   connection_string: ${DATABASE_URL}
   pool_size: 1
   functions:
-    with_query:
-      schema: public
-      function: function_dup(integer, integer, integer, json)
-    bare:
+    pair:
       schema: public
       function: function_dup
+    with_jsonb:
+      schema: public
+      function: function_dup(integer, integer, integer, jsonb)
 ",
         )
         .start()
         .await
         .expect("failed to start martin");
 
-    insta::assert_json_snapshot!(tilejson(&martin, "/with_query").await, @r#"
-    {
-      "description": "the variant that takes a query",
-      "name": "with_query",
-      "tilejson": "3.0.0",
-      "tiles": [
-        "http://[ADDR]/with_query/{z}/{x}/{y}"
-      ]
-    }
-    "#);
-    insta::assert_snapshot!(tile_dump(&martin, "/with_query/6/57/29").await, @"
+    insta::assert_snapshot!(tile_dump(&martin, "/pair/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/pair/6/57/29?answer=42").await, @"
     layer: 0
       name: public.function_zxy_query
       version: 2
@@ -1051,10 +1134,52 @@ postgres:
         geometry: POINT(1614,3539)
         properties: (none)
     ");
-    assert_eq!(martin.get("/bare").await.status(), 404);
+    insta::assert_snapshot!(tile_dump(&martin, "/with_jsonb/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
 
     martin.stop().await;
-    martin.assert_log_contains(
-        "Unable to configure source bare because function 'function_dup' is overloaded. Name one of its signatures instead: function_dup(integer, integer, integer), function_dup(integer, integer, integer, json)",
-    );
 }
