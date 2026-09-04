@@ -3,7 +3,7 @@ name: Shear (expand)
 # `cargo shear --expand` compiles the whole workspace (including the bundled DuckDB
 # and maplibre-native C++ trees) under nightly to detect dependencies that are only
 # used inside macro expansions. That full build is far too slow to gate every PR, so
-# the fast compile-free `cargo shear` runs in ci.yml and this catches the rare
+# the fast compile-free `cargo shear` runs in rust.yml and this catches the rare
 # macro-only case on a schedule.
 
 on:
