@@ -152,6 +152,7 @@ fn assert_discovery_warnings(martin: &mut Martin) {
         "source.id.new=table_name_existing_two_schemas.1",
         "source.id.new=view_name_existing_two_schemas.1",
         "source.id.new=table_and_view_two_schemas.1",
+        "source.id.new=function_dup.1",
         "source.id.new=-function.withweired---_-characters",
         "source.id.new=.-Points-----------quote",
     ] {
@@ -846,4 +847,214 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn an_overloaded_function_is_published_once_per_signature() {
+    let mut martin = martin_with_postgres().await;
+
+    // function_dup exists with and without a query argument, each handing off to a function
+    // whose layer name tells them apart, and only the query variant carries a comment.
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup").await, @r#"
+    {
+      "description": "public.function_dup(integer, integer, integer)",
+      "name": "function_dup",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_dup/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup.1").await, @r#"
+    {
+      "description": "the variant that takes a query",
+      "name": "function_dup.1",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_dup.1/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup.1/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_configured_function_names_the_signature_of_an_overload() {
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(
+            "
+on_invalid: warn
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 1
+  functions:
+    with_query:
+      schema: public
+      function: function_dup(integer, integer, integer, json)
+    bare:
+      schema: public
+      function: function_dup
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(tilejson(&martin, "/with_query").await, @r#"
+    {
+      "description": "the variant that takes a query",
+      "name": "with_query",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/with_query/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/with_query/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    assert_eq!(martin.get("/bare").await.status(), 404);
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Unable to configure source bare because function 'function_dup' is overloaded. Name one of its signatures instead: function_dup(integer, integer, integer), function_dup(integer, integer, integer, json)",
+    );
 }

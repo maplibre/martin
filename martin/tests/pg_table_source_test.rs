@@ -41,6 +41,12 @@ async fn table_source() {
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
+    function_dup:
+      content_type: application/x-protobuf
+      description: "public.function_dup(integer, integer, integer)"
+    function_dup.1:
+      content_type: application/x-protobuf
+      description: the variant that takes a query
     function_null:
       content_type: application/x-protobuf
       description: public.function_null

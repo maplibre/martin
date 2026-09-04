@@ -9,7 +9,7 @@ use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
-    query_available_function, query_available_tables, query_schemas, table_to_query,
+    function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
 };
 use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
@@ -303,7 +303,7 @@ impl PostgresAutoDiscoveryBuilder {
                     let source_id = auto_funcs
                         .source_id_format
                         .replace("{schema}", &schema)
-                        .replace("{function}", &func);
+                        .replace("{function}", function_name(&func));
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     specs.insert(id2, SourceSpec::Function(db_inf, pg_sql));
                 }
@@ -409,6 +409,22 @@ impl PostgresAutoDiscoveryBuilder {
             id,
         )?;
         let function_name = &function_info_from_config.function;
+        if !function_infos_for_schema.contains_key(function_name) {
+            let signatures = function_infos_for_schema
+                .keys()
+                .filter(|key| {
+                    let (name, rest) = key
+                        .split_at_checked(function_name.len())
+                        .unwrap_or_default();
+                    name.eq_ignore_ascii_case(function_name) && rest.starts_with('(')
+                })
+                .join(", ");
+            if !signatures.is_empty() {
+                return Err(format!(
+                    "Unable to configure source {id} because function '{function_name}' is overloaded. Name one of its signatures instead: {signatures}"
+                ));
+            }
+        }
         let (function_sql_info, table_info_from_schema) =
             find_info(function_infos_for_schema, function_name, "function", id)?;
         let merged_function_info =

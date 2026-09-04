@@ -381,6 +381,12 @@ postgres:
     function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name
+    function_dup:
+      schema: public
+      function: function_dup(integer, integer, integer)
+    function_dup.1:
+      schema: public
+      function: function_dup(integer, integer, integer, json)
     function_null:
       schema: public
       function: function_null

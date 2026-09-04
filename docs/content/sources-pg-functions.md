@@ -174,6 +174,23 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
+### Overloaded functions
+
+PostgreSQL lets several functions share a name as long as their argument types differ, such as a `function_zxy(z, x, y)` next to a `function_zxy(z, x, y, query json)`.
+Martin publishes every variant it finds.
+Sorted by their argument types, the first keeps the function name as its source id and each further one gets a numbered suffix, so the two above become `function_zxy` and `function_zxy.1`.
+The `TileJSON` description of each carries the full signature, which is also how a configuration file picks one of them.
+
+```yaml
+postgres:
+  functions:
+    with_query:
+      schema: public
+      function: function_zxy(integer, integer, integer, json)
+```
+
+A configuration that names only `function_zxy` is refused while the name is overloaded, and the error lists the signatures to choose from.
+
 ### Postprocessing
 
 Function sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
