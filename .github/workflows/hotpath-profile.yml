@@ -50,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - run: rustup update stable && rustup default stable
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none, tools: 'just,oha' }
       - name: Install rendering dependencies
         run: just install-dependencies

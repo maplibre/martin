@@ -78,10 +78,9 @@ jobs:
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/rust.yml
+    uses: $/.github/workflows/rust.yml
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
-    secrets: inherit
     permissions:
       contents: read
       id-token: write
@@ -93,28 +92,28 @@ jobs:
   ui:
     needs: changes
     if: needs.changes.outputs.ui == 'true'
-    uses: ./.github/workflows/ui.yml
+    uses: $/.github/workflows/ui.yml
     permissions:
       contents: read
 
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    uses: ./.github/workflows/docs.yml
+    uses: $/.github/workflows/docs.yml
     permissions:
       contents: write
 
   schemas:
     needs: changes
     if: needs.changes.outputs.schemas == 'true'
-    uses: ./.github/workflows/schemas.yml
+    uses: $/.github/workflows/schemas.yml
     permissions:
       contents: read
 
   demo:
     needs: changes
     if: needs.changes.outputs.demo == 'true'
-    uses: ./.github/workflows/demo.yml
+    uses: $/.github/workflows/demo.yml
     permissions:
       contents: read
 
@@ -132,10 +131,12 @@ jobs:
       && !contains(needs.*.result, 'failure')
       && !contains(needs.*.result, 'cancelled')
       && needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/release.yml
+    uses: $/.github/workflows/release.yml
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
-    secrets: inherit
+    secrets:
+      GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+      RELEASE_PLZ_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
     permissions:
       contents: write
       id-token: write

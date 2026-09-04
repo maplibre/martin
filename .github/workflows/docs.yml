@@ -35,7 +35,7 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none, tools: 'just,cargo-binstall' }
 
       - run: just -v docs-build

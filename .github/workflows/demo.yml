@@ -22,6 +22,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - run: just demo::build
