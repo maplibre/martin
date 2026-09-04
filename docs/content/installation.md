@@ -69,8 +69,6 @@ to [improve packaging for various platforms](https://github.com/maplibre/martin/
 If you are using [Homebrew](https://brew.sh/) you can install martin using
 
 ```bash
-brew tap maplibre/martin
-brew install martin
 brew install martin
 martin --help
 ```
