@@ -216,8 +216,8 @@ async fn pmt_minio_polls_catalog_via_public_api() {
             "body_non_empty": !body.is_empty(),
         }),
         @r"
-    body_non_empty: true
     status: 200
+    body_non_empty: true
     "
     );
 

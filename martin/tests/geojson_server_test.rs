@@ -55,14 +55,14 @@ async fn geojson_get_catalog_with_rendering_feature() {
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       feature_collection_1:
         content_type: application/x-protobuf
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 
@@ -78,16 +78,16 @@ async fn geojson_get_catalog_gzip_with_rendering_feature() {
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       geo1:
         content_type: application/x-protobuf
       geo2:
         content_type: application/x-protobuf
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 
