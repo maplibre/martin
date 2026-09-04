@@ -117,7 +117,7 @@ geo = "0.33.1"
 geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.24"
+hotpath = "0.25"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
