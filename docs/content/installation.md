@@ -66,15 +66,14 @@ to [improve packaging for various platforms](https://github.com/maplibre/martin/
 
 #### Homebrew
 
-If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
+If you are using [Homebrew](https://brew.sh/) you can install martin using
 
 ```bash
 brew tap maplibre/martin
 brew install martin
+brew install martin
 martin --help
 ```
-
-Martin is also in Homebrew core, so `brew install martin` works without the tap.
 
 #### Debian packages (x86_64) manually
 
