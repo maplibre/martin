@@ -10,6 +10,7 @@ bsdiffraw
 bsdiffrawgz
 bytea
 cacreateserial
+casei
 circularstring
 clippy
 configtest
@@ -91,6 +92,7 @@ rgba
 rustaceanvim
 schemafile
 setseed
+setsrid
 spritesheet
 sqlx
 srid
