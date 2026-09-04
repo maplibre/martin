@@ -922,6 +922,7 @@ async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
 async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()
+        .env("RUST_LOG", "martin=error")
         .config(
             "
 postgres:
@@ -942,5 +943,12 @@ postgres:
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    insta::assert_snapshot!(log, @"");
+    insta::assert_snapshot!(log, @"
+    ERROR Filter 'gid <=' is not valid CQL2:  --> 1:7
+      |
+    1 | gid <=
+      |       ^---
+      |
+      = expected GEOMETRY, Identifier, Negative, UnaryNot, True, False, Null, DECIMAL, Double, SingleQuotedString, ExpressionInParentheses, or Array
+    ");
 }
