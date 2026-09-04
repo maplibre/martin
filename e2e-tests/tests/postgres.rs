@@ -808,3 +808,42 @@ postgres:
     unbounded.stop().await;
     assert_discovery_warnings(&mut unbounded);
 }
+
+#[tokio::test]
+async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_the_client_accepts() {
+    let mut martin = martin_with_postgres().await;
+
+    // function_zxy_gzip returns the tile function_zxy produces for 6/57/29, gzip-compressed.
+    let expected = tile_dump(&martin, "/function_zxy/6/57/29").await;
+
+    let compressed = martin.get("/function_zxy_gzip/6/57/29").await;
+    assert_eq!(compressed.status(), 200);
+    insta::assert_snapshot!(compressed.headers_snapshot_masking_etag(), @"
+    content-encoding: gzip
+    content-length: 78
+    content-type: application/x-protobuf
+    etag: [ETAG]
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    ");
+    assert_eq!(compressed.mvt_dump(), expected);
+
+    // The harness always advertises gzip, so ask without it directly to see the tile decompressed.
+    let plain = reqwest::Client::new()
+        .get(format!(
+            "http://{}/function_zxy_gzip/6/57/29",
+            martin.addr()
+        ))
+        .header("accept-encoding", "identity")
+        .send()
+        .await
+        .expect("request failed");
+    assert_eq!(plain.status(), 200);
+    assert_eq!(plain.headers().get("content-encoding"), None);
+    assert_eq!(
+        plain.bytes().await.expect("body failed").as_ref(),
+        compressed.body()
+    );
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}

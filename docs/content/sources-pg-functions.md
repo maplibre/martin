@@ -287,3 +287,9 @@ END $do$;
     `content_type` is not a standard TileJSON field.
     Martin reads it from the SQL comment to determine how to serve tiles with the correct MIME type.
     It is also preserved in the TileJSON output so clients can inspect the tile format.
+
+#### Serving compressed tiles from PostgreSQL functions
+
+A function may return tiles that are already gzip or zlib compressed.
+Martin detects the compression of every tile the function returns.
+Clients that accept that encoding receive the bytes unchanged, and clients that do not receive the decompressed tile.

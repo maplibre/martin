@@ -399,6 +399,9 @@ postgres:
     function_zxy2:
       schema: public
       function: function_zxy2
+    function_zxy_gzip:
+      schema: public
+      function: function_zxy_gzip
     function_zxy_query:
       schema: public
       function: function_zxy_query

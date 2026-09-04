@@ -61,9 +61,9 @@ async fn patch_fixtures(dir: &Path, extra_args: &[&str]) -> (PathBuf, PathBuf, P
 
     let mut command = MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&patch)
         .arg("--diff-with-file")
-        .arg(&modified)
-        .arg(&patch);
+        .arg(&modified);
     for arg in extra_args {
         command = command.arg(*arg);
     }
@@ -131,9 +131,9 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
         .await;
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&patch)
         .arg("--diff-with-file")
         .arg(&back)
-        .arg(&patch)
         .run()
         .await;
 
@@ -212,9 +212,9 @@ async fn diff_and_copy_with_diff_with_file_write_the_same_patch() {
 
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&from_copy)
         .arg("--diff-with-file")
         .arg(&modified)
-        .arg(&from_copy)
         .run()
         .await;
     MbtilesCli::new("diff")
@@ -248,9 +248,9 @@ async fn a_patch_applied_as_plain_sql_reproduces_the_modified_tileset() {
 
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&patch)
         .arg("--diff-with-file")
         .arg(&modified)
-        .arg(&patch)
         .run()
         .await;
 
@@ -296,18 +296,18 @@ async fn a_bin_diff_patch_reproduces_the_modified_tileset() {
 
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&patch)
         .arg("--diff-with-file")
         .arg(&modified)
-        .arg(&patch)
         .arg("--patch-type")
         .arg("bin-diff-gz")
         .run()
         .await;
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&applied)
         .arg("--apply-patch")
         .arg(&patch)
-        .arg(&applied)
         .run()
         .await;
 
@@ -329,9 +329,9 @@ async fn the_checked_in_bin_diff_fixture_still_applies() {
 
     MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&applied)
         .arg("--apply-patch")
         .arg(&patch)
-        .arg(&applied)
         .run()
         .await;
 
@@ -357,9 +357,9 @@ async fn applying_a_patch_announces_the_hashes_it_expects() {
 
     let output = MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&applied)
         .arg("--apply-patch")
         .arg(&patch)
-        .arg(&applied)
         .run()
         .await;
 
@@ -386,9 +386,9 @@ async fn bin_diff_reports_how_many_workers_it_used() {
     // Both cutting and applying a bin-diff run the parallel bindiff pass and say so.
     let cutting = MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&patch)
         .arg("--diff-with-file")
         .arg(&modified)
-        .arg(&patch)
         .arg("--patch-type")
         .arg("bin-diff-gz")
         .run()
@@ -397,9 +397,9 @@ async fn bin_diff_reports_how_many_workers_it_used() {
 
     let applying = MbtilesCli::new("copy")
         .arg(&source)
+        .arg(&applied)
         .arg("--apply-patch")
         .arg(&patch)
-        .arg(&applied)
         .run()
         .await;
     insta::assert_snapshot!("applying_a_bin_diff", redact(&dir, &applying));
