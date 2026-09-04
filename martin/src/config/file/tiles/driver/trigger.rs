@@ -6,6 +6,9 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 use tokio::time::{Instant, MissedTickBehavior};
 
+/// How long after a directory appears a second pass runs, for files that landed in it before the watcher covered it
+const NEW_DIRECTORY_RECHECK: Duration = Duration::from_secs(1);
+
 /// Decides when a [`ReloadDriver`](super::ReloadDriver) reconciles. `None` ends the loop.
 pub trait Trigger: Send + 'static {
     fn next(&mut self) -> impl Future<Output = Option<()>> + Send;
@@ -14,7 +17,8 @@ pub trait Trigger: Send + 'static {
 /// Fires on relevant filesystem events in the watched directories.
 pub struct NotifyTrigger {
     rx: mpsc::Receiver<Event>,
-    /// Dropping the watcher closes the channel and ends the loop.
+    /// When the pass for a newly created directory is due
+    recheck: Option<Instant>,
     _watcher: RecommendedWatcher,
 }
 
@@ -43,6 +47,7 @@ impl NotifyTrigger {
 
         Ok(Self {
             rx,
+            recheck: None,
             _watcher: watcher,
         })
     }
@@ -50,18 +55,36 @@ impl NotifyTrigger {
 
 impl Trigger for NotifyTrigger {
     async fn next(&mut self) -> Option<()> {
-        while let Some(event) = self.rx.recv().await {
-            if matches!(
-                event.kind,
-                EventKind::Create(_)
-                    | EventKind::Remove(_)
-                    | EventKind::Modify(_)
-                    | EventKind::Access(AccessKind::Close(AccessMode::Write))
-            ) {
-                return Some(());
+        loop {
+            let recheck = self.recheck;
+            tokio::select! {
+                event = self.rx.recv() => {
+                    let event = event?;
+                    if !matches!(
+                        event.kind,
+                        EventKind::Create(_)
+                            | EventKind::Remove(_)
+                            | EventKind::Modify(_)
+                            | EventKind::Access(AccessKind::Close(AccessMode::Write))
+                    ) {
+                        continue;
+                    }
+                    // The watcher only starts covering a new directory once it has seen it appear,
+                    // so a file moved in right after the directory can go unreported; a pass a
+                    // moment later picks it up.
+                    if matches!(event.kind, EventKind::Create(_))
+                        && event.paths.iter().any(|path| path.is_dir())
+                    {
+                        self.recheck = Some(Instant::now() + NEW_DIRECTORY_RECHECK);
+                    }
+                    return Some(());
+                }
+                () = tokio::time::sleep_until(recheck.unwrap_or_else(Instant::now)), if recheck.is_some() => {
+                    self.recheck = None;
+                    return Some(());
+                }
             }
         }
-        None
     }
 }
 
@@ -144,6 +167,33 @@ mod tests {
             fired.expect("trigger did not fire within 5s"),
             Some(()),
             "creating a file should fire the trigger"
+        );
+    }
+
+    #[tokio::test]
+    async fn notify_trigger_runs_a_second_pass_after_a_new_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut trigger = NotifyTrigger::new(&[dir.path().to_path_buf()], true).unwrap();
+
+        // Let the watcher register before mutating the directory.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        std::fs::create_dir_all(dir.path().join("2025")).unwrap();
+
+        let started = Instant::now();
+        // The directory itself produces one or more events at once; the pass this test is
+        // about is the one that arrives after the delay with nothing else touching the tree.
+        let mut fired_after_the_delay = false;
+        while started.elapsed() < NEW_DIRECTORY_RECHECK + Duration::from_secs(2) {
+            let fired = tokio::time::timeout(Duration::from_secs(3), trigger.next()).await;
+            assert_eq!(fired.expect("the trigger went quiet"), Some(()));
+            if started.elapsed() >= NEW_DIRECTORY_RECHECK {
+                fired_after_the_delay = true;
+                break;
+            }
+        }
+        assert!(
+            fired_after_the_delay,
+            "no pass after the new-directory delay"
         );
     }
 
