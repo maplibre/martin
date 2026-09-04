@@ -285,14 +285,14 @@ async fn property_types_survive_the_round_trip() {
         id: (none)
         geometry: POINT(2048,2048)
         properties:
-          prop_array = "[1,2,3]"
-          prop_bool_false = false (bool)
-          prop_bool_true = true (bool)
-          prop_float = 3.5 (double)
-          prop_int_negative = -42 (int)
-          prop_object = "{\"nested\":\"value\"}"
           prop_string = "hello"
+          prop_int_negative = -42 (int)
           prop_uint_large = 18446744073709551615 (uint)
+          prop_float = 3.5 (double)
+          prop_bool_true = true (bool)
+          prop_bool_false = false (bool)
+          prop_array = "[1,2,3]"
+          prop_object = "{\"nested\":\"value\"}"
     "#);
 
     martin.stop().await;

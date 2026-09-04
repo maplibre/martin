@@ -732,8 +732,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "image/jpeg": unknown;
                     "image/png": unknown;
+                    "image/jpeg": unknown;
                     "image/webp": unknown;
                 };
             };
@@ -798,8 +798,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "image/jpeg": unknown;
                     "image/png": unknown;
+                    "image/jpeg": unknown;
                     "image/webp": unknown;
                 };
             };
