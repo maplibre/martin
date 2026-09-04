@@ -1218,6 +1218,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#serving-compressed-tiles-from-postgresql-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving compressed tiles from PostgreSQL functions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2398,6 +2409,10 @@ Martin will read this field and serve the tiles with the correct MIME type.</p>
 Martin reads it from the SQL comment to determine how to serve tiles with the correct MIME type.
 It is also preserved in the TileJSON output so clients can inspect the tile format.</p>
 </div>
+<h4 id="serving-compressed-tiles-from-postgresql-functions">Serving compressed tiles from PostgreSQL functions</h4>
+<p>A function may return tiles that are already gzip or zlib compressed.
+Martin detects the compression of every tile the function returns.
+Clients that accept that encoding receive the bytes unchanged, and clients that do not receive the decompressed tile.</p>
 
 
   <nav class="md-tags" >
