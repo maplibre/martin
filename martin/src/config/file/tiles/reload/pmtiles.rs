@@ -1,7 +1,9 @@
 use crate::TileSourceManager;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery};
+use crate::config::file::tiles::discovery::{
+    FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,
+};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
     CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
@@ -78,8 +80,29 @@ impl PmtilesReloader {
             &process,
             build,
         );
-        let remote =
-            ObjectStoreDiscovery::from_config(config, id_resolver, default_cache, &process);
+        let parser_config = pmt_config.clone();
+        let parser: ObjectStoreParser = Box::new(move |url| parser_config.parse_url_opts(url));
+        let remote_build_config = pmt_config.clone();
+        let remote_build: ObjectStoreSourceBuilder = Box::new(move |id, url, policy| {
+            let config = remote_build_config.clone();
+            Box::pin(async move {
+                config
+                    .new_sources_url(id, url, policy)
+                    .await
+                    .map(Into::into)
+            })
+        });
+        let remote = ObjectStoreDiscovery::from_config(
+            config,
+            &[PMTILES_EXT],
+            "PmtilesReloader",
+            pmt_config.reload_interval,
+            id_resolver,
+            default_cache,
+            &process,
+            parser,
+            remote_build,
+        );
 
         Self {
             local: ReloadDriver::new(local, tsm.clone()),
