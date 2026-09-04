@@ -31,13 +31,8 @@ jobs:
       ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
       schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
-      # Windows/macOS builds and the publish dry-run re-prove on a second platform
-      # what the Linux lane already covers, so they are deferred for pull requests
-      # below the top of their stack. An unstacked pull request is its own top.
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
-      # Only pull requests are filtered; pushes and releases run everything.
-      # `dorny/paths-filter` reads the changed files from the API, so no checkout.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
