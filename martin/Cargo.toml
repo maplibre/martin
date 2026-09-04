@@ -216,7 +216,7 @@ rustls.workspace = true
 schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-saphyr.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 static-files = { workspace = true, optional = true }
 thiserror.workspace = true
