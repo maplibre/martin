@@ -74,6 +74,8 @@ brew install martin
 martin --help
 ```
 
+Martin is also in Homebrew core, so `brew install martin` works without the tap.
+
 #### Debian packages (x86_64) manually
 
 ```bash
@@ -81,6 +83,24 @@ curl -O https://github.com/maplibre/martin/releases/latest/download/debian-x86_6
 sudo dpkg -i ./debian-x86_64.deb
 martin --help
 rm ./debian-x86_64.deb
+```
+
+#### Arch Linux
+
+The [AUR](https://aur.archlinux.org/packages/martin) carries `martin` and `martin-cp`, maintained by the community.
+With an AUR helper such as `yay`:
+
+```bash
+yay -S martin
+martin --help
+```
+
+#### Nix
+
+[nixpkgs](https://search.nixos.org/packages?query=martin) carries `martin`, usually a release or two behind.
+
+```bash
+nix-shell -p martin --run 'martin --help'
 ```
 
 ### Building from source
