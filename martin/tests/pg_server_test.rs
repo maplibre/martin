@@ -90,9 +90,9 @@ postgres:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
       function_dup:
-        attribution: from the queryless comment
         content_type: application/x-protobuf
         description: the json variant
+        attribution: from the queryless comment
       function_dup.1:
         content_type: application/x-protobuf
         description: the jsonb variant
