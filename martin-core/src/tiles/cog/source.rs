@@ -74,6 +74,12 @@ impl CogSource {
         Self::new_reader(id, reader, cache_zoom).await
     }
 
+    /// Returns the object metadata captured when this source was opened.
+    #[must_use]
+    pub fn object_metadata(&self) -> &crate::tiles::cog::CogObjectMeta {
+        self.reader.metadata()
+    }
+
     #[expect(clippy::too_many_lines)]
     async fn new_reader(
         id: String,

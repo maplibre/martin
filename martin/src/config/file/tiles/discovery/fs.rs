@@ -224,7 +224,10 @@ impl FsDiscovery {
 }
 
 /// Per-source `convert_to_*` and `cache_control` settings layered over the kind-level [`ProcessConfig`].
-fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
+pub(crate) fn per_source_process(
+    kind_level: &ProcessConfig,
+    src: &FileConfigSrc,
+) -> Option<ProcessConfig> {
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
