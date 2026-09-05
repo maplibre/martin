@@ -8,10 +8,9 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body, read_b
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
-use martin::config::file::CachePolicy;
-use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
+use martin::config::file::{CachePolicy, ProcessConfig};
 use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};

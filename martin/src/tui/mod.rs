@@ -13,6 +13,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use tokio::sync::oneshot;
 use tracing::error;
 
+mod data;
 mod log;
 mod observer;
 mod render;
@@ -20,9 +21,9 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+pub use data::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
 pub use observer::observe;
-use render::{LogSize, LogView};
-pub use state::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
+use state::LogView;
 
 /// How many lines the page keys move the log by.
 const PAGE: usize = 10;
@@ -113,27 +114,21 @@ fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::
             dashboard.clear();
         }
         if key.code == KeyCode::Char('l') {
-            log.size = match log.size {
-                LogSize::Normal => LogSize::Expanded,
-                LogSize::Expanded => LogSize::Normal,
-            };
+            log.toggle_size();
         }
-        let oldest = view.log.len().saturating_sub(1);
-        let scroll = log.scroll.min(oldest);
-        log.scroll = if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
-            (scroll + 1).min(oldest)
+        let lines = view.log.len();
+        if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
+            log.scroll_back(1, lines);
         } else if key.code == KeyCode::PageUp {
-            (scroll + PAGE).min(oldest)
+            log.scroll_back(PAGE, lines);
         } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
-            scroll.saturating_sub(1)
+            log.scroll_forward(1, lines);
         } else if key.code == KeyCode::PageDown {
-            scroll.saturating_sub(PAGE)
+            log.scroll_forward(PAGE, lines);
         } else if key.code == KeyCode::Home {
-            oldest
+            log.scroll_to_oldest(lines);
         } else if key.code == KeyCode::End {
-            0
-        } else {
-            scroll
-        };
+            log.follow();
+        }
     }
 }

@@ -6,9 +6,9 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use tracing::Level;
 
+use super::data::{Dashboard, TileRequest};
 use super::render;
-use super::render::{LogSize, LogView};
-use super::state::{Dashboard, TileRequest};
+use super::state::{LogSize, LogView};
 
 fn render(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
     let view = dashboard.snapshot_at(now);

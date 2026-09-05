@@ -6,11 +6,10 @@ use tracing::{info, warn};
 use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
-use crate::config::file::CachePolicy;
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 
