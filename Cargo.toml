@@ -96,11 +96,12 @@ aws-runtime = "1.8"
 backon = "1.6.0"
 base64 = "0.23.0"
 bit-set = "0.11"
-brotli = ">=5, <9"
+brotli = ">=5, <10"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 contour = { version = "0.13.1", features = ["f32"] }
+cql2 = "0.6.0"
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 csscolorparser = "0.8"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
@@ -112,6 +113,7 @@ enum-display = "0.2"
 env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
+fnv = "1"
 futures = "0.3"
 geo = "0.33.1"
 geo-index = { version = "0.3.3", features = ["rayon"] }
@@ -176,7 +178,7 @@ serde_with = { version = "3", default-features = false, features = ["macros"] }
 size_format = "1.0.2"
 spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
-sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
+sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "fnv", "xxhash", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
@@ -199,8 +201,8 @@ url = "2.5"
 utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 walkdir = "2.5.0"
 wiremock = "0.6"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
-zstd = "0.13"
+xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
+zstd = "0.14"
 zune-core = "0.5"
 zune-jpegxl = "0.5"
 

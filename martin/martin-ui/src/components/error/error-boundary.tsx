@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
-  errorInfo?: React.ErrorInfo;
 }
 
 interface ErrorBoundaryProps {
@@ -28,12 +27,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ error, errorInfo });
     this.props.onError?.(error, errorInfo);
   }
 
   retry = () => {
-    this.setState({ error: undefined, errorInfo: undefined, hasError: false });
+    this.setState({ error: undefined, hasError: false });
   };
 
   render() {

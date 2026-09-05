@@ -4,7 +4,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, MartinBuilder, round_floats};
+use martin_e2e_tests::{Martin, MartinBuilder, StartError, round_floats};
 use serde_json::Value;
 
 /// A server that publishes everything it finds in the fixture database.
@@ -93,6 +93,16 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    points1_filtered:
+      layer_id: filtered
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      geometry_type: POINT
+      filter: gid <= 3
+      properties:
+        gid: int4
     points3857:
       schema: public
       table: points3857
@@ -152,6 +162,9 @@ fn assert_discovery_warnings(martin: &mut Martin) {
         "source.id.new=table_name_existing_two_schemas.1",
         "source.id.new=view_name_existing_two_schemas.1",
         "source.id.new=table_and_view_two_schemas.1",
+        "source.id.new=function_dup.1",
+        "source.id.new=function_pair_query.1",
+        "source.id.new=function_two_schemas.1",
         "source.id.new=-function.withweired---_-characters",
         "source.id.new=.-Points-----------quote",
     ] {
@@ -520,6 +533,10 @@ async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
         "content_type": "application/x-protobuf",
         "description": "public.points1.geom"
       },
+      "points1_filtered": {
+        "content_type": "application/x-protobuf",
+        "description": "public.points1.geom"
+      },
       "points2": {
         "content_type": "application/x-protobuf",
         "description": "public.points2.geom"
@@ -846,4 +863,785 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_queryless_and_a_json_variant_route_by_the_query_string() {
+    let mut martin = martin_with_postgres().await;
+
+    // function_pair_json hands off to function_zxy without a query string and to
+    // function_zxy_query with one, so the layer name says which variant ran.
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_json/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_json/6/57/29?answer=42").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_queryless_and_a_jsonb_variant_route_by_the_query_string() {
+    let mut martin = martin_with_postgres().await;
+
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_jsonb/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_jsonb/6/57/29?answer=42").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_json_and_a_jsonb_variant_are_two_sources() {
+    let mut martin = martin_with_postgres().await;
+
+    // Neither variant can take the bare URL from the other, so each keeps its own id.
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_pair_query").await, @r#"
+    {
+      "description": "public.function_pair_query",
+      "name": "function_pair_query",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_pair_query/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_pair_query.1").await, @r#"
+    {
+      "description": "public.function_pair_query(integer, integer, integer, jsonb)",
+      "name": "function_pair_query.1",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_pair_query.1/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_query/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_pair_query.1/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn the_comments_of_three_variants_land_where_their_source_is() {
+    let mut martin = martin_with_postgres().await;
+
+    // function_dup has all three variants, each with its own comment. The queryless and json
+    // ones share a source, so their comments merge with the json one winning, and the jsonb
+    // one keeps its comment on its own source.
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup").await, @r#"
+    {
+      "attribution": "from the queryless comment",
+      "description": "the json variant",
+      "name": "function_dup",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_dup/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_dup.1").await, @r#"
+    {
+      "description": "the jsonb variant",
+      "name": "function_dup.1",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_dup.1/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup/6/57/29?answer=42").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/function_dup.1/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn the_same_function_name_in_two_schemas_keeps_each_comment() {
+    let mut martin = martin_with_postgres().await;
+
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_two_schemas").await, @r#"
+    {
+      "description": "the schema_a comment",
+      "name": "function_two_schemas",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_two_schemas/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    insta::assert_json_snapshot!(tilejson(&martin, "/function_two_schemas.1").await, @r#"
+    {
+      "description": "the schema_b comment",
+      "name": "function_two_schemas.1",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/function_two_schemas.1/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_configured_function_names_a_further_variant_by_its_signature() {
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(
+            "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 1
+  functions:
+    pair:
+      schema: public
+      function: function_dup
+    with_jsonb:
+      schema: public
+      function: function_dup(integer, integer, integer, jsonb)
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(tile_dump(&martin, "/pair/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/pair/6/57/29?answer=42").await, @"
+    layer: 0
+      name: public.function_zxy_query
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+    insta::assert_snapshot!(tile_dump(&martin, "/with_jsonb/6/57/29").await, @"
+    layer: 0
+      name: public.function_zxy_query_jsonb
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 1
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 2
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 3
+        id: (none)
+        geometry: POINT(1614,3540)
+        properties: (none)
+      feature: 4
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 5
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+      feature: 6
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 7
+        id: (none)
+        geometry: POINT(1613,3540)
+        properties: (none)
+      feature: 8
+        id: (none)
+        geometry: POINT(1613,3539)
+        properties: (none)
+      feature: 9
+        id: (none)
+        geometry: POINT(1614,3539)
+        properties: (none)
+    ");
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
+    let mut martin = martin_from_the_config().await;
+
+    // points1 holds 30 points with gid 1..=30 and the config keeps the first three.
+    let filtered = tilejson(&martin, "/points1_filtered").await;
+    insta::assert_json_snapshot!(filtered, @r#"
+    {
+      "bounds": [
+        142.8404063069,
+        11.926741846,
+        142.8414336,
+        11.927383336
+      ],
+      "description": "public.points1.geom",
+      "name": "points1_filtered",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/points1_filtered/{z}/{x}/{y}"
+      ],
+      "vector_layers": [
+        {
+          "fields": {
+            "gid": "int4"
+          },
+          "id": "filtered"
+        }
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/points1_filtered/0/0/0").await, @"
+    layer: 0
+      name: filtered
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 3 (uint)
+      feature: 1
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 2 (uint)
+      feature: 2
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 1 (uint)
+    ");
+
+    martin.stop().await;
+    assert_unindexed_table_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
+    let error = Martin::builder()
+        .with_postgres()
+        .env("RUST_LOG", "martin=error")
+        .config(
+            "
+postgres:
+  connection_string: ${DATABASE_URL}
+  tables:
+    broken:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      filter: gid <=
+",
+        )
+        .start()
+        .await
+        .expect_err("martin must not start with a filter it cannot parse");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"
+    ERROR Filter 'gid <=' is not valid CQL2:  --> 1:7
+      |
+    1 | gid <=
+      |       ^---
+      |
+      = expected GEOMETRY, Identifier, Negative, UnaryNot, True, False, Null, DECIMAL, Double, SingleQuotedString, ExpressionInParentheses, or Array
+    ");
 }

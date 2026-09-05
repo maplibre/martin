@@ -9,7 +9,7 @@ use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
-    query_available_function, query_available_tables, query_schemas, table_to_query,
+    function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
 };
 use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
@@ -174,10 +174,17 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
+        let mut declared = HashSet::<(&str, &str, &str, Option<&str>)>::new();
         for (id, cfg_inf) in &self.tables {
             match self.build_one_table_info(&db_tables_info, all_schemas, id, cfg_inf) {
                 Ok(merged_inf) => {
-                    if !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column)) {
+                    used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+                    if !declared.insert((
+                        &cfg_inf.schema,
+                        &cfg_inf.table,
+                        &cfg_inf.geometry_column,
+                        cfg_inf.filter.as_deref(),
+                    )) {
                         warn!(
                             source.id = %id,
                             schema = %cfg_inf.schema,
@@ -303,7 +310,7 @@ impl PostgresAutoDiscoveryBuilder {
                     let source_id = auto_funcs
                         .source_id_format
                         .replace("{schema}", &schema)
-                        .replace("{function}", &func);
+                        .replace("{function}", function_name(&func));
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     specs.insert(id2, SourceSpec::Function(db_inf, pg_sql));
                 }
@@ -921,6 +928,7 @@ mod tests {
             empty_tile_implies_empty_children: false,
             signature: "public.my_func(integer, integer, integer) -> bytea",
             has_etag_column: false,
+            queryless: None,
         }
         "#);
 

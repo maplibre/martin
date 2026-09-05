@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
-use martin_core::tiles::postgres::PostgresError::PostgresError;
+use martin_core::tiles::postgres::PostgresError::{InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use postgis::ewkb;
@@ -224,6 +224,7 @@ pub async fn table_to_query(
     };
 
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
+    let filter = row_filter(&info, "AND")?;
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let schema = escape_identifier(&info.schema);
@@ -250,7 +251,7 @@ FROM (
   FROM
     {schema}.{table}
   WHERE
-    {geometry_column} && {bbox_search}
+    {geometry_column} && {bbox_search}{filter}
   {limit_clause}
 ) AS tile;
 "
@@ -270,6 +271,18 @@ FROM (
         ),
         info,
     ))
+}
+
+/// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.
+fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
+    use cql2::ToSqlAst as _;
+    let Some(filter) = info.filter.as_deref() else {
+        return Ok(String::new());
+    };
+    let invalid = |reason: String| InvalidFilter(filter.to_owned(), reason);
+    let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
+    let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
+    Ok(format!(" {keyword} ({sql})"))
 }
 
 /// Whether a column of this geometry type can hold circular arcs.
@@ -310,7 +323,8 @@ async fn calc_bounds(
     let table = escape_identifier(&info.table);
     let cn = pool.get().await?;
 
-    if mode == BoundsCalcMode::Estimate {
+    // Table statistics cover every row, so a filtered source always measures its rows.
+    if mode == BoundsCalcMode::Estimate && info.filter.is_none() {
         // ST_EstimatedExtent reads the index/statistics instead of scanning the table, and matches
         // its arguments against the catalog by raw (unescaped) name. A degenerate point/line
         // estimate is expanded into a polygon, like the exact calculation below. Any failure (an
@@ -348,10 +362,11 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
     }
 
     let geometry_column = escape_identifier(&info.geometry_column);
+    let filter = row_filter(info, "WHERE")?;
     Ok(cn
         .query_one(
             &format!(r"
-WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
+WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table}{filter})
 SELECT ST_Transform(
             CASE
                 WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) IN ('ST_Point', 'ST_LineString')
@@ -360,7 +375,7 @@ SELECT ST_Transform(
             END,
             4326
         ) AS bounds
-FROM {schema}.{table};"),
+FROM {schema}.{table}{filter};"),
             &[],
         )
         .await
