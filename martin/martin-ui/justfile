@@ -10,9 +10,18 @@ biome:
     npm run format
     npm run lint
 
+# Install node dependencies, unless `package-lock.json` has already been
+# installed. `npm clean-install` deletes and rewrites ~460 MB of `node_modules`,
+# which is wasted work on every run but the first.
+_npm-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -f node_modules/.package-lock.json || package-lock.json -nt node_modules/.package-lock.json ]]; then
+        npm clean-install --no-fund
+    fi
+
 # Update frontend test snapshots
-bless:
-    npm clean-install
+bless: _npm-install
     npm run test:update-snapshots
 
 # Clean build artifacts
@@ -22,8 +31,7 @@ clean:
 # Regenerate `src/lib/types.gen.ts` from `schemas/openapi.json`.
 # Called from the root `gen-schemas` recipe after the spec is written -
 # kept in this module so all Node tooling stays behind `mod ui`.
-gen-ui-types:
-    npm clean-install --no-fund
+gen-ui-types: _npm-install
     npm run gen-types
 
 # Run frontend tests

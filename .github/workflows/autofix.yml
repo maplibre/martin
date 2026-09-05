@@ -73,9 +73,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       - uses: ./.github/actions/setup-rust
         with: { toolchain: none }
-      # `just gen-schemas` enables `rendering` on Linux so the OpenAPI doc
-      # covers the static-render routes - that pulls in maplibre-native,
-      # whose C++ build needs the rendering toolchain installed.
+      # `just gen-schemas` builds with `rendering` so the OpenAPI doc covers
+      # the static-render routes - that pulls in maplibre-native, whose C++
+      # build needs the rendering toolchain installed.
       - name: Install rendering dependencies
         run: just install-dependencies
       - run: just gen-schemas
