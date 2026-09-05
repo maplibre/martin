@@ -217,6 +217,80 @@ cog:
 }
 
 #[tokio::test]
+async fn a_replaced_remote_cog_is_detected_and_reloaded() {
+    let key = "cogtest/usda_naip_128_none_z2.tif";
+    let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "\
+cog:
+  reload_interval: 1s
+  allow_http: true
+  aws_endpoint: {}
+  skip_signature: true
+  sources:
+    remote: s3://cogtest/usda_naip_128_none_z2.tif
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin with a polled remote COG");
+    // This tile is present in the original fixture and explicitly sparse in the replacement.
+    let tile_url = "/remote/19/85424/194685";
+    let original = martin.get(tile_url).await;
+    assert_eq!(original.status(), 200);
+    assert!(!original.body().is_empty());
+
+    // While the object is unchanged, each poll costs one `HEAD` and no rebuild: the number of
+    // tile `GET`s stays at what the initial load made, while polls keep arriving.
+    martin.wait_for_source("remote").await;
+    let counts = |log: &str| {
+        (
+            log.lines().filter(|l| l.starts_with("GET ")).count(),
+            log.lines().filter(|l| l.starts_with("HEAD ")).count(),
+        )
+    };
+    let unchanged_log = statics.request_log().await;
+    let (gets, heads) = counts(&unchanged_log);
+    assert!(
+        heads > 0,
+        "the poller must re-check the object:\n{unchanged_log}"
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(2_500)).await;
+    let idle_log = statics.request_log().await;
+    assert_eq!(
+        counts(&idle_log).0,
+        gets,
+        "an unchanged object must not be reloaded:\n{idle_log}"
+    );
+    assert!(
+        counts(&idle_log).1 > heads,
+        "polling must keep running:\n{idle_log}"
+    );
+
+    statics.replace(
+        key,
+        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if martin.get(tile_url).await.status() == 204 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    })
+    .await
+    .expect("the replacement's sparse tile must become observable within the poll window");
+
+    let reloaded = martin.get(tile_url).await;
+    assert_eq!(reloaded.status(), 204);
+    assert!(reloaded.body().is_empty());
+    martin.stop().await;
+}
+
+#[tokio::test]
 async fn a_cog_url_is_read_over_http_using_ranges() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");

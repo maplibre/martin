@@ -725,7 +725,7 @@ fn plan_one_source(
     if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
         let duplicate = files.insert(key.clone(), key.clone()).is_some();
-        let id = idr.resolve(id, url.to_string());
+        let id = idr.resolve(id, sanitize_url(&url));
         configs.insert(id.clone(), source);
         return Ok(Planned {
             id,
@@ -793,7 +793,7 @@ fn plan_one_path(
             })
             .unwrap_or("web_source");
 
-        let id = idr.resolve(id, url.to_string());
+        let id = idr.resolve(id, sanitize_url(&url));
         configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
         return Ok(vec![Planned {
             id,
