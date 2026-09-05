@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0](https://github.com/maplibre/martin/compare/martin-v1.15.0...martin-v1.16.0) - 2026-09-05
+
+### Added
+
+- add a terminal dashboard behind --tui ([#3244](https://github.com/maplibre/martin/pull/3244))
+- *(postgres)* add a CQL2 filter to table sources ([#3238](https://github.com/maplibre/martin/pull/3238))
+- *(postgres)* publish every overload of a function ([#3243](https://github.com/maplibre/martin/pull/3243))
+- *(postgres)* serve gzip-compressed tiles returned by functions ([#3236](https://github.com/maplibre/martin/pull/3236))
+- *(sprites, styles)* publish each subdirectory of a collection as its own source ([#3230](https://github.com/maplibre/martin/pull/3230))
+- *(postgres)* retry the first database connection at startup ([#3231](https://github.com/maplibre/martin/pull/3231))
+- *(duckdb)* read GeoParquet from s3 and the other object stores DuckDB supports ([#3214](https://github.com/maplibre/martin/pull/3214))
+- add tile source aliases ([#3229](https://github.com/maplibre/martin/pull/3229))
+- *(postgres)* add a connection-level cache zoom default ([#3221](https://github.com/maplibre/martin/pull/3221))
+- *(config)* add a per-kind cache zoom default for file and passthrough sources ([#3223](https://github.com/maplibre/martin/pull/3223))
+- *(postgres)* serve a function's key column as the tile ETag ([#3219](https://github.com/maplibre/martin/pull/3219))
+- *(sprites)* add sprite aliases ([#3220](https://github.com/maplibre/martin/pull/3220))
+- *(fonts)* add font aliases (named font stacks) ([#3210](https://github.com/maplibre/martin/pull/3210))
+- *(cache)* cache tiles in the encoding the client receives ([#3211](https://github.com/maplibre/martin/pull/3211))
+- *(martin-cp)* skip the tiles below an empty tile ([#3208](https://github.com/maplibre/martin/pull/3208))
+- *(discovery)* scan paths recursively with recursive: true ([#3203](https://github.com/maplibre/martin/pull/3203))
+- *(mbtiles)* warn when a served file has no tile index ([#3234](https://github.com/maplibre/martin/pull/3234))
+- *(mbtiles)* record and honour the tile hash algorithm ([#3262](https://github.com/maplibre/martin/pull/3262))
+- *(mbtiles)* copy several source files into one destination ([#3239](https://github.com/maplibre/martin/pull/3239))
+- *(mbtiles)* show progress for the long commands ([#3235](https://github.com/maplibre/martin/pull/3235))
+
+### Fixed
+
+- *(reload)* flake fix: skip a collection project removed mid-rescan ([#3263](https://github.com/maplibre/martin/pull/3263))
+- address misc static-analysis findings across docs, justfile, UI and tile-utils ([#3259](https://github.com/maplibre/martin/pull/3259))
+- *(reload)* flake fix: recover when a project directory is removed mid-rescan ([#3258](https://github.com/maplibre/martin/pull/3258))
+- *(deps)* update npm dependencies ([#3249](https://github.com/maplibre/martin/pull/3249))
+- *(reload)* fix recursive-paths CI flake, recheck when a new dir appears  ([#3240](https://github.com/maplibre/martin/pull/3240))
+- *(duckdb)* cast or drop property columns ST_AsMVT cannot encode ([#3213](https://github.com/maplibre/martin/pull/3213))
+- *(reload)* apply the global cache zoom bounds to discovered files ([#3222](https://github.com/maplibre/martin/pull/3222))
+- *(contour)* run traced tiles through the MLT transcoder ([#3202](https://github.com/maplibre/martin/pull/3202))
+- *(deps)* update npm dependencies ([#3205](https://github.com/maplibre/martin/pull/3205))
+- *(mbtiles)* drop the kind-level convert_to_hillshade and convert_to_contour fields ([#3199](https://github.com/maplibre/martin/pull/3199))
+
+### Other
+
+- reduce ci time a bit ([#3267](https://github.com/maplibre/martin/pull/3267))
+- make the Windows-only unit test job pass again ([#3269](https://github.com/maplibre/martin/pull/3269))
+- *(just)* make `gen-schemas` lighter ([#3265](https://github.com/maplibre/martin/pull/3265))
+- *(pmtiles)* extract shared object-store configuration ([#3242](https://github.com/maplibre/martin/pull/3242))
+- minor ci hardening and codeql cleanup ([#3256](https://github.com/maplibre/martin/pull/3256))
+- *(deps)* update npm dependencies to v5 ([#3253](https://github.com/maplibre/martin/pull/3253))
+- enable serde_json preserve_order ([#3241](https://github.com/maplibre/martin/pull/3241))
+- *(duckdb)* prune GeoParquet row groups with the file's covering bbox ([#3215](https://github.com/maplibre/martin/pull/3215))
+- *(deps-dev)* bump the npm_and_yarn group across 2 directories with 1 update ([#3233](https://github.com/maplibre/martin/pull/3233))
+- *(postgres)* linearize only geometry columns that can hold arcs ([#3224](https://github.com/maplibre/martin/pull/3224))
+- *(reload)* start the PostgreSQL poll one interval after init ([#3226](https://github.com/maplibre/martin/pull/3226))
+- *(postgres)* skip the catalog queries for source kinds nothing publishes ([#3225](https://github.com/maplibre/martin/pull/3225))
+- *(config)* classify source paths through a `SourceLocation` type ([#3218](https://github.com/maplibre/martin/pull/3218))
+- *(deps)* update cargo dependencies ([#3204](https://github.com/maplibre/martin/pull/3204))
+- *(deps)* autoupdate pre-commit ([#3201](https://github.com/maplibre/martin/pull/3201))
+- *(cache)* the zoom default is overridable per source, not per source type ([#3198](https://github.com/maplibre/martin/pull/3198))
+
 ## [1.15.0](https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.15.0) - 2026-08-31
 
 ### Hillshade postprocessing

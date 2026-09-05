@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2](https://github.com/maplibre/martin/compare/martin-core-v0.11.1...martin-core-v0.11.2) - 2026-09-05
+
+### Added
+
+- *(postgres)* add a CQL2 filter to table sources ([#3238](https://github.com/maplibre/martin/pull/3238))
+- *(postgres)* publish every overload of a function ([#3243](https://github.com/maplibre/martin/pull/3243))
+- *(postgres)* serve gzip-compressed tiles returned by functions ([#3236](https://github.com/maplibre/martin/pull/3236))
+- *(mbtiles)* warn when a served file has no tile index ([#3234](https://github.com/maplibre/martin/pull/3234))
+- *(postgres)* retry the first database connection at startup ([#3231](https://github.com/maplibre/martin/pull/3231))
+- *(postgres)* serve a function's key column as the tile ETag ([#3219](https://github.com/maplibre/martin/pull/3219))
+- *(sprites)* add sprite aliases ([#3220](https://github.com/maplibre/martin/pull/3220))
+- *(fonts)* add font aliases (named font stacks) ([#3210](https://github.com/maplibre/martin/pull/3210))
+- *(cache)* cache tiles in the encoding the client receives ([#3211](https://github.com/maplibre/martin/pull/3211))
+- *(martin-cp)* skip the tiles below an empty tile ([#3208](https://github.com/maplibre/martin/pull/3208))
+
+### Other
+
+- make the Windows-only unit test job pass again ([#3269](https://github.com/maplibre/martin/pull/3269))
+- *(duckdb)* prune GeoParquet row groups with the file's covering bbox ([#3215](https://github.com/maplibre/martin/pull/3215))
+- *(cache)* the zoom default is overridable per source, not per source type ([#3198](https://github.com/maplibre/martin/pull/3198))
+
 ## [0.11.1](https://github.com/maplibre/martin/compare/martin-core-v0.11.0...martin-core-v0.11.1) - 2026-08-31
 
 ### Added

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3](https://github.com/maplibre/martin/compare/mbtiles-v0.19.2...mbtiles-v0.19.3) - 2026-09-05
+
+### Added
+
+- *(mbtiles)* record and honour the tile hash algorithm ([#3262](https://github.com/maplibre/martin/pull/3262))
+- *(mbtiles)* copy several source files into one destination ([#3239](https://github.com/maplibre/martin/pull/3239))
+- *(mbtiles)* show progress for the long commands ([#3235](https://github.com/maplibre/martin/pull/3235))
+- *(mbtiles)* warn when a served file has no tile index ([#3234](https://github.com/maplibre/martin/pull/3234))
+- *(postgres)* serve gzip-compressed tiles returned by functions ([#3236](https://github.com/maplibre/martin/pull/3236))
+
+### Fixed
+
+- address misc static-analysis findings across docs, justfile, UI and tile-utils ([#3259](https://github.com/maplibre/martin/pull/3259))
+
+### Other
+
+- enable serde_json preserve_order ([#3241](https://github.com/maplibre/martin/pull/3241))
+
 ## [0.19.2](https://github.com/maplibre/martin/compare/mbtiles-v0.19.1...mbtiles-v0.19.2) - 2026-08-31
 
 ### Added
