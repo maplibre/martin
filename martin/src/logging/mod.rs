@@ -292,7 +292,7 @@ fn parse_filter(filter: &str) -> EnvFilter {
     })
 }
 
-/// Initialize the global tracing subscriber writing compact lines without colors into `writer`.
+/// Initialize the global tracing subscriber writing pretty lines without colors into `writer`.
 #[cfg(feature = "tui")]
 pub fn init_tracing_into<W>(filter: &str, writer: W)
 where
@@ -301,7 +301,7 @@ where
     let env_filter = parse_filter(filter);
     init_log_bridge(&env_filter);
     let dispatch = tracing_subscriber::fmt()
-        .compact()
+        .pretty()
         .with_span_events(FmtSpan::NONE)
         .with_ansi(false)
         .with_writer(writer)

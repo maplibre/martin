@@ -2,6 +2,7 @@
 //!
 //! `martin --tui` replaces the log stream with a live view of the server.
 //! It shows the sources and how often each is asked for, the request rate, where on the world tiles are being requested, and the log itself.
+//! `l` gives the log the whole screen and the arrow keys scroll it, for reading it without leaving the dashboard.
 
 use std::io::IsTerminal as _;
 use std::sync::{Arc, OnceLock};
@@ -19,7 +20,11 @@ mod state;
 mod tests;
 
 pub use observer::observe;
+use render::{LogSize, LogView};
 pub use state::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
+
+/// How many lines the page keys move the log by.
+const PAGE: usize = 10;
 
 /// The dashboard of this process, once `--tui` installed it.
 static DASHBOARD: OnceLock<Arc<Dashboard>> = OnceLock::new();
@@ -73,9 +78,10 @@ pub fn run(dashboard: Arc<Dashboard>, quit: oneshot::Sender<()>) {
 
 /// Redraws ten times a second and reacts to the keys until the user quits.
 fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::io::Result<()> {
+    let mut log = LogView::default();
     loop {
         let view = dashboard.snapshot();
-        terminal.draw(|frame| render::frame(frame, &view))?;
+        terminal.draw(|frame| render::frame(frame, &view, log))?;
         if !event::poll(Duration::from_millis(100))? {
             continue;
         }
@@ -94,5 +100,28 @@ fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::
         if key.code == KeyCode::Char('c') {
             dashboard.clear();
         }
+        if key.code == KeyCode::Char('l') {
+            log.size = match log.size {
+                LogSize::Normal => LogSize::Expanded,
+                LogSize::Expanded => LogSize::Normal,
+            };
+        }
+        let oldest = view.log.len().saturating_sub(1);
+        let scroll = log.scroll.min(oldest);
+        log.scroll = if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
+            (scroll + 1).min(oldest)
+        } else if key.code == KeyCode::PageUp {
+            (scroll + PAGE).min(oldest)
+        } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
+            scroll.saturating_sub(1)
+        } else if key.code == KeyCode::PageDown {
+            scroll.saturating_sub(PAGE)
+        } else if key.code == KeyCode::Home {
+            oldest
+        } else if key.code == KeyCode::End {
+            0
+        } else {
+            scroll
+        };
     }
 }

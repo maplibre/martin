@@ -8,7 +8,9 @@ use ratatui::style::{Color, Stylize as _};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::canvas::{Canvas, Context, Map, MapResolution, Points};
 use ratatui::widgets::{Block, Paragraph, Row, Sparkline, Table};
+use tracing::Level;
 
+use super::log::LogLine;
 use super::state::Snapshot;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -16,26 +18,68 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const FRESH: Duration = Duration::from_secs(10);
 /// A tile asked for longer ago than this leaves the map.
 const SHOWN: Duration = Duration::from_secs(60);
+/// The key hints kept in the top right corner.
+const KEYS: &str = " q quit   c clear counters ";
+/// How many rows the log takes while it is not expanded.
+const LOG_HEIGHT: u16 = 12;
+/// The button offered at the bottom of a log that is scrolled away from its newest lines.
+const NEWER: &str = " ▼ view newer ▼ ";
+/// What the pretty format indents the lines under an event by.
+const NOTE_INDENT: &str = "    ";
+/// The words the pretty format writes dimmed and italic on the lines under an event.
+const NOTE_WORDS: [&str; 3] = ["at", "in", "on"];
+/// What the pretty format puts between a span and the fields it was entered with.
+const WITH: &str = " with ";
+/// What the pretty format puts between the message of an event and its fields.
+const FIELD_SEPARATOR: &str = ", ";
+
+/// How much of the frame the log pane takes.
+///
+/// The string serialization is the title the log pane wears in that size.
+#[derive(Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr)]
+pub enum LogSize {
+    /// The log sits under the panels.
+    #[default]
+    #[strum(serialize = " Log   l expand ")]
+    Normal,
+    /// The log has everything below the header to itself.
+    #[strum(serialize = " Log   l shrink ")]
+    Expanded,
+}
+
+/// How the log pane is being looked at.
+#[derive(Clone, Copy, Default)]
+pub struct LogView {
+    pub size: LogSize,
+    /// How many lines above the newest one the pane stops, `0` while it follows the log.
+    pub scroll: usize,
+}
 
 /// Draws `view` onto the whole frame.
-pub fn frame(frame: &mut Frame, view: &Snapshot) {
-    let [header, body, log, footer] = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Min(8),
-        Constraint::Length(8),
-        Constraint::Length(1),
-    ])
-    .areas(frame.area());
-    let [sources, right] =
-        Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(body);
-    let [map, rate] = Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).areas(right);
+pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
+    let [header, rest] =
+        Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(frame.area());
+    let keys_width = u16::try_from(KEYS.len()).unwrap_or(u16::MAX);
+    let [stats, keys] =
+        Layout::horizontal([Constraint::Min(0), Constraint::Length(keys_width)]).areas(header);
+    frame.render_widget(header_line(view), stats);
+    frame.render_widget(Line::from(KEYS).dim(), keys);
 
-    frame.render_widget(header_line(view), header);
+    if log_view.size == LogSize::Expanded {
+        frame.render_widget(log_pane(view, rest, log_view), rest);
+        return;
+    }
+
+    let [body, log] =
+        Layout::vertical([Constraint::Min(8), Constraint::Length(LOG_HEIGHT)]).areas(rest);
+    let [left, map] =
+        Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(body);
+    let [sources, rate] = Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).areas(left);
+
     frame.render_widget(sources_table(view), sources);
-    frame.render_widget(world_map(view), map);
     frame.render_widget(rate_chart(view), rate);
-    frame.render_widget(log_pane(view, log), log);
-    frame.render_widget(Line::from(" q quit   c clear counters").dim(), footer);
+    frame.render_widget(world_map(view), map);
+    frame.render_widget(log_pane(view, log, log_view), log);
 }
 
 fn header_line(view: &Snapshot) -> Line<'static> {
@@ -76,13 +120,13 @@ fn sources_table(view: &Snapshot) -> Table<'static> {
         rows,
         [
             Constraint::Fill(1),
-            Constraint::Length(9),
-            Constraint::Length(7),
             Constraint::Length(8),
-            Constraint::Length(3),
+            Constraint::Length(6),
+            Constraint::Length(6),
+            Constraint::Length(6),
         ],
     )
-    .header(Row::new(["source", "requests", "errors", "avg ms", "z"]).bold())
+    .header(Row::new(["source", "requests", "errors", "avg ms", "last z"]).bold())
     .block(Block::bordered().title(" Sources "))
 }
 
@@ -130,14 +174,124 @@ fn rate_chart(view: &Snapshot) -> Sparkline<'_> {
         .data(&view.rate_history)
 }
 
-fn log_pane(view: &Snapshot, area: Rect) -> Paragraph<'_> {
+fn log_pane(view: &Snapshot, area: Rect, log_view: LogView) -> Paragraph<'_> {
     let shown = usize::from(area.height.saturating_sub(2));
-    let skip = view.log.len().saturating_sub(shown);
-    let lines: Vec<Line<'_>> = view
-        .log
+    let scroll = log_view.scroll.min(view.log.len().saturating_sub(shown));
+    let end = view.log.len() - scroll;
+    let start = end.saturating_sub(shown);
+    let lines: Vec<Line<'_>> = view.log[start..end]
         .iter()
-        .skip(skip)
-        .map(|line| Line::from(line.as_str()))
+        .map(|line| log_line(line))
         .collect();
-    Paragraph::new(lines).block(Block::bordered().title(" Log "))
+    let mut block = Block::bordered().title(<&str>::from(log_view.size));
+    if scroll > 0 {
+        block = block.title_bottom(Line::from(NEWER).bold().reversed().centered());
+    }
+    Paragraph::new(lines).block(block)
+}
+
+/// One log line, split into the parts the pretty format paints separately on a terminal.
+fn log_line(line: &LogLine) -> Line<'_> {
+    if let Some(note) = line.text.strip_prefix(NOTE_INDENT) {
+        return note_line(note);
+    }
+    let color = level_color(line.level);
+    event_line(&line.text, line.level, color)
+        .unwrap_or_else(|| Line::from(line.text.as_str()).fg(color))
+}
+
+/// The color the pretty format gives a level.
+fn level_color(level: Level) -> Color {
+    match level {
+        Level::ERROR => Color::Red,
+        Level::WARN => Color::Yellow,
+        Level::INFO => Color::Green,
+        Level::DEBUG => Color::Blue,
+        Level::TRACE => Color::Magenta,
+    }
+}
+
+/// `  <time> <LEVEL> <target>: <message>, <field>: <value>`, or [`None`] for a line that is not one.
+fn event_line(text: &str, level: Level, color: Color) -> Option<Line<'_>> {
+    let (time, rest) = text.strip_prefix("  ")?.split_once(' ')?;
+    let (written, rest) = rest.trim_start().split_once(' ')?;
+    if written != level.as_str() {
+        return None;
+    }
+    let (target, message) = rest.split_once(": ")?;
+    let mut spans = vec![
+        Span::from("  "),
+        Span::from(time).dim(),
+        Span::from(format!(" {written:>5} ")).fg(color),
+        Span::from(target).fg(color).bold(),
+        Span::from(": ").fg(color),
+    ];
+    spans.extend(field_spans(message, color));
+    Some(Line::from(spans))
+}
+
+/// The message of an event and the fields after it, whose names the pretty format writes bold.
+fn field_spans(text: &str, color: Color) -> Vec<Span<'_>> {
+    let mut spans = Vec::new();
+    for (index, part) in text.split(FIELD_SEPARATOR).enumerate() {
+        if index > 0 {
+            spans.push(Span::from(FIELD_SEPARATOR).fg(color));
+        }
+        match field_name(part) {
+            Some(name) => {
+                let (name, value) = part.split_at(name.len());
+                spans.push(Span::from(name).fg(color).bold());
+                spans.push(Span::from(value).fg(color));
+            }
+            None => spans.push(Span::from(part).fg(color)),
+        }
+    }
+    spans
+}
+
+/// The name `part` gives a field, if it opens with one.
+fn field_name(part: &str) -> Option<&str> {
+    let (name, _) = part.split_once(": ")?;
+    let plain = !name.is_empty()
+        && name
+            .chars()
+            .all(|char| char.is_alphanumeric() || "_.-".contains(char));
+    plain.then_some(name)
+}
+
+/// A line under an event, telling where it happened and which spans it happened in.
+fn note_line(note: &str) -> Line<'_> {
+    let (place, fields) = note
+        .split_once(WITH)
+        .map_or((note, None), |(place, fields)| (place, Some(fields)));
+    let mut spans = place_spans(place);
+    if let Some(fields) = fields {
+        spans.push(Span::from(" "));
+        spans.push(Span::from(WITH.trim()).dim().italic());
+        spans.push(Span::from(" "));
+        spans.extend(field_spans(fields, Color::Reset));
+    }
+    Line::from(spans)
+}
+
+/// Where an event happened, as `at <file>:<line>`, `on <thread>` or `in <target>::<span>`.
+fn place_spans(place: &str) -> Vec<Span<'_>> {
+    let mut spans = vec![Span::from(NOTE_INDENT)];
+    let mut names_a_span = false;
+    for (index, word) in place.split(' ').enumerate() {
+        if index > 0 {
+            spans.push(Span::from(" "));
+        }
+        if NOTE_WORDS.contains(&word) {
+            spans.push(Span::from(word).dim().italic());
+        } else if names_a_span {
+            let (path, name) = word.split_at(word.rfind("::").map_or(0, |at| at + 2));
+            spans.push(Span::from(path));
+            spans.push(Span::from(name).bold());
+        } else {
+            spans.push(Span::from(word));
+        }
+        names_a_span = word == "in";
+    }
+    spans
 }

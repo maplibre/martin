@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use actix_web::http::StatusCode;
 use martin_tile_utils::{MAX_ZOOM, xyz_to_bbox};
 
-use super::log::LogBuffer;
+use super::log::{LogBuffer, LogLine};
 
 /// How many of the latest tile requests the map keeps.
 const RECENT_TILES: usize = 2_000;
@@ -16,7 +16,7 @@ const RATE_SECONDS: u8 = 60;
 /// Over how many seconds the headline request rate is averaged.
 const RATE_AVERAGE_SECONDS: u8 = 10;
 /// How many log lines a frame gets at most.
-const LOG_LINES: usize = 200;
+const LOG_LINES: usize = 500;
 
 /// A request for one tile, as the observer saw it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,7 +77,7 @@ pub struct Snapshot {
     /// Where the latest tiles were asked for.
     pub tiles: Vec<TileDot>,
     /// The latest log lines, oldest first.
-    pub log: Vec<String>,
+    pub log: Vec<LogLine>,
 }
 
 /// One source's row in the table.

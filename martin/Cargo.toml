@@ -151,7 +151,7 @@ contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-tui = ["dep:ratatui", "dep:crossterm"]
+tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 mlt = ["dep:mlt-core", "_process"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _process = []
@@ -221,6 +221,7 @@ serde-saphyr.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 static-files = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = [

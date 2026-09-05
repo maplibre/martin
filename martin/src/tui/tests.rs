@@ -4,16 +4,21 @@ use std::time::{Duration, Instant};
 use actix_web::http::StatusCode;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
-use tracing_subscriber::fmt::MakeWriter as _;
+use tracing::Level;
 
 use super::render;
+use super::render::{LogSize, LogView};
 use super::state::{Dashboard, TileRequest};
 
 fn render(dashboard: &Dashboard, now: Instant) -> String {
+    render_with(dashboard, now, LogView::default())
+}
+
+fn render_with(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
     let view = dashboard.snapshot_at(now);
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).expect("a test terminal");
     terminal
-        .draw(|frame| render::frame(frame, &view))
+        .draw(|frame| render::frame(frame, &view, log))
         .expect("a drawn frame");
     terminal.backend().to_string()
 }
@@ -41,9 +46,9 @@ fn requests_fill_the_sources_the_map_and_the_rate() {
     let started = Instant::now();
     let dashboard = Dashboard::started_at(started);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
-    writeln!(dashboard.log().make_writer(), "INFO Starting Martin").expect("a log line");
+    writeln!(dashboard.log().writer(Level::INFO), "INFO Starting Martin").expect("a log line");
     writeln!(
-        dashboard.log().make_writer(),
+        dashboard.log().writer(Level::WARN),
         "WARN Table public.points1 has no spatial index on column geom"
     )
     .expect("a log line");
@@ -86,6 +91,80 @@ fn requests_fill_the_sources_the_map_and_the_rate() {
     );
 
     insta::assert_snapshot!(render(&dashboard, at(20)));
+}
+
+#[test]
+fn an_expanded_log_takes_the_screen() {
+    let started = Instant::now();
+    let dashboard = Dashboard::started_at(started);
+    dashboard.set_address("http://127.0.0.1:3000/".to_owned());
+    writeln!(dashboard.log().writer(Level::INFO), "INFO Starting Martin").expect("a log line");
+
+    insta::assert_snapshot!(render_with(
+        &dashboard,
+        started + Duration::from_secs(5),
+        LogView {
+            size: LogSize::Expanded,
+            scroll: 0,
+        }
+    ));
+}
+
+#[test]
+fn scrolling_the_log_stops_short_of_the_newest_line() {
+    let started = Instant::now();
+    let dashboard = Dashboard::started_at(started);
+    dashboard.set_address("http://127.0.0.1:3000/".to_owned());
+    for line in 1..=40 {
+        writeln!(dashboard.log().writer(Level::INFO), "INFO log line {line}").expect("a log line");
+    }
+
+    let scrolled = render_with(
+        &dashboard,
+        started + Duration::from_secs(5),
+        LogView {
+            size: LogSize::Normal,
+            scroll: 15,
+        },
+    );
+
+    assert!(scrolled.contains("INFO log line 25"), "{scrolled}");
+    assert!(!scrolled.contains("INFO log line 26"), "{scrolled}");
+    assert!(scrolled.contains("view newer"), "{scrolled}");
+}
+
+#[test]
+fn the_log_paints_the_parts_of_a_line_the_way_pretty_does() {
+    let started = Instant::now();
+    let dashboard = Dashboard::started_at(started);
+    dashboard.set_address("http://127.0.0.1:3000/".to_owned());
+    writeln!(
+        dashboard.log().writer(Level::INFO),
+        "  2026-09-05T09:41:12.123456Z  INFO martin::srv::server: Starting Martin, port: 3000\n    at martin/src/srv/server.rs:120"
+    )
+    .expect("a log line");
+    writeln!(
+        dashboard.log().writer(Level::WARN),
+        "  2026-09-05T09:41:13.654321Z  WARN martin::pg::table: Table public.points1 has no spatial index, column: \"geom\"\n    at martin/src/pg/table.rs:88\n    in martin::pg::configure with source: \"points1\""
+    )
+    .expect("a log line");
+
+    let view = dashboard.snapshot_at(started + Duration::from_secs(1));
+    let mut terminal = Terminal::new(TestBackend::new(110, 8)).expect("a test terminal");
+    terminal
+        .draw(|frame| {
+            render::frame(
+                frame,
+                &view,
+                LogView {
+                    size: LogSize::Expanded,
+                    scroll: 0,
+                },
+            );
+        })
+        .expect("a drawn frame");
+
+    insta::assert_debug_snapshot!(terminal.backend().buffer());
 }
 
 #[test]

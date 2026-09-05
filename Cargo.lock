@@ -5551,6 +5551,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "static-files 0.2.5",
+ "strum 0.28.0",
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.20",
