@@ -201,10 +201,10 @@ pub enum Encoding {
     Uncompressed = 0b0000_0000,
     /// Some formats like JPEG and PNG are already compressed
     Internal = 0b0000_0001,
-    Gzip     = 0b0000_0010,
-    Zlib     = 0b0000_0100,
-    Brotli   = 0b0000_1000,
-    Zstd     = 0b0001_0000,
+    Gzip = 0b0000_0010,
+    Zlib = 0b0000_0100,
+    Brotli = 0b0000_1000,
+    Zstd = 0b0001_0000,
 }
 
 impl Encoding {

@@ -1200,10 +1200,7 @@ pub(crate) mod tests {
             HashAlgorithm::Md5,
             "a file that records no algorithm is md5 until told otherwise"
         );
-        assert_matches!(
-            mbt.check_each_tile_hash(&mut conn).await,
-            Err(IncorrectTileHash { .. })
-        );
+        assert_matches!(mbt.check_each_tile_hash(&mut conn).await, Err(IncorrectTileHash { .. }));
         mbt.set_metadata_value(&mut conn, HASH_ALGORITHM, "fnv1a-decimal")
             .await
             .unwrap();
@@ -1220,11 +1217,7 @@ pub(crate) mod tests {
         )
         .await;
         let hash = mbt.update_agg_tiles_hash(&mut conn).await.unwrap();
-        assert_eq!(
-            hash.len(),
-            16,
-            "an xxh64 aggregate is 16 hex characters, not md5's 32: {hash}"
-        );
+        assert_eq!(hash.len(), 16, "an xxh64 aggregate is 16 hex characters, not md5's 32: {hash}");
         assert_eq!(mbt.check_agg_tiles_hashes(&mut conn).await.unwrap(), hash);
         // and the md5 aggregate of the same rows is a different value, so the algorithm was honoured
         assert_ne!(

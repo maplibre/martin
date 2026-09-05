@@ -218,14 +218,8 @@ where
         }
 
         let stats = if let Some(src_schema) = src_type.normalized_schema() {
-            self.run_normalized_path(
-                &mut src_conn,
-                src_schema,
-                &mut dst_conn,
-                dst_type,
-                algorithm,
-            )
-            .await?
+            self.run_normalized_path(&mut src_conn, src_schema, &mut dst_conn, dst_type, algorithm)
+                .await?
         } else {
             if needs_src_attached {
                 detach_db(&mut dst_conn, "srcDb").await?;

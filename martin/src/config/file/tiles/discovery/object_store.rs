@@ -201,12 +201,8 @@ async fn list_remote_prefix(
         if stem.is_empty() {
             continue;
         }
-        let object_url_str = format!(
-            "{}://{}/{}",
-            prefix.scheme(),
-            prefix.host_str().unwrap_or(""),
-            meta.location
-        );
+        let object_url_str =
+            format!("{}://{}/{}", prefix.scheme(), prefix.host_str().unwrap_or(""), meta.location);
         let Ok(object_url) = Url::parse(&object_url_str) else {
             tracing::warn!("cannot build absolute URL from {object_url_str}");
             continue;
@@ -249,10 +245,7 @@ mod tests {
             "outside/ignored.tif",
         ] {
             store
-                .put(
-                    &object_store::path::Path::from(path),
-                    PutPayload::from_static(b"fixture"),
-                )
+                .put(&object_store::path::Path::from(path), PutPayload::from_static(b"fixture"))
                 .await
                 .unwrap();
         }
@@ -279,14 +272,8 @@ mod tests {
         assert_eq!(
             found,
             [
-                (
-                    "ortho".to_owned(),
-                    "s3://bucket/imagery/ortho.TIFF".to_owned()
-                ),
-                (
-                    "vienna".to_owned(),
-                    "s3://bucket/imagery/vienna.tif".to_owned()
-                ),
+                ("ortho".to_owned(), "s3://bucket/imagery/ortho.TIFF".to_owned()),
+                ("vienna".to_owned(), "s3://bucket/imagery/vienna.tif".to_owned()),
             ]
         );
     }

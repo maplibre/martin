@@ -407,10 +407,7 @@ async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     let mut parsed = serde_saphyr::from_str::<serde_json::Value>(&saved)
         .expect("--save-config output is valid YAML");
     let endpoint = statics.base_url();
-    assert_eq!(
-        parsed["pmtiles"]["aws_endpoint"].as_str(),
-        Some(endpoint.as_str())
-    );
+    assert_eq!(parsed["pmtiles"]["aws_endpoint"].as_str(), Some(endpoint.as_str()));
     parsed["pmtiles"]["aws_endpoint"] = "[ENDPOINT]".into();
     insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(parsed["pmtiles"], @r#"

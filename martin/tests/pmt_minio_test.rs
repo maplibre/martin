@@ -307,12 +307,9 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
     // disappear from the catalog.
     upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
 
-    wait_for_catalog(
-        &app,
-        Duration::from_secs(10),
-        "alpha updated with name removed",
-        |t| t.get("alpha").is_some_and(|v| v.get("name").is_none()),
-    )
+    wait_for_catalog(&app, Duration::from_secs(10), "alpha updated with name removed", |t| {
+        t.get("alpha").is_some_and(|v| v.get("name").is_none())
+    })
     .await;
 
     // Snapshot the catalog. The `name` field should be gone.

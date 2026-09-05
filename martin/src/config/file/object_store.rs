@@ -115,12 +115,10 @@ fn is_sensitive_option(key: &str) -> bool {
 }
 
 fn is_proxy_option(key: &str) -> bool {
-    matches!(
-        key.parse::<ClientConfigKey>(),
-        Ok(ClientConfigKey::ProxyUrl)
-    ) || key
-        .parse::<AmazonS3ConfigKey>()
-        .is_ok_and(|key| key.as_ref() == "proxy_url")
+    matches!(key.parse::<ClientConfigKey>(), Ok(ClientConfigKey::ProxyUrl))
+        || key
+            .parse::<AmazonS3ConfigKey>()
+            .is_ok_and(|key| key.as_ref() == "proxy_url")
         || key
             .parse::<object_store::gcp::GoogleConfigKey>()
             .is_ok_and(|key| key.as_ref() == "proxy_url")
@@ -310,13 +308,12 @@ impl ObjectStoreConfig {
             ($builder:ty, $url:expr) => {
                 self.options
                     .iter()
-                    .fold(
-                        <$builder>::new().with_url($url.to_string()),
-                        |builder, (key, value)| match key.parse() {
+                    .fold(<$builder>::new().with_url($url.to_string()), |builder, (key, value)| {
+                        match key.parse() {
                             Ok(key) => builder.with_config(key, value),
                             Err(_) => builder,
-                        },
-                    )
+                        }
+                    })
                     .with_http_connector(self.http_clients.clone())
             };
         }
@@ -545,10 +542,8 @@ mod tests {
             "google_proxy_url",
             "azure_proxy_url",
         ] {
-            let config = prepared([(
-                key,
-                json!("http://proxy-user:proxy-password@proxy.example.com:8080"),
-            )]);
+            let config =
+                prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
             assert_eq!(
                 serde_json::to_value(config).unwrap(),
                 json!({key: "http://proxy.example.com:8080/"})
