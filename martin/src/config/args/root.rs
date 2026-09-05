@@ -78,6 +78,10 @@ pub struct MetaArgs {
     /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
     #[arg(long)]
     pub on_invalid: Option<OnInvalid>,
+    /// Show a live dashboard of the server in this terminal instead of the log stream
+    #[arg(long)]
+    #[cfg(feature = "tui")]
+    pub tui: bool,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]

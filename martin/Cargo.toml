@@ -116,6 +116,7 @@ default = [
     "mlt",
     "hillshade",
     "contour",
+    "tui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
@@ -150,6 +151,7 @@ contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 mlt = ["dep:mlt-core", "_process"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _process = []
@@ -184,6 +186,7 @@ aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 clap.workspace = true
 cql2 = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
@@ -210,6 +213,7 @@ object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+ratatui = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
 serde.workspace = true
@@ -217,6 +221,7 @@ serde-saphyr.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 static-files = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = [

@@ -243,16 +243,8 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
 /// 5. Optionally includes `IndicatifLayer` for progress bar support
-#[expect(
-    clippy::print_stderr,
-    reason = "tracing subscriber not yet initialized at this point"
-)]
 pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
-    // Set up the filter from the provided string
-    let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
-      eprintln!("Warning: Invalid filter string '{filter}' passed. Since you passed a filter, you likely want to debug us, so we set the filter to debug");
-      EnvFilter::new("debug")
-    });
+    let env_filter = parse_filter(filter);
 
     // Initialize log -> tracing bridge
     init_log_bridge(&env_filter);
@@ -286,4 +278,36 @@ pub fn ensure_martin_core_log_level_matches(
     } else {
         format!("{replacement}info,martin_core=info")
     }
+}
+
+/// The filter for `filter`, or `debug` with a warning when it does not parse.
+#[expect(
+    clippy::print_stderr,
+    reason = "tracing subscriber not yet initialized at this point"
+)]
+fn parse_filter(filter: &str) -> EnvFilter {
+    EnvFilter::from_str(filter).unwrap_or_else(|_| {
+        eprintln!("Warning: Invalid filter string '{filter}' passed. Since you passed a filter, you likely want to debug us, so we set the filter to debug");
+        EnvFilter::new("debug")
+    })
+}
+
+/// Initialize the global tracing subscriber writing pretty lines without colors into `writer`.
+#[cfg(feature = "tui")]
+pub fn init_tracing_into<W>(filter: &str, writer: W)
+where
+    W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + Send + Sync + 'static,
+{
+    let env_filter = parse_filter(filter);
+    init_log_bridge(&env_filter);
+    let dispatch = tracing_subscriber::fmt()
+        .pretty()
+        .with_span_events(FmtSpan::NONE)
+        .with_ansi(false)
+        .with_writer(writer)
+        .with_env_filter(env_filter)
+        .finish()
+        .into();
+    tracing::dispatcher::set_global_default(dispatch)
+        .expect("failed to set global default subscriber");
 }

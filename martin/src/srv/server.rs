@@ -294,6 +294,12 @@ pub fn new_server(
         #[cfg(feature = "metrics")]
         let app = app.wrap(prometheus.clone());
 
+        #[cfg(feature = "tui")]
+        let app = app.wrap(middleware::Condition::new(
+            crate::tui::is_installed(),
+            middleware::from_fn(crate::tui::observe),
+        ));
+
         app.wrap(TracingLogger::default())
             .wrap(cache_control_middleware(cache_control.clone()))
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
