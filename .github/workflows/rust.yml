@@ -322,7 +322,6 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: ${{ env.DOCKER_TEST_PLATFORMS }}
 
-      # only tested on release PRs
       - name: Test linux/arm64 Docker image
         if: contains(env.DOCKER_TEST_PLATFORMS, 'arm64')
         run: |
