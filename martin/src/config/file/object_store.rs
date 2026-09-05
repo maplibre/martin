@@ -612,3 +612,87 @@ impl CredentialProvider for AwsSdkCredentialProvider {
         }))
     }
 }
+
+#[cfg(all(test, feature = "unstable-cog"))]
+mod cog_tests {
+    use object_store::ObjectStoreExt as _;
+    use serde_json::json;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use crate::config::file::cog::CogConfig;
+    use crate::config::file::{Config, ConfigurationLivecycleHooks as _, FileConfigEnum};
+    use crate::config::primitives::IdResolver;
+    use crate::srv::RESERVED_KEYWORDS;
+
+    #[tokio::test]
+    async fn serialization_preserves_connection_options_and_redacts_credentials() {
+        let mut config: CogConfig = serde_saphyr::from_str(
+            "aws_endpoint: http://localhost:9000\naws_region: us-east-1\nallow_http: true\nskip_signature: false\naws_access_key_id: secret-id\nsecret_access_key: secret-key\ngoogle_bearer_token: secret-token\nazure_storage_sas_key: secret-sas\n",
+        )
+        .unwrap();
+        config.finalize().await.unwrap();
+
+        let value = serde_json::to_value(config).unwrap();
+        assert_eq!(value["aws_endpoint"], "http://localhost:9000");
+        assert_eq!(value["aws_region"], "us-east-1");
+        assert_eq!(value["allow_http"], true);
+        assert_eq!(value["skip_signature"], false);
+        for key in [
+            "aws_access_key_id",
+            "secret_access_key",
+            "google_bearer_token",
+            "azure_storage_sas_key",
+        ] {
+            assert!(value.get(key).is_none(), "{key} must be redacted");
+        }
+    }
+
+    #[tokio::test]
+    async fn connection_options_survive_source_resolution() {
+        let mut config: Config = serde_saphyr::from_str(
+            "on_invalid: warn\ncog:\n  aws_endpoint: http://localhost:9000\n  allow_http: true\n  skip_signature: true\n  sources:\n    local: tests/fixtures/cog/usda_naip_128_none_z2.tif\n",
+        )
+        .unwrap();
+        config.finalize().await.unwrap();
+        let FileConfigEnum::Config(cog) = &config.cog else {
+            panic!("COG config must be expanded during finalization");
+        };
+        assert_eq!(
+            cog.custom.object_store.options["aws_endpoint"],
+            "http://localhost:9000"
+        );
+
+        let state = config
+            .resolve(&IdResolver::new(RESERVED_KEYWORDS))
+            .await
+            .unwrap();
+        let saved = serde_saphyr::to_string(&config.with_catalog(&state.tile_manager)).unwrap();
+        let saved: serde_json::Value = serde_saphyr::from_str(&saved).unwrap();
+        assert_eq!(saved["cog"]["aws_endpoint"], json!("http://localhost:9000"));
+    }
+
+    #[tokio::test]
+    async fn generic_http_store_can_head_an_object() {
+        let server = MockServer::start().await;
+        Mock::given(method("HEAD"))
+            .and(path("/image.tif"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-length", "42")
+                    .insert_header("etag", "\"fixture\""),
+            )
+            .mount(&server)
+            .await;
+
+        let mut cog = CogConfig::default();
+        cog.finalize().await.unwrap();
+        let config = &cog.object_store;
+        let url = url::Url::parse(&format!("{}/image.tif", server.uri())).unwrap();
+        let (store, object_path) = config.parse_url_opts(&url).unwrap();
+        let metadata = store.head(&object_path).await.unwrap();
+
+        assert_eq!(metadata.size, 42);
+        assert_eq!(metadata.e_tag.as_deref(), Some("\"fixture\""));
+    }
+}

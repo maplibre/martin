@@ -28,7 +28,10 @@ fn normalize_paths(value: &mut Value) {
     match value {
         Value::String(s) => *s = s.replace(std::path::MAIN_SEPARATOR, "/"),
         Value::Array(items) => items.iter_mut().for_each(normalize_paths),
-        Value::Object(map) => map.values_mut().for_each(normalize_paths),
+        Value::Object(map) => {
+            map.values_mut().for_each(normalize_paths);
+            map.sort_keys();
+        }
         Value::Null | Value::Bool(_) | Value::Number(_) => {}
     }
 }

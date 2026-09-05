@@ -1,10 +1,4 @@
-use std::fs::File;
-use std::path::Path;
-
-use tiff::decoder::Decoder;
-use tiff::tags::Tag;
-
-use crate::tiles::cog::CogError;
+use async_tiff::ImageFileDirectory;
 
 /// These tags define the relationship between raster space and model space.
 /// See [ogc doc](https://docs.ogc.org/is/19-008r4/19-008r4.html#_coordinate_transformations) for details.
@@ -82,63 +76,14 @@ pub struct ModelInfo {
 }
 
 impl ModelInfo {
-    /// Extracts `GeoTIFF` model information from TIFF decoder.
-    pub fn decode(decoder: &mut Decoder<File>, path: &Path) -> Self {
-        let pixel_scale = decoder
-            .get_tag_f64_vec(Tag::ModelPixelScaleTag)
-            .map_err(|e| {
-                CogError::TagsNotFound(
-                    e,
-                    vec![Tag::ModelPixelScaleTag.to_u16()],
-                    0,
-                    path.to_path_buf(),
-                )
-            })
-            .ok();
-        let tie_points = decoder
-            .get_tag_f64_vec(Tag::ModelTiepointTag)
-            .map_err(|e| {
-                CogError::TagsNotFound(
-                    e,
-                    vec![Tag::ModelTiepointTag.to_u16()],
-                    0,
-                    path.to_path_buf(),
-                )
-            })
-            .ok();
-        let transformation = decoder
-            .get_tag_f64_vec(Tag::ModelTransformationTag)
-            .map_err(|e| {
-                CogError::TagsNotFound(
-                    e,
-                    vec![Tag::ModelTransformationTag.to_u16()],
-                    0,
-                    path.to_path_buf(),
-                )
-            })
-            .ok();
-
-        // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_geokeydirectorytag
-        let projected_crs = decoder
-            .get_tag_u16_vec(Tag::GeoKeyDirectoryTag)
-            .ok()
-            .and_then(|geokeys| {
-                let mut chunks = geokeys.as_chunks::<4>().0.iter();
-
-                // Validate header: version=1, revision=1.0, with at least one key
-                match chunks.next()? {
-                    [1, 1, 0, n_keys] if *n_keys > 0 => {}
-                    _ => return None,
-                }
-
-                // Search for ProjectedCRSGeoKey (3072)
-                // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_projectedcrsgeokey
-                chunks.find_map(|chunk| match chunk {
-                    [3072, _, _, value] => Some(*value),
-                    _ => None,
-                })
-            });
-
+    /// Extracts `GeoTIFF` model information from a parsed image directory.
+    pub fn decode(ifd: &ImageFileDirectory) -> Self {
+        let pixel_scale = ifd.model_pixel_scale().map(ToOwned::to_owned);
+        let tie_points = ifd.model_tiepoint().map(ToOwned::to_owned);
+        let transformation = ifd.model_transformation().map(ToOwned::to_owned);
+        let projected_crs = ifd
+            .geo_key_directory()
+            .and_then(|directory| directory.projected_type);
         Self {
             pixel_scale,
             tie_points,

@@ -107,11 +107,11 @@ pub enum ConfigFileError {
     #[error("Failed to configure tile source alias: {0}")]
     TileAliasResolutionFailed(#[source] crate::source::TileAliasError),
 
-    #[cfg(feature = "pmtiles")]
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
 
-    #[cfg(feature = "pmtiles")]
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
@@ -300,9 +300,9 @@ impl Diagnostic for ConfigFileError {
             Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
             #[cfg(feature = "_tiles")]
             Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
-            #[cfg(feature = "pmtiles")]
+            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
-            #[cfg(feature = "pmtiles")]
+            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
@@ -360,7 +360,7 @@ impl Diagnostic for ConfigFileError {
             Self::TileAliasResolutionFailed(_) => {
                 "Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases."
             }
-            #[cfg(feature = "pmtiles")]
+            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
