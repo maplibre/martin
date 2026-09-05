@@ -383,10 +383,13 @@ mod tests {
             .put(&path, PutPayload::from_static(b"0123456789"))
             .await
             .unwrap();
-        let reader =
-            ObjectStoreCogReader::try_new(store.clone(), path.clone(), "memory://image.tif".into())
-                .await
-                .unwrap();
+        let reader = ObjectStoreCogReader::try_new(
+            Arc::<InMemory>::clone(&store),
+            path.clone(),
+            "memory://image.tif".into(),
+        )
+        .await
+        .unwrap();
 
         store
             .put(&path, PutPayload::from_static(b"abcdefghij"))
