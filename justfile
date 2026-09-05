@@ -105,11 +105,6 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # `unstable-schemas` implies `default`, so the spec covers every route a
-    # release build serves. `rendering` only pulls maplibre-native in on Linux,
-    # so that is the only platform whose spec carries the static-render routes -
-    # and the platform CI regenerates on. `build.rs` stubs the webui out for
-    # this feature, so no frontend is built here.
     cargo build --quiet --features unstable-schemas --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
