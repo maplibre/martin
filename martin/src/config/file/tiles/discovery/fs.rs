@@ -261,9 +261,22 @@ impl Discovery for FsDiscovery {
         for collection in &self.collections {
             let root = collection.canonicalize().map_err(SourceBuildError::Io)?;
             for (project, dir) in subdirectories(&root).map_err(SourceBuildError::Io)? {
-                let dir = dir.canonicalize().map_err(SourceBuildError::Io)?;
-                self.scan(&dir, &format!("{project}."), &mut discovered)
-                    .await?;
+                // A project listed a moment ago can be gone by the time it is read, and the
+                // event for its removal brings the next scan.
+                let dir = match dir.canonicalize() {
+                    Ok(dir) => dir,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                    Err(error) => return Err(SourceBuildError::Io(error)),
+                };
+                match self
+                    .scan(&dir, &format!("{project}."), &mut discovered)
+                    .await
+                {
+                    Ok(()) => {}
+                    Err(SourceBuildError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+                    }
+                    Err(error) => return Err(error),
+                }
             }
         }
 
