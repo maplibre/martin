@@ -2,6 +2,7 @@
 //! Each kind differs only by its extension list and a build closure.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -378,7 +379,13 @@ impl FsDiscovery {
             if !visited.insert(dir.clone()) {
                 continue;
             }
-            let mut entries = fs::read_dir(&dir).await.map_err(SourceBuildError::Io)?;
+            let mut entries = match fs::read_dir(&dir).await {
+                Ok(entries) => entries,
+                // A directory queued by this walk can be gone by the time it is read, and the
+                // event for its removal brings the next scan.
+                Err(error) if error.kind() == io::ErrorKind::NotFound && dir != root => continue,
+                Err(error) => return Err(SourceBuildError::Io(error)),
+            };
             while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
                 let Some(e) = resolve_dir_entry(&entry) else {
                     continue;
