@@ -249,7 +249,7 @@ bless-duckdb: fetch (cargo-install 'cargo-insta')
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-insta')
     cargo build --package martin --no-default-features --features rendering
-    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering -- --test-threads=2
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -650,9 +650,7 @@ test-rendering *args: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --package martin --no-default-features --features rendering
-    # Each test runs a martin of its own, whose render pool software rendering on CI makes too
-    # heavy to run one per core.
-    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
+    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch
