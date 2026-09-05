@@ -49,6 +49,7 @@ bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 flume.workspace = true
+fnv.workspace = true
 futures.workspace = true
 hotpath.workspace = true
 indicatif = { workspace = true, optional = true }

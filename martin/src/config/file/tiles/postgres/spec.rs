@@ -37,6 +37,7 @@ impl SourceSpec {
                 info.extent.hash(&mut hasher);
                 info.buffer.hash(&mut hasher);
                 info.clip_geom.hash(&mut hasher);
+                info.filter.hash(&mut hasher);
                 info.geometry_type.hash(&mut hasher);
                 info.properties.hash(&mut hasher);
                 hash_tilejson(info.tilejson.as_ref(), &mut hasher);
@@ -144,6 +145,7 @@ mod tests {
     #[case::extent(|t: &mut TableInfo|t.extent = NonZeroU32::new(2048))]
     #[case::buffer(|t: &mut TableInfo|t.buffer = Some(128))]
     #[case::clip_geom(|t: &mut TableInfo|t.clip_geom = Some(false))]
+    #[case::filter(|t: &mut TableInfo|t.filter = Some("gid > 2".to_owned()))]
     #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_owned()))]
     #[case::properties(|t: &mut TableInfo|{
         t.properties = Some(BTreeMap::from([("kind".to_owned(), "text".to_owned())]));
