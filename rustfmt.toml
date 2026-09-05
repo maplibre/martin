@@ -1,0 +1,4 @@
+enum_discrim_align_threshold = 10
+fn_call_width = 100
+max_width = 100
+format_code_in_doc_comments = true

@@ -53,11 +53,8 @@ impl CogSource {
             .with_limits(tiff::decoder::Limits::default());
         let model = ModelInfo::decode(&mut decoder, &path);
         verify_requirements(&mut decoder, &model, &path.clone())?;
-        let origin = get_origin(
-            model.tie_points.as_deref(),
-            model.transformation.as_deref(),
-            &path,
-        )?;
+        let origin =
+            get_origin(model.tie_points.as_deref(), model.transformation.as_deref(), &path)?;
         let (full_width_pixel, full_length_pixel) = dimensions_in_pixel(&mut decoder, &path, 0)?;
         let (full_width, full_length) = dimensions_in_model(
             &mut decoder,
@@ -91,13 +88,7 @@ impl CogSource {
             if is_source_image || is_reduced_resolution_subfile {
                 let image_width = dimensions_in_pixel(&mut decoder, &path, ifd_index)?.0;
                 let resolution = full_width / f64::from(image_width);
-                images.push(get_image(
-                    &mut decoder,
-                    &path,
-                    ifd_index,
-                    origin,
-                    resolution,
-                )?);
+                images.push(get_image(&mut decoder, &path, ifd_index, origin, resolution)?);
             }
 
             ifd_index += 1;
@@ -283,11 +274,7 @@ fn verify_requirements(
             if config == PlanarConfiguration::Chunky.to_u16() {
                 Ok(())
             } else {
-                Err(CogError::PlanarConfigurationNotSupported(
-                    path.to_path_buf(),
-                    0,
-                    config,
-                ))
+                Err(CogError::PlanarConfigurationNotSupported(path.to_path_buf(), 0, config))
             }
         })?;
 
@@ -301,10 +288,7 @@ fn verify_requirements(
             ) {
                 Ok(())
             } else {
-                Err(CogError::NotSupportedColorTypeAndBitDepth(
-                    color_type,
-                    path.to_path_buf(),
-                ))
+                Err(CogError::NotSupportedColorTypeAndBitDepth(color_type, path.to_path_buf()))
             }
         })?;
 
@@ -327,10 +311,7 @@ fn verify_requirements(
                     return Ok(());
                 }
 
-                Err(CogError::NotSupportedCompression(
-                    compression,
-                    path.to_path_buf(),
-                ))
+                Err(CogError::NotSupportedCompression(compression, path.to_path_buf()))
             }
         })?;
 
@@ -636,29 +617,20 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(
-            cog_file,
-            Path::new(&path).to_path_buf(),
-            CacheZoomRange::default(),
-        )
-        .unwrap();
+        let source =
+            CogSource::new(cog_file, Path::new(&path).to_path_buf(), CacheZoomRange::default())
+                .unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);
-        assert_eq!(
-            source.tilejson.center.unwrap().to_string(),
-            center.to_string()
-        );
+        assert_eq!(source.tilejson.center.unwrap().to_string(), center.to_string());
         let actual_bounds = source.tilejson.bounds.unwrap();
         assert_abs_diff_eq!(actual_bounds.left, bounds.left, epsilon = 1e-12);
         assert_abs_diff_eq!(actual_bounds.bottom, bounds.bottom, epsilon = 1e-12);
         assert_abs_diff_eq!(actual_bounds.right, bounds.right, epsilon = 1e-12);
         assert_abs_diff_eq!(actual_bounds.top, bounds.top, epsilon = 1e-12);
         assert_eq!(source.tilejson.other.get("tileSize").unwrap(), tile_size);
-        assert_eq!(
-            source.tilejson.other.get("format").unwrap().as_str(),
-            Some(format.as_str())
-        );
+        assert_eq!(source.tilejson.other.get("format").unwrap().as_str(), Some(format.as_str()));
     }
 
     #[rstest]
@@ -681,12 +653,9 @@ mod tests {
     ) {
         use approx::assert_abs_diff_eq;
 
-        let origin = super::get_origin(
-            tie_point.as_deref(),
-            matrix.as_deref(),
-            Path::new("not_exist.tif"),
-        )
-        .ok();
+        let origin =
+            super::get_origin(tie_point.as_deref(), matrix.as_deref(), Path::new("not_exist.tif"))
+                .ok();
         match (origin, expected) {
             (Some(o), Some(e)) => {
                 assert_abs_diff_eq!(o[0], e[0]);
@@ -736,12 +705,9 @@ mod tests {
 
         use crate::tiles::cog::source::{get_extent, get_full_resolution, get_origin};
 
-        let origin = get_origin(
-            tie_point.as_deref(),
-            matrix.as_deref(),
-            Path::new("not_exist.tif"),
-        )
-        .unwrap();
+        let origin =
+            get_origin(tie_point.as_deref(), matrix.as_deref(), Path::new("not_exist.tif"))
+                .unwrap();
         let full_resolution = get_full_resolution(
             pixel_scale.as_deref(),
             matrix.as_deref(),

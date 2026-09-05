@@ -6,11 +6,10 @@ use tracing::{info, warn};
 use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
-use crate::config::file::CachePolicy;
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 
@@ -276,12 +275,9 @@ mod tests {
     fn extract_conn_strings_from_env() {
         let mut args = Arguments::new(vec![]);
         let env = FauxEnv(
-            vec![(
-                "DATABASE_URL",
-                OsString::from("postgresql://localhost:5432"),
-            )]
-            .into_iter()
-            .collect(),
+            vec![("DATABASE_URL", OsString::from("postgresql://localhost:5432"))]
+                .into_iter()
+                .collect(),
         );
         let strings = PostgresArgs::extract_conn_strings(&mut args, &env);
         assert_eq!(strings, vec!["postgresql://localhost:5432"]);
@@ -418,13 +414,7 @@ mod tests {
         let OptOneMany::One(cfg) = config else {
             panic!("expected exactly one postgres config");
         };
-        assert_eq!(
-            cfg.ssl_certificates.ssl_cert,
-            Some(PathBuf::from("from-cli"))
-        );
-        assert_eq!(
-            cfg.ssl_certificates.ssl_key,
-            Some(PathBuf::from("key-from-cli"))
-        );
+        assert_eq!(cfg.ssl_certificates.ssl_cert, Some(PathBuf::from("from-cli")));
+        assert_eq!(cfg.ssl_certificates.ssl_key, Some(PathBuf::from("key-from-cli")));
     }
 }

@@ -117,10 +117,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         self.inner
             .invalidate_entries_if(move |key, _| key.matches_source(&source_id_owned))
             .expect("invalidate_entries_if predicate should not error");
-        info!(
-            "Invalidated {} cache for source: {source_id}",
-            K::CACHE_NAME
-        );
+        info!("Invalidated {} cache for source: {source_id}", K::CACHE_NAME);
     }
 
     /// Invalidates every entry.
@@ -249,11 +246,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
-            calls.load(Ordering::SeqCst),
-            1,
-            "second call should hit cache"
-        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "second call should hit cache");
     }
 
     #[rstest]

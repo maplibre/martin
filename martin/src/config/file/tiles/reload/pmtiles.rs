@@ -183,10 +183,7 @@ mod tests {
         let reloader = make_reloader(&FileConfigEnum::None);
         assert!(reloader.local.discovery().directories().is_empty());
         assert!(reloader.remote.discovery().remote_prefixes().is_empty());
-        assert_eq!(
-            reloader.remote.discovery().reload_interval(),
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(reloader.remote.discovery().reload_interval(), DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]

@@ -171,10 +171,7 @@ mod tests {
         let (tile, operators) = tile_and_operators(&pool, &introspection, 2, 3, 1).await;
         let (control_tile, control_operators) = tile_and_operators(&pool, &unpruned, 2, 3, 1).await;
 
-        assert_eq!(
-            tile, control_tile,
-            "pruning must not change the tile it produces"
-        );
+        assert_eq!(tile, control_tile, "pruning must not change the tile it produces");
         assert!(
             operators.contains(&"EMPTY_RESULT".to_owned()),
             "the covering predicate did not reach the Parquet reader: {operators:?}"
@@ -199,9 +196,6 @@ mod tests {
         let (control_tile, _) = tile_and_operators(&pool, &unpruned, 2, 0, 1).await;
 
         assert!(tile > 0, "the tile should carry features");
-        assert_eq!(
-            tile, control_tile,
-            "pruning must not change the tile it produces"
-        );
+        assert_eq!(tile, control_tile, "pruning must not change the tile it produces");
     }
 }

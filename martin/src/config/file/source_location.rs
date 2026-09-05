@@ -122,10 +122,7 @@ mod tests {
     fn object_store_schemes_are_object_store_urls(#[case] scheme: &str) {
         let raw = format!("{scheme}://bucket/dir/tiles.pmtiles");
         let location = SourceLocation::classify(&raw).expect("classification should succeed");
-        assert_eq!(
-            location,
-            SourceLocation::ObjectStore(raw.parse().expect("valid url"))
-        );
+        assert_eq!(location, SourceLocation::ObjectStore(raw.parse().expect("valid url")));
         assert!(location.is_remote());
     }
 
@@ -135,10 +132,7 @@ mod tests {
     fn http_schemes_are_http_urls(#[case] scheme: &str) {
         let raw = format!("{scheme}://example.org/dir/tiles.pmtiles");
         let location = SourceLocation::classify(&raw).expect("classification should succeed");
-        assert_eq!(
-            location,
-            SourceLocation::Http(raw.parse().expect("valid url"))
-        );
+        assert_eq!(location, SourceLocation::Http(raw.parse().expect("valid url")));
         assert!(location.is_remote());
     }
 
@@ -188,10 +182,7 @@ mod tests {
     fn remote_locations_yield_their_url() {
         let location = SourceLocation::classify("s3://bucket/tiles.pmtiles")
             .expect("classification should succeed");
-        assert_eq!(
-            location.url().map(Url::as_str),
-            Some("s3://bucket/tiles.pmtiles")
-        );
+        assert_eq!(location.url().map(Url::as_str), Some("s3://bucket/tiles.pmtiles"));
         assert_eq!(
             location.into_url().map(|url| url.to_string()),
             Some("s3://bucket/tiles.pmtiles".to_owned())

@@ -290,11 +290,8 @@ mod e2e {
         let container = start_postgres_11_with_posgis_3_container().await;
         let connstr = connection_string(&container).await;
 
-        seed(
-            &connstr,
-            "CREATE TABLE public.reload_boundary (gid serial PRIMARY KEY, geom geometry(Point, 4326));",
-        )
-        .await;
+        seed(&connstr, "CREATE TABLE public.reload_boundary (gid serial PRIMARY KEY, geom geometry(Point, 4326));")
+            .await;
 
         let config = PostgresConfig {
             connection_string: Some(connstr.clone()),
@@ -316,10 +313,7 @@ mod e2e {
             published(&tsm, "reload_boundary"),
             "init must publish a table that exists at startup"
         );
-        assert!(
-            !published(&tsm, "reload_e2e"),
-            "must not publish a table that does not exist"
-        );
+        assert!(!published(&tsm, "reload_e2e"), "must not publish a table that does not exist");
         assert!(has_provenance(&tsm, "reload_boundary"));
 
         seed(&connstr, "DROP TABLE public.reload_boundary;").await;
@@ -344,21 +338,14 @@ mod e2e {
         .await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(
-            published(&tsm, "reload_e2e"),
-            "CREATE TABLE must publish the source"
-        );
+        assert!(published(&tsm, "reload_e2e"), "CREATE TABLE must publish the source");
         assert!(
             !advertised_fields(&tsm).contains_key("label"),
             "the not-yet-added column must not be advertised"
         );
 
         // ALTER ADD COLUMN -> update (the published source's advertised fields gain the column).
-        seed(
-            &connstr,
-            "ALTER TABLE public.reload_e2e ADD COLUMN label text;",
-        )
-        .await;
+        seed(&connstr, "ALTER TABLE public.reload_e2e ADD COLUMN label text;").await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
         assert!(
@@ -370,10 +357,7 @@ mod e2e {
         seed(&connstr, "DROP TABLE public.reload_e2e;").await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(
-            !published(&tsm, "reload_e2e"),
-            "DROP TABLE must remove the source"
-        );
+        assert!(!published(&tsm, "reload_e2e"), "DROP TABLE must remove the source");
 
         // Dropping the rendezvous closes the tick channel, ending the driver loop.
         drop(rdv);

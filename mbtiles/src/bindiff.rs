@@ -87,12 +87,7 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
             });
         }
 
-        start_processor_threads(
-            Arc::clone(&patcher),
-            rx_wrk,
-            tx_ins,
-            Arc::clone(&has_errors),
-        );
+        start_processor_threads(Arc::clone(&patcher), rx_wrk, tx_ins, Arc::clone(&has_errors));
         recv_and_insert(patcher, conn, rx_ins).await?;
 
         if has_errors.load(Relaxed) {
@@ -125,10 +120,7 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
         }
     }
     conn.execute("COMMIT").await?;
-    info!(
-        bindiff.inserted = inserted,
-        "Finished processing bindiff tiles"
-    );
+    info!(bindiff.inserted = inserted, "Finished processing bindiff tiles");
 
     Ok(())
 }
@@ -226,10 +218,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
             Normalized {
                 schema,
                 hash_view: false,
-            } => format!(
-                "({})",
-                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
-            ),
+            } => format!("({})", schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")),
         };
 
         let sql = format!(

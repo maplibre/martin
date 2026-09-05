@@ -229,10 +229,7 @@ mod tests {
     #[test]
     fn deserialize_multi_seq_is_many() {
         let cfg = parse_yaml::<OptOneMany<String>>("[a, b, c]");
-        assert_eq!(
-            cfg,
-            Many(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()])
-        );
+        assert_eq!(cfg, Many(vec!["a".to_owned(), "b".to_owned(), "c".to_owned()]));
     }
 
     #[test]
@@ -291,10 +288,7 @@ mod tests {
 
         assert_eq!(noval.opt_iter().map(Iterator::collect::<Vec<_>>), None);
         assert_eq!(one.opt_iter().map(Iterator::collect), Some(vec![&1]));
-        assert_eq!(
-            many.opt_iter().map(Iterator::collect),
-            Some(vec![&1, &2, &3])
-        );
+        assert_eq!(many.opt_iter().map(Iterator::collect), Some(vec![&1, &2, &3]));
 
         assert_eq!(noval.into_iter().collect::<Vec<_>>(), Vec::<i32>::new());
         assert_eq!(one.into_iter().collect::<Vec<_>>(), vec![1]);

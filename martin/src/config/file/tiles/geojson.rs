@@ -154,10 +154,7 @@ mod tests {
         .unwrap();
         cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
-        assert!(
-            unrecognised.is_empty(),
-            "unrecognized config: {unrecognised:?}"
-        );
+        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };
@@ -173,10 +170,7 @@ mod tests {
         assert_eq!(
             cfg.sources,
             Some(BTreeMap::from_iter(vec![
-                (
-                    "pm-src1".to_owned(),
-                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
-                ),
+                ("pm-src1".to_owned(), FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))),
                 (
                     "pm-src2".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {

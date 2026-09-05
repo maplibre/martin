@@ -268,10 +268,7 @@ where
 
         let ((), (), (unique_encoded, tiles_written)) = tokio::try_join!(reader, compute, writer)?;
 
-        info!(
-            unique_encoded,
-            tiles_written, "Encoded unique tiles and wrote rows"
-        );
+        info!(unique_encoded, tiles_written, "Encoded unique tiles and wrote rows");
 
         detach_db(&mut *dst_conn, "srcDb").await?;
 
@@ -741,9 +738,9 @@ where
 
     let entry = cache
         .entry(key)
-        .or_try_insert_with(
-            || -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> { (transform)(data) },
-        )
+        .or_try_insert_with(|| -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
+            (transform)(data)
+        })
         .inspect_err(|e| warn!(tile.coord = %coord, error = ?e, "Skipping tile"))
         .ok()?;
 
@@ -775,13 +772,8 @@ async fn general_writer(
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
-            dst.insert_tiles(
-                &mut dst_conn,
-                dst_type,
-                CopyDuplicateMode::Override,
-                &pending,
-            )
-            .await?;
+            dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+                .await?;
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
@@ -791,13 +783,8 @@ async fn general_writer(
 
     // Final flush.
     if !pending.is_empty() {
-        dst.insert_tiles(
-            &mut dst_conn,
-            dst_type,
-            CopyDuplicateMode::Override,
-            &pending,
-        )
-        .await?;
+        dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+            .await?;
         total += pending.len();
         pending.clear();
     }
@@ -1021,10 +1008,7 @@ mod tests {
             }
         );
         let calls = call_count.load(Ordering::Relaxed);
-        assert_eq!(
-            calls, 2,
-            "transform must be called once per unique image, not per map entry"
-        );
+        assert_eq!(calls, 2, "transform must be called once per unique image, not per map entry");
     }
 
     #[actix_rt::test]

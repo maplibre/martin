@@ -100,12 +100,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed tiles_with_hash view for normalized map+images structure");
-    create_schema(
-        conn,
-        include_str!("../../sql/init-normalized-with-hash.sql"),
-        false,
-    )
-    .await
+    create_schema(conn, include_str!("../../sql/init-normalized-with-hash.sql"), false).await
 }
 
 #[cfg(test)]

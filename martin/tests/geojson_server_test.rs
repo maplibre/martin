@@ -128,10 +128,7 @@ async fn geojson_get_tile() {
     let req = test_get("/geo1/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert!(!body.is_empty());
@@ -145,10 +142,7 @@ async fn geojson_get_tile_gzip() {
     let req = test_get("/geo1/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     // GeoJSON tiles can be gzipped
     let body = read_body(response).await;
     assert!(!body.is_empty());

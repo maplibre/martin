@@ -102,10 +102,7 @@ mod tests {
     fn a_clamped_slot_is_not_the_same_as_a_present_one() {
         let mut clamped = full();
         clamped[0] = InputEtag::Clamped;
-        assert_ne!(
-            neighbourhood_etag(&clamped, "p"),
-            neighbourhood_etag(&full(), "p")
-        );
+        assert_ne!(neighbourhood_etag(&clamped, "p"), neighbourhood_etag(&full(), "p"));
     }
 
     #[test]
@@ -135,9 +132,6 @@ mod tests {
         let mut right = full();
         right[0] = InputEtag::Tagged("a");
         right[1] = InputEtag::Tagged("bc");
-        assert_ne!(
-            neighbourhood_etag(&left, "p"),
-            neighbourhood_etag(&right, "p")
-        );
+        assert_ne!(neighbourhood_etag(&left, "p"), neighbourhood_etag(&right, "p"));
     }
 }

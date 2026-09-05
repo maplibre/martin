@@ -238,10 +238,7 @@ mod tests {
 
         let snapshot_ids: Vec<&String> = snapshot.keys().collect();
         let spec_ids: Vec<&String> = specs.keys().collect();
-        assert_eq!(
-            snapshot_ids, spec_ids,
-            "discovery ids must match the builder"
-        );
+        assert_eq!(snapshot_ids, spec_ids, "discovery ids must match the builder");
 
         for (id, (version, _args)) in &snapshot {
             assert_eq!(

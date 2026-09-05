@@ -249,13 +249,11 @@ impl Mbtiles {
         now: UnixSeconds,
     ) -> MbtResult<u64> {
         let now = now.0;
-        let removed = query!(
-            "DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1",
-            now
-        )
-        .execute(&mut *conn)
-        .await?
-        .rows_affected();
+        let removed =
+            query!("DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1", now)
+                .execute(&mut *conn)
+                .await?
+                .rows_affected();
         query!("PRAGMA incremental_vacuum")
             .execute(&mut *conn)
             .await?;
@@ -346,10 +344,7 @@ mod tests {
     async fn detected_as_cache() {
         let (mbt, mut conn) = cache().await;
         assert!(mbt.is_cache(&mut conn).await.unwrap());
-        assert_eq!(
-            mbt.detect_type(&mut conn).await.unwrap(),
-            crate::MbtType::Cache
-        );
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), crate::MbtType::Cache);
     }
 
     #[tokio::test]

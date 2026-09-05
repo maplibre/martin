@@ -22,9 +22,8 @@ pub async fn purge_source(
 ) -> actix_web::Result<impl Responder> {
     tile_manager.tile_sources().get_source(&source_id)?;
     let Some(cache) = tile_manager.tile_cache() else {
-        return Ok(HttpResponse::Ok().body(format!(
-            "Source {source_id} has no cached tiles, tile caching is disabled"
-        )));
+        return Ok(HttpResponse::Ok()
+            .body(format!("Source {source_id} has no cached tiles, tile caching is disabled")));
     };
     cache.invalidate_source(&source_id);
     cache.run_pending_tasks().await;

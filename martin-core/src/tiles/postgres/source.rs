@@ -194,11 +194,8 @@ impl PostgresSource {
             conn.query_opt(&prep_query, params).await
         } else {
             debug!("SQL: {sql} [{xyz}]");
-            conn.query_opt(
-                &prep_query,
-                &[&i16::from(xyz.z), &i64::from(xyz.x), &i64::from(xyz.y)],
-            )
-            .await
+            conn.query_opt(&prep_query, &[&i16::from(xyz.z), &i64::from(xyz.x), &i64::from(xyz.y)])
+                .await
         };
 
         Ok(tile.map_err(|e| {

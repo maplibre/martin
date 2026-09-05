@@ -739,10 +739,8 @@ impl MbtileCopierInt {
                 trace!(
                     "Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}"
                 );
-                let (min_y, max_y) = (
-                    invert_y_value(MAX_ZOOM, max_y),
-                    invert_y_value(MAX_ZOOM, min_y),
-                );
+                let (min_y, max_y) =
+                    (invert_y_value(MAX_ZOOM, max_y), invert_y_value(MAX_ZOOM, min_y));
 
                 if idx > 0 {
                     sql.push_str(" OR\n");
@@ -870,10 +868,7 @@ fn get_select_from_with_diff(
             Normalized {
                 hash_view: false,
                 schema,
-            } => format!(
-                "({})",
-                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
-            ),
+            } => format!("({})", schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")),
         };
     }
 
@@ -919,11 +914,8 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
         WHERE TRUE"
                 .to_owned(),
             Normalized { schema, .. } => {
-                let (map, img, id) = (
-                    schema.map_table(),
-                    schema.content_table(),
-                    schema.tile_id_column(),
-                );
+                let (map, img, id) =
+                    (schema.map_table(), schema.content_table(), schema.tile_id_column());
                 format!(
                     "
         SELECT zoom_level, tile_column, tile_row, tile_data, {map}.{id} AS tile_hash
@@ -1026,25 +1018,18 @@ mod tests {
         let mut dst_conn = opt.run().await.unwrap();
 
         assert_eq!(
-            get_one::<u8>(
-                &mut dst_conn,
-                "SELECT COUNT(DISTINCT zoom_level) FROM tiles;"
-            )
-            .await,
+            get_one::<u8>(&mut dst_conn, "SELECT COUNT(DISTINCT zoom_level) FROM tiles;").await,
             expected_zoom_levels
         );
     }
 
     async fn get_table_sql(conn: &mut SqliteConnection, table: &str) -> String {
-        query!(
-            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?",
-            table
-        )
-        .fetch_one(conn)
-        .await
-        .unwrap()
-        .sql
-        .unwrap()
+        query!("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?", table)
+            .fetch_one(conn)
+            .await
+            .unwrap()
+            .sql
+            .unwrap()
     }
 
     #[actix_rt::test]
@@ -1294,10 +1279,7 @@ mod tests {
                 .is_some()
         );
 
-        assert_eq!(
-            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM map;").await,
-            3
-        );
+        assert_eq!(get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM map;").await, 3);
 
         assert!(
             get_one::<Option<i32>>(
@@ -1461,10 +1443,7 @@ mod tests {
         .fetch_optional(&mut dst_conn)
         .await
         .unwrap();
-        assert!(
-            missing_tiles.is_none(),
-            "entries in expected_tiles are in tiles"
-        );
+        assert!(missing_tiles.is_none(), "entries in expected_tiles are in tiles");
 
         let extra_tiles = query(
             "
@@ -1478,9 +1457,6 @@ mod tests {
         .fetch_optional(&mut dst_conn)
         .await
         .unwrap();
-        assert!(
-            extra_tiles.is_none(),
-            "entries in tiles are in expected_tiles"
-        );
+        assert!(extra_tiles.is_none(), "entries in tiles are in expected_tiles");
     }
 }

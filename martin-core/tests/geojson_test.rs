@@ -205,11 +205,7 @@ async fn each_container_type_yields_one_named_layer() {
 /// stays within the tile plus its buffer.
 #[tokio::test]
 async fn clipping_keeps_coords_within_tile_plus_buffer() {
-    let src = source(
-        "clip",
-        &GeoJson::Geometry(gj_square(-170.0, -80.0, 170.0, 80.0)),
-    )
-    .await;
+    let src = source("clip", &GeoJson::Geometry(gj_square(-170.0, -80.0, 170.0, 80.0))).await;
     // z1/1/0 is the north-eastern quadrant (lng 0..180, lat 0..85).
     let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
     let layer = &tile.layers[0];
@@ -231,18 +227,10 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
 async fn linestring_crossing_boundary_is_clipped() {
     // Runs west-to-east across the antimeridian-free width, from inside z1/1/0 (lng 0..180) out
     // into the western hemisphere; the western part is clipped off at the tile's left edge.
-    let src = source(
-        "line",
-        &GeoJson::Geometry(gj_line(&[(50.0, 40.0), (-50.0, 40.0)])),
-    )
-    .await;
+    let src = source("line", &GeoJson::Geometry(gj_line(&[(50.0, 40.0), (-50.0, 40.0)]))).await;
     let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
     let layer = &tile.layers[0];
-    assert_eq!(
-        layer.features.len(),
-        1,
-        "clipped line survives as one feature"
-    );
+    assert_eq!(layer.features.len(), 1, "clipped line survives as one feature");
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 2, "a line keeps at least two vertices");
@@ -266,11 +254,7 @@ async fn multilinestring_crossing_boundary_is_clipped() {
     let src = source("mline", &GeoJson::Geometry(geom)).await;
     let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
     let layer = &tile.layers[0];
-    assert_eq!(
-        layer.features.len(),
-        1,
-        "clipped multiline survives as one feature"
-    );
+    assert_eq!(layer.features.len(), 1, "clipped multiline survives as one feature");
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 4, "both clipped parts contribute vertices");
@@ -286,18 +270,10 @@ async fn multilinestring_crossing_boundary_is_clipped() {
 #[tokio::test]
 async fn disjoint_tile_returns_empty_bytes() {
     // Data sits in the eastern hemisphere...
-    let src = source(
-        "east",
-        &GeoJson::Geometry(gj_square(100.0, 10.0, 110.0, 20.0)),
-    )
-    .await;
+    let src = source("east", &GeoJson::Geometry(gj_square(100.0, 10.0, 110.0, 20.0))).await;
     // ...so the western quadrant z1/0/0 (lng -180..0) sees nothing.
     let bytes = src.get_tile(xyz(1, 0, 0), None).await.unwrap();
-    assert!(
-        bytes.is_empty(),
-        "expected empty Vec, got {} bytes",
-        bytes.len()
-    );
+    assert!(bytes.is_empty(), "expected empty Vec, got {} bytes", bytes.len());
 }
 
 /// A feature whose geometry is a `GeometryCollection` is flattened into one MVT feature per
@@ -314,11 +290,7 @@ async fn geometry_collection_flattens_sharing_properties() {
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
     let layer = &tile.layers[0];
 
-    assert_eq!(
-        layer.features.len(),
-        2,
-        "a 2-geometry collection becomes 2 features"
-    );
+    assert_eq!(layer.features.len(), 2, "a 2-geometry collection becomes 2 features");
     for f in &layer.features {
         assert_matches!(
             prop(f, "name"),
@@ -342,11 +314,9 @@ async fn property_types_round_trip_and_null_is_omitted() {
     props.insert("obj".to_owned(), json!({"k": 1}));
     props.insert("nil".to_owned(), serde_json::Value::Null);
 
-    let src = source(
-        "props",
-        &GeoJson::Feature(feature(gj_square(10.0, 10.0, 20.0, 20.0), Some(props))),
-    )
-    .await;
+    let src =
+        source("props", &GeoJson::Feature(feature(gj_square(10.0, 10.0, 20.0, 20.0), Some(props))))
+            .await;
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
     let layer = &tile.layers[0];
     assert_eq!(layer.features.len(), 1);
@@ -391,11 +361,7 @@ async fn polygon_rings_follow_mvt_winding_order() {
         .iter()
         .flat_map(|f| polygons(&f.geometry))
         .collect();
-    assert_eq!(
-        polys.len(),
-        1,
-        "one polygon reconstructed (hole not split off)"
-    );
+    assert_eq!(polys.len(), 1, "one polygon reconstructed (hole not split off)");
     let poly = polys[0];
     assert_eq!(poly.interiors().len(), 1, "exactly one interior ring");
     assert!(
@@ -453,11 +419,7 @@ async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
 #[tokio::test]
 async fn subpixel_polygon_is_dropped() {
     // 0.005 deg wide at z0 is ~0.06 tile units - it floors to zero width.
-    let src = source(
-        "sliver",
-        &GeoJson::Geometry(gj_square(10.0, 0.0, 10.005, 20.0)),
-    )
-    .await;
+    let src = source("sliver", &GeoJson::Geometry(gj_square(10.0, 0.0, 10.005, 20.0))).await;
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
     assert!(
         tile.layers.is_empty() || tile.layers[0].features.is_empty(),

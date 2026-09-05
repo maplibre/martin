@@ -56,11 +56,7 @@ pub(crate) mod pg {
     /// [`PostgresDiscovery`]: crate::config::file::discovery::PostgresDiscovery
     pub(crate) async fn builder_for(
         config_yaml: &str,
-    ) -> (
-        PostgresAutoDiscoveryBuilder,
-        ContainerAsync<Postgres>,
-        String,
-    ) {
+    ) -> (PostgresAutoDiscoveryBuilder, ContainerAsync<Postgres>, String) {
         let container = start_postgres_11_with_posgis_3_container().await;
         let connection_string = connection_string(&container).await;
 
@@ -80,16 +76,10 @@ pub(crate) mod pg {
 
     /// Runs arbitrary setup SQL against the database behind `connection_string`.
     pub(crate) async fn seed(connection_string: &str, sql: &str) {
-        let pool = PostgresPool::new(
-            connection_string,
-            None,
-            None,
-            None,
-            2,
-            RetryTimeout::default(),
-        )
-        .await
-        .expect("open seed pool");
+        let pool =
+            PostgresPool::new(connection_string, None, None, None, 2, RetryTimeout::default())
+                .await
+                .expect("open seed pool");
         pool.get()
             .await
             .expect("acquire seed connection")

@@ -453,10 +453,7 @@ mod tests {
                 typoo: 1
         "});
         let keys = cfg.get_unrecognized_keys();
-        assert!(
-            keys.contains("sources.s.typoo"),
-            "expected sources.s.typoo in {keys:?}"
-        );
+        assert!(keys.contains("sources.s.typoo"), "expected sources.s.typoo in {keys:?}");
     }
 
     #[test]

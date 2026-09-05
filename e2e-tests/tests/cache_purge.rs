@@ -86,10 +86,7 @@ async fn without_a_tile_cache_the_body_says_so() {
 
     let purged = martin.delete("/cache/pmt").await;
     assert_eq!(purged.status(), 200);
-    assert_eq!(
-        purged.text(),
-        "Source pmt has no cached tiles, tile caching is disabled"
-    );
+    assert_eq!(purged.text(), "Source pmt has no cached tiles, tile caching is disabled");
 
     martin.stop().await;
     martin.assert_startup_warnings();

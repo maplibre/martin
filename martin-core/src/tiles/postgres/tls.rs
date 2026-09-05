@@ -185,9 +185,7 @@ fn read_certs(file: &PathBuf) -> PostgresResult<Vec<CertificateDer<'static>>> {
 }
 
 fn cert_reader(file: &PathBuf) -> PostgresResult<BufReader<File>> {
-    Ok(BufReader::new(
-        File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
-    ))
+    Ok(BufReader::new(File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?))
 }
 
 /// Ensure a rustls crypto provider is installed (no-op if one already is).

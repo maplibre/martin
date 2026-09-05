@@ -87,12 +87,8 @@ impl Display for Summary {
         }
 
         if self.zoom_info.len() > 1
-            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
-                self.min_tile_size,
-                self.max_tile_size,
-                self.bbox,
-                self.max_zoom,
-            )
+            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) =
+                (self.min_tile_size, self.max_tile_size, self.bbox, self.max_zoom)
         {
             let min = SizeFormatterSI::new(min);
             let max = SizeFormatterSI::new(max);

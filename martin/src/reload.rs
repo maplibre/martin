@@ -114,12 +114,8 @@ impl ReloadAdvisory {
             .map(|id| DeletedSource { id: id.clone() })
             .collect();
 
-        let additions = build_all(
-            next_ids.difference(previous_ids).cloned(),
-            &initializer,
-            &process,
-        )
-        .await;
+        let additions =
+            build_all(next_ids.difference(previous_ids).cloned(), &initializer, &process).await;
 
         Self {
             additions,

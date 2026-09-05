@@ -8,10 +8,9 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body, read_b
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
-use martin::config::file::CachePolicy;
-use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
+use martin::config::file::{CachePolicy, ProcessConfig};
 use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
@@ -295,17 +294,12 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
 
     // Establish the pre-overwrite baseline: wait until the reloader discovers the
     // original blob and the catalog exposes its `name` field.
-    wait_for_catalog(
-        &app,
-        Duration::from_secs(10),
-        "alpha discovered with name=ne2sr",
-        |t| {
-            t.get("alpha")
-                .and_then(|v| v.get("name"))
-                .and_then(Value::as_str)
-                == Some("ne2sr")
-        },
-    )
+    wait_for_catalog(&app, Duration::from_secs(10), "alpha discovered with name=ne2sr", |t| {
+        t.get("alpha")
+            .and_then(|v| v.get("name"))
+            .and_then(Value::as_str)
+            == Some("ne2sr")
+    })
     .await;
 
     // Overwrite the blob with a fixture whose tilejson lacks a `name` field. Under

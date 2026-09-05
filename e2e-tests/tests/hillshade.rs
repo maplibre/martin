@@ -28,11 +28,7 @@ fn neighbourhood() -> Vec<(u32, u32, u32)> {
     (-1i32..=1)
         .flat_map(|dy| {
             (-1i32..=1).map(move |dx| {
-                (
-                    ZOOM,
-                    CENTRE.0.wrapping_add_signed(dx),
-                    CENTRE.1.wrapping_add_signed(dy),
-                )
+                (ZOOM, CENTRE.0.wrapping_add_signed(dx), CENTRE.1.wrapping_add_signed(dy))
             })
         })
         .collect()
@@ -191,10 +187,7 @@ async fn a_source_that_forbids_caching_re_reads_its_normal_tiles() {
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
 
     let requests = files.request_log().await.lines().count();
-    assert_eq!(
-        requests, 18,
-        "a source that forbids caching must have its normal tiles read again"
-    );
+    assert_eq!(requests, 18, "a source that forbids caching must have its normal tiles read again");
     martin.stop().await;
 }
 
@@ -266,10 +259,7 @@ async fn an_absent_centre_tile_serves_no_content() {
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 204);
-    assert!(
-        response.body().is_empty(),
-        "an absent centre must not be answered with a baked tile"
-    );
+    assert!(response.body().is_empty(), "an absent centre must not be answered with a baked tile");
     martin.stop().await;
 }
 
@@ -406,8 +396,5 @@ async fn an_invalid_hillshade_stops_startup() {
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("azimuth"),
-        "the startup error must name the parameter; log:\n{log}"
-    );
+    assert!(log.contains("azimuth"), "the startup error must name the parameter; log:\n{log}");
 }

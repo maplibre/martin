@@ -108,16 +108,10 @@ pmtiles:
     );
     let tile = martin.get("/pmt/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    assert!(
-        tile.body().starts_with(b"\x89PNG"),
-        "expected a png tile body"
-    );
+    assert!(tile.body().starts_with(b"\x89PNG"), "expected a png tile body");
 
     martin.stop().await;
-    assert_eq!(
-        unrecognized_keys(&mut martin),
-        ["pmtiles.warning", "warning"]
-    );
+    assert_eq!(unrecognized_keys(&mut martin), ["pmtiles.warning", "warning"]);
     martin.assert_startup_warnings();
 }
 
@@ -195,10 +189,7 @@ pmtiles:
     ");
 
     martin.stop().await;
-    assert_eq!(
-        unrecognized_keys(&mut martin),
-        ["pmtiles.warning", "warning"]
-    );
+    assert_eq!(unrecognized_keys(&mut martin), ["pmtiles.warning", "warning"]);
     martin.assert_startup_warnings();
 }
 

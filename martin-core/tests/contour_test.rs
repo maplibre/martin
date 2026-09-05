@@ -67,10 +67,7 @@ fn the_traced_tile_carries_classified_contour_lines() {
         .find(|layer| layer.name() == "contour")
         .expect("the contour layer is present");
     assert_eq!(layer.extent(), 4096);
-    assert!(
-        layer.feature_count() > 0,
-        "real terrain should trace at least one line"
-    );
+    assert!(layer.feature_count() > 0, "real terrain should trace at least one line");
 
     let mut saw_major = false;
     let mut saw_standard = false;
@@ -98,10 +95,7 @@ fn the_traced_tile_carries_classified_contour_lines() {
             other => unexpected.push(format!("{other:?}")),
         }
     }
-    assert!(
-        unexpected.is_empty(),
-        "every line carries a boolean major tag, got {unexpected:?}"
-    );
+    assert!(unexpected.is_empty(), "every line carries a boolean major tag, got {unexpected:?}");
     assert!(
         saw_major && saw_standard,
         "the fixture spans enough relief to produce both major and minor lines"

@@ -85,10 +85,7 @@ async fn cors_implicit_enabled() {
         .to_request();
 
     let response = call_service(&app, req).await;
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.org"
-    );
+    assert_eq!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "https://example.org");
 }
 
 #[actix_rt::test]
@@ -110,10 +107,7 @@ async fn cors_explicit_enabled() {
         .to_request();
 
     let response = call_service(&app, req).await;
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.org"
-    );
+    assert_eq!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "https://example.org");
 }
 
 #[actix_rt::test]
@@ -195,14 +189,8 @@ async fn cors_preflight_request_with_max_age() {
         .to_request();
 
     let response = call_service(&app, req).await;
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.org"
-    );
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_MAX_AGE).unwrap(),
-        "3600"
-    );
+    assert_eq!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "https://example.org");
+    assert_eq!(response.headers().get(ACCESS_CONTROL_MAX_AGE).unwrap(), "3600");
 }
 
 #[actix_rt::test]
@@ -230,9 +218,6 @@ async fn cors_preflight_request_without_max_age() {
         .to_request();
 
     let response = call_service(&app, req).await;
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
-        "https://example.org"
-    );
+    assert_eq!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "https://example.org");
     assert!(response.headers().get(ACCESS_CONTROL_MAX_AGE).is_none());
 }

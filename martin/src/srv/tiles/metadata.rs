@@ -241,10 +241,7 @@ pub mod tests {
             format: Format::Mvt,
         };
         let tj = merge_tilejson(
-            &[(
-                Box::new(src1.clone()) as BoxedSource,
-                ResolvedProcess::default(),
-            )],
+            &[(Box::new(src1.clone()) as BoxedSource, ResolvedProcess::default())],
             url.clone(),
         );
         assert_eq!(
@@ -276,10 +273,7 @@ pub mod tests {
 
         let tj = merge_tilejson(
             &[
-                (
-                    Box::new(src1.clone()) as BoxedSource,
-                    ResolvedProcess::default(),
-                ),
+                (Box::new(src1.clone()) as BoxedSource, ResolvedProcess::default()),
                 (Box::new(src2) as BoxedSource, ResolvedProcess::default()),
             ],
             url.clone(),

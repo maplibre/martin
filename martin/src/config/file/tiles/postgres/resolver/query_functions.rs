@@ -80,25 +80,19 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
         let entries = res.entry(schema.clone()).or_default();
         // The plain name serves both, choosing by the request's query string.
         let (sql, tilejson) = match (queryless.into_iter().next(), with_query.next()) {
-            (Some(bare), Some(query)) => (
-                query.sql.with_queryless(bare.sql),
-                merge_comments(bare.tilejson, query.tilejson),
-            ),
+            (Some(bare), Some(query)) => {
+                (query.sql.with_queryless(bare.sql), merge_comments(bare.tilejson, query.tilejson))
+            }
             (Some(only), None) | (None, Some(only)) => (only.sql, only.tilejson),
             (None, None) => continue,
         };
-        entries.insert(
-            function.clone(),
-            (sql, FunctionInfo::new(schema.clone(), function, tilejson)),
-        );
+        entries
+            .insert(function.clone(), (sql, FunctionInfo::new(schema.clone(), function, tilejson)));
         for extra in with_query {
             let key = extra.signature_key();
             entries.insert(
                 key.clone(),
-                (
-                    extra.sql,
-                    FunctionInfo::new(schema.clone(), key, extra.tilejson),
-                ),
+                (extra.sql, FunctionInfo::new(schema.clone(), key, extra.tilejson)),
             );
         }
     }
@@ -189,10 +183,7 @@ fn parse_variant(
         output_type
     };
 
-    let signature = format!(
-        "{schema}.{function}({}) -> {ret_inf}",
-        input_types.join(", ")
-    );
+    let signature = format!("{schema}.{function}({}) -> {ret_inf}", input_types.join(", "));
     let sql = PostgresSqlInfo::new(
         query,
         input_types.len() == 4,

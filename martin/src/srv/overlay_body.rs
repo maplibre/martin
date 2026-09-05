@@ -502,10 +502,7 @@ mod tests {
         ])))
         .expect("parses");
         assert_eq!(spec.features.len(), 2, "both features retained");
-        assert!(
-            spec.features[0].geometry.is_none(),
-            "null geometry kept as None"
-        );
+        assert!(spec.features[0].geometry.is_none(), "null geometry kept as None");
         assert!(spec.features[1].geometry.is_some());
     }
 }

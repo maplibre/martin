@@ -28,7 +28,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let base_info = base_mbt.examine_diff(&mut conn).await?;
     if matches!(base_info.mbt_type, Cache) {
         return Err(MbtError::UnsupportedCopyOperation {
-            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_owned(),
+            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first"
+                .to_owned(),
         });
     }
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
@@ -79,11 +80,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
-        let (map, img, id) = (
-            schema.map_table(),
-            schema.content_table(),
-            schema.tile_id_column(),
-        );
+        let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
         let sql = format!(
             "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
         );
@@ -157,11 +154,8 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
             None,
         ),
         Normalized { schema, .. } => {
-            let (map, img, id) = (
-                schema.map_table(),
-                schema.content_table(),
-                schema.tile_id_column(),
-            );
+            let (map, img, id) =
+                (schema.map_table(), schema.content_table(), schema.tile_id_column());
             (
                 map.to_owned(),
                 format!(

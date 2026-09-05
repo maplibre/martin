@@ -149,10 +149,7 @@ impl Tape {
     fn rewrite(&self, body: &str) -> String {
         let mut body = body.to_owned();
         for host in &self.hosts {
-            body = body.replace(
-                &format!("https://{host}"),
-                &format!("{}/{host}", self.base_url),
-            );
+            body = body.replace(&format!("https://{host}"), &format!("{}/{host}", self.base_url));
         }
         body
     }
@@ -306,14 +303,8 @@ fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
                 .to_str()
                 .expect("a cassette path is utf-8")
                 .replace(std::path::MAIN_SEPARATOR, "/");
-            let url_path = format!(
-                "/{}",
-                relative.trim_end_matches(INDEX).trim_end_matches('/')
-            );
-            responses.insert(
-                url_path,
-                fs::read(&path).expect("failed to read a recording"),
-            );
+            let url_path = format!("/{}", relative.trim_end_matches(INDEX).trim_end_matches('/'));
+            responses.insert(url_path, fs::read(&path).expect("failed to read a recording"));
         }
     }
     responses
@@ -401,10 +392,7 @@ mod tests {
         assert_eq!(response.headers()["content-type"], "application/json");
         let tilejson = response.text().await.expect("a body");
         assert!(
-            tilejson.contains(&format!(
-                "{}/tiles.openfreemap.org/planet/",
-                cassette.server.uri()
-            )),
+            tilejson.contains(&format!("{}/tiles.openfreemap.org/planet/", cassette.server.uri())),
             "the tile urls still point elsewhere: {tilejson:.200}"
         );
         assert!(!tilejson.contains("https://tiles.openfreemap.org"));

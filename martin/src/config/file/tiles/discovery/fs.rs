@@ -241,11 +241,7 @@ fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option
     if per_source == ProcessConfig::default() {
         return None;
     }
-    Some(ProcessConfig::layered(
-        kind_level,
-        &ProcessConfig::default(),
-        &per_source,
-    ))
+    Some(ProcessConfig::layered(kind_level, &ProcessConfig::default(), &per_source))
 }
 
 impl Discovery for FsDiscovery {
@@ -469,9 +465,7 @@ mod tests {
         Box::new(|id, path, _policy| {
             Box::pin(async move {
                 if id.starts_with(BAD_PREFIX) {
-                    return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
-                        path,
-                    )));
+                    return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(path)));
                 }
                 Ok(Box::new(TestSource {
                     id,
@@ -570,11 +564,7 @@ mod tests {
             .sources
             .into_keys()
             .collect();
-        assert_eq!(
-            ids,
-            vec!["top"],
-            "nested files stay hidden unless recursive is set"
-        );
+        assert_eq!(ids, vec!["top"], "nested files stay hidden unless recursive is set");
     }
 
     #[tokio::test]

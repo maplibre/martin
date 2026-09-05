@@ -201,10 +201,10 @@ pub enum Encoding {
     Uncompressed = 0b0000_0000,
     /// Some formats like JPEG and PNG are already compressed
     Internal = 0b0000_0001,
-    Gzip = 0b0000_0010,
-    Zlib = 0b0000_0100,
-    Brotli = 0b0000_1000,
-    Zstd = 0b0001_0000,
+    Gzip     = 0b0000_0010,
+    Zlib     = 0b0000_0100,
+    Brotli   = 0b0000_1000,
+    Zstd     = 0b0001_0000,
 }
 
 impl Encoding {
@@ -574,17 +574,10 @@ mod tests {
 
     #[test]
     fn encoding_detect_reads_the_leading_bytes_only() {
-        assert_eq!(
-            Encoding::detect(b"\x1f\x8b\x08\x00rest"),
-            Some(Encoding::Gzip)
-        );
+        assert_eq!(Encoding::detect(b"\x1f\x8b\x08\x00rest"), Some(Encoding::Gzip));
         // every zlib compression level with the usual 32K window
         for header in [b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"] {
-            assert_eq!(
-                Encoding::detect(header),
-                Some(Encoding::Zlib),
-                "{header:02x?}"
-            );
+            assert_eq!(Encoding::detect(header), Some(Encoding::Zlib), "{header:02x?}");
         }
         // a smaller window is a zlib header too
         assert_eq!(Encoding::detect(b"\x68\x81"), Some(Encoding::Zlib));
@@ -824,10 +817,7 @@ mod tests {
             -81.374_463_852_608_33,
             zoom,
         );
-        assert_eq!(
-            actual_xyz, expected_xyz,
-            "zoom {zoom} does not have the right xyz"
-        );
+        assert_eq!(actual_xyz, expected_xyz, "zoom {zoom} does not have the right xyz");
     }
 
     #[rstest]
@@ -882,10 +872,7 @@ mod tests {
     fn tile_coord_zoom_range() {
         for z in 0..=MAX_ZOOM {
             assert!(TileCoord::is_possible_on_zoom_level(z, 0, 0));
-            assert_eq!(
-                TileCoord::new_checked(z, 0, 0),
-                Some(TileCoord { z, x: 0, y: 0 })
-            );
+            assert_eq!(TileCoord::new_checked(z, 0, 0), Some(TileCoord { z, x: 0, y: 0 }));
         }
         assert!(!TileCoord::is_possible_on_zoom_level(MAX_ZOOM + 1, 0, 0));
         assert_eq!(TileCoord::new_checked(MAX_ZOOM + 1, 0, 0), None);
@@ -894,15 +881,9 @@ mod tests {
     #[test]
     fn tile_coord_new_checked_xy_for_zoom() {
         assert!(TileCoord::is_possible_on_zoom_level(5, 0, 0));
-        assert_eq!(
-            TileCoord::new_checked(5, 0, 0),
-            Some(TileCoord { z: 5, x: 0, y: 0 })
-        );
+        assert_eq!(TileCoord::new_checked(5, 0, 0), Some(TileCoord { z: 5, x: 0, y: 0 }));
         assert!(TileCoord::is_possible_on_zoom_level(5, 31, 31));
-        assert_eq!(
-            TileCoord::new_checked(5, 31, 31),
-            Some(TileCoord { z: 5, x: 31, y: 31 })
-        );
+        assert_eq!(TileCoord::new_checked(5, 31, 31), Some(TileCoord { z: 5, x: 31, y: 31 }));
         assert!(!TileCoord::is_possible_on_zoom_level(5, 31, 32));
         assert_eq!(TileCoord::new_checked(5, 31, 32), None);
         assert!(!TileCoord::is_possible_on_zoom_level(5, 32, 31));

@@ -347,10 +347,7 @@ mod tests {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert_matches!(
-                settings.validate(),
-                Err(ConfigFileError::CorsNoOriginsConfigured)
-            );
+            assert_matches!(settings.validate(), Err(ConfigFileError::CorsNoOriginsConfigured));
         } else {
             panic!("Expected Properties variant");
         }
@@ -375,10 +372,7 @@ mod tests {
             unrecognized: UnrecognizedValues::default(),
         };
 
-        assert_matches!(
-            properties.validate(),
-            Err(ConfigFileError::CorsNoOriginsConfigured)
-        );
+        assert_matches!(properties.validate(), Err(ConfigFileError::CorsNoOriginsConfigured));
     }
 
     #[test]

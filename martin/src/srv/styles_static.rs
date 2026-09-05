@@ -183,9 +183,7 @@ impl SizeRequest {
             return Err(Box::new(
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
-                    .body(format!(
-                        "Scale factor exceeds maximum allowed ({MAX_SCALE})"
-                    )),
+                    .body(format!("Scale factor exceeds maximum allowed ({MAX_SCALE})")),
             ));
         }
         Ok(self)
@@ -279,10 +277,7 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         })
         .await;
     HttpResponse::MovedPermanently()
-        .insert_header((
-            LOCATION,
-            format!("/style/{style_id}/static/{camera}/{size}.jpg"),
-        ))
+        .insert_header((LOCATION, format!("/style/{style_id}/static/{camera}/{size}.jpg")))
         .finish()
 }
 
@@ -490,15 +485,10 @@ async fn render_with_overlays(
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    let params = RenderParams::new(
-        style_path,
-        camera.center_lat,
-        camera.center_lon,
-        camera.zoom,
-    )
-    .with_size(size.width, size.height, size.scale)
-    .with_orientation(camera.bearing, camera.pitch)
-    .with_overlays(overlays);
+    let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom)
+        .with_size(size.width, size.height, size.scale)
+        .with_orientation(camera.bearing, camera.pitch)
+        .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| {
         Box::new(match e {
             StyleError::RenderingIsDisabled => {
@@ -578,10 +568,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn unknown_style_returns_404() {
-        let resp = call!(
-            get("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(get("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }
@@ -597,10 +584,7 @@ mod tests {
     #[actix_rt::test]
     async fn valid_camera_reach_renderer(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "params={params:?}");
     }
 
@@ -617,10 +601,7 @@ mod tests {
     #[actix_rt::test]
     async fn invalid_camera_returns_404(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::NOT_FOUND, "params={params:?}");
     }
 
@@ -684,10 +665,7 @@ mod tests {
     #[actix_rt::test]
     async fn inverted_bbox_returns_400(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/200x200.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/200x200.png")), styles);
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "params={params:?}");
         let body = body_text(resp).await;
         assert!(
@@ -698,10 +676,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn post_unknown_style_returns_404() {
-        let resp = call!(
-            post("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(post("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }

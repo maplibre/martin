@@ -113,13 +113,9 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let value = value.to_string();
-        query!(
-            "INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)",
-            key,
-            value
-        )
-        .execute(conn)
-        .await?;
+        query!("INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)", key, value)
+            .execute(conn)
+            .await?;
         Ok(())
     }
 
@@ -238,10 +234,7 @@ impl Mbtiles {
                 if let Ok(v) = serde_json::from_value(value) {
                     tj.vector_layers = Some(v);
                 } else {
-                    warn!(
-                        "Unable to parse metadata vector_layers value in {}",
-                        self.filename()
-                    );
+                    warn!("Unable to parse metadata vector_layers value in {}", self.filename());
                 }
             }
             if obj.is_empty() {
@@ -546,13 +539,9 @@ mod tests {
             "0.0, 0.0, 0.0, 0.0"
         );
 
-        mbt.set_metadata_value(
-            &mut conn,
-            "bounds",
-            "-123.123590,-37.818085,174.763027,59.352706",
-        )
-        .await
-        .unwrap();
+        mbt.set_metadata_value(&mut conn, "bounds", "-123.123590,-37.818085,174.763027,59.352706")
+            .await
+            .unwrap();
         assert_eq!(
             mbt.get_metadata_value(&mut conn, "bounds")
                 .await
@@ -564,10 +553,7 @@ mod tests {
         mbt.delete_metadata_value(&mut conn, "bounds")
             .await
             .unwrap();
-        assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
-            None
-        );
+        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(), None);
     }
 
     #[actix_rt::test]
@@ -598,10 +584,7 @@ mod tests {
         format: application/vnd.maplibre-vector-tile
         ");
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
-        assert_eq!(
-            tile_info,
-            Some(TileInfo::new(Format::Mlt, Encoding::Internal))
-        );
+        assert_eq!(tile_info, Some(TileInfo::new(Format::Mlt, Encoding::Internal)));
     }
 
     /// flat-schema in-memory mbtiles: the given `metadata` rows plus one dummy
@@ -630,10 +613,7 @@ mod tests {
             &[
                 ("minzoom", "0"),
                 ("maxzoom", "14"),
-                (
-                    "json",
-                    r#"{"vector_layers":[{"id":"a","fields":{},"minzoom":0,"maxzoom":14}]}"#,
-                ),
+                ("json", r#"{"vector_layers":[{"id":"a","fields":{},"minzoom":0,"maxzoom":14}]}"#),
             ],
             &[0, 1, 2],
         );

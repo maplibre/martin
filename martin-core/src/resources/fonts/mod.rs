@@ -7,11 +7,14 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use martin_core::fonts::FontSources;
 //! use std::path::PathBuf;
 //!
+//! use martin_core::fonts::FontSources;
+//!
 //! let mut sources = FontSources::default();
-//! sources.recursively_add_directory("/usr/share/fonts".into()).unwrap();
+//! sources
+//!     .recursively_add_directory("/usr/share/fonts".into())
+//!     .unwrap();
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
@@ -645,10 +648,7 @@ mod tests {
         let mut sources = overpass_sources();
 
         let err = sources
-            .add_alias(
-                "has,comma".to_owned(),
-                vec!["Overpass Mono Regular".to_owned()],
-            )
+            .add_alias("has,comma".to_owned(), vec!["Overpass Mono Regular".to_owned()])
             .unwrap_err();
         assert_matches!(err, FontError::InvalidAliasName(_));
 

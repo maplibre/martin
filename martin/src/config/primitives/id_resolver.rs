@@ -44,7 +44,10 @@ impl IdResolver {
     /// assert_eq!(r.resolve("catalog", "catalog2".to_string()), "catalog.2");
     ///
     /// // disallowed characters are replaced with underscores
-    /// assert_eq!(r.resolve("name with disallowed chäractérs 😃", "".to_string()), "name-with-disallowed-ch-ract-rs--");
+    /// assert_eq!(
+    ///     r.resolve("name with disallowed chäractérs 😃", "".to_string()),
+    ///     "name-with-disallowed-ch-ract-rs--"
+    /// );
     /// assert_eq!(r.resolve("name-with_allowed.chars", "".to_string()), "name-with_allowed.chars");
     ///
     /// // not a reserved name => no renaming
@@ -134,10 +137,7 @@ impl IdResolver {
     }
     /// replace prohibited characters, except underscores, dashes, and dots with dashes.
     fn sanitise(name: &str) -> String {
-        name.replace(
-            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-',
-            "-",
-        )
+        name.replace(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-', "-")
     }
 }
 

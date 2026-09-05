@@ -7,8 +7,9 @@
 //!
 //! ```rust,no_run
 //! # async fn foo() {
-//! use martin_core::sprites::SpriteSources;
 //! use std::path::PathBuf;
+//!
+//! use martin_core::sprites::SpriteSources;
 //!
 //! let mut sources = SpriteSources::default();
 //! sources.add_source("icons".to_string(), PathBuf::from("/path/to/svg/directory"));
@@ -439,10 +440,7 @@ mod tests {
     #[tokio::test]
     async fn duplicate_ids_are_deduplicated_before_rendering() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
 
         let single = sprites.get_sprites("src1", false).await.unwrap();
         let repeated_ids = vec!["src1"; 50].join(",");
@@ -457,14 +455,8 @@ mod tests {
 
     fn two_sources() -> SpriteSources {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
-        sprites.add_source(
-            "src2".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src2"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
+        sprites.add_source("src2".to_owned(), PathBuf::from("../tests/fixtures/sprites/src2"));
         sprites
     }
 
@@ -472,10 +464,7 @@ mod tests {
     async fn an_alias_serves_the_same_sheet_as_the_explicit_composite() {
         let sprites = two_sources();
         sprites
-            .add_alias(
-                "icons".to_owned(),
-                vec!["src1".to_owned(), "src2".to_owned()],
-            )
+            .add_alias("icons".to_owned(), vec!["src1".to_owned(), "src2".to_owned()])
             .unwrap();
 
         assert_eq!(sprites.expand_sprite_ids("icons"), "src1,src2");
@@ -491,10 +480,7 @@ mod tests {
             serde_json::to_value(aliased.get_index()).unwrap(),
             serde_json::to_value(explicit.get_index()).unwrap()
         );
-        assert_eq!(
-            aliased.encode_png().unwrap(),
-            explicit.encode_png().unwrap()
-        );
+        assert_eq!(aliased.encode_png().unwrap(), explicit.encode_png().unwrap());
     }
 
     #[test]
@@ -533,27 +519,18 @@ mod tests {
     fn the_catalog_lists_aliases_with_merged_images() {
         let sprites = two_sources();
         sprites
-            .add_alias(
-                "icons".to_owned(),
-                vec!["src1".to_owned(), "src2".to_owned()],
-            )
+            .add_alias("icons".to_owned(), vec!["src1".to_owned(), "src2".to_owned()])
             .unwrap();
 
         let catalog = sprites.get_catalog().unwrap();
         let entry = catalog.get("icons").expect("alias is cataloged");
-        assert_eq!(
-            entry.images,
-            ["another_bicycle", "bear", "bicycle", "sub/circle"]
-        );
+        assert_eq!(entry.images, ["another_bicycle", "bear", "bicycle", "sub/circle"]);
     }
 
     #[tokio::test]
     async fn too_many_ids_are_rejected_before_any_work() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
 
         let ids = (0..=MAX_SPRITE_IDS_PER_REQUEST)
             .map(|i| format!("nonexistent{i}"))
@@ -584,14 +561,8 @@ mod tests {
     #[tokio::test]
     async fn sprites() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
-        sprites.add_source(
-            "src2".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src2"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
+        sprites.add_source("src2".to_owned(), PathBuf::from("../tests/fixtures/sprites/src2"));
 
         assert_eq!(sprites.sources.len(), 2);
 

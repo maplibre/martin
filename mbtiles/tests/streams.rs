@@ -139,10 +139,7 @@ async fn mbtiles_stream_errors() {
 
     {
         let mut stream = mbtiles.stream_coords(&mut conn);
-        assert_matches!(
-            stream.next().await,
-            Some(Err(MbtError::InvalidTileIndex { .. }))
-        );
+        assert_matches!(stream.next().await, Some(Err(MbtError::InvalidTileIndex { .. })));
     }
 
     // Counter test: mbtiles must contain all tiles

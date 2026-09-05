@@ -125,12 +125,7 @@ pub enum PostgresError {
 
     /// Tile retrieval error with query parameters.
     #[error(r"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}", json_query=query_to_json(.3.as_ref()))]
-    GetTileWithQueryError(
-        #[source] TokioPostgresError,
-        String,
-        TileCoord,
-        Option<UrlQuery>,
-    ),
+    GetTileWithQueryError(#[source] TokioPostgresError, String, TileCoord, Option<UrlQuery>),
 }
 
 impl crate::Classify for PostgresError {

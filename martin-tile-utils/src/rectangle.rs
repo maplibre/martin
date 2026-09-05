@@ -256,10 +256,7 @@ mod tests {
         assert_eq!(rectangles, vec![TileRect::new(0, 0, 0, 0, 0)]);
 
         append(&mut rectangles, TileRect::new(0, 1, 0, 1, 1));
-        assert_eq!(
-            rectangles,
-            vec![TileRect::new(0, 0, 0, 0, 0), TileRect::new(0, 1, 0, 1, 1),]
-        );
+        assert_eq!(rectangles, vec![TileRect::new(0, 0, 0, 0, 0), TileRect::new(0, 1, 0, 1, 1),]);
 
         append(&mut rectangles, TileRect::new(0, 0, 0, 1, 1));
         assert_eq!(
@@ -279,10 +276,7 @@ mod tests {
         assert_eq!(rectangles, vec![TileRect::new(0, 2, 2, 4, 4)]);
 
         append(&mut rectangles, TileRect::new(0, 1, 3, 3, 3));
-        assert_eq!(
-            rectangles,
-            vec![TileRect::new(0, 2, 2, 4, 4), TileRect::new(0, 1, 3, 1, 3),]
-        );
+        assert_eq!(rectangles, vec![TileRect::new(0, 2, 2, 4, 4), TileRect::new(0, 1, 3, 1, 3),]);
 
         append(&mut rectangles, TileRect::new(0, 3, 1, 3, 3));
         assert_eq!(

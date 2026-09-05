@@ -66,14 +66,8 @@ async fn a_single_font_file_publishes_only_that_font() {
     let fonts = martin.get("/catalog").await.json()["fonts"].clone();
     assert!(fonts.get("Overpass Mono Regular").is_some(), "{fonts}");
     assert!(fonts.get("Overpass Mono Light").is_none(), "{fonts}");
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
-    assert_eq!(
-        martin.get(&format!("/font/{LIGHT}/0-255")).await.status(),
-        404
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
+    assert_eq!(martin.get(&format!("/font/{LIGHT}/0-255")).await.status(), 404);
 
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Overpass Mono Light")"#);
@@ -130,10 +124,7 @@ async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
 
     assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
     assert_eq!(stack.range, "0-255");
-    assert_eq!(
-        stack.glyphs.len(),
-        regular.glyphs.len() + light.glyphs.len()
-    );
+    assert_eq!(stack.glyphs.len(), regular.glyphs.len() + light.glyphs.len());
 
     martin.stop().await;
 }
@@ -224,10 +215,7 @@ async fn a_glyph_range_answers_conditional_requests() {
     assert!(cached.body().is_empty());
 
     let stale = martin
-        .get_with_headers(
-            &path,
-            &[("if-none-match", r#"W/"0-0000000000000000000000""#)],
-        )
+        .get_with_headers(&path, &[("if-none-match", r#"W/"0-0000000000000000000000""#)])
         .await;
     assert_eq!(stale.status(), 200);
     assert_eq!(stale.body(), first.body());
@@ -250,10 +238,7 @@ async fn the_plural_fonts_path_redirects() {
             ");
         }
     }
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
 }
@@ -276,10 +261,7 @@ async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
             ");
         }
     }
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
 }
@@ -296,15 +278,8 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
         .expect("failed to start martin");
 
     let fonts = martin.get("/catalog").await.json()["fonts"].clone();
-    assert_eq!(
-        fonts.as_object().map(serde_json::Map::len),
-        Some(2),
-        "{fonts}"
-    );
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(fonts.as_object().map(serde_json::Map::len), Some(2), "{fonts}");
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
     martin.assert_log_contains(

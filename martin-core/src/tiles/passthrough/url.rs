@@ -164,10 +164,7 @@ mod tests {
         #[case] tilejson_format: Option<&str>,
         #[case] expected: Format,
     ) {
-        assert_eq!(
-            derive_format("s", cfg_format, url, tilejson_format).unwrap(),
-            expected
-        );
+        assert_eq!(derive_format("s", cfg_format, url, tilejson_format).unwrap(), expected);
     }
 
     #[test]

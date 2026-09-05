@@ -18,10 +18,7 @@ fn scrape_filters() -> Vec<(&'static str, &'static str)> {
             r#"(?m)^(martin_http_requests_duration_seconds_bucket\{.*le="[0-9.]+"\}) \d+$"#,
             "$1 [COUNT]",
         ),
-        (
-            r"(?m)^(martin_http_requests_duration_seconds_sum\{.*\}) \S+$",
-            "$1 [SECONDS]",
-        ),
+        (r"(?m)^(martin_http_requests_duration_seconds_sum\{.*\}) \S+$", "$1 [SECONDS]"),
     ]
 }
 
@@ -51,10 +48,7 @@ async fn a_path_matching_no_route_is_counted_under_a_single_masked_label() {
     let mut martin = martin_with_a_pmtiles_source().await;
 
     assert_eq!(martin.get("/one/path/that/is/no/route").await.status(), 404);
-    assert_eq!(
-        martin.get("/another/path/that/is/no/route").await.status(),
-        404
-    );
+    assert_eq!(martin.get("/another/path/that/is/no/route").await.status(), 404);
 
     let scrape = martin.get("/_/metrics").await.text();
     insta::with_settings!({filters => scrape_filters()}, {

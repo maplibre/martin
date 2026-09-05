@@ -99,10 +99,7 @@ async fn style_json_not_found() {
 
     assert_eq!(response.status(), 404);
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "text/plain; charset=utf-8"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "text/plain; charset=utf-8");
     let body = String::from_utf8(read_body(response).await.to_vec()).unwrap();
     assert_eq!(body, "No such style exists");
 }

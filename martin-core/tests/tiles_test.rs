@@ -101,10 +101,7 @@ async fn query_params_create_separate_cache_entries_with_same_ttl() {
 }
 
 fn test_tile(data: &[u8]) -> Tile {
-    Tile::new_hash_etag(
-        data.to_vec(),
-        TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-    )
+    Tile::new_hash_etag(data.to_vec(), TileInfo::new(Format::Mvt, Encoding::Uncompressed))
 }
 
 /// Sleep for the given duration then flush pending evictions.
@@ -126,9 +123,7 @@ async fn insert(
 ) -> Tile {
     let tile = test_tile(data);
     cache
-        .get_or_insert(key(source, xyz, query, None), async || {
-            Ok::<_, Infallible>(tile.clone())
-        })
+        .get_or_insert(key(source, xyz, query, None), async || Ok::<_, Infallible>(tile.clone()))
         .await
         .unwrap()
 }
@@ -170,10 +165,8 @@ async fn cache_differentiates_by_format() {
         b"mvt-data".to_vec(),
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),
     );
-    let tile_b = Tile::new_hash_etag(
-        b"png-data".to_vec(),
-        TileInfo::new(Format::Png, Encoding::Internal),
-    );
+    let tile_b =
+        Tile::new_hash_etag(b"png-data".to_vec(), TileInfo::new(Format::Png, Encoding::Internal));
 
     // Insert with format=Mvt
     let got_a = cache
@@ -218,10 +211,7 @@ async fn cache_differentiates_by_format() {
         })
         .await
         .unwrap();
-    assert!(
-        recomputed_none,
-        "format=None should be a separate cache entry from format=Some(Mvt)"
-    );
+    assert!(recomputed_none, "format=None should be a separate cache entry from format=Some(Mvt)");
 }
 
 #[tokio::test]
@@ -233,9 +223,7 @@ async fn raw_and_rendered_entries_never_collide() {
     assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
 
     let stored = cache
-        .get_or_insert(raw.clone(), async || {
-            Ok::<_, Infallible>(test_tile(b"raw-normals"))
-        })
+        .get_or_insert(raw.clone(), async || Ok::<_, Infallible>(test_tile(b"raw-normals")))
         .await
         .unwrap();
     assert_eq!(stored.data, b"raw-normals");
@@ -266,10 +254,9 @@ async fn raw_and_rendered_entries_never_collide() {
 async fn raw_entries_ignore_request_shape() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(
-            TileCacheKey::new_request_static("src", ORIGIN),
-            async || Ok::<_, Infallible>(test_tile(b"normals")),
-        )
+        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
+            Ok::<_, Infallible>(test_tile(b"normals"))
+        })
         .await
         .unwrap();
 
@@ -291,10 +278,9 @@ async fn raw_entries_ignore_request_shape() {
 async fn invalidation_reaches_raw_and_rendered_entries() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(
-            TileCacheKey::new_request_static("src", ORIGIN),
-            async || Ok::<_, Infallible>(test_tile(b"normals")),
-        )
+        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
+            Ok::<_, Infallible>(test_tile(b"normals"))
+        })
         .await
         .unwrap();
     cache

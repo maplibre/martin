@@ -58,12 +58,7 @@ where
     debug!(
         "Creating if needed flat-with-hash table and tiles view: tiles_with_hash(z,x,y,data,hash)"
     );
-    create_schema(
-        conn,
-        include_str!("../../sql/init-flat-with-hash.sql"),
-        strict,
-    )
-    .await
+    create_schema(conn, include_str!("../../sql/init-flat-with-hash.sql"), strict).await
 }
 
 #[cfg(test)]

@@ -167,14 +167,7 @@ pub async fn bounds_with_auto(
         BoundsCalcType::Quick => {
             if let Ok(bounds) = timeout(
                 DEFAULT_BOUNDS_TIMEOUT,
-                calc_bounds(
-                    pool,
-                    from_sql,
-                    label,
-                    geom_col,
-                    srid,
-                    BoundsCalcMode::Estimate,
-                ),
+                calc_bounds(pool, from_sql, label, geom_col, srid, BoundsCalcMode::Estimate),
             )
             .await
             {
@@ -207,40 +200,22 @@ mod tests {
         let pool = db.read_only_pool("bounds-test", 1);
         let from_sql = escape_relation("test_geom");
 
-        let calc = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Calc,
-        )
-        .await
-        .expect("calculate bounds");
+        let calc =
+            bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Calc)
+                .await
+                .expect("calculate bounds");
         assert_eq!(calc, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let quick = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Quick,
-        )
-        .await
-        .expect("approx bounds");
+        let quick =
+            bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Quick)
+                .await
+                .expect("approx bounds");
         assert_eq!(quick, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let skip = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Skip,
-        )
-        .await
-        .expect("skip bounds");
+        let skip =
+            bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Skip)
+                .await
+                .expect("skip bounds");
         assert_eq!(skip, None);
     }
 
@@ -259,10 +234,7 @@ mod tests {
             None,
         )
         .expect("local GeoParquet pool");
-        let from_expr = format!(
-            "read_parquet('{}')",
-            path.to_str().expect("utf-8 parquet path")
-        );
+        let from_expr = format!("read_parquet('{}')", path.to_str().expect("utf-8 parquet path"));
 
         let bounds = bounds_with_auto(
             &pool,

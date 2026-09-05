@@ -14,10 +14,8 @@ use testcontainers_modules::testcontainers::runners::SyncRunner as _;
 const SIZES: &[usize] = &[10, 100, 200];
 
 /// Setup [`PostGIS`](https://hub.docker.com/r/postgis/postgis/) container
-fn setup_postgres_container() -> (
-    testcontainers_modules::testcontainers::Container<Postgres>,
-    String,
-) {
+fn setup_postgres_container()
+-> (testcontainers_modules::testcontainers::Container<Postgres>, String) {
     let container = Postgres::default()
         .with_name("postgis/postgis")
         .with_tag("18-3.6-alpine")
@@ -40,16 +38,9 @@ fn setup_postgres_container() -> (
 }
 
 async fn pool(connection_string: &str) -> PostgresPool {
-    PostgresPool::new(
-        connection_string,
-        None,
-        None,
-        None,
-        10,
-        RetryTimeout::default(),
-    )
-    .await
-    .expect("Failed to create pool")
+    PostgresPool::new(connection_string, None, None, None, 10, RetryTimeout::default())
+        .await
+        .expect("Failed to create pool")
 }
 
 /// Create test tables with various geometries

@@ -85,10 +85,7 @@ fn respond(files: &HashMap<String, Vec<u8>>, request: &Request) -> ResponseTempl
     let range = parse_range(range, body.len());
     let (start, end) = (*range.start(), *range.end());
     ResponseTemplate::new(206)
-        .insert_header(
-            "content-range",
-            format!("bytes {start}-{end}/{}", body.len()),
-        )
+        .insert_header("content-range", format!("bytes {start}-{end}/{}", body.len()))
         .set_body_bytes(body[range].to_vec())
 }
 

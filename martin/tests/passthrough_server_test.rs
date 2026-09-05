@@ -98,10 +98,7 @@ async fn mvt_passes_through_unchanged() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(ETAG).unwrap(), "\"up-etag\"");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -134,10 +131,7 @@ async fn mlt_conversion_via_accept_header() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.maplibre-tile"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/vnd.maplibre-tile");
     // The converted tile carries a hash-free, format-suffixed etag derived from the upstream one.
     assert_eq!(response.headers().get(ETAG).unwrap(), "\"up-etag+mlt\"");
     let body = read_body(response).await;
@@ -203,11 +197,7 @@ async fn gzip_upstream_served_verbatim() {
         "upstream encoding must be preserved"
     );
     let body = read_body(response).await;
-    assert_eq!(
-        body,
-        gzipped.as_slice(),
-        "gzip bytes must be served verbatim"
-    );
+    assert_eq!(body, gzipped.as_slice(), "gzip bytes must be served verbatim");
 }
 
 #[actix_rt::test]
@@ -230,8 +220,5 @@ async fn cache_hit_avoids_second_upstream_fetch() {
         .iter()
         .filter(|r| r.url.path() == "/0/0/0.pbf")
         .count();
-    assert_eq!(
-        tile_requests, 1,
-        "the second request must be served from cache, not refetched"
-    );
+    assert_eq!(tile_requests, 1, "the second request must be served from cache, not refetched");
 }

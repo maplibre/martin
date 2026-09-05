@@ -178,10 +178,7 @@ async fn tilejson(martin: &Martin, path: &str) -> Value {
 async fn tile_dump(martin: &Martin, path: &str) -> String {
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("content-type"),
-        Some("application/x-protobuf")
-    );
+    assert_eq!(response.header("content-type"), Some("application/x-protobuf"));
     response.mvt_dump()
 }
 
@@ -404,10 +401,7 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 
     let srid_3857 = tilejson(&martin, "/points3857").await;
     insta::assert_json_snapshot!("srid_3857_tilejson", srid_3857);
-    insta::assert_snapshot!(
-        "srid_3857_0_0_0",
-        tile_dump(&martin, "/points3857/0/0/0").await
-    );
+    insta::assert_snapshot!("srid_3857_0_0_0", tile_dump(&martin, "/points3857/0/0/0").await);
     // points_empty_srid has SRID 0 in the database and is only published because of --default-srid.
     insta::assert_snapshot!(
         "default_srid_0_0_0",
@@ -422,14 +416,8 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
     let mut martin = martin_with_postgres().await;
 
-    insta::assert_snapshot!(
-        "antimeridian_4_0_4",
-        tile_dump(&martin, "/antimeridian/4/0/4").await
-    );
-    insta::assert_snapshot!(
-        "antimeridian_4_0_5",
-        tile_dump(&martin, "/antimeridian/4/0/5").await
-    );
+    insta::assert_snapshot!("antimeridian_4_0_4", tile_dump(&martin, "/antimeridian/4/0/4").await);
+    insta::assert_snapshot!("antimeridian_4_0_5", tile_dump(&martin, "/antimeridian/4/0/5").await);
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
@@ -454,10 +442,7 @@ async fn a_materialized_view_is_published_like_a_table() {
 
     let materialized_view = tilejson(&martin, "/mat_view").await;
     insta::assert_json_snapshot!("materialized_view_tilejson", materialized_view);
-    insta::assert_snapshot!(
-        "materialized_view_0_0_0",
-        tile_dump(&martin, "/mat_view/0/0/0").await
-    );
+    insta::assert_snapshot!("materialized_view_0_0_0", tile_dump(&martin, "/mat_view/0/0/0").await);
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
@@ -832,20 +817,14 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 
     // The harness always advertises gzip, so ask without it directly to see the tile decompressed.
     let plain = reqwest::Client::new()
-        .get(format!(
-            "http://{}/function_zxy_gzip/6/57/29",
-            martin.addr()
-        ))
+        .get(format!("http://{}/function_zxy_gzip/6/57/29", martin.addr()))
         .header("accept-encoding", "identity")
         .send()
         .await
         .expect("request failed");
     assert_eq!(plain.status(), 200);
     assert_eq!(plain.headers().get("content-encoding"), None);
-    assert_eq!(
-        plain.bytes().await.expect("body failed").as_ref(),
-        compressed.body()
-    );
+    assert_eq!(plain.bytes().await.expect("body failed").as_ref(), compressed.body());
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);

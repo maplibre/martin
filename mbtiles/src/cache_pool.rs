@@ -32,7 +32,15 @@ use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata, UnixSeconds
 /// let cache = MbtilesCache::open("cache.mbtiles").await?;
 ///
 /// // Store a downloaded tile with its fetch time and freshness metadata.
-/// cache.set_cached(3, 1, 2, b"tile-bytes", CacheEntryMeta::new(UnixSeconds(1700000000), UnixSeconds(1700003600), "etag-1")).await?;
+/// cache
+///     .set_cached(
+///         3,
+///         1,
+///         2,
+///         b"tile-bytes",
+///         CacheEntryMeta::new(UnixSeconds(1700000000), UnixSeconds(1700003600), "etag-1"),
+///     )
+///     .await?;
 ///
 /// // Later: read it back, expired entries included (freshness is the caller's call).
 /// if let Some(tile) = cache.get_cached(3, 1, 2).await? {
@@ -40,7 +48,14 @@ use crate::{CacheEntryMeta, CachedTile, MbtError, Mbtiles, Metadata, UnixSeconds
 /// }
 ///
 /// // After an HTTP 304 revalidation, bump the metadata without rewriting the blob.
-/// cache.update_cached_meta(3, 1, 2, CacheEntryMeta::new(UnixSeconds(1700003600), UnixSeconds(1700007200), "etag-1")).await?;
+/// cache
+///     .update_cached_meta(
+///         3,
+///         1,
+///         2,
+///         CacheEntryMeta::new(UnixSeconds(1700003600), UnixSeconds(1700007200), "etag-1"),
+///     )
+///     .await?;
 /// # Ok(())
 /// # }
 /// ```

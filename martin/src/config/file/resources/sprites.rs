@@ -29,10 +29,7 @@ impl SpriteConfig {
 
         for path in cfg.paths {
             let Some(name) = path.file_name() else {
-                warn!(
-                    "Ignoring sprite source with no name from {}",
-                    path.display()
-                );
+                warn!("Ignoring sprite source with no name from {}", path.display());
                 continue;
             };
             directories.push(path.clone());

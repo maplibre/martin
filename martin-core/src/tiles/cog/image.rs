@@ -73,10 +73,7 @@ impl Image {
         if self.compression == COMPRESSION_WEBP {
             return true;
         }
-        matches!(
-            CompressionMethod::from_u16(self.compression),
-            Some(CompressionMethod::ModernJPEG)
-        )
+        matches!(CompressionMethod::from_u16(self.compression), Some(CompressionMethod::ModernJPEG))
     }
 
     pub fn get_tile(
@@ -258,18 +255,12 @@ fn encode_as_png(
     let png_color_type = match color_type {
         ColorType::RGB(8) => Ok(png::ColorType::Rgb),
         ColorType::RGBA(8) => Ok(png::ColorType::Rgba),
-        c => Err(CogError::NotSupportedColorTypeAndBitDepth(
-            c,
-            path.to_path_buf(),
-        )),
+        c => Err(CogError::NotSupportedColorTypeAndBitDepth(c, path.to_path_buf())),
     }?;
 
     {
-        let mut encoder = png::Encoder::new(
-            BufWriter::new(&mut result_file_buffer),
-            tile_size,
-            tile_size,
-        );
+        let mut encoder =
+            png::Encoder::new(BufWriter::new(&mut result_file_buffer), tile_size, tile_size);
         encoder.set_color(png_color_type);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder
@@ -300,10 +291,7 @@ mod tests {
             tile_size: 256,
             compression: 1, // None
         };
-        assert_eq!(
-            Some(0),
-            image.get_chunk_index(TileCoord { z: 0, x: 0, y: 0 })
-        );
+        assert_eq!(Some(0), image.get_chunk_index(TileCoord { z: 0, x: 0, y: 0 }));
         assert_eq!(None, image.get_chunk_index(TileCoord { z: 2, x: 2, y: 2 }));
         assert_eq!(None, image.get_chunk_index(TileCoord { z: 0, x: 3, y: 0 }));
         assert_eq!(None, image.get_chunk_index(TileCoord { z: 0, x: 1, y: 9 }));

@@ -317,13 +317,12 @@ impl PmtConfig {
             ($builder:ty, $url:expr) => {
                 self.options
                     .iter()
-                    .fold(
-                        <$builder>::new().with_url($url.to_string()),
-                        |builder, (key, value)| match key.parse() {
+                    .fold(<$builder>::new().with_url($url.to_string()), |builder, (key, value)| {
+                        match key.parse() {
                             Ok(key) => builder.with_config(key, value),
                             Err(_) => builder,
-                        },
-                    )
+                        }
+                    })
                     .with_http_connector(self.http_clients.clone())
             };
         }
@@ -570,10 +569,7 @@ impl TileSourceConfiguration for PmtConfig {
         // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
         let url = Url::from_file_path(&path)
             .or(Err(ConfigFileError::PathNotConvertibleToUrl(path.clone())))?;
-        trace!(
-            "Pmtiles source {id} ({}) will be loaded as {url}",
-            path.display()
-        );
+        trace!("Pmtiles source {id} ({}) will be loaded as {url}", path.display());
         self.new_sources_url(id, url, cache).await
     }
 
@@ -655,10 +651,7 @@ mod tests {
                 "AWS_WEB_IDENTITY_TOKEN_FILE",
                 OsString::from("/var/run/secrets/eks.amazonaws.com/serviceaccount/token"),
             ),
-            (
-                "AWS_ROLE_ARN",
-                OsString::from("arn:aws:iam::123456789012:role/from-env"),
-            ),
+            ("AWS_ROLE_ARN", OsString::from("arn:aws:iam::123456789012:role/from-env")),
         ]
         .into_iter()
         .collect()
@@ -736,10 +729,9 @@ mod tests {
         config
             .options
             .insert("skip_signature".to_owned(), "true".to_owned());
-        config.options.insert(
-            "azure_storage_account_name".to_owned(),
-            "account".to_owned(),
-        );
+        config
+            .options
+            .insert("azure_storage_account_name".to_owned(), "account".to_owned());
         config.parse_url_opts(&Url::parse(first).unwrap()).unwrap();
         let clients = config.http_clients.0.len();
         assert!(clients > 0);
@@ -788,10 +780,7 @@ mod tests {
         profile.aws_profile_files = Some(files.clone());
         profile.finalize().await.unwrap();
         assert_eq!(profile.profile.as_deref(), Some("staging"));
-        assert_eq!(
-            profile.options.get("region").map(String::as_str),
-            Some("eu-west-2")
-        );
+        assert_eq!(profile.options.get("region").map(String::as_str), Some("eu-west-2"));
         let credentials = profile
             .aws_credentials
             .as_ref()
@@ -818,10 +807,7 @@ mod tests {
             .unwrap();
             explicit.aws_profile_files = Some(files.clone());
             explicit.finalize().await.unwrap();
-            assert_eq!(
-                explicit.options.get("region").map(String::as_str),
-                Some("us-east-2")
-            );
+            assert_eq!(explicit.options.get("region").map(String::as_str), Some("us-east-2"));
             assert_eq!(explicit.options.get(key).map(String::as_str), Some(value));
             assert!(
                 explicit.aws_credentials.is_none(),

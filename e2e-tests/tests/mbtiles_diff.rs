@@ -139,10 +139,7 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
 
     assert!(patch_tiles(&patch).await.is_empty());
     // The hash of an empty tileset, which is how the differ reports "no changes".
-    assert_eq!(
-        metadata(&patch).await["agg_tiles_hash"],
-        "D41D8CD98F00B204E9800998ECF8427E"
-    );
+    assert_eq!(metadata(&patch).await["agg_tiles_hash"], "D41D8CD98F00B204E9800998ECF8427E");
 }
 
 #[tokio::test]
@@ -224,10 +221,7 @@ async fn diff_and_copy_with_diff_with_file_write_the_same_patch() {
         .run()
         .await;
 
-    assert!(
-        !patch_tiles(&from_copy).await.is_empty(),
-        "the patch is empty"
-    );
+    assert!(!patch_tiles(&from_copy).await.is_empty(), "the patch is empty");
     assert_eq!(patch_tiles(&from_copy).await, patch_tiles(&from_diff).await);
     assert_eq!(metadata(&from_copy).await, metadata(&from_diff).await);
 }

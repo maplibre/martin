@@ -374,10 +374,7 @@ mod tests {
     #[test]
     fn default_impl_yields_ten_minute_reload_interval() {
         // `..Default::default()` must yield 10m so the config-equality tests below still hold.
-        assert_eq!(
-            PostgresConfig::default().reload_interval,
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(PostgresConfig::default().reload_interval, DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]

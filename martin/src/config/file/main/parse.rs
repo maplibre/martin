@@ -18,26 +18,10 @@ pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config>
 /// Postgres env vars Martin still reads implicitly, but will stop in the future
 #[cfg(feature = "postgres")]
 const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
-    (
-        "DATABASE_URL",
-        r#"martin "$DATABASE_URL""#,
-        "postgres.connection_string: ${DATABASE_URL}",
-    ),
-    (
-        "DEFAULT_SRID",
-        r#"--default-srid "$DEFAULT_SRID""#,
-        "postgres.default_srid: ${DEFAULT_SRID}",
-    ),
-    (
-        "PGSSLCERT",
-        r#"--ssl-cert "$PGSSLCERT""#,
-        "postgres.ssl_cert: ${PGSSLCERT}",
-    ),
-    (
-        "PGSSLKEY",
-        r#"--ssl-key "$PGSSLKEY""#,
-        "postgres.ssl_key: ${PGSSLKEY}",
-    ),
+    ("DATABASE_URL", r#"martin "$DATABASE_URL""#, "postgres.connection_string: ${DATABASE_URL}"),
+    ("DEFAULT_SRID", r#"--default-srid "$DEFAULT_SRID""#, "postgres.default_srid: ${DEFAULT_SRID}"),
+    ("PGSSLCERT", r#"--ssl-cert "$PGSSLCERT""#, "postgres.ssl_cert: ${PGSSLCERT}"),
+    ("PGSSLKEY", r#"--ssl-key "$PGSSLKEY""#, "postgres.ssl_key: ${PGSSLKEY}"),
     (
         "PGSSLROOTCERT",
         r#"--ca-root-file "$PGSSLROOTCERT""#,
@@ -177,11 +161,7 @@ fn migrate_deprecated_config(value: &mut serde_json::Value) {
     }
 
     if let Some(mapping) = root.get_mut("pmtiles").and_then(|v| v.as_object_mut()) {
-        migrate_json_key(
-            mapping,
-            "directory_cache_size_mb",
-            &["directory_cache", "size_mb"],
-        );
+        migrate_json_key(mapping, "directory_cache_size_mb", &["directory_cache", "size_mb"]);
     }
 }
 
@@ -211,10 +191,8 @@ fn migrate_json_key(
     let mut current = &mut *mapping;
     for &segment in parents {
         if !current.contains_key(segment) {
-            current.insert(
-                segment.to_owned(),
-                serde_json::Value::Object(serde_json::Map::default()),
-            );
+            current
+                .insert(segment.to_owned(), serde_json::Value::Object(serde_json::Map::default()));
         }
         let Some(nested) = current.get_mut(segment).and_then(|v| v.as_object_mut()) else {
             warn!(
@@ -254,12 +232,7 @@ mod tests {
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
-        parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("test.yaml"),
-        )
-        .unwrap()
+        parse_config(yaml, &HashMap::<String, String>::new(), Path::new("test.yaml")).unwrap()
     }
 
     fn props(pairs: &[(&str, &str)]) -> HashMap<String, String> {
@@ -349,14 +322,8 @@ mod tests {
             message.contains("invalid type: integer `42`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("severity").and_then(|s| s.as_str()),
-            Some("error")
-        );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("severity").and_then(|s| s.as_str()), Some("error"));
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
         let labels = parsed.get("labels").and_then(|l| l.as_array()).unwrap();
         assert_eq!(labels.len(), 1, "expected one label, got {labels:?}");
         let span = labels[0].get("span").unwrap();
@@ -375,10 +342,7 @@ mod tests {
             message.contains("missing property `UNDEFINED_VAR`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
     }
 
     #[test]
@@ -612,10 +576,7 @@ mod tests {
                 panic!("expected exactly one postgres config, got: {other:?}")
             }
         };
-        assert_eq!(
-            pg.connection_string.as_deref(),
-            Some("postgres://postgres@localhost:5432/db")
-        );
+        assert_eq!(pg.connection_string.as_deref(), Some("postgres://postgres@localhost:5432/db"));
     }
 
     #[rstest]
@@ -639,12 +600,9 @@ mod tests {
               #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
               connection_string: 'postgres://postgres:postgres@db:5432/ehrenamtskarte'
         "};
-        let config = parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("config.yaml"),
-        )
-        .expect("comments containing ${VAR} must not trigger substitution");
+        let config =
+            parse_config(yaml, &HashMap::<String, String>::new(), Path::new("config.yaml"))
+                .expect("comments containing ${VAR} must not trigger substitution");
         let one = match config.postgres {
             OptOneMany::One(pg) => pg,
             other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {

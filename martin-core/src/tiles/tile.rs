@@ -11,7 +11,7 @@ use martin_tile_utils::{TileData, TileInfo};
 ///
 /// ```rust
 /// use martin_core::tiles::Tile;
-/// use martin_tile_utils::{TileInfo, Format, Encoding};
+/// use martin_tile_utils::{Encoding, Format, TileInfo};
 ///
 /// let data = vec![0x89, 0x50, 0x4E, 0x47]; // PNG header
 /// let info = TileInfo::new(Format::Png, Encoding::Uncompressed);

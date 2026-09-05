@@ -145,10 +145,7 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
         .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
         .await;
     assert_eq!(tile.status(), 200);
-    assert_eq!(
-        tile.header("content-type"),
-        Some("application/vnd.maplibre-tile")
-    );
+    assert_eq!(tile.header("content-type"), Some("application/vnd.maplibre-tile"));
     let layers = tile.mlt();
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name(), "feature_1");
@@ -243,10 +240,7 @@ async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is
         .get_with_headers("/nosuch/0/0/0", &[("accept", accept)])
         .await;
     assert_eq!(response.status(), 406);
-    assert_eq!(
-        response.text(),
-        "Accept header does not contain any supported tile format"
-    );
+    assert_eq!(response.text(), "Accept header does not contain any supported tile format");
 
     martin.stop().await;
     martin.assert_log_contains(

@@ -318,15 +318,10 @@ impl Source for PassthroughSource {
     }
 
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        Self::new(
-            self.id.clone(),
-            self.upstream.clone(),
-            self.transport.clone(),
-            self.cache_zoom,
-        )
-        .await
-        .map(|s| Box::new(s) as BoxedSource)
-        .map_err(MartinCoreError::from)
+        Self::new(self.id.clone(), self.upstream.clone(), self.transport.clone(), self.cache_zoom)
+            .await
+            .map(|s| Box::new(s) as BoxedSource)
+            .map_err(MartinCoreError::from)
     }
 }
 
@@ -461,10 +456,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(transport.headers.get("x-api-key").unwrap(), "secret");
-        assert_eq!(
-            transport.headers.get("accept").unwrap(),
-            "application/x-protobuf"
-        );
+        assert_eq!(transport.headers.get("accept").unwrap(), "application/x-protobuf");
     }
 
     #[test]

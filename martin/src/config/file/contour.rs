@@ -542,10 +542,7 @@ mod tests {
     fn parse_auto_string() {
         let cfg: ContourProcessConfig = serde_saphyr::from_str("auto").unwrap();
         assert_eq!(cfg, ContourProcessConfig::Auto);
-        assert_eq!(
-            cfg.resolve_contour().unwrap(),
-            Some(ResolvedContour::default())
-        );
+        assert_eq!(cfg.resolve_contour().unwrap(), Some(ResolvedContour::default()));
     }
 
     #[test]
@@ -565,10 +562,7 @@ mod tests {
 
         assert!((resolved.opts.resolution - 8.0).abs() < 1e-6);
         assert!((resolved.opts.min_feature_length - 25.0).abs() < 1e-6);
-        assert_eq!(
-            resolved.opts.major_interval,
-            ContourOptions::default().major_interval
-        );
+        assert_eq!(resolved.opts.major_interval, ContourOptions::default().major_interval);
         assert_eq!(resolved.opts.layer_name, "contour");
         assert_eq!(resolved.opts.extent, 4096);
     }

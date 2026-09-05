@@ -256,19 +256,11 @@ fn check_bboxes(boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     for bb in &boxes {
         let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
-            return Err(MartinCpError::InvalidBoundingBox(
-                "longitude",
-                *bb,
-                allowed_lon,
-            ));
+            return Err(MartinCpError::InvalidBoundingBox("longitude", *bb, allowed_lon));
         }
         let allowed_lat = Bounds::MAX_TILED.bottom..=Bounds::MAX_TILED.top;
         if !allowed_lat.contains(&bb.bottom) || !allowed_lat.contains(&bb.top) {
-            return Err(MartinCpError::InvalidBoundingBox(
-                "latitude",
-                *bb,
-                allowed_lat,
-            ));
+            return Err(MartinCpError::InvalidBoundingBox("latitude", *bb, allowed_lat));
         }
     }
     Ok(boxes)
@@ -280,10 +272,7 @@ fn compute_tile_ranges(boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
         for bbox in boxes {
             let (min_x, min_y, max_x, max_y) =
                 bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
-            append_rect(
-                &mut ranges,
-                TileRect::new(*zoom, min_x, min_y, max_x, max_y),
-            );
+            append_rect(&mut ranges, TileRect::new(*zoom, min_x, min_y, max_x, max_y));
         }
     }
     ranges
@@ -377,10 +366,7 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
 
         if source_bounds.is_empty() {
-            info!(
-                "No configured bounds for source, using: {}",
-                Bounds::MAX_TILED
-            );
+            info!("No configured bounds for source, using: {}", Bounds::MAX_TILED);
             vec![Bounds::MAX_TILED]
         } else {
             info!(
@@ -417,9 +403,8 @@ async fn write_tiles_to_mbtiles(
             progress.increment_empty();
         } else {
             batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
-            hotpath::gauge!("cp_batch_size").set(f64::from(
-                u32::try_from(batch.len()).expect("batch size should be <= 1000"),
-            ));
+            hotpath::gauge!("cp_batch_size")
+                .set(f64::from(u32::try_from(batch.len()).expect("batch size should be <= 1000")));
             if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                 mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                     .await?;
@@ -535,9 +520,7 @@ async fn join_consumer(
         consumer_task.await
     };
     let conn = join_result.map_err(|e| {
-        StartupError::from(std::io::Error::other(format!(
-            "consumer task panicked: {e}"
-        )))
+        StartupError::from(std::io::Error::other(format!("consumer task panicked: {e}")))
     })??;
     Ok(Some(conn))
 }

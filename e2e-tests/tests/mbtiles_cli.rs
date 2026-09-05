@@ -130,10 +130,7 @@ async fn unpack_with_the_tms_scheme_flips_the_y_coordinate() {
         .iter()
         .map(|(path, data)| (flip_y(path), data.clone()))
         .collect::<BTreeMap<_, _>>();
-    assert_ne!(
-        xyz.keys().collect::<Vec<_>>(),
-        expected.keys().collect::<Vec<_>>()
-    );
+    assert_ne!(xyz.keys().collect::<Vec<_>>(), expected.keys().collect::<Vec<_>>());
     assert_eq!(tile_tree(&tms_dir), expected);
 }
 
@@ -242,10 +239,7 @@ async fn unpack_fails_on_a_missing_file() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("Input file does not exist"),
-        "unexpected output:\n{output}"
-    );
+    assert!(output.contains("Input file does not exist"), "unexpected output:\n{output}");
 }
 
 #[tokio::test]
@@ -292,10 +286,7 @@ async fn pack_rejects_an_unsupported_tile_extension() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("Unsupported tile file extension"),
-        "unexpected output:\n{output}"
-    );
+    assert!(output.contains("Unsupported tile file extension"), "unexpected output:\n{output}");
 }
 
 #[tokio::test]
@@ -315,10 +306,7 @@ async fn pack_rejects_inconsistent_tile_formats() {
         .run_failing()
         .await;
 
-    assert!(
-        output.contains("Inconsistent tile formats"),
-        "unexpected output:\n{output}"
-    );
+    assert!(output.contains("Inconsistent tile formats"), "unexpected output:\n{output}");
 }
 
 #[tokio::test]
@@ -328,10 +316,7 @@ async fn copy_merges_several_sources_in_order() {
     let second = mbtiles_fixture(dir.path(), "world_cities_modified").await;
     let first_tiles = tiles(&first).await;
     let second_tiles = tiles(&second).await;
-    assert_ne!(
-        first_tiles, second_tiles,
-        "the fixtures must differ for the order to show"
-    );
+    assert_ne!(first_tiles, second_tiles, "the fixtures must differ for the order to show");
 
     let merged = dir.path().join("merged.mbtiles");
     MbtilesCli::new("copy")

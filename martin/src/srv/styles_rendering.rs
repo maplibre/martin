@@ -118,10 +118,7 @@ pub async fn get_rendered_tile_style(
             .content_type(ContentType::plaintext())
             .body("Invalid tile coordinates for zoom level");
     };
-    trace!(
-        "Rendering style {style_id} ({}) at {zxy}",
-        style_path.display()
-    );
+    trace!("Rendering style {style_id} ({}) at {zxy}", style_path.display());
 
     let image = styles.render(style_path, zxy.z, zxy.x, zxy.y).await;
     let image = match image {

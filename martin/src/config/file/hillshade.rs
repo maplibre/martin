@@ -609,10 +609,7 @@ mod tests {
             let after = base
                 .with_query_overrides([(param.name, target.to_string().as_str())])
                 .expect("an in-range value is accepted");
-            line(
-                &mut report,
-                format_args!("{}={target} -> {}", param.name, after.fingerprint()),
-            );
+            line(&mut report, format_args!("{}={target} -> {}", param.name, after.fingerprint()));
         }
         insta::assert_snapshot!(report, @"
         azimuth=0 -> 0:45:2.5:2.5:0:6:0.2:0:png

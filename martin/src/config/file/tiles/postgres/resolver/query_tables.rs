@@ -117,11 +117,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     if field == column {
         format!(", {}", escape_identifier(column))
     } else {
-        format!(
-            ", {} AS {}",
-            escape_identifier(column),
-            escape_identifier(field),
-        )
+        format!(", {} AS {}", escape_identifier(column), escape_identifier(field),)
     }
 }
 
@@ -168,10 +164,7 @@ pub async fn table_to_query(
         }
 
         if let Some(bounds) = info.bounds {
-            debug!(
-                "The computed bounds for {id} from {} are {bounds}",
-                info.format_id()
-            );
+            debug!("The computed bounds for {id} from {} are {bounds}", info.format_id());
         }
     }
 
@@ -350,7 +343,8 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
     let geometry_column = escape_identifier(&info.geometry_column);
     Ok(cn
         .query_one(
-            &format!(r"
+            &format!(
+                r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -360,7 +354,8 @@ SELECT ST_Transform(
             END,
             4326
         ) AS bounds
-FROM {schema}.{table};"),
+FROM {schema}.{table};"
+            ),
             &[],
         )
         .await
@@ -376,12 +371,7 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
         if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
-            Some(Bounds::new(
-                bottom_left.x(),
-                bottom_left.y(),
-                top_right.x(),
-                top_right.y(),
-            ))
+            Some(Bounds::new(bottom_left.x(), bottom_left.y(), top_right.x(), top_right.y()))
         } else {
             None
         }

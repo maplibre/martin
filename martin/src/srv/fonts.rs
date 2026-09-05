@@ -91,10 +91,7 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
         .await;
 
     HttpResponse::MovedPermanently()
-        .insert_header((
-            LOCATION,
-            format!("/font/{}/{}-{}", path.fontstack, path.start, path.end),
-        ))
+        .insert_header((LOCATION, format!("/font/{}/{}-{}", path.fontstack, path.start, path.end)))
         .finish()
 }
 

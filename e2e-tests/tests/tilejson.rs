@@ -158,10 +158,7 @@ async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
 async fn only_the_path_of_a_rewrite_header_is_used() {
     let mut martin = martin_with_a_pmtiles_source().await;
 
-    let headers = [(
-        "x-rewrite-url",
-        "https://elsewhere.example.com/footiles/webp2?ignored=1",
-    )];
+    let headers = [("x-rewrite-url", "https://elsewhere.example.com/footiles/webp2?ignored=1")];
     assert_eq!(
         tiles_url(&martin, "/webp2", &headers).await,
         "http://[ADDR]/footiles/webp2/{z}/{x}/{y}"
@@ -198,10 +195,7 @@ async fn base_path_sets_the_path_prefix(#[case] headers: &[(&str, &str)]) {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        tiles_url(&martin, "/webp2", headers).await,
-        "http://[ADDR]/bp/webp2/{z}/{x}/{y}"
-    );
+    assert_eq!(tiles_url(&martin, "/webp2", headers).await, "http://[ADDR]/bp/webp2/{z}/{x}/{y}");
 
     martin.stop().await;
     martin.assert_startup_warnings();
@@ -241,10 +235,7 @@ async fn base_path_wins_over_route_prefix() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        tiles_url(&martin, "/foo/webp2", &[]).await,
-        "http://[ADDR]/bp/webp2/{z}/{x}/{y}"
-    );
+    assert_eq!(tiles_url(&martin, "/foo/webp2", &[]).await, "http://[ADDR]/bp/webp2/{z}/{x}/{y}");
 
     martin.stop().await;
     martin.assert_startup_warnings();

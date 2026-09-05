@@ -239,7 +239,6 @@ impl TileSources {
     /// Parses comma-separated source IDs, replaces aliases with their member sources,
     /// and validates all sources have matching format/encoding.
     /// Optionally filters by zoom level support.
-    ///
     #[hotpath::measure]
     pub fn get_sources(
         &self,
@@ -372,15 +371,9 @@ mod tests {
     fn an_alias_expands_to_its_member_sources_in_order() {
         let sources = sources_with_one_valid();
         sources
-            .add_alias(
-                "both".to_owned(),
-                vec!["valid".to_owned(), "valid".to_owned()],
-            )
+            .add_alias("both".to_owned(), vec!["valid".to_owned(), "valid".to_owned()])
             .unwrap();
-        assert_eq!(
-            sources.expand_ids("both,valid"),
-            ["valid", "valid", "valid"]
-        );
+        assert_eq!(sources.expand_ids("both,valid"), ["valid", "valid", "valid"]);
         let resolved = sources.get_sources("both,valid", None).unwrap();
         assert_eq!(resolved.sources.len(), 3);
     }

@@ -191,12 +191,7 @@ macro_rules! assert_dump {
 struct Databases(
     HashMap<
         (&'static str, MbtTypeCli),
-        (
-            Vec<SqliteEntry>,
-            Mbtiles,
-            Option<String>,
-            Mutex<SqliteConnection>,
-        ),
+        (Vec<SqliteEntry>, Mbtiles, Option<String>, Mutex<SqliteConnection>),
     >,
 );
 
@@ -243,14 +238,7 @@ fn databases() -> Databases {
                     new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
                 let dmp = dump(&mut raw_empty_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__empty-no-hash");
-                result.add(
-                    "empty_no_hash",
-                    mbt_typ,
-                    dmp,
-                    raw_empty_mbt,
-                    None,
-                    raw_empty_cn,
-                );
+                result.add("empty_no_hash", mbt_typ, dmp, raw_empty_mbt, None, raw_empty_cn);
 
                 // ----------------- empty -----------------
                 let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
@@ -375,14 +363,7 @@ fn databases() -> Databases {
                 allow_duplicates! {
                     assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
                 }
-                result.add(
-                    "v1_clone",
-                    mbt_typ,
-                    dmp,
-                    v1_clone_mbt,
-                    Some(hash),
-                    v1_clone_cn,
-                );
+                result.add("v1_clone", mbt_typ, dmp, v1_clone_mbt, Some(hash), v1_clone_cn);
 
                 // ----------------- dif_empty (v1 -> v1_clone) -----------------
                 let (dif_empty_mbt, mut dif_empty_cn) = open!(databases, "{typ}__dif_empty");
@@ -397,14 +378,7 @@ fn databases() -> Databases {
                 allow_duplicates! {
                     assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
                 }
-                result.add(
-                    "dif_empty",
-                    mbt_typ,
-                    dmp,
-                    dif_empty_mbt,
-                    Some(hash),
-                    dif_empty_cn,
-                );
+                result.add("dif_empty", mbt_typ, dmp, dif_empty_mbt, Some(hash), dif_empty_cn);
             }
             result
         })
@@ -568,14 +542,7 @@ async fn copy_cache_to_cache_preserves_meta() {
         .await
         .unwrap();
     src_mbt
-        .set_cached(
-            &mut src_cn,
-            6,
-            3,
-            4,
-            b"permanent",
-            CacheEntryMeta::default(),
-        )
+        .set_cached(&mut src_cn, 6, 3, 4, b"permanent", CacheEntryMeta::default())
         .await
         .unwrap();
 
@@ -718,10 +685,8 @@ async fn diff_and_patch(
     eprintln!(
         "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
     );
-    let (dif_mbt, mut dif_cn) = open!(
-        diff_and_patch,
-        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__{dif_db}"
-    );
+    let (dif_mbt, mut dif_cn) =
+        open!(diff_and_patch, "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__{dif_db}");
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),

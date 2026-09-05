@@ -793,10 +793,9 @@ fn plan_one_path(
         return Ok(Vec::new());
     }
     files.insert(can.clone(), path.clone());
-    let id = path.file_stem().map_or_else(
-        || "_unknown".to_owned(),
-        |s| s.to_string_lossy().to_string(),
-    );
+    let id = path
+        .file_stem()
+        .map_or_else(|| "_unknown".to_owned(), |s| s.to_string_lossy().to_string());
     let id = idr.resolve(&id, can.to_string_lossy().to_string());
     Ok(vec![Planned {
         id,
@@ -927,9 +926,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
             type Value = CachePolicy;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(
-                    "either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)",
-                )
+                f.write_str("either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)")
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<CachePolicy, E> {
@@ -1320,10 +1317,7 @@ mod deserialize_tests {
     #[test]
     fn file_config_enum_seq_is_paths() {
         let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("[/a, /b]");
-        assert_eq!(
-            cfg,
-            FileConfigEnum::Paths(vec![PathBuf::from("/a"), PathBuf::from("/b")])
-        );
+        assert_eq!(cfg, FileConfigEnum::Paths(vec![PathBuf::from("/a"), PathBuf::from("/b")]));
     }
 
     #[test]
@@ -1625,14 +1619,8 @@ mod deserialize_tests {
             },
             ..FileConfig::default()
         });
-        assert_eq!(
-            kind.cache_or(global).zoom(),
-            CacheZoomRange::new(Some(1), Some(5))
-        );
-        assert_eq!(
-            FileConfigEnum::<MbtConfig>::None.cache_or(global).zoom(),
-            global.zoom()
-        );
+        assert_eq!(kind.cache_or(global).zoom(), CacheZoomRange::new(Some(1), Some(5)));
+        assert_eq!(FileConfigEnum::<MbtConfig>::None.cache_or(global).zoom(), global.zoom());
     }
 
     #[test]
@@ -1662,10 +1650,7 @@ mod mbtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
             paths: OptOneMany::One(invalid_path.clone()),
             collections: OptOneMany::NoVals,
@@ -1694,10 +1679,7 @@ mod pmtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
             paths: OptOneMany::One(invalid_path.clone()),
             collections: OptOneMany::NoVals,

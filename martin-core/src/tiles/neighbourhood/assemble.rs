@@ -48,10 +48,7 @@ impl Neighbourhood {
     #[must_use]
     pub const fn offset(index: usize) -> (i32, i32) {
         #[expect(clippy::cast_possible_wrap)]
-        (
-            (index % GRID_SIDE) as i32 - 1,
-            (index / GRID_SIDE) as i32 - 1,
-        )
+        ((index % GRID_SIDE) as i32 - 1, (index / GRID_SIDE) as i32 - 1)
     }
 
     /// Builds a neighbourhood from nine fetch results in row-major order.
@@ -186,11 +183,7 @@ fn resolve_pixel(
     let Some(centre) = centre else {
         return [0; CHANNELS];
     };
-    clamped_pixel(
-        centre,
-        clamp_toward_centre(grid_x, x),
-        clamp_toward_centre(grid_y, y),
-    )
+    clamped_pixel(centre, clamp_toward_centre(grid_x, x), clamp_toward_centre(grid_y, y))
 }
 
 #[cfg(test)]
@@ -211,12 +204,7 @@ mod tests {
         }
         let mut buf = Vec::new();
         PngEncoder::new(&mut buf)
-            .write_image(
-                &pixels,
-                width as u32,
-                height as u32,
-                ExtendedColorType::Rgba8,
-            )
+            .write_image(&pixels, width as u32, height as u32, ExtendedColorType::Rgba8)
             .expect("encode test tile");
         buf
     }
@@ -263,11 +251,7 @@ mod tests {
 
         let (x, y) = at(2, 2, 40, 90);
         let last = (TILE_SIZE - 1) as u8;
-        assert_eq!(
-            field.texel(x, y),
-            [last, last, 0, 255],
-            "corner clamps both axes"
-        );
+        assert_eq!(field.texel(x, y), [last, last, 0, 255], "corner clamps both axes");
     }
 
     #[test]
@@ -298,20 +282,13 @@ mod tests {
         assert_eq!(field.texel(x, y), [255, 10, 0, 255], "overflow cropped");
 
         let (x, y) = at(1, 0, 100, 255);
-        assert_eq!(
-            field.texel(x, y),
-            [100, 251, 0, 255],
-            "shortfall edge-padded"
-        );
+        assert_eq!(field.texel(x, y), [100, 251, 0, 255], "shortfall edge-padded");
     }
 
     #[test]
     fn a_centre_that_arrived_but_will_not_decode_is_an_error() {
         let tiles = Neighbourhood::centre_only(b"this is not an image".to_vec());
-        assert!(matches!(
-            tiles.assemble(),
-            Err(NeighbourhoodError::CorruptCentreTile)
-        ));
+        assert!(matches!(tiles.assemble(), Err(NeighbourhoodError::CorruptCentreTile)));
     }
 
     #[test]

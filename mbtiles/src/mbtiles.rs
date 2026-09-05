@@ -109,7 +109,7 @@ pub struct PatchFileInfo {
 /// ## Creating and writing tiles to a new file
 ///
 /// ```
-/// use mbtiles::{Mbtiles, MbtType, CopyDuplicateMode};
+/// use mbtiles::{CopyDuplicateMode, MbtType, Mbtiles};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let mbt = Mbtiles::new("output.mbtiles")?;
@@ -120,10 +120,11 @@ pub struct PatchFileInfo {
 ///
 /// // Insert a batch of tiles
 /// let tiles = vec![
-///     (0, 0, 0, vec![1, 2, 3, 4]),  // zoom, x, y, data
+///     (0, 0, 0, vec![1, 2, 3, 4]), // zoom, x, y, data
 ///     (1, 0, 0, vec![5, 6, 7, 8]),
 /// ];
-/// mbt.insert_tiles(&mut conn, MbtType::Flat, CopyDuplicateMode::Override, &tiles).await?;
+/// mbt.insert_tiles(&mut conn, MbtType::Flat, CopyDuplicateMode::Override, &tiles)
+///     .await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -131,8 +132,8 @@ pub struct PatchFileInfo {
 /// ## Streaming all tiles
 ///
 /// ```
-/// use mbtiles::Mbtiles;
 /// use futures::StreamExt;
+/// use mbtiles::Mbtiles;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let mbt = Mbtiles::new("world.mbtiles")?;
@@ -141,7 +142,13 @@ pub struct PatchFileInfo {
 /// let mut stream = mbt.stream_tiles(&mut conn);
 /// while let Some(tile) = stream.next().await {
 ///     let (coord, data) = tile?;
-///     println!("Tile at {}/{}/{}: {} bytes", coord.z, coord.x, coord.y, data.map(|bytes| bytes.len()).unwrap_or_default());
+///     println!(
+///         "Tile at {}/{}/{}: {} bytes",
+///         coord.z,
+///         coord.x,
+///         coord.y,
+///         data.map(|bytes| bytes.len()).unwrap_or_default()
+///     );
 /// }
 /// # Ok(())
 /// # }
@@ -234,7 +241,7 @@ impl Mbtiles {
     ///
     /// # Examples
     /// ```
-    /// use mbtiles::{Mbtiles, MbtType};
+    /// use mbtiles::{MbtType, Mbtiles};
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let mbtiles = Mbtiles::new("new.mbtiles")?;
@@ -515,7 +522,7 @@ impl Mbtiles {
     /// # Examples
     ///
     /// ```
-    /// use mbtiles::{Mbtiles, MbtType};
+    /// use mbtiles::{MbtType, Mbtiles};
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let mbt = Mbtiles::new("tiles.mbtiles")?;
@@ -594,20 +601,18 @@ impl Mbtiles {
     /// # Example
     ///
     /// ```
-    /// use mbtiles::MbtType;
-    /// use mbtiles::CopyDuplicateMode;
-    /// use mbtiles::Mbtiles;
+    /// use mbtiles::{CopyDuplicateMode, MbtType, Mbtiles};
     ///
     /// # async fn insert_tiles_example() {
     /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
     /// let mut conn = mbtiles.open().await.unwrap();
     ///
     /// let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
-    /// let batch = vec![
-    ///     (0, 0, 0, vec![0, 1, 2, 3]),
-    ///     (0, 1, 0, vec![4, 5, 6, 7]),
-    /// ];
-    /// mbtiles.insert_tiles(&mut conn, mbt_type, CopyDuplicateMode::Ignore, &batch).await.unwrap();
+    /// let batch = vec![(0, 0, 0, vec![0, 1, 2, 3]), (0, 1, 0, vec![4, 5, 6, 7])];
+    /// mbtiles
+    ///     .insert_tiles(&mut conn, mbt_type, CopyDuplicateMode::Ignore, &batch)
+    ///     .await
+    ///     .unwrap();
     /// # }
     /// ```
     #[hotpath::measure]
@@ -618,10 +623,7 @@ impl Mbtiles {
         on_duplicate: CopyDuplicateMode,
         batch: &[(u8, u32, u32, D)],
     ) -> MbtResult<()> {
-        debug!(
-            "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
-            batch.len()
-        );
+        debug!("Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}", batch.len());
         let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
         let mut tx = conn.begin().await?;
         let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);

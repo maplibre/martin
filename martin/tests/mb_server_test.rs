@@ -249,10 +249,7 @@ async fn mbt_get_mvt() {
     println!("Status = {:?}", response.status());
     println!("Headers = {:?}", response.headers());
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 1828);
@@ -268,10 +265,7 @@ async fn mbt_get_mvt_gzip() {
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
@@ -289,10 +283,7 @@ async fn mbt_get_mvt_brotli() {
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
     assert_eq!(body.len(), 975); // this number could change if compression settings change
@@ -309,10 +300,7 @@ async fn mbt_get_raw_mvt() {
     let req = test_get("/m_raw_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 2);
@@ -327,10 +315,7 @@ async fn mbt_get_raw_mlt() {
     let req = test_get("/m_raw_mlt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.maplibre-tile"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/vnd.maplibre-tile");
     assert_eq!(response.headers().get(CONTENT_ENCODING), None);
     let body = read_body(response).await;
     assert_eq!(body.iter().as_slice(), &[0x02, 0x01]);
@@ -348,10 +333,7 @@ async fn mbt_get_raw_mvt_gzip() {
         .to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
@@ -372,10 +354,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
         .to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
@@ -392,10 +371,7 @@ async fn mbt_get_json() {
     let req = test_get("/m_json/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/json"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 13);
@@ -411,10 +387,7 @@ async fn mbt_get_json_gzip() {
     let req = test_get("/m_json/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/json"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 33); // this number could change if compression gets more optimized

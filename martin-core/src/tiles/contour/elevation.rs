@@ -56,11 +56,7 @@ impl HeightGrid {
     /// Panics if `values` does not hold exactly `width * height` samples.
     #[must_use]
     pub fn from_values(values: Vec<f32>, width: usize, height: usize) -> Self {
-        assert_eq!(
-            values.len(),
-            width * height,
-            "a height grid must hold width * height samples"
-        );
+        assert_eq!(values.len(), width * height, "a height grid must hold width * height samples");
         Self {
             values,
             width,
@@ -148,38 +144,26 @@ mod tests {
         assert_eq!(poisoned.get_thresholds(100.0), vec![200.0, 300.0]);
 
         // Same terrain without the blank pixel: identical thresholds.
-        assert_eq!(
-            grid(&[120.0, 350.0]).get_thresholds(100.0),
-            poisoned.get_thresholds(100.0)
-        );
+        assert_eq!(grid(&[120.0, 350.0]).get_thresholds(100.0), poisoned.get_thresholds(100.0));
     }
 
     #[test]
     fn near_floor_pixel_is_nodata_too() {
         // B=1 decodes just above the floor, so an exact-equality guard would let
         // it through and reopen the ~330-level blowup.
-        assert_eq!(
-            grid(&[NEAR_FLOOR, 120.0, 350.0]).get_thresholds(100.0),
-            vec![200.0, 300.0]
-        );
+        assert_eq!(grid(&[NEAR_FLOOR, 120.0, 350.0]).get_thresholds(100.0), vec![200.0, 300.0]);
     }
 
     #[test]
     fn deepest_real_elevation_is_kept() {
         // Challenger Deep is the floor of real data and must survive the guard:
         // range -10935..0 at a 5000 m interval starts at -10000.
-        assert_eq!(
-            grid(&[-10935.0, 0.0]).get_thresholds(5000.0),
-            vec![-10000.0, -5000.0, 0.0]
-        );
+        assert_eq!(grid(&[-10935.0, 0.0]).get_thresholds(5000.0), vec![-10000.0, -5000.0, 0.0]);
     }
 
     #[test]
     fn a_threshold_at_or_below_the_minimum_is_dropped() {
-        assert_eq!(
-            grid(&[120.0, 350.0]).get_thresholds(100.0),
-            vec![200.0, 300.0]
-        );
+        assert_eq!(grid(&[120.0, 350.0]).get_thresholds(100.0), vec![200.0, 300.0]);
         assert_eq!(grid(&[200.0, 350.0]).get_thresholds(100.0), vec![300.0]);
     }
 

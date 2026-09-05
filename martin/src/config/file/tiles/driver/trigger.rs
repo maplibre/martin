@@ -191,10 +191,7 @@ mod tests {
                 break;
             }
         }
-        assert!(
-            fired_after_the_delay,
-            "no pass after the new-directory delay"
-        );
+        assert!(fired_after_the_delay, "no pass after the new-directory delay");
     }
 
     // inotify reports precise event kinds, so opening a file for reading emits only
@@ -215,9 +212,6 @@ mod tests {
         drop(std::fs::File::open(&file).unwrap());
 
         let fired = tokio::time::timeout(Duration::from_millis(500), trigger.next()).await;
-        assert!(
-            fired.is_err(),
-            "read-only access should not fire the trigger"
-        );
+        assert!(fired.is_err(), "read-only access should not fire the trigger");
     }
 }

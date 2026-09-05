@@ -65,7 +65,9 @@ impl BakedTile {
             | Format::Json
             | Format::Mvt
             | Format::Mlt
-            | Format::Avif) => return Err(HillshadeError::UnsupportedFormat(other)),
+            | Format::Avif) => {
+                return Err(HillshadeError::UnsupportedFormat(other));
+            }
         };
         result.map_err(|source| HillshadeError::Encoding { format, source })?;
         Ok(buf)
@@ -101,11 +103,7 @@ mod tests {
         let decoded = image::load_from_memory(&bytes).expect("decodes").to_luma8();
 
         assert_eq!(decoded.dimensions(), (tile.side, tile.side));
-        assert_eq!(
-            decoded.into_raw(),
-            tile.gray,
-            "{format:?} must not alter a single sample"
-        );
+        assert_eq!(decoded.into_raw(), tile.gray, "{format:?} must not alter a single sample");
     }
 
     #[test]

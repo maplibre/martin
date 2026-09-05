@@ -373,13 +373,8 @@ impl Martin {
 
     /// Perform a POST request carrying a JSON `body`.
     pub async fn post_json(&self, path: &str, body: &[u8]) -> TestResponse {
-        self.send(
-            Method::POST,
-            path,
-            &[("content-type", "application/json")],
-            body,
-        )
-        .await
+        self.send(Method::POST, path, &[("content-type", "application/json")], body)
+            .await
     }
 
     async fn request(&self, method: Method, path: &str, headers: &[(&str, &str)]) -> TestResponse {
@@ -411,10 +406,7 @@ impl Martin {
             .headers()
             .iter()
             .map(|(name, value)| {
-                (
-                    name.as_str().to_owned(),
-                    String::from_utf8_lossy(value.as_bytes()).into_owned(),
-                )
+                (name.as_str().to_owned(), String::from_utf8_lossy(value.as_bytes()).into_owned())
             })
             .collect::<Vec<_>>();
         let raw = response
@@ -500,11 +492,7 @@ impl Martin {
     /// Assert that at least one log line contains `needle`, and consume every matching line.
     pub fn assert_log_contains(&mut self, needle: &str) {
         let taken = self.take_log_lines(needle);
-        assert!(
-            !taken.is_empty(),
-            "log does not contain {needle:?}; log:\n{}",
-            self.raw_log()
-        );
+        assert!(!taken.is_empty(), "log does not contain {needle:?}; log:\n{}", self.raw_log());
     }
 
     /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
@@ -652,10 +640,7 @@ impl TestResponse {
     /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
     #[must_use]
     pub fn mvt_dump(&self) -> String {
-        format!(
-            "{:?}",
-            MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
-        )
+        format!("{:?}", MvtReaderRef::new(&self.body).expect("response body is not a vector tile"))
     }
 
     /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.
@@ -696,10 +681,7 @@ impl TestResponse {
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
-        format!(
-            "{{\"type\":\"FeatureCollection\",\"features\":[\n{}\n]}}",
-            features.join(",\n")
-        )
+        format!("{{\"type\":\"FeatureCollection\",\"features\":[\n{}\n]}}", features.join(",\n"))
     }
 
     /// Decompressed response body measured as a raster image, in `(width, height)` pixels.
@@ -794,7 +776,9 @@ fn to_wgs84(geometry: &Geometry<i32>, z: u8, x: u32, y: u32, extent: f64) -> GjG
         other @ (Geometry::Line(_)
         | Geometry::Rect(_)
         | Geometry::Triangle(_)
-        | Geometry::GeometryCollection(_)) => panic!("a vector tile cannot carry {other:?}"),
+        | Geometry::GeometryCollection(_)) => {
+            panic!("a vector tile cannot carry {other:?}")
+        }
     })
 }
 
@@ -955,10 +939,7 @@ mod tests {
         let response = TestResponse {
             status: 200,
             headers: vec![
-                (
-                    "date".to_owned(),
-                    "Fri, 25 Jul 2026 00:00:00 GMT".to_owned(),
-                ),
+                ("date".to_owned(), "Fri, 25 Jul 2026 00:00:00 GMT".to_owned()),
                 ("content-type".to_owned(), "application/json".to_owned()),
                 ("content-encoding".to_owned(), "br".to_owned()),
             ],

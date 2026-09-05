@@ -58,9 +58,7 @@ use crate::{MbtType, Mbtiles, Metadata};
 /// for z in 0..5 {
 ///     // cheap and thead-save
 ///     let pool = pool.clone();
-///     handles.push(tokio::spawn(async move {
-///         pool.get_tile(z, 0, 0).await
-///     }));
+///     handles.push(tokio::spawn(async move { pool.get_tile(z, 0, 0).await }));
 /// }
 ///
 /// // All requests run concurrently using different pool connections
@@ -174,7 +172,7 @@ impl MbtilesPool {
     /// # Examples
     ///
     /// ```
-    /// use mbtiles::{MbtilesPool, MbtType};
+    /// use mbtiles::{MbtType, MbtilesPool};
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let pool = MbtilesPool::open_readonly("tiles.mbtiles").await?;
@@ -222,7 +220,7 @@ impl MbtilesPool {
     /// if let Some(tile_info) = pool.detect_format(&metadata.tilejson).await? {
     ///     println!("Format: {}", tile_info.format);
     /// } else {
-    ///    println!("No tiles found in the MBTiles file.");
+    ///     println!("No tiles found in the MBTiles file.");
     /// }
     /// # Ok(())
     /// # }
@@ -265,22 +263,19 @@ impl MbtilesPool {
     /// # Examples
     ///
     /// ```
-    /// use mbtiles::MbtilesPool;
     /// use std::sync::Arc;
+    ///
+    /// use mbtiles::MbtilesPool;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let pool = Arc::new(MbtilesPool::open_readonly("tiles.mbtiles").await?);
     ///
     /// // Can be called concurrently from multiple tasks
     /// let pool1 = Arc::clone(&pool);
-    /// let handle1 = tokio::spawn(async move {
-    ///     pool1.get_tile(4, 5, 6).await
-    /// });
+    /// let handle1 = tokio::spawn(async move { pool1.get_tile(4, 5, 6).await });
     ///
     /// let pool2 = Arc::clone(&pool);
-    /// let handle2 = tokio::spawn(async move {
-    ///     pool2.get_tile(4, 5, 7).await
-    /// });
+    /// let handle2 = tokio::spawn(async move { pool2.get_tile(4, 5, 7).await });
     ///
     /// let tile1 = handle1.await??;
     /// let tile2 = handle2.await??;

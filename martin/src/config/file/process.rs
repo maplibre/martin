@@ -623,11 +623,8 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = ProcessConfig::layered(
-            &global,
-            &ProcessConfig::default(),
-            &ProcessConfig::default(),
-        );
+        let resolved =
+            ProcessConfig::layered(&global, &ProcessConfig::default(), &ProcessConfig::default());
         assert_eq!(resolved, global);
     }
 
@@ -671,10 +668,7 @@ mod tests {
         };
         let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Auto));
-        assert_eq!(
-            resolved.cache_control,
-            Some(cache_control("public, max-age=60"))
-        );
+        assert_eq!(resolved.cache_control, Some(cache_control("public, max-age=60")));
 
         let resolved = ProcessConfig::layered(
             &ProcessConfig::default(),
@@ -829,18 +823,12 @@ mod tests {
                 saw_encoder_ref = true;
             }
         }
-        assert!(
-            saw_encoder_ref,
-            "expected $ref to MltEncoderConfig: {schema}"
-        );
+        assert!(saw_encoder_ref, "expected $ref to MltEncoderConfig: {schema}");
     }
 
     #[test]
     fn resolve_of_nothing_configured_is_the_default() {
-        assert_eq!(
-            ProcessConfig::default().resolve().unwrap(),
-            ResolvedProcess::default()
-        );
+        assert_eq!(ProcessConfig::default().resolve().unwrap(), ResolvedProcess::default());
     }
 
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]

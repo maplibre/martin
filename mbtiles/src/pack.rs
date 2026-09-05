@@ -71,11 +71,7 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
         .filter_entry(move |entry| {
             if entry.file_type().is_dir() {
                 // descend into the root and numerically-named `{z}`/`{x}` directories only
-                let keep = entry.depth() == 0
-                    || entry
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|s| s.parse::<u32>().is_ok());
+                let keep = entry.depth() == 0 || entry.file_name().to_str().is_some_and(|s| s.parse::<u32>().is_ok());
                 if !keep {
                     warned_about_dirs.call_once(|| {
                         tracing::info!(
@@ -113,11 +109,7 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
             }
             let path = entry.path();
             let coords = tile_coords(path)?;
-            let Some(detected) = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .and_then(Format::parse)
-            else {
+            let Some(detected) = path.extension().and_then(|e| e.to_str()).and_then(Format::parse) else {
                 return Some(Err(MbtError::UnsupportedFileExtension(path.to_path_buf())));
             };
             Some(Ok((path.to_path_buf(), coords, detected)))
@@ -336,10 +328,7 @@ mod tests {
     fn tile_coords_from_path() {
         // `{z}/{x}/{y}.{ext}`, with the extension ignored.
         assert_eq!(tile_coords(Path::new("0/0/0.png")), Some((0, 0, 0)));
-        assert_eq!(
-            tile_coords(Path::new("any/prefix/3/4/5.pbf")),
-            Some((3, 4, 5))
-        );
+        assert_eq!(tile_coords(Path::new("any/prefix/3/4/5.pbf")), Some((3, 4, 5)));
         assert_eq!(tile_coords(Path::new("3/4/5")), Some((3, 4, 5)));
 
         // Non-numeric components are rejected.

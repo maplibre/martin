@@ -121,10 +121,7 @@ async fn route_prefix_tile_endpoints() {
     // Verify TileJSON contains the route_prefix in tile URLs
     assert_eq!(body.tiles.len(), 1);
     let tile_url = &body.tiles[0];
-    assert!(
-        tile_url.contains("/tiles/m_mvt/"),
-        "Tile URL should contain route_prefix: {tile_url}"
-    );
+    assert!(tile_url.contains("/tiles/m_mvt/"), "Tile URL should contain route_prefix: {tile_url}");
 
     // TileJSON without prefix should fail
     let req = test_get("/m_mvt").to_request();

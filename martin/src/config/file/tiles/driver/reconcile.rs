@@ -456,10 +456,7 @@ mod tests {
         // Seed fails (baseline stays None); the first good tick establishes it without applying.
         let discovery = FakeDiscovery::new(vec![
             Err(SourceBuildError::SourceNotFound("seed boom".into())),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
@@ -478,10 +475,7 @@ mod tests {
     #[tokio::test]
     async fn init_applies_full_discovery_then_ticks_diff_against_it() {
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
         let sink = SpySink::new();
@@ -517,10 +511,7 @@ mod tests {
         let discovery =
             FakeDiscovery::new(vec![Err(SourceBuildError::SourceNotFound("boom".into()))]);
         let mut driver = ReloadDriver::new(discovery, SpySink::new());
-        assert!(
-            driver.init().await.is_err(),
-            "discovery error must fail init"
-        );
+        assert!(driver.init().await.is_err(), "discovery error must fail init");
 
         let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
         let sink =
@@ -535,10 +526,7 @@ mod tests {
         let discovery = FakeDiscovery::new(vec![
             Ok(snapshot(&[("a", Version::Tracked(1))])),
             Err(SourceBuildError::SourceNotFound("tick boom".into())),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::new();
         let recorded = sink.recorded();

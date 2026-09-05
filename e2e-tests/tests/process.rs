@@ -176,10 +176,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
     assert_eq!(layers[0].name(), "table_source");
     assert_eq!(layers[0].extent().get(), 4096);
     assert_eq!(layers[0].property_names(), ["gid"]);
-    assert_eq!(
-        layers[0].features().len(),
-        mvt.mvt().layers[0].features.len()
-    );
+    assert_eq!(layers[0].features().len(), mvt.mvt().layers[0].features.len());
 
     martin.stop().await;
     assert_table_source_warning(&mut martin);
@@ -265,10 +262,7 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     let layers = proxied.mlt();
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name(), "table_source");
-    assert_eq!(
-        layers[0].features().len(),
-        direct.mvt().layers[0].features.len()
-    );
+    assert_eq!(layers[0].features().len(), direct.mvt().layers[0].features.len());
 
     proxy.stop().await;
     upstream.stop().await;

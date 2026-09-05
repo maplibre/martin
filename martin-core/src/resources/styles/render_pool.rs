@@ -213,11 +213,7 @@ impl<W: Worker> RenderPool<W> {
             handles.push(handle);
         }
 
-        info!(
-            workers = workers.get(),
-            kind = W::NAME,
-            "Started style render pool"
-        );
+        info!(workers = workers.get(), kind = W::NAME, "Started style render pool");
 
         Ok(Self {
             inner: Arc::new(Inner {
@@ -322,11 +318,8 @@ impl Worker for StaticWorker {
 
     fn render(&mut self, params: RenderParams) -> Result<Image, StyleError> {
         if !self.current.as_ref().is_some_and(|r| r.matches(&params)) {
-            self.current = Some(StaticRenderer::new(
-                params.width,
-                params.height,
-                params.pixel_ratio,
-            ));
+            self.current =
+                Some(StaticRenderer::new(params.width, params.height, params.pixel_ratio));
         }
         self.current.as_mut().expect("just built").render(&params)
     }
@@ -425,11 +418,7 @@ impl StaticRenderer {
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
-        load_style_cached(
-            &mut self.renderer,
-            &mut self.loaded_style,
-            &params.style_path,
-        )?;
+        load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style_path)?;
         let camera = CameraUpdate::new()
             .center(LatLng {
                 lat: params.lat,

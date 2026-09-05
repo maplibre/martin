@@ -32,9 +32,5 @@ pub fn convert_mvt_to_mlt(tile: Tile, cfg: EncoderConfig) -> Result<Tile, Proces
         mlt_bytes.extend_from_slice(&layer_bytes);
     }
 
-    Ok(Tile::new_with_etag(
-        mlt_bytes,
-        TileInfo::new(Format::Mlt, Encoding::Internal),
-        etag,
-    ))
+    Ok(Tile::new_with_etag(mlt_bytes, TileInfo::new(Format::Mlt, Encoding::Internal), etag))
 }

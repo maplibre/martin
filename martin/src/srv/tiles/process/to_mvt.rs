@@ -38,11 +38,7 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
     let mvt_bytes =
         tile_layers_to_mvt(tile_layers).map_err(|e| ProcessError::MvtConversion(e.to_string()))?;
 
-    Ok(Tile::new_with_etag(
-        mvt_bytes,
-        TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-        etag,
-    ))
+    Ok(Tile::new_with_etag(mvt_bytes, TileInfo::new(Format::Mvt, Encoding::Uncompressed), etag))
 }
 
 /// Build a minimal valid MVT tile bytes for tests: one layer with one

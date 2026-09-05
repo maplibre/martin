@@ -150,10 +150,7 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
     assert_eq!(tilejson["maxzoom"], maxzoom);
     assert_eq!(tilejson["tileSize"], tile_size);
     assert_eq!(tilejson["format"], format);
-    assert_eq!(
-        tilejson["tiles"][0],
-        Value::from(format!("http://[ADDR]/{id}/{{z}}/{{x}}/{{y}}"))
-    );
+    assert_eq!(tilejson["tiles"][0], Value::from(format!("http://[ADDR]/{id}/{{z}}/{{x}}/{{y}}")));
 
     martin.stop().await;
 }
@@ -294,15 +291,9 @@ async fn reload_adds_updates_and_removes_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
-    watched.install(
-        fixture("cog/usda_naip_128_none_z2.tif"),
-        "usda_naip_128_none_z2.tif",
-    );
+    watched.install(fixture("cog/usda_naip_128_none_z2.tif"), "usda_naip_128_none_z2.tif");
     martin.wait_for_source("usda_naip_128_none_z2").await;
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {

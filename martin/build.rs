@@ -10,16 +10,10 @@ use std::path::Path;
 
 #[cfg(feature = "webui")]
 fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
-    assert!(
-        src.is_dir(),
-        "source for the copy operation is not an existing directory"
-    );
+    assert!(src.is_dir(), "source for the copy operation is not an existing directory");
     let _ = fs::remove_dir_all(dst); // ignore if dir does not exist
     fs::create_dir_all(dst).unwrap_or_else(|e| {
-        panic!(
-            "failed to create destination directory {}: {e}",
-            dst.display()
-        )
+        panic!("failed to create destination directory {}: {e}", dst.display())
     });
     let excludes = exclude_dirs.iter().map(|v| src.join(v)).collect::<Vec<_>>();
 
@@ -41,10 +35,7 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
 
         if entry.file_type().is_dir() {
             fs::create_dir_all(&dst_path).unwrap_or_else(|e| {
-                panic!(
-                    "failed to create destination directory {}: {e}",
-                    dst_path.display()
-                )
+                panic!("failed to create destination directory {}: {e}", dst_path.display())
             });
         } else {
             fs::copy(entry.path(), &dst_path).unwrap_or_else(|e| {
@@ -77,11 +68,7 @@ fn webui() {
         .expect("OUT_DIR environment variable is not a valid path")
         .join("martin-ui");
 
-    copy_file_tree(
-        &martin_ui_dir,
-        &out_martin_ui_dir,
-        &["dist", "node_modules"],
-    );
+    copy_file_tree(&martin_ui_dir, &out_martin_ui_dir, &["dist", "node_modules"]);
 
     println!("installing and building in {}", out_martin_ui_dir.display());
     static_files::NpmBuild::new(&out_martin_ui_dir)

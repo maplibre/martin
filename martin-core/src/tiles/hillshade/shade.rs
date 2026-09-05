@@ -124,14 +124,8 @@ impl Canvas {
     /// Decodes the texel at `(x, y)` to `[0, 1]` channels.
     #[inline]
     fn texel(&self, x: i64, y: i64) -> [f64; CHANNELS] {
-        debug_assert!(
-            (0..(CANVAS as i64 - 1)).contains(&x),
-            "texel not on canvas in x direction"
-        );
-        debug_assert!(
-            (0..(CANVAS as i64 - 1)).contains(&y),
-            "texel not on canvas in y direction"
-        );
+        debug_assert!((0..(CANVAS as i64 - 1)).contains(&x), "texel not on canvas in x direction");
+        debug_assert!((0..(CANVAS as i64 - 1)).contains(&y), "texel not on canvas in y direction");
         debug_assert!(self.rgba.len().is_multiple_of(CHANNELS));
         let (texels, _) = self.rgba.as_chunks::<CHANNELS>();
 
@@ -338,12 +332,8 @@ mod tests {
             padding,
             ..BakeParams::default()
         };
-        let baked = bake_with_light(
-            &Canvas::uniform(SLOPED_TEXEL),
-            core,
-            &params,
-            LIGHT_FROM_OVERHEAD,
-        );
+        let baked =
+            bake_with_light(&Canvas::uniform(SLOPED_TEXEL), core, &params, LIGHT_FROM_OVERHEAD);
 
         // Stated independently of the implementation.
         let expected_apron = (f64::from(padding) * f64::from(core) / 256.0).round() as u32;
@@ -391,11 +381,7 @@ mod tests {
         };
 
         // 3 bands must differ from off for this texel, which sits away from a band boundary.
-        assert_eq!(
-            smooth(0.0),
-            smooth(1.9),
-            "any value below 2 disables banding"
-        );
+        assert_eq!(smooth(0.0), smooth(1.9), "any value below 2 disables banding");
         assert_ne!(smooth(0.0), smooth(3.0), "banding must actually quantise");
     }
 
@@ -449,10 +435,7 @@ mod tests {
                 light,
             );
             let floor = (ambient * 255.0).round() as u8;
-            assert_eq!(
-                baked.gray[0], floor,
-                "ambient {ambient} must floor the darkest tone"
-            );
+            assert_eq!(baked.gray[0], floor, "ambient {ambient} must floor the darkest tone");
         }
     }
 }

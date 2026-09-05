@@ -40,10 +40,7 @@ impl CacheConfig {
     #[must_use]
     pub fn create_tile_cache(&self) -> Option<TileCache> {
         if let Some(setting) = &self.tiles {
-            tracing::info!(
-                "Initializing tile cache with maximum size {} MB",
-                setting.size_mb
-            );
+            tracing::info!("Initializing tile cache with maximum size {} MB", setting.size_mb);
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(TileCache::new(size, setting.expiry, setting.idle_timeout))
         } else {
@@ -75,10 +72,7 @@ impl CacheConfig {
     #[must_use]
     pub fn create_sprite_cache(&self) -> OptSpriteCache {
         if let Some(setting) = &self.sprites {
-            tracing::info!(
-                "Initializing sprite cache with maximum size {} MB",
-                setting.size_mb
-            );
+            tracing::info!("Initializing sprite cache with maximum size {} MB", setting.size_mb);
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(SpriteCache::new(size, setting.expiry, setting.idle_timeout))
         } else {
@@ -92,10 +86,7 @@ impl CacheConfig {
     #[must_use]
     pub fn create_font_cache(&self) -> OptFontCache {
         if let Some(setting) = &self.fonts {
-            tracing::info!(
-                "Initializing font cache with maximum size {} MB",
-                setting.size_mb
-            );
+            tracing::info!("Initializing font cache with maximum size {} MB", setting.size_mb);
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(FontCache::new(size, setting.expiry, setting.idle_timeout))
         } else {

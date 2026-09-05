@@ -99,13 +99,8 @@ pub async fn get_tile(
         if_none_match: req.get_header::<IfNoneMatch>(),
         preferred_enc: srv_config.preferred_encoding,
     };
-    let src = DynTileSource::new(
-        &manager,
-        &path.source_ids,
-        Some(path.z),
-        req.query_string(),
-        headers,
-    )?;
+    let src =
+        DynTileSource::new(&manager, &path.source_ids, Some(path.z), req.query_string(), headers)?;
 
     src.get_http_response(TileCoord {
         z: path.z,
@@ -163,9 +158,7 @@ fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
         }
     }
     if formats.is_empty() {
-        Err(ErrorNotAcceptable(
-            "Accept header does not contain any supported tile format",
-        ))
+        Err(ErrorNotAcceptable("Accept header does not contain any supported tile format"))
     } else {
         Ok(Some(formats))
     }
@@ -839,21 +832,15 @@ fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
             tile.info.encoding(Encoding::Brotli),
             etag,
         ),
-        ContentEncoding::Gzip => Tile::new_with_etag(
-            encode_gzip(&tile.data)?,
-            tile.info.encoding(Encoding::Gzip),
-            etag,
-        ),
-        ContentEncoding::Deflate => Tile::new_with_etag(
-            encode_zlib(&tile.data)?,
-            tile.info.encoding(Encoding::Zlib),
-            etag,
-        ),
-        ContentEncoding::Zstd => Tile::new_with_etag(
-            encode_zstd(&tile.data)?,
-            tile.info.encoding(Encoding::Zstd),
-            etag,
-        ),
+        ContentEncoding::Gzip => {
+            Tile::new_with_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip), etag)
+        }
+        ContentEncoding::Deflate => {
+            Tile::new_with_etag(encode_zlib(&tile.data)?, tile.info.encoding(Encoding::Zlib), etag)
+        }
+        ContentEncoding::Zstd => {
+            Tile::new_with_etag(encode_zstd(&tile.data)?, tile.info.encoding(Encoding::Zstd), etag)
+        }
         _ => Tile::new_with_etag(tile.data, tile.info, etag),
     })
 }
@@ -997,10 +984,7 @@ mod tests {
             .unwrap();
         assert_eq!(resp.status().as_u16(), expected_status);
         let etag = resp.headers().get(ETAG);
-        assert_eq!(
-            etag,
-            expected_etag.map(|e| e.try_into_value().unwrap()).as_ref()
-        );
+        assert_eq!(etag, expected_etag.map(|e| e.try_into_value().unwrap()).as_ref());
     }
 
     #[actix_rt::test]
@@ -1017,10 +1001,7 @@ mod tests {
             data: Vec::default(),
             format: Format::Mvt,
         };
-        let mgr = test_manager(vec![vec![
-            Box::new(non_empty_source),
-            Box::new(empty_source),
-        ]]);
+        let mgr = test_manager(vec![vec![Box::new(non_empty_source), Box::new(empty_source)]]);
 
         for (source_id, expected) in &[
             ("non-empty", vec![1_u8, 2, 3]),
@@ -1043,14 +1024,8 @@ mod tests {
     async fn source_needs_reload_is_retried() {
         let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3], Format::Mvt);
         let mgr = test_manager(vec![vec![Box::new(source)]]);
-        let src = DynTileSource::new(
-            &mgr,
-            "stale_source",
-            None,
-            "",
-            TileRequestHeaders::default(),
-        )
-        .unwrap();
+        let src = DynTileSource::new(&mgr, "stale_source", None, "", TileRequestHeaders::default())
+            .unwrap();
 
         let tile = src
             .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
@@ -1220,11 +1195,7 @@ mod tests {
 
         let cache = mgr.tile_cache().as_ref().unwrap();
         cache.run_pending_tasks().await;
-        assert_eq!(
-            cache.entry_count(),
-            2,
-            "the merge is re-encoded per request"
-        );
+        assert_eq!(cache.entry_count(), 2, "the merge is re-encoded per request");
     }
 
     #[actix_rt::test]
@@ -1232,10 +1203,7 @@ mod tests {
         let mgr = cached_test_manager(vec![mvt_source("src", b"", Encoding::Uncompressed)]);
         let src = DynTileSource::new(&mgr, "src", None, "", accept(Some("gzip"))).unwrap();
         let tile = src.get_tile_content(ORIGIN).await.unwrap();
-        assert!(
-            tile.data.is_empty(),
-            "an empty tile is never encoded, so it stays a 204"
-        );
+        assert!(tile.data.is_empty(), "an empty tile is never encoded, so it stays a 204");
 
         let cache = mgr.tile_cache().as_ref().unwrap();
         cache.run_pending_tasks().await;
@@ -1350,10 +1318,7 @@ mod tests {
         let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
 
         let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
-        assert!(
-            result.is_err(),
-            "Compositing MVT and MLT sources should return an error"
-        );
+        assert!(result.is_err(), "Compositing MVT and MLT sources should return an error");
     }
 
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]

@@ -119,10 +119,8 @@ mod tests {
             scaling: 2.0,
             margin: 10.0,
         };
-        let shifted = transform.apply(GeometryFeatures::new(vec![feature(&[
-            (10.0, 10.0),
-            (20.0, 30.0),
-        ])]));
+        let shifted =
+            transform.apply(GeometryFeatures::new(vec![feature(&[(10.0, 10.0), (20.0, 30.0)])]));
 
         let coords = &shifted.iter().next().expect("one feature").geometry.0;
         assert_relative_eq!(coords[0].x, 0.0);

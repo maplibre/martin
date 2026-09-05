@@ -17,7 +17,7 @@ use serde_with;
 /// # Examples
 ///
 /// ```rust
-/// use martin_core::tiles::catalog::{TileCatalog, CatalogSourceEntry};
+/// use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 ///
 /// let mut catalog = TileCatalog::new();
 /// let entry = CatalogSourceEntry {

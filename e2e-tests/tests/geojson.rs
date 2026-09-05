@@ -347,15 +347,10 @@ async fn reload_adds_updates_and_removes_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
-    watched.install(
-        fixture("geojson/feature_collection_1.geojson"),
-        "feature_collection_1.geojson",
-    );
+    watched
+        .install(fixture("geojson/feature_collection_1.geojson"), "feature_collection_1.geojson");
     martin.wait_for_source("feature_collection_1").await;
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {
@@ -386,10 +381,7 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     watched.remove("feature_collection_1.geojson");
     martin.wait_for_source_removed("feature_collection_1").await;
-    assert_eq!(
-        martin.get("/feature_collection_1/0/0/0").await.status(),
-        404
-    );
+    assert_eq!(martin.get("/feature_collection_1/0/0/0").await.status(), 404);
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=feature_collection_1");

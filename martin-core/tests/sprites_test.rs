@@ -114,9 +114,7 @@ fn key(ids: &str, as_sdf: bool, as_json: bool) -> SpriteCacheKey {
 async fn insert(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, data: &[u8]) -> Bytes {
     let data = Bytes::from(data.to_vec());
     cache
-        .get_or_insert(key(ids, as_sdf, as_json), || async {
-            Ok::<_, Infallible>(data.clone())
-        })
+        .get_or_insert(key(ids, as_sdf, as_json), || async { Ok::<_, Infallible>(data.clone()) })
         .await
         .unwrap()
 }

@@ -185,11 +185,7 @@ impl WatchedDir {
         let src = src.as_ref();
         let staging = self.outside(&format!("{name}.staging"));
         fs::copy(src, &staging).unwrap_or_else(|e| {
-            panic!(
-                "failed to stage {} at {}: {e}",
-                src.display(),
-                staging.display()
-            )
+            panic!("failed to stage {} at {}: {e}", src.display(), staging.display())
         });
         let dest = self.dir().join(name);
         // Antivirus scanning the freshly staged file can briefly hold it locked on Windows,
@@ -201,11 +197,9 @@ impl WatchedDir {
             match fs::rename(&staging, &dest) {
                 Ok(()) => break,
                 Err(_) if attempt < 20 => thread::sleep(Duration::from_millis(100)),
-                Err(e) => panic!(
-                    "failed to move {} into {}: {e}",
-                    staging.display(),
-                    dest.display()
-                ),
+                Err(e) => {
+                    panic!("failed to move {} into {}: {e}", staging.display(), dest.display())
+                }
             }
         }
     }
@@ -215,11 +209,7 @@ impl WatchedDir {
     pub fn seed(&self, src: impl AsRef<Path>, name: &str) {
         let (src, dest) = (src.as_ref(), self.dir().join(name));
         fs::copy(src, &dest).unwrap_or_else(|e| {
-            panic!(
-                "failed to seed {} with {}: {e}",
-                dest.display(),
-                src.display()
-            )
+            panic!("failed to seed {} with {}: {e}", dest.display(), src.display())
         });
     }
 

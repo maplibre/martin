@@ -91,12 +91,8 @@ async fn png_source_metadata() {
 #[tokio::test]
 async fn raster_source_metadata() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "raster_source",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "raster_source", cache).await;
 
     assert_eq!(source.get_id(), "raster_source");
     assert_eq!(source.get_tile_info().format, Format::Png);
@@ -108,14 +104,9 @@ async fn nonexistent_file_returns_error() {
     let store = Box::new(LocalFileSystem::new());
     let path = object_store::path::Path::from("nonexistent/file.pmtiles");
 
-    let result = PmtilesSource::new(
-        cache,
-        "invalid".to_owned(),
-        store,
-        path,
-        CacheZoomRange::default(),
-    )
-    .await;
+    let result =
+        PmtilesSource::new(cache, "invalid".to_owned(), store, path, CacheZoomRange::default())
+            .await;
 
     let err = result.expect_err("Expected error for nonexistent file");
     assert_matches!(
@@ -160,12 +151,8 @@ async fn png_tilejson() {
 #[tokio::test]
 async fn raster_tilejson() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "raster_tilejson",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "raster_tilejson", cache).await;
     let tilejson = source.get_tilejson();
 
     assert!(tilejson.bounds.is_some());
@@ -177,12 +164,8 @@ async fn raster_tilejson() {
 #[tokio::test]
 async fn retrieve_valid_tile() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "tile_test",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "tile_test", cache).await;
 
     let tile = source
         .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
@@ -223,23 +206,15 @@ async fn missing_tile_returns_empty() {
 #[tokio::test]
 async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[case] y: u32) {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "coord_test",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "coord_test", cache).await;
 
     let coord = TileCoord { z, x, y };
     let tile = source
         .get_tile(coord, None)
         .await
         .expect("can request tile");
-    assert_ne!(
-        tile.len(),
-        0,
-        "{coord} does exist and should not return empty data"
-    );
+    assert_ne!(tile.len(), 0, "{coord} does exist and should not return empty data");
 }
 
 #[tokio::test]
@@ -253,26 +228,16 @@ async fn repeated_tile_requests_return_same_data() {
     let tile2 = source.get_tile(coord, None).await.expect("Second request");
     let tile3 = source.get_tile(coord, None).await.expect("Third request");
 
-    assert_eq!(
-        tile1, tile2,
-        "First and second request should return identical data"
-    );
-    assert_eq!(
-        tile2, tile3,
-        "Second and third request should return identical data"
-    );
+    assert_eq!(tile1, tile2, "First and second request should return identical data");
+    assert_eq!(tile2, tile3, "Second and third request should return identical data");
     assert!(!tile1.is_empty(), "Tile data should not be empty");
 }
 
 #[tokio::test]
 async fn retrieve_tile_at_max_zoom() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "max_zoom_test",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "max_zoom_test", cache).await;
 
     let tilejson = source.get_tilejson();
     let max_zoom = tilejson
@@ -289,11 +254,7 @@ async fn retrieve_tile_at_max_zoom() {
         )
         .await
         .expect("Should successfully retrieve tile");
-    assert_ne!(
-        tile.len(),
-        0,
-        "Should successfully retrieve tile at max zoom level"
-    );
+    assert_ne!(tile.len(), 0, "Should successfully retrieve tile at max zoom level");
 }
 
 #[tokio::test]
@@ -322,12 +283,8 @@ async fn tile_beyond_max_zoom_returns_empty() {
 #[tokio::test]
 async fn tile_with_etag() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "etag_test",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "etag_test", cache).await;
 
     let tile = source
         .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
@@ -353,18 +310,9 @@ async fn repeated_requests_return_same_etag() {
         .expect("Second");
     let tile3 = source.get_tile_with_etag(coord, None).await.expect("Third");
 
-    assert_eq!(
-        tile1.etag, tile2.etag,
-        "ETags should be consistent across requests"
-    );
-    assert_eq!(
-        tile2.etag, tile3.etag,
-        "ETags should be consistent across requests"
-    );
-    assert_eq!(
-        tile1.data, tile2.data,
-        "Tile data should be consistent across requests"
-    );
+    assert_eq!(tile1.etag, tile2.etag, "ETags should be consistent across requests");
+    assert_eq!(tile2.etag, tile3.etag, "ETags should be consistent across requests");
+    assert_eq!(tile1.data, tile2.data, "Tile data should be consistent across requests");
 }
 
 #[tokio::test]
@@ -385,21 +333,14 @@ async fn empty_tile_has_etag() {
         .expect("Should get empty tile");
 
     assert!(tile.data.is_empty(), "Empty tile should have no data");
-    assert!(
-        !tile.etag.is_empty(),
-        "Empty tile should still have an ETag"
-    );
+    assert!(!tile.etag.is_empty(), "Empty tile should still have an ETag");
 }
 
 #[tokio::test]
 async fn different_tiles_have_different_etags() {
     let cache = test_cache_bytes(0);
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "etag_diff_test",
-        cache,
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "etag_diff_test", cache).await;
 
     let tile1 = source
         .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
@@ -412,10 +353,7 @@ async fn different_tiles_have_different_etags() {
         .expect("Second tile");
     assert!(!tile2.data.is_empty(), "Tile 2 should have data");
 
-    assert_ne!(
-        tile1.etag, tile2.etag,
-        "Different tiles should have different ETags"
-    );
+    assert_ne!(tile1.etag, tile2.etag, "Different tiles should have different ETags");
 }
 
 #[tokio::test]
@@ -486,12 +424,9 @@ async fn cache_entry_only_root_directory() {
     assert_eq!(cache.entry_count(), 0, "Cache should start empty");
 
     // Create first source
-    let source = create_source(
-        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
-        "cache_test0",
-        cache.clone(),
-    )
-    .await;
+    let source =
+        create_source("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles", "cache_test0", cache.clone())
+            .await;
 
     // Fetch tiles from first source
     let tile1 = source
@@ -501,16 +436,8 @@ async fn cache_entry_only_root_directory() {
     assert!(!tile1.is_empty(), "Tile should have data");
 
     // Test files have no leaf directories, so cache remains empty
-    assert_eq!(
-        cache.entry_count(),
-        0,
-        "Test files have no leaf directories to cache"
-    );
-    assert_eq!(
-        cache.weighted_size(),
-        0,
-        "Cache not populated for files without leaf directories"
-    );
+    assert_eq!(cache.entry_count(), 0, "Test files have no leaf directories to cache");
+    assert_eq!(cache.weighted_size(), 0, "Cache not populated for files without leaf directories");
 }
 
 #[tokio::test]
@@ -523,11 +450,7 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
     let cache1 = PmtCacheInstance::new(cache_id_1, shared_cache.clone());
     let cache2 = PmtCacheInstance::new(cache_id_2, shared_cache);
 
-    assert_ne!(
-        cache1.id(),
-        cache2.id(),
-        "Cache instances should have unique IDs"
-    );
+    assert_ne!(cache1.id(), cache2.id(), "Cache instances should have unique IDs");
 
     let source1 = create_source("png.pmtiles", "shared1", cache1.clone()).await;
     let source2 = create_source("png.pmtiles", "shared2", cache2.clone()).await;
@@ -543,10 +466,7 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
 
     assert!(!tile1.is_empty(), "Tile from source1 should not be empty");
     assert!(!tile2.is_empty(), "Tile from source2 should not be empty");
-    assert_eq!(
-        tile1, tile2,
-        "Both sources should return identical tile data"
-    );
+    assert_eq!(tile1, tile2, "Both sources should return identical tile data");
 }
 
 #[tokio::test]
@@ -748,11 +668,7 @@ async fn wait_and_flush(cache: &PmtCacheInstance, duration: Duration) {
 
 async fn dir_insert(cache: &PmtCacheInstance, offset: usize) {
     cache
-        .get_dir_entry_or_insert(
-            offset,
-            ttl_tile_id(),
-            async move { create_test_directory() },
-        )
+        .get_dir_entry_or_insert(offset, ttl_tile_id(), async move { create_test_directory() })
         .await
         .unwrap();
 }

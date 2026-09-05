@@ -195,10 +195,7 @@ fn register_services(
         // TODO: this can probably be simplified with a wrapping middleware,
         //       which would share usr_cfg from Data<> with all routes.
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
-            cfg.service(actix_web_static_files::ResourceFiles::new(
-                "/",
-                webui::generate(),
-            ));
+            cfg.service(actix_web_static_files::ResourceFiles::new("/", webui::generate()));
         } else {
             cfg.service(get_index_ui_disabled);
         }

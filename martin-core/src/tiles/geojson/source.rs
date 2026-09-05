@@ -170,10 +170,7 @@ impl Source for GeoJsonSource {
             .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
 
         if indices.is_empty() {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
-            );
+            trace!("Couldn't find tile data in {}/{}/{} of {}", xyz.z, xyz.x, xyz.y, &self.id);
             return Ok(Vec::new());
         }
 
@@ -329,16 +326,9 @@ mod tests {
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
         let layer = &decoded.layers[0];
-        assert_eq!(
-            layer.name, "test-source-1",
-            "layer is named after the source"
-        );
+        assert_eq!(layer.name, "test-source-1", "layer is named after the source");
         assert_eq!(layer.extent.get(), extent.get());
-        assert_eq!(
-            layer.features.len(),
-            2,
-            "id 0 and the clipped id 3 are visible"
-        );
+        assert_eq!(layer.features.len(), 2, "id 0 and the clipped id 3 are visible");
     }
 
     #[tokio::test]
@@ -349,15 +339,10 @@ mod tests {
         // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
         let path = fixtures_dir().join("bare_geometry.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "bare".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source =
+            GeoJsonSource::new("bare".to_owned(), path, CacheZoomRange::default(), extent, 64)
+                .await
+                .unwrap();
 
         let bounds = source.get_tilejson().bounds.expect("bounds should be set");
         assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);
@@ -392,25 +377,17 @@ mod tests {
             .expect("vector_layers should be set");
         assert_eq!(layers.len(), 1);
         assert_eq!(layers[0].id, "test-source-1");
-        assert_eq!(
-            layers[0].fields,
-            BTreeMap::from([("id".to_owned(), "Number".to_owned())])
-        );
+        assert_eq!(layers[0].fields, BTreeMap::from([("id".to_owned(), "Number".to_owned())]));
     }
 
     #[tokio::test]
     async fn tilejson_fields_name_every_property_type() {
         let path = fixtures_dir().join("properties.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "props".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source =
+            GeoJsonSource::new("props".to_owned(), path, CacheZoomRange::default(), extent, 64)
+                .await
+                .unwrap();
 
         let layers = source
             .get_tilejson()
@@ -439,15 +416,10 @@ mod tests {
         std::fs::write(&path, r#"{"type":"FeatureCollection","features":[]}"#)
             .expect("the fixture is written");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "empty".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source =
+            GeoJsonSource::new("empty".to_owned(), path, CacheZoomRange::default(), extent, 64)
+                .await
+                .unwrap();
 
         let layers = source
             .get_tilejson()

@@ -61,9 +61,7 @@ pub fn build_mvt_sql(
     };
 
     let mut filters = covering_filters(introspection, &buffered_envelope, source_id);
-    filters.push(format!(
-        "ST_Intersects({transformed_geometry}, {buffered_envelope})"
-    ));
+    filters.push(format!("ST_Intersects({transformed_geometry}, {buffered_envelope})"));
     let where_clause = filters.join("\n    AND ");
 
     let properties = introspection
@@ -187,10 +185,7 @@ mod tests {
     }
 
     fn from_expr() -> String {
-        format!(
-            "read_parquet({})",
-            escape_sql_string("/data/points.parquet")
-        )
+        format!("read_parquet({})", escape_sql_string("/data/points.parquet"))
     }
 
     #[test]
@@ -251,12 +246,7 @@ mod tests {
             buffer: Some(0),
             ..GeoParquetEntry::default()
         };
-        let sql = build_mvt_sql(
-            &introspection_with_srid(4326),
-            &entry,
-            "buildings",
-            &from_expr(),
-        );
+        let sql = build_mvt_sql(&introspection_with_srid(4326), &entry, "buildings", &from_expr());
 
         insta::assert_snapshot!(sql, @r#"
 
@@ -344,9 +334,6 @@ mod tests {
             &from_expr(),
         );
 
-        assert!(
-            !sql.contains("bbox"),
-            "unexpected covering predicate: {sql}"
-        );
+        assert!(!sql.contains("bbox"), "unexpected covering predicate: {sql}");
     }
 }

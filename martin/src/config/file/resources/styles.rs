@@ -120,18 +120,12 @@ impl StyleConfig {
         for base_path in cfg.paths {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
-                warn!(
-                    "No styles (.json files) found in path {:?}",
-                    base_path.display()
-                );
+                warn!("No styles (.json files) found in path {:?}", base_path.display());
                 continue;
             }
             for path in files {
                 let Some(name) = path.file_name() else {
-                    warn!(
-                        "Ignoring style source with no name from {:?}",
-                        path.display()
-                    );
+                    warn!("Ignoring style source with no name from {:?}", path.display());
                     continue;
                 };
                 let style_id = name
@@ -257,10 +251,8 @@ mod tests {
     #[test]
     fn styles_resolve_paths() {
         let style_dir = Path::new("../tests/fixtures/styles/");
-        let mut cfg = StyleConfig::new(vec![
-            style_dir.join("maplibre_demo.json"),
-            style_dir.join("src2"),
-        ]);
+        let mut cfg =
+            StyleConfig::new(vec![style_dir.join("maplibre_demo.json"), style_dir.join("src2")]);
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
@@ -282,10 +274,7 @@ mod tests {
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
         configs.insert("src_ignored_due_to_directory", style_dir.join("src2"));
-        configs.insert(
-            "osm-liberty-lite",
-            style_dir.join("src2").join("osm-liberty-lite.json"),
-        );
+        configs.insert("osm-liberty-lite", style_dir.join("src2").join("osm-liberty-lite.json"));
         let configs = configs
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
@@ -308,10 +297,8 @@ mod tests {
     #[test]
     fn style_external() {
         let style_dir = Path::new("../tests/fixtures/styles/");
-        let mut cfg = StyleConfig::new(vec![
-            style_dir.join("maplibre_demo.json"),
-            style_dir.join("src2"),
-        ]);
+        let mut cfg =
+            StyleConfig::new(vec![style_dir.join("maplibre_demo.json"), style_dir.join("src2")]);
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);

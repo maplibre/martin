@@ -5,8 +5,9 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use martin_core::styles::StyleSources;
 //! use std::path::PathBuf;
+//!
+//! use martin_core::styles::StyleSources;
 //!
 //! let mut sources = StyleSources::default();
 //! sources.add_style("basic".to_string(), PathBuf::from("/path/to/style.json"));
@@ -236,10 +237,7 @@ mod tests {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
         let styles = StyleSources::default();
-        styles.add_style(
-            "maplibre_demo".to_owned(),
-            style_dir.join("maplibre_demo.json"),
-        );
+        styles.add_style("maplibre_demo".to_owned(), style_dir.join("maplibre_demo.json"));
         styles.add_style(
             "maptiler_basic".to_owned(),
             style_dir.join("src2").join("maptiler_basic.json"),

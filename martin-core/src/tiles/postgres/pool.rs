@@ -295,10 +295,7 @@ fn parse_postgres_version(version_num: i32) -> Option<Version> {
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
 async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
     let version_num: i32 = conn
-        .query_one(
-            "SELECT current_setting('server_version_num')::int as version;",
-            &[],
-        )
+        .query_one("SELECT current_setting('server_version_num')::int as version;", &[])
         .await
         .map(|row| row.get("version"))
         .map_err(|e| PostgresError(e, "querying postgres version"))?;
@@ -392,11 +389,7 @@ impl ActiveQueryRegistry {
 impl std::fmt::Debug for ActiveQueryRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (next_id, active_count, ids) = self.inner.try_lock().map_or((0, 0, Vec::new()), |g| {
-            (
-                g.next_id,
-                g.tokens.len(),
-                g.tokens.keys().copied().collect::<Vec<_>>(),
-            )
+            (g.next_id, g.tokens.len(), g.tokens.keys().copied().collect::<Vec<_>>())
         });
 
         f.debug_struct("ActiveQueryRegistry")
@@ -667,10 +660,7 @@ mod tests {
         pool.active_query_registry.cancel_all().await;
 
         let db_err = sleep_task.await.unwrap().unwrap_err();
-        assert_eq!(
-            db_err.as_db_error().unwrap().code(),
-            &SqlState::QUERY_CANCELED
-        );
+        assert_eq!(db_err.as_db_error().unwrap().code(), &SqlState::QUERY_CANCELED);
     }
 
     /// Uses `DATABASE_URL` when set (CI runs this with both `sslmode=disable` and

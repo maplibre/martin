@@ -183,9 +183,7 @@ fn key(ids: &str, start: u32, end: u32) -> FontCacheKey {
 async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Vec<u8> {
     let data = data.to_vec();
     cache
-        .get_or_insert(key(ids, start, end), async || {
-            Ok::<_, Infallible>(data.clone())
-        })
+        .get_or_insert(key(ids, start, end), async || Ok::<_, Infallible>(data.clone()))
         .await
         .unwrap()
 }

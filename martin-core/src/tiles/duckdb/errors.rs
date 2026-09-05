@@ -106,12 +106,7 @@ pub enum DuckDBError {
 
     /// Query execution unexpectedly received URL query parameters.
     #[error(r"Unable to get tile {2:#} with query params from DuckDB source {1}: {0}")]
-    GetTileWithQueryError(
-        #[source] Box<DuckdbError>,
-        String,
-        TileCoord,
-        Option<UrlQuery>,
-    ),
+    GetTileWithQueryError(#[source] Box<DuckdbError>, String, TileCoord, Option<UrlQuery>),
 }
 
 impl crate::Classify for DuckDBError {

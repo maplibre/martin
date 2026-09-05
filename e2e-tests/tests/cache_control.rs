@@ -122,10 +122,7 @@ async fn a_per_source_cache_control_overrides_the_server_default() {
 
     let response = martin.get("/plain/0/0/0").await;
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("cache-control"),
-        Some("public, max-age=3600")
-    );
+    assert_eq!(response.header("cache-control"), Some("public, max-age=3600"));
 
     martin.stop().await;
 }
@@ -140,10 +137,7 @@ async fn a_composite_request_uses_the_override_only_when_all_sources_agree() {
 
     let response = martin.get("/pinned,pinned_differently/0/0/0").await;
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("cache-control"),
-        Some("public, max-age=3600")
-    );
+    assert_eq!(response.header("cache-control"), Some("public, max-age=3600"));
 
     martin.stop().await;
 }

@@ -170,12 +170,8 @@ async fn list_remote_prefix(
             .unwrap_or("_unknown");
         // `meta.location` is store-relative (bucket-rooted for s3/gs/azure), so we have
         // to reattach scheme+authority to round-trip through `new_sources_url`.
-        let object_url_str = format!(
-            "{}://{}/{}",
-            prefix.scheme(),
-            prefix.host_str().unwrap_or(""),
-            meta.location
-        );
+        let object_url_str =
+            format!("{}://{}/{}", prefix.scheme(), prefix.host_str().unwrap_or(""), meta.location);
         let Ok(object_url) = Url::parse(&object_url_str) else {
             tracing::warn!("cannot build absolute URL from {object_url_str}");
             continue;

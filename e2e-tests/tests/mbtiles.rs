@@ -345,10 +345,7 @@ async fn reload_adds_and_updates_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     watched.install(&original, "world_cities.mbtiles");
     martin.wait_for_source("world_cities").await;
@@ -417,10 +414,7 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     watched.remove("world_cities.mbtiles");
     martin.wait_for_source_removed("world_cities").await;
     assert_eq!(martin.get("/world_cities/0/0/0").await.status(), 404);
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=world_cities");
@@ -437,18 +431,12 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
     mbtiles_from_sql(fixture("mbtiles/world_cities.sql"), &original).await;
 
     let mut martin = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  collections: {}\n",
-            watched.dir().display()
-        ))
+        .config(&format!("mbtiles:\n  collections: {}\n", watched.dir().display()))
         .start()
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     // The staged file already sits next to the watched directory, so the rename is atomic.
     let project = watched.dir().join("project1");
@@ -466,19 +454,13 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
       }
     }
     "#);
-    assert_eq!(
-        martin.get("/project1.world_cities/0/0/0").await.status(),
-        200
-    );
+    assert_eq!(martin.get("/project1.world_cities/0/0/0").await.status(), 200);
 
     std::fs::remove_dir_all(&project).expect("failed to remove the project directory");
     martin
         .wait_for_source_removed("project1.world_cities")
         .await;
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=project1.world_cities");
@@ -499,10 +481,7 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
     let dir = watched.dir();
 
     let mut bounded = Martin::builder()
-        .config(&format!(
-            "cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n",
-            dir.display()
-        ))
+        .config(&format!("cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n", dir.display()))
         .start()
         .await
         .expect("failed to start martin");
@@ -544,10 +523,7 @@ async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_i
     let dir = watched.dir();
 
     let mut kind_level = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n",
-            dir.display()
-        ))
+        .config(&format!("mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n", dir.display()))
         .start()
         .await
         .expect("failed to start martin");

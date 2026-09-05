@@ -367,12 +367,8 @@ impl PostgresAutoDiscoveryBuilder {
             "tables with a geometry column",
             id,
         )?;
-        let table_infos_for_table = find_info(
-            table_infos_for_schema,
-            &table_info_from_config.table,
-            "table",
-            id,
-        )?;
+        let table_infos_for_table =
+            find_info(table_infos_for_schema, &table_info_from_config.table, "table", id)?;
         let table_info_for_geometry_column = find_info(
             table_infos_for_table,
             &table_info_from_config.geometry_column,
@@ -487,7 +483,12 @@ fn update_auto_fields(
                         id_column.found = %result,
                         "id_column not found by exact name, using case-insensitive match"
                     );
-                    (result, props.get(result).expect("result key should be present in props after find_kv_ignore_case lookup"))
+                    (
+                        result,
+                        props
+                            .get(result)
+                            .expect("result key should be present in props after find_kv_ignore_case lookup"),
+                    )
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
@@ -531,10 +532,7 @@ fn update_auto_fields(
 
 fn calc_auto(
     config: &PostgresConfig,
-) -> (
-    Option<PostgresAutoDiscoveryBuilderTables>,
-    Option<PostgresAutoDiscoveryBuilderFunctions>,
-) {
+) -> (Option<PostgresAutoDiscoveryBuilderTables>, Option<PostgresAutoDiscoveryBuilderFunctions>) {
     let auto_tables = use_auto_publish(config, false).then(|| {
         let schemas = get_auto_schemas!(config, tables);
 
@@ -832,10 +830,7 @@ mod tests {
         let SourceSpec::Table(info) = spec else {
             panic!("expected a Table spec back");
         };
-        assert!(
-            info.bounds.is_some(),
-            "instantiate must run the deferred bounds calculation"
-        );
+        assert!(info.bounds.is_some(), "instantiate must run the deferred bounds calculation");
     }
 
     #[tokio::test]
@@ -996,10 +991,7 @@ mod tests {
                 }
             })
             .collect();
-        assert_eq!(
-            warned_ids,
-            HashSet::from(["nonexistent_table", "nonexistent_function"]),
-        );
+        assert_eq!(warned_ids, HashSet::from(["nonexistent_table", "nonexistent_function"]),);
     }
 
     #[tokio::test]

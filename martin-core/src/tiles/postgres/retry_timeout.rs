@@ -92,18 +92,12 @@ mod tests {
 
     #[test]
     fn parses_a_duration_or_infinite() {
-        assert_eq!(
-            "0s".parse::<RetryTimeout>(),
-            Ok(RetryTimeout::After(Duration::ZERO))
-        );
+        assert_eq!("0s".parse::<RetryTimeout>(), Ok(RetryTimeout::After(Duration::ZERO)));
         assert_eq!(
             "1m 30s".parse::<RetryTimeout>(),
             Ok(RetryTimeout::After(Duration::from_secs(90)))
         );
-        assert_eq!(
-            "Infinite".parse::<RetryTimeout>(),
-            Ok(RetryTimeout::Infinite)
-        );
+        assert_eq!("Infinite".parse::<RetryTimeout>(), Ok(RetryTimeout::Infinite));
         "soon".parse::<RetryTimeout>().unwrap_err();
         "30".parse::<RetryTimeout>().unwrap_err();
         assert_eq!(
@@ -124,10 +118,7 @@ mod tests {
             serde_json::to_string(&RetryTimeout::After(Duration::from_secs(90))).unwrap(),
             "\"1m 30s\""
         );
-        assert_eq!(
-            serde_json::to_string(&RetryTimeout::Infinite).unwrap(),
-            "\"infinite\""
-        );
+        assert_eq!(serde_json::to_string(&RetryTimeout::Infinite).unwrap(), "\"infinite\"");
     }
 
     #[test]

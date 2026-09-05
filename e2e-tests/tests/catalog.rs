@@ -147,10 +147,7 @@ async fn the_catalog_answers_conditional_requests() {
     assert!(cached.body().is_empty());
 
     let stale = martin
-        .get_with_headers(
-            "/catalog",
-            &[("if-none-match", r#"W/"0-0000000000000000000000""#)],
-        )
+        .get_with_headers("/catalog", &[("if-none-match", r#"W/"0-0000000000000000000000""#)])
         .await;
     assert_eq!(stale.status(), 200);
     assert_eq!(stale.body(), first.body());

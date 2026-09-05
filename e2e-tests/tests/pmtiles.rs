@@ -543,10 +543,7 @@ async fn recursive_paths_publish_nested_files_under_dotted_ids() {
     watched.seed(fixture("pmtiles2/webp2.pmtiles"), "webp2.pmtiles");
     watched.seed(fixture("pmtiles/png.pmtiles"), "2024/roads.pmtiles");
     let mut martin = Martin::builder()
-        .config(&format!(
-            "pmtiles:\n  paths: {}\n  recursive: true\n",
-            watched.dir().display()
-        ))
+        .config(&format!("pmtiles:\n  paths: {}\n  recursive: true\n", watched.dir().display()))
         .start()
         .await
         .expect("failed to start martin");

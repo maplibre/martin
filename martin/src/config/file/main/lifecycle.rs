@@ -458,10 +458,7 @@ impl Config {
         let (all_tile_sources, all_tile_warnings): (Vec<_>, Vec<_>) =
             all_results.into_iter().unzip();
 
-        Ok((
-            all_tile_sources,
-            all_tile_warnings.into_iter().flatten().collect(),
-        ))
+        Ok((all_tile_sources, all_tile_warnings.into_iter().flatten().collect()))
     }
 
     /// The processing settings configured at the top level of the config file, which every source inherits unless it overrides them.
@@ -745,10 +742,7 @@ impl Config {
             }
             Ok(())
         } else {
-            info!(
-                "Saving config to {}, use --config to load it",
-                file_name.display()
-            );
+            info!("Saving config to {}, use --config to load it", file_name.display());
             File::create(file_name)
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?
                 .write_all(yaml.as_bytes())

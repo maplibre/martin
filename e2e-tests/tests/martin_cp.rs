@@ -134,10 +134,7 @@ async fn saves_the_resolved_config() {
     let saved = fs::read_to_string(&config).expect("failed to read the saved config");
     assert_eq!(
         saved.trim_end(),
-        format!(
-            "mbtiles:\n  sources:\n    world_cities: {}",
-            source.display()
-        )
+        format!("mbtiles:\n  sources:\n    world_cities: {}", source.display())
     );
 }
 
@@ -242,10 +239,7 @@ mod postgres {
             .run()
             .await;
 
-        assert_eq!(
-            summary(&output).run_json().await["mbt_type"],
-            json!("FlatWithHash")
-        );
+        assert_eq!(summary(&output).run_json().await["mbt_type"], json!("FlatWithHash"));
 
         let metadata = metadata(&output).await;
         assert_eq!(metadata["name"], "function_zxy_query_test");
@@ -284,10 +278,7 @@ mod postgres {
 
         assert_eq!(metadata(&output).await["name"], "composite");
         let tile = gunzip(&lowest_zoom_tile(&output).await);
-        assert_eq!(
-            layer_names(&tile),
-            ["table_source", "public.function_zxy_query_test"]
-        );
+        assert_eq!(layer_names(&tile), ["table_source", "public.function_zxy_query_test"]);
         validate(&output).await;
     }
 

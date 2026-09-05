@@ -351,18 +351,9 @@ mod tests {
         let config3 = parse(&["martin", "--preferred-encoding", "gzip"]);
         let config4 = parse(&["martin"]);
 
-        assert_eq!(
-            config1.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Brotli)
-        );
-        assert_eq!(
-            config2.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Brotli)
-        );
-        assert_eq!(
-            config3.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Gzip)
-        );
+        assert_eq!(config1.unwrap().0.srv.preferred_encoding, Some(PreferredEncoding::Brotli));
+        assert_eq!(config2.unwrap().0.srv.preferred_encoding, Some(PreferredEncoding::Brotli));
+        assert_eq!(config3.unwrap().0.srv.preferred_encoding, Some(PreferredEncoding::Gzip));
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
@@ -371,22 +362,13 @@ mod tests {
     fn detects_file_scheme_uri() {
         // Valid file scheme URIs
         assert!(is_file_scheme_uri("file:test.mbtiles", &["mbtiles"]));
-        assert!(is_file_scheme_uri(
-            "file:test.mbtiles?mode=memory&cache=shared",
-            &["mbtiles"]
-        ));
-        assert!(is_file_scheme_uri(
-            "file:/path/to/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(is_file_scheme_uri("file:test.mbtiles?mode=memory&cache=shared", &["mbtiles"]));
+        assert!(is_file_scheme_uri("file:/path/to/test.mbtiles", &["mbtiles"]));
         assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
         assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
 
         // Invalid cases
-        assert!(!is_file_scheme_uri(
-            "http://example.com/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(!is_file_scheme_uri("http://example.com/test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
@@ -511,12 +493,9 @@ mod tests {
 
         use crate::config::primitives::OptOneMany;
 
-        let env: FauxEnv = [(
-            "DATABASE_URL",
-            OsString::from("postgres://localhost:5432/from-env"),
-        )]
-        .into_iter()
-        .collect();
+        let env: FauxEnv = [("DATABASE_URL", OsString::from("postgres://localhost:5432/from-env"))]
+            .into_iter()
+            .collect();
 
         let args = Args::parse_from(["martin"]);
         let mut config = Config::default();
@@ -528,12 +507,7 @@ mod tests {
                 panic!("expected exactly one postgres config, got: {other:?}")
             }
         };
-        assert_eq!(
-            pg.connection_string.as_deref(),
-            Some("postgres://localhost:5432/from-env")
-        );
-        assert!(logs_contain(
-            "Environment variable DATABASE_URL is deprecated"
-        ));
+        assert_eq!(pg.connection_string.as_deref(), Some("postgres://localhost:5432/from-env"));
+        assert!(logs_contain("Environment variable DATABASE_URL is deprecated"));
     }
 }

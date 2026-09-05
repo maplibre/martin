@@ -108,13 +108,10 @@ async fn wait_for_catalog(app: &impl App, id: &str, present: bool) {
 }
 
 async fn tile_status(app: &impl App, id: &str) -> u16 {
-    call_service(
-        app,
-        TestRequest::get().uri(&format!("/{id}/0/0/0")).to_request(),
-    )
-    .await
-    .status()
-    .as_u16()
+    call_service(app, TestRequest::get().uri(&format!("/{id}/0/0/0")).to_request())
+        .await
+        .status()
+        .as_u16()
 }
 
 #[actix_rt::test]

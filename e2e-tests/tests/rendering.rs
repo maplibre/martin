@@ -60,12 +60,7 @@ fn reference(group: &str, name: &str) -> PathBuf {
 
 async fn rendered(martin: &Martin, path: &str) -> Vec<u8> {
     let response = martin.get(path).await;
-    assert_eq!(
-        response.status(),
-        200,
-        "{path} did not render: {}",
-        response.text()
-    );
+    assert_eq!(response.status(), 200, "{path} did not render: {}", response.text());
     response.body().to_vec()
 }
 
@@ -150,10 +145,7 @@ async fn a_render_fetches_what_the_style_points_at() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;
 
-    assert_eq!(
-        martin.get("/style/maplibre_demo/0/0/0.png").await.status(),
-        200
-    );
+    assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
 
     let mut fetched = cassette
         .request_log()
@@ -292,11 +284,7 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;
 
-    let body = rendered(
-        &martin,
-        &format!("/style/maplibre_demo/static/{camera}.png"),
-    )
-    .await;
+    let body = rendered(&martin, &format!("/style/maplibre_demo/static/{camera}.png")).await;
     assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
 
     stop_and_take_rendering_log(&mut martin).await;
@@ -327,11 +315,7 @@ async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;
 
-    let bbox = rendered(
-        &martin,
-        "/style/maplibre_demo/static/-30,-30,30,30/200x200.png",
-    )
-    .await;
+    let bbox = rendered(&martin, "/style/maplibre_demo/static/-30,-30,30,30/200x200.png").await;
     let center = rendered(&martin, "/style/maplibre_demo/static/0,0,2.16/200x200.png").await;
     assert_images_alike(&bbox, &center);
 
@@ -369,10 +353,7 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
         .post_json("/style/maplibre_demo/static/0,0,0/200x200.png", body)
         .await;
     assert_eq!(response.status(), 200);
-    assert_image_matches(
-        reference(CAMERA_REFERENCES, "center_z0.png"),
-        response.body(),
-    );
+    assert_image_matches(reference(CAMERA_REFERENCES, "center_z0.png"), response.body());
 
     stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
@@ -385,17 +366,9 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
     let overlay = std::fs::read(scenario)
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", scenario.display()));
     let response = martin
-        .post_json(
-            &format!("/style/maplibre_demo/static/{camera}.png"),
-            &overlay,
-        )
+        .post_json(&format!("/style/maplibre_demo/static/{camera}.png"), &overlay)
         .await;
-    assert_eq!(
-        response.status(),
-        200,
-        "{} did not render",
-        scenario.display()
-    );
+    assert_eq!(response.status(), 200, "{} did not render", scenario.display());
     let name = scenario
         .file_stem()
         .and_then(std::ffi::OsStr::to_str)

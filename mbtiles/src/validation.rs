@@ -679,10 +679,7 @@ LIMIT 1;"
                 } else if let Ok(v) = row.try_get::<String, _>(idx) {
                     res.push(format!(r#""{v}" (TEXT)"#));
                 } else if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
-                    res.push(format!(
-                        r#""{}" (BLOB)"#,
-                        from_utf8(&v).unwrap_or("<non-utf8-data>")
-                    ));
+                    res.push(format!(r#""{}" (BLOB)"#, from_utf8(&v).unwrap_or("<non-utf8-data>")));
                 } else if let Ok(v) = row.try_get::<i32, _>(idx) {
                     res.push(format!("{v}"));
                 } else if let Ok(v) = row.try_get::<f64, _>(idx) {
@@ -886,9 +883,7 @@ LIMIT 1;"
     pub fn assert_hashes(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
         if info.agg_tiles_hash.is_none() {
             if !force {
-                return Err(MbtError::CannotDiffFileWithoutHash(
-                    self.filepath().to_owned(),
-                ));
+                return Err(MbtError::CannotDiffFileWithoutHash(self.filepath().to_owned()));
             }
             warn!(
                 "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
@@ -907,10 +902,7 @@ LIMIT 1;"
     }
 
     pub fn validate_diff_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
-        match (
-            &info.agg_tiles_hash_before_apply,
-            &info.agg_tiles_hash_after_apply,
-        ) {
+        match (&info.agg_tiles_hash_before_apply, &info.agg_tiles_hash_after_apply) {
             (Some(before), Some(after)) => {
                 info!(
                     "The patch file {self} expects to be applied to a tileset with {AGG_TILES_HASH}={before}, and should result in hash {after} after applying",
@@ -918,9 +910,7 @@ LIMIT 1;"
             }
             (None, Some(_)) => {
                 if !force {
-                    return Err(MbtError::PatchFileHasNoBeforeHash(
-                        self.filepath().to_owned(),
-                    ));
+                    return Err(MbtError::PatchFileHasNoBeforeHash(self.filepath().to_owned()));
                 }
                 warn!(
                     "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
@@ -1047,10 +1037,7 @@ pub(crate) mod tests {
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
         )
         .await;
-        assert_eq!(
-            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
-            HashAlgorithm::Md5
-        );
+        assert_eq!(mbt.get_hash_algorithm(&mut conn).await.unwrap(), HashAlgorithm::Md5);
     }
 
     #[actix_rt::test]
@@ -1060,10 +1047,7 @@ pub(crate) mod tests {
              INSERT INTO metadata VALUES('hash_algorithm', 'MD5');",
         )
         .await;
-        assert_eq!(
-            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
-            HashAlgorithm::Md5
-        );
+        assert_eq!(mbt.get_hash_algorithm(&mut conn).await.unwrap(), HashAlgorithm::Md5);
     }
 
     #[actix_rt::test]

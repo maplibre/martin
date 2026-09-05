@@ -187,13 +187,9 @@ async fn discovers_templates_from_tilejson() {
         .await;
 
     // A lone non-template URL classifies as a TileJSON document; meta is ignored for that arm.
-    let upstream = Upstream::from_config(
-        "t",
-        &[format!("{}/tiles.json", server.uri())],
-        None,
-        empty_meta(),
-    )
-    .unwrap();
+    let upstream =
+        Upstream::from_config("t", &[format!("{}/tiles.json", server.uri())], None, empty_meta())
+            .unwrap();
     assert_matches!(upstream, Upstream::TileJson { .. });
 
     let src = build("t", upstream).await;

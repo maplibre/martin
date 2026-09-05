@@ -38,12 +38,7 @@ mod tests {
         let mut buf = Vec::new();
         #[expect(clippy::cast_possible_truncation)]
         PngEncoder::new(&mut buf)
-            .write_image(
-                &pixels,
-                width as u32,
-                height as u32,
-                ExtendedColorType::Rgba8,
-            )
+            .write_image(&pixels, width as u32, height as u32, ExtendedColorType::Rgba8)
             .expect("encode test tile");
         buf
     }
@@ -52,10 +47,7 @@ mod tests {
     fn the_canvas_carries_the_assembled_field_through() {
         let tiles = Neighbourhood::centre_only(positional_tile(TILE_SIZE, TILE_SIZE));
         let canvas = Canvas::from_neighbourhood(&tiles).expect("centre decodes");
-        assert_eq!(
-            canvas.raw_texel(TILE_SIZE + 40, TILE_SIZE + 90),
-            [40, 90, 0, 255]
-        );
+        assert_eq!(canvas.raw_texel(TILE_SIZE + 40, TILE_SIZE + 90), [40, 90, 0, 255]);
     }
 
     #[test]

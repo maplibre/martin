@@ -81,9 +81,7 @@ fn redact_keyword_password(conn_str: &str) -> String {
             .expect("password redaction regex is valid")
     });
     KEYWORD
-        .replace_all(conn_str, |caps: &regex::Captures| {
-            format!("{}{REDACTED}", &caps[1])
-        })
+        .replace_all(conn_str, |caps: &regex::Captures| format!("{}{REDACTED}", &caps[1]))
         .into_owned()
 }
 
@@ -136,10 +134,7 @@ mod tests {
         "host=localhost dbname=db sslmode=verify-full"
     )]
     fn redacts(#[case] conn_str: &str, #[case] expected: &str) {
-        assert_eq!(
-            RedactedConnectionString::new(conn_str).to_string(),
-            expected
-        );
+        assert_eq!(RedactedConnectionString::new(conn_str).to_string(), expected);
     }
 
     #[rstest]
@@ -152,13 +147,7 @@ mod tests {
         "postgres://postgres:REDACTED@host:notaport/db"
     )]
     fn redacts_unparseable_url(#[case] conn_str: &str, #[case] expected: &str) {
-        assert!(
-            Url::parse(conn_str).is_err(),
-            "test needs the regex fallback path"
-        );
-        assert_eq!(
-            RedactedConnectionString::new(conn_str).to_string(),
-            expected
-        );
+        assert!(Url::parse(conn_str).is_err(), "test needs the regex fallback path");
+        assert_eq!(RedactedConnectionString::new(conn_str).to_string(), expected);
     }
 }
