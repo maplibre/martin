@@ -5,10 +5,10 @@
 
 #[cfg(feature = "webui")]
 use std::fs;
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(feature = "unstable-schemas")))]
 use std::path::Path;
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(feature = "unstable-schemas")))]
 fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
     assert!(
         src.is_dir(),
@@ -58,7 +58,7 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
     }
 }
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(feature = "unstable-schemas")))]
 fn webui() {
     // rust requires that all changes are done in OUT_DIR.
     //
@@ -106,9 +106,37 @@ fn webui() {
         .change_detection();
 }
 
+/// Embed a one-page placeholder instead of building the frontend to save space
+#[cfg(all(feature = "webui", feature = "unstable-schemas"))]
+fn webui_stub() {
+    println!(
+        "cargo::warning=`unstable-schemas` is enabled: embedding a placeholder webui instead of building the frontend"
+    );
+
+    let stub = std::env::var("OUT_DIR")
+        .expect("OUT_DIR environment variable is not set")
+        .parse::<std::path::PathBuf>()
+        .expect("OUT_DIR environment variable is not a valid path")
+        .join("stub-webui");
+    fs::create_dir_all(&stub)
+        .unwrap_or_else(|e| panic!("failed to create {}: {e}", stub.display()));
+    fs::write(
+        stub.join("index.html"),
+        "Martin was built with `unstable-schemas`, which replaces the WebUI with this page.\n",
+    )
+    .expect("failed to write the stub webui page");
+
+    static_files::resource_dir(&stub)
+        .build()
+        .expect("failed to build the stub webui resource dir");
+}
+
 fn main() {
     #[cfg(feature = "webui")]
     if option_env!("RUSTDOC").is_none() && option_env!("DOCS_RS").is_none() {
+        #[cfg(not(feature = "unstable-schemas"))]
         webui();
+        #[cfg(feature = "unstable-schemas")]
+        webui_stub();
     }
 }

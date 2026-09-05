@@ -105,26 +105,29 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # Include `rendering` on Linux (the only platform it compiles on) so the
-    # spec covers all routes a release build serves.
-    feats=unstable-schemas
-    case "$(uname -s)" in
-        Linux) feats="$feats,rendering" ;;
-    esac
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target config      > schemas/config.json
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target openapi     > schemas/openapi.json
+    # `unstable-schemas` implies `default`, so the spec covers every route a
+    # release build serves. `rendering` only pulls maplibre-native in on Linux,
+    # so that is the only platform whose spec carries the static-render routes -
+    # and the platform CI regenerates on. `build.rs` stubs the webui out for
+    # this feature, so no frontend is built here.
+    cargo build --quiet --features unstable-schemas --bin gen-schemas
+    gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
+    "$gen" --target config      > schemas/config.json
+    "$gen" --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
+    "$gen" --target config-doc  > docs/content/files/generated_config.md
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
+    # `serde_json` writes one array element per line and keeps insertion order,
+    # while the committed files carry biome's formatting from the pre-commit
+    # hook. Applying it here keeps regeneration from producing a diff that is
+    # nothing but a reformat.
+    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
