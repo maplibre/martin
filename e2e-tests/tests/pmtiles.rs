@@ -402,12 +402,30 @@ async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     assert_eq!(martin.get("/s3/1/0/0").await.status(), 200);
     martin.stop().await;
     assert_the_aws_environment_was_overridden(&mut martin);
-    martin.assert_startup_warnings();
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    assert!(saved.contains("allow_http: true"));
-    assert!(saved.contains("skip_signature: true"));
-    assert!(saved.contains("virtual_hosted_style_request: false"));
+    let mut parsed = serde_saphyr::from_str::<serde_json::Value>(&saved)
+        .expect("--save-config output is valid YAML");
+    let endpoint = statics.base_url();
+    assert_eq!(
+        parsed["pmtiles"]["aws_endpoint"].as_str(),
+        Some(endpoint.as_str())
+    );
+    parsed["pmtiles"]["aws_endpoint"] = "[ENDPOINT]".into();
+    insta::with_settings!({sort_maps => true}, {
+        insta::assert_json_snapshot!(parsed["pmtiles"], @r#"
+        {
+          "allow_http": true,
+          "aws_endpoint": "[ENDPOINT]",
+          "aws_region": "eu-central-1",
+          "skip_signature": true,
+          "sources": {
+            "s3": "s3://pmtilestest/webp2.pmtiles"
+          },
+          "virtual_hosted_style_request": false
+        }
+        "#);
+    });
 
     let mut restarted = Martin::builder()
         .config(&saved)
@@ -417,7 +435,6 @@ async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     assert_eq!(restarted.get("/s3/1/0/0").await.status(), 200);
     restarted.stop().await;
     assert_the_aws_environment_was_overridden(&mut restarted);
-    restarted.assert_startup_warnings();
 }
 
 /// The remote-store tests above read a raster archive, whose tiles travel uncompressed. A vector

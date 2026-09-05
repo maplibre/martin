@@ -1,9 +1,7 @@
 //! Storage-neutral discovery over remote object prefixes.
 
 use std::collections::BTreeMap;
-use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +9,7 @@ use futures::stream::TryStreamExt as _;
 use object_store::ObjectStore as _;
 use url::Url;
 
+use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::{ProcessConfig, ResolvedProcess};
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
@@ -19,10 +18,6 @@ use crate::config::file::{
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 
-pub type ObjectStoreSourceFuture =
-    Pin<Box<dyn Future<Output = SourceBuildResult<BuiltSource>> + Send>>;
-pub type ObjectStoreSourceBuilder =
-    Box<dyn Fn(String, Url, CachePolicy) -> ObjectStoreSourceFuture + Send + Sync>;
 pub type ObjectStoreParser = Box<
     dyn Fn(
             &Url,
@@ -31,6 +26,27 @@ pub type ObjectStoreParser = Box<
         + Send
         + Sync,
 >;
+
+/// Builds a source discovered in an object store.
+///
+/// The enum keeps the supported source kinds explicit and avoids erasing async builders behind
+/// boxed, pinned futures. Future remote-backed source kinds can add a variant here.
+pub enum ObjectStoreSourceBuilder {
+    Pmtiles(PmtConfig),
+}
+
+impl ObjectStoreSourceBuilder {
+    async fn build(
+        &self,
+        id: String,
+        url: Url,
+        cache: CachePolicy,
+    ) -> SourceBuildResult<BuiltSource> {
+        match self {
+            Self::Pmtiles(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
+        }
+    }
+}
 
 /// A [`Discovery`] over one or more remote object-store prefixes.
 pub struct ObjectStoreDiscovery {
@@ -136,7 +152,9 @@ impl Discovery for ObjectStoreDiscovery {
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
-        (self.build)(id.to_owned(), args.clone(), self.default_cache).await
+        self.build
+            .build(id.to_owned(), args.clone(), self.default_cache)
+            .await
     }
 
     fn process(&self) -> ResolvedProcess {
@@ -180,6 +198,9 @@ async fn list_remote_prefix(
         {
             continue;
         }
+        if stem.is_empty() {
+            continue;
+        }
         let object_url_str = format!(
             "{}://{}/{}",
             prefix.scheme(),
@@ -214,7 +235,7 @@ mod tests {
     use object_store::memory::InMemory;
     use object_store::{ObjectStoreExt as _, PutPayload};
 
-    use super::list_remote_prefix;
+    use super::*;
     use crate::config::primitives::IdResolver;
 
     #[tokio::test]
@@ -223,6 +244,7 @@ mod tests {
         for path in [
             "imagery/vienna.tif",
             "imagery/ortho.TIFF",
+            "imagery/.tif",
             "imagery/readme.txt",
             "outside/ignored.tif",
         ] {
@@ -235,14 +257,14 @@ mod tests {
                 .unwrap();
         }
         let parser_store = store.clone();
-        let parser: super::ObjectStoreParser = Box::new(move |_url: &url::Url| {
+        let parser: ObjectStoreParser = Box::new(move |_url: &Url| {
             Ok((
                 Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
                 object_store::path::Path::from("imagery"),
             ))
         });
         let entries = list_remote_prefix(
-            &url::Url::parse("s3://bucket/imagery/").unwrap(),
+            &Url::parse("s3://bucket/imagery/").unwrap(),
             &["tif".to_owned(), "tiff".to_owned()],
             &IdResolver::new(&[]),
             &parser,

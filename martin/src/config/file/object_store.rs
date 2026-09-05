@@ -363,7 +363,7 @@ impl ObjectStoreConfig {
                 | serde_json::Value::Array(_)
                 | serde_json::Value::Object(_)) => {
                     warn!(
-                        "Ignoring {namespace}.{key}: {value:?}. Object-store values must be boolean, string, or number."
+                        "Ignoring unrecognized configuration key '{namespace}.{key}': {value:?}. Only boolean, string or number values are allowed here. Please check your configuration file for typos."
                     );
                     None
                 }

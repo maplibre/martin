@@ -239,7 +239,7 @@ impl PmtConfig {
         }
 
         if let Ok(profile) = env::var("AWS_PROFILE") {
-            if self.profile.is_some() {
+            if self.object_store.profile.is_some() {
                 warn!(
                     "Environment variable AWS_PROFILE is ignored in favor of the configuration value pmtiles.profile."
                 );
@@ -247,7 +247,7 @@ impl PmtConfig {
                 warn!(
                     "Environment variable AWS_PROFILE is deprecated. Please use pmtiles.profile in the configuration file instead."
                 );
-                self.profile = Some(profile);
+                self.object_store.profile = Some(profile);
             }
         }
     }

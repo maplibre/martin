@@ -5500,6 +5500,7 @@ dependencies = [
  "regex",
  "reqwest 0.13.4",
  "rstest",
+ "serde-saphyr",
  "serde_json",
  "sqlx",
  "tempfile",
