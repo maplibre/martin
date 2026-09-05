@@ -668,8 +668,9 @@ impl TestResponse {
             .flat_map(|layer| {
                 let (name, extent) = (layer.name.clone(), f64::from(layer.extent.get()));
                 layer.features.iter().map(move |feature| {
-                    let mut properties = properties(feature);
-                    properties.insert("_layer".to_owned(), name.clone().into());
+                    let properties = std::iter::once(("_layer".to_owned(), name.clone().into()))
+                        .chain(properties(feature))
+                        .collect();
                     Feature {
                         bbox: None,
                         geometry: Some(to_wgs84(&feature.geometry, z, x, y, extent)),

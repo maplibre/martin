@@ -11,9 +11,9 @@ pub use collect_unrecognized::*;
 
 mod main;
 pub use main::*;
-#[cfg(feature = "pmtiles")]
+#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
 mod object_store;
-#[cfg(feature = "pmtiles")]
+#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
 pub(crate) use object_store::ObjectStoreConfig;
 pub mod cache;
 pub mod cors;

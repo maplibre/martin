@@ -4,34 +4,51 @@ use std::collections::HashMap;
 use std::fs;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 /// Serves fixture files over HTTP, answering the ranged `GET`s `object_store` issues while reading
-/// a remote `PMTiles` archive.
+/// a remote tile archive.
 ///
 /// It doubles as an S3 endpoint: with path-style addressing and request signing turned off, reading
 /// `s3://bucket/key` is the same ranged `GET` under a `/bucket/key` path, so a test can point
-/// `pmtiles.aws_endpoint` here instead of at a real bucket.
+/// an object-store endpoint here instead of at a real bucket.
 #[derive(Debug)]
 pub struct StaticFiles {
     server: MockServer,
+    files: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 
 impl StaticFiles {
-    /// Start a server answering `GET /{path}` with the contents of `file`, for each pair.
+    /// Start a server answering `GET` and `HEAD` for each `path` with the contents of `file`.
     pub async fn serving(files: &[(&str, PathBuf)]) -> Self {
         let files = files
             .iter()
             .map(|(path, file)| ((*path).to_owned(), read(file)))
             .collect::<HashMap<_, _>>();
         let server = MockServer::start().await;
+        let files = Arc::new(RwLock::new(files));
+        let get_files = Arc::clone(&files);
         Mock::given(method("GET"))
-            .respond_with(move |request: &Request| respond(&files, request))
+            .respond_with(move |request: &Request| respond(&get_files, request))
             .mount(&server)
             .await;
-        Self { server }
+        let head_files = Arc::clone(&files);
+        Mock::given(method("HEAD"))
+            .respond_with(move |request: &Request| respond(&head_files, request))
+            .mount(&server)
+            .await;
+        Self { server, files }
+    }
+
+    /// Replaces the contents served under `path`, as if the remote object was overwritten.
+    pub fn replace(&self, path: &str, file: &Path) {
+        self.files
+            .write()
+            .expect("a file map that is never poisoned")
+            .insert(path.to_owned(), read(file));
     }
 
     /// The `http://host:port` this server listens on.
@@ -73,18 +90,45 @@ fn read(file: &Path) -> Vec<u8> {
     fs::read(file).unwrap_or_else(|e| panic!("failed to read {}: {e}", file.display()))
 }
 
-fn respond(files: &HashMap<String, Vec<u8>>, request: &Request) -> ResponseTemplate {
+/// A stable fingerprint of the served bytes, so a content change is always a new `ETag`.
+fn content_hash(body: &[u8]) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash as _, Hasher as _};
+    let mut hasher = DefaultHasher::new();
+    body.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn respond(files: &RwLock<HashMap<String, Vec<u8>>>, request: &Request) -> ResponseTemplate {
+    let files = files.read().expect("a file map that is never poisoned");
     let path = request.url.path().trim_start_matches('/');
     let Some(body) = files.get(path) else {
         return ResponseTemplate::new(404);
     };
+    let etag = format!("\"static-{:016x}\"", content_hash(body));
+    if request
+        .headers
+        .get("if-match")
+        .is_some_and(|value| value.to_str().ok() != Some(etag.as_str()))
+    {
+        return ResponseTemplate::new(412);
+    }
+    if request.method.as_str() == "HEAD" {
+        return ResponseTemplate::new(200)
+            .insert_header("content-length", body.len().to_string())
+            .insert_header("accept-ranges", "bytes")
+            .insert_header("etag", etag);
+    }
     let Some(range) = request.headers.get("range") else {
-        return ResponseTemplate::new(200).set_body_bytes(body.clone());
+        return ResponseTemplate::new(200)
+            .insert_header("etag", etag)
+            .set_body_bytes(body.clone());
     };
     let range = range.to_str().expect("a range header that is not utf-8");
     let range = parse_range(range, body.len());
     let (start, end) = (*range.start(), *range.end());
     ResponseTemplate::new(206)
+        .insert_header("etag", etag)
         .insert_header(
             "content-range",
             format!("bytes {start}-{end}/{}", body.len()),

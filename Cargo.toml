@@ -89,6 +89,7 @@ actix-web-prom = "0.10.0"
 actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
+async-tiff = { version = "0.3.0", default-features = false }
 async-trait = "0.1"
 aws-config = "1.9"
 aws-credential-types = "1.3"

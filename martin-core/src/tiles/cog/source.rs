@@ -1,23 +1,30 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fs::File;
+use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::vec;
 
+use async_tiff::ImageFileDirectory;
+use async_tiff::metadata::TiffMetadataReader;
+use async_tiff::metadata::cache::ReadaheadMetadataCache;
+use async_tiff::tags::{Compression, PhotometricInterpretation, PlanarConfiguration};
 use async_trait::async_trait;
+use futures::FutureExt as _;
 use martin_tile_utils::{
     EARTH_CIRCUMFERENCE, Encoding, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
 };
+use object_store::ObjectStore;
 use serde_json::Value;
-use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::{CompressionMethod, PlanarConfiguration, Tag};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
-use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
+use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
+use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
+use crate::tiles::cog::{CogReader, ObjectStoreCogReader};
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
@@ -33,7 +40,8 @@ pub const MAX_ABSOLUTE_RESOLUTION_ERROR: f64 = 3.0;
 #[derive(Clone, Debug)]
 pub struct CogSource {
     id: String,
-    path: PathBuf,
+    location: String,
+    reader: Arc<dyn CogReader>,
     min_zoom: u8,
     max_zoom: u8,
     images: HashMap<u8, Image>,
@@ -44,25 +52,76 @@ pub struct CogSource {
 
 impl CogSource {
     /// Creates a new COG tile source from a file path.
+    pub async fn new(
+        id: String,
+        path: PathBuf,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, CogError> {
+        let reader: Arc<dyn CogReader> = Arc::new(LocalFileCogReader::try_new(path).await?);
+        Self::new_reader(id, reader, cache_zoom).await
+    }
+
+    /// Creates a COG source backed by an arbitrary `object_store` implementation.
+    pub async fn new_object_store(
+        id: String,
+        store: Arc<dyn ObjectStore>,
+        object_path: object_store::path::Path,
+        location: String,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, CogError> {
+        let reader: Arc<dyn CogReader> =
+            Arc::new(ObjectStoreCogReader::try_new(store, object_path, location).await?);
+        Self::new_reader(id, reader, cache_zoom).await
+    }
+
     #[expect(clippy::too_many_lines)]
-    pub fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, CogError> {
-        let tif_file =
-            File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
-        let mut decoder = Decoder::new(tif_file)
-            .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
-            .with_limits(tiff::decoder::Limits::default());
-        let model = ModelInfo::decode(&mut decoder, &path);
-        verify_requirements(&mut decoder, &model, &path.clone())?;
+    async fn new_reader(
+        id: String,
+        reader: Arc<dyn CogReader>,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, CogError> {
+        let location = reader.location().to_owned();
+        let adapter = AsyncTiffMetadataReader(Arc::clone(&reader));
+        let initial_size = reader.metadata().size.min(32 * 1024);
+        let cached_reader = ReadaheadMetadataCache::new(adapter).with_initial_size(initial_size);
+        let parsed = AssertUnwindSafe(async {
+            let mut metadata_reader = TiffMetadataReader::try_open(&cached_reader).await?;
+            metadata_reader.read_all_ifds(&cached_reader).await
+        })
+        .catch_unwind()
+        .await;
+        let ifds = match parsed {
+            Ok(Ok(ifds)) => ifds,
+            Ok(Err(error)) => return Err(CogError::AsyncTiff(error, location.clone())),
+            Err(payload) => {
+                let reason = payload
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+                    .unwrap_or("unknown parser panic");
+                return Err(CogError::AsyncTiff(
+                    async_tiff::error::AsyncTiffError::General(format!(
+                        "TIFF metadata parser panicked: {reason}"
+                    )),
+                    location.clone(),
+                ));
+            }
+        };
+        let base_ifd = ifds
+            .first()
+            .ok_or_else(|| CogError::NoImagesFound(PathBuf::from(&location)))?;
+        let model = ModelInfo::decode(base_ifd);
+        verify_requirements(base_ifd, &model, Path::new(&location))?;
         let origin = get_origin(
             model.tie_points.as_deref(),
             model.transformation.as_deref(),
-            &path,
+            Path::new(&location),
         )?;
-        let (full_width_pixel, full_length_pixel) = dimensions_in_pixel(&mut decoder, &path, 0)?;
+        let (full_width_pixel, full_length_pixel) =
+            (base_ifd.image_width(), base_ifd.image_height());
         let (full_width, full_length) = dimensions_in_model(
-            &mut decoder,
-            &path,
-            0,
+            base_ifd,
+            Path::new(&location),
             model.pixel_scale.as_deref(),
             model.transformation.as_deref(),
         )?;
@@ -74,33 +133,19 @@ impl CogSource {
         );
 
         let mut images = vec![];
-        let mut ifd_index = 0;
-
-        loop {
-            if !decoder.more_images() {
-                break;
-            }
-            if decoder.seek_to_image(ifd_index).is_err() {
-                break;
-            }
-
-            let subfile_type_tag = decoder.get_tag_u32(Tag::NewSubfileType);
-            let is_source_image = subfile_type_tag.is_err();
-            let is_reduced_resolution_subfile =
-                subfile_type_tag.map_or_else(|_| false, |v| v == 0b001);
+        for ifd in ifds {
+            let is_source_image = ifd.new_subfile_type().is_none();
+            let is_reduced_resolution_subfile = ifd.new_subfile_type() == Some(0b001);
             if is_source_image || is_reduced_resolution_subfile {
-                let image_width = dimensions_in_pixel(&mut decoder, &path, ifd_index)?.0;
+                let image_width = ifd.image_width();
                 let resolution = full_width / f64::from(image_width);
                 images.push(get_image(
-                    &mut decoder,
-                    &path,
-                    ifd_index,
+                    Arc::new(ifd),
+                    Path::new(&location),
                     origin,
                     resolution,
                 )?);
             }
-
-            ifd_index += 1;
         }
 
         let images: HashMap<u8, Image> = images
@@ -113,7 +158,7 @@ impl CogSource {
             match tile_size {
                 Some(current_tile_size) => {
                     if current_tile_size != image.tile_size() {
-                        return Err(CogError::InconsistentTiling(path.clone()));
+                        return Err(CogError::InconsistentTiling(PathBuf::from(&location)));
                     }
                 }
                 None => {
@@ -124,11 +169,11 @@ impl CogSource {
         let min_zoom = *images
             .keys()
             .min()
-            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+            .ok_or_else(|| CogError::NoImagesFound(PathBuf::from(&location)))?;
         let max_zoom = *images
             .keys()
             .max()
-            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+            .ok_or_else(|| CogError::NoImagesFound(PathBuf::from(&location)))?;
         let min = webmercator_to_wgs84(extent[0], extent[1]);
         let max = webmercator_to_wgs84(extent[2], extent[3]);
         let center = webmercator_to_wgs84(
@@ -138,9 +183,12 @@ impl CogSource {
         let first_img = images
             .values()
             .next()
-            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+            .ok_or_else(|| CogError::NoImagesFound(PathBuf::from(&location)))?;
         let output_format = first_img.output_format().ok_or_else(|| {
-            CogError::NotSupportedCompression(first_img.compression(), path.clone())
+            CogError::NotSupportedCompression(
+                first_img.compression().to_u16(),
+                PathBuf::from(&location),
+            )
         })?;
 
         let mut tilejson = tilejson! {
@@ -168,7 +216,8 @@ impl CogSource {
 
         Ok(Self {
             id,
-            path,
+            location,
+            reader,
             min_zoom,
             max_zoom,
             images,
@@ -217,9 +266,7 @@ impl Source for CogSource {
     ///
     /// If this returns `true`, martin-cp will suggest concurrent scraping.
     fn benefits_from_concurrent_scraping(&self) -> bool {
-        // if we copy from one local file to another, we are likely not bottlenecked by CPU
-        // TODO: benchmark this assumption, decoding might be a bottleneck
-        false
+        true
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {
@@ -246,93 +293,74 @@ impl Source for CogSource {
             return Ok(Vec::new());
         }
         let image = self.images.get(&(xyz.z)).ok_or_else(|| {
-            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
+            CogError::ZoomOutOfRange(
+                xyz.z,
+                PathBuf::from(&self.location),
+                self.min_zoom,
+                self.max_zoom,
+            )
         })?;
-
-        let file = File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
-        let mut decoder = Decoder::new(file)
-            .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?
-            .with_limits(tiff::decoder::Limits::default());
-        let bytes = image.get_tile(&mut decoder, xyz, &self.path)?;
-        Ok(bytes)
+        image
+            .get_tile(&self.reader, xyz, &self.location)
+            .await
+            .map_err(Into::into)
     }
 }
 
 fn verify_requirements(
-    decoder: &mut Decoder<File>,
+    ifd: &ImageFileDirectory,
     model: &ModelInfo,
     path: &Path,
 ) -> Result<(), CogError> {
     // see requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
-    if decoder.get_chunk_type() != ChunkType::Tile {
+    if ifd.tile_width().is_none()
+        || ifd.tile_height().is_none()
+        || ifd.tile_offsets().is_none()
+        || ifd.tile_byte_counts().is_none()
+    {
         return Err(CogError::NotSupportedChunkType(path.to_path_buf()));
     }
 
     // see note https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations
-    decoder
-        .get_tag_unsigned(Tag::PlanarConfiguration)
-        .map_err(|e| {
-            CogError::TagsNotFound(
-                e,
-                vec![Tag::PlanarConfiguration.to_u16()],
-                0,
-                path.to_path_buf(),
-            )
-        })
-        .and_then(|config| {
-            if config == PlanarConfiguration::Chunky.to_u16() {
-                Ok(())
-            } else {
-                Err(CogError::PlanarConfigurationNotSupported(
-                    path.to_path_buf(),
-                    0,
-                    config,
-                ))
-            }
-        })?;
+    if ifd.planar_configuration() != PlanarConfiguration::Chunky {
+        return Err(CogError::PlanarConfigurationNotSupported(
+            path.to_path_buf(),
+            0,
+            ifd.planar_configuration().to_u16(),
+        ));
+    }
 
-    decoder
-        .colortype()
-        .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))
-        .and_then(|color_type| {
-            if matches!(
-                color_type,
-                tiff::ColorType::RGB(8) | tiff::ColorType::RGBA(8) | tiff::ColorType::YCbCr(_),
-            ) {
-                Ok(())
-            } else {
-                Err(CogError::NotSupportedColorTypeAndBitDepth(
-                    color_type,
-                    path.to_path_buf(),
-                ))
-            }
-        })?;
+    let bits = ifd.bits_per_sample();
+    let valid_color = bits.iter().all(|bits| *bits == 8)
+        && matches!(
+            (ifd.photometric_interpretation(), ifd.samples_per_pixel()),
+            (PhotometricInterpretation::RGB, 3 | 4) | (PhotometricInterpretation::YCbCr, 3)
+        );
+    if !valid_color {
+        return Err(CogError::InvalidGeoInformation(
+            path.to_path_buf(),
+            format!(
+                "Unsupported color layout {:?}, {} samples, {bits:?} bits per sample",
+                ifd.photometric_interpretation(),
+                ifd.samples_per_pixel()
+            ),
+        ));
+    }
 
-    decoder
-        .get_tag_unsigned(Tag::Compression)
-        .map_err(|e| {
-            CogError::TagsNotFound(e, vec![Tag::Compression.to_u16()], 0, path.to_path_buf())
-        })
-        .and_then(|compression: u16| {
-            if let Some(
-                CompressionMethod::ModernJPEG
-                | CompressionMethod::Deflate
-                | CompressionMethod::LZW
-                | CompressionMethod::None,
-            ) = CompressionMethod::from_u16(compression)
-            {
-                Ok(())
-            } else {
-                if compression == COMPRESSION_WEBP {
-                    return Ok(());
-                }
-
-                Err(CogError::NotSupportedCompression(
-                    compression,
-                    path.to_path_buf(),
-                ))
-            }
-        })?;
+    if !matches!(
+        ifd.compression(),
+        Compression::ModernJPEG
+            | Compression::Deflate
+            | Compression::OldDeflate
+            | Compression::LZW
+            | Compression::None
+            | Compression::WebP
+    ) {
+        return Err(CogError::NotSupportedCompression(
+            ifd.compression().to_u16(),
+            path.to_path_buf(),
+        ));
+    }
 
     match (&model.pixel_scale, &model.tie_points, &model.transformation) {
         (Some(pixel_scale), Some(tie_points), _)
@@ -372,14 +400,18 @@ fn verify_requirements(
 }
 
 fn get_image(
-    decoder: &mut Decoder<File>,
+    ifd: Arc<ImageFileDirectory>,
     path: &Path,
-    ifd_index: usize,
     origin: [f64; 3],
     resolution: f64,
 ) -> Result<Image, CogError> {
-    let tile_size = decoder.chunk_dimensions().0;
-    let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
+    let tile_size = ifd
+        .tile_width()
+        .ok_or_else(|| CogError::NotSupportedChunkType(path.to_path_buf()))?;
+    if ifd.tile_height() != Some(tile_size) {
+        return Err(CogError::InconsistentTiling(path.to_path_buf()));
+    }
+    let (image_width, image_length) = (ifd.image_width(), ifd.image_height());
     let zoom_level = web_mercator_zoom(resolution, tile_size)
         .ok_or(CogError::UnknownZoomLevel(path.to_path_buf()))?;
     let ideal_resolution =
@@ -389,17 +421,15 @@ fn get_image(
     let tiles_across = image_width.div_ceil(tile_size);
     let tiles_down = image_length.div_ceil(tile_size);
 
-    // Get compression method for this IFD
-    let compression: u16 = decoder.get_tag_unsigned(Tag::Compression).unwrap_or(1); // Default to None (1) if not found
-
     Ok(Image::new(
-        ifd_index,
         zoom_level,
         tiles_origin,
         tiles_across,
         tiles_down,
         tile_size,
-        compression,
+        ifd.compression(),
+        ifd.samples_per_pixel(),
+        ifd,
     ))
 }
 
@@ -418,33 +448,14 @@ fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option
     Some((tile_origin_x, tile_origin_y))
 }
 
-/// Gets image pixel dimensions from TIFF decoder
-fn dimensions_in_pixel(
-    decoder: &mut Decoder<File>,
-    path: &Path,
-    ifd_index: usize,
-) -> Result<(u32, u32), CogError> {
-    let (image_width, image_length) = decoder.dimensions().map_err(|e| {
-        CogError::TagsNotFound(
-            e,
-            vec![Tag::ImageWidth.to_u16(), Tag::ImageLength.to_u16()],
-            ifd_index,
-            path.to_path_buf(),
-        )
-    })?;
-
-    Ok((image_width, image_length))
-}
-
 /// Converts pixel dimensions to model space dimensions using resolution values
 fn dimensions_in_model(
-    decoder: &mut Decoder<File>,
+    ifd: &ImageFileDirectory,
     path: &Path,
-    ifd_index: usize,
     pixel_scale: Option<&[f64]>,
     transformation: Option<&[f64]>,
 ) -> Result<(f64, f64), CogError> {
-    let (image_width_pixel, image_length_pixel) = dimensions_in_pixel(decoder, path, ifd_index)?;
+    let (image_width_pixel, image_length_pixel) = (ifd.image_width(), ifd.image_height());
 
     let full_resolution = get_full_resolution(pixel_scale, transformation, path)?;
 
@@ -567,13 +578,123 @@ fn get_extent(
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::sync::Arc;
+
+    #[cfg(target_os = "linux")]
+    use std::ffi::OsStr;
+    #[cfg(target_os = "linux")]
+    use std::os::unix::ffi::OsStrExt as _;
 
     use approx::assert_abs_diff_eq;
+    use martin_tile_utils::TileCoord;
+    use object_store::memory::InMemory;
+    use object_store::{ObjectStoreExt as _, PutPayload};
     use rstest::rstest;
     use tilejson::{Bounds, Center};
 
     use crate::CacheZoomRange;
-    use crate::tiles::cog::CogSource;
+    use crate::tiles::Source as _;
+    use crate::tiles::cog::{CogError, CogSource};
+
+    #[tokio::test]
+    async fn malformed_metadata_is_an_error_instead_of_a_panic() {
+        fn entry(bytes: &mut Vec<u8>, tag: u16, field_type: u16, value: u32) {
+            bytes.extend_from_slice(&tag.to_le_bytes());
+            bytes.extend_from_slice(&field_type.to_le_bytes());
+            bytes.extend_from_slice(&1_u32.to_le_bytes());
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+
+        // A syntactically valid little-endian TIFF IFD that deliberately omits
+        // SamplesPerPixel. async-tiff 0.3 panics while constructing this IFD.
+        let mut bytes = b"II\x2a\x00\x08\x00\x00\x00".to_vec();
+        bytes.extend_from_slice(&4_u16.to_le_bytes());
+        entry(&mut bytes, 256, 4, 128); // ImageWidth
+        entry(&mut bytes, 257, 4, 128); // ImageLength
+        entry(&mut bytes, 258, 3, 8); // BitsPerSample
+        entry(&mut bytes, 262, 3, 2); // PhotometricInterpretation
+        bytes.extend_from_slice(&0_u32.to_le_bytes());
+
+        let store = Arc::new(InMemory::new());
+        let path = object_store::path::Path::from("malformed.tif");
+        store.put(&path, PutPayload::from(bytes)).await.unwrap();
+        let result = CogSource::new_object_store(
+            "malformed".to_owned(),
+            store,
+            path,
+            "memory://malformed.tif".to_owned(),
+            CacheZoomRange::default(),
+        )
+        .await;
+
+        assert!(matches!(result, Err(CogError::AsyncTiff(_, _))));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn opens_a_local_cog_with_a_non_utf8_filename() {
+        let temp =
+            tempfile::tempdir_in(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target")).unwrap();
+        let path = temp.path().join(OsStr::from_bytes(b"image-\xff.tif"));
+        std::fs::copy("../tests/fixtures/cog/usda_naip_128_none_z2.tif", &path).unwrap();
+
+        let source = CogSource::new("non-utf8".to_owned(), path, CacheZoomRange::default())
+            .await
+            .unwrap();
+        let tile = source
+            .get_tile(
+                TileCoord {
+                    z: 18,
+                    x: 42_712,
+                    y: 97_343,
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(!tile.is_empty());
+    }
+
+    #[tokio::test]
+    async fn opens_a_cog_with_more_than_32_kib_of_metadata() {
+        let source = CogSource::new(
+            "large-metadata".to_owned(),
+            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_large_metadata.tif")
+                .to_path_buf(),
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(source.min_zoom, 18);
+        assert_eq!(source.max_zoom, 19);
+    }
+
+    #[tokio::test]
+    async fn sparse_tile_is_returned_as_empty() {
+        let source = CogSource::new(
+            "sparse".to_owned(),
+            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_none_sparse.tif")
+                .to_path_buf(),
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+
+        let tile = source
+            .get_tile(
+                TileCoord {
+                    z: 19,
+                    x: 85_424,
+                    y: 194_685,
+                },
+                None,
+            )
+            .await
+            .unwrap();
+        assert!(tile.is_empty());
+    }
 
     #[rstest]
     #[case("usda_naip_256_lzw_z3".to_owned(), Center {
@@ -626,7 +747,8 @@ mod tests {
         right: -121.343_307_495_117_16,
         bottom: 41.968_169_737_948_43,
     }, 18, 19, 128, "png")]
-    fn can_generate_tilejson_from_source(
+    #[tokio::test]
+    async fn can_generate_tilejson_from_source(
         #[case] cog_file: String,
         #[case] center: Center,
         #[case] bounds: Bounds,
@@ -641,6 +763,7 @@ mod tests {
             Path::new(&path).to_path_buf(),
             CacheZoomRange::default(),
         )
+        .await
         .unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);

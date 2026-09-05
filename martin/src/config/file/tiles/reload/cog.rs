@@ -1,12 +1,11 @@
-use martin_core::tiles::BoxedSource;
-use martin_core::tiles::cog::CogSource;
-
 use crate::TileSourceManager;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
-use crate::config::file::{CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
@@ -24,19 +23,21 @@ impl CogReloader {
         default_cache: CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
-        // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
-        // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
-        let build: FsSourceBuilder = Box::new(|id, path, policy| {
-            Box::pin(async move {
-                let src = CogSource::new(id, path, policy.zoom())?;
-                Ok(Box::new(src) as BoxedSource)
-            })
+        let cog_config = match config {
+            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
+            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
+                CogConfig::default()
+            }
+        };
+        let local_config = cog_config.clone();
+        let build: FsSourceBuilder = Box::new(move |id, path, policy| {
+            let config = local_config.clone();
+            Box::pin(async move { config.new_sources(id, path, policy).await })
         });
-        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());
         let discovery = FsDiscovery::from_config(
             FileKind::Cog,
             config,
-            recursive,
+            cog_config.recursive.unwrap_or_default(),
             &["tif", "tiff"],
             id_resolver,
             default_cache,
