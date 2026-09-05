@@ -10,6 +10,7 @@ bsdiffraw
 bsdiffrawgz
 bytea
 cacreateserial
+casei
 circularstring
 clippy
 configtest
@@ -64,6 +65,7 @@ multipolygon
 multisurface
 mydb
 mypass
+nixpkgs
 notnull
 noto
 onthegomap
@@ -91,6 +93,7 @@ rgba
 rustaceanvim
 schemafile
 setseed
+setsrid
 spritesheet
 sqlx
 srid

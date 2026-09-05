@@ -168,7 +168,7 @@ test-schemas:
             rm -f "$tmp"
         else
             echo "missing $f aborting"
-            exit -1
+            exit 1
         fi
     done
     echo "::endgroup::"
@@ -192,7 +192,7 @@ test-schemas:
         rm -f "$tmp"
     else
         echo "missing $doc aborting"
-        exit -1
+        exit 1
     fi
     echo "::endgroup::"
 
@@ -307,7 +307,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath_tui,unstable-schemas,test-duckdb,test-minio,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')

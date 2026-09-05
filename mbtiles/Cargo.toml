@@ -49,6 +49,7 @@ bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 flume.workspace = true
+fnv.workspace = true
 futures.workspace = true
 hotpath.workspace = true
 indicatif = { workspace = true, optional = true }
@@ -61,7 +62,7 @@ num_cpus.workspace = true
 rayon = { workspace = true, optional = true }
 serde.workspace = true
 serde-saphyr = { workspace = true, optional = true }
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 size_format.workspace = true
 sqlite-compressions.workspace = true

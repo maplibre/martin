@@ -1,13 +1,13 @@
-FROM node:alpine@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019 AS builder
+FROM node:alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS builder
 
 WORKDIR /usr/src/app
 
-COPY package*.json .
+COPY package.json package-lock.json ./
 RUN npm clean-install --no-fund
 
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913
+FROM nginx:alpine@sha256:72ba65eb42c10344912a84ff42408db7d34f2feb642204570ab8fc5ffd29f1d3
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /usr/src/app/dist /usr/share/nginx/html

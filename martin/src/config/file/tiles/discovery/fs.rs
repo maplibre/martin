@@ -2,6 +2,7 @@
 //! Each kind differs only by its extension list and a build closure.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -260,9 +261,22 @@ impl Discovery for FsDiscovery {
         for collection in &self.collections {
             let root = collection.canonicalize().map_err(SourceBuildError::Io)?;
             for (project, dir) in subdirectories(&root).map_err(SourceBuildError::Io)? {
-                let dir = dir.canonicalize().map_err(SourceBuildError::Io)?;
-                self.scan(&dir, &format!("{project}."), &mut discovered)
-                    .await?;
+                // A project listed a moment ago can be gone by the time it is read, and the
+                // event for its removal brings the next scan.
+                let dir = match dir.canonicalize() {
+                    Ok(dir) => dir,
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                    Err(error) => return Err(SourceBuildError::Io(error)),
+                };
+                match self
+                    .scan(&dir, &format!("{project}."), &mut discovered)
+                    .await
+                {
+                    Ok(()) => {}
+                    Err(SourceBuildError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+                    }
+                    Err(error) => return Err(error),
+                }
             }
         }
 
@@ -378,7 +392,13 @@ impl FsDiscovery {
             if !visited.insert(dir.clone()) {
                 continue;
             }
-            let mut entries = fs::read_dir(&dir).await.map_err(SourceBuildError::Io)?;
+            let mut entries = match fs::read_dir(&dir).await {
+                Ok(entries) => entries,
+                // A directory queued by this walk can be gone by the time it is read, and the
+                // event for its removal brings the next scan.
+                Err(error) if error.kind() == io::ErrorKind::NotFound && dir != root => continue,
+                Err(error) => return Err(SourceBuildError::Io(error)),
+            };
             while let Some(entry) = entries.next_entry().await.map_err(SourceBuildError::Io)? {
                 let Some(e) = resolve_dir_entry(&entry) else {
                     continue;

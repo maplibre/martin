@@ -56,7 +56,7 @@ All `normalized` files created by the `mbtiles` tool will contain this view.
 
 ### Alternative normalized schema (dedup-id)
 
-Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce a variation of the normalized schema that uses `tiles_shallow` and `tiles_data` tables with an integer `tile_data_id` column instead of the text-based `tile_id` (MD5 hash).
+Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce a variation of the normalized schema that uses `tiles_shallow` and `tiles_data` tables with an integer `tile_data_id` column instead of the text-based `tile_id` (a content hash).
 
 ```sql
 --8<-- "files/init-normalized-dedup-id.sql"
