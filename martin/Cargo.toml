@@ -135,6 +135,7 @@ pmtiles = [
     "_file_kinds",
 ]
 postgres = [
+    "dep:cql2",
     "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
@@ -182,6 +183,7 @@ aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 clap.workspace = true
+cql2 = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
