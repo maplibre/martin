@@ -1134,6 +1134,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filtering-rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Filtering rows
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#postprocessing" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2097,31 +2108,102 @@ For example, if there is a table <code>public.table_source</code>:
 </span></code></pre></div>
 <p>By default the <code>description</code> and <code>name</code> is database identifies about this table, and the bounds is queried from database.
 You can fine tune these by adjusting <code>auto_publish</code> section in <a href="../config-file/#full-configuration">configuration file</a>.</p>
+<h2 id="filtering-rows">Filtering rows</h2>
+<p>A table source serves every row whose geometry intersects the tile.
+Add a <code>filter</code> to serve only the rows that match it.
+The filter is written in CQL2, the OGC Common Query Language, using the comparison, logical, text, temporal and spatial operators of <a href="https://docs.ogc.org/is/21-065r2/21-065r2.html">its text encoding</a>.
+Martin translates it to SQL when it starts and adds it to the tile query, so a filter that does not parse stops Martin at startup with the reason.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">big_cities</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cities</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">srid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4326</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population &gt; 100000 AND name NOT LIKE 'Old %'</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span></code></pre></div>
+<p>The filter also applies when Martin computes the bounds of the source.
+Column names are used exactly as written, so <code>Population</code> names the column <code>Population</code> and not <code>population</code>.
+A name with spaces or other special characters goes in double quotes.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Comparing values</label><label for="__tabbed_1_2">Combining conditions</label><label for="__tabbed_1_3">Matching text</label><label for="__tabbed_1_4">Dates and times</label><label for="__tabbed_1_5">Spatial and other functions</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>Compare a column with a literal using <code>=</code>, <code>&lt;&gt;</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code> and <code>&gt;=</code>.
+Strings go in single quotes, and numbers and <code>true</code>/<code>false</code> are written as they are.
+<code>BETWEEN</code>, <code>IN</code> and <code>IS NULL</code> cover ranges, lists and missing values.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Cities with a population of ten to a hundred thousand</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population BETWEEN 10000 AND 100000</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Rows with one of these kinds</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind IN ('city', 'town')</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Rows that have a name</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name IS NOT NULL</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Rows whose boolean column is set</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">is_capital = true</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Join conditions with <code>AND</code>, <code>OR</code> and <code>NOT</code>, and group them with parentheses.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Large cities and towns</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population &gt; 100000 AND (kind = 'city' OR kind = 'town')</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># Everything but villages</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NOT (kind = 'village')</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p><code>LIKE</code> matches a pattern in which <code>%</code> stands for any run of characters and <code>_</code> for a single one.
+Put a <code>\</code> before either to match it literally.
+<code>CASEI</code> compares text without regard to case.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Names starting with "San "</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name LIKE 'San %'</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Names ending in "burg", except Hamburg</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name LIKE '%burg' AND name &lt;&gt; 'Hamburg'</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># "Berlin", "berlin" and "BERLIN"</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CASEI(name) = 'berlin'</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Write a date as <code>DATE('2024-01-01')</code> and an instant as <code>TIMESTAMP('2024-01-01T00:00:00Z')</code>.
+Compare them like numbers, or use a temporal operator such as <code>T_BEFORE</code>, <code>T_AFTER</code> or <code>T_DURING</code>.
+Those take an <code>INTERVAL('start', 'end')</code> in which <code>'..'</code> leaves an end open.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Rows updated since the start of 2024</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">updated_at &gt;= DATE('2024-01-01')</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Rows updated within a period</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">T_DURING(updated_at, INTERVAL('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z'))</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p><code>S_INTERSECTS</code>, <code>S_WITHIN</code>, <code>S_CONTAINS</code>, <code>S_DISJOINT</code> and the other spatial operators compare the geometry column with a <code>BBOX(xmin, ymin, xmax, ymax)</code> or a WKT literal such as <code>POLYGON((...))</code>.
+The literal reaches PostGIS without an SRID, and PostGIS refuses to compare geometries whose SRIDs differ, so give the literal the column's SRID with <code>st_setsrid</code>.</p>
+</div>
+</div>
+</div>
 <h2 id="postprocessing">Postprocessing</h2>
 <p>Table sources support <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys to control tile postprocessing.
 This can be set for all PostgreSQL sources or for an individual table.
 See <a href="../postprocessing/">Postprocessing</a> for details.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">my_table</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">convert_to_mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">my_table</span><span class="p">:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">convert_to_mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
 </span></code></pre></div>
 <h2 id="tilejson-in-sql-comments">TileJSON in SQL Comments</h2>
 <p>Other than adjusting <code>auto_publish</code> section in configuration file, you can fine tune the <code>TileJSON</code> on the database side directly: Add a valid JSON as an SQL comment on the table.</p>
 <p>Martin will merge table comment into the generated TileJSON using JSON Merge patch.
 The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.</p>
-<div class="language-sql highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">DO</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="w"> </span><span class="k">BEGIN</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="k">EXECUTE</span><span class="w"> </span><span class="s1">'COMMENT ON TABLE table_source IS $tj$'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="err">$$</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="err">{</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">        </span><span class="ss">"version"</span><span class="p">:</span><span class="w"> </span><span class="ss">"1.2.3"</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">        </span><span class="ss">"attribution"</span><span class="p">:</span><span class="w"> </span><span class="ss">"osm"</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">        </span><span class="ss">"description"</span><span class="p">:</span><span class="w"> </span><span class="ss">"a description from table comment"</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="ss">"foo"</span><span class="p">:</span><span class="w"> </span><span class="err">{</span><span class="ss">"bar"</span><span class="p">:</span><span class="w"> </span><span class="ss">"foo"</span><span class="err">}</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="err">}</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="err">$$</span><span class="p">::</span><span class="n">json</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">'$tj$'</span><span class="p">;</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">END</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="p">;</span>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">DO</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="w"> </span><span class="k">BEGIN</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="k">EXECUTE</span><span class="w"> </span><span class="s1">'COMMENT ON TABLE table_source IS $tj$'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="err">$$</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="err">{</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">        </span><span class="ss">"version"</span><span class="p">:</span><span class="w"> </span><span class="ss">"1.2.3"</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">        </span><span class="ss">"attribution"</span><span class="p">:</span><span class="w"> </span><span class="ss">"osm"</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">        </span><span class="ss">"description"</span><span class="p">:</span><span class="w"> </span><span class="ss">"a description from table comment"</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="ss">"foo"</span><span class="p">:</span><span class="w"> </span><span class="err">{</span><span class="ss">"bar"</span><span class="p">:</span><span class="w"> </span><span class="ss">"foo"</span><span class="err">}</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="err">}</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="err">$$</span><span class="p">::</span><span class="n">json</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">'$tj$'</span><span class="p">;</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="k">END</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="p">;</span>
 </span></code></pre></div>
 
 
