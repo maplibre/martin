@@ -4,19 +4,36 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, route};
+use futures::{StreamExt as _, stream};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
 use tracing::{error, instrument, warn};
 
 use crate::config::file::srv::SrvConfig;
-use crate::maplibre_style::Style;
+use crate::maplibre_style::{Style, merge_styles};
 use crate::srv::server::DebouncedWarning;
+
+/// Same limit as composite tile requests.
+const MAX_STYLE_IDS_PER_REQUEST: usize = 128;
+/// Style files read from disk at once for one request.
+const MAX_CONCURRENT_STYLE_READS: usize = 16;
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
 #[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct StyleRequest {
+    /// One style ID, or up to 128 comma-separated style IDs to merge in order.
     style_id: String,
+}
+
+#[derive(Debug)]
+enum LoadStyleError {
+    NotFound,
+    Malformed {
+        style_id: String,
+        path: std::path::PathBuf,
+        error: serde_json::Error,
+    },
 }
 
 #[cfg_attr(
@@ -27,7 +44,7 @@ struct StyleRequest {
         params(StyleRequest),
         responses(
             (status = 200, description = "MapLibre Style Spec JSON document", content_type = "application/json"),
-            (status = 400, description = "Style file is malformed"),
+            (status = 400, description = "Style file is malformed or styles cannot be merged"),
             (status = 404, description = "No matching style"),
         ),
     )
@@ -46,48 +63,90 @@ pub async fn get_style_json(
     styles: Data<StyleSources>,
     srv_config: Data<SrvConfig>,
 ) -> HttpResponse {
-    let style_id = &path.style_id;
-    let Some(path) = styles.style_json_path(style_id) else {
-        return HttpResponse::NotFound()
+    let style_ids: Vec<&str> = path.style_id.split(',').map(str::trim).collect();
+    if style_ids.iter().any(|id| id.is_empty()) {
+        return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
-            .body("No such style exists");
-    };
-    let Ok(style_content) = tokio::fs::read_to_string(&path).await else {
-        // the file was likely deleted after martin was launched and collected the file list
-        // TODO: change this to a server error and log appropriately once the watch mode is here
-        return HttpResponse::NotFound()
+            .body("Style ids must not be empty");
+    }
+    if style_ids.len() > MAX_STYLE_IDS_PER_REQUEST {
+        return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
-            .body("No such style exists");
-    };
-    match serde_json::from_str::<Style>(&style_content) {
-        Ok(mut style) => {
-            // maplibre clients don't fully support relative URLs
-            // At the time of writing:
-            //   - maplibre-gl-js supports relative URLs for tilesets and sprites (but not glyphs)
-            //   - maplibre-native doesn't seem to support relative URLs at all
-            //
-            // Build an absolute base URL using the request's scheme/host and the
-            // configured path prefix, mirroring the precedence used for TileJSON
-            // URLs in `srv/tiles/metadata.rs`:
-            //   base_path > route_prefix > X-Forwarded-Prefix > ""
-            let prefix = path_prefix(&req, &srv_config);
-            let info = req.connection_info();
-            let base_url = format!("{}://{}{prefix}", info.scheme(), info.host());
-            style.expand_relative_urls(&base_url);
-            HttpResponse::Ok().json(style)
-        }
-        Err(e) => {
-            error!(
-                "Failed to parse style JSON {e:?} for style {style_id} at {:?}",
-                path.display()
-            );
+            .body(format!(
+                "Requested {} style ids, but at most {MAX_STYLE_IDS_PER_REQUEST} are allowed per request",
+                style_ids.len()
+            ));
+    }
 
-            HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!(
-                    "The requested style {style_id} is malformed: {e:?}"
-                ))
+    // MapLibre clients don't consistently support relative URLs. Build an
+    // absolute base URL using the same prefix precedence as TileJSON URLs.
+    let prefix = path_prefix(&req, &srv_config);
+    let base_url = {
+        let info = req.connection_info();
+        format!("{}://{}{prefix}", info.scheme(), info.host())
+    };
+
+    let loaded = stream::iter(style_ids.into_iter().map(|style_id| {
+        let styles = &styles;
+        let base_url = &base_url;
+        async move {
+            let Some(path) = styles.style_json_path(style_id) else {
+                return Err(LoadStyleError::NotFound);
+            };
+            let Ok(style_content) = tokio::fs::read_to_string(&path).await else {
+                // The file was likely deleted after Martin collected its file list.
+                return Err(LoadStyleError::NotFound);
+            };
+            let mut style = serde_json::from_str::<Style>(&style_content).map_err(|error| {
+                LoadStyleError::Malformed {
+                    style_id: style_id.to_owned(),
+                    path,
+                    error,
+                }
+            })?;
+            style.expand_relative_urls(base_url);
+            Ok((style_id.to_owned(), style))
         }
+    }))
+    .buffered(MAX_CONCURRENT_STYLE_READS)
+    .collect::<Vec<_>>()
+    .await;
+
+    let mut parsed = Vec::with_capacity(loaded.len());
+    for result in loaded {
+        match result {
+            Ok(style) => parsed.push(style),
+            Err(LoadStyleError::NotFound) => {
+                return HttpResponse::NotFound()
+                    .content_type(ContentType::plaintext())
+                    .body("No such style exists");
+            }
+            Err(LoadStyleError::Malformed {
+                style_id,
+                path,
+                error: e,
+            }) => {
+                error!(
+                    "Failed to parse style JSON {e:?} for style {style_id} at {:?}",
+                    path.display()
+                );
+                return HttpResponse::BadRequest()
+                    .content_type(ContentType::plaintext())
+                    .body(format!(
+                        "The requested style {style_id} is malformed: {e:?}"
+                    ));
+            }
+        }
+    }
+
+    if parsed.len() == 1 {
+        return HttpResponse::Ok().json(parsed.pop().expect("one style was loaded").1);
+    }
+    match merge_styles(parsed, &base_url) {
+        Ok(style) => HttpResponse::Ok().json(style),
+        Err(error) => HttpResponse::BadRequest()
+            .content_type(ContentType::plaintext())
+            .body(error.to_string()),
     }
 }
 
