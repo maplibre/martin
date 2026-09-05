@@ -428,24 +428,39 @@ mod tests {
 
         insta::assert_json_snapshot!(dump(&merged), @r#"
         {
+          "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+          "sources": {
+            "canonical": {
+              "url": "https://example.com/tiles.json",
+              "type": "vector"
+            },
+            "points": {
+              "data": {
+                "type": "FeatureCollection",
+                "features": []
+              },
+              "type": "geojson"
+            }
+          },
           "font-faces": {
             "Base Font": "https://fonts.example/base.ttf",
             "Overlay Font": "https://fonts.example/overlay.ttf"
           },
-          "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
           "layers": [
             {
               "id": "base-layer",
-              "source": "canonical",
-              "type": "fill"
+              "type": "fill",
+              "source": "canonical"
             },
             {
               "id": "alias-layer",
-              "source": "canonical",
-              "type": "line"
+              "type": "line",
+              "source": "canonical"
             },
             {
               "id": "points-layer",
+              "type": "symbol",
+              "source": "points",
               "layout": {
                 "text-font": [
                   "Overlay Font"
@@ -456,28 +471,13 @@ mod tests {
                   "global-state",
                   "overlay-opacity"
                 ]
-              },
-              "source": "points",
-              "type": "symbol"
+              }
             }
           ],
           "metadata": {
             "keep": true
           },
           "name": "base",
-          "sources": {
-            "canonical": {
-              "type": "vector",
-              "url": "https://example.com/tiles.json"
-            },
-            "points": {
-              "data": {
-                "features": [],
-                "type": "FeatureCollection"
-              },
-              "type": "geojson"
-            }
-          },
           "state": {
             "base-visible": {
               "default": true

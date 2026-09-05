@@ -132,7 +132,7 @@ async fn styles_can_be_merged_in_request_order() {
     assert_eq!(response.status(), 200);
     assert_eq!(suffixed.status(), 200);
     assert_eq!(response.body(), suffixed.body());
-    insta::assert_json_snapshot!(response.json(), @r##"
+    insta::assert_json_snapshot!(response.json(), @r#"
     {
       "font-faces": {
         "Base Font": "https://fonts.example/base.ttf",
@@ -198,7 +198,7 @@ async fn styles_can_be_merged_in_request_order() {
       },
       "version": 8
     }
-    "##);
+    "#);
 
     martin.stop().await;
 }
