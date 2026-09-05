@@ -50,7 +50,9 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::ActiveQueryRegistry;
-use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
+use martin_tile_utils::{
+    TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
+};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
@@ -129,6 +131,8 @@ pub struct CopyArgs {
     /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
     ///
     /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+    ///
+    /// For a source on a tile grid other than Web Mercator the bounds are `min_x,min_y,max_x,max_y` in the grid's CRS units, and the whole grid is copied if omitted.
     #[arg(long, default_value = "-180,-85.05112877980659,180,85.0511287798066")]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
@@ -252,7 +256,12 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-fn check_bboxes(boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
+/// On Web Mercator a bbox is longitude and latitude and must stay on the tiled world.
+/// On any other grid it is in the grid's CRS units, and the grid itself clamps it.
+fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
+    if !grid.is_web_mercator() {
+        return Ok(boxes);
+    }
     for bb in &boxes {
         let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
@@ -274,19 +283,33 @@ fn check_bboxes(boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     Ok(boxes)
 }
 
-fn compute_tile_ranges(boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
+fn compute_tile_ranges(grid: &TileGrid, boxes: &[Bounds], zooms: &[u8]) -> Vec<TileRect> {
     let mut ranges = Vec::new();
     for zoom in zooms {
         for bbox in boxes {
-            let (min_x, min_y, max_x, max_y) =
-                bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
-            append_rect(
-                &mut ranges,
-                TileRect::new(*zoom, min_x, min_y, max_x, max_y),
-            );
+            let rect = if grid.is_web_mercator() {
+                let (min_x, min_y, max_x, max_y) =
+                    bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, *zoom);
+                TileRect::new(*zoom, min_x, min_y, max_x, max_y)
+            } else {
+                grid.tile_range([bbox.left, bbox.bottom, bbox.right, bbox.top], *zoom)
+            };
+            append_rect(&mut ranges, rect);
         }
     }
     ranges
+}
+
+/// Whether `boxes` is just the CLI's default, the whole Web Mercator world.
+fn is_mercator_world(boxes: &[Bounds]) -> bool {
+    let [world] = boxes else {
+        return false;
+    };
+    let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+    close(world.left, Bounds::MAX_TILED.left)
+        && close(world.bottom, Bounds::MAX_TILED.bottom)
+        && close(world.right, Bounds::MAX_TILED.right)
+        && close(world.top, Bounds::MAX_TILED.top)
 }
 
 fn get_zooms(args: &CopyArgs) -> Cow<'_, [u8]> {
@@ -365,6 +388,21 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 }
 
 fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
+    if let Some((source, _)) = src
+        .sources
+        .iter()
+        .find(|(source, _)| !source.tile_grid().is_web_mercator())
+    {
+        // TileJSON bounds are WGS84, which says nothing about where tiles sit on another grid
+        let grid = source.tile_grid();
+        let [min_x, min_y, max_x, max_y] = grid.bounds();
+        let bounds = Bounds::new(min_x, min_y, max_x, max_y);
+        info!(
+            "No bbox specified, copying the whole {} grid: {bounds}",
+            grid.id()
+        );
+        return vec![bounds];
+    }
     if src.sources.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
@@ -594,14 +632,23 @@ where
         .filter_map(|(s, _)| s.cancel_registry())
         .collect();
 
-    // 2. Compute tile ranges
-    let inferred_bboxes = if args.bbox.is_empty() {
-        default_bounds(&src)
-    } else {
-        args.bbox.clone()
-    };
-    let bboxes = check_bboxes(inferred_bboxes)?;
-    let tiles = compute_tile_ranges(&bboxes, &get_zooms(&args));
+    // 2. Compute tile ranges on the grid the sources are served in
+    let grid = src
+        .sources
+        .first()
+        .map_or(&martin_tile_utils::WEB_MERCATOR_QUAD, |(source, _)| {
+            source.tile_grid()
+        })
+        .clone();
+    // the CLI default bbox is the Web Mercator world, which means nothing on another grid
+    let inferred_bboxes =
+        if args.bbox.is_empty() || (!grid.is_web_mercator() && is_mercator_world(&args.bbox)) {
+            default_bounds(&src)
+        } else {
+            args.bbox.clone()
+        };
+    let bboxes = check_bboxes(&grid, inferred_bboxes)?;
+    let tiles = compute_tile_ranges(&grid, &bboxes, &get_zooms(&args));
 
     // 3. Open or initialise the output MBTiles file
     let mbt = Mbtiles::new(output_file)?;
@@ -728,6 +775,16 @@ async fn init_schema(
             "generator".to_owned(),
             serde_json::Value::String(format!("martin-cp v{VERSION}")),
         );
+        // the merged TileJSON keeps only the spec's fields, so the grid is written on its own
+        if let Some((source, _)) = sources.first()
+            && !source.tile_grid().is_web_mercator()
+        {
+            tj.other.insert(
+                "tileGrid".to_owned(),
+                serde_json::to_value(source.tile_grid())
+                    .expect("a validated tile grid holds only finite numbers and strings"),
+            );
+        }
         let zooms = get_zooms(args);
         if let Some(min_zoom) = zooms.iter().min() {
             tj.minzoom = Some(*min_zoom);
@@ -784,7 +841,7 @@ mod tests {
     use martin::config::file::{OnInvalid, ResolvedProcess, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format};
+    use martin_tile_utils::{Encoding, Format, WEB_MERCATOR_QUAD, WORLD_CRS84_QUAD};
     use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
     use tilejson::{TileJSON, tilejson};
@@ -965,26 +1022,33 @@ mod tests {
         let bbox_mi = Bounds::from_str("-86.6271,41.6811,-82.3095,45.8058").unwrap();
         let bbox_usa = Bounds::from_str("-124.8489,24.3963,-66.8854,49.3843").unwrap();
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[0]), @r#"- "0: (0,0) - (0,0)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[world], &[0]), @r#"- "0: (0,0) - (0,0)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[3,7]), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[world], &[3,7]), @r#"
         - "3: (0,0) - (7,7)"
         - "7: (0,0) - (127,127)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[2, 3, 4]), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[world], &[2, 3, 4]), @r#"
         - "2: (0,0) - (3,3)"
         - "3: (0,0) - (7,7)"
         - "4: (0,0) - (15,15)"
         "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[world], &[14]), @r#"- "14: (0,0) - (16383,16383)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[world], &[14]), @r#"- "14: (0,0) - (16383,16383)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        // another grid takes the bbox in its own units and covers its own matrix
+        let crs84_world = Bounds::new(-180.0, -90.0, 180.0, 90.0);
+        assert_yaml_snapshot!(compute_tile_ranges(&WORLD_CRS84_QUAD, &[crs84_world], &[0, 1]), @r#"
+        - "0: (0,0) - (1,0)"
+        - "1: (0,0) - (3,1)"
+        "#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_usa, bbox_mi, bbox_ca], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[bbox_usa], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
 
-        assert_yaml_snapshot!(compute_tile_ranges(&[bbox_ca_south, bbox_mi, bbox_ca], &[14]), @r#"
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[bbox_usa, bbox_mi, bbox_ca], &[14]), @r#"- "14: (2509,5599) - (5147,7046)""#);
+
+        assert_yaml_snapshot!(compute_tile_ranges(&WEB_MERCATOR_QUAD, &[bbox_ca_south, bbox_mi, bbox_ca], &[14]), @r#"
         - "14: (2791,6499) - (2997,6624)"
         - "14: (4249,5841) - (4446,6101)"
         - "14: (2526,6081) - (2790,6624)"
@@ -1008,7 +1072,7 @@ mod tests {
             vec![Bounds::from_str(bbox_str).unwrap()]
         };
 
-        let result = check_bboxes(bbox_vec);
+        let result = check_bboxes(&WEB_MERCATOR_QUAD, bbox_vec);
 
         match expected {
             Ok(expected_str) => {

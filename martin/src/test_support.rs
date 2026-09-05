@@ -12,8 +12,8 @@ pub(crate) mod pg {
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
     use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 
-    use crate::config::file::CachePolicy;
     use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
+    use crate::config::file::{CachePolicy, TileGrids};
     use crate::config::primitives::IdResolver;
 
     /// Launches the pinned, purposely-old `PostGIS` image, retrying a few times for flaky CI pulls.
@@ -72,6 +72,7 @@ pub(crate) mod pg {
             &config,
             IdResolver::default(),
             CachePolicy::default(),
+            &TileGrids::default(),
         )
         .await
         .expect("create PostgresAutoDiscoveryBuilder");

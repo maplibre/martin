@@ -142,6 +142,7 @@ A name with spaces or other special characters goes in double quotes.
 
     `S_INTERSECTS`, `S_WITHIN`, `S_CONTAINS`, `S_DISJOINT` and the other spatial operators compare the geometry column with a `BBOX(xmin, ymin, xmax, ymax)` or a WKT literal such as `POLYGON((...))`.
     The literal reaches PostGIS without an SRID, and PostGIS refuses to compare geometries whose SRIDs differ, so give the literal the column's SRID with `st_setsrid`.
+A table is served on the Web Mercator grid unless it names another one with `tile_grid`, see [Tile Grids](tile-grids.md).
 
 ## Postprocessing
 

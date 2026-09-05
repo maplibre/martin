@@ -4,8 +4,11 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, MartinBuilder, StartError, round_floats};
+use martin_e2e_tests::{
+    Martin, MartinBuilder, StartError, mbtiles_fixture, round_floats, temp_dir,
+};
 use serde_json::Value;
+use tempfile::TempDir;
 
 /// A server that publishes everything it finds in the fixture database.
 async fn martin_with_postgres() -> Martin {
@@ -158,6 +161,7 @@ fn assert_unindexed_table_warnings(martin: &mut Martin) {
 fn assert_discovery_warnings(martin: &mut Martin) {
     assert_unindexed_table_warnings(martin);
     for warning in [
+        "Not computing the bounds of public.mars_points.geom: SRID 949900 is IAU_2015:49900, not an EPSG system",
         "source.id.new=table_source_multiple_geom.1",
         "source.id.new=table_name_existing_two_schemas.1",
         "source.id.new=view_name_existing_two_schemas.1",
@@ -1644,4 +1648,264 @@ postgres:
       |
       = expected GEOMETRY, Identifier, Negative, UnaryNot, True, False, Null, DECIMAL, Double, SingleQuotedString, ExpressionInParentheses, or Array
     ");
+}
+
+/// Three tables on three grids.
+/// New Zealand on LINZ's NZTM2000Quad, world points on a square WGS84 grid, and Mars landing sites on a CRS PostGIS only knows from a `spatial_ref_sys` row.
+const TILE_GRIDS_CONFIG: &str = "
+tile_grids:
+  NZTM2000Quad:
+    crs: EPSG:2193
+    origin: [-3260586.7284, 10438190.1652]
+    extent_at_zoom0: 10018754.1714
+  WGS84Square:
+    crs: EPSG:4326
+    origin: [-180, 90]
+    extent_at_zoom0: 360
+  MarsGeographic:
+    crs: IAU_2015:49900
+    origin: [-180, 90]
+    extent_at_zoom0: 360
+  FloorPlan:
+    crs: simple
+    origin: [0, 1000]
+    extent_at_zoom0: 1000
+mbtiles:
+  sources:
+    cities_nztm:
+      path: WORLD_CITIES_MBTILES
+      tile_grid: NZTM2000Quad
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 1
+  tables:
+    nz_points:
+      schema: public
+      table: nz_points
+      srid: 2193
+      geometry_column: geom
+      tile_grid: NZTM2000Quad
+      properties:
+        city: text
+    points1_wgs84:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      tile_grid: WGS84Square
+      properties:
+        gid: int4
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      properties:
+        gid: int4
+    mars_points:
+      schema: public
+      table: mars_points
+      srid: 949900
+      geometry_column: geom
+      tile_grid: MarsGeographic
+      properties:
+        site: text
+    points1_crs84:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      tile_grid: WorldCRS84Quad
+      properties:
+        gid: int4
+    floor_plan:
+      schema: public
+      table: floor_plan
+      srid: 0
+      geometry_column: geom
+      tile_grid: FloorPlan
+      properties:
+        room: text
+";
+
+/// The archive in [`TILE_GRIDS_CONFIG`] is a copy of the `world_cities` fixture, kept alive by the returned directory.
+async fn martin_with_tile_grids() -> (Martin, TempDir) {
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let config = TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string());
+    let martin = Martin::builder()
+        .with_postgres()
+        .config(&config)
+        .start()
+        .await
+        .expect("failed to start martin");
+    (martin, dir)
+}
+
+/// The one warning every start from [`TILE_GRIDS_CONFIG`] logs, because Mars has no WGS84 bounds.
+fn assert_tile_grid_warnings(martin: &mut Martin) {
+    martin.assert_log_contains(
+        "Not computing the bounds of public.mars_points.geom: SRID 949900 is IAU_2015:49900, not an EPSG system",
+    );
+}
+
+#[tokio::test]
+async fn a_table_on_another_tile_grid_advertises_the_grid_and_serves_its_tiles() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    let nz = tilejson(&martin, "/nz_points").await;
+    insta::assert_json_snapshot!(nz, @r#"
+    {
+      "bounds": [
+        172.6287183595,
+        -43.5323403824,
+        174.7610537778,
+        -36.8528850812
+      ],
+      "description": "public.nz_points.geom",
+      "name": "nz_points",
+      "tileGrid": {
+        "crs": "EPSG:2193",
+        "extentAtZoom0": 10018754.1714,
+        "id": "NZTM2000Quad",
+        "origin": [
+          -3260586.7284,
+          10438190.1652
+        ]
+      },
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/nz_points/{z}/{x}/{y}"
+      ],
+      "vector_layers": [
+        {
+          "fields": {
+            "city": "text"
+          },
+          "id": "nz_points"
+        }
+      ]
+    }
+    "#);
+    // the three cities sit in three different zoom-2 tiles of the grid, and nowhere else
+    for zxy in ["2/2/1", "2/2/2", "2/1/2"] {
+        let dump = tile_dump(&martin, &format!("/nz_points/{zxy}")).await;
+        insta::assert_snapshot!(format!("nztm2000quad_{}", zxy.replace('/', "_")), dump);
+    }
+    assert_eq!(martin.get("/nz_points/2/0/0").await.status(), 204);
+
+    let catalog = martin.get("/catalog").await.json();
+    assert_eq!(catalog["tiles"]["nz_points"]["tile_grid"], "NZTM2000Quad");
+    assert_eq!(catalog["tiles"]["points1"].get("tile_grid"), None);
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn the_same_table_on_two_grids_splits_the_world_differently() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    // on the square WGS84 grid, zoom 1 splits the world at the equator and the prime meridian
+    for zxy in ["1/0/0", "1/1/0"] {
+        let dump = tile_dump(&martin, &format!("/points1_wgs84/{zxy}")).await;
+        insta::assert_snapshot!(
+            format!("wgs84square_points1_{}", zxy.replace('/', "_")),
+            dump
+        );
+    }
+    // the lower half of the square is below the south pole, so those tiles are empty
+    assert_eq!(martin.get("/points1_wgs84/1/0/1").await.status(), 204);
+
+    // a composite source cannot mix grids
+    let mixed = martin.get("/points1_wgs84,points1/1/0/0").await;
+    assert_eq!(mixed.status(), 400);
+    assert_eq!(
+        mixed.text(),
+        "Cannot merge sources in tile grid WGS84Square with WebMercatorQuad"
+    );
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
+    martin
+        .assert_log_contains("Cannot merge sources in tile grid WGS84Square with WebMercatorQuad");
+}
+
+#[tokio::test]
+async fn a_grid_outside_epsg_is_resolved_through_spatial_ref_sys() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    let mars = tilejson(&martin, "/mars_points").await;
+    // no WGS84 bounds exist for Mars, so none are advertised
+    assert_eq!(mars.get("bounds"), None);
+    assert_eq!(mars["tileGrid"]["crs"], "IAU_2015:49900");
+    for zxy in ["1/0/0", "1/1/0"] {
+        let dump = tile_dump(&martin, &format!("/mars_points/{zxy}")).await;
+        insta::assert_snapshot!(format!("mars_points_{}", zxy.replace('/', "_")), dump);
+    }
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_two_wide_grid_splits_the_world_at_the_prime_meridian() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    let tilejson = tilejson(&martin, "/points1_crs84").await;
+    assert_eq!(tilejson["tileGrid"]["id"], "WorldCRS84Quad");
+    assert_eq!(
+        tilejson["tileGrid"]["matrixAtZoom0"],
+        serde_json::json!([2, 1])
+    );
+    for zxy in ["0/0/0", "0/1/0"] {
+        let dump = tile_dump(&martin, &format!("/points1_crs84/{zxy}")).await;
+        insta::assert_snapshot!(
+            format!("worldcrs84quad_points1_{}", zxy.replace('/', "_")),
+            dump
+        );
+    }
+    // there is no third column and no second row at zoom 0
+    assert_eq!(martin.get("/points1_crs84/0/2/0").await.status(), 404);
+    assert_eq!(martin.get("/points1_crs84/0/0/1").await.status(), 404);
+    // and Web Mercator has always had exactly one tile at zoom 0
+    assert_eq!(martin.get("/points1/0/1/0").await.status(), 404);
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
+    martin.assert_log_contains("is outside the WorldCRS84Quad grid of points1_crs84");
+    martin.assert_log_contains("is outside the WebMercatorQuad grid of points1");
+}
+
+#[tokio::test]
+async fn a_simple_grid_serves_plain_planar_coordinates() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    let tilejson = tilejson(&martin, "/floor_plan").await;
+    assert_eq!(tilejson["tileGrid"]["crs"], "simple");
+    assert_eq!(tilejson.get("bounds"), None);
+    // zoom 1 quarters the 1000 by 1000 plan, one room per quarter
+    for zxy in ["1/0/0", "1/1/0", "1/1/1"] {
+        let dump = tile_dump(&martin, &format!("/floor_plan/{zxy}")).await;
+        insta::assert_snapshot!(format!("floor_plan_{}", zxy.replace('/', "_")), dump);
+    }
+    assert_eq!(martin.get("/floor_plan/1/0/1").await.status(), 204);
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn an_archive_can_be_declared_to_be_on_a_grid() {
+    let (mut martin, _dir) = martin_with_tile_grids().await;
+
+    let tilejson = tilejson(&martin, "/cities_nztm").await;
+    assert_eq!(tilejson["tileGrid"]["id"], "NZTM2000Quad");
+    let catalog = martin.get("/catalog").await.json();
+    assert_eq!(catalog["tiles"]["cities_nztm"]["tile_grid"], "NZTM2000Quad");
+    // the declaration changes nothing about the bytes, which pass straight through
+    assert_eq!(martin.get("/cities_nztm/0/0/0").await.status(), 200);
+
+    martin.stop().await;
+    assert_tile_grid_warnings(&mut martin);
 }

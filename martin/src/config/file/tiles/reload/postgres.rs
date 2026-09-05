@@ -15,7 +15,7 @@ use crate::config::file::postgres::PostgresConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::PostgresDiscovery;
 use crate::config::file::tiles::driver::{Baseline, PollTrigger, ReloadDriver};
-use crate::config::file::{CachePolicy, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, SourceBuildResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
 /// Reloader for `PostgreSQL` sources.
@@ -38,6 +38,7 @@ impl PostgresReloader {
         config: PostgresConfig,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
+        tile_grids: &TileGrids,
     ) -> Self {
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = {
@@ -55,7 +56,13 @@ impl PostgresReloader {
         };
 
         let default_cache = config.cache.or(default_cache);
-        let discovery = PostgresDiscovery::new(config, id_resolver, default_cache, process);
+        let discovery = PostgresDiscovery::new(
+            config,
+            id_resolver,
+            default_cache,
+            process,
+            tile_grids.clone(),
+        );
         Self {
             driver: ReloadDriver::new(discovery, tsm),
         }
@@ -123,7 +130,7 @@ mod tests {
     use crate::config::file::postgres::PostgresConfig;
     use crate::config::file::process::ProcessConfig;
     use crate::config::file::reload::postgres::PostgresReloader;
-    use crate::config::file::{CachePolicy, OnInvalid};
+    use crate::config::file::{CachePolicy, OnInvalid, TileGrids};
     use crate::config::primitives::IdResolver;
 
     fn reloader_with_interval(interval: Duration) -> PostgresReloader {
@@ -140,6 +147,7 @@ mod tests {
             config,
             CachePolicy::default(),
             &ProcessConfig::default(),
+            &TileGrids::default(),
         )
     }
 
@@ -201,7 +209,7 @@ mod e2e {
     use crate::config::file::process::ProcessConfig;
     use crate::config::file::tiles::discovery::PostgresDiscovery;
     use crate::config::file::tiles::driver::{Baseline, ReloadDriver, Trigger};
-    use crate::config::file::{CachePolicy, OnInvalid};
+    use crate::config::file::{CachePolicy, OnInvalid, TileGrids};
     use crate::config::primitives::IdResolver;
     use crate::test_support::pg::{
         connection_string, seed, start_postgres_11_with_posgis_3_container,
@@ -305,6 +313,7 @@ mod e2e {
             IdResolver::new(&[]),
             CachePolicy::default(),
             ProcessConfig::default(),
+            TileGrids::default(),
         );
         // `Warn`, not `Abort`: under `Abort` one failed source wedges every later tick.
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);

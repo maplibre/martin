@@ -4,7 +4,7 @@ use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 use martin_core::tiles::{BoxedSource, Source};
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{TileGrid, TileInfo};
 use tracing::{debug, info};
 
 use crate::config::file::ResolvedProcess;
@@ -256,15 +256,30 @@ impl TileSources {
 
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
+        let mut grid: Option<TileGrid> = None;
         let mut use_url_query = false;
 
         for id in ids {
             if let Some(alias) = self.aliases.get(id) {
                 for member in alias.value() {
-                    self.collect_source(member, zoom, &mut sources, &mut info, &mut use_url_query)?;
+                    self.collect_source(
+                        member,
+                        zoom,
+                        &mut sources,
+                        &mut info,
+                        &mut grid,
+                        &mut use_url_query,
+                    )?;
                 }
             } else {
-                self.collect_source(id, zoom, &mut sources, &mut info, &mut use_url_query)?;
+                self.collect_source(
+                    id,
+                    zoom,
+                    &mut sources,
+                    &mut info,
+                    &mut grid,
+                    &mut use_url_query,
+                )?;
             }
         }
 
@@ -275,13 +290,14 @@ impl TileSources {
         })
     }
 
-    /// Adds one source to a composite resolution, checking its format against the others.
+    /// Adds one source to a composite resolution, checking its format and tile grid against the others.
     fn collect_source(
         &self,
         id: &str,
         zoom: Option<u8>,
         sources: &mut Vec<(BoxedSource, ResolvedProcess)>,
         info: &mut Option<TileInfo>,
+        grid: &mut Option<TileGrid>,
         use_url_query: &mut bool,
     ) -> actix_web::Result<()> {
         let (src, pc) = self.get_source(id)?;
@@ -298,6 +314,19 @@ impl TileSources {
                 )));
             }
             None => *info = Some(src_inf),
+        }
+
+        // and in the same tile grid, or the same z/x/y would name different ground
+        match grid {
+            Some(g) if *g == *src.tile_grid() => {}
+            Some(g) => {
+                return Err(ErrorBadRequest(format!(
+                    "Cannot merge sources in tile grid {} with {}",
+                    g.id(),
+                    src.tile_grid().id()
+                )));
+            }
+            None => *grid = Some(src.tile_grid().clone()),
         }
 
         // TODO: Use chained-if-let once available

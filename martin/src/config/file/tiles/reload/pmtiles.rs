@@ -1,4 +1,5 @@
 use crate::TileSourceManager;
+use crate::config::file::TileGrids;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{
@@ -31,6 +32,7 @@ impl PmtilesReloader {
         config: &FileConfigEnum<PmtConfig>,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
+        tile_grids: &TileGrids,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         #[cfg(feature = "_process")]
@@ -79,6 +81,7 @@ impl PmtilesReloader {
             default_cache,
             &process,
             build,
+            Some(tile_grids),
         );
         let parser_config = pmt_config.clone();
         let parser: ObjectStoreParser = Box::new(move |url| parser_config.parse_url_opts(url));
@@ -164,6 +167,7 @@ mod tests {
             config,
             CachePolicy::default(),
             &ProcessConfig::default(),
+            &TileGrids::default(),
         )
     }
 
@@ -250,6 +254,7 @@ mod tests {
         sources.insert(
             "remote_a".to_owned(),
             FileConfigSrc::Obj(Box::new(FileConfigSource {
+                tile_grid: None,
                 path: PathBuf::from("s3://bucket/file.pmtiles"),
                 cache: CachePolicy::default(),
                 #[cfg(feature = "mlt")]

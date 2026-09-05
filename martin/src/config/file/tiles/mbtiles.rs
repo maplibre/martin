@@ -102,6 +102,10 @@ mod tests {
     };
 
     #[tokio::test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one literal per configured source, spelled out"
+    )]
     async fn parse() {
         let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
@@ -150,6 +154,7 @@ mod tests {
                 (
                     "pm-src2".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
@@ -170,6 +175,7 @@ mod tests {
                 (
                     "pm-src4".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,
@@ -186,6 +192,7 @@ mod tests {
                 (
                     "pm-src5".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("/tmp/cached.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         convert_to_mlt: None,

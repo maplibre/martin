@@ -110,7 +110,7 @@ unstable-duckdb = [
     "tokio/rt",
     "tokio/rt-multi-thread",
 ]
-_tiles = ["dep:base64"]
+_tiles = ["dep:base64", "dep:serde_json"]
 _raster = ["dep:image", "dep:jxl-oxide", "dep:zune-core", "dep:zune-jpegxl"]
 _neighbourhood = ["_raster", "_tiles"]
 test-pg = ["postgres"]
