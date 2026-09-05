@@ -22,7 +22,8 @@ use martin_core::CacheZoomRange;
 use martin_core::tiles::BoxedSource;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::ser::{Error as _, SerializeMap as _};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "_tiles")]
 use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
@@ -282,7 +283,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
@@ -296,6 +297,32 @@ pub struct FileConfig<T> {
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
     pub custom: T,
+}
+
+impl<T: Serialize> Serialize for FileConfig<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        if !self.paths.is_none() {
+            map.serialize_entry("paths", &self.paths)?;
+        }
+        if !self.collections.is_none() {
+            map.serialize_entry("collections", &self.collections)?;
+        }
+        if let Some(sources) = &self.sources {
+            map.serialize_entry("sources", sources)?;
+        }
+        let custom = serde_json::to_value(&self.custom).map_err(S::Error::custom)?;
+        let custom = custom.as_object().ok_or_else(|| {
+            S::Error::custom("a flattened file-source configuration must serialize as an object")
+        })?;
+        for (key, value) in custom {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
 }
 
 impl<T: ConfigurationLivecycleHooks> FileConfig<T> {

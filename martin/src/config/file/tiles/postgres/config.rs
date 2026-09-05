@@ -502,6 +502,7 @@ mod tests {
                   extent: 2048
                   buffer: 10
                   clip_geom: false
+                  filter: gid > 2
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
@@ -533,6 +534,7 @@ mod tests {
                             extent: NonZeroU32::new(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
+                            filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),
                             properties: Some(BTreeMap::from([(
                                 "gid".to_owned(),

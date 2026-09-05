@@ -4,7 +4,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, MartinBuilder, round_floats};
+use martin_e2e_tests::{Martin, MartinBuilder, StartError, round_floats};
 use serde_json::Value;
 
 /// A server that publishes everything it finds in the fixture database.
@@ -91,6 +91,16 @@ postgres:
       maxzoom: 30
       bounds: [-180.0, -90.0, 180.0, 90.0]
       geometry_type: POINT
+      properties:
+        gid: int4
+    points1_filtered:
+      layer_id: filtered
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      geometry_type: POINT
+      filter: gid <= 3
       properties:
         gid: int4
     points3857:
@@ -505,6 +515,10 @@ async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
         "description": "public.function_zxy_query_test"
       },
       "points1": {
+        "content_type": "application/x-protobuf",
+        "description": "public.points1.geom"
+      },
+      "points1_filtered": {
         "content_type": "application/x-protobuf",
         "description": "public.points1.geom"
       },
@@ -1518,4 +1532,95 @@ postgres:
     ");
 
     martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
+    let mut martin = martin_from_the_config().await;
+
+    // points1 holds 30 points with gid 1..=30 and the config keeps the first three.
+    let filtered = tilejson(&martin, "/points1_filtered").await;
+    insta::assert_json_snapshot!(filtered, @r#"
+    {
+      "bounds": [
+        142.8404063069,
+        11.926741846,
+        142.8414336,
+        11.927383336
+      ],
+      "description": "public.points1.geom",
+      "name": "points1_filtered",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/points1_filtered/{z}/{x}/{y}"
+      ],
+      "vector_layers": [
+        {
+          "fields": {
+            "gid": "int4"
+          },
+          "id": "filtered"
+        }
+      ]
+    }
+    "#);
+    insta::assert_snapshot!(tile_dump(&martin, "/points1_filtered/0/0/0").await, @"
+    layer: 0
+      name: filtered
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 3 (uint)
+      feature: 1
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 2 (uint)
+      feature: 2
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 1 (uint)
+    ");
+
+    martin.stop().await;
+    assert_unindexed_table_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
+    let error = Martin::builder()
+        .with_postgres()
+        .env("RUST_LOG", "martin=error")
+        .config(
+            "
+postgres:
+  connection_string: ${DATABASE_URL}
+  tables:
+    broken:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      filter: gid <=
+",
+        )
+        .start()
+        .await
+        .expect_err("martin must not start with a filter it cannot parse");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"
+    ERROR Filter 'gid <=' is not valid CQL2:  --> 1:7
+      |
+    1 | gid <=
+      |       ^---
+      |
+      = expected GEOMETRY, Identifier, Negative, UnaryNot, True, False, Null, DECIMAL, Double, SingleQuotedString, ExpressionInParentheses, or Array
+    ");
 }

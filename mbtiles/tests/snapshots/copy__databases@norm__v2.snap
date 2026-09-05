@@ -34,6 +34,7 @@ expression: actual_value
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"3BCDEE3F52407FF1315629298CB99133\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
     - "(  \"md-edit\", \"value - v2\"  )"
     - "(  \"md-new\", \"value - new\"  )"
     - "(  \"md-same\", \"value - same\"  )"

@@ -14,6 +14,7 @@ use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, SqliteExecu
 use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
+use crate::HashAlgorithm;
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
 use crate::{MbtError, MbtResult, MbtType, Mbtiles};
@@ -319,6 +320,7 @@ pub struct BinDiffPatcher {
     dif_mbt: Mbtiles,
     dst_type: MbtType,
     patch_type: PatchType,
+    algorithm: HashAlgorithm,
 }
 
 impl BinDiffPatcher {
@@ -327,12 +329,14 @@ impl BinDiffPatcher {
         dif_mbt: Mbtiles,
         dst_type: MbtType,
         patch_type: PatchType,
+        algorithm: HashAlgorithm,
     ) -> Self {
         Self {
             src_mbt,
             dif_mbt,
             dst_type,
             patch_type,
+            algorithm,
         }
     }
 }
@@ -414,7 +418,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         Ok(ApplierAfter {
             coord: value.coord,
             new_tile_hash: if self.dst_type == FlatWithHash {
-                format!("{:X}", md5::compute(&new_tile))
+                self.algorithm.hash(&new_tile)
             } else {
                 String::default() // This is a fast noop, no memory alloc is performed
             },

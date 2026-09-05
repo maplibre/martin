@@ -111,12 +111,15 @@ martin --help
 
 #### Optional features
 
-`unstable-foobar` features are **not included** in default builds, Homebrew, Debian packages, or the Docker image.
+Features prefixed with `unstable-` are **not included** in default builds, Homebrew, Debian packages, or the Docker image.
 To experiment with them, build Martin from source with the feature enabled:
 
 ```bash
-cargo install martin --locked --features=unstable-foobar
+cargo install martin --locked --features=unstable-duckdb
 ```
+
+The currently available unstable features are `unstable-cog` for [COG sources](sources-cog-files.md)
+and `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
 
 #### Platform-Specific Build Notes
 
@@ -124,4 +127,4 @@ cargo install martin --locked --features=unstable-foobar
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`unstable-rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).
+- **`rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).

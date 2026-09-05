@@ -168,7 +168,7 @@ test-schemas:
             rm -f "$tmp"
         else
             echo "missing $f aborting"
-            exit -1
+            exit 1
         fi
     done
     echo "::endgroup::"
@@ -192,7 +192,7 @@ test-schemas:
         rm -f "$tmp"
     else
         echo "missing $doc aborting"
-        exit -1
+        exit 1
     fi
     echo "::endgroup::"
 

@@ -12,9 +12,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
-    AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType,
-    apply_patch, pack, unpack,
+    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError,
+    MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme,
+    UnixSeconds, UpdateZoomType, apply_patch, pack, unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -230,6 +230,9 @@ pub struct SharedCopyOpts {
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
     mbtiles_type: Option<MbtTypeCli>,
+    /// Algorithm the destination hashes its tiles with. If not specified, defaults to the source file's, and to md5 when the source records none
+    #[arg(long, value_enum, value_name = "ALGORITHM")]
+    hash_algorithm: Option<HashAlgorithm>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
     #[arg(long, value_enum)]
     on_duplicate: Option<CopyDuplicateMode>,
@@ -280,6 +283,7 @@ impl SharedCopyOpts {
             zoom_levels: self.zoom_levels,
             bbox: self.bbox,
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
+            hash_algorithm: self.hash_algorithm,
             force: self.force,
             validate: self.validate,
             strict: self.strict,

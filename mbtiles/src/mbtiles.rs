@@ -8,7 +8,7 @@ use futures::Stream;
 use martin_tile_utils::{Tile, TileCoord};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
-use sqlite_hashes::register_md5_functions;
+use sqlite_hashes::{register_fnv_functions, register_md5_functions, register_xxhash_functions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{
     AssertSqlSafe, Connection as _, Executor as _, Row as _, SqliteConnection, SqliteExecutor,
@@ -16,6 +16,7 @@ use sqlx::{
 };
 use tracing::debug;
 
+use crate::HashAlgorithm;
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
 use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
@@ -625,8 +626,9 @@ impl Mbtiles {
     ) -> MbtResult<()> {
         debug!("Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}", batch.len());
         let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let mut tx = conn.begin().await?;
-        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
+        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate, algorithm);
         if let Some(sql2) = sql2 {
             let sql2 = tx.prepare(to_sql_str(sql2)).await?;
             for (_, _, _, tile_data) in batch {
@@ -685,8 +687,11 @@ impl Mbtiles {
     fn get_insert_sql(
         src_type: MbtType,
         on_duplicate: CopyDuplicateMode,
+        algorithm: HashAlgorithm,
     ) -> (String, Option<String>) {
         let on_duplicate = on_duplicate.to_sql();
+        let hash4 = algorithm.sql_hash("?4");
+        let hash1 = algorithm.sql_hash("?1");
         match src_type {
             MbtType::Flat => (
                 format!(
@@ -700,7 +705,7 @@ impl Mbtiles {
                 format!(
                     "
     INSERT {on_duplicate} INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-    VALUES (?1, ?2, ?3, ?4, md5_hex(?4));"
+    VALUES (?1, ?2, ?3, ?4, {hash4});"
                 ),
                 None,
             ),
@@ -708,12 +713,12 @@ impl Mbtiles {
                 format!(
                     "
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
-    VALUES (?1, ?2, ?3, md5_hex(?4));"
+    VALUES (?1, ?2, ?3, {hash4});"
                 ),
                 Some(format!(
                     "
     INSERT {on_duplicate} INTO images (tile_id, tile_data)
-    VALUES (md5_hex(?1), ?1);"
+    VALUES ({hash1}, ?1);"
                 )),
             ),
             // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
@@ -736,6 +741,9 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     // The registered functions will be dropped when SQLX drops DB connection.
     let rc = unsafe { sqlite_hashes::rusqlite::Connection::from_handle(handle) }?;
     register_md5_functions(&rc)?;
+    register_fnv_functions(&rc)?;
+    register_xxhash_functions(&rc)?;
+    register_fnv1a_decimal(&rc)?;
     register_bsdiffraw_functions(&rc)?;
     register_gzip_functions(&rc)?;
     Ok(())
@@ -750,6 +758,27 @@ pub fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Optio
     // so we must ensure that it is vald first.
     TileCoord::is_possible_on_zoom_level(z, x, y)
         .then(|| TileCoord::new_unchecked(z, x, invert_y_value(z, y)))
+}
+
+/// Registers `fnv1a_decimal`, the 64-bit `FNV-1a` of its argument as the decimal digits tippecanoe writes.
+fn register_fnv1a_decimal(
+    conn: &sqlite_hashes::rusqlite::Connection,
+) -> sqlite_hashes::rusqlite::Result<()> {
+    use std::hash::Hasher as _;
+
+    use sqlite_hashes::rusqlite::functions::FunctionFlags;
+    conn.create_scalar_function(
+        "fnv1a_decimal",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let mut hasher = fnv::FnvHasher::default();
+            if let Some(bytes) = ctx.get_raw(0).as_blob_or_null()? {
+                hasher.write(bytes);
+            }
+            Ok(hasher.finish().to_string())
+        },
+    )
 }
 
 #[cfg(test)]

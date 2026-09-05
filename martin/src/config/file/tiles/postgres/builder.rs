@@ -174,10 +174,17 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
+        let mut declared = HashSet::<(&str, &str, &str, Option<&str>)>::new();
         for (id, cfg_inf) in &self.tables {
             match self.build_one_table_info(&db_tables_info, all_schemas, id, cfg_inf) {
                 Ok(merged_inf) => {
-                    if !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column)) {
+                    used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+                    if !declared.insert((
+                        &cfg_inf.schema,
+                        &cfg_inf.table,
+                        &cfg_inf.geometry_column,
+                        cfg_inf.filter.as_deref(),
+                    )) {
                         warn!(
                             source.id = %id,
                             schema = %cfg_inf.schema,

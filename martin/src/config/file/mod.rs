@@ -11,6 +11,10 @@ pub use collect_unrecognized::*;
 
 mod main;
 pub use main::*;
+#[cfg(feature = "pmtiles")]
+mod object_store;
+#[cfg(feature = "pmtiles")]
+pub(crate) use object_store::ObjectStoreConfig;
 pub mod cache;
 pub mod cors;
 pub mod srv;

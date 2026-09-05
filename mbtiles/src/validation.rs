@@ -3,7 +3,7 @@ use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
 use sqlx::{AssertSqlSafe, Row as _, SqliteConnection, SqliteExecutor, query};
@@ -39,23 +39,106 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 /// used to show up as a confusing [`AGG_TILES_HASH`] mismatch (#1086).
 pub const HASH_ALGORITHM: &str = "hash_algorithm";
 
-/// tile-hashing algorithm recorded in the [`HASH_ALGORITHM`] metadata key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// The algorithm a file's tile hashes and `agg_tiles_hash` are computed with, recorded in the [`HASH_ALGORITHM`] metadata key.
+///
+/// Every variant is a `SQL` function pair this crate registers on each connection, `<name>_hex` for one tile and `<name>_concat_hex` for the aggregate.
+/// A hash is stored as upper-case hex, except [`Fnv1aDecimal`](Self::Fnv1aDecimal), which is what tippecanoe writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+#[serde(rename_all = "lowercase")]
 pub enum HashAlgorithm {
-    /// md5 - used by `mbtiles`, `martin-cp`, `tilelive-copy`. the only algorithm this
-    /// build can compute, and the default when [`HASH_ALGORITHM`] is absent.
+    /// `MD5`, what `mbtiles`, `martin-cp` and `tilelive-copy` write, and the default when the key is absent.
     #[default]
     Md5,
+    /// 64-bit `FNV-1a` as 16 hex characters.
+    Fnv1a,
+    /// 64-bit `FNV-1a` as a decimal number, the form tippecanoe writes into `tile_id`.
+    #[serde(rename = "fnv1a-decimal")]
+    #[cfg_attr(feature = "cli", value(name = "fnv1a-decimal"))]
+    Fnv1aDecimal,
+    /// `xxHash64` as 16 hex characters.
+    Xxh64,
+    /// `XXH3` 64-bit as 16 hex characters.
+    Xxh3,
 }
 
 impl HashAlgorithm {
-    /// parse a [`HASH_ALGORITHM`] value (case-insensitive). `None` if this build can't compute it.
+    /// Parses a [`HASH_ALGORITHM`] value, ignoring case.
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         match value.to_ascii_lowercase().as_str() {
             "md5" => Some(Self::Md5),
+            "fnv1a" => Some(Self::Fnv1a),
+            "fnv1a-decimal" => Some(Self::Fnv1aDecimal),
+            "xxh64" => Some(Self::Xxh64),
+            "xxh3" => Some(Self::Xxh3),
             _ => None,
         }
+    }
+
+    /// The value written into the [`HASH_ALGORITHM`] metadata key.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Md5 => "md5",
+            Self::Fnv1a => "fnv1a",
+            Self::Fnv1aDecimal => "fnv1a-decimal",
+            Self::Xxh64 => "xxh64",
+            Self::Xxh3 => "xxh3",
+        }
+    }
+
+    /// The `SQL` expression hashing `expr` the way this file's tiles are hashed.
+    #[must_use]
+    pub fn sql_hash(self, expr: &str) -> String {
+        match self {
+            Self::Md5 => format!("md5_hex({expr})"),
+            Self::Fnv1a => format!("fnv1a_hex({expr})"),
+            // tippecanoe stores the 64-bit value as its decimal digits, which SQLite renders from the raw bytes as a big-endian integer
+            Self::Fnv1aDecimal => format!("fnv1a_decimal({expr})"),
+            Self::Xxh64 => format!("xxh64_hex({expr})"),
+            Self::Xxh3 => format!("xxh3_64_hex({expr})"),
+        }
+    }
+
+    /// The `SQL` aggregate hashing the concatenation of its arguments in the order given.
+    #[must_use]
+    pub const fn sql_concat_hash(self) -> &'static str {
+        match self {
+            Self::Md5 => "md5_concat_hex",
+            Self::Fnv1a | Self::Fnv1aDecimal => "fnv1a_concat_hex",
+            Self::Xxh64 => "xxh64_concat_hex",
+            Self::Xxh3 => "xxh3_64_concat_hex",
+        }
+    }
+}
+
+impl HashAlgorithm {
+    /// Hashes `data` in Rust exactly as the `SQL` function of this algorithm does, for code paths that hold no connection.
+    #[must_use]
+    pub fn hash(self, data: &[u8]) -> String {
+        use std::hash::Hasher as _;
+        match self {
+            Self::Md5 => format!("{:X}", md5::compute(data)),
+            Self::Fnv1a | Self::Fnv1aDecimal => {
+                let mut hasher = fnv::FnvHasher::default();
+                hasher.write(data);
+                let value = hasher.finish();
+                if self == Self::Fnv1aDecimal {
+                    value.to_string()
+                } else {
+                    format!("{value:016X}")
+                }
+            }
+            Self::Xxh64 => format!("{:016X}", xxhash_rust::xxh64::xxh64(data, 0)),
+            Self::Xxh3 => format!("{:016X}", xxhash_rust::xxh3::xxh3_64(data)),
+        }
+    }
+}
+
+impl std::fmt::Display for HashAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
@@ -711,10 +794,8 @@ LIMIT 1;"
         let Some(stored) = self.get_agg_tiles_hash(&mut *conn).await? else {
             return Err(AggHashValueNotFound(self.filepath().to_owned()));
         };
-        // bail if the stored hash used an algorithm we can't recompute - else comparing
-        // md5 against, say, fnv1a shows up as a confusing `AggHashMismatch` (#1086).
-        let HashAlgorithm::Md5 = self.get_hash_algorithm(&mut *conn).await?;
-        let computed = calc_agg_tiles_hash(&mut *conn).await?;
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        let computed = calc_agg_tiles_hash(&mut *conn, algorithm).await?;
         if stored != computed {
             let file = self.filepath().to_owned();
             return Err(AggHashMismatch {
@@ -739,7 +820,10 @@ LIMIT 1;"
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
-        let hash = calc_agg_tiles_hash(&mut *conn).await?;
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        let hash = calc_agg_tiles_hash(&mut *conn, algorithm).await?;
+        self.set_metadata_value(&mut *conn, HASH_ALGORITHM, algorithm.as_str())
+            .await?;
         if old_hash.as_ref() == Some(&hash) {
             info!(
                 mbtiles.file = %self,
@@ -773,6 +857,8 @@ LIMIT 1;"
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         // Note that hex() always returns upper-case HEX values
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        let computed = algorithm.sql_hash("tile_data");
         let sql = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => {
                 info!(
@@ -781,16 +867,16 @@ LIMIT 1;"
                 );
                 return Ok(());
             }
-            MbtType::FlatWithHash => {
+            MbtType::FlatWithHash => format!(
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_hash) AS expected,
-                        md5_hex(tile_data) AS computed
+                        {computed} AS computed
                     FROM tiles_with_hash
                 ) AS t
                 WHERE expected != computed
                 LIMIT 1;"
-            }
+            ),
             MbtType::Normalized { schema, .. } => {
                 let map = schema.map_table();
                 let data_table = schema.content_table();
@@ -816,13 +902,14 @@ LIMIT 1;"
                     });
                 }
 
-                // For Hash schema, also verify that tile_id == md5_hex(tile_data)
+                // For Hash schema, also verify that tile_id is the hash of tile_data
                 if matches!(schema, NormalizedSchema::Hash) {
+                    let computed = algorithm.sql_hash("d.tile_data");
                     let sql = format!(
                         "SELECT expected, computed FROM (
                             SELECT
                                 upper(CAST(d.{id} AS TEXT)) AS expected,
-                                md5_hex(d.tile_data) AS computed
+                                {computed} AS computed
                             FROM {data_table} d
                         ) AS t
                         WHERE expected != computed
@@ -849,7 +936,7 @@ LIMIT 1;"
             }
         };
 
-        query(sql)
+        query(AssertSqlSafe(sql))
             .fetch_optional(&mut *conn)
             .await?
             .map_or(Ok(()), |v| {
@@ -932,33 +1019,38 @@ LIMIT 1;"
 /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
 /// This should work on all mbtiles files perf `MBTiles` specification.
 #[hotpath::measure]
-pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
+pub async fn calc_agg_tiles_hash<T>(conn: &mut T, algorithm: HashAlgorithm) -> MbtResult<String>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Calculating agg_tiles_hash");
-    let query = query(
-        // The md5_concat func will return NULL if there are no rows in the tiles table.
-        // For our use case, we will treat it as an empty string, and hash that.
-        // `tile_data` values must be stored as a blob per MBTiles spec
-        // `md5` functions will fail if the value is not text/blob/null
-        //
-        // Note that ORDER BY controls the output ordering, which is important for the hash value,
-        // and we must use ORDER BY as a parameter to the aggregate function itself (available since SQLite 3.44.0)
-        // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+    debug!(%algorithm, "Calculating agg_tiles_hash");
+    let concat = algorithm.sql_concat_hash();
+    let empty = algorithm.sql_hash("''");
+    // The concat aggregate returns NULL if there are no rows in the tiles table.
+    // For our use case, we will treat it as an empty string, and hash that.
+    // `tile_data` values must be stored as a blob per MBTiles spec, and the hash
+    // functions fail if the value is not text/blob/null.
+    //
+    // ORDER BY controls the output ordering, which is important for the hash value,
+    // and must be a parameter of the aggregate function itself (SQLite 3.44.0+).
+    // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
+    let sql = format!(
         "
 SELECT coalesce(
-           md5_concat_hex(
+           {concat}(
                cast(zoom_level AS text),
                cast(tile_column AS text),
                cast(tile_row AS text),
                tile_data
                ORDER BY zoom_level, tile_column, tile_row),
-           md5_hex(''))
+           {empty})
 FROM tiles;
-",
+"
     );
-    Ok(query.fetch_one(conn).await?.get::<String, _>(0))
+    Ok(query(AssertSqlSafe(sql))
+        .fetch_one(conn)
+        .await?
+        .get::<String, _>(0))
 }
 
 #[cfg(test)]
@@ -969,6 +1061,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::mbtiles::tests::open;
     use crate::metadata::anonymous_mbtiles;
+    use rstest::rstest;
 
     #[actix_rt::test]
     async fn detect_type() {
@@ -1051,29 +1144,95 @@ pub(crate) mod tests {
     }
 
     #[actix_rt::test]
-    async fn hash_algorithm_rejects_unsupported() {
+    async fn hash_algorithm_rejects_an_unknown_name() {
         let (mbt, mut conn) = anonymous_mbtiles(
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
-             INSERT INTO metadata VALUES('hash_algorithm', 'fnv1a');",
+             INSERT INTO metadata VALUES('hash_algorithm', 'crc32');",
         )
         .await;
         let result = mbt.get_hash_algorithm(&mut conn).await;
         assert_matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. }));
     }
 
+    #[rstest]
+    #[case("md5", HashAlgorithm::Md5)]
+    #[case("FNV1A", HashAlgorithm::Fnv1a)]
+    #[case("fnv1a-decimal", HashAlgorithm::Fnv1aDecimal)]
+    #[case("xxh64", HashAlgorithm::Xxh64)]
+    #[case("XXH3", HashAlgorithm::Xxh3)]
+    fn every_algorithm_parses_and_names_itself(
+        #[case] text: &str,
+        #[case] algorithm: HashAlgorithm,
+    ) {
+        assert_eq!(HashAlgorithm::parse(text), Some(algorithm));
+        assert_eq!(HashAlgorithm::parse(algorithm.as_str()), Some(algorithm));
+    }
+
+    /// The `SQL` functions and the Rust hasher must agree, since bindiff hashes in Rust and everything else in `SQL`.
+    /// The expected digests are the published test vectors of each algorithm for the ASCII bytes `hello`.
+    #[rstest]
+    #[case(HashAlgorithm::Md5, "5D41402ABC4B2A76B9719D911017C592")]
+    #[case(HashAlgorithm::Fnv1a, "A430D84680AABD0B")]
+    #[case(HashAlgorithm::Fnv1aDecimal, "11831194018420276491")]
+    #[case(HashAlgorithm::Xxh64, "26C7827D889F6DA3")]
+    #[case(HashAlgorithm::Xxh3, "9555E8555C62DCFD")]
     #[actix_rt::test]
-    async fn agg_hash_check_rejects_unsupported_algorithm() {
-        // declaring a non-md5 algorithm must fail clearly, not as a confusing agg_tiles_hash mismatch.
+    async fn sql_and_rust_hash_the_same(#[case] algorithm: HashAlgorithm, #[case] expected: &str) {
+        let (_, mut conn) =
+            anonymous_mbtiles("CREATE TABLE metadata (name text, value text);").await;
+        let sql = format!("SELECT {}", algorithm.sql_hash("X'68656C6C6F'"));
+        let from_sql: String = query(AssertSqlSafe(sql))
+            .fetch_one(&mut conn)
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(from_sql, expected);
+        assert_eq!(algorithm.hash(b"hello"), expected);
+    }
+
+    #[actix_rt::test]
+    async fn a_tippecanoe_file_validates_under_fnv1a_decimal() {
+        // tile_id is the 64-bit FNV-1a of the tile as decimal digits, exactly what tippecanoe's mbtiles.cpp writes.
+        let script = include_str!("../../tests/fixtures/mbtiles/tippecanoe_fnv1a.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        assert_eq!(
+            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
+            HashAlgorithm::Md5,
+            "a file that records no algorithm is md5 until told otherwise"
+        );
+        assert_matches!(
+            mbt.check_each_tile_hash(&mut conn).await,
+            Err(IncorrectTileHash { .. })
+        );
+        mbt.set_metadata_value(&mut conn, HASH_ALGORITHM, "fnv1a-decimal")
+            .await
+            .unwrap();
+        mbt.check_each_tile_hash(&mut conn).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn the_agg_hash_is_computed_with_the_declared_algorithm() {
         let (mbt, mut conn) = anonymous_mbtiles(
             "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);
              CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
-             INSERT INTO metadata VALUES('agg_tiles_hash', 'DEADBEEF');
-             INSERT INTO metadata VALUES('hash_algorithm', 'fnv1a');
+             INSERT INTO metadata VALUES('hash_algorithm', 'xxh64');
              INSERT INTO tiles VALUES(0, 0, 0, X'00');",
         )
         .await;
-        let result = mbt.check_agg_tiles_hashes(&mut conn).await;
-        assert_matches!(result, Err(MbtError::UnsupportedHashAlgorithm { .. }));
+        let hash = mbt.update_agg_tiles_hash(&mut conn).await.unwrap();
+        assert_eq!(
+            hash.len(),
+            16,
+            "an xxh64 aggregate is 16 hex characters, not md5's 32: {hash}"
+        );
+        assert_eq!(mbt.check_agg_tiles_hashes(&mut conn).await.unwrap(), hash);
+        // and the md5 aggregate of the same rows is a different value, so the algorithm was honoured
+        assert_ne!(
+            calc_agg_tiles_hash(&mut conn, HashAlgorithm::Md5)
+                .await
+                .unwrap(),
+            hash
+        );
     }
 
     #[actix_rt::test]

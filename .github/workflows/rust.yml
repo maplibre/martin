@@ -41,7 +41,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with:
           rendering: true
           # The 10GB cache quota only has room for the Linux entry; a macOS entry
@@ -52,7 +52,7 @@ jobs:
         run: just test-packages-ci
       - run: just test-doc
       - if: matrix.os == 'ubuntu-latest'
-        uses: ./.github/actions/upload-coverage
+        uses: $/.github/actions/upload-coverage
         with: { suite: unit }
   test-cog:
     name: COG GeoTIFF tests
@@ -65,11 +65,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { coverage: true }
       - name: Run COG tests
         run: just test-cog
-      - uses: ./.github/actions/upload-coverage
+      - uses: $/.github/actions/upload-coverage
         with: { suite: cog }
   test-duckdb:
     name: DuckDB GeoParquet tests
@@ -82,11 +82,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { cache: true, coverage: true }
       - name: Run DuckDB tests
         run: just test-duckdb
-      - uses: ./.github/actions/upload-coverage
+      - uses: $/.github/actions/upload-coverage
         with: { suite: duckdb }
   test-rendering:
     name: Style rendering tests
@@ -99,11 +99,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { rendering: true, cache: true, coverage: true }
       - name: Run rendering tests
         run: just test-rendering
-      - uses: ./.github/actions/upload-coverage
+      - uses: $/.github/actions/upload-coverage
         with: { suite: rendering }
   lint-rust:
     name: Lint the Rust code
@@ -114,7 +114,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { components: clippy rustfmt, rendering: true, cache: true }
       - run: just clippy
   check-features:
@@ -135,7 +135,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { rendering: true, cache: true }
       - run: just check --partition ${{ matrix.partition }}
   lint-rust-dependencies:
@@ -147,11 +147,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { tools: 'cargo-shear,just' }
       - run: just shear
   build-aarch64-unknown-linux-musl:
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-linux-musl
       os: ubuntu-latest
@@ -159,7 +159,7 @@ jobs:
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-musl
       os: ubuntu-latest
@@ -209,7 +209,7 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { tools: 'just,sqlx-cli,fast-mvt' }
 
       # we want to test our docker images before we push them to the registry
@@ -322,7 +322,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
@@ -341,7 +341,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
@@ -385,14 +385,14 @@ jobs:
 
   build-aarch64-apple-darwin:
     if: inputs.run-heavy
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: aarch64-apple-darwin
       os: macos-latest # M-series CPU
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-debian-x86_64:
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: debian-x86_64
       # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
@@ -402,21 +402,21 @@ jobs:
 
   build-x86_64-pc-windows-msvc:
     if: inputs.run-heavy
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-pc-windows-msvc
       os: windows-latest
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-gnu:
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-gnu
       os: ubuntu-latest
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-aarch64-unknown-linux-gnu:
-    uses: ./.github/workflows/build-binary.yml
+    uses: $/.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
@@ -432,7 +432,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -471,7 +471,7 @@ jobs:
       - name: Set up sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { tools: 'just,fast-mvt', rendering: true, cache: true }
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
@@ -597,7 +597,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { rendering: true, coverage: true }
       - parallel:
           - name: Init pg11-alpine database
@@ -630,7 +630,7 @@ jobs:
           just test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-      - uses: ./.github/actions/upload-coverage
+      - uses: $/.github/actions/upload-coverage
         with: { suite: pg }
 
   unit-test-svc-minio:
@@ -645,11 +645,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { coverage: true }
       - name: Unit Tests
         run: just test-minio
-      - uses: ./.github/actions/upload-coverage
+      - uses: $/.github/actions/upload-coverage
         with: { suite: minio }
 
   test-with-svc:
@@ -724,7 +724,7 @@ jobs:
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up sqlite3-tools
         run: sudo apt update && sudo apt-get install -y sqlite3-tools
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { tools: 'just,fast-mvt', rendering: true }
       # This job is about reaching each PostGIS version over each sslmode. The tests that assert
       # on tile contents are pinned to the PostGIS behind docker-compose and run in the jobs
@@ -773,7 +773,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { tools: 'just,cargo-binstall', rendering: true }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
@@ -801,7 +801,7 @@ jobs:
       - name: Download the per-suite lcov reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { pattern: 'coverage-*', merge-multiple: true, path: 'target/coverage' }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none, tools: 'just,grcov' }
       - name: Merge the reports into one Cobertura report
         run: just coverage-merge
