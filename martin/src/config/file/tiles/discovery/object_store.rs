@@ -1,7 +1,8 @@
-//! [`ObjectStoreDiscovery`]: a [`Discovery`] over remote object-store prefixes (`PMTiles`).
+//! Storage-neutral discovery over remote object prefixes.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::stream::TryStreamExt as _;
@@ -13,43 +14,77 @@ use crate::config::file::process::{ProcessConfig, ResolvedProcess};
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _,
+    CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 
-const PMTILES_EXT_DOT: &str = ".pmtiles";
+pub type ObjectStoreParser = Box<
+    dyn Fn(
+            &Url,
+        )
+            -> object_store::Result<(Box<dyn object_store::ObjectStore>, object_store::path::Path)>
+        + Send
+        + Sync,
+>;
 
-/// A [`Discovery`] over remote object-store prefixes; entries are [`Version::Opaque`].
+/// Builds a source discovered in an object store.
+///
+/// The enum keeps the supported source kinds explicit and avoids erasing async builders behind
+/// boxed, pinned futures. Future remote-backed source kinds can add a variant here.
+pub enum ObjectStoreSourceBuilder {
+    Pmtiles(PmtConfig),
+}
+
+impl ObjectStoreSourceBuilder {
+    async fn build(
+        &self,
+        id: String,
+        url: Url,
+        cache: CachePolicy,
+    ) -> SourceBuildResult<BuiltSource> {
+        match self {
+            Self::Pmtiles(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
+        }
+    }
+}
+
+/// A [`Discovery`] over one or more remote object-store prefixes.
 pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
+    extensions: Arc<[String]>,
+    label: &'static str,
     id_resolver: IdResolver,
-    config: PmtConfig,
-    /// The kind level cache bounds, for every remote source.
+    reload_interval: Duration,
+    parser: ObjectStoreParser,
+    build: ObjectStoreSourceBuilder,
     default_cache: CachePolicy,
-    /// The kind level, which every remote prefix serves with.
     process: ResolvedProcess,
 }
 
 impl ObjectStoreDiscovery {
-    /// Collects the remote URL prefixes from a file config; local paths are skipped.
+    #[expect(clippy::too_many_arguments)]
     #[must_use]
-    pub fn from_config(
-        config: &FileConfigEnum<PmtConfig>,
+    pub fn from_config<T: TileSourceConfiguration>(
+        config: &FileConfigEnum<T>,
+        extensions: &[&str],
+        label: &'static str,
+        reload_interval: Duration,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
         process: &ProcessConfig,
+        parser: ObjectStoreParser,
+        build: ObjectStoreSourceBuilder,
     ) -> Self {
-        let mut remote_prefixes: Vec<Url> = vec![];
+        let mut remote_prefixes = vec![];
         let mut collect = |path: &PathBuf| match SourceLocation::classify_path(path) {
             Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
                 remote_prefixes.push(url);
             }
             Ok(SourceLocation::Local(_)) => {}
-            Err(e) => tracing::warn!(
-                "remote URL prefix {path:?} could not be parsed as URL ({e}); skipping"
+            Err(error) => tracing::warn!(
+                "{label}: remote prefix {path:?} is not a valid URL ({error}); skipping"
             ),
         };
-
         match config {
             FileConfigEnum::Config(cfg) => match &cfg.paths {
                 OptOneMany::One(path) => collect(path),
@@ -60,21 +95,20 @@ impl ObjectStoreDiscovery {
             FileConfigEnum::Paths(paths) => paths.iter().for_each(collect),
             FileConfigEnum::None => {}
         }
-
         remote_prefixes.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         remote_prefixes.dedup();
 
-        let pmt_config = match config {
-            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                PmtConfig::default()
-            }
-        };
-
         Self {
             remote_prefixes,
+            extensions: extensions
+                .iter()
+                .map(|extension| extension.to_ascii_lowercase())
+                .collect(),
+            label,
             id_resolver,
-            config: pmt_config,
+            reload_interval,
+            parser,
+            build,
             default_cache,
             process: process
                 .resolve()
@@ -82,16 +116,14 @@ impl ObjectStoreDiscovery {
         }
     }
 
-    /// The remote prefixes this discovery polls.
     #[must_use]
     pub fn remote_prefixes(&self) -> &[Url] {
         &self.remote_prefixes
     }
 
-    /// Polling cadence for the remote prefixes.
     #[must_use]
-    pub fn reload_interval(&self) -> Duration {
-        self.config.reload_interval
+    pub const fn reload_interval(&self) -> Duration {
+        self.reload_interval
     }
 }
 
@@ -99,30 +131,30 @@ impl Discovery for ObjectStoreDiscovery {
     type Args = Url;
 
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
-        // Per-prefix failures are logged and skipped so a transient outage doesn't flap the catalog.
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            match list_remote_prefix(prefix, &self.config, &self.id_resolver).await {
+            match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
+                .await
+            {
                 Ok(entries) => {
                     for (id, url, version) in entries {
                         out.insert(id, (version, url));
                     }
                 }
-                Err(e) => {
-                    tracing::warn!(
-                        "PmtilesReloader: list failed for {prefix}: {e:?}; skipping prefix this tick"
-                    );
-                }
+                Err(error) => tracing::warn!(
+                    "{}: list failed for {}: {error:?}; skipping prefix this tick",
+                    self.label,
+                    sanitized_url(prefix)
+                ),
             }
         }
         Ok(Discovered::new(out))
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
-        self.config
-            .new_sources_url(id.to_owned(), args.clone(), self.default_cache)
+        self.build
+            .build(id.to_owned(), args.clone(), self.default_cache)
             .await
-            .map(Into::into)
     }
 
     fn process(&self) -> ResolvedProcess {
@@ -130,12 +162,7 @@ impl Discovery for ObjectStoreDiscovery {
     }
 }
 
-/// Computes a [`Version`] from object store metadata, preferring `ETag` over last-modified,
-/// when available.
 fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
-    // Since `Version` is an opaque "data version", and is only used for equality-comparison
-    // when assessing if a source's underlying data has changed since a previous discovery,
-    // it is safe to transform to a u128 here.
     if let Some(etag) = &meta.e_tag {
         Version::Tracked(xxhash_rust::xxh3::xxh3_128(etag.as_bytes()))
     } else {
@@ -146,30 +173,34 @@ fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
 
 async fn list_remote_prefix(
     prefix: &Url,
-    config: &PmtConfig,
+    extensions: &[String],
     id_resolver: &IdResolver,
+    parser: &ObjectStoreParser,
 ) -> SourceBuildResult<Vec<(String, Url, Version)>> {
-    let (store, base) = config
-        .parse_url_opts(prefix)
-        .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;
-
+    let (store, base) = parser(prefix)
+        .map_err(|error| ConfigFileError::ObjectStoreUrlParsing(error, sanitized_url(prefix)))?;
     let mut out = Vec::new();
     let mut stream = store.list(Some(&base));
     while let Some(meta) = stream
         .try_next()
         .await
-        .map_err(|e| ConfigFileError::ObjectStoreList(e, prefix.to_string()))?
+        .map_err(|error| ConfigFileError::ObjectStoreList(error, sanitized_url(prefix)))?
     {
-        if !meta.location.as_ref().ends_with(PMTILES_EXT_DOT) {
+        let Some(filename) = meta.location.filename() else {
+            continue;
+        };
+        let Some((stem, extension)) = filename.rsplit_once('.') else {
+            continue;
+        };
+        if !extensions
+            .iter()
+            .any(|allowed| extension.eq_ignore_ascii_case(allowed))
+        {
             continue;
         }
-        let stem = meta
-            .location
-            .filename()
-            .and_then(|f| f.strip_suffix(PMTILES_EXT_DOT))
-            .unwrap_or("_unknown");
-        // `meta.location` is store-relative (bucket-rooted for s3/gs/azure), so we have
-        // to reattach scheme+authority to round-trip through `new_sources_url`.
+        if stem.is_empty() {
+            continue;
+        }
         let object_url_str = format!(
             "{}://{}/{}",
             prefix.scheme(),
@@ -180,9 +211,83 @@ async fn list_remote_prefix(
             tracing::warn!("cannot build absolute URL from {object_url_str}");
             continue;
         };
-        let version = version_from_meta(&meta);
         let id = id_resolver.resolve(stem, object_url.to_string());
-        out.push((id, object_url, version));
+        out.push((id, object_url, version_from_meta(&meta)));
     }
     Ok(out)
+}
+
+fn sanitized_url(url: &Url) -> String {
+    let mut result = format!("{}://", url.scheme());
+    if let Some(host) = url.host_str() {
+        result.push_str(host);
+    }
+    if let Some(port) = url.port() {
+        result.push(':');
+        result.push_str(&port.to_string());
+    }
+    result.push_str(url.path());
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use object_store::memory::InMemory;
+    use object_store::{ObjectStoreExt as _, PutPayload};
+
+    use super::*;
+    use crate::config::primitives::IdResolver;
+
+    #[tokio::test]
+    async fn prefix_discovery_filters_extensions_and_preserves_object_urls() {
+        let store = InMemory::new();
+        for path in [
+            "imagery/vienna.tif",
+            "imagery/ortho.TIFF",
+            "imagery/.tif",
+            "imagery/readme.txt",
+            "outside/ignored.tif",
+        ] {
+            store
+                .put(
+                    &object_store::path::Path::from(path),
+                    PutPayload::from_static(b"fixture"),
+                )
+                .await
+                .unwrap();
+        }
+        let parser_store = store.clone();
+        let parser: ObjectStoreParser = Box::new(move |_url: &Url| {
+            Ok((
+                Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from("imagery"),
+            ))
+        });
+        let entries = list_remote_prefix(
+            &Url::parse("s3://bucket/imagery/").unwrap(),
+            &["tif".to_owned(), "tiff".to_owned()],
+            &IdResolver::new(&[]),
+            &parser,
+        )
+        .await
+        .unwrap();
+        let found = entries
+            .into_iter()
+            .map(|(id, url, _)| (id, url.to_string()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            found,
+            [
+                (
+                    "ortho".to_owned(),
+                    "s3://bucket/imagery/ortho.TIFF".to_owned()
+                ),
+                (
+                    "vienna".to_owned(),
+                    "s3://bucket/imagery/vienna.tif".to_owned()
+                ),
+            ]
+        );
+    }
 }
