@@ -259,9 +259,12 @@ fn is_zlib_header(cmf: u8, flg: u8) -> bool {
     cmf & 0x0f == 8 && cmf >> 4 <= 7 && (u16::from(cmf) * 256 + u16::from(flg)) % 31 == 0
 }
 
+/// Describes a tile payload as a `(format, encoding)` pair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TileInfo {
+    /// The underlying tile data format, e.g. MVT, PNG or JPEG.
     pub format: Format,
+    /// External compression applied to the payload bytes.
     pub encoding: Encoding,
 }
 
@@ -275,29 +278,20 @@ impl TileInfo {
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
         match Encoding::detect(value) {
-            Some(encoding @ Encoding::Gzip) => {
-                if let Ok(decompressed) = decode_gzip(value) {
-                    let inner_format = Self::detect_vectorish_format(&decompressed);
-                    return Self::new(inner_format, encoding);
-                }
-                // If decompression fails or format is unknown, assume MVT
-                return Self::new(Format::Mvt, encoding);
-            }
-            Some(encoding @ Encoding::Zlib) => {
-                if let Ok(decompressed) = decode_zlib(value) {
-                    let inner_format = Self::detect_vectorish_format(&decompressed);
-                    return Self::new(inner_format, encoding);
-                }
-                // If decompression fails or format is unknown, assume MVT
-                return Self::new(Format::Mvt, encoding);
-            }
-            _ => {}
+            Some(encoding @ Encoding::Gzip) => Self::detect_inner(decode_gzip(value), encoding),
+            Some(encoding @ Encoding::Zlib) => Self::detect_inner(decode_zlib(value), encoding),
+            _ => match Self::detect_raster_formats(value) {
+                Some(raster_format) => Self::new(raster_format, Encoding::Internal),
+                None => Self::detect_vectorish_format(value).into(),
+            },
         }
-        if let Some(raster_format) = Self::detect_raster_formats(value) {
-            Self::new(raster_format, Encoding::Internal)
-        } else {
-            Self::detect_vectorish_format(value).into()
-        }
+    }
+
+    /// Detect the format carried inside a compressed payload, assuming MVT if it cannot be
+    /// decompressed.
+    fn detect_inner(decompressed: std::io::Result<Vec<u8>>, encoding: Encoding) -> Self {
+        let format = decompressed.map_or(Format::Mvt, |d| Self::detect_vectorish_format(&d));
+        Self::new(format, encoding)
     }
 
     /// Fast-path detection without decompression

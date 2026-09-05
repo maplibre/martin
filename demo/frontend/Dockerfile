@@ -2,7 +2,7 @@ FROM node:alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1ed
 
 WORKDIR /usr/src/app
 
-COPY package*.json .
+COPY package.json package-lock.json ./
 RUN npm clean-install --no-fund
 
 COPY . .
