@@ -5,6 +5,7 @@
 //! `l` gives the log the whole screen and the arrow keys scroll it, for reading it without leaving the dashboard.
 
 use std::io::IsTerminal as _;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
@@ -28,6 +29,9 @@ const PAGE: usize = 10;
 
 /// The dashboard of this process, once `--tui` installed it.
 static DASHBOARD: OnceLock<Arc<Dashboard>> = OnceLock::new();
+
+/// Whether the dashboard thread is drawing on the terminal right now.
+static ON_SCREEN: AtomicBool = AtomicBool::new(false);
 
 /// Whether stdout is a terminal the dashboard can draw on.
 #[must_use]
@@ -60,14 +64,22 @@ fn installed() -> Option<&'static Arc<Dashboard>> {
     DASHBOARD.get()
 }
 
+/// Gives the terminal back if the dashboard is drawing on it, so that stderr is readable again.
+pub fn restore_terminal() {
+    if ON_SCREEN.swap(false, Ordering::SeqCst) {
+        ratatui::restore();
+    }
+}
+
 /// Draws the dashboard on its own thread until `q` is pressed, then completes `quit`.
 pub fn run(dashboard: Arc<Dashboard>, quit: oneshot::Sender<()>) {
     std::thread::Builder::new()
         .name("martin-tui".to_owned())
         .spawn(move || {
             let mut terminal = ratatui::init();
+            ON_SCREEN.store(true, Ordering::SeqCst);
             let result = show(&mut terminal, &dashboard);
-            ratatui::restore();
+            restore_terminal();
             if let Err(e) = result {
                 error!("The dashboard stopped: {e}");
             }

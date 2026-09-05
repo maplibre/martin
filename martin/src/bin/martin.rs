@@ -170,7 +170,13 @@ async fn main() {
     );
     if let Err(e) = Box::pin(started).await {
         let rendered = e.render_diagnostic_with(log_format);
-        if tracing::event_enabled!(tracing::Level::ERROR) {
+        #[cfg(feature = "tui")]
+        let swallowed_by_dashboard = tui::is_installed();
+        #[cfg(not(feature = "tui"))]
+        let swallowed_by_dashboard = false;
+        #[cfg(feature = "tui")]
+        tui::restore_terminal();
+        if tracing::event_enabled!(tracing::Level::ERROR) && !swallowed_by_dashboard {
             error!("{rendered}");
         } else {
             eprintln!("{rendered}");
