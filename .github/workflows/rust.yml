@@ -181,10 +181,7 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      # Arches an arm64 image is built for: the multi-arch push, and the release PRs
-      # whose emulated test needs one. Building it emulates apt-get, so it needs QEMU.
       DOCKER_PLATFORMS: ${{ (github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-      # Arches loaded into the local daemon, so only the ones tested in this job.
       DOCKER_TEST_PLATFORMS: ${{ (github.event_name == 'release' || startsWith(github.head_ref, 'release-plz-')) && 'linux/arm64,linux/amd64' || 'linux/amd64' }}
     services:
       postgres:
