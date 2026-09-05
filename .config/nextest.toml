@@ -1,0 +1,26 @@
+# Configuration for cargo-nextest, which runs the tests in place of `cargo test`.
+# https://nexte.st/docs/configuration/
+
+[profile.default]
+# `cargo test` reports every failure in a test binary before giving up, nextest stops at the
+# first one. Keep the old behaviour so a single broken test still shows the rest of the damage.
+fail-fast = false
+# Repeat the output of everything that failed once the run is over, so a failure is not buried
+# thousands of lines up in a CI log.
+failure-output = "immediate-final"
+# The end-to-end tests boot martin as a subprocess and wait for it to answer. Under QEMU in CI
+# that legitimately takes a while, so warn later than the 60s default.
+slow-timeout = { period = "120s" }
+
+[test-groups]
+# Each of these tests auto-discovers a whole database, which builds a pool of DEFAULT_POOL_SIZE
+# (20) connections. `cargo test` ran the four binaries one after another; nextest gives every
+# test its own process and runs as many as the machine has cores, so on a big machine the pools
+# together ask for more than the server's `max_connections` and the tests fail with
+# "sorry, too many clients already". Four at a time stays under the 100 that the postgis images
+# default to, and is no slower than the run it replaces.
+postgres = { max-threads = 4 }
+
+[[profile.default.overrides]]
+filter = 'binary(/^pg_/)'
+test-group = 'postgres'

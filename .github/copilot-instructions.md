@@ -37,7 +37,7 @@ LLM-generated changes that show lack of care (missed obvious cases, shallow erro
 
 ### Directive 001 - Build Integrity
 
-* **NEVER cancel** `cargo build`, `cargo test`, `just check`, or `just ci-test` once started.
+* **NEVER cancel** `cargo build`, `cargo nextest run`, `just check`, or `just ci-test` once started.
 * Always allocate sufficient timeout **before** starting long-running commands.
 
 ### Directive 002 - Scope Isolation
@@ -111,7 +111,7 @@ cargo build --workspace
 | `cargo build --workspace` | 20m     |
 | `just check`              | 20m     |
 | `cargo clippy`            | 5m      |
-| `cargo test`              | 5m      |
+| `cargo nextest run`       | 5m      |
 | `just test`               | 30m     |
 | `just ci-test`            | 45m     |
 

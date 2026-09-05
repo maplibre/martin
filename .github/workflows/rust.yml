@@ -43,12 +43,13 @@ jobs:
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with:
+          tools: 'just,nextest'
           rendering: true
           # The 10GB cache quota only has room for the Linux entry; a macOS entry
           # gets evicted before the next run can restore it (see #3156).
           cache: ${{ matrix.os == 'ubuntu-latest' }}
           coverage: ${{ matrix.os == 'ubuntu-latest' }}
-      - name: Run cargo test
+      - name: Run the unit tests
         run: just test-packages-ci
       - run: just test-doc
       - if: matrix.os == 'ubuntu-latest'
@@ -66,7 +67,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { coverage: true }
+        with: { tools: 'just,nextest', coverage: true }
       - name: Run COG tests
         run: just test-cog
       - uses: $/.github/actions/upload-coverage
@@ -83,7 +84,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { cache: true, coverage: true }
+        with: { tools: 'just,nextest', cache: true, coverage: true }
       - name: Run DuckDB tests
         run: just test-duckdb
       - uses: $/.github/actions/upload-coverage
@@ -100,7 +101,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true, cache: true, coverage: true }
+        with: { tools: 'just,nextest', rendering: true, cache: true, coverage: true }
       - name: Run rendering tests
         run: just test-rendering
       - uses: $/.github/actions/upload-coverage
@@ -212,7 +213,7 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,sqlx-cli,fast-mvt' }
+        with: { tools: 'just,nextest,sqlx-cli,fast-mvt' }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -332,7 +333,7 @@ jobs:
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
-          cargo test --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -351,7 +352,7 @@ jobs:
           export MARTIN_BIN="docker run $RUN $TAG"
           export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
-          cargo test --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -478,7 +479,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,fast-mvt', rendering: true, cache: true }
+        with: { tools: 'just,nextest,fast-mvt', rendering: true, cache: true }
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes
@@ -534,14 +535,14 @@ jobs:
           fi
           if [ "$RUNNER_OS" == "Linux" ]; then
             export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
-            cargo test --package martin-e2e-tests --features test-pg
+            cargo nextest run --package martin-e2e-tests --features test-pg
           else
             export DATABASE_URL="${STEPS_PG_OUTPUTS_CONNECTION_URI}"
             # Windows runs the PostGIS that the setup action ships, which encodes geometry
             # differently than the one behind the snapshots, so the database tests that run here
             # are the ones asserting on what martin logs and publishes.
-            cargo test --package martin-e2e-tests
-            cargo test --package martin-e2e-tests --features test-pg --test config_file
+            cargo nextest run --package martin-e2e-tests
+            cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           fi
         env:
           STEPS_PG_OUTPUTS_CONNECTION_URI: ${{ steps.pg.outputs.connection-uri }}
@@ -556,7 +557,7 @@ jobs:
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
           export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
-          cargo test --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
 
@@ -604,7 +605,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true, coverage: true }
+        with: { tools: 'just,nextest', rendering: true, coverage: true }
       - parallel:
           - name: Init pg11-alpine database
             run: tests/fixtures/initdb.sh
@@ -652,7 +653,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { coverage: true }
+        with: { tools: 'just,nextest', coverage: true }
       - name: Unit Tests
         run: just test-minio
       - uses: $/.github/actions/upload-coverage
@@ -731,7 +732,7 @@ jobs:
       - name: Set up sqlite3-tools
         run: sudo apt update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,fast-mvt', rendering: true }
+        with: { tools: 'just,nextest,fast-mvt', rendering: true }
       # This job is about reaching each PostGIS version over each sslmode. The tests that assert
       # on tile contents are pinned to the PostGIS behind docker-compose and run in the jobs
       # using that image, so what runs here is the slice that only needs a database to talk to.
@@ -744,7 +745,7 @@ jobs:
           export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
           chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
-          cargo test --package martin-e2e-tests --features test-pg --test config_file
+          cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
@@ -760,7 +761,7 @@ jobs:
           export MARTIN_BIN=/usr/bin/martin
           export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
-          cargo test --package martin-e2e-tests --features test-pg --test config_file
+          cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           sudo dpkg -P martin
           rm -rf target_releases
         env:

@@ -171,6 +171,7 @@ just stop        # stop test database
 ### Testing
 
 Martin's test suite includes tests that require PostgreSQL to be running and tests that don't.
+The `just` targets run them with [cargo-nextest](https://nexte.st/), installing it on first use.
 
 ```bash
 # Run tests that don't require PostgreSQL (no external dependencies)
@@ -193,6 +194,7 @@ These are not part of the default build; see [DuckDB Sources](../sources-duckdb.
 ### Pass arguments to commands
 
 ```bash
-just test-cargo -- --test integration_test
+just test-cargo --test tilejson   # a single test target
+just test-cargo -- --include-ignored
 just run --config /path/to/config.yaml
 ```
