@@ -123,10 +123,6 @@ gen-schemas: fetch
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    # `serde_json` writes one array element per line and keeps insertion order,
-    # while the committed files carry biome's formatting from the pre-commit
-    # hook. Applying it here keeps regeneration from producing a diff that is
-    # nothing but a reformat.
     martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
