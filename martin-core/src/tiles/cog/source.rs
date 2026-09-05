@@ -24,7 +24,7 @@ use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
-use crate::tiles::cog::{CogReader, ObjectStoreCogReader};
+use crate::tiles::cog::{CogObjectMeta, CogReader, ObjectStoreCogReader};
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
@@ -76,7 +76,7 @@ impl CogSource {
 
     /// Returns the object metadata captured when this source was opened.
     #[must_use]
-    pub fn object_metadata(&self) -> &crate::tiles::cog::CogObjectMeta {
+    pub fn object_metadata(&self) -> &CogObjectMeta {
         self.reader.metadata()
     }
 
