@@ -538,7 +538,8 @@ async fn render_with_overlays(
             | StyleError::StyleLoadError(_)
             | StyleError::RenderingError(_)
             | StyleError::FailedToSendRequest
-            | StyleError::FailedToReceiveResponse) => {
+            | StyleError::FailedToReceiveResponse
+            | StyleError::RenderingPanicked) => {
                 error!("Failed to render static image: {other}");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())
