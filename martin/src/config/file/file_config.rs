@@ -4,14 +4,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem;
-#[cfg(any(
-    feature = "_tiles",
-    feature = "sprites",
-    feature = "styles",
-    feature = "fonts"
-))]
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(feature = "_tiles")]
@@ -377,12 +370,28 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 }
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-#[serde(untagged)]
+#[cfg_attr(feature = "unstable-schemas", schemars(untagged))]
 pub enum FileConfigSrc {
     Path(PathBuf),
     Obj(Box<FileConfigSource>),
+}
+
+impl Serialize for FileConfigSrc {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Path(path) => sanitized_source_path(path).serialize(serializer),
+            Self::Obj(source) => {
+                let mut source = (**source).clone();
+                source.path = sanitized_source_path(&source.path);
+                source.serialize(serializer)
+            }
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for FileConfigSrc {
@@ -760,7 +769,7 @@ fn plan_one_path(
     default_cache: CachePolicy,
 ) -> SourceBuildResult<Vec<Planned>> {
     if let Some(url) = parse_url(parse_urls, &path)? {
-        let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
+        let target_ext = extension.iter().find(|&e| url.path().ends_with(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
             // a prefix to be discovered by the format-specific reloader (e.g. PmtilesReloader
@@ -849,6 +858,26 @@ fn sanitize_url(url: &Url) -> String {
     }
     result.push_str(url.path());
     result
+}
+
+fn sanitized_source_path(path: &Path) -> PathBuf {
+    #[cfg(not(feature = "_tiles"))]
+    return path.to_path_buf();
+
+    #[cfg(feature = "_tiles")]
+    {
+        let Ok(location) = SourceLocation::classify_path(path) else {
+            return path.to_path_buf();
+        };
+        let Some(mut url) = location.into_url() else {
+            return path.to_path_buf();
+        };
+        let _ = url.set_username("");
+        let _ = url.set_password(None);
+        url.set_query(None);
+        url.set_fragment(None);
+        PathBuf::from(url.as_str())
+    }
 }
 
 #[cfg(feature = "_tiles")]
@@ -1437,6 +1466,27 @@ mod deserialize_tests {
             panic!("expected Obj variant");
         };
         assert_eq!(obj.path, PathBuf::from("/tmp/tile.pmtiles"));
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn file_config_src_serialization_redacts_remote_url_credentials() {
+        let source = FileConfigSrc::Path(PathBuf::from(
+            "https://user:password@example.com/image.tif?token=secret#fragment",
+        ));
+        assert_eq!(
+            serde_json::to_value(source).unwrap(),
+            serde_json::Value::String("https://example.com/image.tif".to_owned())
+        );
+
+        let source = FileConfigSrc::Obj(Box::new(FileConfigSource {
+            path: PathBuf::from("s3://user:password@bucket/image.tif?token=secret#fragment"),
+            ..FileConfigSource::default()
+        }));
+        assert_eq!(
+            serde_json::to_value(source).unwrap()["path"],
+            "s3://bucket/image.tif"
+        );
     }
 
     #[test]

@@ -173,7 +173,7 @@ impl Args {
 
         #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
-            config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
+            config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
         }
 
         #[cfg(feature = "styles")]
@@ -434,6 +434,28 @@ mod tests {
             .unwrap_err();
         let bad = vec!["foobar".to_owned()];
         assert_matches!(err, UnrecognizableConnections(v) if v == bad);
+    }
+
+    #[cfg(feature = "unstable-cog")]
+    #[test]
+    fn cli_accepts_remote_cog_urls() {
+        let args = Args::parse_from([
+            "martin",
+            "https://example.org/imagery/vienna.tif",
+            "s3://bucket/imagery/ortho.tiff",
+        ]);
+        let mut config = Config::default();
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )
+        .unwrap();
+
+        insta::assert_yaml_snapshot!(config.cog, @r#"
+        - "https://example.org/imagery/vienna.tif"
+        - "s3://bucket/imagery/ortho.tiff"
+        "#);
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]

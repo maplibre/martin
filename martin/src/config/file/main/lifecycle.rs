@@ -113,7 +113,11 @@ impl Config {
         self.passthrough.finalize().await?;
 
         #[cfg(feature = "unstable-cog")]
-        self.cog.finalize().await?;
+        {
+            // URL-only shorthand still needs object-store defaults and environment migration.
+            self.cog = self.cog.clone().into_config();
+            self.cog.finalize().await?;
+        }
 
         #[cfg(feature = "unstable-duckdb")]
         self.duckdb.finalize().await?;

@@ -789,6 +789,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-tiff"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05522e42858395d38271023b42c1cc80307340cca9aa1348fda35d154a423874"
+dependencies = [
+ "async-trait",
+ "bytemuck",
+ "byteorder",
+ "bytes",
+ "flate2",
+ "futures",
+ "jpeg-decoder",
+ "num_enum",
+ "thiserror 2.0.20",
+ "tokio",
+ "weezl",
+ "zstd 0.13.3",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4801,6 +4821,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpeg-decoder"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
+
+[[package]]
 name = "js-sys"
 version = "0.3.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5539,6 +5565,7 @@ version = "0.11.1"
 dependencies = [
  "actix-web",
  "approx",
+ "async-tiff",
  "async-trait",
  "backon",
  "base64 0.23.1",

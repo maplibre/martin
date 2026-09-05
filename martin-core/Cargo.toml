@@ -76,7 +76,18 @@ postgres = [
     "tokio/time",
     "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff", "dep:serde_json", "_tiles"]
+unstable-cog = [
+    "dep:async-tiff",
+    "dep:bytes",
+    "dep:futures",
+    "dep:object_store",
+    "dep:png",
+    "dep:serde_json",
+    "dep:tiff",
+    "dep:tokio",
+    "tokio/rt",
+    "_tiles",
+]
 overlay = ["dep:geojson", "dep:strum"]
 rendering = ["styles", "overlay", "dep:maplibre_native", "dep:flume"]
 fonts = [
@@ -121,10 +132,12 @@ maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
+async-tiff = { workspace = true, optional = true }
 async-trait.workspace = true
 backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 chrono.workspace = true
 contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }

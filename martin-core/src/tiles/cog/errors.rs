@@ -9,6 +9,14 @@ use tiff::TiffError;
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum CogError {
+    /// Cannot read the COG from its backing object store.
+    #[error(transparent)]
+    Reader(#[from] super::reader::CogReaderError),
+
+    /// Cannot decode the COG using the asynchronous TIFF parser.
+    #[error("Couldn't decode {1} as tiff file: {0}")]
+    AsyncTiff(#[source] async_tiff::error::AsyncTiffError, String),
+
     /// Cannot decode file as valid TIFF.
     #[error("Couldn't decode {1} as tiff file: {0}")]
     InvalidTiffFile(#[source] TiffError, PathBuf),

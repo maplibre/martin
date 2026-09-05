@@ -118,7 +118,15 @@ default = [
     "contour",
     "tui",
 ]
-unstable-cog = ["martin-core/unstable-cog", "_tiles", "_file_kinds"]
+unstable-cog = [
+    "martin-core/unstable-cog",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+    "dep:xxhash-rust",
+    "_tiles",
+    "_file_kinds",
+]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
 rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
