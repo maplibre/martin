@@ -17,7 +17,10 @@ use xxhash_rust::xxh3::xxh3_128;
 use crate::errors::MbtResult;
 use crate::mbtiles::parse_tile_index;
 use crate::queries::{detach_db, init_mbtiles_schema};
-use crate::{CopyDuplicateMode, MbtError, MbtType, Mbtiles, NormalizedSchema, TileCoord};
+use crate::{
+    CopyDuplicateMode, HASH_ALGORITHM, HashAlgorithm, MbtError, MbtType, Mbtiles, NormalizedSchema,
+    TileCoord,
+};
 
 /// Default number of tiles per batch in the pipeline.
 const DEFAULT_BATCH_SIZE: usize = 500;
@@ -177,9 +180,12 @@ where
             ));
         }
 
+        let algorithm = src.get_hash_algorithm(&mut src_conn).await?;
         let dst = Mbtiles::new(&self.dst_file)?;
         let mut dst_conn = dst.open_or_new().await?;
         init_mbtiles_schema(&mut dst_conn, dst_type, false).await?;
+        dst.set_metadata_value(&mut dst_conn, HASH_ALGORITHM, algorithm.as_str())
+            .await?;
 
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.
@@ -212,8 +218,14 @@ where
         }
 
         let stats = if let Some(src_schema) = src_type.normalized_schema() {
-            self.run_normalized_path(&mut src_conn, src_schema, &mut dst_conn, dst_type)
-                .await?
+            self.run_normalized_path(
+                &mut src_conn,
+                src_schema,
+                &mut dst_conn,
+                dst_type,
+                algorithm,
+            )
+            .await?
         } else {
             if needs_src_attached {
                 detach_db(&mut dst_conn, "srcDb").await?;
@@ -238,6 +250,7 @@ where
         src_schema: NormalizedSchema,
         dst_conn: &mut SqliteConnection,
         dst_type: MbtType,
+        algorithm: HashAlgorithm,
     ) -> MbtResult<TranscodeStats> {
         let tile_id_col = src_schema.tile_id_column();
         let src_map = src_schema.map_table();
@@ -263,8 +276,15 @@ where
         let sql = format!("SELECT {select_col}, tile_data FROM {content_table}");
         let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size, id_is_integer);
         let compute = normalized_compute(raw_rx, enc_tx, transform);
-        let writer =
-            normalized_writer(dst_conn, enc_rx, dst_type, src_map, tile_id_col, batch_size);
+        let writer = normalized_writer(
+            dst_conn,
+            enc_rx,
+            dst_type,
+            src_map,
+            tile_id_col,
+            batch_size,
+            algorithm,
+        );
 
         let ((), (), (unique_encoded, tiles_written)) = tokio::try_join!(reader, compute, writer)?;
 
@@ -437,6 +457,7 @@ async fn normalized_writer(
     src_map: &str,
     tile_id_col: &str,
     batch_size: usize,
+    algorithm: HashAlgorithm,
 ) -> MbtResult<(usize, usize)> {
     // 2 params per row (id, data). Keep chunks under the SQLite param cap.
     let chunk_rows = (SQLITE_MAX_PARAMS / 2).min(batch_size).max(1);
@@ -468,7 +489,8 @@ async fn normalized_writer(
         let mut tx = dst_conn.begin().await?;
         for chunk in batch.chunks(chunk_rows) {
             rows_written +=
-                write_normalized_chunk(&mut tx, chunk, dst_type, src_map, tile_id_col).await?;
+                write_normalized_chunk(&mut tx, chunk, dst_type, src_map, tile_id_col, algorithm)
+                    .await?;
             unique_encoded += chunk.len();
         }
         tx.commit().await?;
@@ -525,7 +547,9 @@ async fn write_normalized_chunk(
     dst_type: MbtType,
     src_map: &str,
     tile_id_col: &str,
+    algorithm: HashAlgorithm,
 ) -> MbtResult<usize> {
+    let hash_of = |expr: &str| algorithm.sql_hash(expr);
     // Build the VALUES placeholder list once: "(?,?),(?,?),..."
     let mut values = String::with_capacity(chunk.len() * 6);
     for i in 0..chunk.len() {
@@ -553,7 +577,8 @@ async fn write_normalized_chunk(
                 format!(
                     "WITH new_tiles(old_id, tile_data) AS (VALUES {values})
                      INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data)
-                     SELECT md5_hex(tile_data), tile_data FROM new_tiles"
+                     SELECT {hash}, tile_data FROM new_tiles",
+                    hash = hash_of("tile_data")
                 )
             } else {
                 format!("INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}")
@@ -570,9 +595,10 @@ async fn write_normalized_chunk(
             "WITH new_tiles(tile_id, tile_data) AS (VALUES {values})
              INSERT OR REPLACE INTO tiles_with_hash
                  (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-             SELECT m.zoom_level, m.tile_column, m.tile_row, n.tile_data, md5_hex(n.tile_data)
+             SELECT m.zoom_level, m.tile_column, m.tile_row, n.tile_data, {hash}
              FROM new_tiles n
-             JOIN srcDb.{src_map} m ON m.{tile_id_col} = n.tile_id"
+             JOIN srcDb.{src_map} m ON m.{tile_id_col} = n.tile_id",
+            hash = hash_of("n.tile_data")
         ),
         MbtType::Cache => unreachable!("cache files are rejected before transcoding starts"),
     };
@@ -590,7 +616,8 @@ async fn write_normalized_chunk(
         let map_sql = format!(
             "WITH new_tiles(old_id, tile_data) AS (VALUES {values})
              INSERT OR REPLACE INTO _tile_id_map (old_id, new_id)
-             SELECT old_id, md5_hex(tile_data) FROM new_tiles"
+             SELECT old_id, {hash} FROM new_tiles",
+            hash = hash_of("tile_data")
         );
         let mut mq = sqlx::query(AssertSqlSafe(map_sql));
         for (tile_id, data) in chunk {
