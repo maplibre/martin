@@ -106,13 +106,7 @@ fn webui() {
         .change_detection();
 }
 
-/// Embed a one-page placeholder instead of building the frontend.
-///
-/// `unstable-schemas` only ever powers the `gen-schemas` binary, which prints
-/// JSON and never serves a page. It has to keep `webui` on so the `web_ui`
-/// config field stays in the generated schema, but the npm install and vite
-/// build behind it - a ~460 MB `node_modules` copy per feature combination in
-/// `target/` - are pure waste there.
+/// Embed a one-page placeholder instead of building the frontend to save space
 #[cfg(all(feature = "webui", feature = "unstable-schemas"))]
 fn webui_stub() {
     println!(
