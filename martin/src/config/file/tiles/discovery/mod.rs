@@ -22,7 +22,7 @@ pub use fs::{FsDiscovery, FsSourceBuilder};
 #[cfg(feature = "pmtiles")]
 mod object_store;
 #[cfg(feature = "pmtiles")]
-pub use object_store::ObjectStoreDiscovery;
+pub use object_store::{ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder};
 
 #[cfg(feature = "postgres")]
 mod postgres;

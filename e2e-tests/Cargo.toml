@@ -45,6 +45,7 @@ mlt-core.workspace = true
 pbf_font_tools.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
+serde-saphyr.workspace = true
 test_each_file.workspace = true
 
 [lints]

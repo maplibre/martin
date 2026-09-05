@@ -386,6 +386,57 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
+#[tokio::test]
+async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = tmp.path().join("save_config.yaml");
+    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
+    let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
+        .config(&s3_config(&statics, "s3", "webp2.pmtiles"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/s3/1/0/0").await.status(), 200);
+    martin.stop().await;
+    assert_the_aws_environment_was_overridden(&mut martin);
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let mut parsed = serde_saphyr::from_str::<serde_json::Value>(&saved)
+        .expect("--save-config output is valid YAML");
+    let endpoint = statics.base_url();
+    assert_eq!(
+        parsed["pmtiles"]["aws_endpoint"].as_str(),
+        Some(endpoint.as_str())
+    );
+    parsed["pmtiles"]["aws_endpoint"] = "[ENDPOINT]".into();
+    insta::with_settings!({sort_maps => true}, {
+        insta::assert_json_snapshot!(parsed["pmtiles"], @r#"
+        {
+          "allow_http": true,
+          "aws_endpoint": "[ENDPOINT]",
+          "aws_region": "eu-central-1",
+          "skip_signature": true,
+          "sources": {
+            "s3": "s3://pmtilestest/webp2.pmtiles"
+          },
+          "virtual_hosted_style_request": false
+        }
+        "#);
+    });
+
+    let mut restarted = Martin::builder()
+        .config(&saved)
+        .start()
+        .await
+        .expect("failed to restart martin from --save-config output");
+    assert_eq!(restarted.get("/s3/1/0/0").await.status(), 200);
+    restarted.stop().await;
+    assert_the_aws_environment_was_overridden(&mut restarted);
+}
+
 /// The remote-store tests above read a raster archive, whose tiles travel uncompressed. A vector
 /// archive stores its tiles gzipped, and martin hands those to the client still gzipped rather
 /// than recompressing them.
