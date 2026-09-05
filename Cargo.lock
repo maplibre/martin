@@ -5737,6 +5737,7 @@ dependencies = [
  "enum-display",
  "flate2",
  "flume",
+ "fnv",
  "futures",
  "hotpath 0.24.0",
  "indicatif",
@@ -6079,6 +6080,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "noncrypto-digests"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dff2c6107ce0dc4e97c195ab1197c90bc1badf76d0d772bbe167df8cb6f7cf7d"
+dependencies = [
+ "digest 0.11.3",
+ "fnv",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -8807,6 +8819,7 @@ dependencies = [
  "digest 0.11.3",
  "hex",
  "md-5",
+ "noncrypto-digests",
  "rusqlite",
 ]
 
