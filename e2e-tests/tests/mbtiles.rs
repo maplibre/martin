@@ -1,6 +1,8 @@
 //! `MBTiles` sources, both configured up front and served from a watched directory.
 
-use martin_e2e_tests::{Martin, WatchedDir, fixture, mbtiles_fixture, mbtiles_from_sql};
+use martin_e2e_tests::{Martin, WatchedDir, mbtiles_fixture};
+#[cfg(not(windows))]
+use martin_e2e_tests::{fixture, mbtiles_from_sql};
 use rstest::rstest;
 use tempfile::TempDir;
 

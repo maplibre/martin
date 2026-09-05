@@ -250,7 +250,15 @@ mod tests {
         );
         assert_eq!(styles.sources.len(), 3);
 
-        let catalog = styles.get_catalog();
+        let mut catalog = styles.get_catalog();
+        // The catalog keeps the paths as joined, so on Windows they hold backslashes.
+        for entry in catalog.values_mut() {
+            entry.path = entry
+                .path
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+                .into();
+        }
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
