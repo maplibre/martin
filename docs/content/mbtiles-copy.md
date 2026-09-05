@@ -23,6 +23,13 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
          --dst-type flat-with-hash
 ```
 
+The destination hashes its tiles with the source's [hash algorithm](mbtiles-validation.md#hash-algorithm), or with the one `--hash-algorithm` names.
+
+```bash
+mbtiles copy src.mbtiles dst.mbtiles \
+         --dst-type flat-with-hash --hash-algorithm xxh3
+```
+
 ### Merging several files
 
 `copy` takes any number of source files before the destination and copies them into it one after another.

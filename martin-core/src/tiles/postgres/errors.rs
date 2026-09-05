@@ -20,6 +20,10 @@ pub type PostgresResult<T> = Result<T, PostgresError>;
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum PostgresError {
+    /// The configured filter is not valid CQL2
+    #[error("Filter '{0}' is not valid CQL2: {1}")]
+    InvalidFilter(String, String),
+
     /// Cannot load platform root certificates.
     #[error("Cannot load platform root certificates: {0:?}")]
     CannotLoadRoots(Vec<rustls_native_certs::Error>),
@@ -138,7 +142,8 @@ impl crate::Classify for PostgresError {
         use crate::ErrorKind::{Internal, Unavailable};
         match self {
             Self::PostgresPoolConnError(..) => Unavailable,
-            Self::CannotLoadRoots(_)
+            Self::InvalidFilter(..)
+            | Self::CannotLoadRoots(_)
             | Self::CannotOpenCert(..)
             | Self::CannotParseCert(..)
             | Self::InvalidPrivateKey(_)

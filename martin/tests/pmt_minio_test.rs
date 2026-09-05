@@ -8,10 +8,9 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body, read_b
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
-use martin::config::file::CachePolicy;
-use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
+use martin::config::file::{CachePolicy, ProcessConfig};
 use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
@@ -313,9 +312,13 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
     // disappear from the catalog.
     upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
 
-    // Sleep through several polling ticks (the interval is 1s) to give the reloader
-    // every opportunity to detect the overwrite.
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    wait_for_catalog(
+        &app,
+        Duration::from_secs(10),
+        "alpha updated with name removed",
+        |t| t.get("alpha").is_some_and(|v| v.get("name").is_none()),
+    )
+    .await;
 
     // Snapshot the catalog. The `name` field should be gone.
     let tiles = catalog_tiles(&app).await;

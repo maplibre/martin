@@ -22,6 +22,7 @@ expression: actual_value
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"012434681F0EBF296906D6608C54D632\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
     - "(  \"md-edit\", \"value - v1\"  )"
     - "(  \"md-remove\", \"value - remove\"  )"
     - "(  \"md-same\", \"value - same\"  )"

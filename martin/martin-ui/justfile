@@ -24,6 +24,10 @@ _npm-install:
 bless: _npm-install
     npm run test:update-snapshots
 
+# Build the production bundle that martin's build.rs embeds into the server
+build:
+    npm run build
+
 # Clean build artifacts
 clean:
     rm -rf dist node_modules

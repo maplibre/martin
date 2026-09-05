@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging
-stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,tui,webui'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -171,7 +171,7 @@ test-schemas:
             rm -f "$tmp"
         else
             echo "missing $f aborting"
-            exit -1
+            exit 1
         fi
     done
     echo "::endgroup::"
@@ -195,7 +195,7 @@ test-schemas:
         rm -f "$tmp"
     else
         echo "missing $doc aborting"
-        exit -1
+        exit 1
     fi
     echo "::endgroup::"
 

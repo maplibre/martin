@@ -4,7 +4,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::Martin;
+use martin_e2e_tests::{Martin, StartError};
 use tempfile::TempDir;
 
 const MLT_ACCEPT: &str = "application/vnd.maplibre-tile";
@@ -273,4 +273,18 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     proxy.stop().await;
     upstream.stop().await;
     assert_table_source_warning(&mut upstream);
+}
+
+#[tokio::test]
+async fn the_dashboard_refuses_to_start_without_a_terminal() {
+    let error = Martin::builder()
+        .arg("--tui")
+        .start()
+        .await
+        .expect_err("martin must not start a dashboard on a pipe");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"--tui needs an interactive terminal");
 }

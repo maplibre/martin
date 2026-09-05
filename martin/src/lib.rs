@@ -29,6 +29,8 @@ mod test_support;
 pub mod maplibre_style;
 
 pub mod srv;
+#[cfg(feature = "tui")]
+pub mod tui;
 
 #[cfg(feature = "unstable-schemas")]
 pub mod schemas;
