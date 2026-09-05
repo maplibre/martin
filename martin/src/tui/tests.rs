@@ -10,11 +10,7 @@ use super::render;
 use super::render::{LogSize, LogView};
 use super::state::{Dashboard, TileRequest};
 
-fn render(dashboard: &Dashboard, now: Instant) -> String {
-    render_with(dashboard, now, LogView::default())
-}
-
-fn render_with(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
+fn render(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
     let view = dashboard.snapshot_at(now);
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).expect("a test terminal");
     terminal
@@ -38,7 +34,8 @@ fn a_fresh_dashboard_shows_the_address_and_an_empty_map() {
     let dashboard = Dashboard::started_at(started);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
 
-    insta::assert_snapshot!(render(&dashboard, started + Duration::from_secs(5)));
+    let now = started + Duration::from_secs(5);
+    insta::assert_snapshot!(render(&dashboard, now, LogView::default()));
 }
 
 #[test]
@@ -90,7 +87,7 @@ fn requests_fill_the_sources_the_map_and_the_rate() {
         at(18),
     );
 
-    insta::assert_snapshot!(render(&dashboard, at(20)));
+    insta::assert_snapshot!(render(&dashboard, at(20), LogView::default()));
 }
 
 #[test]
@@ -100,7 +97,7 @@ fn an_expanded_log_takes_the_screen() {
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     writeln!(dashboard.log().writer(Level::INFO), "INFO Starting Martin").expect("a log line");
 
-    insta::assert_snapshot!(render_with(
+    insta::assert_snapshot!(render(
         &dashboard,
         started + Duration::from_secs(5),
         LogView {
@@ -119,7 +116,7 @@ fn scrolling_the_log_stops_short_of_the_newest_line() {
         writeln!(dashboard.log().writer(Level::INFO), "INFO log line {line}").expect("a log line");
     }
 
-    let scrolled = render_with(
+    let scrolled = render(
         &dashboard,
         started + Duration::from_secs(5),
         LogView {

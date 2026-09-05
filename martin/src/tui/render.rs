@@ -13,7 +13,6 @@ use tracing::Level;
 use super::log::LogLine;
 use super::state::Snapshot;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// A tile asked for this recently is drawn as fresh.
 const FRESH: Duration = Duration::from_secs(10);
 /// A tile asked for longer ago than this leaves the map.
@@ -22,12 +21,8 @@ const SHOWN: Duration = Duration::from_secs(60);
 const KEYS: &str = " q quit   c clear counters ";
 /// How many rows the log takes while it is not expanded.
 const LOG_HEIGHT: u16 = 12;
-/// The button offered at the bottom of a log that is scrolled away from its newest lines.
-const NEWER: &str = " ▼ view newer ▼ ";
 /// What the pretty format indents the lines under an event by.
 const NOTE_INDENT: &str = "    ";
-/// The words the pretty format writes dimmed and italic on the lines under an event.
-const NOTE_WORDS: [&str; 3] = ["at", "in", "on"];
 /// What the pretty format puts between a span and the fields it was entered with.
 const WITH: &str = " with ";
 /// What the pretty format puts between the message of an event and its fields.
@@ -84,7 +79,7 @@ pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
 
 fn header_line(view: &Snapshot) -> Line<'static> {
     Line::from(vec![
-        Span::from(format!(" Martin v{VERSION} ")).bold(),
+        Span::from(format!(" Martin v{} ", env!("CARGO_PKG_VERSION"))).bold(),
         Span::from(format!(
             " {}  up {}  {} requests  {} errors  {:.1} req/s",
             view.address,
@@ -185,7 +180,7 @@ fn log_pane(view: &Snapshot, area: Rect, log_view: LogView) -> Paragraph<'_> {
         .collect();
     let mut block = Block::bordered().title(<&str>::from(log_view.size));
     if scroll > 0 {
-        block = block.title_bottom(Line::from(NEWER).bold().reversed().centered());
+        block = block.title_bottom(Line::from(" ▼ view newer ▼ ").bold().reversed().centered());
     }
     Paragraph::new(lines).block(block)
 }
@@ -282,7 +277,7 @@ fn place_spans(place: &str) -> Vec<Span<'_>> {
         if index > 0 {
             spans.push(Span::from(" "));
         }
-        if NOTE_WORDS.contains(&word) {
+        if ["at", "in", "on"].contains(&word) {
             spans.push(Span::from(word).dim().italic());
         } else if names_a_span {
             let (path, name) = word.split_at(word.rfind("::").map_or(0, |at| at + 2));
