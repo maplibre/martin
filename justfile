@@ -211,35 +211,35 @@ bless:
     done
 
 # Run insta snapshot tests and save their output as the new expected output.
-bless-insta *args:  fetch install-nextest (cargo-install 'cargo-insta')
+bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} --all-targets --workspace {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
-bless-e2e *args: fetch start install-nextest (cargo-install 'cargo-insta')
+bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --package mbtiles
     {{insta_test}} --package martin-e2e-tests --features test-pg {{args}}
 
-bless-pg: fetch start install-nextest (cargo-install 'cargo-insta')
+bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     {{insta_test}} --features test-pg --no-default-features --package martin --lib
     {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
 # Bless the COG/GeoTIFF tests, including the end-to-end ones
-bless-cog: fetch install-nextest (cargo-install 'cargo-insta')
+bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} -p martin --features unstable-cog --no-default-features --lib
     {{insta_test}} -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
     {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
 
 # Bless the DuckDB/GeoParquet tests, including the end-to-end ones
-bless-duckdb: fetch install-nextest (cargo-install 'cargo-insta')
+bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Bless the style rendering tests end-to-end
 [linux]
-bless-rendering: fetch install-nextest (cargo-install 'cargo-insta')
+bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --no-default-features --features rendering
     {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
 
@@ -613,43 +613,43 @@ test: fetch start
     {{just}} test-e2e
 
 # Run PostgreSQL-requiring tests only
-test-pg: fetch start install-nextest
+test-pg: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo nextest run --features test-pg --no-default-features --package martin --lib
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
 
 # Run MinIO/S3-requiring tests only (Docker required)
-test-minio: fetch install-nextest
+test-minio: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --features test-minio --no-default-features --test pmt_minio_test
 
 # Run COG/GeoTIFF tests only, including the end-to-end ones
-test-cog: fetch install-nextest
+test-cog: fetch (cargo-install 'cargo-nextest')
     cargo nextest run -p martin --features unstable-cog --no-default-features --lib
     cargo nextest run -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
-test-duckdb: fetch install-nextest
+test-duckdb: fetch (cargo-install 'cargo-nextest')
     cargo nextest run -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     cargo nextest run --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
 [linux]
-test-rendering *args: fetch install-nextest
+test-rendering *args: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --package martin --no-default-features --features rendering
     cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
 # Run Rust unit tests
-test-cargo *args: fetch install-nextest
+test-cargo *args: fetch (cargo-install 'cargo-nextest')
     cargo nextest run {{args}}
 
 # Run unit tests for each package in dependency order
-test-packages-ci: fetch install-nextest
+test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo nextest run --package martin-tile-utils
@@ -660,12 +660,12 @@ test-packages-ci: fetch install-nextest
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
-test-e2e *args: fetch install-nextest
+test-e2e *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles
     cargo nextest run --package martin-e2e-tests {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
-test-e2e-pg *args: fetch start install-nextest
+test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles
     cargo nextest run --package martin-e2e-tests --features test-pg --test config_file --test martin_cp --test postgres --test process {{args}}
 
@@ -734,12 +734,16 @@ test-freebsd: (test-cargo "--build-jobs 2 --lib --bins --tests --examples") test
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
 # Run all tests using an SSL connection to a test database
-test-ssl: start-ssl install-nextest (test-cargo "--all-targets") test-pg test-doc
+test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets") test-pg test-doc
     cargo build --package martin --package mbtiles
+
+# Install the nextest test runner if not already installed.
+[private]
+install-nextest:  (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-e2e-tests --features test-pg
 
 # Run all tests using an SSL connection with client cert to a test database
-test-ssl-cert: start-ssl-cert install-nextest
+test-ssl-cert: start-ssl-cert (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euxo pipefail
     # copy client cert to the tests folder from the docker container
@@ -875,8 +879,4 @@ install-sqlx:  (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '-
 
 # Install mvt cli if not already installed.
 [private]
-install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')
-
-# Install the nextest test runner if not already installed.
-[private]
-install-nextest:  (cargo-install 'cargo-nextest')
+install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')(cargo-install 'cargo-nextest')
