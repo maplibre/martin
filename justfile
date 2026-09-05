@@ -105,11 +105,6 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # `unstable-schemas` implies `default`, so the spec covers every route a
-    # release build serves. `rendering` only pulls maplibre-native in on Linux,
-    # so that is the only platform whose spec carries the static-render routes -
-    # and the platform CI regenerates on. `build.rs` stubs the webui out for
-    # this feature, so no frontend is built here.
     cargo build --quiet --features unstable-schemas --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
@@ -123,10 +118,6 @@ gen-schemas: fetch
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    # `serde_json` writes one array element per line and keeps insertion order,
-    # while the committed files carry biome's formatting from the pre-commit
-    # hook. Applying it here keeps regeneration from producing a diff that is
-    # nothing but a reformat.
     martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
@@ -249,7 +240,7 @@ bless-duckdb: fetch (cargo-install 'cargo-insta')
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-insta')
     cargo build --package martin --no-default-features --features rendering
-    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering -- --test-threads=2
+    cargo insta test --accept --force-update-snapshots --package martin-e2e-tests --features test-rendering --test rendering
 
 # Build binaries for a target. In release mode (default), strips debug info.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -650,9 +641,7 @@ test-rendering *args: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --package martin --no-default-features --features rendering
-    # Each test runs a martin of its own, whose render pool software rendering on CI makes too
-    # heavy to run one per core.
-    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
+    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
 # Run Rust unit tests (cargo test)
 test-cargo *args: fetch

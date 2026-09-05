@@ -106,7 +106,7 @@ fn webui() {
         .change_detection();
 }
 
-/// Embed a one-page placeholder instead of building the frontend to save space
+/// Embed a one-page placeholder instead of building the frontend.
 #[cfg(all(feature = "webui", feature = "unstable-schemas"))]
 fn webui_stub() {
     println!(
