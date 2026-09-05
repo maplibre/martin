@@ -37,7 +37,10 @@ fn run_with_bad_config(yaml: &str, extra_env: &[(&str, &str)]) -> String {
     );
     let stderr = String::from_utf8(output.stderr).expect("stderr was not UTF-8");
     let path = cfg.path().to_str().expect("temp path was not UTF-8");
-    stderr.replace(path, "<config>")
+    // The JSON format escapes the backslashes of a Windows path.
+    stderr
+        .replace(&path.replace('\\', "\\\\"), "<config>")
+        .replace(path, "<config>")
 }
 
 #[test]

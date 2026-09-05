@@ -654,7 +654,13 @@ mod tests {
             .expect("canonicalize")
             .to_string_lossy()
             .to_string();
-        assert_yaml_snapshot!(error.to_string().replace(&prefix, "<DIR>"), @r#""Source path is not a file: <DIR>/bad_0.mbtiles""#);
+        assert_yaml_snapshot!(
+            error
+                .to_string()
+                .replace(&prefix, "<DIR>")
+                .replace(std::path::MAIN_SEPARATOR, "/"),
+            @r#""Source path is not a file: <DIR>/bad_0.mbtiles""#
+        );
     }
 
     #[tokio::test]
