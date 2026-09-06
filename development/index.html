@@ -1337,7 +1337,8 @@ the web UI (<code>martin/martin-ui/</code>) and the demo (<code>demo/</code>).</
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>just<span class="w"> </span>stop<span class="w">        </span><span class="c1"># stop test database</span>
 </span></code></pre></div>
 <h3 id="testing">Testing</h3>
-<p>Martin's test suite includes tests that require PostgreSQL to be running and tests that don't.</p>
+<p>Martin's test suite includes tests that require PostgreSQL to be running and tests that don't.
+The <code>just</code> targets run them with <a href="https://nexte.st/">cargo-nextest</a>, installing it on first use.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Run tests that don't require PostgreSQL (no external dependencies)</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>just<span class="w"> </span>test-cargo
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
@@ -1353,8 +1354,9 @@ This allows developers to run most tests locally without setting up PostgreSQL, 
 <p>The <code>test-duckdb</code> / <code>unstable-duckdb</code> features gate DuckDB / GeoParquet tests.
 These are not part of the default build; see <a href="../sources-duckdb/">DuckDB Sources</a>.</p>
 <h3 id="pass-arguments-to-commands">Pass arguments to commands</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--<span class="w"> </span>--test<span class="w"> </span>integration_test
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>just<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--test<span class="w"> </span>tilejson<span class="w">   </span><span class="c1"># a single test target</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--<span class="w"> </span>--include-ignored
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>just<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
 </span></code></pre></div>
 
 
