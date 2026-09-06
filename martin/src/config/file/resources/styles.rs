@@ -200,8 +200,23 @@ fn list_contained_files(
 mod tests {
     use indoc::indoc;
 
+    use martin_core::styles::StyleCatalog;
+
     use super::*;
     use crate::config::file::FileConfigSrc;
+
+    /// The catalog keeps the paths as joined, so on Windows they hold backslashes.
+    fn catalog_with_forward_slashes(styles: &StyleSources) -> StyleCatalog {
+        let mut catalog = styles.get_catalog();
+        for entry in catalog.values_mut() {
+            entry.path = entry
+                .path
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+                .into();
+        }
+        catalog
+    }
 
     #[test]
     fn styles_parse_paths_only_without_rendering_field() {
@@ -265,7 +280,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+        insta::assert_yaml_snapshot!(catalog_with_forward_slashes(&styles), @r#"
         maplibre_demo:
           path: "../tests/fixtures/styles/maplibre_demo.json"
         maptiler_basic:
@@ -296,7 +311,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+        insta::assert_yaml_snapshot!(catalog_with_forward_slashes(&styles), @r#"
         maplibre_demo:
           path: "../tests/fixtures/styles/maplibre_demo.json"
         osm-liberty-lite:
@@ -316,7 +331,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
 
-        let catalog = styles.get_catalog();
+        let catalog = catalog_with_forward_slashes(&styles);
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"

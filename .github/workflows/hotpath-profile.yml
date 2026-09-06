@@ -77,8 +77,8 @@ jobs:
       - name: Checkout base
         run: git checkout ${{ github.event.pull_request.base.sha }}
 
-      - name: Clean slate to not have codegen cache artefact bias
-        run: cargo clean
+      - name: Drop the head's database so the base run loads its own fixtures
+        run: just stop
 
       - name: Check base has hotpath support
         id: base-check

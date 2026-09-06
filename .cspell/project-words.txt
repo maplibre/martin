@@ -65,6 +65,7 @@ multipolygon
 multisurface
 mydb
 mypass
+nextest
 nixpkgs
 notnull
 noto
