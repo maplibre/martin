@@ -616,7 +616,6 @@ impl CredentialProvider for AwsSdkCredentialProvider {
 #[cfg(all(test, feature = "unstable-cog"))]
 mod cog_tests {
     use object_store::ObjectStoreExt as _;
-    use serde_json::json;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -634,18 +633,14 @@ mod cog_tests {
         config.finalize().await.unwrap();
 
         let value = serde_json::to_value(config).unwrap();
-        assert_eq!(value["aws_endpoint"], "http://localhost:9000");
-        assert_eq!(value["aws_region"], "us-east-1");
-        assert_eq!(value["allow_http"], true);
-        assert_eq!(value["skip_signature"], false);
-        for key in [
-            "aws_access_key_id",
-            "secret_access_key",
-            "google_bearer_token",
-            "azure_storage_sas_key",
-        ] {
-            assert!(value.get(key).is_none(), "{key} must be redacted");
+        insta::assert_json_snapshot!(value, @r#"
+        {
+          "allow_http": true,
+          "aws_endpoint": "http://localhost:9000",
+          "aws_region": "us-east-1",
+          "skip_signature": false
         }
+        "#);
     }
 
     #[tokio::test]
@@ -669,7 +664,13 @@ mod cog_tests {
             .unwrap();
         let saved = serde_saphyr::to_string(&config.with_catalog(&state.tile_manager)).unwrap();
         let saved: serde_json::Value = serde_saphyr::from_str(&saved).unwrap();
-        assert_eq!(saved["cog"]["aws_endpoint"], json!("http://localhost:9000"));
+        insta::assert_json_snapshot!(saved["cog"], @r#"
+        {
+          "allow_http": true,
+          "aws_endpoint": "http://localhost:9000",
+          "skip_signature": true
+        }
+        "#);
     }
 
     #[tokio::test]

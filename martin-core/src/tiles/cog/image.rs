@@ -11,14 +11,21 @@ use martin_tile_utils::{Format, TileCoord, TileData};
 use crate::tiles::cog::reader::AsyncTiffReader;
 use crate::tiles::cog::{CogError, CogReader};
 
-/// Image represents a single image in a COG file. A TIFF may contain many overview images.
+/// Image represents a single image in a COG file. A tiff file may contain many images.
+/// This struct contains information and methods for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
+    /// Zoom level which this image corresponds to
     zoom_level: u8,
+    /// X and Y of the first tile in this image
     tiles_origin: (u32, u32),
+    /// Number of tiles in a row of this image
     tiles_across: u32,
+    /// Number of tiles in a column of this image
     tiles_down: u32,
+    /// Tile size in pixels
     tile_size: u32,
+    /// Compression method used for tiles
     compression: Compression,
     samples_per_pixel: u16,
     ifd: Arc<ImageFileDirectory>,
@@ -104,12 +111,7 @@ impl Image {
 
         if self.is_passthrough_compression() {
             let CompressedBytes::Chunky(bytes) = tile.compressed_bytes() else {
-                return Err(CogError::AsyncTiff(
-                    async_tiff::error::AsyncTiffError::General(
-                        "planar TIFFs are not supported".to_owned(),
-                    ),
-                    location.to_owned(),
-                ));
+                return Err(CogError::UnsupportedPlanarLayout(location.to_owned()));
             };
             if self.compression == Compression::ModernJPEG
                 && let Some(tables) = tile.jpeg_tables()
@@ -185,9 +187,20 @@ fn invalid_tile_table(location: &str, reason: &str) -> CogError {
     )
 }
 
-const JPEG_SOI: [u8; 2] = [0xFF, 0xD8];
-const JPEG_EOI: [u8; 2] = [0xFF, 0xD9];
+/// JPEG marker constants
+const JPEG_SOI: [u8; 2] = [0xFF, 0xD8]; // Start of Image
+const JPEG_EOI: [u8; 2] = [0xFF, 0xD9]; // End of Image
 
+/// Merges JPEG tables (from `JPEGTables` tag) with tile data to create a valid standalone JPEG.
+///
+/// In TIFF JPEG compression, the quantization and Huffman tables are often stored
+/// separately in the `JPEGTables` tag and shared across all tiles. Each tile then only
+/// contains the frame data without these tables.
+///
+/// `JPEGTables` format: SOI (FFD8) + tables (DQT, DHT, etc.) + EOI (FFD9)
+/// Tile data format: SOI (FFD8) + frame header + scan data + EOI (FFD9)
+///
+/// To merge: Take tables (without SOI/EOI) and insert after tile's SOI, before frame data.
 fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> {
     if jpeg_tables.len() < 4 || tile_data.len() < 4 {
         return tile_data.to_vec();

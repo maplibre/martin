@@ -17,6 +17,13 @@ pub enum CogError {
     #[error("Couldn't decode {1} as tiff file: {0}")]
     AsyncTiff(#[source] async_tiff::error::AsyncTiffError, String),
 
+    /// A passthrough (WebP/JPEG) tile used a planar sample layout instead of the required
+    /// chunky layout.
+    #[error(
+        "Unsupported planar TIFF layout in {0}: passthrough tile reads require chunky sample data"
+    )]
+    UnsupportedPlanarLayout(String),
+
     /// Cannot decode file as valid TIFF.
     #[error("Couldn't decode {1} as tiff file: {0}")]
     InvalidTiffFile(#[source] TiffError, PathBuf),

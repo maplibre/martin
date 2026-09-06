@@ -317,28 +317,47 @@ pub(crate) struct AsyncTiffMetadataReader(pub Arc<dyn CogReader>);
 
 impl AsyncTiffMetadataReader {
     fn clamp(&self, range: Range<u64>) -> Range<u64> {
-        range.start..range.end.min(self.0.metadata().size)
+        let size = self.0.metadata().size;
+        let start = range.start.min(size);
+        start..range.end.min(size).max(start)
     }
 }
 
 #[async_trait]
 impl AsyncFileReader for AsyncTiffMetadataReader {
     async fn get_bytes(&self, range: Range<u64>) -> AsyncTiffResult<Bytes> {
+        let range = self.clamp(range);
+        if range.is_empty() {
+            return Ok(Bytes::new());
+        }
         self.0
-            .read_range(self.clamp(range))
+            .read_range(range)
             .await
             .map_err(|e| AsyncTiffError::External(Box::new(e)))
     }
 
     async fn get_byte_ranges(&self, ranges: Vec<Range<u64>>) -> AsyncTiffResult<Vec<Bytes>> {
-        let ranges = ranges
+        let clamped = ranges
             .into_iter()
             .map(|range| self.clamp(range))
             .collect::<Vec<_>>();
-        self.0
-            .read_ranges(&ranges)
-            .await
-            .map_err(|e| AsyncTiffError::External(Box::new(e)))
+        let mut result = vec![Bytes::new(); clamped.len()];
+        let (indices, non_empty): (Vec<_>, Vec<_>) = clamped
+            .into_iter()
+            .enumerate()
+            .filter(|(_, range)| !range.is_empty())
+            .unzip();
+        if !non_empty.is_empty() {
+            let bytes = self
+                .0
+                .read_ranges(&non_empty)
+                .await
+                .map_err(|e| AsyncTiffError::External(Box::new(e)))?;
+            for (index, chunk) in indices.into_iter().zip(bytes) {
+                result[index] = chunk;
+            }
+        }
+        Ok(result)
     }
 }
 
@@ -346,6 +365,8 @@ impl AsyncFileReader for AsyncTiffMetadataReader {
 mod tests {
     use std::ops::Range;
     use std::sync::Arc;
+
+    use bytes::Bytes;
 
     use async_tiff::reader::AsyncFileReader as _;
     use object_store::memory::InMemory;
@@ -368,10 +389,7 @@ mod tests {
         assert_eq!(reader.read_range(2..6).await.unwrap().as_ref(), b"2345");
         assert_eq!(
             reader.read_ranges(&[0..2, 8..10]).await.unwrap(),
-            [
-                bytes::Bytes::from_static(b"01"),
-                bytes::Bytes::from_static(b"89")
-            ]
+            [Bytes::from_static(b"01"), Bytes::from_static(b"89")]
         );
     }
 
@@ -456,6 +474,37 @@ mod tests {
         assert_eq!(
             metadata_reader.get_bytes(8..16).await.unwrap().as_ref(),
             b"89"
+        );
+    }
+
+    #[tokio::test]
+    async fn metadata_readahead_past_end_of_object_returns_empty() {
+        let store = Arc::new(InMemory::new());
+        let path = object_store::path::Path::from("image.tif");
+        store
+            .put(&path, PutPayload::from_static(b"0123456789"))
+            .await
+            .unwrap();
+        let reader = Arc::new(
+            ObjectStoreCogReader::try_new(store, path, "memory://image.tif".to_owned())
+                .await
+                .unwrap(),
+        );
+        let metadata_reader = AsyncTiffMetadataReader(reader);
+
+        assert!(
+            metadata_reader
+                .get_bytes(100..200)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            metadata_reader
+                .get_byte_ranges(vec![4..6, 100..200])
+                .await
+                .unwrap(),
+            vec![Bytes::from_static(b"45"), Bytes::new()]
         );
     }
 }

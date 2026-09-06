@@ -206,14 +206,14 @@ cog:
     );
 
     let requests = statics.request_log().await;
-    assert!(requests.lines().any(|line| line.starts_with("HEAD ")));
-    assert!(
-        requests
-            .lines()
-            .filter(|line| line.starts_with("GET "))
-            .all(|line| line.contains("bytes=")),
-        "every COG GET must be a byte-range request:\n{requests}"
-    );
+    insta::assert_snapshot!(requests, @r"
+    HEAD /cogtest/usda_naip_128_none_z2.tif no range
+    GET /cogtest/usda_naip_128_none_z2.tif bytes=0-32767
+    GET /cogtest/usda_naip_128_none_z2.tif bytes=1284-66819
+    HEAD /cogtest/usda_naip_128_none_z2.tif no range
+    GET /cogtest/usda_naip_128_none_z2.tif bytes=0-32767
+    GET /cogtest/usda_naip_128_none_z2.tif bytes=1284-66819
+    ");
 }
 
 #[tokio::test]
@@ -254,14 +254,11 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     });
 
     let requests = statics.request_log().await;
-    assert!(requests.lines().any(|line| line.starts_with("HEAD ")));
-    assert!(
-        requests
-            .lines()
-            .filter(|line| line.starts_with("GET "))
-            .all(|line| line.contains("bytes=")),
-        "every COG GET must be a byte-range request:\n{requests}"
-    );
+    insta::assert_snapshot!(requests, @r"
+    HEAD /usda_naip_512_webp_z5.tif no range
+    GET /usda_naip_512_webp_z5.tif bytes=0-28219
+    GET /usda_naip_512_webp_z5.tif bytes=11166-11777
+    ");
 }
 
 #[rstest]

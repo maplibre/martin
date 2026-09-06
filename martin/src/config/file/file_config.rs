@@ -769,7 +769,9 @@ fn plan_one_path(
     default_cache: CachePolicy,
 ) -> SourceBuildResult<Vec<Planned>> {
     if let Some(url) = parse_url(parse_urls, &path)? {
-        let target_ext = extension.iter().find(|&e| url.path().ends_with(e));
+        let target_ext = extension
+            .iter()
+            .find(|&&e| url.path().rsplit('.').next() == Some(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
             // a prefix to be discovered by the format-specific reloader (e.g. PmtilesReloader
@@ -1756,6 +1758,53 @@ mod mbtiles_tests {
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
         assert_eq!(warnings.len(), 2);
+    }
+}
+
+#[cfg(all(test, feature = "_tiles"))]
+mod plan_one_path_tests {
+    use super::*;
+    use crate::config::primitives::IdResolver;
+
+    fn plan(url: &str) -> (Vec<Planned>, Vec<PathBuf>) {
+        let idr = IdResolver::new(&[]);
+        let mut files = HashMap::new();
+        let mut directories = Vec::new();
+        let mut configs = BTreeMap::new();
+
+        let planned = plan_one_path(
+            true,
+            &idr,
+            &["tif", "tiff"],
+            PathBuf::from(url),
+            &mut files,
+            &mut directories,
+            &mut configs,
+            CachePolicy::default(),
+        )
+        .expect("plan_one_path should accept a well-formed URL");
+
+        (planned, directories)
+    }
+
+    #[test]
+    fn a_path_segment_merely_ending_in_the_extension_letters_is_not_a_match() {
+        let (planned, directories) = plan("https://example.com/some/motif");
+        assert!(
+            planned.is_empty(),
+            "'motif' must not be misdetected as ending in the 'tif' extension"
+        );
+        assert_eq!(
+            directories,
+            vec![PathBuf::from("https://example.com/some/motif")]
+        );
+    }
+
+    #[test]
+    fn a_url_ending_with_a_known_extension_is_a_match() {
+        let (planned, directories) = plan("https://example.com/image.tif");
+        assert_eq!(planned.len(), 1);
+        assert!(directories.is_empty());
     }
 }
 
