@@ -49,6 +49,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 /// The status comes from the error's own `ErrorKind`, so a failure mode is classified once
 /// where it is defined rather than at each handler that can surface it. Only failures the
 /// caller cannot act on are logged.
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
     use actix_web::error::{
         ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,

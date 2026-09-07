@@ -5,9 +5,12 @@
 //! resolution and source construction can neither produce nor match on a bind failure.
 
 use std::io;
+#[cfg(feature = "_tiles")]
 use std::sync::Arc;
 
+#[cfg(feature = "_tiles")]
 use martin_core::tiles::MartinCoreError;
+#[cfg(feature = "_tiles")]
 use martin_tile_utils::{Encoding, Format, TileInfo};
 
 use crate::config::file::ConfigFileError;
@@ -42,6 +45,7 @@ pub enum ServerStartError {
 }
 
 /// Why a tile could not be produced.
+#[cfg(feature = "_tiles")]
 #[derive(thiserror::Error, Debug)]
 pub enum TileError {
     /// No source is registered under this id.
@@ -96,18 +100,21 @@ pub enum TileError {
     Compression(#[from] io::Error),
 }
 
+#[cfg(feature = "_tiles")]
 impl From<MartinCoreError> for TileError {
     fn from(e: MartinCoreError) -> Self {
         Self::Source(Arc::new(e))
     }
 }
 
+#[cfg(feature = "_tiles")]
 impl From<Arc<MartinCoreError>> for TileError {
     fn from(e: Arc<MartinCoreError>) -> Self {
         Self::Source(e)
     }
 }
 
+#[cfg(feature = "_tiles")]
 impl From<TileError> for actix_web::Error {
     fn from(e: TileError) -> Self {
         use actix_web::error::{

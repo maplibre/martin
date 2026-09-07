@@ -15,7 +15,9 @@ mod server;
 #[cfg(feature = "unstable-schemas")]
 pub use server::{__path_get_health, get_health};
 mod error;
-pub use error::{ServerStartError, TileError};
+pub use error::ServerStartError;
+#[cfg(feature = "_tiles")]
+pub use error::TileError;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
