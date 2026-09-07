@@ -114,14 +114,6 @@ gen-schemas: fetch
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
-    if [[ "{{os()}}" != linux ]]; then
-        # The rendering routes only exist in Linux builds, so the OpenAPI spec
-        # and the TS types derived from it can only be regenerated there.
-        echo "not on Linux: leaving schemas/openapi.json and martin/martin-ui/src/lib/types.gen.ts untouched"
-        {{just}} ui::_npm-install
-        martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json
-        exit 0
-    fi
     "$gen" --target openapi     > schemas/openapi.json
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
