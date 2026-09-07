@@ -21,8 +21,6 @@ pub use fs::{FsDiscovery, FsSourceBuilder};
 
 #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
 mod object_store;
-#[cfg(feature = "unstable-cog")]
-pub(crate) use object_store::version_from_cog_meta;
 #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
 pub use object_store::{
     ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,

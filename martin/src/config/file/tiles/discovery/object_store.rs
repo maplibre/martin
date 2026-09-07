@@ -22,9 +22,7 @@ use crate::config::file::{
     TileSourceConfiguration,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::reload::{FileKind, SourceProvenance};
-#[cfg(feature = "unstable-cog")]
-use martin_core::tiles::cog::CogObjectMeta;
+use crate::reload::FileKind;
 
 pub type ObjectStoreParser = Box<
     dyn Fn(
@@ -41,9 +39,9 @@ pub type ObjectStoreParser = Box<
 /// boxed, pinned futures. Future remote-backed source kinds can add a variant here.
 pub enum ObjectStoreSourceBuilder {
     #[cfg(feature = "pmtiles")]
-    Pmtiles(PmtConfig),
+    Pmtiles(Box<PmtConfig>),
     #[cfg(feature = "unstable-cog")]
-    Cog(CogConfig),
+    Cog(Box<CogConfig>),
 }
 
 impl ObjectStoreSourceBuilder {
@@ -77,9 +75,9 @@ pub struct ConfiguredObject {
     src: FileConfigSrc,
 }
 
-/// A [`Discovery`] over explicitly configured remote objects: the `sources` map entries and
-/// `paths` entries that name one remote object.
-///
+/// A [`Discovery`] over the explicitly configured remote objects in the resolved `sources` map.
+/// Object URLs supplied through `paths` are normalized into that map by startup resolution before
+/// reloaders are constructed.
 /// Each pass sends one `HEAD` per object and derives a [`Version`] from its `ETag` or
 /// last-modified timestamp, so a replaced object is rebuilt while an unchanged one costs
 /// nothing but the round-trip. A failed check retains the object's last-known version, so a
@@ -97,22 +95,22 @@ pub struct ConfiguredObjectDiscovery {
 }
 
 impl ConfiguredObjectDiscovery {
-    #[expect(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call per source kind, and every argument is a distinct kind-level input"
+    )]
     #[must_use]
-    pub fn from_config<T: TileSourceConfiguration>(
+    pub fn from_config<T>(
         kind: FileKind,
         config: &FileConfigEnum<T>,
-        extensions: &[&str],
         label: &'static str,
         reload_interval: Duration,
-        id_resolver: &IdResolver,
         default_cache: CachePolicy,
         process: &ProcessConfig,
         parser: ObjectStoreParser,
         build: ObjectStoreSourceBuilder,
-        initial_versions: BTreeMap<String, Version>,
     ) -> Self {
-        let mut objects: BTreeMap<String, ConfiguredObject> = BTreeMap::new();
+        let mut objects = Vec::new();
         if let FileConfigEnum::Config(cfg) = config
             && let Some(sources) = &cfg.sources
         {
@@ -123,69 +121,22 @@ impl ConfiguredObjectDiscovery {
                     // Local sources belong to the file-based discovery.
                     continue;
                 };
-                let resolved = id_resolver.resolve(id, sanitized_url(&url));
-                objects.insert(
-                    resolved.clone(),
-                    ConfiguredObject {
-                        id: resolved,
-                        url,
-                        policy: src.cache_zoom().or(default_cache),
-                        process: per_source_process(process, src),
-                        src: src.clone(),
-                    },
-                );
-            }
-        }
-        // A `paths` entry that is a remote URL naming one object (its path ends with an allowed
-        // extension) is polled like a configured source; prefix URLs are another feature.
-        let mut collect = |path: &PathBuf| {
-            let Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) =
-                SourceLocation::classify_path(path)
-            else {
-                return;
-            };
-            let Some(filename) = url.path().rsplit('/').next() else {
-                return;
-            };
-            let Some((stem, extension)) = filename.rsplit_once('.') else {
-                return;
-            };
-            if stem.is_empty()
-                || !extensions
-                    .iter()
-                    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
-            {
-                return;
-            }
-            let resolved = id_resolver.resolve(stem, sanitized_url(&url));
-            objects.insert(
-                resolved.clone(),
-                ConfiguredObject {
-                    id: resolved,
+                objects.push(ConfiguredObject {
+                    id: id.clone(),
                     url,
-                    policy: default_cache,
-                    process: None,
-                    src: FileConfigSrc::Path(path.clone()),
-                },
-            );
-        };
-        match config {
-            FileConfigEnum::Config(cfg) => match &cfg.paths {
-                OptOneMany::One(path) => collect(path),
-                OptOneMany::Many(paths) => paths.iter().for_each(&mut collect),
-                OptOneMany::NoVals => {}
-            },
-            FileConfigEnum::Path(path) => collect(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(collect),
-            FileConfigEnum::None => {}
+                    policy: src.cache_zoom().or(default_cache),
+                    process: per_source_process(process, src),
+                    src: src.clone(),
+                });
+            }
         }
 
         Self {
             kind,
             label,
-            objects: objects.into_values().collect(),
+            objects,
             reload_interval,
-            last_versions: Mutex::new(initial_versions),
+            last_versions: Mutex::default(),
             parser,
             build,
             process: process
@@ -203,21 +154,6 @@ impl ConfiguredObjectDiscovery {
     #[must_use]
     pub const fn reload_interval(&self) -> Duration {
         self.reload_interval
-    }
-
-    /// Baseline matching the remote COG sources that startup successfully opened.
-    #[must_use]
-    pub fn loaded_baseline(&self) -> BTreeMap<String, (Version, ConfiguredObject)> {
-        let versions = self.last_versions.lock().expect("version map mutex");
-        self.objects
-            .iter()
-            .filter_map(|object| {
-                versions
-                    .get(&object.id)
-                    .copied()
-                    .map(|version| (object.id.clone(), (version, object.clone())))
-            })
-            .collect()
     }
 }
 
@@ -283,19 +219,13 @@ impl Discovery for ConfiguredObjectDiscovery {
             .build(id.to_owned(), args.url.clone(), args.policy)
             .await?
             .source;
-        let process = args
-            .process
-            .as_ref()
-            .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
-            .transpose()?;
-        Ok(BuiltSource {
+        BuiltSource::with_file_config(
             source,
-            process,
-            provenance: Some(SourceProvenance::File {
-                kind: self.kind,
-                src: args.src.clone(),
-            }),
-        })
+            id,
+            args.process.as_ref(),
+            self.kind,
+            args.src.clone(),
+        )
     }
 
     fn process(&self) -> ResolvedProcess {
@@ -417,26 +347,13 @@ impl Discovery for ObjectStoreDiscovery {
     }
 }
 
-fn version_from_parts(e_tag: Option<&str>, last_modified_millis: Option<i64>) -> Version {
-    if let Some(etag) = e_tag {
+fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
+    if let Some(etag) = &meta.e_tag {
         Version::Tracked(xxhash_rust::xxh3::xxh3_128(etag.as_bytes()))
     } else {
-        last_modified_millis
-            .and_then(|timestamp| u128::try_from(timestamp).ok())
+        u128::try_from(meta.last_modified.timestamp_millis())
             .map_or(Version::Opaque, Version::Tracked)
     }
-}
-
-fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
-    version_from_parts(
-        meta.e_tag.as_deref(),
-        Some(meta.last_modified.timestamp_millis()),
-    )
-}
-
-#[cfg(feature = "unstable-cog")]
-pub(crate) fn version_from_cog_meta(meta: &CogObjectMeta) -> Version {
-    version_from_parts(meta.e_tag.as_deref(), meta.last_modified_millis)
 }
 
 async fn list_remote_prefix(
@@ -574,7 +491,6 @@ mod configured_object_tests {
     use super::*;
     use crate::config::file::cog::CogConfig;
     use crate::config::file::{FileConfig, FileConfigEnum};
-    use crate::config::primitives::IdResolver;
 
     fn cog_discovery(
         store: &InMemory,
@@ -597,15 +513,12 @@ mod configured_object_tests {
         ConfiguredObjectDiscovery::from_config(
             FileKind::Cog,
             config,
-            &["tif", "tiff"],
             "test",
             Duration::from_secs(1),
-            &IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             parser,
-            ObjectStoreSourceBuilder::Cog(CogConfig::default()),
-            BTreeMap::new(),
+            ObjectStoreSourceBuilder::Cog(Box::default()),
         )
     }
 
@@ -648,31 +561,6 @@ mod configured_object_tests {
     }
 
     #[tokio::test]
-    async fn a_paths_entry_naming_one_object_is_polled_but_a_prefix_is_not() {
-        let store = InMemory::new();
-        store
-            .put(
-                &object_store::path::Path::from("imagery/ortho.tif"),
-                PutPayload::from_static(b"fixture"),
-            )
-            .await
-            .unwrap();
-        let config = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::Many(vec![
-                PathBuf::from("https://host/imagery/ortho.tif"),
-                PathBuf::from("https://host/imagery/prefix/"),
-            ]),
-            collections: OptOneMany::NoVals,
-            sources: None,
-            custom: CogConfig::default(),
-        });
-        let discovery = cog_discovery(&store, &config, false);
-
-        assert_eq!(discovery.objects.len(), 1);
-        assert_eq!(discovery.objects[0].id, "ortho");
-    }
-
-    #[tokio::test]
     async fn a_failed_check_retains_the_last_known_version() {
         let store = InMemory::new();
         let path = object_store::path::Path::from("imagery/vienna.tif");
@@ -708,15 +596,12 @@ mod configured_object_tests {
         let discovery = ConfiguredObjectDiscovery::from_config(
             FileKind::Cog,
             &config,
-            &["tif", "tiff"],
             "test",
             Duration::from_secs(1),
-            &IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             parser,
-            ObjectStoreSourceBuilder::Cog(CogConfig::default()),
-            BTreeMap::new(),
+            ObjectStoreSourceBuilder::Cog(Box::default()),
         );
 
         let first = discovery.discover().await.unwrap().sources;

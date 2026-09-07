@@ -24,7 +24,7 @@ use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
-use crate::tiles::cog::{CogObjectMeta, CogReader, ObjectStoreCogReader};
+use crate::tiles::cog::{CogReader, ObjectStoreCogReader};
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
@@ -72,12 +72,6 @@ impl CogSource {
         let reader: Arc<dyn CogReader> =
             Arc::new(ObjectStoreCogReader::try_new(store, object_path, location).await?);
         Self::new_reader(id, reader, cache_zoom).await
-    }
-
-    /// Returns the object metadata captured when this source was opened.
-    #[must_use]
-    pub fn object_metadata(&self) -> &CogObjectMeta {
-        self.reader.metadata()
     }
 
     #[expect(clippy::too_many_lines)]

@@ -16,9 +16,11 @@ use crate::reload::ReloadAdvisory;
 /// next discovery.
 #[derive(Clone, Copy)]
 pub enum Baseline {
-    /// The driver already has an exact baseline, populated by [`ReloadDriver::init`] or supplied
-    /// with [`ReloadDriver::new_with_baseline`].
+    /// Populated by [`ReloadDriver::init`], which is the only writer of these sources.
     Initialized,
+    /// Loaded into the catalog at startup by `config.resolve()` (local directories): seed the
+    /// baseline from the current discovery, so only later changes apply and removals diff correctly.
+    StartupResolved,
     /// Not populated yet (remote prefixes are listed only by polling): start empty, so the first
     /// reconcile loads everything discovered.
     Empty,
@@ -44,20 +46,6 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         }
     }
 
-    /// Creates a driver whose baseline is the exact version set already loaded in the catalog.
-    #[must_use]
-    pub fn new_with_baseline(
-        discovery: D,
-        sink: S,
-        baseline: BTreeMap<String, (Version, D::Args)>,
-    ) -> Self {
-        Self {
-            discovery: Arc::new(discovery),
-            sink,
-            baseline: Some(baseline),
-        }
-    }
-
     #[must_use]
     pub fn discovery(&self) -> &D {
         &self.discovery
@@ -78,23 +66,29 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         Ok(warnings)
     }
 
-    /// Establishes the requested empty/already-initialized state, then reconciles once per
-    /// `trigger.next()`.
+    /// Establishes the [`Baseline`], then reconciles once per `trigger.next()`.
     pub fn spawn(mut self, mut trigger: impl Trigger, initial: Baseline) -> JoinHandle<()> {
         tokio::spawn(async move {
             match initial {
-                Baseline::Initialized => {
-                    debug_assert!(
-                        self.baseline.is_some(),
-                        "initialized reload baseline is missing"
-                    );
-                }
+                Baseline::Initialized => {}
+                Baseline::StartupResolved => self.seed().await,
                 Baseline::Empty => self.baseline = Some(BTreeMap::new()),
             }
             while trigger.next().await.is_some() {
                 self.reconcile().await;
             }
         })
+    }
+
+    /// Records the startup state without applying; the catalog was already populated at
+    /// startup, so applying would double-add.
+    async fn seed(&mut self) {
+        match self.discovery.discover().await {
+            Ok(next) => self.baseline = Some(next.sources),
+            Err(error) => {
+                tracing::warn!(?error, "reload seed discovery failed; baseline deferred");
+            }
+        }
     }
 
     async fn reconcile(&mut self) {
@@ -397,12 +391,12 @@ mod tests {
         #[case] updates: Vec<String>,
         #[case] removals: Vec<String>,
     ) {
-        let discovery = FakeDiscovery::new(vec![Ok(after)]);
+        let discovery = FakeDiscovery::new(vec![Ok(before), Ok(after)]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
 
-        ReloadDriver::new_with_baseline(discovery, sink, before)
-            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
@@ -439,6 +433,45 @@ mod tests {
                 updates: ids(&[]),
                 removals: ids(&[]),
             }]
+        );
+    }
+
+    #[tokio::test]
+    async fn seed_does_not_apply() {
+        // No triggers: the driver only seeds, which must not apply (catalog already populated).
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(0), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert!(recorded.lock().unwrap().is_empty(), "seed must not apply");
+    }
+
+    #[tokio::test]
+    async fn failed_seed_then_success_does_not_flood() {
+        // Seed fails (baseline stays None); the first good tick establishes it without applying.
+        let discovery = FakeDiscovery::new(vec![
+            Err(SourceBuildError::SourceNotFound("seed boom".into())),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+        ]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert!(
+            recorded.lock().unwrap().is_empty(),
+            "establishing the baseline after a failed seed must not flood"
         );
     }
 
@@ -500,6 +533,7 @@ mod tests {
     async fn failed_discover_retains_baseline() {
         // The failed middle tick keeps the baseline, so only `b` diffs on the last tick.
         let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
             Err(SourceBuildError::SourceNotFound("tick boom".into())),
             Ok(snapshot(&[
                 ("a", Version::Tracked(1)),
@@ -509,8 +543,8 @@ mod tests {
         let sink = SpySink::new();
         let recorded = sink.recorded();
 
-        ReloadDriver::new_with_baseline(discovery, sink, snapshot(&[("a", Version::Tracked(1))]))
-            .spawn(ManualTrigger::new(2), Baseline::Initialized)
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
@@ -528,6 +562,7 @@ mod tests {
     async fn failed_apply_retains_baseline_and_retries() {
         // The first apply fails; the retained baseline makes the next tick retry the same delta.
         let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[])),
             Ok(snapshot(&[("a", Version::Tracked(1))])),
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
@@ -537,8 +572,8 @@ mod tests {
         ]);
         let recorded = sink.recorded();
 
-        ReloadDriver::new_with_baseline(discovery, sink, snapshot(&[]))
-            .spawn(ManualTrigger::new(2), Baseline::Initialized)
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 

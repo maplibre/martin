@@ -82,7 +82,7 @@ impl PmtilesReloader {
         );
         let parser_config = pmt_config.clone();
         let parser: ObjectStoreParser = Box::new(move |url| parser_config.parse_url_opts(url));
-        let remote_build = ObjectStoreSourceBuilder::Pmtiles(pmt_config.clone());
+        let remote_build = ObjectStoreSourceBuilder::Pmtiles(Box::new(pmt_config.clone()));
         let remote = ObjectStoreDiscovery::from_config(
             config,
             &[PMTILES_EXT],

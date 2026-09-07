@@ -17,7 +17,7 @@ use crate::config::file::{
     SourceBuildResult, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::reload::{FileKind, SourceProvenance};
+use crate::reload::FileKind;
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
 type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
@@ -295,20 +295,15 @@ impl Discovery for FsDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
-        let process = self
-            .configured
-            .get(&args.0)
-            .and_then(|cfg| cfg.process.as_ref())
-            .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
-            .transpose()?;
-        Ok(BuiltSource {
+        BuiltSource::with_file_config(
             source,
-            process,
-            provenance: Some(SourceProvenance::File {
-                kind: self.kind,
-                src: self.config_entry(&args.0),
-            }),
-        })
+            id,
+            self.configured
+                .get(&args.0)
+                .and_then(|config| config.process.as_ref()),
+            self.kind,
+            self.config_entry(&args.0),
+        )
     }
 
     fn process(&self) -> ResolvedProcess {

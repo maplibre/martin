@@ -1,7 +1,6 @@
-use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
@@ -16,7 +15,7 @@ use crate::config::file::{
     UnrecognizedValues,
 };
 
-#[derive(Clone, Debug, Deserialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, Deserialize, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CogConfig {
     /// Whether `paths` are scanned recursively
@@ -52,17 +51,6 @@ pub struct CogConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-
-    /// Versions captured by successful startup opens, shared across config clones.
-    #[serde(skip)]
-    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    loaded_remote_versions:
-        Arc<Mutex<BTreeMap<String, crate::config::file::tiles::discovery::Version>>>,
-
-    /// Reload builds use the same config without mutating the startup-version snapshot.
-    #[serde(skip, default = "record_loaded_remote_versions")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    record_loaded_remote_versions: bool,
 }
 
 /// Default polling interval for
@@ -74,10 +62,6 @@ fn default_reload_interval() -> Duration {
     DEFAULT_RELOAD_INTERVAL
 }
 
-const fn record_loaded_remote_versions() -> bool {
-    true
-}
-
 impl Default for CogConfig {
     fn default() -> Self {
         Self {
@@ -86,19 +70,7 @@ impl Default for CogConfig {
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             object_store: ObjectStoreConfig::default(),
             unrecognized: UnrecognizedValues::default(),
-            loaded_remote_versions: Arc::default(),
-            record_loaded_remote_versions: true,
         }
-    }
-}
-
-impl PartialEq for CogConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.recursive == other.recursive
-            && self.cache == other.cache
-            && self.reload_interval == other.reload_interval
-            && self.object_store == other.object_store
-            && self.unrecognized == other.unrecognized
     }
 }
 
@@ -139,22 +111,6 @@ impl ConfigurationLivecycleHooks for CogConfig {
     }
 }
 
-impl CogConfig {
-    pub(crate) fn loaded_remote_versions(
-        &self,
-    ) -> BTreeMap<String, crate::config::file::tiles::discovery::Version> {
-        self.loaded_remote_versions
-            .lock()
-            .expect("loaded COG version map mutex")
-            .clone()
-    }
-
-    pub(crate) fn for_reload(mut self) -> Self {
-        self.record_loaded_remote_versions = false;
-        self
-    }
-}
-
 impl TileSourceConfiguration for CogConfig {
     fn parse_urls() -> bool {
         true
@@ -185,22 +141,13 @@ impl TileSourceConfiguration for CogConfig {
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let source = CogSource::new_object_store(
-            id.clone(),
+            id,
             Arc::from(store),
             path,
             sanitized_url(&url),
             cache.zoom(),
         )
         .await?;
-        if self.record_loaded_remote_versions {
-            let version = crate::config::file::tiles::discovery::version_from_cog_meta(
-                source.object_metadata(),
-            );
-            self.loaded_remote_versions
-                .lock()
-                .expect("loaded COG version map mutex")
-                .insert(id, version);
-        }
         Ok(Box::new(source))
     }
 }

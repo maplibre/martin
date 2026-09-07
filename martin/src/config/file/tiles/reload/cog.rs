@@ -39,7 +39,6 @@ impl CogReloader {
                 CogConfig::default()
             }
         };
-        let loaded_versions = cog_config.loaded_remote_versions();
         let local_config = cog_config.clone();
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = local_config.clone();
@@ -50,7 +49,7 @@ impl CogReloader {
             config,
             cog_config.recursive.unwrap_or_default(),
             &["tif", "tiff"],
-            id_resolver.clone(),
+            id_resolver,
             default_cache,
             &ProcessConfig::default(),
             build,
@@ -61,26 +60,22 @@ impl CogReloader {
         let remote = ConfiguredObjectDiscovery::from_config(
             FileKind::Cog,
             config,
-            &["tif", "tiff"],
             "CogReloader",
             cog_config.reload_interval,
-            &id_resolver,
             default_cache,
             &ProcessConfig::default(),
             parser,
-            ObjectStoreSourceBuilder::Cog(cog_config.for_reload()),
-            loaded_versions,
+            ObjectStoreSourceBuilder::Cog(Box::new(cog_config)),
         );
-        let loaded_baseline = remote.loaded_baseline();
         Self {
             local: ReloadDriver::new(discovery, tsm.clone()),
-            remote: ReloadDriver::new_with_baseline(remote, tsm, loaded_baseline),
+            remote: ReloadDriver::new(remote, tsm),
         }
     }
 
-    /// Publishes every discovered local source into the catalog and returns the discovery
-    /// warnings. Configured remote objects retain the exact versions captured while their startup
-    /// sources were opened.
+    /// Publishes every discovered local source into the catalog and returns the discovery warnings.
+    /// Remote sources were already loaded by startup resolution; their reload baseline is seeded
+    /// when the polling driver starts.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         self.local.init().await
     }
@@ -107,7 +102,7 @@ impl CogReloader {
                 );
             } else {
                 let trigger = PollTrigger::after_interval(interval);
-                remote.spawn(trigger, Baseline::Initialized);
+                remote.spawn(trigger, Baseline::StartupResolved);
             }
         }
 
