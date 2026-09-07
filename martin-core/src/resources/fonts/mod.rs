@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn an_alias_serves_the_same_bytes_as_the_explicit_fontstack() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
         sources
             .add_alias(
                 "Overpass Mono".to_owned(),
@@ -613,7 +613,7 @@ mod tests {
 
     #[test]
     fn an_alias_may_shadow_a_font_and_include_it() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
         sources
             .add_alias(
                 "Overpass Mono Regular".to_owned(),
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn invalid_aliases_are_rejected() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
 
         let err = sources
             .add_alias(
