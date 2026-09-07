@@ -324,6 +324,73 @@ cog:
 }
 
 #[tokio::test]
+async fn a_remote_cog_prefix_is_discovered_and_polled() {
+    let first_key = "cogtest/imagery/first.tif";
+    let second_key = "cogtest/imagery/second.tiff";
+    let original_fixture = fixture("cog/usda_naip_128_none_z2.tif");
+    let statics = StaticFiles::serving(&[(first_key, original_fixture.clone())]).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "\
+cog:
+  reload_interval: 1s
+  allow_http: true
+  aws_endpoint: {}
+  skip_signature: true
+  paths:
+    - s3://cogtest/imagery/
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin with a remote COG prefix");
+
+    martin.wait_for_source("first").await;
+    let first_tile = "/first/19/85424/194685";
+    let original = martin.get(first_tile).await;
+    assert_eq!(original.status(), 200);
+    assert!(!original.body().is_empty());
+
+    statics.replace(
+        first_key,
+        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
+    );
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if martin.get(first_tile).await.status() == 204 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    })
+    .await
+    .expect("a replaced object under the prefix must reload within the poll window");
+
+    statics.insert(second_key, &original_fixture);
+    martin.wait_for_source("second").await;
+    assert_eq!(martin.get("/second/19/85424/194685").await.status(), 200);
+
+    statics.remove(first_key);
+    martin.wait_for_source_removed("first").await;
+    martin.stop().await;
+
+    let requests = statics.request_log().await;
+    let list_count = requests
+        .lines()
+        .filter(|request| {
+            request.starts_with("GET /cogtest?")
+                && request.contains("list-type=2")
+                && request.contains("prefix=imagery")
+        })
+        .count();
+    assert!(
+        list_count >= 4,
+        "the prefix must be re-listed for each observed change:\n{requests}"
+    );
+}
+
+#[tokio::test]
 async fn a_cog_url_is_read_over_http_using_ranges() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");

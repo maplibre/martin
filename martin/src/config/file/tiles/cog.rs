@@ -31,12 +31,12 @@ pub struct CogConfig {
     )]
     pub cache: CachePolicy,
 
-    /// How often configured remote objects (`s3://`, `https://`, …) are re-checked with a `HEAD`
-    /// request for replacement. Local directories are watched via filesystem events and ignore
-    /// this setting.
+    /// How often configured remote objects (`s3://`, `https://`, …) are re-checked for
+    /// replacement and remote prefixes are re-listed for additions, replacements, and removals.
+    /// Local directories are watched via filesystem events and ignore this setting.
     ///
     /// Supports human-readable formats: "10m", "1h", "30s".
-    /// Defaults to "10m". Set to "0s" to disable remote replacement detection.
+    /// Defaults to "10m". Set to "0s" to disable remote polling and prefix discovery.
     #[serde(default = "default_reload_interval", with = "humantime_serde")]
     #[cfg_attr(
         feature = "unstable-schemas",
@@ -54,8 +54,8 @@ pub struct CogConfig {
 }
 
 /// Default polling interval for
-/// [`CogReloader`](crate::config::file::reload::cog::CogReloader) to re-check configured remote
-/// objects for replacement. Local directories are notify-driven and ignore this setting.
+/// [`CogReloader`](crate::config::file::tiles::reload::cog::CogReloader) to check configured remote
+/// objects and list remote prefixes. Local directories are notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
 
 fn default_reload_interval() -> Duration {

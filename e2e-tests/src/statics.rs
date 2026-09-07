@@ -1,6 +1,7 @@
 //! A read-only HTTP file server that stands in for remote object storage.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -13,8 +14,8 @@ use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 /// a remote tile archive.
 ///
 /// It doubles as an S3 endpoint: with path-style addressing and request signing turned off, reading
-/// `s3://bucket/key` is the same ranged `GET` under a `/bucket/key` path, so a test can point
-/// an object-store endpoint here instead of at a real bucket.
+/// or listing `s3://bucket/prefix` uses the corresponding `/bucket` paths here, so tests do not
+/// need a real bucket.
 #[derive(Debug)]
 pub struct StaticFiles {
     server: MockServer,
@@ -22,7 +23,7 @@ pub struct StaticFiles {
 }
 
 impl StaticFiles {
-    /// Start a server answering `GET` and `HEAD` for each `path` with the contents of `file`.
+    /// Start a server answering object `GET`/`HEAD` requests and S3 `ListObjectsV2` requests.
     pub async fn serving(files: &[(&str, PathBuf)]) -> Self {
         let files = files
             .iter()
@@ -43,12 +44,43 @@ impl StaticFiles {
         Self { server, files }
     }
 
-    /// Replaces the contents served under `path`, as if the remote object was overwritten.
-    pub fn replace(&self, path: &str, file: &Path) {
-        self.files
+    /// Adds `path`, as if a new remote object was uploaded.
+    pub fn insert(&self, path: &str, file: &Path) {
+        let previous = self
+            .files
             .write()
             .expect("a file map that is never poisoned")
             .insert(path.to_owned(), read(file));
+        assert!(
+            previous.is_none(),
+            "cannot insert existing static file {path}"
+        );
+    }
+
+    /// Replaces the contents served under `path`, as if the remote object was overwritten.
+    pub fn replace(&self, path: &str, file: &Path) {
+        let previous = self
+            .files
+            .write()
+            .expect("a file map that is never poisoned")
+            .insert(path.to_owned(), read(file));
+        assert!(
+            previous.is_some(),
+            "cannot replace unknown static file {path}"
+        );
+    }
+
+    /// Removes `path`, as if the remote object was deleted.
+    pub fn remove(&self, path: &str) {
+        let removed = self
+            .files
+            .write()
+            .expect("a file map that is never poisoned")
+            .remove(path);
+        assert!(
+            removed.is_some(),
+            "cannot remove unknown static file {path}"
+        );
     }
 
     /// The `http://host:port` this server listens on.
@@ -99,7 +131,76 @@ fn content_hash(body: &[u8]) -> u64 {
     hasher.finish()
 }
 
+fn xml_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+fn respond_to_s3_list(
+    files: &RwLock<HashMap<String, Vec<u8>>>,
+    request: &Request,
+) -> ResponseTemplate {
+    let files = files.read().expect("a file map that is never poisoned");
+    let bucket = request.url.path().trim_matches('/');
+    let bucket_prefix = if bucket.is_empty() {
+        String::new()
+    } else {
+        format!("{bucket}/")
+    };
+    let prefix = request
+        .url
+        .query_pairs()
+        .find_map(|(key, value)| (key == "prefix").then(|| value.into_owned()))
+        .unwrap_or_default();
+    let mut objects = files
+        .iter()
+        .filter_map(|(path, body)| {
+            let key = path.strip_prefix(&bucket_prefix)?;
+            key.starts_with(&prefix).then_some((key, body))
+        })
+        .collect::<Vec<_>>();
+    objects.sort_unstable_by_key(|(key, _)| *key);
+
+    let mut xml = String::from("<ListBucketResult>");
+    for (key, body) in objects {
+        let etag = format!("\"static-{:016x}\"", content_hash(body));
+        write!(
+            xml,
+            "<Contents><Key>{}</Key><LastModified>2026-01-01T00:00:00Z</LastModified><ETag>{}</ETag><Size>{}</Size></Contents>",
+            xml_escape(key),
+            xml_escape(&etag),
+            body.len()
+        )
+        .expect("writing to a String should not fail");
+    }
+    xml.push_str("</ListBucketResult>");
+    ResponseTemplate::new(200)
+        .insert_header("content-type", "application/xml")
+        .set_body_string(xml)
+}
+
+fn is_s3_list(request: &Request) -> bool {
+    request.method.as_str() == "GET"
+        && request
+            .url
+            .query_pairs()
+            .any(|(key, value)| key == "list-type" && value == "2")
+}
+
 fn respond(files: &RwLock<HashMap<String, Vec<u8>>>, request: &Request) -> ResponseTemplate {
+    if is_s3_list(request) {
+        return respond_to_s3_list(files, request);
+    }
     let files = files.read().expect("a file map that is never poisoned");
     let path = request.url.path().trim_start_matches('/');
     let Some(body) = files.get(path) else {
