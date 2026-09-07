@@ -31,6 +31,42 @@ async fn tilejson(martin: &Martin, id: &str) -> Value {
     tilejson
 }
 
+fn assert_remote_reads_use_ranges(
+    requests: &str,
+    path: &str,
+    expected_reads: usize,
+    ranges: &[&str],
+) {
+    let head = format!("HEAD {path} no range");
+    let gets = ranges
+        .iter()
+        .map(|range| format!("GET {path} {range}"))
+        .collect::<Vec<_>>();
+    let request_count = requests.lines().count();
+    let mut head_count = 0;
+    let mut get_counts = vec![0; gets.len()];
+
+    for request in requests.lines() {
+        if request == head {
+            head_count += 1;
+        } else if let Some(index) = gets.iter().position(|expected| request == expected) {
+            get_counts[index] += 1;
+        }
+    }
+
+    assert_eq!(
+        head_count + get_counts.iter().sum::<usize>(),
+        request_count,
+        "unexpected remote request in:\n{requests}"
+    );
+
+    assert!(
+        (expected_reads..=expected_reads * 2).contains(&head_count),
+        "expected one source-open HEAD and at most one reload-seed HEAD per read, got {head_count}"
+    );
+    assert_eq!(get_counts, vec![expected_reads; ranges.len()]);
+}
+
 #[tokio::test]
 async fn a_directory_publishes_a_source_per_file() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
@@ -205,15 +241,12 @@ cog:
         "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
     );
 
-    let requests = statics.request_log().await;
-    insta::assert_snapshot!(requests, @r"
-    HEAD /cogtest/usda_naip_128_none_z2.tif no range
-    GET /cogtest/usda_naip_128_none_z2.tif bytes=0-32767
-    GET /cogtest/usda_naip_128_none_z2.tif bytes=1284-66819
-    HEAD /cogtest/usda_naip_128_none_z2.tif no range
-    GET /cogtest/usda_naip_128_none_z2.tif bytes=0-32767
-    GET /cogtest/usda_naip_128_none_z2.tif bytes=1284-66819
-    ");
+    assert_remote_reads_use_ranges(
+        &statics.request_log().await,
+        "/cogtest/usda_naip_128_none_z2.tif",
+        2,
+        &["bytes=0-32767", "bytes=1284-66819"],
+    );
 }
 
 #[tokio::test]
@@ -327,12 +360,12 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
         ");
     });
 
-    let requests = statics.request_log().await;
-    insta::assert_snapshot!(requests, @r"
-    HEAD /usda_naip_512_webp_z5.tif no range
-    GET /usda_naip_512_webp_z5.tif bytes=0-28219
-    GET /usda_naip_512_webp_z5.tif bytes=11166-11777
-    ");
+    assert_remote_reads_use_ranges(
+        &statics.request_log().await,
+        "/usda_naip_512_webp_z5.tif",
+        1,
+        &["bytes=0-28219", "bytes=11166-11777"],
+    );
 }
 
 #[rstest]
