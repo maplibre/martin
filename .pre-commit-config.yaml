@@ -89,6 +89,8 @@ repos:
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
             grep -rl "ghcr.io/maplibre/martin:" docs demo justfile \
               | xargs -r sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%"
+            grep -rl "Martin v[0-9]" martin/src/tui/snapshots \
+              | xargs -r sed -i "s/Martin v[0-9][^[:space:]]*/Martin v$VERSION/g"
             echo "Synced version to $VERSION"
           '
         language: system

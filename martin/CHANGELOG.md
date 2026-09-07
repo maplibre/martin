@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0](https://github.com/maplibre/martin/compare/martin-v1.15.0...martin-v1.16.0) - 2026-09-06
+
+### Aliases for fonts, sprites and tile sources
+
+A style no longer has to spell out a combination of sources on every request.
+`fonts.aliases`, `sprites.aliases` and the top-level `aliases` block each name a combination of sources that a client requests like a single one: a named font stack served in the listed fallback order, one sprite name covering several sprite sources, and `/{alias}/{z}/{x}/{y}` serving exactly what `/{a},{b}` serves.
+
+```yaml
+aliases:
+  basemap: [roads, buildings]
+fonts:
+  aliases:
+    Noto Sans Stack: [Noto Sans Regular, Noto Sans Arabic Regular]
+sprites:
+  aliases:
+    icons: [transit, poi]
+```
+
+An alias may only reference real sources, never another alias, and it may share the name of a source it references, so an existing name can gain fallbacks or icons without touching a single style.
+Every alias is validated at startup, listed in the catalog under its own name, and its cache keys are the expanded sources, so purging a source also drops what its aliases served.
+See the documentation for [tile](https://maplibre.org/martin/sources-composite/), [font](https://maplibre.org/martin/sources-fonts/) and [sprite](https://maplibre.org/martin/sources-sprites/) aliases.
+Done in [#3229](https://github.com/maplibre/martin/pull/3229), [#3210](https://github.com/maplibre/martin/pull/3210) and [#3220](https://github.com/maplibre/martin/pull/3220).
+
+### CQL2 filters on table sources
+
+A table source serves every row of its table, and narrowing it down used to mean writing a function source that re-declares by hand what table discovery already knows.
+A configured table now takes a `filter` written in CQL2 text, which Martin validates at startup and translates to SQL for the tile query, so a typo fails at load rather than on the first tile.
+
+```yaml
+postgres:
+  tables:
+    large_cities:
+      filter: population > 100000 AND name NOT LIKE 'Old %'
+```
+
+The filter also narrows the computed bounds, and two entries on the same table with different filters are two distinct sources instead of the duplicate they used to warn about.
+See the [documentation](https://maplibre.org/martin/sources-pg-tables/).
+Done in [#3238](https://github.com/maplibre/martin/pull/3238).
+
+### A terminal dashboard behind `--tui`
+
+`martin --tui` turns the terminal Martin runs in into a live view of the server: the sources with their request counts and timings, the request rate, the tile requests of the last minute on a world map, and the log in a pane at the bottom, with `q` stopping the server.
+It is meant for the moments where Prometheus and Grafana are too much setup, such as a demo, a first run against a new database, or a look at a deployment over ssh.
+The flag refuses a stdout that is not a terminal, so a service or a container keeps its plain log stream.
+See the [documentation](https://maplibre.org/martin/run-with-cli/).
+Done in [#3244](https://github.com/maplibre/martin/pull/3244).
+
+### Added
+
+- *(unstable-cog)* an explicitly configured remote HTTP or S3-compatible COG object is read through a new async, range-based reader over the object-store configuration PMTiles uses, so authentication, endpoint, proxy and client options carry over, credentials are redacted from logs, errors and `--save-config` output, and malformed metadata is an error rather than a panic. This is a step of [#875](https://github.com/maplibre/martin/issues/875): such an object is loaded once at startup, and replacement detection, remote prefix listing and the matching docs are not yet implemented ([#3266](https://github.com/maplibre/martin/pull/3266))
+- *(unstable-duckdb)* GeoParquet sources became usable on the datasets they are meant for. Locations accept `s3`, `gs`, `gcs`, `r2`, `az`, `azure`, `abfss` and `hf` URLs on top of `http(s)` and are handed to DuckDB to read: an `s3://` path (see Overture Maps documentation) could not be configured at all before, and DuckDB expands globs over it but not over plain HTTP, so one source can cover a dataset split across part files. Tile queries then prune row groups with the file's covering bbox, so a tile reads the parts of the file that can contain it instead of all of them. duckdb lacks this due to the interop between `duckdb-spatial` <-> `duckdb-parquet` this would require by default. ([#3214](https://github.com/maplibre/martin/pull/3214), [#3215](https://github.com/maplibre/martin/pull/3215))
+- *(discovery)* an opt-in `recursive: true` next to `paths` for the mbtiles, pmtiles, cog and geojson kinds. A nested file is published under its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.pmtiles` becomes `2024.roads` and no existing id moves. The watcher follows the same flag ([#3203](https://github.com/maplibre/martin/pull/3203))
+- *(sprites, styles)* `collections`, which publishes every directory inside a listed root as its own source: a sprite per directory, and every `.json` inside one as `<directory>.<file>`. That is a per-project layout in one line of config, without the single merged sprite a recursive `paths` entry produces ([#3230](https://github.com/maplibre/martin/pull/3230))
+- *(cache)* a second cache entry keyed by the negotiated encoding, so a tile a source hands over uncompressed is no longer compressed again on every request. On a warm cache against PostgreSQL sources, `get_tile_content` dropped from 107 µs to 29 µs on average and throughput rose from 103k to 114k req/s ([#3211](https://github.com/maplibre/martin/pull/3211))
+- *(postgres)* an overloaded function is one source that routes on the request: a bare URL runs the queryless variant, a URL with a query string the query-taking one, and any further variant becomes its own source with a `.1` suffix. Previously whichever variant the discovery query listed last won, behind a warning nobody could act on ([#3243](https://github.com/maplibre/martin/pull/3243))
+- *(postgres)* functions returning gzip- or zlib-compressed tiles are detected by magic bytes and passed through to clients that accept the encoding, instead of being compressed a second time ([#3236](https://github.com/maplibre/martin/pull/3236))
+- *(postgres)* a function's key column is served as the tile ETag instead of a hash of the tile bytes, which was never stable for a PostGIS tile since PostgreSQL does not fix feature order without an `ORDER BY` ([#3219](https://github.com/maplibre/martin/pull/3219))
+- *(postgres)* `postgres.connection_retries` (`--pg-connection-retries`) retries the first connection once per second, 30 times by default, so Martin no longer exits when the database is not accepting connections yet a few seconds into a container stack boot. A wrong password or database name still fails at once ([#3231](https://github.com/maplibre/martin/pull/3231))
+- *(cache)* a per-connection `postgres.cache` and a per-kind `cache` in the `mbtiles`, `pmtiles`, `cog`, `geojson`, `duckdb` and `passthrough` blocks, layered over the global bounds. Keeping a whole discovered schema or kind out of the cache no longer means declaring every source ([#3221](https://github.com/maplibre/martin/pull/3221), [#3223](https://github.com/maplibre/martin/pull/3223))
+- *(martin-cp)* copying zoom by zoom and skipping the tiles below an empty tile, wherever the source promises that an empty tile only has empty tiles below it, which PostgreSQL table sources do. On the test database's `table_source` over z0-z10, a world-bbox run went from 243 s and 1,398,101 fetched tiles to 11 s and 15,557, writing the same 14,619 tiles ([#3208](https://github.com/maplibre/martin/pull/3208))
+- *(mbtiles)* a startup warning naming the missing `CREATE UNIQUE INDEX` when a served file has no index on `(zoom_level, tile_column, tile_row)`, which made every tile request scan the table ([#3234](https://github.com/maplibre/martin/pull/3234))
+- *(mbtiles)* every hash is computed with the algorithm the file records in `hash_algorithm`, and every file the tool creates records one. `fnv1a`, `xxh64`, `xxh3` and tippecanoe's `fnv1a-decimal` join `md5`, which stays the meaning of a file without the key ([#3262](https://github.com/maplibre/martin/pull/3262))
+- *(mbtiles)* `copy` takes any number of source files before the destination and copies them in order, with `--on-duplicate` deciding which file wins ([#3239](https://github.com/maplibre/martin/pull/3239))
+- *(mbtiles)* progress for the long commands: a bar for `unpack`, a running tile count for `pack`, and a spinner with the elapsed time for `copy`, `diff`, `apply-patch` and `validate`. Nothing is drawn when stderr is not a terminal ([#3235](https://github.com/maplibre/martin/pull/3235))
+
+### Fixed
+
+- *(duckdb)* cast or drop the property columns `ST_AsMVT` cannot encode, instead of failing the tile ([#3213](https://github.com/maplibre/martin/pull/3213))
+- *(contour)* run traced tiles through the MLT transcoder, so a contour source honours `convert_to_mlt` ([#3202](https://github.com/maplibre/martin/pull/3202))
+- *(reload)* apply the global cache zoom bounds to discovered files ([#3222](https://github.com/maplibre/martin/pull/3222))
+- *(mbtiles)* drop the kind-level `convert_to_hillshade` and `convert_to_contour` fields, which an inherited value would also have applied to sources that cannot be shaded ([#3199](https://github.com/maplibre/martin/pull/3199))
+- *(reload)* recover when a project or collection directory is removed mid-rescan, and recheck when a new directory appears ([#3263](https://github.com/maplibre/martin/pull/3263), [#3258](https://github.com/maplibre/martin/pull/3258), [#3240](https://github.com/maplibre/martin/pull/3240))
+- address misc static-analysis findings across docs, justfile, UI and tile-utils ([#3259](https://github.com/maplibre/martin/pull/3259))
+- *(deps)* update npm dependencies ([#3249](https://github.com/maplibre/martin/pull/3249), [#3205](https://github.com/maplibre/martin/pull/3205))
+
+### Other
+
+- *(postgres)* startup and query work that is not needed is skipped: only geometry columns that can hold arcs are linearized, the catalog queries for source kinds nothing publishes are not run, and the reload poll starts one interval after init ([#3224](https://github.com/maplibre/martin/pull/3224), [#3225](https://github.com/maplibre/martin/pull/3225), [#3226](https://github.com/maplibre/martin/pull/3226))
+- *(pmtiles)* extract the shared object-store configuration the remote COG reader builds on ([#3242](https://github.com/maplibre/martin/pull/3242))
+- *(config)* classify source paths through a `SourceLocation` type ([#3218](https://github.com/maplibre/martin/pull/3218)) and enable the serde_json `preserve_order` that cql2 requires ([#3241](https://github.com/maplibre/martin/pull/3241))
+- CI and lints: clippy fixes, a lighter `gen-schemas`, a shorter pipeline, a Windows-only unit test job that passes again, and some hardening and codeql cleanup ([#3272](https://github.com/maplibre/martin/pull/3272), [#3265](https://github.com/maplibre/martin/pull/3265), [#3267](https://github.com/maplibre/martin/pull/3267), [#3269](https://github.com/maplibre/martin/pull/3269), [#3256](https://github.com/maplibre/martin/pull/3256))
+- *(deps)* cargo and npm dependency updates and pre-commit autoupdates ([#3253](https://github.com/maplibre/martin/pull/3253), [#3233](https://github.com/maplibre/martin/pull/3233), [#3204](https://github.com/maplibre/martin/pull/3204), [#3201](https://github.com/maplibre/martin/pull/3201))
+- *(docs)* the cache zoom default is overridable per source, not per source type ([#3198](https://github.com/maplibre/martin/pull/3198))
+
 ## [1.15.0](https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.15.0) - 2026-08-31
 
 ### Hillshade postprocessing
