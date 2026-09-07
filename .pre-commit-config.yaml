@@ -39,7 +39,7 @@ repos:
       - id: remove-tabs
 
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v10.1.0
+    rev: v10.2.0
     hooks:
       - id: cspell
         # scoped to the docs; `cspell.json` holds the config and `.cspell/project-words.txt` the domain vocabulary
@@ -118,7 +118,7 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.5.11"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.5.12"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.5.11" ]
