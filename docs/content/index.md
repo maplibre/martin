@@ -27,7 +27,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
 
     [:octicons-arrow-right-24: Get started](quick-start/index.md)
 
--   :material-layers-triple:{ .lg .middle } __Tile sources__
+- :material-layers-triple:{ .lg .middle } __Tile sources__
 
     ---
 
