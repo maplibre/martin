@@ -59,7 +59,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
 
     [:octicons-arrow-right-24: Running Martin](run/index.md)
 
--   ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](images/tui-dashboard.webp)
+- ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](images/tui-dashboard.webp)
 
     :material-monitor-dashboard:{ .lg .middle } __Terminal & web UI__
 
