@@ -19,7 +19,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
 
 <div class="grid cards" markdown>
 
--   :material-clock-fast:{ .lg .middle } __Quick Start__
+- :material-clock-fast:{ .lg .middle } __Quick Start__
 
     ---
 
