@@ -153,7 +153,9 @@ mod tests {
                 .iter()
                 .map(|warning| match warning {
                     TileSourceWarning::SourceError { source_id, .. } => source_id.as_str(),
-                    other => panic!("expected SourceError, got {other:?}"),
+                    other @ TileSourceWarning::PathError { .. } => {
+                        panic!("expected SourceError, got {other:?}")
+                    }
                 })
                 .collect::<Vec<_>>(),
             ["tiles", "tiles.1"]

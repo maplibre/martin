@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::num::NonZeroU32;
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
@@ -66,14 +67,16 @@ pub fn build_mvt_sql(
     ));
     let where_clause = filters.join("\n    AND ");
 
-    let properties = introspection
-        .property_columns
-        .iter()
-        .map(|(column, mvt_type)| {
-            let escaped = escape_identifier(column);
-            format!(", {escaped}::{mvt_type} AS {escaped}")
-        })
-        .collect::<String>();
+    let properties =
+        introspection
+            .property_columns
+            .iter()
+            .fold(String::new(), |mut acc, (column, mvt_type)| {
+                let escaped = escape_identifier(column);
+                // `String`'s `Write` impl never fails.
+                let _ = write!(acc, ", {escaped}::{mvt_type} AS {escaped}");
+                acc
+            });
 
     let (id_name, id_field) = if let Some(id_column) = &entry.id_column {
         (

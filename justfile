@@ -8,6 +8,9 @@ mod demo 'demo/justfile'
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
+# Import martin-py sub-justfile as a module
+mod py 'martin-py/justfile'
+
 # list of features we deem stable for release packaging
 stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,tui,webui'
 

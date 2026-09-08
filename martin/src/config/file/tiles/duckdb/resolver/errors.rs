@@ -76,7 +76,7 @@ pub enum GeoparquetError {
 
 impl GeoparquetError {
     pub(crate) fn introspection_query(
-        source: DuckdbError,
+        source: &DuckdbError,
         source_label: String,
         signature: &'static str,
         query: String,

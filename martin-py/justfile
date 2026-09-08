@@ -1,0 +1,30 @@
+#!/usr/bin/env just --justfile
+
+set shell := ['bash', '-c']
+
+venv_dir := '.venv'
+python := venv_dir / 'bin' / 'python3'
+
+@_default:
+    just --list
+
+# Create the dev venv, unless one already exists.
+_venv:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -x '{{python}}' ]]; then
+        python3 -m venv '{{venv_dir}}'
+        '{{python}}' -m pip install -q --upgrade pip maturin
+    fi
+
+# Build martin_py and install it (with test dependencies) into the dev venv
+develop: _venv
+    '{{python}}' -m maturin develop --extras test
+
+# Run the Python test suite against a freshly built extension
+test: develop
+    '{{python}}' -m pytest
+
+# Remove the dev venv and build artifacts
+clean:
+    rm -rf {{venv_dir}} ../target/wheels

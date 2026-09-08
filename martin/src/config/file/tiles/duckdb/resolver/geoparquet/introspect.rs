@@ -188,7 +188,7 @@ async fn query_columns(
     })
     .await?
     .map_err(|source| {
-        GeoparquetError::introspection_query(source, source_label, "columns", query_for_error)
+        GeoparquetError::introspection_query(&source, source_label, "columns", query_for_error)
     })
     .map(|rows| rows.into_iter().collect())
 }
@@ -220,7 +220,7 @@ async fn query_srid(
         })
         .await?
         .map_err(|source| {
-            GeoparquetError::introspection_query(source, source_label, "srid", query_for_error)
+            GeoparquetError::introspection_query(&source, source_label, "srid", query_for_error)
         })?;
 
     match crs.flatten() {
@@ -250,7 +250,7 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
         ));
     };
 
-    let srid = auth_code.parse::<i32>().map_err(|_| {
+    let srid = auth_code.parse::<i32>().map_err(|_err| {
         GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_owned())
     })?;
 

@@ -27,5 +27,9 @@ pub struct DuckDbDatabaseEntry {
 }
 
 impl DuckDbDatabaseEntry {
+    #[expect(
+        clippy::unused_self,
+        reason = "placeholder kept in method form: auto_publish/tables/macros validation lands in a later PR"
+    )]
     pub fn finalize(&mut self) {}
 }

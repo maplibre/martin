@@ -5,6 +5,7 @@ members = [
     "martin",
     "martin-config-macros",
     "martin-core",
+    "martin-py",
     "martin-tile-utils",
     "mbtiles",
 ]
@@ -135,6 +136,7 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.9.0"
+martin = { path = "./martin", version = "1.16.0", default-features = false }
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.1" }
 martin-core = { path = "./martin-core", version = "0.11.2", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.8" }
@@ -160,6 +162,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+pyo3 = "0.29.2"
 quote = "1"
 ratatui = "0.30.2"
 rayon = "1.11.0"

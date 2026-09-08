@@ -1,6 +1,11 @@
-#![expect(
-    clippy::panic,
-    reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
+// All panicking code below is gated on `feature = "webui"`; without it this
+// expectation would go unfulfilled and fail the `warnings = "deny"` build.
+#![cfg_attr(
+    feature = "webui",
+    expect(
+        clippy::panic,
+        reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
+    )
 )]
 
 #[cfg(feature = "webui")]

@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
@@ -89,7 +90,9 @@ impl DuckDbConfig {
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    async fn finalize(&mut self) -> ConfigFileResult<()> {
+    // No `.await` below: every step is synchronous, so this returns an already-ready future
+    // instead of paying for an `async fn`'s state machine.
+    fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
             threads: self.threads,
@@ -97,12 +100,15 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             auto_bounds: self.auto_bounds,
         };
 
-        for source in &mut self.sources {
-            source.finalize()?;
-            source.apply_defaults(defaults);
-        }
+        let result = (|| {
+            for source in &mut self.sources {
+                source.finalize()?;
+                source.apply_defaults(defaults);
+            }
+            Ok(())
+        })();
 
-        Ok(())
+        std::future::ready(result)
     }
 }
 
