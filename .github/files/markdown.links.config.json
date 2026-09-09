@@ -25,6 +25,10 @@
       "pattern": "^http://opensource.org"
     },
     {
+      "__comment__": "The 'latest' release only has assets once the release workflow finishes uploading them, so these 404 for every docs build in between",
+      "pattern": "^https://github.com/maplibre/martin/releases/latest/download/"
+    },
+    {
       "__comment__": "Geofabrik drops the checker's connection (socket hang up), which fails every docs build that links a download page",
       "pattern": "^https://download.geofabrik.de"
     },
