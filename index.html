@@ -147,8 +147,7 @@
     <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#what-martin-can-do" class="md-skip">
+        <a href="#__skip" class="md-skip">
           Skip to content
         </a>
       
@@ -565,8 +564,6 @@
       
       
       
-      
-        
       
       
       <a href="" class="md-nav__link md-nav__link--active">
@@ -1027,6 +1024,8 @@
   
 
 
+  <h1 id="__skip">Introduction</h1>
+
 <p><img alt="Martin" src="https://raw.githubusercontent.com/maplibre/martin/main/logo.png" /></p>
 <p><a href="https://docs.rs/martin"><img alt="docs.rs docs" src="https://docs.rs/martin/badge.svg" /></a>
 <a href="https://slack.openstreetmap.us/"><img alt="join our community" src="https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack" /></a>
@@ -1035,22 +1034,51 @@
 <a href="https://github.com/maplibre/martin/security"><img alt="Security audit" src="https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg" /></a>
 <a href="https://github.com/maplibre/martin/actions"><img alt="CI build" src="https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg" /></a>
 <a href="https://www.bestpractices.dev/projects/11613"><img alt="OpenSSF Best Practices" src="https://www.bestpractices.dev/projects/11613/badge" /></a></p>
-<p>Martin is a tile server able to generate and serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> on the fly from large <a href="https://github.com/postgis/postgis">PostGIS</a> databases, <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTiles</a> (local or remote), <a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a>, <a href="https://geojson.org/">GeoJSON</a> files, and <a href="sources-duckdb/">GeoParquet</a> files via DuckDB (unstable), allowing multiple tile sources to be dynamically combined into one.
-Martin optimizes for speed and heavy traffic, and is written in <a href="https://github.com/rust-lang/rust">Rust</a>.</p>
-<h1 id="what-martin-can-do">What Martin can do</h1>
+<p>Martin is a tile server optimized for speed and heavy traffic, written in <a href="https://github.com/rust-lang/rust">Rust</a>.</p>
+<div class="grid cards">
 <ul>
-<li>Serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> from:</li>
-<li><a href="https://postgis.net/">PostGIS</a> databases with automatic discovery of compatible tables and functions</li>
-<li><a href="https://docs.protomaps.com/pmtiles/">PMTiles</a> from local files or over HTTP</li>
-<li><a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a> files</li>
-<li><a href="https://geojson.org/">GeoJSON</a> files</li>
-<li><a href="sources-duckdb/">GeoParquet</a> files via DuckDB (unstable)</li>
-<li><a href="sources-composite/">Combine</a> multiple tile sources into one</li>
-<li>Serve <a href="sources-styles/">styles</a> and generate <a href="sources-sprites/">sprites</a> and <a href="sources-fonts/">font glyphs</a> on the fly</li>
-<li>Generate tiles in bulk into an MBTiles archive with <a href="martin-cp/">martin-cp</a></li>
-<li>Examine, copy, validate, compare, and apply diffs between MBTiles files with <a href="tools/#mbtiles">mbtiles</a></li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15 4a8 8 0 0 1 8 8 8 8 0 0 1-8 8 8 8 0 0 1-8-8 8 8 0 0 1 8-8m0 2a6 6 0 0 0-6 6 6 6 0 0 0 6 6 6 6 0 0 0 6-6 6 6 0 0 0-6-6m-1 2h1.5v3.78l2.33 2.33-1.06 1.06L14 12.4zM2 18a1 1 0 0 1-1-1 1 1 0 0 1 1-1h3.83c.31.71.71 1.38 1.17 2zm1-5a1 1 0 0 1-1-1 1 1 0 0 1 1-1h2.05L5 12l.05 1zm1-5a1 1 0 0 1-1-1 1 1 0 0 1 1-1h3c-.46.62-.86 1.29-1.17 2z"/></svg></span> <strong>Quick Start</strong></p>
+<hr />
+<p><a href="installation/">Install</a> a binary, a Docker image, or a package, and serve your first tiles within a few minutes.</p>
+<p><a href="quick-start/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Get started</a></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg></span> <strong>Tile sources</strong></p>
+<hr />
+<p><a href="pg-connections/">PostGIS</a> tables and functions with automatic discovery, <a href="sources-pmtiles/">PMTiles</a>, <a href="sources-mbtiles/">MBTiles</a>, <a href="sources-cog-files/">COG</a>, <a href="sources-geojson/">GeoJSON</a>, and <a href="sources-duckdb/">GeoParquet</a>, <a href="sources-composite/">combined</a> into one source where you need it.</p>
+<p><a href="sources-tiles/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Configure sources</a></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.5 12a1.5 1.5 0 0 1-1.5-1.5A1.5 1.5 0 0 1 17.5 9a1.5 1.5 0 0 1 1.5 1.5 1.5 1.5 0 0 1-1.5 1.5m-3-4A1.5 1.5 0 0 1 13 6.5 1.5 1.5 0 0 1 14.5 5 1.5 1.5 0 0 1 16 6.5 1.5 1.5 0 0 1 14.5 8m-5 0A1.5 1.5 0 0 1 8 6.5 1.5 1.5 0 0 1 9.5 5 1.5 1.5 0 0 1 11 6.5 1.5 1.5 0 0 1 9.5 8m-3 4A1.5 1.5 0 0 1 5 10.5 1.5 1.5 0 0 1 6.5 9 1.5 1.5 0 0 1 8 10.5 1.5 1.5 0 0 1 6.5 12M12 3a9 9 0 0 0-9 9 9 9 0 0 0 9 9 1.5 1.5 0 0 0 1.5-1.5c0-.39-.15-.74-.39-1-.23-.27-.38-.62-.38-1a1.5 1.5 0 0 1 1.5-1.5H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8"/></svg></span> <strong>Styles, sprites &amp; fonts</strong></p>
+<hr />
+<p>Serve <a href="sources-styles/">styles</a> and generate <a href="sources-sprites/">sprites</a> and <a href="sources-fonts/">font glyphs</a> on the fly, so a map needs nothing but Martin.</p>
+<p><a href="sources-styles/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Supporting resources</a></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15l-1.89 1.07L16 8.61l1.96-1.11zM6.04 7.5 12 10.85l1.96-1.1-5.88-3.4zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span> <strong>Bulk generation &amp; tooling</strong></p>
+<hr />
+<p>Generate tiles into an archive with <a href="martin-cp/">martin-cp</a>, then examine, copy, validate, and diff it with <a href="mbtiles/">mbtiles</a>.</p>
+<p><a href="tools/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Provided tools</a></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 19V7H4v12zm0-16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-7 14v-2h5v2zm-3.42-4L5.57 9H8.4l3.3 3.3c.39.39.39 1.03 0 1.42L8.42 17H5.59z"/></svg></span> <strong>Run it anywhere</strong></p>
+<hr />
+<p>A single binary on a server, in <a href="run-with-docker/">Docker</a>, on <a href="run-with-lambda/">AWS Lambda</a>, or behind <a href="run-with-nginx/">NGINX</a> and <a href="run-with-apache/">Apache</a>.</p>
+<p><a href="run/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Running Martin</a></p>
+</li>
+<li>
+<p><img alt="The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane" src="images/tui-dashboard.webp" /></p>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16V4H3v12zm0-14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7v2h2v2H8v-2h2v-2H3a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2zM5 6h9v5H5zm10 0h4v2h-4zm4 3v5h-4V9zM5 12h4v2H5zm5 0h4v2h-4z"/></svg></span> <strong>Terminal &amp; web UI</strong></p>
+<hr />
+<p>Useful for monitoring, debugging and development.</p>
+<p><a href="run-with-cli/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Terminal dashboard</a></p>
+</li>
 </ul>
-<p><a class="md-button md-button--primary" href="https://martin.maplibre.org/">Explore on our demo site</a></p>
+</div>
+<p><a class="md-button md-button--primary" href="https://martin.maplibre.org/">Explore on our demo site</a>
+<a class="md-button" href="using-guides/">Use it with your map</a>
+<a class="md-button" href="using/">API endpoints</a></p>
 
   
 
