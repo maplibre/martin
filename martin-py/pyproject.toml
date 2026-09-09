@@ -13,6 +13,9 @@ classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
+dependencies = [
+    "pip>=26.0.1",
+]
 
 [project.optional-dependencies]
 test = ["pytest>=8", "PyYAML>=6"]

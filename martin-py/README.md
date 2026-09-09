@@ -18,7 +18,21 @@ maturin develop --release   # builds martin_py and installs it into the active v
 
 ## Testing
 
-`just py::test` creates a `.venv` in this directory, builds `martin_py` into
+The commands below use [`just`](https://github.com/casey/just), the command
+runner this repo uses for all `just <recipe>` tasks. Install it with one of:
+
+```bash
+cargo install just   # from source, via Cargo (any platform)
+cargo binstall just   # same, but fetches a prebuilt binary (faster)
+brew install just     # macOS/Linux via Homebrew
+# or the official install script (installs to ./bin by default):
+curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ./bin
+```
+
+See the [`just` installation docs](https://just.systems/man/en/packages.html)
+for more package-manager options.
+
+`just test` creates a `.venv` in this directory, builds `martin_py` into
 it with `maturin develop`, and runs the Python test suite (`tests/`) against
 the same fixture files the Rust end-to-end tests use
 (`../tests/fixtures/{geojson,pmtiles,duckdb}`). The first build compiles
@@ -27,7 +41,7 @@ several minutes; later builds reuse Cargo's cache. Run it directly with
 pytest once the venv exists:
 
 ```bash
-just py::develop   # (re)build the extension after a source change
+just develop   # (re)build the extension after a source change
 .venv/bin/pytest
 ```
 
@@ -50,7 +64,9 @@ its `Content-Type` and, if present, `Content-Encoding`.
 ## Feature scope
 
 The `martin` dependency in [Cargo.toml](Cargo.toml) is built with
-`default-features = false, features = ["pmtiles", "geojson"]`, so this crate
-serves PMTiles and GeoJSON sources without pulling in `libpq`/DuckDB or the
-web UI's npm build. Add `postgres`, `mbtiles`, etc. to that feature list if
-bindings for those source kinds are needed too.
+`default-features = false, features = ["pmtiles", "geojson", "unstable-duckdb"]`,
+so this crate serves PMTiles, GeoJSON, and DuckDB/GeoParquet sources without
+pulling in `libpq` or the web UI's npm build. `unstable-duckdb` compiles
+DuckDB from source on the first build (no system install needed, but it's
+slow - see [Testing](#testing) above). Add `postgres`, `mbtiles`, etc. to that
+feature list if bindings for those source kinds are needed too.
