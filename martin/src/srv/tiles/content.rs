@@ -424,7 +424,7 @@ impl<'a> DynTileSource<'a> {
             tile.y = xyz.y,
             sources.count = self.sources.len(),
         ),
-        err(Debug),
+        err(Display),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> Result<Tile, TileError> {
         let served = self.served_key(xyz);
