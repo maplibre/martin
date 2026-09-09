@@ -3,7 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -45,7 +45,7 @@ const CONFIG: &str = indoc! {"
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pmt_get_catalog_with_rendering_feature() {
@@ -68,7 +68,7 @@ async fn pmt_get_catalog_with_rendering_feature() {
     ");
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pmt_get_catalog_gzip_with_rendering_feature() {

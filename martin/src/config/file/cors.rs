@@ -132,7 +132,7 @@ impl CorsConfig {
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(&self) -> ConfigFileResult<()> {
+    pub const fn validate(&self) -> ConfigFileResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
             Self::Properties(properties) => properties.validate(),

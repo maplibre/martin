@@ -46,7 +46,7 @@ pub struct Catalog {
 )]
 pub struct CatalogSettings {
     /// Whether server-side style rendering endpoints are enabled.
-    #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", feature = "styles"))]
     pub rendering: bool,
 }
 
@@ -66,6 +66,8 @@ impl Catalog {
             settings: CatalogSettings {
                 #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
                 rendering: state.styles.is_rendering_enabled(),
+                #[cfg(all(feature = "rendering", feature = "styles", not(target_os = "linux")))]
+                rendering: false,
             },
         })
     }

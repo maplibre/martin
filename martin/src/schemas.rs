@@ -48,7 +48,7 @@ pub struct MartinOpenApi;
 
 /// Style-rendering routes - in their own derive so the rest of the API can
 /// generate schemas without pulling in the `rendering` feature's C++ build.
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[derive(OpenApi)]
 #[openapi(paths(
     crate::srv::get_rendered_tile_style,
@@ -61,7 +61,7 @@ struct MartinRenderingOpenApi;
 #[must_use]
 pub fn openapi_spec() -> serde_json::Value {
     let openapi = MartinOpenApi::openapi();
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     let openapi = openapi.merge_from(MartinRenderingOpenApi::openapi());
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
