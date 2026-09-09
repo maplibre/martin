@@ -126,7 +126,6 @@ jobs:
       - changes
       - rust
       - ui
-      - docs
       - schemas
     if: |
       always()
