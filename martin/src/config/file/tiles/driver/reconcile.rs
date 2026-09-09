@@ -1,12 +1,12 @@
 //! The generic [`ReloadDriver`] reconcile loop.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
-use crate::config::file::tiles::driver::{Sink, Trigger};
+use crate::config::file::tiles::driver::{ApplyOutcome, Sink, Trigger};
 use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
 use crate::reload::ReloadAdvisory;
 
@@ -59,8 +59,16 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovered = self.discovery.discover().await?;
         let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
-        self.sink.apply_changes(advisory).await?;
-        self.baseline = Some(discovered.sources);
+        let wanted = Self::advisory_ids(&advisory);
+        // A warn-policy sink skips failed builds; keep those ids out of the baseline so the
+        // next tick retries them instead of treating them as already-applied.
+        let outcome = self.sink.apply_changes(advisory).await?;
+        let retry = Self::retry_ids(&wanted, &outcome);
+        self.baseline = Some(Self::merge_failed_out(
+            &BTreeMap::new(),
+            &discovered.sources,
+            &retry,
+        ));
         let mut warnings = self.discovery.construction_warnings();
         warnings.extend(discovered.warnings);
         Ok(warnings)
@@ -82,13 +90,24 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
 
     /// Records the startup state without applying; the catalog was already populated at
     /// startup, so applying would double-add.
+    ///
+    /// The catalog may hold a strict subset of the discovery: `config.resolve()` builds each
+    /// source and skips failures, so only ids the sink actually serves may seed the baseline.
+    /// An id discovered but not served stays absent and is retried as an addition.
     async fn seed(&mut self) {
-        match self.discovery.discover().await {
-            Ok(next) => self.baseline = Some(next.sources),
+        let served = match self.discovery.discover().await {
+            Ok(next) => next
+                .sources
+                .iter()
+                .filter(|(id, _)| self.sink.contains(id.as_str()))
+                .map(|(id, (version, args))| (id.clone(), (*version, args.clone())))
+                .collect::<BTreeMap<String, (Version, D::Args)>>(),
             Err(error) => {
                 tracing::warn!(?error, "reload seed discovery failed; baseline deferred");
+                return;
             }
-        }
+        };
+        self.baseline = Some(served);
     }
 
     async fn reconcile(&mut self) {
@@ -112,12 +131,64 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         };
 
         let advisory = Self::advisory(&self.discovery, prev, &next).await;
-        match self.sink.apply_changes(advisory).await {
-            Ok(()) => self.baseline = Some(next),
+        let wanted = Self::advisory_ids(&advisory);
+        // A warn-policy sink may have skipped some failed builds; hold those ids at their old
+        // baseline entry so the next tick retries exactly them, while successes advance.
+        let outcome = match self.sink.apply_changes(advisory).await {
+            Ok(outcome) => outcome,
             Err(error) => {
                 tracing::warn!(?error, "reload apply failed; retaining baseline for retry");
+                return;
+            }
+        };
+        let retry = Self::retry_ids(&wanted, &outcome);
+        self.baseline = Some(Self::merge_failed_out(prev, &next, &retry));
+    }
+
+    /// Every id an advisory asks to be added or updated.
+    fn advisory_ids(advisory: &ReloadAdvisory) -> BTreeSet<String> {
+        let mut out = BTreeSet::new();
+        for source in &advisory.additions {
+            out.insert(source.id.clone());
+        }
+        for source in &advisory.updates {
+            out.insert(source.id.clone());
+        }
+        out
+    }
+
+    /// The ids the advisory wanted applied but the sink did not install.
+    fn retry_ids(wanted: &BTreeSet<String>, outcome: &ApplyOutcome) -> BTreeSet<String> {
+        let mut retry = BTreeSet::new();
+        for id in wanted {
+            if !outcome
+                .applied
+                .iter()
+                .any(|applied| applied.as_str() == id.as_str())
+            {
+                retry.insert(id.clone());
             }
         }
+        retry
+    }
+
+    /// Merges `next` into the baseline, pinning every id the sink did not apply to its previous
+    /// entry: an update stays at its old version and an addition stays absent, so the next tick
+    /// diffs them again instead of treating the failure as applied.
+    fn merge_failed_out(
+        prev: &BTreeMap<String, (Version, D::Args)>,
+        next: &BTreeMap<String, (Version, D::Args)>,
+        retry: &BTreeSet<String>,
+    ) -> BTreeMap<String, (Version, D::Args)> {
+        let mut merged = next.clone();
+        for id in retry {
+            if let Some(entry) = prev.get(id.as_str()) {
+                merged.insert(id.clone(), entry.clone());
+            } else {
+                merged.remove(id.as_str());
+            }
+        }
+        merged
     }
 
     async fn advisory(
@@ -154,7 +225,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
+    use std::collections::{BTreeSet, VecDeque};
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
@@ -312,10 +383,17 @@ mod tests {
     }
 
     /// Records every applied advisory and replays scripted results.
+    ///
+    /// Marks every advisory id as applied, mirroring an `OnInvalid::Abort` sink whose applies
+    /// cannot fail per-source; the driver tests exercise per-source failure through
+    /// [`SpySink::with_failed`], or through the mutable handle [`SpySink::failed_set`] when a
+    /// test must flip a source from healthy to failing between phases.
     #[derive(Clone)]
     struct SpySink {
         applied: Arc<Mutex<Vec<AdvisorySnapshot>>>,
         results: Arc<Mutex<VecDeque<SourceBuildResult<()>>>>,
+        /// Ids whose build fails whenever the advisory asks for them.
+        failed: Arc<Mutex<BTreeSet<String>>>,
     }
 
     impl SpySink {
@@ -323,6 +401,7 @@ mod tests {
             Self {
                 applied: Arc::new(Mutex::new(Vec::new())),
                 results: Arc::new(Mutex::new(VecDeque::new())),
+                failed: Arc::new(Mutex::new(BTreeSet::new())),
             }
         }
 
@@ -332,27 +411,59 @@ mod tests {
             s
         }
 
+        /// A warn-policy sink whose `id`s fail to build and are therefore never applied.
+        fn with_failed(ids: &[&str]) -> Self {
+            let s = Self::new();
+            *s.failed.lock().expect("SpySink failed mutex poisoned") =
+                ids.iter().map(|id| (*id).to_owned()).collect::<BTreeSet<_>>();
+            s
+        }
+
+        /// The failed-id set, for tests that must grow it after an `init()` that succeeded.
+        fn failed_set(&self) -> Arc<Mutex<BTreeSet<String>>> {
+            Arc::clone(&self.failed)
+        }
+
         fn recorded(&self) -> Arc<Mutex<Vec<AdvisorySnapshot>>> {
             Arc::clone(&self.applied)
         }
     }
 
     impl Sink for SpySink {
+        fn contains(&self, id: &str) -> bool {
+            !self
+                .failed
+                .lock()
+                .expect("SpySink failed mutex poisoned")
+                .contains(id)
+        }
+
         fn apply_changes(
             &self,
             advisory: ReloadAdvisory,
-        ) -> impl Future<Output = SourceBuildResult<()>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<ApplyOutcome>> + Send {
             self.applied
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
+            let failed = self
+                .failed
+                .lock()
+                .expect("SpySink failed mutex poisoned");
+            let applied = advisory
+                .additions
+                .iter()
+                .chain(&advisory.updates)
+                .filter(|s| !failed.contains(s.id.as_str()))
+                .map(|s| s.id.clone())
+                .collect::<BTreeSet<_>>();
             let result = self
                 .results
                 .lock()
                 .expect("SpySink results mutex poisoned")
                 .pop_front()
                 .unwrap_or(Ok(()));
-            std::future::ready(result)
+            std::future::ready(result.map(|()| ApplyOutcome { applied }))
         }
     }
 
@@ -545,6 +656,134 @@ mod tests {
 
         ReloadDriver::new(discovery, sink)
             .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![AdvisorySnapshot {
+                additions: ids(&["b"]),
+                updates: ids(&[]),
+                removals: ids(&[]),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_build_retries_next_tick_while_successes_advance() {
+        // A warn-policy sink skips `b`'s failing build but applies `a`; the baseline must hold
+        // `b` back (absent) so the next tick retries it, while `a` advances so it is not re-added.
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+        ]);
+        let sink = SpySink::with_failed(&["b"]);
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: ids(&["a", "b"]),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: ids(&["b"]),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_update_retries_without_applying_successive_updates_of_others() {
+        // `a` and `b` both load at init; `b`'s update then fails while `a`'s succeeds. The
+        // baseline must hold `b` at its old version so the next tick retries exactly `b`, while
+        // `a` advances so its update never repeats.
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(2)),
+                ("b", Version::Tracked(2)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(2)),
+                ("b", Version::Tracked(2)),
+            ])),
+        ]);
+        // Both sources load healthy at init; `b`'s update starts failing only afterwards.
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+        let failing = sink.failed_set();
+        let mut driver = ReloadDriver::new(discovery, sink);
+        assert!(driver.init().await.is_ok(), "init applies both healthy sources");
+        failing.lock().expect("SpySink failed mutex poisoned").insert("b".to_owned());
+        driver
+            .spawn(ManualTrigger::new(2), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                // init applies the healthy additions.
+                AdvisorySnapshot {
+                    additions: ids(&["a", "b"]),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                // Tick 1: both update; `a` succeeds, `b` is held back at @1.
+                AdvisorySnapshot {
+                    additions: ids(&[]),
+                    updates: ids(&["a", "b"]),
+                    removals: ids(&[]),
+                },
+                // Tick 2: `a` advanced, so only `b` is retried.
+                AdvisorySnapshot {
+                    additions: ids(&[]),
+                    updates: ids(&["b"]),
+                    removals: ids(&[]),
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn seed_keeps_failed_sources_out_of_the_baseline() {
+        // Startup already skipped `b` (its read failed), so the seed must not record it as
+        // applied: the first tick retries the addition.
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+        ]);
+        let sink = SpySink::with_failed(&["b"]);
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 

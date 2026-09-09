@@ -19,66 +19,109 @@ use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 #[derive(Debug)]
 pub struct StaticFiles {
     server: MockServer,
-    files: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    state: Arc<RwLock<State>>,
+}
+
+/// Mutable serving state, shared with the wiremock response closures.
+#[derive(Debug)]
+struct State {
+    files: HashMap<String, Vec<u8>>,
+    /// While `true`, every object `GET` answers `404`; `HEAD` and listings keep working. Models
+    /// a transient read failure so tests can exercise retry without losing version continuity.
+    /// `404` (not a retryable `5xx`) so a failing build fails immediately instead of exhausting
+    /// the object-store retry budget, which can outlive the failing window.
+    fail_gets: bool,
+    /// When `Some`, object `GET`/`HEAD` requests must carry exactly this query string.
+    required_query: Option<String>,
 }
 
 impl StaticFiles {
     /// Start a server answering object `GET`/`HEAD` requests and S3 `ListObjectsV2` requests.
     pub async fn serving(files: &[(&str, PathBuf)]) -> Self {
+        Self::serving_with(None, false, files).await
+    }
+
+    /// Like [`serving`](Self::serving), but requires every object request to carry `query`
+    /// (answering `403` otherwise), so tests can enforce query-based authentication.
+    pub async fn serving_with_query(
+        query: &str,
+        files: &[(&str, PathBuf)],
+    ) -> Self {
+        Self::serving_with(Some(query.to_owned()), false, files).await
+    }
+
+    /// Like [`serving`](Self::serving), but every object `GET` answers `404` until the test calls
+    /// [`set_fail_gets`](Self::set_fail_gets), letting a test start with reads broken and heal
+    /// them while `HEAD` and listings keep working.
+    pub async fn serving_failing_gets(files: &[(&str, PathBuf)]) -> Self {
+        Self::serving_with(None, true, files).await
+    }
+
+    async fn serving_with(
+        required_query: Option<String>,
+        fail_gets: bool,
+        files: &[(&str, PathBuf)],
+    ) -> Self {
         let files = files
             .iter()
             .map(|(path, file)| ((*path).to_owned(), read(file)))
             .collect::<HashMap<_, _>>();
         let server = MockServer::start().await;
-        let files = Arc::new(RwLock::new(files));
-        let get_files = Arc::clone(&files);
+        let state = Arc::new(RwLock::new(State {
+            files,
+            fail_gets,
+            required_query,
+        }));
+        let get_state = Arc::clone(&state);
         Mock::given(method("GET"))
-            .respond_with(move |request: &Request| respond(&get_files, request))
+            .respond_with(move |request: &Request| respond(&get_state, request))
             .mount(&server)
             .await;
-        let head_files = Arc::clone(&files);
+        let head_state = Arc::clone(&state);
         Mock::given(method("HEAD"))
-            .respond_with(move |request: &Request| respond(&head_files, request))
+            .respond_with(move |request: &Request| respond(&head_state, request))
             .mount(&server)
             .await;
-        Self { server, files }
+        Self { server, state }
+    }
+
+    /// Heals (or re-breaks) the transient `GET` failure gate.
+    pub fn set_fail_gets(&self, failing: bool) {
+        self.state.write().expect("a file map that is never poisoned").fail_gets = failing;
     }
 
     /// Adds `path`, as if a new remote object was uploaded.
     pub fn insert(&self, path: &str, file: &Path) {
-        let previous = self
-            .files
+        let mut state = self
+            .state
             .write()
-            .expect("a file map that is never poisoned")
-            .insert(path.to_owned(), read(file));
+            .expect("a file map that is never poisoned");
         assert!(
-            previous.is_none(),
+            state.files.insert(path.to_owned(), read(file)).is_none(),
             "cannot insert existing static file {path}"
         );
     }
 
     /// Replaces the contents served under `path`, as if the remote object was overwritten.
     pub fn replace(&self, path: &str, file: &Path) {
-        let previous = self
-            .files
+        let mut state = self
+            .state
             .write()
-            .expect("a file map that is never poisoned")
-            .insert(path.to_owned(), read(file));
+            .expect("a file map that is never poisoned");
         assert!(
-            previous.is_some(),
+            state.files.insert(path.to_owned(), read(file)).is_some(),
             "cannot replace unknown static file {path}"
         );
     }
 
     /// Removes `path`, as if the remote object was deleted.
     pub fn remove(&self, path: &str) {
-        let removed = self
-            .files
+        let mut state = self
+            .state
             .write()
-            .expect("a file map that is never poisoned")
-            .remove(path);
+            .expect("a file map that is never poisoned");
         assert!(
-            removed.is_some(),
+            state.files.remove(path).is_some(),
             "cannot remove unknown static file {path}"
         );
     }
@@ -147,10 +190,10 @@ fn xml_escape(value: &str) -> String {
 }
 
 fn respond_to_s3_list(
-    files: &RwLock<HashMap<String, Vec<u8>>>,
+    state: &RwLock<State>,
     request: &Request,
 ) -> ResponseTemplate {
-    let files = files.read().expect("a file map that is never poisoned");
+    let files = &state.read().expect("a file map that is never poisoned").files;
     let bucket = request.url.path().trim_matches('/');
     let bucket_prefix = if bucket.is_empty() {
         String::new()
@@ -197,13 +240,20 @@ fn is_s3_list(request: &Request) -> bool {
             .any(|(key, value)| key == "list-type" && value == "2")
 }
 
-fn respond(files: &RwLock<HashMap<String, Vec<u8>>>, request: &Request) -> ResponseTemplate {
+fn respond(state: &RwLock<State>, request: &Request) -> ResponseTemplate {
     if is_s3_list(request) {
-        return respond_to_s3_list(files, request);
+        return respond_to_s3_list(state, request);
     }
-    let files = files.read().expect("a file map that is never poisoned");
-    let path = request.url.path().trim_start_matches('/');
-    let Some(body) = files.get(path) else {
+    let state = state.read().expect("a file map that is never poisoned");
+    if let Some(required) = &state.required_query
+        && request.url.query() != Some(required.as_str())
+    {
+        return ResponseTemplate::new(403);
+    }
+    if request.method.as_str() == "GET" && state.fail_gets {
+        return ResponseTemplate::new(404);
+    }
+    let Some(body) = state.files.get(request.url.path().trim_start_matches('/')) else {
         return ResponseTemplate::new(404);
     };
     let etag = format!("\"static-{:016x}\"", content_hash(body));
