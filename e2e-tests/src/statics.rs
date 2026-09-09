@@ -43,10 +43,7 @@ impl StaticFiles {
 
     /// Like [`serving`](Self::serving), but requires every object request to carry `query`
     /// (answering `403` otherwise), so tests can enforce query-based authentication.
-    pub async fn serving_with_query(
-        query: &str,
-        files: &[(&str, PathBuf)],
-    ) -> Self {
+    pub async fn serving_with_query(query: &str, files: &[(&str, PathBuf)]) -> Self {
         Self::serving_with(Some(query.to_owned()), false, files).await
     }
 
@@ -87,7 +84,10 @@ impl StaticFiles {
 
     /// Heals (or re-breaks) the transient `GET` failure gate.
     pub fn set_fail_gets(&self, failing: bool) {
-        self.state.write().expect("a file map that is never poisoned").fail_gets = failing;
+        self.state
+            .write()
+            .expect("a file map that is never poisoned")
+            .fail_gets = failing;
     }
 
     /// Adds `path`, as if a new remote object was uploaded.
@@ -189,11 +189,11 @@ fn xml_escape(value: &str) -> String {
     escaped
 }
 
-fn respond_to_s3_list(
-    state: &RwLock<State>,
-    request: &Request,
-) -> ResponseTemplate {
-    let files = &state.read().expect("a file map that is never poisoned").files;
+fn respond_to_s3_list(state: &RwLock<State>, request: &Request) -> ResponseTemplate {
+    let files = &state
+        .read()
+        .expect("a file map that is never poisoned")
+        .files;
     let bucket = request.url.path().trim_matches('/');
     let bucket_prefix = if bucket.is_empty() {
         String::new()

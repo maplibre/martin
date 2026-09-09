@@ -59,7 +59,10 @@ fn assert_remote_reads_use_ranges(
         };
         if request == head {
             head_count += 1;
-        } else if let Some(index) = gets.iter().position(|expected| request.as_str() == expected.as_str()) {
+        } else if let Some(index) = gets
+            .iter()
+            .position(|expected| request.as_str() == expected.as_str())
+        {
             get_counts[index] += 1;
         }
     }
@@ -265,11 +268,8 @@ cog:
 #[tokio::test]
 async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
-    let statics = StaticFiles::serving_failing_gets(&[(
-            key,
-            fixture("cog/usda_naip_128_none_z2.tif"),
-        )])
-        .await;
+    let statics =
+        StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
     let mut martin = Martin::builder()
         .config(&format!(
             "\
@@ -289,10 +289,17 @@ cog:
         .expect("failed to start martin with a read-failing remote COG");
 
     // Reads fail, so the object must not be served; the source is absent, not stale.
-    let catalog = async || martin.get("/catalog").await.json()["tiles"].get("remote").is_some();
+    let catalog = async || {
+        martin.get("/catalog").await.json()["tiles"]
+            .get("remote")
+            .is_some()
+    };
     assert!(!catalog().await, "the failed source must not be published");
     tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
-    assert!(!catalog().await, "the failed source must not appear while reads keep failing");
+    assert!(
+        !catalog().await,
+        "the failed source must not appear while reads keep failing"
+    );
     // Two poll cycles have now run against the failing object.
 
     // Heal the object: the unchanged ETag must not matter, the next poll retries the build.
@@ -313,7 +320,10 @@ cog:
     // failure line carries `error=`, regardless of the shape the log takes.
     martin.assert_log_contains("Tile source resolution warning");
     let drained = martin.take_log_lines("error=");
-    assert!(!drained.is_empty(), "the failing reads must have been logged");
+    assert!(
+        !drained.is_empty(),
+        "the failing reads must have been logged"
+    );
 
     martin.stop().await;
 }
@@ -349,7 +359,10 @@ cog:
     // while every read of it fails. The gate answers 404 so a failing build errors immediately;
     // two poll cycles later the skip is guaranteed to have been recorded.
     statics.set_fail_gets(true);
-    statics.replace(key, &fixture("cog/regressions/usda_naip_128_none_sparse.tif"));
+    statics.replace(
+        key,
+        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
+    );
     tokio::time::sleep(std::time::Duration::from_millis(2_000)).await;
     assert_eq!(
         martin.get(tile_url).await.status(),
@@ -373,7 +386,10 @@ cog:
     // The failure was expected; consume the warnings the harness would otherwise flag. Every
     // failure line carries `error=`, regardless of the shape the log takes.
     let drained = martin.take_log_lines("error=");
-    assert!(!drained.is_empty(), "the failing reads must have been logged");
+    assert!(
+        !drained.is_empty(),
+        "the failing reads must have been logged"
+    );
 
     martin.stop().await;
 }
@@ -571,7 +587,9 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     // the tile already proves the query was forwarded, and the log makes it checkable.
     let requests = statics.request_log().await;
     assert!(
-        requests.lines().all(|line| line.contains("?token=secret-query")),
+        requests
+            .lines()
+            .all(|line| line.contains("?token=secret-query")),
         "every remote request must carry the configured query:\n{requests}"
     );
 }

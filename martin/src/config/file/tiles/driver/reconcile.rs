@@ -414,8 +414,10 @@ mod tests {
         /// A warn-policy sink whose `id`s fail to build and are therefore never applied.
         fn with_failed(ids: &[&str]) -> Self {
             let s = Self::new();
-            *s.failed.lock().expect("SpySink failed mutex poisoned") =
-                ids.iter().map(|id| (*id).to_owned()).collect::<BTreeSet<_>>();
+            *s.failed.lock().expect("SpySink failed mutex poisoned") = ids
+                .iter()
+                .map(|id| (*id).to_owned())
+                .collect::<BTreeSet<_>>();
             s
         }
 
@@ -446,10 +448,7 @@ mod tests {
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
-            let failed = self
-                .failed
-                .lock()
-                .expect("SpySink failed mutex poisoned");
+            let failed = self.failed.lock().expect("SpySink failed mutex poisoned");
             let applied = advisory
                 .additions
                 .iter()
@@ -733,8 +732,14 @@ mod tests {
         let recorded = sink.recorded();
         let failing = sink.failed_set();
         let mut driver = ReloadDriver::new(discovery, sink);
-        assert!(driver.init().await.is_ok(), "init applies both healthy sources");
-        failing.lock().expect("SpySink failed mutex poisoned").insert("b".to_owned());
+        assert!(
+            driver.init().await.is_ok(),
+            "init applies both healthy sources"
+        );
+        failing
+            .lock()
+            .expect("SpySink failed mutex poisoned")
+            .insert("b".to_owned());
         driver
             .spawn(ManualTrigger::new(2), Baseline::Initialized)
             .await
