@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
-use crate::config::file::driver::Sink;
+use crate::config::file::driver::{ApplyOutcome, Sink};
 use crate::config::file::{OnInvalid, ResolvedProcess, SourceBuildResult};
 use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
 use crate::source::TileSources;
@@ -119,9 +120,14 @@ impl Sink for TileSourceManager {
     /// 1. **Updates** - time-critical; invalidate cache then replace the source.
     /// 2. **Additions** - make new sources available.
     /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
-    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<()> {
+    fn contains(&self, id: &str) -> bool {
+        self.tile_sources.contains_key(id)
+    }
+
+    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<ApplyOutcome> {
+        let mut applied = BTreeSet::new();
         if advisory.is_empty() {
-            return Ok(());
+            return Ok(ApplyOutcome { applied });
         }
 
         // 1. Updates: time-critical, invalidate cache then swap
@@ -138,6 +144,7 @@ impl Sink for TileSourceManager {
                         cache.invalidate_source(&id);
                     }
                     info!(source.id = %id, "Updated source");
+                    applied.insert(id.clone());
                     self.insert(id, src, process, provenance);
                 }
                 Err(err) => match self.on_invalid {
@@ -160,6 +167,7 @@ impl Sink for TileSourceManager {
             match source {
                 Ok(src) => {
                     info!(source.id = %id, "Added source");
+                    applied.insert(id.clone());
                     self.insert(id, src, process, provenance);
                 }
                 Err(err) => match self.on_invalid {
@@ -186,7 +194,7 @@ impl Sink for TileSourceManager {
             cache.run_pending_tasks().await;
         }
 
-        Ok(())
+        Ok(ApplyOutcome { applied })
     }
 }
 
@@ -284,7 +292,7 @@ mod tests {
         - src_b
         ");
 
-        let mut removals = std::collections::BTreeSet::new();
+        let mut removals = BTreeSet::new();
         removals.insert(DeletedSource {
             id: "src_a".to_owned(),
         });

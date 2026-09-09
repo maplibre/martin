@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::cog::CogSource;
@@ -14,7 +15,7 @@ use crate::config::file::{
     UnrecognizedValues,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, Deserialize, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CogConfig {
     /// Whether `paths` are scanned recursively
@@ -30,6 +31,19 @@ pub struct CogConfig {
     )]
     pub cache: CachePolicy,
 
+    /// How often configured remote objects (`s3://`, `https://`, …) are re-checked for
+    /// replacement and remote prefixes are re-listed for additions, replacements, and removals.
+    /// Local directories are watched via filesystem events and ignore this setting.
+    ///
+    /// Supports human-readable formats: "10m", "1h", "30s".
+    /// Defaults to "10m". Set to "0s" to disable remote polling and prefix discovery.
+    #[serde(default = "default_reload_interval", with = "humantime_serde")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "String", example = &"10m")
+    )]
+    pub reload_interval: Duration,
+
     /// Authentication, endpoint, and HTTP client settings for remote COGs.
     #[serde(flatten)]
     pub object_store: ObjectStoreConfig,
@@ -37,6 +51,27 @@ pub struct CogConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// Default polling interval for
+/// [`CogReloader`](crate::config::file::tiles::reload::cog::CogReloader) to check configured remote
+/// objects and list remote prefixes. Local directories are notify-driven and ignore this setting.
+pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+fn default_reload_interval() -> Duration {
+    DEFAULT_RELOAD_INTERVAL
+}
+
+impl Default for CogConfig {
+    fn default() -> Self {
+        Self {
+            recursive: None,
+            cache: CachePolicy::default(),
+            reload_interval: DEFAULT_RELOAD_INTERVAL,
+            object_store: ObjectStoreConfig::default(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
 }
 
 impl Serialize for CogConfig {
@@ -50,6 +85,12 @@ impl Serialize for CogConfig {
         }
         if !self.cache.is_empty() {
             map.serialize_entry("cache", &self.cache)?;
+        }
+        if self.reload_interval != DEFAULT_RELOAD_INTERVAL {
+            map.serialize_entry(
+                "reload_interval",
+                &humantime_serde::Serde::from(&self.reload_interval),
+            )?;
         }
         self.object_store.serialize_entries(&mut map)?;
         map.end()
