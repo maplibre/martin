@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1](https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1) - 2026-09-07
+
+### Fixed
+
+- generate the config schema identically on every OS ([#3276](https://github.com/maplibre/martin/pull/3276))
+
 ## [1.16.0](https://github.com/maplibre/martin/compare/martin-v1.15.0...martin-v1.16.0) - 2026-09-06
 
 ### Aliases for fonts, sprites and tile sources
