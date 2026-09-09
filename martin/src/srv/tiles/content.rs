@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
-use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
+use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{
     Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc,
     EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
@@ -28,7 +28,8 @@ use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::reload::{NewSource, ReloadAdvisory};
-use crate::srv::server::{DebouncedWarning, map_error};
+use crate::srv::TileError;
+use crate::srv::server::DebouncedWarning;
 #[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
 use crate::srv::tiles::process::ProcessError;
 use crate::srv::tiles::process::apply_pre_cache_processors;
@@ -289,7 +290,7 @@ impl<'a> DynTileSource<'a> {
         zoom: Option<u8>,
         query: &'a str,
         headers: TileRequestHeaders,
-    ) -> ActixResult<Self> {
+    ) -> Result<Self, TileError> {
         let tile_sources = manager.tile_sources();
         let resolved = tile_sources.get_sources(source_ids, zoom)?;
         let cache = manager.tile_cache().as_ref();
@@ -311,9 +312,7 @@ impl<'a> DynTileSource<'a> {
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
-            return Err(ErrorNotFound(format!(
-                "Zoom {z} is outside the supported range: {supported}"
-            )));
+            return Err(TileError::ZoomOutOfRange { zoom: z, supported });
         }
 
         let accepted_format = Self::resolve_accepted_format(
@@ -347,7 +346,7 @@ impl<'a> DynTileSource<'a> {
     fn resolve_accepted_format(
         accepted: Option<&[Format]>,
         source_format: Format,
-    ) -> ActixResult<Option<Format>> {
+    ) -> Result<Option<Format>, TileError> {
         let Some(formats) = accepted else {
             return Ok(None);
         };
@@ -362,10 +361,7 @@ impl<'a> DynTileSource<'a> {
         if source_format == Format::Mlt && formats.contains(&Format::Mvt) {
             return Ok(Some(Format::Mvt));
         }
-        Err(ErrorNotAcceptable(format!(
-            "Source produces {}, which does not match the Accept header",
-            source_format.content_type()
-        )))
+        Err(TileError::UnacceptableFormat(source_format))
     }
 
     #[hotpath::measure]
@@ -428,9 +424,9 @@ impl<'a> DynTileSource<'a> {
             tile.y = xyz.y,
             sources.count = self.sources.len(),
         ),
-        err(Debug),
+        err(Display),
     )]
-    pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
+    pub async fn get_tile_content(&self, xyz: TileCoord) -> Result<Tile, TileError> {
         let served = self.served_key(xyz);
         if let Some((cache, key)) = &served
             && let Some(tile) = cache.get(key).await
@@ -495,7 +491,7 @@ impl<'a> DynTileSource<'a> {
         s: &BoxedSource,
         pc: &ResolvedProcess,
         xyz: TileCoord,
-    ) -> ActixResult<Tile> {
+    ) -> Result<Tile, TileError> {
         #[cfg(all(feature = "hillshade", feature = "_tiles"))]
         if let Some(settings) = self.resolve_hillshade(pc)? {
             return match bake_hillshade(s, settings, xyz, self.cache).await {
@@ -529,7 +525,7 @@ impl<'a> DynTileSource<'a> {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
                 self.reload_source_and_retry_get_tile(s, pc, xyz).await
             }
-            result => result.map_err(|e| map_error(e.as_ref())),
+            result => result.map_err(TileError::from),
         }
     }
 
@@ -540,8 +536,8 @@ impl<'a> DynTileSource<'a> {
         &self,
         s: &BoxedSource,
         pc: &ResolvedProcess,
-    ) -> ActixResult<BoxedSource> {
-        let fresh_src = s.try_reload().await.map_err(|e| map_error(&e))?;
+    ) -> Result<BoxedSource, TileError> {
+        let fresh_src = s.try_reload().await?;
         warn!(source.id = s.get_id(), "Source modified; reloading");
         let advisory = ReloadAdvisory {
             updates: vec![NewSource {
@@ -563,11 +559,11 @@ impl<'a> DynTileSource<'a> {
         s: &BoxedSource,
         pc: &ResolvedProcess,
         xyz: TileCoord,
-    ) -> ActixResult<Tile> {
+    ) -> Result<Tile, TileError> {
         let fresh_src = self.reload_source(s, pc).await?;
         self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
             .await
-            .map_err(|e| map_error(e.as_ref()))
+            .map_err(TileError::from)
     }
 
     #[cfg_attr(
@@ -622,7 +618,7 @@ impl<'a> DynTileSource<'a> {
     /// Resolves this source's contour settings for the current request.
     /// Returns `None` when the source is not contoured.
     #[cfg(all(feature = "contour", feature = "_tiles"))]
-    fn resolve_contour(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedContour>> {
+    fn resolve_contour(&self, pc: &ResolvedProcess) -> Result<Option<ResolvedContour>, TileError> {
         let Some(settings) = pc.contour.clone() else {
             return Ok(None);
         };
@@ -636,14 +632,17 @@ impl<'a> DynTileSource<'a> {
         };
         let settings = settings
             .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
-            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+            .map_err(ProcessError::from)?;
         Ok(Some(settings))
     }
 
     /// Resolves this source's hillshade settings for the current request.
     /// Returns `None` when the source is not hillshaded.
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-    fn resolve_hillshade(&self, pc: &ResolvedProcess) -> ActixResult<Option<ResolvedHillshade>> {
+    fn resolve_hillshade(
+        &self,
+        pc: &ResolvedProcess,
+    ) -> Result<Option<ResolvedHillshade>, TileError> {
         let Some(settings) = pc.hillshade else {
             return Ok(None);
         };
@@ -657,11 +656,11 @@ impl<'a> DynTileSource<'a> {
         };
         let settings = settings
             .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
-            .map_err(|e| actix_web::Error::from(ProcessError::from(e)))?;
+            .map_err(ProcessError::from)?;
         Ok(Some(settings))
     }
 
-    fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
+    fn merge_tiles(&self, mut tiles: Vec<Tile>) -> Result<Tile, TileError> {
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
         for (idx, tile) in tiles.iter().enumerate() {
@@ -685,10 +684,10 @@ impl<'a> DynTileSource<'a> {
                     || merged_info.format == Format::Mlt)
                     && tiles.iter().all(|t| t.info == merged_info);
                 if !can_join {
-                    return Err(ErrorBadRequest(format!(
-                        "Cannot merge non-vector-tile formats. Format is {:?} with encoding {:?} ",
-                        merged_info.format, merged_info.encoding,
-                    )));
+                    return Err(TileError::UnmergeableTiles {
+                        format: merged_info.format,
+                        encoding: merged_info.encoding,
+                    });
                 }
 
                 // Build combined etag before consuming tiles
@@ -735,7 +734,10 @@ impl<'a> DynTileSource<'a> {
         clippy::wildcard_enum_match_arm,
         reason = "actix's ContentEncoding is #[non_exhaustive]; only the three encodings we can produce are tracked"
     )]
-    fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
+    fn decide_encoding(
+        &self,
+        accept_enc: &AcceptEncoding,
+    ) -> Result<Option<ContentEncoding>, TileError> {
         let mut q_gzip = None;
         let mut q_brotli = None;
         let mut q_zstd = None;
@@ -779,7 +781,7 @@ impl<'a> DynTileSource<'a> {
         if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
             Ok(Some(enc))
         } else {
-            Err(ErrorNotAcceptable("No supported encoding found"))
+            Err(TileError::NoAcceptableEncoding)
         }
     }
 
@@ -791,7 +793,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     #[hotpath::measure]
-    fn recompress(&self, mut tile: Tile) -> ActixResult<Tile> {
+    fn recompress(&self, mut tile: Tile) -> Result<Tile, TileError> {
         let info = tile.info;
         if let Some(accept_enc) = &self.headers.accept_enc {
             if info.encoding.is_encoded() {
@@ -830,7 +832,7 @@ const BROTLI_ENCODE_QUALITY: u32 = 6;
     reason = "actix's ContentEncoding is #[non_exhaustive]; anything we cannot encode is served as-is"
 )]
 #[hotpath::measure]
-fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
+fn encode(tile: Tile, enc: ContentEncoding) -> Result<Tile, TileError> {
     hotpath::dbg!("encode", enc);
     let etag = tile.etag;
     Ok(match enc {
@@ -859,7 +861,7 @@ fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
 }
 
 #[hotpath::measure]
-pub fn decode(tile: Tile) -> ActixResult<Tile> {
+pub fn decode(tile: Tile) -> Result<Tile, TileError> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
         let etag = tile.etag;
@@ -885,9 +887,7 @@ pub fn decode(tile: Tile) -> ActixResult<Tile> {
                 etag,
             ),
             Encoding::Uncompressed | Encoding::Internal => {
-                return Err(ErrorBadRequest(format!(
-                    "Tile is stored as {info}, but the client does not accept this encoding"
-                )));
+                return Err(TileError::UndecodableEncoding(info));
             }
         }
     } else {

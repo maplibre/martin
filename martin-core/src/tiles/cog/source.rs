@@ -413,11 +413,11 @@ fn get_image(
     }
     let (image_width, image_length) = (ifd.image_width(), ifd.image_height());
     let zoom_level = web_mercator_zoom(resolution, tile_size)
-        .ok_or(CogError::UnknownZoomLevel(path.to_path_buf()))?;
+        .ok_or_else(|| CogError::UnknownZoomLevel(path.to_path_buf()))?;
     let ideal_resolution =
         EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom_level) / f64::from(tile_size);
     let tiles_origin = get_tiles_origin(tile_size, ideal_resolution, [origin[0], origin[1]])
-        .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
+        .ok_or_else(|| CogError::GetOriginFailed(path.to_path_buf()))?;
     let tiles_across = image_width.div_ceil(tile_size);
     let tiles_down = image_length.div_ceil(tile_size);
 
