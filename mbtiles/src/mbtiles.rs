@@ -611,7 +611,7 @@ impl Mbtiles {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn insert_tiles<D: AsRef<[u8]>>(
+    pub async fn insert_tiles<D: AsRef<[u8]> + Sync>(
         &self,
         conn: &mut SqliteConnection,
         mbt_type: MbtType,

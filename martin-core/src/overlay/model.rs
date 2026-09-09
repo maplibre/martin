@@ -36,10 +36,11 @@ pub struct OverlayFeature {
     pub properties: Option<OverlayProperties>,
 }
 
-/// Per-feature style, keyed by canonical `MapLibre` paint/layout names. The
-/// application layer builds this from the wire format, dropping unknown keys
-/// (`title`, `id`, …). All fields are optional; an unset field falls through to
-/// `MapLibre`'s own paint default at render time.
+/// Per-feature style, keyed by canonical `MapLibre` paint/layout names.
+///
+/// The application layer builds this from the wire format, dropping unknown keys (`title`, `id`, ...).
+/// All fields are optional.
+/// An unset field falls through to `MapLibre`'s own paint default at render time.
 #[derive(Debug, Default, Clone)]
 pub struct OverlayProperties {
     /// `circle-color`.

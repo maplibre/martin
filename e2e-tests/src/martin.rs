@@ -289,7 +289,7 @@ impl Subprocess {
 
     /// Remove every log line containing `needle` and return them in the order
     /// martin logged them.
-    fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
+    fn take_log_lines(&self, needle: &str) -> Vec<String> {
         self.log
             .lock()
             .expect("log lock poisoned")

@@ -895,36 +895,37 @@ fn get_select_from_with_diff(
     patch_type: Option<PatchType>,
     algorithm: HashAlgorithm,
 ) -> String {
-    let tile_hash_expr: String;
-    let diff_tiles: String;
-    if dst_type == Flat {
-        tile_hash_expr = String::new();
-        diff_tiles = "diffDb.tiles".to_owned();
-    } else {
-        tile_hash_expr = match dif_type {
-            Flat | Cache => {
-                let hash = algorithm.sql_hash("difTiles.tile_data");
-                format!(", COALESCE({hash}, '') as tile_hash")
-            }
-            FlatWithHash | Normalized { .. } => {
-                ", COALESCE(difTiles.tile_hash, '') as tile_hash".to_owned()
-            }
-        };
-        diff_tiles = match dif_type {
-            Flat | Cache => "diffDb.tiles".to_owned(),
+    let tile_hash_expr: String = match (dst_type, dif_type) {
+        (Flat, _) => String::new(),
+        (_, Flat | Cache) => {
+            let hash = algorithm.sql_hash("difTiles.tile_data");
+            format!(", COALESCE({hash}, '') as tile_hash")
+        }
+        (_, FlatWithHash | Normalized { .. }) => {
+            ", COALESCE(difTiles.tile_hash, '') as tile_hash".to_owned()
+        }
+    };
+
+    let diff_tiles: String = match (dst_type, dif_type) {
+        (_, Flat | Cache) => "diffDb.tiles".to_owned(),
+        (
+            _,
             Normalized {
                 hash_view: true, ..
             }
-            | FlatWithHash => "diffDb.tiles_with_hash".to_owned(),
+            | FlatWithHash,
+        ) => "diffDb.tiles_with_hash".to_owned(),
+        (
+            _,
             Normalized {
                 hash_view: false,
                 schema,
-            } => format!(
-                "({})",
-                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
-            ),
-        };
-    }
+            },
+        ) => format!(
+            "({})",
+            schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+        ),
+    };
 
     let sql_cond = if patch_type.is_some() {
         ""

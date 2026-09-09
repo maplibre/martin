@@ -21,18 +21,19 @@ where
         .is_none())
 }
 
-/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL:
-/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...` (idempotent; `SQLite` strips
-/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a `STRICT` table-option when
+/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL.
+///
+/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...`
+/// `SQLite` strips `IF NOT EXISTS` from the stored DDL, and each `CREATE TABLE` gets a `STRICT` table-option when
 /// `strict` is set. `STRICT` is comma-joined with any options already present after the closing `)`
 /// (e.g. `WITHOUT ROWID`), producing a valid `... ) STRICT, WITHOUT ROWID`.
 ///
-/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
-/// on `;` is safe because these files are ours and contain no embedded semicolons.
+/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs.
 pub async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    // Splitting on `;` is safe because these files are ours and contain no embedded semicolons.
     for stmt in sql.split(';') {
         let stmt = stmt.trim();
         if stmt.is_empty() {

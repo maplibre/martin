@@ -45,7 +45,7 @@ use martin::logging::progress::TileCopyProgress;
 use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
-use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
+use martin::srv::{DynTileSource, TileError, TileRequestHeaders, merge_tilejson};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
@@ -322,7 +322,7 @@ enum MartinCpError {
     #[error("Unable to parse encodings argument: {0}")]
     EncodingParse(#[from] ParseError),
     #[error(transparent)]
-    Actix(#[from] actix_web::Error),
+    Tile(#[from] TileError),
     #[error(transparent)]
     Mbt(#[from] MbtError),
     #[error(transparent)]
@@ -753,7 +753,7 @@ async fn main() {
         let rendered: String = match e {
             MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
             other @ (MartinCpError::EncodingParse(_)
-            | MartinCpError::Actix(_)
+            | MartinCpError::Tile(_)
             | MartinCpError::Mbt(_)
             | MartinCpError::NoSources
             | MartinCpError::MultipleSources(_)
