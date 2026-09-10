@@ -161,7 +161,7 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 mlt = ["dep:mlt-core", "_process"]
-_tiles = ["martin-core/_tiles", "_catalog"]
+_tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _process = []
 _catalog = []
 _file_kinds = []
@@ -190,6 +190,7 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
+compact_str = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 clap.workspace = true

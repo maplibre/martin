@@ -177,7 +177,7 @@ impl Source for GeoJsonSource {
                 xyz.y(),
                 &self.id
             );
-            return Ok(Vec::new());
+            return Ok(TileData::new());
         }
 
         // Clip and snap to the integer MVT grid in parallel, so the f64 -> i32 conversion happens
@@ -227,7 +227,7 @@ fn encode_features(
         }
         layer = feature.end();
     }
-    Ok(layer.end().encode())
+    Ok(layer.end().encode().into())
 }
 
 /// Convert a tile-space geometry whose coordinates are already floored to integer grid positions

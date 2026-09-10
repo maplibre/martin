@@ -480,7 +480,7 @@ async fn produce_tiles(
                         TileCoord::new_unchecked(zoom.saturating_sub(1), xyz.x() / 2, xyz.y() / 2);
                     let data = if pruned_by.contains(&parent) {
                         skipped.fetch_add(1, Ordering::Relaxed);
-                        Vec::new()
+                        TileData::default()
                     } else {
                         src.get_tile_content(xyz).await?.data
                     };

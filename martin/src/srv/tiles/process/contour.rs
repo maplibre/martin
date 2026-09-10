@@ -5,6 +5,7 @@ use std::sync::LazyLock;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use compact_str::CompactString;
 use martin_core::tiles::contour::trace_contours;
 use martin_core::tiles::neighbourhood::{
     InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
@@ -66,11 +67,11 @@ pub async fn trace_contour(
 
     // Built before the bytes are moved into the trace.
     let etag = {
-        let inputs: [InputEtag<'_>; NEIGHBOURHOOD_LEN] = std::array::from_fn(|i| {
-            InputEtag::from_slot(slots[i].as_ref().map(|(_, etag)| etag.as_str()))
-        });
+        let inputs: [InputEtag<'_>; NEIGHBOURHOOD_LEN] =
+            std::array::from_fn(|i| InputEtag::from_slot(slots[i].as_ref().map(|(_, etag)| etag)));
         neighbourhood_etag(&inputs, &settings.fingerprint())
             .map(|hash| URL_SAFE_NO_PAD.encode(hash.to_ne_bytes()))
+            .map(CompactString::from)
     };
 
     let neighbourhood = Neighbourhood::from_row_major(slots.map(|slot| slot.map(|(data, _)| data)));

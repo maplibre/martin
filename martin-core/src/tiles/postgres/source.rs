@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use martin_tile_utils::{Encoding, TileCoord, TileData, TileInfo};
@@ -93,7 +94,8 @@ impl Source for PostgresSource {
         Ok(self
             .query_row(xyz, url_query)
             .await?
-            .and_then(|row| row.get::<_, Option<TileData>>(0))
+            .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
+            .map(TileData::from)
             .unwrap_or_default())
     }
 
@@ -110,9 +112,12 @@ impl Source for PostgresSource {
         let row = self.query_row(xyz, url_query).await?;
         let data: TileData = row
             .as_ref()
-            .and_then(|row| row.get::<_, Option<TileData>>(0))
+            .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
+            .map(TileData::from)
             .unwrap_or_default();
-        let etag: Option<String> = row.and_then(|row| row.get::<_, Option<String>>(1));
+        let etag = row
+            .and_then(|row| row.get::<_, Option<String>>(1))
+            .map(CompactString::from);
         let info = self.tile_info_for(&data);
         match etag {
             Some(etag) if !data.is_empty() && !etag.is_empty() => {

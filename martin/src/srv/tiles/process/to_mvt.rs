@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use martin_core::tiles::Tile;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use mlt_core::mvt::tile_layers_to_mvt;
@@ -13,8 +15,10 @@ use crate::srv::tiles::process::ProcessError;
 ///
 /// The output keeps the source tile's etag with a `+mvt` suffix rather than
 /// re-hashing the converted bytes, mirroring [`convert_mvt_to_mlt`](super::to_mlt::convert_mvt_to_mlt).
-pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
-    let etag = format!("{}+mvt", tile.etag);
+pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, ProcessError> {
+    let mut etag = std::mem::take(&mut tile.etag);
+    etag.write_str("+mvt").expect("can write");
+
     let mlt =
         content::decode(tile).map_err(|e| ProcessError::DecompressionFailed(e.to_string()))?;
 

@@ -9,6 +9,7 @@ use actix_web::http::header::{
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
+use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
@@ -375,7 +376,7 @@ impl<'a> DynTileSource<'a> {
         // An empty etag means the tile couldn't be identified from its inputs;
         // omit the header rather than send `ETag: ""`, which would let clients
         // treat unrelated tiles as identical.
-        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.clone()));
+        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.to_string()));
 
         if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag.as_ref()) {
             let dominated_by = match if_none_match {
@@ -691,6 +692,7 @@ impl<'a> DynTileSource<'a> {
                 for tile in &tiles {
                     combined_etag.push_str(&tile.etag);
                 }
+                let combined_etag = CompactString::from(combined_etag);
 
                 if matches!(
                     merged_info.encoding,

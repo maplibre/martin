@@ -267,7 +267,7 @@ pub async fn unpack(
 
             // Vector tiles are stored gzip-compressed; write them back out decompressed.
             let data = if TileInfo::detect(&data).encoding == Encoding::Gzip {
-                decode_gzip(&data)?
+                decode_gzip(&data)?.into()
             } else {
                 data
             };

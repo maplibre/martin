@@ -403,7 +403,7 @@ impl Mbtiles {
                 tile_column: format!("{x:?}"),
                 tile_row: format!("{y:?}"),
             })?;
-            Ok((coord, row.tile_data))
+            Ok((coord, row.tile_data.map(bytes::Bytes::from)))
         }))
     }
 

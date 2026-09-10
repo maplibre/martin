@@ -148,7 +148,7 @@ impl Source for MbtSource {
             .await
             .map_err(|e| MbtilesError::AcquireConnError(self.id.clone(), Box::new(e)))?
         {
-            Ok(tile)
+            Ok(tile.into())
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
@@ -157,7 +157,7 @@ impl Source for MbtSource {
                 xyz.y(),
                 &self.id
             );
-            Ok(Vec::new())
+            Ok(TileData::new())
         }
     }
 }

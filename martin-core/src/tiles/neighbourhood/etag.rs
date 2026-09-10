@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 
+use compact_str::CompactString;
 use xxhash_rust::xxh3::Xxh3;
 
 use super::NEIGHBOURHOOD_LEN;
@@ -10,7 +11,7 @@ use super::NEIGHBOURHOOD_LEN;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputEtag<'a> {
     /// The slot was read and the tile returned an etag.
-    Tagged(&'a str),
+    Tagged(&'a CompactString),
     /// The slot was read but the tile has no etag, so the output can't be tagged either.
     Untagged,
     /// The slot had no tile and was edge-clamped from the centre.
@@ -22,10 +23,10 @@ impl<'a> InputEtag<'a> {
     ///
     /// `None` means nothing was read; `Some("")` means read but untagged.
     #[must_use]
-    pub fn from_slot(etag: Option<&'a str>) -> Self {
+    pub fn from_slot(etag: Option<&'a CompactString>) -> Self {
         match etag {
             None => Self::Clamped,
-            Some("") => Self::Untagged,
+            Some(e) if e.is_empty() => Self::Untagged,
             Some(etag) => Self::Tagged(etag),
         }
     }

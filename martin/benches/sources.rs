@@ -2,7 +2,7 @@ use std::hash::{BuildHasher as _, RandomState};
 use std::hint::black_box;
 
 use criterion::async_executor::FuturesExecutor;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use martin::TileSourceManager;
 use martin::config::file::{OnInvalid, ResolvedProcess};
 use martin::srv::{DynTileSource, TileRequestHeaders};
@@ -61,7 +61,7 @@ mod sources {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            Ok(b"empty".to_vec())
+            Ok(TileData::from_static(b"empty"))
         }
 
         fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -213,33 +213,45 @@ fn bench_tile_cache_key(c: &mut Criterion) {
     group.finish();
 }
 
+const CACHE_TILE_SIZES: [usize; 3] = [4 * 1024, 64 * 1024, 512 * 1024];
+const CACHE_ENTRIES: u32 = 1024;
+const CACHE_CAPACITY_HEADROOM: u64 = 2;
+
 fn bench_tile_cache_lookup(c: &mut Criterion) {
     let rt = tokio::runtime::Builder::new_current_thread()
         .build()
         .expect("current-thread runtime can be built");
-    let cache = TileCache::new(64 * 1024 * 1024, None, None);
-    let tile = Tile::new_hash_etag(vec![0u8; 4096], TileInfo::new(Format::Mvt, Encoding::Gzip));
-
-    let populated: Vec<TileCacheKey> = (0..1024_u32)
-        .map(|i| dynamic_cache_key(TileCoord::new_unchecked(14, 8523 + i, 5606)))
-        .collect();
-    rt.block_on(async {
-        for key in &populated {
-            cache.insert(key.clone(), tile.clone()).await;
-        }
-        cache.run_pending_tasks().await;
-    });
-
-    let hit_key = populated[512].clone();
-    let miss_key = dynamic_cache_key(TileCoord::new_unchecked(14, 1, 1));
 
     let mut group = c.benchmark_group("tile_cache_lookup");
-    group.bench_function("hit", |b| {
-        b.to_async(&rt).iter(|| cache.get(black_box(&hit_key)));
-    });
-    group.bench_function("miss", |b| {
-        b.to_async(&rt).iter(|| cache.get(black_box(&miss_key)));
-    });
+    for size in CACHE_TILE_SIZES {
+        let size_bytes = u64::try_from(size).expect("tile size fits in u64");
+        let capacity = size_bytes * u64::from(CACHE_ENTRIES) * CACHE_CAPACITY_HEADROOM;
+        let cache = TileCache::new(capacity, None, None);
+        let tile = Tile::new_hash_etag(vec![0u8; size], TileInfo::new(Format::Mvt, Encoding::Gzip));
+
+        let populated: Vec<TileCacheKey> = (0..CACHE_ENTRIES)
+            .map(|i| dynamic_cache_key(TileCoord::new_unchecked(14, 8523 + i, 5606)))
+            .collect();
+        rt.block_on(async {
+            for key in &populated {
+                cache.insert(key.clone(), tile.clone()).await;
+            }
+            cache.run_pending_tasks().await;
+        });
+        assert_eq!(cache.entry_count(), u64::from(CACHE_ENTRIES));
+
+        let hit_key = populated[populated.len() / 2].clone();
+        let miss_key = dynamic_cache_key(TileCoord::new_unchecked(14, 1, 1));
+
+        group.throughput(Throughput::Bytes(size_bytes));
+        group.bench_with_input(BenchmarkId::new("hit", size), &hit_key, |b, key| {
+            b.to_async(&rt).iter(|| cache.get(black_box(key)));
+        });
+        group.throughput(Throughput::Elements(1));
+        group.bench_with_input(BenchmarkId::new("miss", size), &miss_key, |b, key| {
+            b.to_async(&rt).iter(|| cache.get(black_box(key)));
+        });
+    }
     group.finish();
 }
 

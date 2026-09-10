@@ -1,5 +1,6 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use compact_str::{CompactString, ToCompactString};
 use martin_tile_utils::{TileData, TileInfo};
 
 /// Represents a single map tile with its raw data and metadata.
@@ -24,7 +25,7 @@ pub struct Tile {
     /// Metadata about the tile's format and encoding
     pub info: TileInfo,
     /// Pre-computed etag/hash for the tile data (empty for empty tiles)
-    pub etag: String,
+    pub etag: CompactString,
 }
 
 impl Tile {
@@ -32,20 +33,27 @@ impl Tile {
     ///
     /// For empty tiles, etag will be base64 of `0`, otherwise base64 of [`xxh3_128(data)`](xxhash_rust::xxh3::xxh3_128).
     #[must_use]
-    pub fn new_hash_etag(data: TileData, info: TileInfo) -> Self {
+    pub fn new_hash_etag(data: impl Into<TileData>, info: TileInfo) -> Self {
+        let data = data.into();
         let etag = if data.is_empty() {
             0
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        let etag = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes());
+        let etag = URL_SAFE_NO_PAD
+            .encode(etag.to_ne_bytes())
+            .to_compact_string();
         Self { data, info, etag }
     }
 
     /// Creates a new tile with the given tile data, metadata, and etag.
     #[must_use]
-    pub const fn new_with_etag(data: TileData, info: TileInfo, etag: String) -> Self {
-        Self { data, info, etag }
+    pub fn new_with_etag(data: impl Into<TileData>, info: TileInfo, etag: CompactString) -> Self {
+        Self {
+            data: data.into(),
+            info,
+            etag,
+        }
     }
 
     /// Returns true if the tile data is empty.
