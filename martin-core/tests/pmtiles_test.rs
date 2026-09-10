@@ -37,11 +37,7 @@ fn fixtures_dir() -> PathBuf {
 
 async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> PmtilesSource {
     let path = fixtures_dir().join(filename);
-    let store = Box::new(LocalFileSystem::new());
-    let path = object_store::path::Path::from_filesystem_path(&path)
-        .expect("Failed to convert filesystem path");
-
-    PmtilesSource::new(cache, id.to_owned(), store, path, CacheZoomRange::default())
+    PmtilesSource::new_local(cache, id.to_owned(), path, CacheZoomRange::default())
         .await
         .expect("Failed to create PMTiles source")
 }
@@ -749,4 +745,47 @@ async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
         .await
         .unwrap();
     assert!(rx.try_recv().is_ok(), "expected cache miss, but got a hit");
+}
+
+#[tokio::test]
+async fn a_replaced_local_file_is_detected_and_reloaded() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    let fixture = fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
+    std::fs::copy(&fixture, &path).expect("copy fixture");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "replaced".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+    assert!(!before.is_empty(), "first tile should have data");
+
+    let staged = dir.path().join("source.pmtiles.new");
+    std::fs::copy(&fixture, &staged).expect("stage the replacement");
+    std::fs::rename(&staged, &path).expect("rename over the source");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a replaced file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the new file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    assert_eq!(after, before);
 }
