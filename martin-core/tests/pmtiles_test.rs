@@ -37,11 +37,7 @@ fn fixtures_dir() -> PathBuf {
 
 async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> PmtilesSource {
     let path = fixtures_dir().join(filename);
-    let store = Box::new(LocalFileSystem::new());
-    let path = object_store::path::Path::from_filesystem_path(&path)
-        .expect("Failed to convert filesystem path");
-
-    PmtilesSource::new(cache, id.to_owned(), store, path, CacheZoomRange::default())
+    PmtilesSource::new_local(cache, id.to_owned(), path, CacheZoomRange::default())
         .await
         .expect("Failed to create PMTiles source")
 }
@@ -749,4 +745,117 @@ async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
         .await
         .unwrap();
     assert!(rx.try_recv().is_ok(), "expected cache miss, but got a hit");
+}
+
+#[tokio::test]
+async fn a_file_renamed_over_the_source_reloads_to_the_new_contents() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(
+        fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
+        &path,
+    )
+    .expect("copy the first archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "renamed_over".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let staged = dir.path().join("source.pmtiles.new");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &staged).expect("stage the second archive");
+    std::fs::rename(&staged, &path).expect("rename over the source");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a replaced file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the new file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    let expected = create_source("png.pmtiles", "second", test_cache_bytes(0))
+        .await
+        .get_tile(coord, None)
+        .await
+        .expect("read the second archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &path).expect("copy the first archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "rewritten".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let smaller = std::fs::read(
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+    )
+    .expect("read the smaller archive");
+    std::fs::write(&path, smaller).expect("rewrite the source in place");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a rewritten file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the rewritten file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    let expected = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "smaller".to_owned(),
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("open the smaller archive directly")
+    .get_tile(coord, None)
+    .await
+    .expect("read the smaller archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
 }
