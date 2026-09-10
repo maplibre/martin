@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v1.17.0) - 2026-09-10
+
+### Added
+
+- *(cog)* detect and reload replaced remote objects ([#3268](https://github.com/maplibre/martin/pull/3268))
+
+### Other
+
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+
 ## [1.16.1](https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1) - 2026-09-07
 
 ### Fixed

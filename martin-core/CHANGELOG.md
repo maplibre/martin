@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3](https://github.com/maplibre/martin/compare/martin-core-v0.11.2...martin-core-v0.11.3) - 2026-09-10
+
+### Other
+
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+
 ## [0.11.2](https://github.com/maplibre/martin/compare/martin-core-v0.11.1...martin-core-v0.11.2) - 2026-09-06
 
 ### Added
