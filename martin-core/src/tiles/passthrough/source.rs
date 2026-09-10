@@ -256,7 +256,7 @@ impl PassthroughSource {
         }
 
         let etag = header_str(response.headers(), &ETAG)
-            .and_then(|raw| usable_strong_etag(raw))
+            .and_then(usable_strong_etag)
             .map(CompactString::from);
         let encoding = header_str(response.headers(), &CONTENT_TYPE)
             .and_then(Encoding::parse)
@@ -409,7 +409,7 @@ fn sniff_format(body: &[u8]) -> Option<Format> {
 
 /// Read a header as an owned `String`, ignoring values that are not valid UTF-8.
 fn header_str<'a>(headers: &'a HeaderMap, name: &HeaderName) -> Option<&'a str> {
-    headers.get(name).and_then(|value| value.to_str().ok())
+    headers.get(name)?.to_str().ok()
 }
 
 /// Strip an upstream strong `ETag`'s wire quotes so it can be served verbatim.
