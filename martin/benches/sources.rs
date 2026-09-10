@@ -1,4 +1,4 @@
-use std::hash::{BuildHasher, RandomState};
+use std::hash::{BuildHasher as _, RandomState};
 use std::hint::black_box;
 
 use criterion::async_executor::FuturesExecutor;
