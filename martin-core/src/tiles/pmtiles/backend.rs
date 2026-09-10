@@ -7,17 +7,20 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use derive_debug::Dbg;
-use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtResult};
+use pmtiles::{
+    AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult,
+};
 
 /// Reads a local `PMTiles` file through a memory map.
 ///
-/// Every read reports the file's inode, size and modification time as its data version.
-/// A replaced file therefore surfaces as [`pmtiles::PmtError::SourceModified`].
+/// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
+/// The mapping is not read once the file changed underneath it.
 #[derive(Dbg)]
 pub(crate) struct PmtFileBackend {
     #[dbg(skip)]
     mmap: MmapBackend,
     path: PathBuf,
+    version: String,
 }
 
 impl PmtFileBackend {
@@ -25,13 +28,21 @@ impl PmtFileBackend {
     pub(crate) async fn open(path: impl Into<PathBuf>) -> PmtResult<Self> {
         let path = path.into();
         let mmap = MmapBackend::try_from(&path).await?;
-        Ok(Self { mmap, path })
+        let version = data_version(&std::fs::metadata(&path)?);
+        Ok(Self {
+            mmap,
+            path,
+            version,
+        })
     }
 }
 
 impl AsyncBackend for PmtFileBackend {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
         let version = data_version(&std::fs::metadata(&self.path)?);
+        if version != self.version {
+            return Err(PmtError::SourceModified);
+        }
         let mut response = self.mmap.read(offset, length).await?;
         response.data_version_string = Some(version);
         Ok(response)

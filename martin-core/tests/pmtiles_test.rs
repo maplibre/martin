@@ -748,29 +748,30 @@ async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
 }
 
 #[tokio::test]
-async fn a_replaced_local_file_is_detected_and_reloaded() {
+async fn a_file_renamed_over_the_source_reloads_to_the_new_contents() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("source.pmtiles");
-    let fixture = fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
-    std::fs::copy(&fixture, &path).expect("copy fixture");
+    std::fs::copy(
+        fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
+        &path,
+    )
+    .expect("copy the first archive");
     let source = PmtilesSource::new_local(
         test_cache_bytes(0),
-        "replaced".to_owned(),
+        "renamed_over".to_owned(),
         path.clone(),
         CacheZoomRange::default(),
     )
     .await
     .expect("source created");
-
     let coord = TileCoord::new_unchecked(0, 0, 0);
     let before = source
         .get_tile(coord, None)
         .await
         .expect("first read succeeds");
-    assert!(!before.is_empty(), "first tile should have data");
 
     let staged = dir.path().join("source.pmtiles.new");
-    std::fs::copy(&fixture, &staged).expect("stage the replacement");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &staged).expect("stage the second archive");
     std::fs::rename(&staged, &path).expect("rename over the source");
 
     let err = source
@@ -787,5 +788,74 @@ async fn a_replaced_local_file_is_detected_and_reloaded() {
         .get_tile(coord, None)
         .await
         .expect("read after reload succeeds");
-    assert_eq!(after, before);
+    let expected = create_source("png.pmtiles", "second", test_cache_bytes(0))
+        .await
+        .get_tile(coord, None)
+        .await
+        .expect("read the second archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &path).expect("copy the first archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "rewritten".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let smaller = std::fs::read(
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+    )
+    .expect("read the smaller archive");
+    std::fs::write(&path, smaller).expect("rewrite the source in place");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a rewritten file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the rewritten file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    let expected = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "smaller".to_owned(),
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("open the smaller archive directly")
+    .get_tile(coord, None)
+    .await
+    .expect("read the smaller archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
 }
