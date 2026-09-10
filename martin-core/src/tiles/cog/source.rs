@@ -20,11 +20,10 @@ use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
 
 use crate::CacheZoomRange;
-use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
-use crate::tiles::cog::{CogReader, ObjectStoreCogReader};
+use crate::tiles::cog::{CogError, CogReader, ObjectStoreCogReader};
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
@@ -577,13 +576,12 @@ fn get_extent(
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-    use std::sync::Arc;
-
     #[cfg(target_os = "linux")]
     use std::ffi::OsStr;
     #[cfg(target_os = "linux")]
     use std::os::unix::ffi::OsStrExt as _;
+    use std::path::Path;
+    use std::sync::Arc;
 
     use approx::assert_abs_diff_eq;
     use martin_tile_utils::TileCoord;

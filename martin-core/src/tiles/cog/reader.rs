@@ -366,9 +366,8 @@ mod tests {
     use std::ops::Range;
     use std::sync::Arc;
 
-    use bytes::Bytes;
-
     use async_tiff::reader::AsyncFileReader as _;
+    use bytes::Bytes;
     use object_store::memory::InMemory;
     use object_store::{ObjectStoreExt as _, PutPayload};
 
