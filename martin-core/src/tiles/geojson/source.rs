@@ -162,7 +162,7 @@ impl Source for GeoJsonSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z, self.extent, self.buffer);
+        let mut rect = Rect::from_xyz(xyz.x(), xyz.y(), xyz.z(), self.extent, self.buffer);
         rect.add_buffer();
 
         let indices = self
@@ -172,7 +172,10 @@ impl Source for GeoJsonSource {
         if indices.is_empty() {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                xyz.z(),
+                xyz.x(),
+                xyz.y(),
+                &self.id
             );
             return Ok(Vec::new());
         }
@@ -320,7 +323,7 @@ mod tests {
 
         // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
         // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
-        let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
+        let tile_coord = TileCoord::new_unchecked(1, 1, 0);
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 

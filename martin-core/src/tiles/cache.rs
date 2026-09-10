@@ -79,7 +79,6 @@ impl TileCacheKey {
     }
 
     /// The coordinate this entry is for.
-    #[must_use]
     pub const fn xyz(&self) -> TileCoord {
         match self {
             Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => *xyz,
@@ -100,7 +99,7 @@ impl CacheKey for TileCacheKey {
             .with_label_values(&[
                 Self::CACHE_NAME,
                 crate::cache::hit_miss_label(hit),
-                crate::metrics::ZOOM_LABELS[self.xyz().z as usize],
+                crate::metrics::ZOOM_LABELS[self.xyz().z() as usize],
             ])
             .inc();
         #[allow(clippy::if_same_then_else)]

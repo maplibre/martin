@@ -20,11 +20,10 @@ use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
 
 use crate::CacheZoomRange;
-use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
-use crate::tiles::cog::{CogReader, ObjectStoreCogReader};
+use crate::tiles::cog::{CogError, CogReader, ObjectStoreCogReader};
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
@@ -278,9 +277,9 @@ impl Source for CogSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -289,12 +288,12 @@ impl Source for CogSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
+        if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
             return Ok(Vec::new());
         }
-        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+        let image = self.images.get(&(xyz.z())).ok_or_else(|| {
             CogError::ZoomOutOfRange(
-                xyz.z,
+                xyz.z(),
                 PathBuf::from(&self.location),
                 self.min_zoom,
                 self.max_zoom,
@@ -577,13 +576,12 @@ fn get_extent(
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-    use std::sync::Arc;
-
     #[cfg(target_os = "linux")]
     use std::ffi::OsStr;
     #[cfg(target_os = "linux")]
     use std::os::unix::ffi::OsStrExt as _;
+    use std::path::Path;
+    use std::sync::Arc;
 
     use approx::assert_abs_diff_eq;
     use martin_tile_utils::TileCoord;
@@ -642,14 +640,7 @@ mod tests {
             .await
             .unwrap();
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 18,
-                    x: 42_712,
-                    y: 97_343,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(18, 42_712, 97_343), None)
             .await
             .unwrap();
 
@@ -683,14 +674,7 @@ mod tests {
         .unwrap();
 
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 19,
-                    x: 85_424,
-                    y: 194_685,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(19, 85_424, 194_685), None)
             .await
             .unwrap();
         assert!(tile.is_empty());

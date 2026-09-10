@@ -144,7 +144,7 @@ impl Source for MbtSource {
     ) -> MartinCoreResult<TileData> {
         if let Some(tile) = self
             .mbtiles
-            .get_tile(xyz.z, xyz.x, xyz.y)
+            .get_tile(xyz.z(), xyz.x(), xyz.y())
             .await
             .map_err(|e| MbtilesError::AcquireConnError(self.id.clone(), Box::new(e)))?
         {
@@ -152,7 +152,10 @@ impl Source for MbtSource {
         } else {
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                xyz.z(),
+                xyz.x(),
+                xyz.y(),
+                &self.id
             );
             Ok(Vec::new())
         }

@@ -9,7 +9,7 @@ use martin_core::tiles::{Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
-const ORIGIN: TileCoord = TileCoord { z: 0, x: 0, y: 0 };
+const ORIGIN: TileCoord = TileCoord::new_unchecked(0, 0, 0);
 
 #[tokio::test]
 async fn cache_entry_available_before_ttl_expires() {

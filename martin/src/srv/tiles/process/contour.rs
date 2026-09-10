@@ -84,7 +84,7 @@ pub async fn trace_contour(
         // Marching squares over a 320-square grid is CPU-bound for tens of
         // milliseconds, which would stall every other task on this worker if it
         // ran inline.
-        tokio::task::spawn_blocking(move || trace_contours(&neighbourhood, xyz.z, &settings.opts))
+        tokio::task::spawn_blocking(move || trace_contours(&neighbourhood, xyz.z(), &settings.opts))
             .await
             .map_err(|e| ProcessError::ContourTraceFailed(e.to_string()))??
     };
