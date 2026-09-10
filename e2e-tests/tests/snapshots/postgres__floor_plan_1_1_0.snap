@@ -1,0 +1,13 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: dump
+---
+layer: 0
+  name: floor_plan
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(1638,819)
+    properties:
+      room = "Kitchen"

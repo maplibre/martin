@@ -182,6 +182,10 @@
                 "name": {
                   "description": "Human-readable name for the tile source",
                   "type": ["string", "null"]
+                },
+                "tile_grid": {
+                  "description": "Tile grid the source is served in, when it is not the default Web Mercator grid",
+                  "type": ["string", "null"]
                 }
               },
               "required": ["content_type"],

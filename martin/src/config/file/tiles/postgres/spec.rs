@@ -30,6 +30,7 @@ impl SourceSpec {
                 info.schema.hash(&mut hasher);
                 info.table.hash(&mut hasher);
                 info.srid.hash(&mut hasher);
+                info.tile_grid.hash(&mut hasher);
                 info.geometry_column.hash(&mut hasher);
                 info.id_column.hash(&mut hasher);
                 info.minzoom.hash(&mut hasher);
@@ -50,6 +51,7 @@ impl SourceSpec {
                 1u8.hash(&mut hasher);
                 info.schema.hash(&mut hasher);
                 info.function.hash(&mut hasher);
+                info.tile_grid.hash(&mut hasher);
                 info.minzoom.hash(&mut hasher);
                 info.maxzoom.hash(&mut hasher);
                 hash_tilejson(info.tilejson.as_ref(), &mut hasher);
@@ -138,6 +140,7 @@ mod tests {
     #[case::schema(|t: &mut TableInfo|t.schema = "other".to_owned())]
     #[case::table(|t: &mut TableInfo|t.table = "other".to_owned())]
     #[case::srid(|t: &mut TableInfo|t.srid = 3857)]
+    #[case::tile_grid(|t: &mut TableInfo|t.tile_grid = Some("NZTM2000Quad".to_owned()))]
     #[case::geometry_column(|t: &mut TableInfo|t.geometry_column = "shape".to_owned())]
     #[case::id_column(|t: &mut TableInfo|t.id_column = Some("fid".to_owned()))]
     #[case::minzoom(|t: &mut TableInfo|t.minzoom = Some(2))]
@@ -235,6 +238,7 @@ mod tests {
     #[rstest]
     #[case::schema(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.schema = "other".to_owned())]
     #[case::function(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.function = "other".to_owned())]
+    #[case::tile_grid(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.tile_grid = Some("NZTM2000Quad".to_owned()))]
     #[case::minzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.minzoom = Some(3))]
     #[case::maxzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.maxzoom = Some(20))]
     #[case::tilejson(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|{

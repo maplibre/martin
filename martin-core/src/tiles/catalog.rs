@@ -51,6 +51,8 @@ pub struct CatalogSourceEntry {
     pub description: Option<String>,
     /// Attribution text for the data source
     pub attribution: Option<String>,
+    /// Tile grid the source is served in, when it is not the default Web Mercator grid
+    pub tile_grid: Option<String>,
     /// Number of vector layers declared by this source.
     pub layer_count: Option<u32>,
     /// Timestamp of the underlying source's last modification.

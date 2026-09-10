@@ -44,6 +44,12 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub srid: i32,
 
+    /// Tile grid this table is served in \[default: the connection's `tile_grid`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
+
     /// Geometry column name (required)
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"geom"))]
     pub geometry_column: String,

@@ -63,6 +63,7 @@ impl PostgresArgs {
                 connection_string: Some(s),
                 ssl_certificates: certs.clone(),
                 default_srid,
+                tile_grid: None,
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,

@@ -2,6 +2,8 @@
 
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
+use martin::config::file::parse_config;
+use martin::config::primitives::env::{Env as _, FauxEnv};
 use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
@@ -110,6 +112,12 @@ async fn table_source() {
     linestring_bounds_vertical:
       content_type: application/x-protobuf
       description: public.linestring_bounds_vertical.geom
+    mars_points:
+      content_type: application/x-protobuf
+      description: public.mars_points.geom
+    nz_points:
+      content_type: application/x-protobuf
+      description: public.nz_points.geom
     point_bounds:
       content_type: application/x-protobuf
       description: public.point_bounds.geom
@@ -359,4 +367,85 @@ async fn table_bounds_empty_table_ok() {
     properties:
       gid: int4
     ");
+}
+
+#[actix_rt::test]
+async fn tables_tile_grid_must_be_configured() {
+    let yaml = indoc! {"
+        tile_grids:
+          NZTM2000Quad:
+            crs: EPSG:2193
+            origin: [-3260586.7284, 10438190.1652]
+            extent_at_zoom0: 10018754.1714
+        postgres:
+          connection_string: $DATABASE_URL
+          tables:
+            nz_points:
+              schema: public
+              table: nz_points
+              srid: 2193
+              geometry_column: geom
+              tile_grid: NZTM2000quad
+    "};
+    let env: FauxEnv = std::env::var("DATABASE_URL")
+        .map(|url| vec![("DATABASE_URL", url.into())].into_iter().collect())
+        .unwrap_or_default();
+    let mut cfg = parse_config(
+        yaml,
+        &env.as_property_map(),
+        std::path::Path::new("test.yaml"),
+    )
+    .expect("config parses");
+    let err = cfg
+        .finalize()
+        .await
+        .expect_err("an unknown tile grid is a config error");
+    assert_eq!(
+        err.to_string(),
+        "Table source nz_points refers to tile grid NZTM2000quad, which is not configured. Known grids: NZTM2000Quad, WebMercatorQuad, WorldCRS84Quad"
+    );
+}
+
+#[actix_rt::test]
+async fn tables_tile_grid_is_the_connection_default_unless_a_table_names_one() {
+    let mock = mock_sources(
+        mock_cfg(indoc! {"
+        tile_grids:
+          NZTM2000Quad:
+            crs: EPSG:2193
+            origin: [-3260586.7284, 10438190.1652]
+            extent_at_zoom0: 10018754.1714
+        postgres:
+          connection_string: $DATABASE_URL
+          tile_grid: NZTM2000Quad
+          tables:
+            nz_points:
+              schema: public
+              table: nz_points
+              srid: 2193
+              geometry_column: geom
+            points1:
+              schema: public
+              table: points1
+              srid: 4326
+              geometry_column: geom
+              tile_grid: WebMercatorQuad
+    "})
+        .await,
+    )
+    .await;
+
+    let nz = source(&mock, "nz_points");
+    assert_eq!(nz.tile_grid().id(), "NZTM2000Quad");
+    assert_eq!(nz.get_tilejson().other["tileGrid"]["crs"], "EPSG:2193");
+    let catalog = mock.0.tile_manager.tile_sources().get_catalog();
+    assert_eq!(
+        catalog["nz_points"].tile_grid.as_deref(),
+        Some("NZTM2000Quad")
+    );
+
+    let points = source(&mock, "points1");
+    assert!(points.tile_grid().is_web_mercator());
+    assert!(!points.get_tilejson().other.contains_key("tileGrid"));
+    assert_eq!(catalog["points1"].tile_grid, None);
 }

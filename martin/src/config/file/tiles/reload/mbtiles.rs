@@ -2,6 +2,7 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
 use crate::TileSourceManager;
+use crate::config::file::TileGrids;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
@@ -24,6 +25,7 @@ impl MbtilesReloader {
         config: &FileConfigEnum<MbtConfig>,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
+        tile_grids: &TileGrids,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         #[cfg(feature = "_process")]
@@ -69,6 +71,7 @@ impl MbtilesReloader {
             default_cache,
             &process,
             build,
+            Some(tile_grids),
         );
 
         Self {

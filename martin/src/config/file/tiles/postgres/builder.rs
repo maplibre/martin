@@ -1,11 +1,13 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::postgres::PostgresError::PostgresError;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
-use tracing::{error, info, trace, warn};
+use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -15,10 +17,12 @@ use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
 };
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PostgresCfgPublish, PostgresCfgPublishFuncs,
-    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish,
+    PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
-use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
+use crate::config::file::{
+    CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
 use crate::config::primitives::OptOneMany::NoVals;
@@ -41,6 +45,10 @@ pub struct PostgresAutoDiscoveryBuilder {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
+    /// The grids this connection's sources may be served in, by name, each paired with its `PostGIS` SRID
+    tile_grids: HashMap<String, PgTileGrid>,
+    /// The grid for sources that do not name one
+    default_tile_grid: String,
     auto_functions: Option<PostgresAutoDiscoveryBuilderFunctions>,
     auto_tables: Option<PostgresAutoDiscoveryBuilderTables>,
     id_resolver: IdResolver,
@@ -67,6 +75,90 @@ pub struct PostgresAutoDiscoveryBuilderTables {
     clip_geom: Option<bool>,
     buffer: Option<u32>,
     extent: Option<NonZeroU32>,
+}
+
+/// Pairs a grid with the SRID `PostGIS` knows its CRS by, and notes whether a pole lies inside it.
+///
+/// `EPSG` codes are their own SRIDs.
+/// Any other authority is looked up in `spatial_ref_sys`, where users register planetary and other non-EPSG systems.
+async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileResult<PgTileGrid> {
+    if grid.is_web_mercator() {
+        return Ok(PgTileGrid::web_mercator());
+    }
+    if grid.is_simple() {
+        // plain planar units are PostGIS's "unknown" SRID, and never contain a pole
+        return Ok(PgTileGrid::new(grid.clone(), 0));
+    }
+    let code: i32 = grid.crs_code().parse().map_err(|_not_an_integer| {
+        ConfigFileError::TileGridCrsCodeNotNumeric {
+            grid: grid.id().to_owned(),
+            crs: grid.crs().to_owned(),
+        }
+    })?;
+    let is_epsg = grid.crs_authority().eq_ignore_ascii_case("EPSG");
+    let srid = if is_epsg {
+        code
+    } else {
+        let conn = pool
+            .get()
+            .await
+            .map_err(|e| ConfigFileError::TileGridResolution(Box::new(e), grid.id().to_owned()))?;
+        conn.query_opt(
+            "SELECT srid FROM spatial_ref_sys WHERE auth_name = $1 AND auth_srid = $2",
+            &[&grid.crs_authority(), &code],
+        )
+        .await
+        .map_err(|e| {
+            ConfigFileError::TileGridResolution(
+                Box::new(PostgresError(
+                    e,
+                    "looking up a tile grid's CRS in spatial_ref_sys",
+                )),
+                grid.id().to_owned(),
+            )
+        })?
+        .map(|row| row.get::<_, i32>("srid"))
+        .ok_or_else(|| ConfigFileError::TileGridCrsNotInDatabase {
+            grid: grid.id().to_owned(),
+            crs: grid.crs().to_owned(),
+        })?
+    };
+    let mut pg_grid = PgTileGrid::new(grid.clone(), srid);
+    if is_epsg && pole_inside(pool, &pg_grid).await {
+        pg_grid.mark_pole_inside();
+    }
+    Ok(pg_grid)
+}
+
+/// Whether the north or south pole lies inside the grid's zoom-0 tile.
+///
+/// Answered by the database, which knows the projection.
+/// Any failure counts as "no", since this only feeds a warning.
+async fn pole_inside(pool: &PostgresPool, grid: &PgTileGrid) -> bool {
+    let [min_x, min_y, max_x, max_y] = grid.grid().bounds();
+    let srid = grid.srid();
+    let sql = "
+SELECT ST_Contains(env, ST_Transform(ST_SetSRID(ST_MakePoint(0, 90), 4326), $5::integer))
+    OR ST_Contains(env, ST_Transform(ST_SetSRID(ST_MakePoint(0, -90), 4326), $5::integer))
+FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer) AS env";
+    let Ok(conn) = pool.get().await else {
+        return false;
+    };
+    match conn
+        .query_one(sql, &[&min_x, &min_y, &max_x, &max_y, &srid])
+        .await
+    {
+        Ok(row) => row.get::<_, Option<bool>>(0).unwrap_or(false),
+        Err(e) => {
+            debug!(
+                tile_grid = grid.grid().id(),
+                "Could not check whether a pole lies inside the grid: {e}"
+            );
+            // a failed projection leaves PostGIS state behind that breaks later transforms on this connection
+            PostgresPool::discard(conn);
+            false
+        }
+    }
 }
 
 /// Combine `from_schema` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
@@ -97,6 +189,7 @@ impl PostgresAutoDiscoveryBuilder {
         config: &PostgresConfig,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
+        grids: &TileGrids,
     ) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
             config
@@ -115,12 +208,50 @@ impl PostgresAutoDiscoveryBuilder {
 
         let (auto_tables, auto_functions) = calc_auto(config);
 
+        // Every grid a source of this connection can name, resolved against the database once.
+        let default_tile_grid = config
+            .tile_grid
+            .clone()
+            .unwrap_or_else(|| WEB_MERCATOR_QUAD_ID.to_owned());
+        let connection = std::iter::once((
+            "The connection's tile_grid".to_owned(),
+            default_tile_grid.as_str(),
+        ));
+        let tables = config.tables.iter().flatten().filter_map(|(id, table)| {
+            let grid = table.tile_grid.as_deref()?;
+            Some((format!("Table source {id}"), grid))
+        });
+        let functions = config
+            .functions
+            .iter()
+            .flatten()
+            .filter_map(|(id, function)| {
+                let grid = function.tile_grid.as_deref()?;
+                Some((format!("Function source {id}"), grid))
+            });
+        let mut tile_grids = HashMap::new();
+        for (what, name) in connection.chain(tables).chain(functions) {
+            if tile_grids.contains_key(name) {
+                continue;
+            }
+            let grid = grids
+                .get(name)
+                .ok_or_else(|| ConfigFileError::UnknownTileGrid {
+                    what,
+                    grid: name.to_owned(),
+                    known: grids.names().join(", "),
+                })?;
+            tile_grids.insert(name.to_owned(), resolve_tile_grid(&pool, grid).await?);
+        }
+
         Ok(Self {
             pool,
             default_srid: config.default_srid,
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
+            tile_grids,
+            default_tile_grid,
             id_resolver,
             tables: config.tables.clone().unwrap_or_default(),
             functions: config.functions.clone().unwrap_or_default(),
@@ -174,7 +305,8 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
-        let mut declared = HashSet::<(&str, &str, &str, Option<&str>)>::new();
+        // The same table on two tile grids is two sources on purpose, so only a repeat on one grid is a duplicate.
+        let mut declared = HashSet::<(&str, &str, &str, Option<&str>, Option<&str>)>::new();
         for (id, cfg_inf) in &self.tables {
             match self.build_one_table_info(&db_tables_info, all_schemas, id, cfg_inf) {
                 Ok(merged_inf) => {
@@ -184,6 +316,7 @@ impl PostgresAutoDiscoveryBuilder {
                         &cfg_inf.table,
                         &cfg_inf.geometry_column,
                         cfg_inf.filter.as_deref(),
+                        cfg_inf.tile_grid.as_deref(),
                     )) {
                         warn!(
                             source.id = %id,
@@ -263,10 +396,17 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Match configured function sources against the discovered catalog.
         let mut used = HashSet::<(String, String)>::new();
+        // The same function on two tile grids is two sources on purpose, so only a repeat on one grid is a duplicate.
+        let mut used_on_grid = HashSet::<(String, String, Option<String>)>::new();
         for (id, cfg_inf) in &self.functions {
             match Self::build_one_function_info(&db_funcs_info, all_schemas, id, cfg_inf) {
                 Ok((merged_inf, pg_sql_info)) => {
-                    if !used.insert((cfg_inf.schema.clone(), cfg_inf.function.clone())) {
+                    used.insert((cfg_inf.schema.clone(), cfg_inf.function.clone()));
+                    if !used_on_grid.insert((
+                        cfg_inf.schema.clone(),
+                        cfg_inf.function.clone(),
+                        cfg_inf.tile_grid.clone(),
+                    )) {
                         warn!(
                             source.id = %id,
                             schema = %cfg_inf.schema,
@@ -331,23 +471,35 @@ impl PostgresAutoDiscoveryBuilder {
     ) -> PostgresResult<(BoxedSource, SourceSpec)> {
         match spec {
             SourceSpec::Table(info) => {
+                let grid = self.tile_grid_for(info.tile_grid.as_deref());
+                if grid.contains_pole() && info.srid != grid.srid() {
+                    warn!(
+                        source.id = id,
+                        table.srid = info.srid,
+                        tile_grid = grid.grid().id(),
+                        "A pole lies inside the tile grid and the table is stored in another CRS, so tiles around the pole may miss features. Storing the data in {} avoids that.",
+                        grid.grid().crs()
+                    );
+                }
                 let (id, pg_sql, info) = table_to_query(
                     id.to_owned(),
                     info,
                     self.pool.clone(),
                     self.auto_bounds,
                     self.max_feature_count,
+                    grid,
                 )
                 .await?;
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
                 let cache = info.cache.unwrap_or_default();
-                let source = self.build_source(id, &info, pg_sql, cache);
+                let source = self.build_source(id, &info, pg_sql, cache, grid);
                 Ok((source, SourceSpec::Table(info)))
             }
             SourceSpec::Function(info, pg_sql) => {
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
+                let grid = self.tile_grid_for(info.tile_grid.as_deref());
                 let cache = info.cache.unwrap_or_default();
-                let source = self.build_source(id.to_owned(), &info, pg_sql.clone(), cache);
+                let source = self.build_source(id.to_owned(), &info, pg_sql.clone(), cache, grid);
                 Ok((source, SourceSpec::Function(info, pg_sql)))
             }
         }
@@ -386,8 +538,18 @@ impl PostgresAutoDiscoveryBuilder {
             "geometry column",
             id,
         )?;
+        // a table on a simple grid stores plain planar coordinates, which is PostGIS's SRID 0
+        let default_srid = if self
+            .tile_grid_for(table_info_from_config.tile_grid.as_deref())
+            .grid()
+            .is_simple()
+        {
+            Some(0)
+        } else {
+            self.default_srid
+        };
         let merged_table_info = table_info_for_geometry_column
-            .append_cfg_info(table_info_from_config, id, self.default_srid)
+            .append_cfg_info(table_info_from_config, id, default_srid)
             .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
         Ok(merged_table_info)
     }
@@ -428,6 +590,14 @@ impl PostgresAutoDiscoveryBuilder {
         self.id_resolver.resolve(id, signature)
     }
 
+    /// The grid a source is served in, the one it names or else the connection's default.
+    fn tile_grid_for(&self, name: Option<&str>) -> &PgTileGrid {
+        let name = name.unwrap_or(&self.default_tile_grid);
+        self.tile_grids
+            .get(name)
+            .expect("every grid a source of this connection can name was resolved when the builder was created")
+    }
+
     /// Constructs a [`PostgresSource`] from a resolved source description and its SQL.
     /// The given `cache` falls back to the builder's default policy.
     fn build_source(
@@ -436,8 +606,18 @@ impl PostgresAutoDiscoveryBuilder {
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
         cache: CachePolicy,
+        grid: &PgTileGrid,
     ) -> BoxedSource {
-        let tilejson = pg_info.to_tilejson(id.clone());
+        let mut tilejson = pg_info.to_tilejson(id.clone());
+        if !grid.is_web_mercator() {
+            // TileJSON has no field for this, so the grid travels as a vendor key with the same shape
+            // MapLibre GL JS takes for a custom projection
+            tilejson.other.insert(
+                "tileGrid".to_owned(),
+                serde_json::to_value(grid.grid())
+                    .expect("a validated tile grid holds only finite numbers and strings"),
+            );
+        }
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
         Box::new(PostgresSource::new(
@@ -447,6 +627,7 @@ impl PostgresAutoDiscoveryBuilder {
             self.pool.clone(),
             tile_info,
             cache.zoom(),
+            grid.grid().clone(),
         ))
     }
 

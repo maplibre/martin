@@ -11,7 +11,7 @@ use std::sync::Arc;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::MartinCoreError;
 #[cfg(feature = "_tiles")]
-use martin_tile_utils::{Encoding, Format, TileInfo};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 use crate::config::file::ConfigFileError;
 #[cfg(feature = "_tiles")]
@@ -60,9 +60,21 @@ pub enum TileError {
     #[error("Cannot merge sources with {left} with {right}")]
     MismatchedSources { left: TileInfo, right: TileInfo },
 
+    /// A composite request mixed sources on different tile grids, so one z/x/y would name different ground.
+    #[error("Cannot merge sources in tile grid {left} with {right}")]
+    MismatchedGrids { left: String, right: String },
+
     /// Every source the request named sits outside the requested zoom.
     #[error("Zoom {zoom} is outside the supported range: {supported}")]
     ZoomOutOfRange { zoom: u8, supported: String },
+
+    /// The requested tile does not exist on the grid one of the sources is served on.
+    #[error("Tile {xyz:#} is outside the {grid} grid of {source_id}")]
+    OutsideGrid {
+        xyz: TileCoord,
+        grid: String,
+        source_id: String,
+    },
 
     /// The `Accept` header names no format these sources can produce.
     #[error("Source produces {}, which does not match the Accept header", .0.content_type())]
@@ -125,9 +137,11 @@ impl From<TileError> for actix_web::Error {
         match e {
             TileError::UnknownSource(_)
             | TileError::MismatchedSources { .. }
-            | TileError::ZoomOutOfRange { .. } => ErrorNotFound(msg),
+            | TileError::ZoomOutOfRange { .. }
+            | TileError::OutsideGrid { .. } => ErrorNotFound(msg),
 
             TileError::TooManySources { .. }
+            | TileError::MismatchedGrids { .. }
             | TileError::InvalidQuery(_)
             | TileError::UnmergeableTiles { .. }
             | TileError::UndecodableEncoding(_) => ErrorBadRequest(msg),

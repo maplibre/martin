@@ -113,6 +113,20 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    floor_plan:
+      schema: public
+      table: floor_plan
+      srid: 900913
+      geometry_column: geom
+      bounds:
+      - 0.0010779783
+      - 0.0013565542
+      - 0.0062882069
+      - 0.0081393252
+      geometry_type: POINT
+      properties:
+        gid: int4
+        room: text
     linestring_bounds:
       schema: public
       table: linestring_bounds
@@ -139,6 +153,15 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    mars_points:
+      schema: public
+      table: mars_points
+      srid: 949900
+      geometry_column: geom
+      geometry_type: POINT
+      properties:
+        gid: int4
+        site: text
     mat_view:
       schema: public
       table: mat_view
@@ -152,6 +175,20 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         id: int4
+    nz_points:
+      schema: public
+      table: nz_points
+      srid: 2193
+      geometry_column: geom
+      bounds:
+      - 172.6287183595
+      - -43.5323403823
+      - 174.7610537778
+      - -36.8528850811
+      geometry_type: POINT
+      properties:
+        city: text
+        gid: int4
     point_bounds:
       schema: public
       table: point_bounds

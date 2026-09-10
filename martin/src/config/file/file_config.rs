@@ -12,7 +12,9 @@ use futures::stream::{self, StreamExt as _};
 pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::{BoxedSource, DeclaredGridSource};
+#[cfg(feature = "_tiles")]
+use martin_tile_utils::TileGrid;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Error as _, SerializeMap as _};
@@ -26,6 +28,8 @@ use url::Url;
 use crate::config::file::ContourProcessConfig;
 #[cfg(all(feature = "hillshade", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGrids;
 #[cfg(feature = "_tiles")]
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
@@ -479,6 +483,13 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    /// Tile grid this source's tiles are on \[default: `WebMercatorQuad`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or a built-in one.
+    /// Only `MBTiles` and `PMTiles` sources can be declared to be on another grid.
+    #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -522,8 +533,9 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
-    resolve_int(config, idr, extension, default_cache).await
+    resolve_int(config, idr, extension, default_cache, tile_grids).await
 }
 
 /// How many tile sources are opened at once at startup and on reload.
@@ -539,6 +551,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
     let default_cache = config.cache_or(default_cache);
     let Some(cfg) = config.extract_file_config() else {
@@ -561,6 +574,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
                 &mut files,
                 &mut configs,
                 default_cache,
+                tile_grids,
             ) {
                 Ok(p) => planned.push(p),
                 Err(err) => warnings.push(TileSourceWarning::SourceError {
@@ -604,6 +618,10 @@ async fn resolve_int<T: TileSourceConfiguration>(
     for (p, result) in opened {
         match result {
             Ok(src) => {
+                let src = match &p.grid {
+                    Some(grid) => Box::new(DeclaredGridSource::new(src, grid.clone())),
+                    None => src,
+                };
                 p.log_configured();
                 if !p.from_sources
                     && let Target::File { path, .. } = &p.target
@@ -641,6 +659,8 @@ struct Planned {
     id: String,
     target: Target,
     cache: CachePolicy,
+    /// The grid the config declares this source to be on, when it is not Web Mercator.
+    grid: Option<TileGrid>,
     /// From `sources` rather than `paths`: failures are reported by id instead of path, and
     /// discovered files only enter the config once they open, so one bad file in a directory
     /// does not take its siblings with it.
@@ -712,6 +732,7 @@ impl Planned {
 
 /// Resolves the id of one configured source (a URL or a file) and records it, without opening it.
 #[cfg(feature = "_tiles")]
+#[expect(clippy::too_many_arguments)]
 fn plan_one_source(
     parse_urls: bool,
     idr: &IdResolver,
@@ -720,8 +741,10 @@ fn plan_one_source(
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
+    let grid = declared_tile_grid(id, &source, tile_grids)?;
     if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
         let duplicate = files.insert(key.clone(), key.clone()).is_some();
@@ -734,6 +757,7 @@ fn plan_one_source(
                 configured: key,
             },
             cache,
+            grid,
             from_sources: true,
             duplicate,
         });
@@ -749,9 +773,41 @@ fn plan_one_source(
             canonical: can,
         },
         cache,
+        grid,
         from_sources: true,
         duplicate,
     })
+}
+
+/// The grid a configured source declares, resolved by name.
+///
+/// Discovered files never declare one.
+/// A kind that cannot be served on another grid passes `None` for `tile_grids`, which makes any declaration an error.
+#[cfg(feature = "_tiles")]
+pub(crate) fn declared_tile_grid(
+    id: &str,
+    source: &FileConfigSrc,
+    tile_grids: Option<&TileGrids>,
+) -> ConfigFileResult<Option<TileGrid>> {
+    let FileConfigSrc::Obj(obj) = source else {
+        return Ok(None);
+    };
+    let Some(name) = obj.tile_grid.as_deref() else {
+        return Ok(None);
+    };
+    let Some(grids) = tile_grids else {
+        return Err(ConfigFileError::TileGridNotSupported {
+            what: format!("Source {id}"),
+        });
+    };
+    let grid = grids
+        .get(name)
+        .ok_or_else(|| ConfigFileError::UnknownTileGrid {
+            what: format!("Source {id}"),
+            grid: name.to_owned(),
+            known: grids.names().join(", "),
+        })?;
+    Ok((!grid.is_web_mercator()).then(|| grid.clone()))
 }
 
 /// Resolves the ids under one configured path (a URL, a file, or a directory) and records them,
@@ -804,6 +860,7 @@ fn plan_one_path(
                 configured: path,
             },
             cache: default_cache,
+            grid: None,
             from_sources: false,
             duplicate: false,
         }]);
@@ -843,6 +900,7 @@ fn plan_one_path(
             canonical: can,
         },
         cache: default_cache,
+        grid: None,
         from_sources: false,
         duplicate: false,
     }])
@@ -1753,7 +1811,14 @@ mod mbtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default()).await;
+        let result = resolve_files(
+            &mut config,
+            &idr,
+            &["mbtiles"],
+            CachePolicy::default(),
+            None,
+        )
+        .await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -1832,7 +1897,14 @@ mod pmtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default()).await;
+        let result = resolve_files(
+            &mut config,
+            &idr,
+            &["pmtiles"],
+            CachePolicy::default(),
+            None,
+        )
+        .await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

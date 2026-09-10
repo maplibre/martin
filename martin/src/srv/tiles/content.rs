@@ -372,6 +372,18 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
+        if let Some((source, _)) = self
+            .sources
+            .iter()
+            .find(|(source, _)| !source.tile_grid().is_valid(xyz.z, xyz.x, xyz.y))
+        {
+            return Err(TileError::OutsideGrid {
+                xyz,
+                grid: source.tile_grid().id().to_owned(),
+                source_id: source.get_id().to_owned(),
+            }
+            .into());
+        }
         let tile = self.get_tile_content(xyz).await?;
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
