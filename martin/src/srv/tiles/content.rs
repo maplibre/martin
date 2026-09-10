@@ -14,8 +14,8 @@ use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, decode_zlib,
-    decode_zstd, encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
+    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
+    encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::{instrument, warn};
@@ -907,6 +907,7 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 mod tests {
     use actix_http::header::TryIntoHeaderValue as _;
     use actix_web::http::header::QualityItem;
+    use martin_tile_utils::TileData;
     use rstest::rstest;
     use tilejson::tilejson;
 
