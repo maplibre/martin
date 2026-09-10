@@ -169,7 +169,7 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_core::tiles::Tile;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    use martin_tile_utils::{Encoding, Format, TileInfo};
+    use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use rstest::rstest;
 
@@ -179,7 +179,7 @@ mod tests {
     use super::*;
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    fn make_tile(data: Vec<u8>, format: Format, encoding: Encoding) -> Tile {
+    fn make_tile(data: impl Into<TileData>, format: Format, encoding: Encoding) -> Tile {
         Tile::new_hash_etag(data, TileInfo::new(format, encoding))
     }
 
@@ -311,7 +311,7 @@ mod tests {
         let tile = Tile::new_with_etag(
             mvt_with_feature_bytes(),
             TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-            "upstream-etag".to_owned(),
+            "upstream-etag".into(),
         );
         let mlt = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
             .unwrap();

@@ -840,7 +840,7 @@ mod tests {
                 fetches.fetch_add(1, Ordering::Relaxed);
             }
             if self.empty_if.is_some_and(|f| f(_xyz)) {
-                return Ok(Vec::new());
+                return Ok(TileData::new());
             }
             Ok(self.data.clone())
         }
@@ -880,7 +880,7 @@ mod tests {
             Box::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -888,7 +888,7 @@ mod tests {
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -896,7 +896,7 @@ mod tests {
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -904,7 +904,7 @@ mod tests {
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -917,7 +917,7 @@ mod tests {
         test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -929,7 +929,7 @@ mod tests {
         test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -1057,7 +1057,7 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -1096,7 +1096,7 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1],
+            data: TileData::from_static(&[1]),
             block_after_fetch: None,
             fetches: Some(Arc::clone(&fetches)),
             empty_if: Some(|xyz| xyz.z() > 0 && xyz.x() < (1u32 << xyz.z()) / 2),
@@ -1135,7 +1135,7 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             // nonstop fetching for testing interruption
             block_after_fetch: Some(Arc::clone(&fetch_started)),
             fetches: None,

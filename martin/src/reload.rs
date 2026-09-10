@@ -229,7 +229,7 @@ mod tests {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            Ok(vec![1, 2, 3])
+            Ok(TileData::from_static(&[1, 2, 3]))
         }
     }
 

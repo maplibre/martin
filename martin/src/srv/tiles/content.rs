@@ -14,8 +14,8 @@ use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
-    encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
+    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, decode_zlib,
+    decode_zstd, encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::{instrument, warn};
@@ -945,7 +945,7 @@ mod tests {
         let mgr = test_manager(vec![vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         })]]);
 
@@ -978,7 +978,7 @@ mod tests {
         let source1 = TestSource {
             id: source_id,
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![Box::new(source1)]]);
@@ -1005,13 +1005,13 @@ mod tests {
         let non_empty_source = TestSource {
             id: "non-empty",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let empty_source = TestSource {
             id: "empty",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![
@@ -1038,7 +1038,11 @@ mod tests {
 
     #[actix_rt::test]
     async fn source_needs_reload_is_retried() {
-        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3], Format::Mvt);
+        let source = SourceNeedsReloadTestSource::new(
+            "stale_source",
+            TileData::from_static(&[1, 2, 3]),
+            Format::Mvt,
+        );
         let mgr = test_manager(vec![vec![Box::new(source)]]);
         let src = DynTileSource::new(
             &mgr,
@@ -1102,13 +1106,13 @@ mod tests {
         let src1 = CompressedTestSource {
             id: "src1",
             tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw1, src_enc),
+            data: compress_with(&raw1, src_enc).into(),
             encoding: src_enc,
         };
         let src2 = CompressedTestSource {
             id: "src2",
             tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw2, src_enc),
+            data: compress_with(&raw2, src_enc).into(),
             encoding: src_enc,
         };
 
@@ -1161,7 +1165,7 @@ mod tests {
         Box::new(CompressedTestSource {
             id,
             tj: tilejson! { tiles: vec![] },
-            data,
+            data: data.into(),
             encoding,
         })
     }
@@ -1335,13 +1339,13 @@ mod tests {
         let mvt_source = TestSource {
             id: "mvt",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let mlt_source = TestSource {
             id: "mlt",
             tj: tilejson! { tiles: vec![] },
-            data: vec![4_u8, 5, 6],
+            data: TileData::from_static(&[4, 5, 6]),
             format: Format::Mlt,
         };
         let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
@@ -1356,8 +1360,9 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[actix_rt::test]
     async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
-        let normal_tile =
-            include_bytes!("../../../../tests/fixtures/terrain/normal/10_163_396.png").to_vec();
+        let normal_tile = TileData::from_static(include_bytes!(
+            "../../../../tests/fixtures/terrain/normal/10_163_396.png"
+        ));
         let pc = ResolvedProcess {
             hillshade: Some(ResolvedHillshade::default()),
             ..Default::default()

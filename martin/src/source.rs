@@ -349,7 +349,7 @@ mod tests {
         TileSources::new(vec![vec![Box::new(TestSource {
             id: "valid",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1, 2, 3],
+            data: martin_tile_utils::TileData::from_static(&[1, 2, 3]),
             format: martin_tile_utils::Format::Mvt,
         })]])
     }
