@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
 import { buildMartinUrl } from '@/lib/api';
 import { martinClient } from '@/lib/martin-client';
+import { mltAcceptTransformRequest } from '@/lib/mlt';
 import type { Catalog } from '@/lib/types.gen';
 import { ErrorBoundary } from '../error/error-boundary';
 import { UnderlayPicker } from './underlay-picker';
@@ -284,6 +285,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
               height: '500px',
               width: '100%',
             }}
+            transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
           ></MapLibreMap>
         )}
       </div>
