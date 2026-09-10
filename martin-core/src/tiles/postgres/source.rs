@@ -146,9 +146,9 @@ impl PostgresSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -186,9 +186,9 @@ impl PostgresSource {
             let json = query_to_json(url_query);
             debug!("SQL: {sql} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[
-                &i16::from(xyz.z),
-                &i64::from(xyz.x),
-                &i64::from(xyz.y),
+                &i16::from(xyz.z()),
+                &i64::from(xyz.x()),
+                &i64::from(xyz.y()),
                 &json,
             ];
             conn.query_opt(&prep_query, params).await
@@ -196,7 +196,11 @@ impl PostgresSource {
             debug!("SQL: {sql} [{xyz}]");
             conn.query_opt(
                 &prep_query,
-                &[&i16::from(xyz.z), &i64::from(xyz.x), &i64::from(xyz.y)],
+                &[
+                    &i16::from(xyz.z()),
+                    &i64::from(xyz.x()),
+                    &i64::from(xyz.y()),
+                ],
             )
             .await
         };

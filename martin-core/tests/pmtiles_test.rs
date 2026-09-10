@@ -185,7 +185,7 @@ async fn retrieve_valid_tile() {
     .await;
 
     let tile = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile");
 
@@ -199,14 +199,7 @@ async fn missing_tile_returns_empty() {
     let source = create_source("png.pmtiles", "missing_tile_test", cache).await;
 
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: 20,
-                x: 999_999,
-                y: 999_999,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(20, 999_999, 999_999), None)
         .await
         .expect("Should succeed with empty tile");
 
@@ -230,7 +223,7 @@ async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[
     )
     .await;
 
-    let coord = TileCoord { z, x, y };
+    let coord = TileCoord::new_unchecked(z, x, y);
     let tile = source
         .get_tile(coord, None)
         .await
@@ -247,7 +240,7 @@ async fn repeated_tile_requests_return_same_data() {
     let cache = test_cache_bytes(0);
     let source = create_source("png.pmtiles", "consistency_test", cache).await;
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile1 = source.get_tile(coord, None).await.expect("First request");
     let tile2 = source.get_tile(coord, None).await.expect("Second request");
@@ -279,14 +272,7 @@ async fn retrieve_tile_at_max_zoom() {
         .maxzoom
         .expect("Test file should have a maxzoom value");
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: max_zoom,
-                x: 0,
-                y: 0,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(max_zoom, 0, 0), None)
         .await
         .expect("Should successfully retrieve tile");
     assert_ne!(
@@ -305,14 +291,7 @@ async fn tile_beyond_max_zoom_returns_empty() {
     let max_zoom = tilejson.maxzoom.unwrap_or(0);
 
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: max_zoom + 5,
-                x: 0,
-                y: 0,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(max_zoom + 5, 0, 0), None)
         .await
         .expect("Should succeed for tile beyond max zoom");
 
@@ -330,7 +309,7 @@ async fn tile_with_etag() {
     .await;
 
     let tile = source
-        .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile with etag");
 
@@ -344,7 +323,7 @@ async fn repeated_requests_return_same_etag() {
     let cache = test_cache_bytes(0);
     let source = create_source("png.pmtiles", "etag_consistency_test", cache).await;
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile1 = source.get_tile_with_etag(coord, None).await.expect("First");
     let tile2 = source
@@ -373,14 +352,7 @@ async fn empty_tile_has_etag() {
     let source = create_source("png.pmtiles", "empty_etag_test", cache).await;
 
     let tile = source
-        .get_tile_with_etag(
-            TileCoord {
-                z: 20,
-                x: 999_999,
-                y: 999_999,
-            },
-            None,
-        )
+        .get_tile_with_etag(TileCoord::new_unchecked(20, 999_999, 999_999), None)
         .await
         .expect("Should get empty tile");
 
@@ -402,12 +374,12 @@ async fn different_tiles_have_different_etags() {
     .await;
 
     let tile1 = source
-        .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("First tile");
     assert!(!tile1.data.is_empty(), "Tile 1 should have data");
     let tile2 = source
-        .get_tile_with_etag(TileCoord { z: 1, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(1, 0, 0), None)
         .await
         .expect("Second tile");
     assert!(!tile2.data.is_empty(), "Tile 2 should have data");
@@ -449,7 +421,7 @@ async fn source_returns_error_after_object_store_update() {
     .await
     .expect("source created");
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile = source
         .get_tile(coord, None)
@@ -495,7 +467,7 @@ async fn cache_entry_only_root_directory() {
 
     // Fetch tiles from first source
     let tile1 = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile from source1");
     assert!(!tile1.is_empty(), "Tile should have data");
@@ -533,11 +505,11 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
     let source2 = create_source("png.pmtiles", "shared2", cache2.clone()).await;
 
     let tile1 = source1
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Source1 tile");
     let tile2 = source2
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Source2 tile");
 

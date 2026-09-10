@@ -798,7 +798,7 @@ async fn general_writer(
 
     while let Ok(batch) = enc_rx.recv_async().await {
         for (coord, data) in batch {
-            pending.push((coord.z, coord.x, coord.y, data));
+            pending.push((coord.z(), coord.x(), coord.y(), data));
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {

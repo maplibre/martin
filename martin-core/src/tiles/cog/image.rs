@@ -146,11 +146,11 @@ impl Image {
     }
 
     fn get_tile_position(&self, xyz: TileCoord) -> Option<(usize, usize)> {
-        if xyz.z != self.zoom_level {
+        if xyz.z() != self.zoom_level {
             return None;
         }
-        let x = i64::from(xyz.x) - i64::from(self.tiles_origin.0);
-        let y = i64::from(xyz.y) - i64::from(self.tiles_origin.1);
+        let x = i64::from(xyz.x()) - i64::from(self.tiles_origin.0);
+        let y = i64::from(xyz.y()) - i64::from(self.tiles_origin.1);
         if x < 0 || x >= i64::from(self.tiles_across) || y < 0 || y >= i64::from(self.tiles_down) {
             return None;
         }

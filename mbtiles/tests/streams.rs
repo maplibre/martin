@@ -7,8 +7,7 @@ use mbtiles::{MbtError, Mbtiles, create_metadata_table};
 use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
 fn coord_key(coord: &TileCoord) -> (u8, u32, u32) {
-    let TileCoord { z, x, y } = *coord;
-    (z, x, y)
+    (coord.z(), coord.x(), coord.y())
 }
 
 fn tile_key(tile: &Tile) -> (u8, u32, u32) {
@@ -68,9 +67,9 @@ async fn mbtiles_stream_tiles() {
         assert_eq!(
             coords,
             [
-                TileCoord { z: 1, x: 0, y: 0 },
-                TileCoord { z: 1, x: 1, y: 1 },
-                TileCoord { z: 2, x: 0, y: 3 },
+                TileCoord::new_unchecked(1, 0, 0),
+                TileCoord::new_unchecked(1, 1, 1),
+                TileCoord::new_unchecked(2, 0, 3),
             ]
         );
         // counter test: mbtiles must contain all tiles
@@ -78,7 +77,7 @@ async fn mbtiles_stream_tiles() {
         for coord in coords {
             assert!(
                 mbtiles
-                    .contains(&mut conn, mbt_type, coord.z, coord.x, coord.y)
+                    .contains(&mut conn, mbt_type, coord.z(), coord.x(), coord.y())
                     .await
                     .unwrap()
             );
@@ -103,9 +102,9 @@ async fn mbtiles_stream_tiles() {
         assert_eq!(
             tiles,
             [
-                (TileCoord { z: 1, x: 0, y: 0 }, Some(b"tl".to_vec())),
-                (TileCoord { z: 1, x: 1, y: 1 }, Some(b"br".to_vec())),
-                (TileCoord { z: 2, x: 0, y: 3 }, None),
+                (TileCoord::new_unchecked(1, 0, 0), Some(b"tl".to_vec())),
+                (TileCoord::new_unchecked(1, 1, 1), Some(b"br".to_vec())),
+                (TileCoord::new_unchecked(2, 0, 3), None),
             ]
         );
 
@@ -114,7 +113,7 @@ async fn mbtiles_stream_tiles() {
         for (coord, _) in tiles {
             assert!(
                 mbtiles
-                    .contains(&mut conn, mbt_type, coord.z, coord.x, coord.y)
+                    .contains(&mut conn, mbt_type, coord.z(), coord.x(), coord.y())
                     .await
                     .unwrap()
             );

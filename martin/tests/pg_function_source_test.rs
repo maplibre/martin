@@ -25,14 +25,14 @@ async fn function_source_tile() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "function_zxy_query");
     let tile = src
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .unwrap();
     assert!(!tile.is_empty());
 
     let src = source(&mock, "function_zxy_query_jsonb");
     let tile = src
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .unwrap();
     assert!(!tile.is_empty());

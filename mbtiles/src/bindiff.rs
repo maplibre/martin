@@ -253,11 +253,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
 
         while let Some(row) = rows.try_next().await? {
             let work = DifferBefore {
-                coord: TileCoord {
-                    z: row.get(0),
-                    x: row.get(1),
-                    y: row.get(2),
-                },
+                coord: TileCoord::new_unchecked(row.get(0), row.get(1), row.get(2)),
                 old_tile_data: row.get(3),
                 new_tile_data: row.get(4),
             };
@@ -301,9 +297,9 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
             reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
         )]
         query(AssertSqlSafe(self.insert_sql.clone()))
-            .bind(value.coord.z)
-            .bind(value.coord.x)
-            .bind(value.coord.y)
+            .bind(value.coord.z())
+            .bind(value.coord.x())
+            .bind(value.coord.y())
             .bind(value.data)
             .bind(value.new_tile_hash as i64)
             .execute(&mut *conn)
@@ -376,11 +372,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 
         while let Some(row) = rows.try_next().await? {
             let work = ApplierBefore {
-                coord: TileCoord {
-                    z: row.get(0),
-                    x: row.get(1),
-                    y: row.get(2),
-                },
+                coord: TileCoord::new_unchecked(row.get(0), row.get(1), row.get(2)),
                 old_tile: row.get(3),
                 patch_data: row.get(4),
                 #[expect(clippy::cast_sign_loss)]
@@ -450,9 +442,9 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
                 v @ (Normalized { .. } | Cache) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
-        .bind(value.coord.z)
-        .bind(value.coord.x)
-        .bind(value.coord.y)
+        .bind(value.coord.z())
+        .bind(value.coord.x())
+        .bind(value.coord.y())
         .bind(value.new_tile);
 
         if self.dst_type == FlatWithHash {

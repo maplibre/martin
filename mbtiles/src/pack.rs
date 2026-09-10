@@ -261,8 +261,8 @@ pub async fn unpack(
             };
 
             let y = match scheme {
-                TileScheme::Xyz => coord.y,
-                TileScheme::Tms => invert_y_value(coord.z, coord.y),
+                TileScheme::Xyz => coord.y(),
+                TileScheme::Tms => invert_y_value(coord.z(), coord.y()),
             };
 
             // Vector tiles are stored gzip-compressed; write them back out decompressed.
@@ -273,8 +273,8 @@ pub async fn unpack(
             };
 
             let tile_dir = output_directory
-                .join(coord.z.to_string())
-                .join(coord.x.to_string());
+                .join(coord.z().to_string())
+                .join(coord.x().to_string());
             tokio::fs::create_dir_all(&tile_dir).await?;
             tokio::fs::write(tile_dir.join(format!("{y}.{extension}")), &data).await?;
             Ok(())

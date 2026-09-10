@@ -28,9 +28,9 @@ pub type Slot = Option<(TileData, String)>;
 /// - cylindrical in x, so a tile at the antimeridian has real neighbours on its far side and x wraps rather than clamping.
 /// - It is not cylindrical in y as past a pole there is no tile at all, so the slot is left empty and the assembler edge-clamps it.
 pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32) -> Option<TileCoord> {
-    let side = 1i64 << centre.z;
-    let x = (i64::from(centre.x) + i64::from(dx)).rem_euclid(side);
-    let y = i64::from(centre.y) + i64::from(dy);
+    let side = 1i64 << centre.z();
+    let x = (i64::from(centre.x()) + i64::from(dx)).rem_euclid(side);
+    let y = i64::from(centre.y()) + i64::from(dy);
     if y < 0 || y >= side {
         return None;
     }
@@ -40,7 +40,7 @@ pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32) -> Option<TileCoord>
         clippy::cast_sign_loss,
         reason = "x is reduced mod side and y is bounds-checked above"
     )]
-    Some(TileCoord::new_unchecked(centre.z, x as u32, y as u32))
+    Some(TileCoord::new_unchecked(centre.z(), x as u32, y as u32))
 }
 
 /// Reads one tile as its source produced it.
@@ -52,7 +52,7 @@ async fn fetch_raw(
     let src = source.clone_source();
     let compute = || async move { src.get_tile_with_etag(xyz, None).await };
 
-    let cacheable = source.cache_zoom().contains(xyz.z);
+    let cacheable = source.cache_zoom().contains(xyz.z());
     match (cache, cacheable) {
         (Some(cache), true) => {
             cache
@@ -135,9 +135,9 @@ mod tests {
         #[case] expected: Option<(u32, u32)>,
     ) {
         let got = neighbour_coord(TileCoord::new_unchecked(z, x, y), dx, dy);
-        assert_eq!(got.map(|c| (c.x, c.y)), expected);
+        assert_eq!(got.map(|c| (c.x(), c.y())), expected);
         if let Some(coord) = got {
-            assert_eq!(coord.z, z, "a neighbour is always at the same zoom");
+            assert_eq!(coord.z(), z, "a neighbour is always at the same zoom");
         }
     }
 
@@ -158,8 +158,8 @@ mod tests {
         assert_eq!(resolved.len(), NEIGHBOURHOOD_LEN);
         // All nine are distinct, so the pass reads nine different tiles.
         let mut unique = resolved.clone();
-        unique.sort_unstable_by_key(|c| (c.x, c.y));
-        unique.dedup_by_key(|c| (c.x, c.y));
+        unique.sort_unstable_by_key(|c| (c.x(), c.y()));
+        unique.dedup_by_key(|c| (c.x(), c.y()));
         assert_eq!(unique.len(), NEIGHBOURHOOD_LEN);
     }
 }

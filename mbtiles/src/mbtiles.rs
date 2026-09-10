@@ -141,7 +141,7 @@ pub struct PatchFileInfo {
 /// let mut stream = mbt.stream_tiles(&mut conn);
 /// while let Some(tile) = stream.next().await {
 ///     let (coord, data) = tile?;
-///     println!("Tile at {}/{}/{}: {} bytes", coord.z, coord.x, coord.y, data.map(|bytes| bytes.len()).unwrap_or_default());
+///     println!("Tile at {}/{}/{}: {} bytes", coord.z(), coord.x(), coord.y(), data.map(|bytes| bytes.len()).unwrap_or_default());
 /// }
 /// # Ok(())
 /// # }
