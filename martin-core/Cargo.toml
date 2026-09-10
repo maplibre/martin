@@ -131,7 +131,6 @@ unstable-schemas = ["dep:schemars", "dep:utoipa"]
 maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
-compact_str = { workspace = true, optional = true }
 actix-web = { workspace = true, optional = true }
 async-tiff = { workspace = true, optional = true }
 async-trait.workspace = true
@@ -140,6 +139,7 @@ base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 bytes.workspace = true
 chrono.workspace = true
+compact_str = { workspace = true, optional = true }
 contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
