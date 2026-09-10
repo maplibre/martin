@@ -1,3 +1,13 @@
+#![cfg_attr(
+    not(target_os = "linux"),
+    expect(
+        dead_code,
+        unused_variables,
+        clippy::unused_async,
+        reason = "the routes are registered on Linux only, the module is compiled so utoipa can describe them"
+    )
+)]
+
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -9,14 +19,20 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
-use martin_core::styles::{RenderParams, StyleSources};
+#[cfg(target_os = "linux")]
+use martin_core::styles::RenderParams;
+use martin_core::styles::StyleSources;
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
-use tracing::{debug, error, warn};
+#[cfg(target_os = "linux")]
+use tracing::error;
+use tracing::{debug, warn};
 
 use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
-use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
+use crate::srv::styles_rendering::ImageFormatRequest;
+#[cfg(target_os = "linux")]
+use crate::srv::styles_rendering::encode_image_response;
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
@@ -400,12 +416,21 @@ async fn handle_static_request(
         "Rendering static image"
     );
 
-    let image = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
-        Ok(img) => img,
-        Err(resp) => return *resp,
+    #[cfg(target_os = "linux")]
+    let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
+        Ok(image) => encode_image_response(image.as_image(), path.format),
+        Err(resp) => *resp,
     };
+    #[cfg(not(target_os = "linux"))]
+    let response = rendering_disabled();
+    response
+}
 
-    encode_image_response(image.as_image(), path.format)
+fn rendering_disabled() -> HttpResponse {
+    warn!("Failed to render static image because rendering is disabled");
+    HttpResponse::Forbidden()
+        .content_type(ContentType::plaintext())
+        .body("Rendering is disabled")
 }
 
 fn resolve_camera(camera: CameraRequest, size: SizeRequest) -> Camera {
@@ -479,6 +504,7 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
+#[cfg(target_os = "linux")]
 async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,
@@ -501,12 +527,7 @@ async fn render_with_overlays(
     .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| {
         Box::new(match e {
-            StyleError::RenderingIsDisabled => {
-                warn!("Failed to render static image because rendering is disabled");
-                HttpResponse::Forbidden()
-                    .content_type(ContentType::plaintext())
-                    .body("Rendering is disabled")
-            }
+            StyleError::RenderingIsDisabled => rendering_disabled(),
             StyleError::OverlayApply(err) => {
                 warn!("Overlay application failed: {err}");
                 HttpResponse::BadRequest()

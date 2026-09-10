@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::env;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,7 @@ use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     FileConfigEnum, UnrecognizedValues, subdirectories,
 };
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use crate::config::primitives::OptBoolObj;
 
 #[derive(
@@ -34,7 +34,7 @@ pub struct InnerStyleConfig {
     /// Note on EXPERIMENTAL status:
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
 
@@ -43,7 +43,7 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[derive(
     Clone,
     Debug,
@@ -100,6 +100,14 @@ impl StyleConfig {
                 results
                     .enable_rendering(o.workers)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+            }
+        }
+        #[cfg(all(feature = "rendering", not(target_os = "linux")))]
+        match cfg.custom.rendering {
+            OptBoolObj::NoValue | OptBoolObj::Bool(false) => {}
+            OptBoolObj::Object(ref o) if !o.enabled => {}
+            OptBoolObj::Bool(true) | OptBoolObj::Object(_) => {
+                warn!("rendering is configured, but only available in Linux builds. Ignoring it.");
             }
         }
 
@@ -234,7 +242,7 @@ mod tests {
         assert_eq!(paths, vec![PathBuf::from("/data")]);
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_config_parses_workers() {
         use std::num::NonZeroUsize;
@@ -252,7 +260,7 @@ mod tests {
         assert_eq!(renderer.workers, NonZeroUsize::new(4));
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_config_rejects_zero_workers() {
         let yaml = indoc! {"

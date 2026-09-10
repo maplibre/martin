@@ -2,21 +2,27 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::stream::TryStreamExt as _;
-use object_store::ObjectStore as _;
+use object_store::{ObjectStore as _, ObjectStoreExt as _};
 use url::Url;
 
+#[cfg(feature = "unstable-cog")]
+use crate::config::file::cog::CogConfig;
+#[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::{ProcessConfig, ResolvedProcess};
 use crate::config::file::source_location::SourceLocation;
+use crate::config::file::tiles::discovery::fs::per_source_process;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, SourceBuildResult, TileSourceConfiguration,
+    CachePolicy, ConfigFileError, FileConfigEnum, FileConfigSrc, SourceBuildResult,
+    TileSourceConfiguration,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
+use crate::reload::FileKind;
 
 pub type ObjectStoreParser = Box<
     dyn Fn(
@@ -32,7 +38,10 @@ pub type ObjectStoreParser = Box<
 /// The enum keeps the supported source kinds explicit and avoids erasing async builders behind
 /// boxed, pinned futures. Future remote-backed source kinds can add a variant here.
 pub enum ObjectStoreSourceBuilder {
-    Pmtiles(PmtConfig),
+    #[cfg(feature = "pmtiles")]
+    Pmtiles(Box<PmtConfig>),
+    #[cfg(feature = "unstable-cog")]
+    Cog(Box<CogConfig>),
 }
 
 impl ObjectStoreSourceBuilder {
@@ -43,8 +52,184 @@ impl ObjectStoreSourceBuilder {
         cache: CachePolicy,
     ) -> SourceBuildResult<BuiltSource> {
         match self {
+            #[cfg(feature = "pmtiles")]
             Self::Pmtiles(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
+            #[cfg(feature = "unstable-cog")]
+            Self::Cog(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
         }
+    }
+}
+
+/// One configured remote object that participates in conditional replacement detection.
+#[derive(Clone)]
+pub struct ConfiguredObject {
+    /// The resolved source id, matching what startup resolution produced.
+    id: String,
+    /// The full object URL; credentials stay store-side and never reach diagnostics.
+    url: Url,
+    /// The per-source cache bounds, falling back to the kind-level policy.
+    policy: CachePolicy,
+    /// The per-source `convert_to_*` and `cache_control` overrides, if any.
+    process: Option<ProcessConfig>,
+    /// The configured entry, for `--save-config` provenance.
+    src: FileConfigSrc,
+}
+
+/// A [`Discovery`] over the explicitly configured remote objects in the resolved `sources` map.
+/// Object URLs supplied through `paths` are normalized into that map by startup resolution before
+/// reloaders are constructed.
+/// Each pass sends one `HEAD` per object and derives a [`Version`] from its `ETag` or
+/// last-modified timestamp, so a replaced object is rebuilt while an unchanged one costs
+/// nothing but the round-trip. A failed check retains the object's last-known version, so a
+/// transient store outage cannot surface as a source removal.
+pub struct ConfiguredObjectDiscovery {
+    kind: FileKind,
+    label: &'static str,
+    objects: Vec<ConfiguredObject>,
+    reload_interval: Duration,
+    /// Last-known version per object id, for the retention-on-failure behavior.
+    last_versions: Mutex<BTreeMap<String, Version>>,
+    parser: ObjectStoreParser,
+    build: ObjectStoreSourceBuilder,
+    process: ResolvedProcess,
+}
+
+impl ConfiguredObjectDiscovery {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call per source kind, and every argument is a distinct kind-level input"
+    )]
+    #[must_use]
+    pub fn from_config<T>(
+        kind: FileKind,
+        config: &FileConfigEnum<T>,
+        label: &'static str,
+        reload_interval: Duration,
+        default_cache: CachePolicy,
+        process: &ProcessConfig,
+        parser: ObjectStoreParser,
+        build: ObjectStoreSourceBuilder,
+    ) -> Self {
+        let mut objects = Vec::new();
+        if let FileConfigEnum::Config(cfg) = config
+            && let Some(sources) = &cfg.sources
+        {
+            for (id, src) in sources {
+                let Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) =
+                    SourceLocation::classify_path(src.get_path())
+                else {
+                    // Local sources belong to the file-based discovery.
+                    continue;
+                };
+                objects.push(ConfiguredObject {
+                    id: id.clone(),
+                    url,
+                    policy: src.cache_zoom().or(default_cache),
+                    process: per_source_process(process, src),
+                    src: src.clone(),
+                });
+            }
+        }
+
+        Self {
+            kind,
+            label,
+            objects,
+            reload_interval,
+            last_versions: Mutex::default(),
+            parser,
+            build,
+            process: process
+                .resolve()
+                .expect("the kind level carries no range-checked settings"),
+        }
+    }
+
+    /// Whether any configured remote object participates in replacement detection.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.objects.is_empty()
+    }
+
+    #[must_use]
+    pub const fn reload_interval(&self) -> Duration {
+        self.reload_interval
+    }
+}
+
+/// On a failed check, keeps the object at its last-known version so the driver sees no change;
+/// without one, drops the object for this tick so the driver sees nothing to build.
+fn retain_or_skip(
+    out: &mut BTreeMap<String, (Version, ConfiguredObject)>,
+    label: &str,
+    last: Option<Version>,
+    object: &ConfiguredObject,
+    error: &object_store::Error,
+) {
+    if let Some(version) = last {
+        tracing::warn!(
+            "{label}: check failed for {}: {error}; retaining the last-known version",
+            sanitized_url(&object.url)
+        );
+        out.insert(object.id.clone(), (version, object.clone()));
+    } else {
+        tracing::warn!(
+            "{label}: check failed for {}: {error}; skipping this tick",
+            sanitized_url(&object.url)
+        );
+    }
+}
+
+impl Discovery for ConfiguredObjectDiscovery {
+    type Args = ConfiguredObject;
+    async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
+        let mut out: BTreeMap<String, (Version, Self::Args)> = BTreeMap::new();
+        for object in &self.objects {
+            let last = self
+                .last_versions
+                .lock()
+                .expect("version map mutex")
+                .get(&object.id)
+                .copied();
+            let (store, path) = match (self.parser)(&object.url) {
+                Ok(parsed) => parsed,
+                Err(error) => {
+                    retain_or_skip(&mut out, self.label, last, object, &error);
+                    continue;
+                }
+            };
+            match store.head(&path).await {
+                Ok(meta) => {
+                    let version = version_from_meta(&meta);
+                    self.last_versions
+                        .lock()
+                        .expect("version map mutex")
+                        .insert(object.id.clone(), version);
+                    out.insert(object.id.clone(), (version, object.clone()));
+                }
+                Err(error) => retain_or_skip(&mut out, self.label, last, object, &error),
+            }
+        }
+        Ok(Discovered::new(out))
+    }
+
+    async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
+        let source = self
+            .build
+            .build(id.to_owned(), args.url.clone(), args.policy)
+            .await?
+            .source;
+        BuiltSource::with_file_config(
+            source,
+            id,
+            args.process.as_ref(),
+            self.kind,
+            args.src.clone(),
+        )
+    }
+
+    fn process(&self) -> ResolvedProcess {
+        self.process.clone()
     }
 }
 
@@ -232,8 +417,8 @@ fn sanitized_url(url: &Url) -> String {
 
 #[cfg(test)]
 mod tests {
+    use object_store::PutPayload;
     use object_store::memory::InMemory;
-    use object_store::{ObjectStoreExt as _, PutPayload};
 
     use super::*;
     use crate::config::primitives::IdResolver;
@@ -289,5 +474,141 @@ mod tests {
                 ),
             ]
         );
+    }
+}
+
+#[cfg(all(test, feature = "unstable-cog"))]
+mod configured_object_tests {
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    use object_store::PutPayload;
+    use object_store::memory::InMemory;
+    use url::Url;
+
+    use super::*;
+    use crate::config::file::cog::CogConfig;
+    use crate::config::file::{FileConfig, FileConfigEnum};
+
+    fn cog_discovery(
+        store: &InMemory,
+        config: &FileConfigEnum<CogConfig>,
+        failing: bool,
+    ) -> ConfiguredObjectDiscovery {
+        let parser_store = store.clone();
+        let parser: ObjectStoreParser = Box::new(move |url: &Url| {
+            if failing {
+                return Err(object_store::Error::Generic {
+                    store: "test",
+                    source: Box::new(std::io::Error::other("boom")),
+                });
+            }
+            Ok((
+                Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from(url.path().trim_start_matches('/')),
+            ))
+        });
+        ConfiguredObjectDiscovery::from_config(
+            FileKind::Cog,
+            config,
+            "test",
+            Duration::from_secs(1),
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+            parser,
+            ObjectStoreSourceBuilder::Cog(Box::default()),
+        )
+    }
+
+    #[tokio::test]
+    async fn configured_objects_are_discovered_and_versioned() {
+        let store = InMemory::new();
+        let path = object_store::path::Path::from("imagery/vienna.tif");
+        store
+            .put(&path, PutPayload::from_static(b"first"))
+            .await
+            .unwrap();
+        let config = FileConfigEnum::Config(FileConfig {
+            paths: OptOneMany::NoVals,
+            collections: OptOneMany::NoVals,
+            sources: Some(BTreeMap::from([
+                (
+                    "remote".to_owned(),
+                    FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.tif")),
+                ),
+                (
+                    "local".to_owned(),
+                    FileConfigSrc::Path(PathBuf::from("/tmp/elsewhere.tif")),
+                ),
+            ])),
+            custom: CogConfig::default(),
+        });
+        let discovery = cog_discovery(&store, &config, false);
+
+        assert_eq!(discovery.objects.len(), 1, "local sources are skipped");
+        let (version, object) = &discovery.discover().await.unwrap().sources["remote"];
+        assert!(matches!(version, Version::Tracked(_)));
+        assert_eq!(object.url.as_str(), "s3://bucket/imagery/vienna.tif");
+
+        store
+            .put(&path, PutPayload::from_static(b"replaced"))
+            .await
+            .unwrap();
+        let next = discovery.discover().await.unwrap().sources;
+        assert_ne!(next["remote"].0, *version, "a replaced object re-versions");
+    }
+
+    #[tokio::test]
+    async fn a_failed_check_retains_the_last_known_version() {
+        let store = InMemory::new();
+        let path = object_store::path::Path::from("imagery/vienna.tif");
+        store
+            .put(&path, PutPayload::from_static(b"first"))
+            .await
+            .unwrap();
+        let config = FileConfigEnum::Config(FileConfig {
+            paths: OptOneMany::NoVals,
+            collections: OptOneMany::NoVals,
+            sources: Some(BTreeMap::from([(
+                "remote".to_owned(),
+                FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.tif")),
+            )])),
+            custom: CogConfig::default(),
+        });
+
+        let failing = Arc::new(AtomicBool::new(false));
+        let failing_flag = Arc::clone(&failing);
+        let parser_store = store.clone();
+        let parser: ObjectStoreParser = Box::new(move |url: &Url| {
+            if failing_flag.load(Ordering::Relaxed) {
+                return Err(object_store::Error::Generic {
+                    store: "test",
+                    source: Box::new(std::io::Error::other("boom")),
+                });
+            }
+            Ok((
+                Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from(url.path().trim_start_matches('/')),
+            ))
+        });
+        let discovery = ConfiguredObjectDiscovery::from_config(
+            FileKind::Cog,
+            &config,
+            "test",
+            Duration::from_secs(1),
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+            parser,
+            ObjectStoreSourceBuilder::Cog(Box::default()),
+        );
+
+        let first = discovery.discover().await.unwrap().sources;
+        store.delete(&path).await.unwrap();
+        failing.store(true, Ordering::Relaxed);
+        let retained = discovery.discover().await.unwrap().sources;
+
+        assert_eq!(retained["remote"].0, first["remote"].0);
     }
 }

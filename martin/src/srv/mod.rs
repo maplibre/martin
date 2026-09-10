@@ -16,6 +16,8 @@ mod server;
 pub use server::{__path_get_health, get_health};
 mod error;
 pub use error::ServerStartError;
+#[cfg(feature = "_tiles")]
+pub use error::TileError;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
@@ -53,28 +55,20 @@ mod styles;
 #[cfg(all(feature = "styles", feature = "unstable-schemas"))]
 pub use styles::{__path_get_style_json, get_style_json};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 mod styles_rendering;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use styles_rendering::redirect_tile_jpeg;
-#[cfg(all(
-    feature = "rendering",
-    target_os = "linux",
-    feature = "unstable-schemas"
-))]
+#[cfg(all(feature = "rendering", feature = "unstable-schemas"))]
 pub use styles_rendering::{__path_get_rendered_tile_style, get_rendered_tile_style};
 
 #[cfg(feature = "overlay")]
 mod overlay_body;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 mod styles_static;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use styles_static::redirect_static_jpeg;
-#[cfg(all(
-    feature = "rendering",
-    target_os = "linux",
-    feature = "unstable-schemas"
-))]
+#[cfg(all(feature = "rendering", feature = "unstable-schemas"))]
 pub use styles_static::{
     __path_get_rendered_static_style, __path_post_rendered_static_style, get_rendered_static_style,
     post_rendered_static_style,

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 use martin_core::tiles::{BoxedSource, Source};
@@ -8,6 +7,7 @@ use martin_tile_utils::{TileGrid, TileInfo};
 use tracing::{debug, info};
 
 use crate::config::file::ResolvedProcess;
+use crate::srv::TileError;
 
 /// Maximum number of comma-separated source ids accepted in a single
 /// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
@@ -225,11 +225,11 @@ impl TileSources {
     }
 
     /// Gets a source and its process config by ID, returning 404 error if not found.
-    pub fn get_source(&self, id: &str) -> actix_web::Result<(BoxedSource, ResolvedProcess)> {
+    pub fn get_source(&self, id: &str) -> Result<(BoxedSource, ResolvedProcess), TileError> {
         Ok(self
             .sources
             .get(id)
-            .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
+            .ok_or_else(|| TileError::UnknownSource(id.to_owned()))?
             .value()
             .clone())
     }
@@ -245,13 +245,13 @@ impl TileSources {
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> actix_web::Result<ResolvedSources> {
+    ) -> Result<ResolvedSources, TileError> {
         let ids: Vec<&str> = source_ids.split(',').collect();
         if ids.len() > MAX_SOURCE_IDS_PER_REQUEST {
-            return Err(ErrorBadRequest(format!(
-                "Requested {} source ids, but at most {MAX_SOURCE_IDS_PER_REQUEST} are allowed per request",
-                ids.len()
-            )));
+            return Err(TileError::TooManySources {
+                requested: ids.len(),
+                max: MAX_SOURCE_IDS_PER_REQUEST,
+            });
         }
 
         let mut sources = Vec::new();
@@ -299,7 +299,7 @@ impl TileSources {
         info: &mut Option<TileInfo>,
         grid: &mut Option<TileGrid>,
         use_url_query: &mut bool,
-    ) -> actix_web::Result<()> {
+    ) -> Result<(), TileError> {
         let (src, pc) = self.get_source(id)?;
         let src_inf = pc.advertised_tile_info(src.get_tile_info());
         *use_url_query |= src.support_url_query();
@@ -309,9 +309,10 @@ impl TileSources {
         match *info {
             Some(inf) if inf == src_inf => {}
             Some(inf) => {
-                return Err(ErrorNotFound(format!(
-                    "Cannot merge sources with {inf} with {src_inf}"
-                )));
+                return Err(TileError::MismatchedSources {
+                    left: inf,
+                    right: src_inf,
+                });
             }
             None => *info = Some(src_inf),
         }
@@ -320,11 +321,10 @@ impl TileSources {
         match grid {
             Some(g) if *g == *src.tile_grid() => {}
             Some(g) => {
-                return Err(ErrorBadRequest(format!(
-                    "Cannot merge sources in tile grid {} with {}",
-                    g.id(),
-                    src.tile_grid().id()
-                )));
+                return Err(TileError::MismatchedGrids {
+                    left: g.id().to_owned(),
+                    right: src.tile_grid().id().to_owned(),
+                });
             }
             None => *grid = Some(src.tile_grid().clone()),
         }

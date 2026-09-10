@@ -1,3 +1,11 @@
+#![cfg_attr(
+    not(target_os = "linux"),
+    expect(
+        dead_code,
+        reason = "the routes are registered on Linux only, the module is compiled so utoipa can describe them"
+    )
+)]
+
 use std::io::Cursor;
 
 use actix_web::http::header::{ContentType, LOCATION};
@@ -105,8 +113,6 @@ pub async fn get_rendered_tile_style(
     path: Path<StyleRenderRequest>,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    use martin_core::styles::StyleError;
-
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()
@@ -123,24 +129,33 @@ pub async fn get_rendered_tile_style(
         style_path.display()
     );
 
-    let image = styles.render(style_path, zxy.z, zxy.x, zxy.y).await;
-    let image = match image {
-        Ok(image) => image,
-        Err(StyleError::RenderingIsDisabled) => {
-            warn!("Failed to render style {style_id} because rendering is disabled");
-            return HttpResponse::Forbidden()
-                .content_type(ContentType::plaintext())
-                .body(format!("Failed to render style {style_id} at {zxy} is forbidden as rendering is disabled"));
-        }
-        Err(e) => {
-            error!("Failed to render style {style_id} at {zxy}: {e}");
-            return HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .body("Failed to render style");
+    #[cfg(target_os = "linux")]
+    let response = {
+        use martin_core::styles::StyleError;
+
+        match styles.render(style_path, zxy.z, zxy.x, zxy.y).await {
+            Ok(image) => encode_image_response(image.as_image(), path.format),
+            Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
+            Err(e) => {
+                error!("Failed to render style {style_id} at {zxy}: {e}");
+                HttpResponse::InternalServerError()
+                    .content_type(ContentType::plaintext())
+                    .body("Failed to render style")
+            }
         }
     };
+    #[cfg(not(target_os = "linux"))]
+    let response = rendering_disabled(style_id, zxy);
+    response
+}
 
-    encode_image_response(image.as_image(), path.format)
+fn rendering_disabled(style_id: &str, zxy: TileCoord) -> HttpResponse {
+    warn!("Failed to render style {style_id} because rendering is disabled");
+    HttpResponse::Forbidden()
+        .content_type(ContentType::plaintext())
+        .body(format!(
+            "Failed to render style {style_id} at {zxy} is forbidden as rendering is disabled"
+        ))
 }
 
 /// `.jpeg` to `.jpg` redirect

@@ -19,7 +19,7 @@ use crate::config::file::{
     SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::reload::{FileKind, SourceProvenance};
+use crate::reload::FileKind;
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
 type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
@@ -233,7 +233,10 @@ impl FsDiscovery {
 }
 
 /// Per-source `convert_to_*` and `cache_control` settings layered over the kind-level [`ProcessConfig`].
-fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
+pub(crate) fn per_source_process(
+    kind_level: &ProcessConfig,
+    src: &FileConfigSrc,
+) -> Option<ProcessConfig> {
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
@@ -306,18 +309,13 @@ impl Discovery for FsDiscovery {
             Some(grid) => Box::new(DeclaredGridSource::new(source, grid.clone())),
             None => source,
         };
-        let process = configured
-            .and_then(|cfg| cfg.process.as_ref())
-            .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
-            .transpose()?;
-        Ok(BuiltSource {
+        BuiltSource::with_file_config(
             source,
-            process,
-            provenance: Some(SourceProvenance::File {
-                kind: self.kind,
-                src: self.config_entry(&args.0),
-            }),
-        })
+            id,
+            configured.and_then(|config| config.process.as_ref()),
+            self.kind,
+            self.config_entry(&args.0),
+        )
     }
 
     fn process(&self) -> ResolvedProcess {

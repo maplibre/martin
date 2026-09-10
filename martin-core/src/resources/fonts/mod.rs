@@ -195,7 +195,7 @@ impl FontSources {
     /// Every member must name an already discovered font, not another alias.
     /// An alias may share the name of a discovered font it references.
     /// Requests for such a name serve the alias.
-    pub fn add_alias(&mut self, name: String, fonts: Vec<String>) -> Result<(), FontError> {
+    pub fn add_alias(&self, name: String, fonts: Vec<String>) -> Result<(), FontError> {
         if name.is_empty() || name.contains(',') {
             return Err(FontError::InvalidAliasName(name));
         }
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn an_alias_serves_the_same_bytes_as_the_explicit_fontstack() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
         sources
             .add_alias(
                 "Overpass Mono".to_owned(),
@@ -613,7 +613,7 @@ mod tests {
 
     #[test]
     fn an_alias_may_shadow_a_font_and_include_it() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
         sources
             .add_alias(
                 "Overpass Mono Regular".to_owned(),
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn invalid_aliases_are_rejected() {
-        let mut sources = overpass_sources();
+        let sources = overpass_sources();
 
         let err = sources
             .add_alias(

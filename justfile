@@ -109,12 +109,12 @@ gen-schemas: fetch
     cargo build --quiet --features unstable-schemas --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
-    "$gen" --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
+    "$gen" --target openapi     > schemas/openapi.json
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
@@ -387,7 +387,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.15.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.16.1 {{args}}
 
 # Build and run martin documentation
 docs:
