@@ -129,10 +129,14 @@ impl From<ProcessError> for actix_web::Error {
 /// Currently supports:
 /// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
 ///   (requires `mlt` feature). Encoder settings come from `config.mlt`, resolved from
-///   `convert_to_mlt` at startup, and `disabled` skips conversion entirely
-///   even if the client asked for MLT - the original MVT bytes are returned.
+///   `convert_to_mlt` at startup.
 /// - MLT -> MVT conversion when the client requests `application/vnd.mapbox-vector-tile`
-///   from an MLT source (requires `mlt` feature). `convert_to_mvt: disabled` skips it.
+///   from an MLT source (requires `mlt` feature), settings from `config.mvt`.
+///
+/// A `disabled` conversion is never negotiated as the accepted format - the request
+/// either falls back to the source format or is rejected with a 406 before any tile
+/// is fetched - so the matching `Disabled` arms here are only reached by callers that
+/// pass a target the config does not encode, and leave the tile untouched.
 ///
 /// Runs inside the cache miss path so cached entries are already post-processed.
 /// MVT and MLT requests are keyed separately in the tile cache, so both formats
@@ -170,6 +174,8 @@ mod tests {
     use martin_core::tiles::Tile;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_tile_utils::{Encoding, Format, TileInfo};
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use mlt_core::encoder::EncoderConfig;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use rstest::rstest;
 
@@ -247,16 +253,69 @@ mod tests {
         assert_eq!(result.info.format, Format::Mlt);
     }
 
+    /// `Accept` negotiation never resolves to a target a `disabled` source would
+    /// have to encode - such a request is a 406, or falls back to the source format
+    /// with `accepted` unset - so the pipeline only ever sees `None` for those.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[test]
-    fn mlt_accept_with_disabled_serves_mvt_unchanged() {
-        let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
+    #[rstest]
+    #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt)]
+    #[case::mvt_disabled(
+        MltConversion::Encode(EncoderConfig::default()),
+        MvtConversion::Disabled,
+        Format::Mlt
+    )]
+    fn a_disabled_conversion_is_never_negotiated(
+        #[case] mlt: MltConversion,
+        #[case] mvt: MvtConversion,
+        #[case] source_format: Format,
+    ) {
+        let tile = make_tile(
+            empty_layer_mvt_bytes(),
+            source_format,
+            Encoding::Uncompressed,
+        );
         let config = ResolvedProcess {
-            mlt: MltConversion::Disabled,
+            mlt,
+            mvt,
             ..Default::default()
         };
-        let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
-        assert_eq!(result.info.format, Format::Mvt);
+        let result = apply_pre_cache_processors(tile, &config, None).unwrap();
+        assert_eq!(result.info.format, source_format);
+        assert_eq!(result.data, empty_layer_mvt_bytes());
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mlt_disabled(
+        MltConversion::Disabled,
+        MvtConversion::Encode,
+        Format::Mvt,
+        Format::Mlt
+    )]
+    #[case::mvt_disabled(
+        MltConversion::Encode(EncoderConfig::default()),
+        MvtConversion::Disabled,
+        Format::Mlt,
+        Format::Mvt
+    )]
+    fn a_disabled_conversion_leaves_the_tile_untouched(
+        #[case] mlt: MltConversion,
+        #[case] mvt: MvtConversion,
+        #[case] source_format: Format,
+        #[case] accepted: Format,
+    ) {
+        let tile = make_tile(
+            empty_layer_mvt_bytes(),
+            source_format,
+            Encoding::Uncompressed,
+        );
+        let config = ResolvedProcess {
+            mlt,
+            mvt,
+            ..Default::default()
+        };
+        let result = apply_pre_cache_processors(tile, &config, Some(accepted)).unwrap();
+        assert_eq!(result.info.format, source_format);
         assert_eq!(result.data, empty_layer_mvt_bytes());
     }
 

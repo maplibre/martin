@@ -95,6 +95,10 @@ If a higher level (global or source-type) enables MLT but you want one source
 to keep serving MVT, set `convert_to_mlt: disabled` or `convert_to_mvt: disabled`.
 The most-specific level wins, so this overrides any inherited `auto`.
 
+A disabled conversion is never negotiated, so a client asking only for the format
+the conversion would have produced gets `406 Not Acceptable` rather than the other
+format's bytes. Clients that also accept `*/*` still get the source format.
+
 ```yaml
 convert_to_mlt: auto              # default everywhere
 
@@ -105,7 +109,7 @@ pmtiles:
       # Inherits global `auto` -> converted on Accept: MLT
     legacy:
       path: /data/legacy.pmtiles
-      convert_to_mlt: disabled    # always served as MVT, even on Accept: MLT
+      convert_to_mlt: disabled    # served as MVT; an MLT-only Accept gets a 406
 ```
 
 ## Tuning the Encoder
