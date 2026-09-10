@@ -10,12 +10,12 @@ use std::os::windows::fs::FileExt as _;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use pmtiles::{AsyncBackend, BackendResponse, ObjectStoreBackend, PmtError, PmtResult};
+use pmtiles::{AsyncBackend, BackendResponse, ObjectStoreBackend, PmtResult};
 
 /// Reads a local `PMTiles` file in place with positional reads on one open handle.
 ///
 /// Every read reports the file's inode, size and modification time as its data version.
-/// A replaced file therefore surfaces as [`PmtError::SourceModified`].
+/// A replaced file therefore surfaces as [`pmtiles::PmtError::SourceModified`].
 #[derive(Debug)]
 pub(crate) struct PmtFileBackend {
     file: File,
@@ -30,23 +30,13 @@ impl PmtFileBackend {
         Ok(Self { file, path })
     }
 
-    /// Reads up to `length` bytes at `offset`.
-    /// Returns fewer bytes at the end of the file.
+    /// Reads `length` bytes at `offset`, clamped to the end of the file.
     fn read_blocking(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
         let meta = std::fs::metadata(&self.path)?;
         let available = meta.len().saturating_sub(offset as u64);
         let length = usize::try_from(available).map_or(length, |a| length.min(a));
         let mut buf = vec![0_u8; length];
-        let mut filled = 0;
-        while filled < length {
-            match read_at(&self.file, &mut buf[filled..], (offset + filled) as u64) {
-                Ok(0) => break,
-                Ok(n) => filled += n,
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(e) => return Err(PmtError::Reading(e)),
-            }
-        }
-        buf.truncate(filled);
+        read_exact_at(&self.file, &mut buf, offset as u64)?;
         Ok(BackendResponse::new_with_version(
             buf.into(),
             data_version(&meta),
@@ -66,13 +56,25 @@ impl AsyncBackend for PmtFileBackend {
 }
 
 #[cfg(unix)]
-fn read_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<usize> {
-    file.read_at(buf, offset)
+fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<()> {
+    file.read_exact_at(buf, offset)
 }
 
+/// Windows has no `read_exact_at`, so the loop lives here.
 #[cfg(windows)]
-fn read_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<usize> {
-    file.seek_read(buf, offset)
+fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> {
+    while !buf.is_empty() {
+        match file.seek_read(buf, offset) {
+            Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+            Ok(n) => {
+                buf = &mut buf[n..];
+                offset += n as u64;
+            }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 /// The inode, modification time and size of the file.
