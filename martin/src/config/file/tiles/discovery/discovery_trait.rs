@@ -4,7 +4,11 @@ use std::collections::BTreeMap;
 
 use martin_core::tiles::BoxedSource;
 
+#[cfg(feature = "_file_kinds")]
+use crate::config::file::{FileConfigSrc, ProcessConfig};
 use crate::config::file::{ResolvedProcess, SourceBuildResult, TileSourceWarning};
+#[cfg(feature = "_file_kinds")]
+use crate::reload::FileKind;
 use crate::reload::SourceProvenance;
 
 /// Per-Source change-detection value. `Opaque` sources only diff on presence, never update.
@@ -41,6 +45,31 @@ pub struct BuiltSource {
     pub provenance: Option<SourceProvenance>,
     /// Per-source override of the kind's [`Discovery::process`], if the source configures one.
     pub process: Option<ResolvedProcess>,
+}
+
+#[cfg(feature = "_file_kinds")]
+impl BuiltSource {
+    /// Attaches the processing and provenance shared by file-backed source builders.
+    pub(super) fn with_file_config(
+        source: BoxedSource,
+        id: &str,
+        process: Option<&ProcessConfig>,
+        kind: FileKind,
+        src: FileConfigSrc,
+    ) -> SourceBuildResult<Self> {
+        let process = process
+            .map(|config| {
+                config
+                    .resolve()
+                    .map_err(|error| error.for_source(id.to_owned()))
+            })
+            .transpose()?;
+        Ok(Self {
+            source,
+            process,
+            provenance: Some(SourceProvenance::File { kind, src }),
+        })
+    }
 }
 
 impl From<BoxedSource> for BuiltSource {
