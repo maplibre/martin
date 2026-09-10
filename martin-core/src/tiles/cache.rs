@@ -20,11 +20,11 @@ pub enum TileCacheKey {
     /// A particular request shapes the bytes that would be served
     Dynamic {
         /// Source the tile belongs to.
-        source_id: String,
+        source_id: Box<str>,
         /// Tile coordinate.
         xyz: TileCoord,
         /// Request query string, when the source consumes one.
-        query: Option<String>,
+        query: Option<Box<str>>,
         /// Format requested via the `Accept` header
         /// `None` if absent.
         format: Option<Format>,
@@ -36,7 +36,7 @@ pub enum TileCacheKey {
     /// A tile exactly as its source produced it, before any post-cache processing.
     Static {
         /// Source the tile belongs to.
-        source_id: String,
+        source_id: Box<str>,
         /// Tile coordinate.
         xyz: TileCoord,
     },
@@ -46,9 +46,9 @@ impl TileCacheKey {
     /// Key for the bytes a particular request shape produces.
     #[must_use]
     pub fn new_request_dynamic(
-        source_id: impl Into<String>,
+        source_id: impl Into<Box<str>>,
         xyz: TileCoord,
-        query: Option<String>,
+        query: Option<Box<str>>,
         format: Option<Format>,
         encoding: Option<Encoding>,
     ) -> Self {
@@ -63,7 +63,7 @@ impl TileCacheKey {
 
     /// Key for a source's own bytes, independent of any request shape.
     #[must_use]
-    pub fn new_request_static(source_id: impl Into<String>, xyz: TileCoord) -> Self {
+    pub fn new_request_static(source_id: impl Into<Box<str>>, xyz: TileCoord) -> Self {
         Self::Static {
             source_id: source_id.into(),
             xyz,

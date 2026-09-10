@@ -57,7 +57,7 @@ async fn fetch_raw(
         (Some(cache), true) => {
             cache
                 .get_or_insert(
-                    TileCacheKey::new_request_static(source.get_id().to_owned(), xyz),
+                    TileCacheKey::new_request_static(source.get_id(), xyz),
                     compute,
                 )
                 .await

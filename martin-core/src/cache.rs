@@ -78,7 +78,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     {
         let entry = self
             .inner
-            .entry(key.clone())
+            .entry_by_ref(&key)
             .or_try_insert_with(async move { compute().await })
             .await?;
 
