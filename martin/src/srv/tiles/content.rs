@@ -465,7 +465,7 @@ impl<'a> DynTileSource<'a> {
         let key = TileCacheKey::new_request_dynamic(
             s.get_id(),
             xyz,
-            self.source_query().map(|q| q.0.to_owned()),
+            self.source_query().map(|q| q.0.into()),
             self.accepted_format,
             Some(self.negotiated_encoding()?),
         );
@@ -577,7 +577,6 @@ impl<'a> DynTileSource<'a> {
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z);
-        let src_id = s.get_id().to_owned();
         let src = s.clone_source();
         let compute = || async move {
             let t = src
@@ -596,9 +595,9 @@ impl<'a> DynTileSource<'a> {
             cache
                 .get_or_insert(
                     TileCacheKey::new_request_dynamic(
-                        src_id,
+                        s.get_id(),
                         xyz,
-                        self.source_query().map(|q| q.0.to_owned()),
+                        self.source_query().map(|q| q.0.into()),
                         self.accepted_format,
                         None,
                     ),
