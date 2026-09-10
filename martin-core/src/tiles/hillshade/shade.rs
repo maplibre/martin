@@ -20,7 +20,11 @@
 
 use multiversion::multiversion;
 
-use crate::tiles::neighbourhood::{CHANNELS, FIELD_SIDE as CANVAS, TILE_SIZE};
+use crate::tiles::neighbourhood::{CHANNELS, DEFAULT_TILE_SIZE, GRID_SIDE};
+
+/// Core side [`BakeParams::padding`] is expressed against, independent of the
+/// side the source serves its tiles at.
+const PADDING_REFERENCE_SIDE: u32 = 256;
 
 /// Tunable parameters of one hillshade bake.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -74,44 +78,66 @@ pub struct BakedTile {
     pub apron: u32,
 }
 
-/// A 3x3 tile neighbourhood as one `CANVAS` x `CANVAS` RGBA field.
+/// A 3x3 tile neighbourhood as one square RGBA field of `tile_size`-square tiles.
 ///
 /// Stored as raw `u8` and decoded to `f64` per tap to save on memory throughput.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Canvas {
-    /// `CANVAS * CANVAS * CHANNELS` bytes, row-major RGBA.
+    /// `side * side * CHANNELS` bytes, row-major RGBA.
     rgba: Vec<u8>,
+    /// Side length in pixels of one source tile in the field.
+    tile_size: usize,
 }
 
 impl Canvas {
-    /// Builds a canvas from a full row-major `CANVAS` x `CANVAS` RGBA buffer.
+    /// Builds a canvas from a full row-major field of `tile_size`-square tiles.
     #[must_use]
-    pub(crate) fn from_rgba(rgba: Vec<u8>) -> Self {
+    pub(crate) fn from_rgba(rgba: Vec<u8>, tile_size: usize) -> Self {
         debug_assert_eq!(
             rgba.len(),
-            CANVAS * CANVAS * CHANNELS,
+            GRID_SIDE * tile_size * GRID_SIDE * tile_size * CHANNELS,
             "canvas buffer must cover the whole 3x3 field"
         );
-        Self { rgba }
+        Self { rgba, tile_size }
     }
 
-    /// A canvas whose every texel is `texel`.
+    /// A canvas of [`DEFAULT_TILE_SIZE`]-square tiles whose every texel is `texel`.
     #[must_use]
     pub fn uniform(texel: [u8; CHANNELS]) -> Self {
+        Self::uniform_at(texel, DEFAULT_TILE_SIZE)
+    }
+
+    /// A canvas of `tile_size`-square tiles whose every texel is `texel`.
+    #[must_use]
+    pub fn uniform_at(texel: [u8; CHANNELS], tile_size: usize) -> Self {
+        let side = GRID_SIDE * tile_size;
         Self {
             rgba: texel
                 .iter()
                 .copied()
                 .cycle()
-                .take(CANVAS * CANVAS * CHANNELS)
+                .take(side * side * CHANNELS)
                 .collect(),
+            tile_size,
         }
+    }
+
+    /// Side length in pixels of one source tile in the field.
+    #[must_use]
+    pub const fn tile_size(&self) -> usize {
+        self.tile_size
+    }
+
+    /// Side length in pixels of the whole field.
+    #[must_use]
+    const fn side(&self) -> usize {
+        GRID_SIDE * self.tile_size
     }
 
     /// The raw, undecoded texel at `(x, y)` in the assembled field.
     #[cfg(test)]
     pub(crate) fn raw_texel(&self, x: usize, y: usize) -> [u8; CHANNELS] {
-        let base = (y * CANVAS + x) * CHANNELS;
+        let base = (y * self.side() + x) * CHANNELS;
         std::array::from_fn(|c| self.rgba[base + c])
     }
 
@@ -124,18 +150,19 @@ impl Canvas {
     /// Decodes the texel at `(x, y)` to `[0, 1]` channels.
     #[inline]
     fn texel(&self, x: i64, y: i64) -> [f64; CHANNELS] {
+        let side = self.side();
         debug_assert!(
-            (0..(CANVAS as i64 - 1)).contains(&x),
+            (0..(side as i64 - 1)).contains(&x),
             "texel not on canvas in x direction"
         );
         debug_assert!(
-            (0..(CANVAS as i64 - 1)).contains(&y),
+            (0..(side as i64 - 1)).contains(&y),
             "texel not on canvas in y direction"
         );
         debug_assert!(self.rgba.len().is_multiple_of(CHANNELS));
         let (texels, _) = self.rgba.as_chunks::<CHANNELS>();
 
-        texels[y as usize * CANVAS + x as usize].map(|c| f64::from(c) / 255.0)
+        texels[y as usize * side + x as usize].map(|c| f64::from(c) / 255.0)
     }
 
     /// Bilinear RGBA sample at canvas coordinates, where texel `(i, j)` has its centre at `(i + 0.5, j + 0.5)`.
@@ -224,7 +251,7 @@ fn band_hard(shade: [f64; CHANNELS], neutral: f64, bands: f64) -> [f64; CHANNELS
 /// at every core size, so changing the core does not change the framing.
 #[must_use]
 pub fn output_apron(core_side: u32, padding: u32) -> u32 {
-    (f64::from(padding) * f64::from(core_side) / TILE_SIZE as f64).round() as u32
+    (f64::from(padding) * f64::from(core_side) / f64::from(PADDING_REFERENCE_SIDE)).round() as u32
 }
 
 /// Bakes one hillshade tile from `canvas`, lit by `light` used verbatim.
@@ -239,10 +266,11 @@ pub fn bake_with_light(
 ) -> BakedTile {
     // Canvas texels per output texel
     // 1.0 is a 1:1 render of the centre tile.
-    let scale = TILE_SIZE as f64 / f64::from(core_side);
+    let tile_size = canvas.tile_size() as f64;
+    let scale = tile_size / f64::from(core_side);
     let apron = output_apron(core_side, p.padding);
     assert!(
-        (f64::from(apron) + 1.0) * scale <= TILE_SIZE as f64,
+        (f64::from(apron) + 1.0) * scale <= tile_size,
         "padding {} is too large for core_side {core_side}: samples would fall outside the assembled 3x3 canvas",
         p.padding
     );
@@ -258,18 +286,10 @@ pub fn bake_with_light(
     let mut gray = vec![0u8; (side as usize) * (side as usize)];
     for oy in 0..side {
         // Output texel centre in canvas coordinates.
-        // The centre tile starts one tile in on both axes, hence the TILE_SIZE offset.
-        let cy = f64::mul_add(
-            f64::from(oy) + 0.5 - f64::from(apron),
-            scale,
-            TILE_SIZE as f64,
-        );
+        // The centre tile starts one tile in on both axes, hence the tile_size offset.
+        let cy = f64::mul_add(f64::from(oy) + 0.5 - f64::from(apron), scale, tile_size);
         for ox in 0..side {
-            let cx = f64::mul_add(
-                f64::from(ox) + 0.5 - f64::from(apron),
-                scale,
-                TILE_SIZE as f64,
-            );
+            let cx = f64::mul_add(f64::from(ox) + 0.5 - f64::from(apron), scale, tile_size);
             let mut nx = [0.0; CHANNELS];
             let mut ny = [0.0; CHANNELS];
             let mut alpha = [0.0; CHANNELS];
@@ -358,7 +378,9 @@ mod tests {
         );
 
         // Stated independently of the implementation.
-        let expected_apron = (f64::from(padding) * f64::from(core) / 256.0).round() as u32;
+        let expected_apron = (f64::from(padding) * f64::from(core)
+            / f64::from(PADDING_REFERENCE_SIDE))
+        .round() as u32;
         assert_eq!(baked.apron, expected_apron);
         assert_eq!(baked.side, core + 2 * expected_apron);
         assert_eq!(baked.gray.len(), (baked.side as usize).pow(2));
@@ -411,18 +433,69 @@ mod tests {
         assert_ne!(smooth(0.0), smooth(3.0), "banding must actually quantise");
     }
 
+    /// A canvas of `tile_size`-square tiles: `centre` in the middle cell,
+    /// `surround` in the other eight.
+    fn framed_canvas(tile_size: usize, centre: [u8; CHANNELS], surround: [u8; CHANNELS]) -> Canvas {
+        let side = GRID_SIDE * tile_size;
+        let mut rgba = Vec::with_capacity(side * side * CHANNELS);
+        for y in 0..side {
+            for x in 0..side {
+                let in_centre = (tile_size..2 * tile_size).contains(&x)
+                    && (tile_size..2 * tile_size).contains(&y);
+                rgba.extend_from_slice(if in_centre { &centre } else { &surround });
+            }
+        }
+        Canvas::from_rgba(rgba, tile_size)
+    }
+
+    #[rstest]
+    #[case(DEFAULT_TILE_SIZE)]
+    #[case(2 * DEFAULT_TILE_SIZE)]
+    fn the_bake_frames_the_centre_tile_at_the_sources_own_size(#[case] tile_size: usize) {
+        let core = u32::try_from(tile_size).expect("a tile side");
+        let params = BakeParams::default();
+        let framed = bake_with_light(
+            &framed_canvas(tile_size, SLOPED_TEXEL, [10, 240, 30, 40]),
+            core,
+            &params,
+            LIGHT_FROM_OVERHEAD,
+        );
+        let centre_only = bake_with_light(
+            &Canvas::uniform_at(SLOPED_TEXEL, tile_size),
+            core,
+            &params,
+            LIGHT_FROM_OVERHEAD,
+        );
+
+        // The outermost ring is excluded: its supersample taps legitimately
+        // reach a quarter texel into the neighbouring tiles.
+        let side = framed.side as usize;
+        let interior = |gray: &[u8]| -> Vec<u8> {
+            (1..side - 1)
+                .flat_map(|y| (1..side - 1).map(move |x| (x, y)))
+                .map(|(x, y)| gray[y * side + x])
+                .collect()
+        };
+        assert_eq!(
+            interior(&framed.gray),
+            interior(&centre_only.gray),
+            "the bake must read the centre tile, not a crop of the field"
+        );
+    }
+
     fn varied_canvas() -> Canvas {
-        let mut rgba = vec![0u8; CANVAS * CANVAS * CHANNELS];
-        for y in 0..CANVAS {
-            for x in 0..CANVAS {
-                let base = (y * CANVAS + x) * CHANNELS;
+        let side = GRID_SIDE * DEFAULT_TILE_SIZE;
+        let mut rgba = vec![0u8; side * side * CHANNELS];
+        for y in 0..side {
+            for x in 0..side {
+                let base = (y * side + x) * CHANNELS;
                 rgba[base] = ((x * 37 + y * 17) % 256) as u8;
                 rgba[base + 1] = ((x * 11 + y * 53) % 256) as u8;
                 rgba[base + 2] = 128;
                 rgba[base + 3] = ((x * 3 + y * 29) % 256) as u8;
             }
         }
-        Canvas::from_rgba(rgba)
+        Canvas::from_rgba(rgba, DEFAULT_TILE_SIZE)
     }
 
     #[test]

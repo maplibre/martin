@@ -37,9 +37,10 @@ pub fn trace_contours(
     opts: &ContourOptions,
 ) -> Result<TileData, ContourError> {
     let field = tiles.assemble()?;
+    let tile_size = field.tile_size();
     let grid = HeightGrid::from_field(&field, opts.fetch_margin);
     let traced = generate_contours(&grid, zoom, &opts.isoline())?;
-    let tile_space = opts.geometry_transform().apply(traced);
+    let tile_space = opts.geometry_transform(tile_size).apply(traced);
     encode_contours(&tile_space, &opts.mvt_encoding())
 }
 
@@ -48,7 +49,7 @@ mod tests {
     use mlt_core::fast_mvt::{MvtLayerRef, MvtReaderRef};
 
     use super::*;
-    use crate::tiles::neighbourhood::RgbaField;
+    use crate::tiles::neighbourhood::{DEFAULT_TILE_SIZE, RgbaField};
 
     /// Terrarium encoding of `meters`, as an RGBA texel.
     fn terrarium(meters: f32) -> [u8; 4] {
@@ -63,7 +64,7 @@ mod tests {
     #[test]
     fn flat_terrain_traces_nothing() {
         for meters in [1000.0, 0.0, -500.0] {
-            let field = RgbaField::uniform(terrarium(meters));
+            let field = RgbaField::uniform(terrarium(meters), DEFAULT_TILE_SIZE);
             let grid = HeightGrid::from_field(&field, 32);
             let traced = generate_contours(&grid, 12, &ContourOptions::default().isoline())
                 .expect("flat terrain traces");

@@ -13,11 +13,8 @@ pub const NEIGHBOURHOOD_LEN: usize = 3 * 3;
 /// Tiles per side of the neighbourhood.
 pub const GRID_SIDE: usize = 3;
 
-/// Side length in pixels of one upstream tile.
-pub const TILE_SIZE: usize = 256;
-
-/// Side length in pixels of the assembled field.
-pub const FIELD_SIDE: usize = GRID_SIDE * TILE_SIZE;
+/// Side length in pixels assumed for a tile when no slot decodes.
+pub const DEFAULT_TILE_SIZE: usize = 256;
 
 /// Channels in an assembled texel.
 pub const CHANNELS: usize = 4;
@@ -69,7 +66,11 @@ impl Neighbourhood {
         Self { tiles }
     }
 
-    /// Decodes and stitches the nine slots into one [`FIELD_SIDE`]-square RGBA field.
+    /// Decodes and stitches the nine slots into one square RGBA field.
+    ///
+    /// The field is sized by [`tile_size_of`], so a source serving 512-square
+    /// tiles is stitched at its own resolution rather than cropped to
+    /// [`DEFAULT_TILE_SIZE`].
     ///
     /// # Errors
     ///
@@ -88,47 +89,64 @@ impl Neighbourhood {
             return Err(NeighbourhoodError::CorruptCentreTile);
         }
         let centre = decoded[Self::CENTRE].as_ref();
+        let tile_size = tile_size_of(&decoded, centre);
+        let field_side = GRID_SIDE * tile_size;
 
-        let mut rgba = vec![0u8; FIELD_SIDE * FIELD_SIDE * CHANNELS];
+        let mut rgba = vec![0u8; field_side * field_side * CHANNELS];
         for (i, slot) in decoded.iter().enumerate() {
             let grid = (i % GRID_SIDE, i / GRID_SIDE);
-            for y in 0..TILE_SIZE {
-                for x in 0..TILE_SIZE {
-                    let px = resolve_pixel(slot.as_ref(), centre, grid, (x, y));
+            for y in 0..tile_size {
+                for x in 0..tile_size {
+                    let px = resolve_pixel(slot.as_ref(), centre, grid, (x, y), tile_size);
                     let base =
-                        ((grid.1 * TILE_SIZE + y) * FIELD_SIDE + grid.0 * TILE_SIZE + x) * CHANNELS;
+                        ((grid.1 * tile_size + y) * field_side + grid.0 * tile_size + x) * CHANNELS;
                     rgba[base..base + CHANNELS].copy_from_slice(&px);
                 }
             }
         }
-        Ok(RgbaField { rgba })
+        Ok(RgbaField { rgba, tile_size })
     }
 }
 
-/// A stitched 3x3 tile neighbourhood as one [`FIELD_SIDE`]-square RGBA buffer.
+/// A stitched 3x3 tile neighbourhood as one square RGBA buffer.
 #[derive(Debug, Clone)]
 pub struct RgbaField {
     rgba: Vec<u8>,
+    tile_size: usize,
 }
 
 impl RgbaField {
-    /// A field whose every texel is `texel`.
+    /// A field of `tile_size`-square tiles whose every texel is `texel`.
     #[must_use]
-    pub fn uniform(texel: [u8; CHANNELS]) -> Self {
+    pub fn uniform(texel: [u8; CHANNELS], tile_size: usize) -> Self {
+        let field_side = GRID_SIDE * tile_size;
         Self {
             rgba: texel
                 .iter()
                 .copied()
                 .cycle()
-                .take(FIELD_SIDE * FIELD_SIDE * CHANNELS)
+                .take(field_side * field_side * CHANNELS)
                 .collect(),
+            tile_size,
         }
+    }
+
+    /// Side length in pixels of one tile in the field.
+    #[must_use]
+    pub const fn tile_size(&self) -> usize {
+        self.tile_size
+    }
+
+    /// Side length in pixels of the whole field.
+    #[must_use]
+    pub const fn field_side(&self) -> usize {
+        GRID_SIDE * self.tile_size
     }
 
     /// The raw texel at `(x, y)` in the assembled field.
     #[must_use]
     pub fn texel(&self, x: usize, y: usize) -> [u8; CHANNELS] {
-        let base = (y * FIELD_SIDE + x) * CHANNELS;
+        let base = (y * self.field_side() + x) * CHANNELS;
         std::array::from_fn(|c| self.rgba[base + c])
     }
 
@@ -143,6 +161,35 @@ impl RgbaField {
     pub fn is_blank(&self) -> bool {
         self.rgba.iter().all(|&b| b == 0)
     }
+}
+
+/// Side length the field is stitched at: the side most of the decoded slots
+/// agree on, or [`DEFAULT_TILE_SIZE`] when nothing decoded.
+///
+/// A source serving 512-square tiles is stitched at 512, while the lone
+/// off-shape tile described on [`clamped_pixel`] is outvoted by its square
+/// neighbours rather than resizing the whole field. Ties go to the centre
+/// tile, since that is the one being rendered.
+fn tile_size_of(
+    decoded: &[Option<RgbaImage>; NEIGHBOURHOOD_LEN],
+    centre: Option<&RgbaImage>,
+) -> usize {
+    let side = |img: &RgbaImage| img.width().max(img.height()) as usize;
+    let votes = |candidate: usize| {
+        decoded
+            .iter()
+            .flatten()
+            .filter(|i| side(i) == candidate)
+            .count()
+    };
+    let centre_side = centre.map(side);
+    decoded
+        .iter()
+        .flatten()
+        .map(side)
+        .max_by_key(|&candidate| (votes(candidate), Some(candidate) == centre_side, candidate))
+        .or(centre_side)
+        .unwrap_or(DEFAULT_TILE_SIZE)
 }
 
 /// Reads a pixel from `img`, clamping the coordinates into its real extent.
@@ -162,10 +209,10 @@ fn clamped_pixel(img: &RgbaImage, x: usize, y: usize) -> [u8; CHANNELS] {
 /// should be replicated into it: `0` and `2` clamp to the centre's first or
 /// last row/column, `1` (edge-adjacent) passes the coordinate through.
 #[inline]
-const fn clamp_toward_centre(grid: usize, coord: usize) -> usize {
+const fn clamp_toward_centre(grid: usize, coord: usize, tile_size: usize) -> usize {
     match grid {
         0 => 0,
-        2 => TILE_SIZE - 1,
+        2 => tile_size - 1,
         _ => coord,
     }
 }
@@ -179,6 +226,7 @@ fn resolve_pixel(
     centre: Option<&RgbaImage>,
     (grid_x, grid_y): (usize, usize),
     (x, y): (usize, usize),
+    tile_size: usize,
 ) -> [u8; CHANNELS] {
     if let Some(img) = slot {
         return clamped_pixel(img, x, y);
@@ -188,8 +236,8 @@ fn resolve_pixel(
     };
     clamped_pixel(
         centre,
-        clamp_toward_centre(grid_x, x),
-        clamp_toward_centre(grid_y, y),
+        clamp_toward_centre(grid_x, x, tile_size),
+        clamp_toward_centre(grid_y, y, tile_size),
     )
 }
 
@@ -244,12 +292,28 @@ mod tests {
 
     /// Field coordinate of local pixel `(x, y)` within grid cell `(gx, gy)`.
     fn at(gx: usize, gy: usize, x: usize, y: usize) -> (usize, usize) {
-        (gx * TILE_SIZE + x, gy * TILE_SIZE + y)
+        (gx * DEFAULT_TILE_SIZE + x, gy * DEFAULT_TILE_SIZE + y)
+    }
+
+    #[test]
+    fn a_512_source_is_stitched_at_its_own_resolution() {
+        let side = 2 * DEFAULT_TILE_SIZE;
+        let slots: [Option<TileData>; NEIGHBOURHOOD_LEN] =
+            std::array::from_fn(|_| Some(positional_tile(side, side)));
+        let field = Neighbourhood::from_row_major(slots)
+            .assemble()
+            .expect("a 512 neighbourhood decodes");
+
+        assert_eq!(field.tile_size(), side);
+        assert_eq!(field.field_side(), GRID_SIDE * side);
+        assert_eq!(field.texel(side + 200, side + 90), [200, 90, 0, 255]);
+        assert_eq!(field.texel(2 * side + 7, side + 90), [7, 90, 0, 255]);
     }
 
     #[test]
     fn missing_neighbours_replicate_the_centre_nearest_edge() {
-        let tiles = Neighbourhood::centre_only(positional_tile(TILE_SIZE, TILE_SIZE));
+        let tiles =
+            Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let field = tiles.assemble().expect("centre decodes");
 
         let (x, y) = at(1, 1, 40, 90);
@@ -262,7 +326,7 @@ mod tests {
         assert_eq!(field.texel(x, y), [0, 90, 0, 255], "west clamps columns");
 
         let (x, y) = at(2, 2, 40, 90);
-        let last = (TILE_SIZE - 1) as u8;
+        let last = (DEFAULT_TILE_SIZE - 1) as u8;
         assert_eq!(
             field.texel(x, y),
             [last, last, 0, 255],
@@ -272,11 +336,24 @@ mod tests {
 
     #[test]
     fn jxl_upstream_tiles_decode_too() {
-        let tiles = Neighbourhood::centre_only(positional_tile_jxl(TILE_SIZE, TILE_SIZE));
+        let tiles =
+            Neighbourhood::centre_only(positional_tile_jxl(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let field = tiles.assemble().expect("jxl centre decodes");
 
         let (x, y) = at(1, 1, 40, 90);
         assert_eq!(field.texel(x, y), [40, 90, 0, 255]);
+    }
+
+    #[test]
+    fn one_off_shape_tile_does_not_resize_the_field() {
+        let mut slots: [Option<TileData>; NEIGHBOURHOOD_LEN] =
+            std::array::from_fn(|_| Some(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE)));
+        slots[Neighbourhood::CENTRE] = Some(positional_tile(260, 252));
+        let field = Neighbourhood::from_row_major(slots)
+            .assemble()
+            .expect("an off-shape centre decodes");
+
+        assert_eq!(field.tile_size(), DEFAULT_TILE_SIZE);
     }
 
     #[test]
@@ -286,7 +363,7 @@ mod tests {
             Some(positional_tile(260, 252)),
             None,
             None,
-            Some(positional_tile(TILE_SIZE, TILE_SIZE)),
+            Some(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE)),
             None,
             None,
             None,
@@ -317,7 +394,7 @@ mod tests {
     #[test]
     fn a_corrupt_neighbour_degrades_instead_of_failing() {
         let mut slots: [Option<TileData>; NEIGHBOURHOOD_LEN] = Default::default();
-        slots[Neighbourhood::CENTRE] = Some(positional_tile(TILE_SIZE, TILE_SIZE));
+        slots[Neighbourhood::CENTRE] = Some(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         slots[1] = Some(b"garbage".to_vec());
         let field = Neighbourhood::from_row_major(slots)
             .assemble()
