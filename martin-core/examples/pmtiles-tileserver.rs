@@ -18,11 +18,7 @@ async fn get_tile(
     path: web::Path<TileRequest>,
     state: web::Data<PmtilesSource>,
 ) -> ActixResult<HttpResponse> {
-    let xyz = TileCoord {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    };
+    let xyz = TileCoord::new_unchecked(path.z, path.x, path.y);
 
     let tile_data = state
         .get_tile(xyz, Option::<&UrlQuery>::None)

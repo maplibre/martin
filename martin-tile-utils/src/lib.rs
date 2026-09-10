@@ -23,56 +23,11 @@ mod decoders;
 pub use decoders::*;
 mod rectangle;
 pub use rectangle::{TileRect, append_rect};
-
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct TileCoord {
-    pub z: u8,
-    pub x: u32,
-    pub y: u32,
-}
+mod coordinate;
+pub use coordinate::TileCoord;
 
 pub type TileData = Vec<u8>;
 pub type Tile = (TileCoord, Option<TileData>);
-
-impl Display for TileCoord {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            write!(f, "{}/{}/{}", self.z, self.x, self.y)
-        } else {
-            write!(f, "{},{},{}", self.z, self.x, self.y)
-        }
-    }
-}
-
-impl TileCoord {
-    /// Checks provided coordinates for validity
-    /// before constructing [`TileCoord`] instance.
-    ///
-    /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
-    #[must_use]
-    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<Self> {
-        Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
-    }
-
-    /// Constructs [`TileCoord`] instance from arguments without checking that the tiles can exist.
-    ///
-    /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
-    #[must_use]
-    pub const fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
-        Self { z, x, y }
-    }
-
-    /// Checks that zoom `z` is plausibily small and `x`/`y` is possible on said zoom level
-    #[must_use]
-    pub const fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
-        if z > MAX_ZOOM {
-            return false;
-        }
-
-        let side_len = 1_u32 << z;
-        x < side_len && y < side_len
-    }
-}
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, EnumIter)]
 pub enum Format {

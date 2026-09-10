@@ -277,9 +277,9 @@ impl Source for CogSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -288,12 +288,12 @@ impl Source for CogSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
+        if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
             return Ok(Vec::new());
         }
-        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+        let image = self.images.get(&(xyz.z())).ok_or_else(|| {
             CogError::ZoomOutOfRange(
-                xyz.z,
+                xyz.z(),
                 PathBuf::from(&self.location),
                 self.min_zoom,
                 self.max_zoom,
@@ -640,14 +640,7 @@ mod tests {
             .await
             .unwrap();
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 18,
-                    x: 42_712,
-                    y: 97_343,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(18, 42_712, 97_343), None)
             .await
             .unwrap();
 
@@ -681,14 +674,7 @@ mod tests {
         .unwrap();
 
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 19,
-                    x: 85_424,
-                    y: 194_685,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(19, 85_424, 194_685), None)
             .await
             .unwrap();
         assert!(tile.is_empty());

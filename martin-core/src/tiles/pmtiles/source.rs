@@ -164,7 +164,8 @@ impl Source for PmtilesSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
+        let coord =
+            pmtiles::TileCoord::new(xyz.z(), xyz.x(), xyz.y()).map_err(PmtilesError::PmtError)?;
         let result = self.pmtiles.get_tile(coord).await;
         if let Some(t) = match result {
             Err(PmtError::SourceModified) => {
@@ -177,9 +178,9 @@ impl Source for PmtilesSource {
         } else {
             trace!(
                 source.id = %self.id,
-                tile.z = xyz.z,
-                tile.x = xyz.x,
-                tile.y = xyz.y,
+                tile.z = xyz.z(),
+                tile.x = xyz.x(),
+                tile.y = xyz.y(),
                 "Couldn't find tile data"
             );
             Ok(Vec::new())

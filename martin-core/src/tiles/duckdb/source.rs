@@ -78,9 +78,9 @@ impl Source for DuckDBSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -143,9 +143,9 @@ fn execute_tile_query(
     let tile = stmt
         .query_one(
             named_params! {
-                "z": i16::from(xyz.z),
-                "x": i64::from(xyz.x),
-                "y": i64::from(xyz.y),
+                "z": i16::from(xyz.z()),
+                "x": i64::from(xyz.x()),
+                "y": i64::from(xyz.y()),
             },
             |row| row.get::<_, Option<TileData>>(0),
         )

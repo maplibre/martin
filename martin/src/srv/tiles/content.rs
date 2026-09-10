@@ -108,12 +108,8 @@ pub async fn get_tile(
         headers,
     )?;
 
-    src.get_http_response(TileCoord {
-        z: path.z,
-        x: path.x,
-        y: path.y,
-    })
-    .await
+    src.get_http_response(TileCoord::new_unchecked(path.z, path.x, path.y))
+        .await
 }
 
 /// Parsed request headers for tile serving.
@@ -368,7 +364,7 @@ impl<'a> DynTileSource<'a> {
     #[instrument(
         level = "debug",
         skip_all,
-        fields(tile.z = xyz.z, tile.x = xyz.x, tile.y = xyz.y),
+        fields(tile.z = xyz.z(), tile.x = xyz.x(), tile.y = xyz.y()),
         err(Debug),
     )]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
@@ -419,9 +415,9 @@ impl<'a> DynTileSource<'a> {
         level = "debug",
         skip_all,
         fields(
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
             sources.count = self.sources.len(),
         ),
         err(Display),
@@ -461,7 +457,7 @@ impl<'a> DynTileSource<'a> {
         if pc.is_post_processed() {
             return None;
         }
-        let cache = self.cache.filter(|_| s.cache_zoom().contains(xyz.z))?;
+        let cache = self.cache.filter(|_| s.cache_zoom().contains(xyz.z()))?;
         let key = TileCacheKey::new_request_dynamic(
             s.get_id(),
             xyz,
@@ -576,7 +572,7 @@ impl<'a> DynTileSource<'a> {
         pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
-        let cache_zoom = s.cache_zoom().contains(xyz.z);
+        let cache_zoom = s.cache_zoom().contains(xyz.z());
         let src = s.clone_source();
         let compute = || async move {
             let t = src
@@ -961,7 +957,7 @@ mod tests {
 
         let src = DynTileSource::new(&mgr, "test_source", None, "", headers).unwrap();
 
-        let xyz = TileCoord { z: 0, x: 0, y: 0 };
+        let xyz = TileCoord::new_unchecked(0, 0, 0);
         let tile = src.get_tile_content(xyz).await.unwrap();
         assert_eq!(tile.info.encoding, expected_enc);
     }
@@ -991,7 +987,7 @@ mod tests {
         };
         let src = DynTileSource::new(&mgr, source_id, None, "", headers).unwrap();
         let resp = &src
-            .get_http_response(TileCoord { z: 0, x: 0, y: 0 })
+            .get_http_response(TileCoord::new_unchecked(0, 0, 0))
             .await
             .unwrap();
         assert_eq!(resp.status().as_u16(), expected_status);
@@ -1033,7 +1029,7 @@ mod tests {
         ] {
             let src = DynTileSource::new(&mgr, source_id, None, "", TileRequestHeaders::default())
                 .unwrap();
-            let xyz = TileCoord { z: 0, x: 0, y: 0 };
+            let xyz = TileCoord::new_unchecked(0, 0, 0);
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
     }
@@ -1052,7 +1048,7 @@ mod tests {
         .unwrap();
 
         let tile = src
-            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .get_tile_content(TileCoord::new_unchecked(0, 0, 0))
             .await
             .unwrap();
         assert_eq!(tile.data, vec![1, 2, 3]);
@@ -1123,7 +1119,7 @@ mod tests {
         let src = DynTileSource::new(&mgr, "src1,src2", None, "", headers).unwrap();
 
         let tile = src
-            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .get_tile_content(TileCoord::new_unchecked(0, 0, 0))
             .await
             .unwrap();
 
@@ -1140,7 +1136,7 @@ mod tests {
         );
     }
 
-    const ORIGIN: TileCoord = TileCoord { z: 0, x: 0, y: 0 };
+    const ORIGIN: TileCoord = TileCoord::new_unchecked(0, 0, 0);
 
     fn cached_test_manager(sources: Vec<BoxedSource>) -> TileSourceManager {
         let sources = sources
@@ -1374,11 +1370,7 @@ mod tests {
             DynTileSource::new(&mgr, "terrain", None, "", TileRequestHeaders::default()).unwrap();
 
         let tile = dyn_src
-            .get_tile_content(TileCoord {
-                z: 10,
-                x: 163,
-                y: 396,
-            })
+            .get_tile_content(TileCoord::new_unchecked(10, 163, 396))
             .await
             .expect("the bake must be retried after the reload, not fail");
         assert_eq!(tile.info.format, Format::Png);

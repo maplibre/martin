@@ -16,7 +16,7 @@ use tilejson::tilejson;
 
 const SOURCE_ID: &str = "duckdb-test-source";
 const POOL_ID: &str = "duckdb-test-pool";
-const XYZ: TileCoord = TileCoord { z: 3, x: 4, y: 5 };
+const XYZ: TileCoord = TileCoord::new_unchecked(3, 4, 5);
 
 struct TestDatabase {
     _dir: TempDir,
@@ -265,11 +265,11 @@ async fn source_returns_empty_tiles_for_missing_or_null_rows() {
     );
 
     let missing = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("missing tile query");
     let null = source
-        .get_tile(TileCoord { z: 6, x: 7, y: 8 }, None)
+        .get_tile(TileCoord::new_unchecked(6, 7, 8), None)
         .await
         .expect("null tile query");
 
@@ -305,7 +305,7 @@ FROM features
     );
 
     let tile = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("DuckDB spatial MVT tile");
 
@@ -342,20 +342,20 @@ async fn end_to_end_tile_retrieval_at_multiple_zoom_levels() {
 
     // Test zoom level 0
     let tile_z0 = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("z0 tile");
     assert_eq!(tile_z0, b"z0-tile");
 
     // Test zoom level 1
     let tile_z1_00 = source
-        .get_tile(TileCoord { z: 1, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(1, 0, 0), None)
         .await
         .expect("z1 tile 0,0");
     assert_eq!(tile_z1_00, b"z1-tile-0-0");
 
     let tile_z1_11 = source
-        .get_tile(TileCoord { z: 1, x: 1, y: 1 }, None)
+        .get_tile(TileCoord::new_unchecked(1, 1, 1), None)
         .await
         .expect("z1 tile 1,1");
     assert_eq!(tile_z1_11, b"z1-tile-1-1");
@@ -392,11 +392,11 @@ async fn concurrent_tile_requests_from_different_coordinates() {
 
     // Create concurrent requests for different tiles
     let tasks = [
-        TileCoord { z: 0, x: 0, y: 0 },
-        TileCoord { z: 1, x: 1, y: 1 },
-        TileCoord { z: 2, x: 2, y: 2 },
-        TileCoord { z: 2, x: 3, y: 0 },
-        TileCoord { z: 1, x: 0, y: 3 },
+        TileCoord::new_unchecked(0, 0, 0),
+        TileCoord::new_unchecked(1, 1, 1),
+        TileCoord::new_unchecked(2, 2, 2),
+        TileCoord::new_unchecked(2, 3, 0),
+        TileCoord::new_unchecked(1, 0, 3),
     ];
 
     let results = join_all(tasks.iter().map(|&coord| {
@@ -412,7 +412,7 @@ async fn concurrent_tile_requests_from_different_coordinates() {
 
     // Verify each returned tile matches expected content
     for (i, coord) in tasks.iter().enumerate() {
-        let expected = format!("tile_z{}_x{}_y{}", coord.z, coord.x, coord.y);
+        let expected = format!("tile_z{}_x{}_y{}", coord.z(), coord.x(), coord.y());
         assert_eq!(
             results[i],
             expected.as_bytes(),
