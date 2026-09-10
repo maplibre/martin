@@ -1,5 +1,6 @@
 //! `PMTiles` tile source implementations.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -13,14 +14,27 @@ use tracing::{trace, warn};
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
+use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
-/// A source for `PMTiles` files using `ObjectStoreBackend`
+/// Where a [`PmtilesSource`] reads from.
+#[derive(Clone)]
+enum PmtLocation {
+    /// A local file, read by [`PmtFileBackend`].
+    File(PathBuf),
+    /// A location in an [`ObjectStore`], read by [`ObjectStoreBackend`].
+    ObjectStore {
+        store: Arc<dyn ObjectStore>,
+        path: object_store::path::Path,
+    },
+}
+
+/// A source for `PMTiles` files on the local filesystem or in an [`ObjectStore`]
 #[derive(Clone, Dbg)]
 pub struct PmtilesSource {
     id: String,
     #[dbg(skip)]
-    pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
+    pmtiles: Arc<AsyncPmTilesReader<PmtBackend, PmtCacheInstance>>,
     #[dbg(skip)]
     tilejson: TileJSON,
     #[dbg(skip)]
@@ -29,9 +43,7 @@ pub struct PmtilesSource {
     cache_zoom: CacheZoomRange,
 
     #[dbg(skip)]
-    store: Arc<dyn ObjectStore>,
-    #[dbg(skip)]
-    path: object_store::path::Path,
+    location: PmtLocation,
     #[dbg(skip)]
     pmt_cache: PmtCacheInstance,
 }
@@ -48,11 +60,51 @@ impl PmtilesSource {
         let path = path.into();
         // Wrap in Arc so we can clone the store cheaply for try_reload.
         let store: Arc<dyn ObjectStore> = Arc::from(store);
-        let store_to_string = store.to_string();
         let backend = ObjectStoreBackend::new(Box::new(Arc::clone(&store)), path.clone());
+        let location = PmtLocation::ObjectStore { store, path };
+        Self::from_backend(
+            cache,
+            id,
+            PmtBackend::ObjectStore(backend),
+            location,
+            cache_zoom,
+        )
+        .await
+    }
+
+    /// Create a new `PmtilesSource` from an id and the path of a local `.pmtiles` file.
+    /// The file is read in place.
+    pub async fn new_local(
+        cache: PmtCacheInstance,
+        id: String,
+        path: impl Into<PathBuf>,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, PmtilesError> {
+        let path = path.into();
+        let backend = PmtFileBackend::open(&path)
+            .await
+            .map_err(|e| PmtilesError::PmtErrorWithCtx(e, path.display().to_string()))?;
+        let location = PmtLocation::File(path);
+        Self::from_backend(cache, id, PmtBackend::File(backend), location, cache_zoom).await
+    }
+
+    async fn from_backend(
+        cache: PmtCacheInstance,
+        id: String,
+        backend: PmtBackend,
+        location: PmtLocation,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, PmtilesError> {
+        let (store_name, path) = match &location {
+            PmtLocation::File(file) => (
+                file.display().to_string(),
+                object_store::path::Path::from(file.to_string_lossy().as_ref()),
+            ),
+            PmtLocation::ObjectStore { store, path } => (store.to_string(), path.clone()),
+        };
         let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
             .await
-            .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_to_string.clone()))?;
+            .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_name.clone()))?;
 
         let hdr = &reader.get_header();
 
@@ -62,7 +114,7 @@ impl PmtilesSource {
                     "Format {:?} and compression {:?} are not yet supported",
                     hdr.tile_type, hdr.tile_compression
                 ),
-                path.clone(),
+                path,
             ));
         }
 
@@ -74,7 +126,7 @@ impl PmtilesSource {
                     Compression::Unknown => {
                         warn!(
                             source.id = %id,
-                            store = %store_to_string,
+                            store = %store_name,
                             path = %path,
                             "MVT tiles have unknown compression"
                         );
@@ -93,8 +145,8 @@ impl PmtilesSource {
             TileType::Mlt => Format::Mlt.into(),
             TileType::Unknown => {
                 return Err(PmtilesError::UnknownTileType {
-                    source_id: id.clone(),
-                    store: store_to_string.clone(),
+                    source_id: id,
+                    store: store_name,
                     path: path.to_string(),
                 });
             }
@@ -111,8 +163,7 @@ impl PmtilesSource {
             tilejson,
             tile_info: format,
             cache_zoom,
-            store,
-            path,
+            location,
             pmt_cache: cache,
         })
     }
@@ -143,16 +194,26 @@ impl Source for PmtilesSource {
     }
 
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        Self::new(
-            self.pmt_cache.fork(),
-            self.id.clone(),
-            Box::new(Arc::clone(&self.store)),
-            self.path.clone(),
-            self.cache_zoom,
-        )
-        .await
-        .map(|s| Box::new(s) as BoxedSource)
-        .map_err(MartinCoreError::from)
+        let cache = self.pmt_cache.fork();
+        let id = self.id.clone();
+        let reloaded = match &self.location {
+            PmtLocation::File(path) => {
+                Self::new_local(cache, id, path.clone(), self.cache_zoom).await
+            }
+            PmtLocation::ObjectStore { store, path } => {
+                Self::new(
+                    cache,
+                    id,
+                    Box::new(Arc::clone(store)),
+                    path.clone(),
+                    self.cache_zoom,
+                )
+                .await
+            }
+        };
+        reloaded
+            .map(|s| Box::new(s) as BoxedSource)
+            .map_err(MartinCoreError::from)
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {

@@ -6862,6 +6862,7 @@ dependencies = [
  "countio",
  "fast_hilbert",
  "flate2",
+ "memmap2",
  "object_store",
  "serde",
  "serde_json",
