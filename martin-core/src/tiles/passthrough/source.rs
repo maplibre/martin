@@ -256,7 +256,7 @@ impl PassthroughSource {
         }
 
         let etag = header_str(response.headers(), &ETAG)
-            .and_then(|raw| usable_strong_etag(&raw))
+            .and_then(|raw| usable_strong_etag(raw))
             .map(CompactString::from);
         let encoding = header_str(response.headers(), &CONTENT_TYPE)
             .and_then(Encoding::parse)

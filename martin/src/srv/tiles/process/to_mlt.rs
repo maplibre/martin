@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
 use martin_core::tiles::Tile;
 use martin_tile_utils::Format;

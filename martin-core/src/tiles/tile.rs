@@ -1,6 +1,6 @@
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use compact_str::{CompactString, ToCompactString};
+use compact_str::{CompactString, ToCompactString as _};
 use martin_tile_utils::{TileData, TileInfo};
 
 /// Represents a single map tile with its raw data and metadata.
