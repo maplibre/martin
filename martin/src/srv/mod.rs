@@ -35,7 +35,7 @@ pub(crate) mod tiles;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::content::{__path_get_tile, get_tile};
 #[cfg(feature = "_tiles")]
-pub use tiles::content::{DynTileSource, TileRequestHeaders};
+pub use tiles::content::{AcceptedFormats, DynTileSource, TileRequestHeaders};
 #[cfg(feature = "_tiles")]
 pub use tiles::metadata::merge_tilejson;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
