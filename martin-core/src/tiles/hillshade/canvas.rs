@@ -47,7 +47,7 @@ mod tests {
                 ExtendedColorType::Rgba8,
             )
             .expect("encode test tile");
-        buf
+        buf.into()
     }
 
     #[test]
@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn a_centre_that_arrived_but_will_not_decode_is_an_error() {
-        let tiles = Neighbourhood::centre_only(b"this is not an image".to_vec());
+        let tiles = Neighbourhood::centre_only(TileData::from_static(b"this is not an image"));
         assert!(matches!(
             Canvas::from_neighbourhood(&tiles),
             Err(HillshadeError::CorruptCentreTile)
@@ -81,7 +81,7 @@ mod tests {
     fn a_corrupt_neighbour_degrades_instead_of_failing() {
         let mut slots: [Option<TileData>; NEIGHBOURHOOD_LEN] = Default::default();
         slots[Neighbourhood::CENTRE] = Some(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
-        slots[1] = Some(b"garbage".to_vec());
+        slots[1] = Some(TileData::from_static(b"garbage"));
         let canvas = Canvas::from_neighbourhood(&Neighbourhood::from_row_major(slots))
             .expect("a corrupt neighbour is survivable");
         assert_eq!(

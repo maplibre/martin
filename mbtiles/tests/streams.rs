@@ -2,7 +2,7 @@
 use std::assert_matches;
 
 use futures::{StreamExt as _, TryStreamExt as _};
-use martin_tile_utils::{Tile, TileCoord};
+use martin_tile_utils::{Tile, TileCoord, TileData};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};
 use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
@@ -102,8 +102,14 @@ async fn mbtiles_stream_tiles() {
         assert_eq!(
             tiles,
             [
-                (TileCoord::new_unchecked(1, 0, 0), Some(b"tl".to_vec())),
-                (TileCoord::new_unchecked(1, 1, 1), Some(b"br".to_vec())),
+                (
+                    TileCoord::new_unchecked(1, 0, 0),
+                    Some(TileData::from_static(b"tl"))
+                ),
+                (
+                    TileCoord::new_unchecked(1, 1, 1),
+                    Some(TileData::from_static(b"br"))
+                ),
                 (TileCoord::new_unchecked(2, 0, 3), None),
             ]
         );

@@ -254,7 +254,7 @@ fn encode_as_png(
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_tile_range, merge_jpeg_tables_with_tile};
+    use super::{TileData, checked_tile_range, merge_jpeg_tables_with_tile};
 
     #[test]
     fn malformed_tile_tables_return_errors() {
@@ -281,20 +281,20 @@ mod tests {
             0x10, 0xFF, 0xDA, 0x00, 0x02, 0x12, 0x34, 0x56, 0xFF, 0xD9,
         ];
         assert_eq!(
-            merge_jpeg_tables_with_tile(&jpeg_tables, &tile_data),
-            expected
+            merge_jpeg_tables_with_tile(&jpeg_tables, TileData::from(tile_data)),
+            TileData::from(expected)
         );
     }
 
     #[test]
     fn merge_returns_tile_data_for_invalid_tables() {
-        let tile_data = vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9];
+        let tile_data = TileData::from(vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9]);
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], &tile_data),
+            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], tile_data.clone()),
             tile_data
         );
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], &tile_data),
+            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], tile_data.clone()),
             tile_data
         );
     }

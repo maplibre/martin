@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn a_corrupt_centre_is_an_error() {
-        let tiles = Neighbourhood::centre_only(b"this is not an image".to_vec());
+        let tiles = Neighbourhood::centre_only(TileData::from_static(b"this is not an image"));
         assert!(matches!(
             trace_contours(&tiles, 12, &ContourOptions::default()),
             Err(ContourError::CorruptCentreTile)

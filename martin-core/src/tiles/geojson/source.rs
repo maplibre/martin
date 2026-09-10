@@ -327,7 +327,7 @@ mod tests {
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 
-        let decoded = MvtReaderRef::new(tile.as_slice())
+        let decoded = MvtReaderRef::new(&tile)
             .and_then(|r| r.to_tile())
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);

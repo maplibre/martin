@@ -10,6 +10,7 @@ use martin_core::tiles::contour::{
     trace_contours,
 };
 use martin_core::tiles::neighbourhood::{DEFAULT_TILE_SIZE, NEIGHBOURHOOD_LEN, Neighbourhood};
+use martin_tile_utils::TileData;
 use mlt_core::fast_mvt::{MvtReaderRef, MvtValueRef};
 
 /// The fixture tile the golden was traced from.
@@ -30,16 +31,16 @@ fn fixtures_dir() -> PathBuf {
 /// The nine Terrarium tiles around the fixture coordinate, in row-major order.
 fn fixture_neighbourhood() -> Neighbourhood {
     let dir = fixtures_dir();
-    let tiles: [Option<Vec<u8>>; NEIGHBOURHOOD_LEN] = std::array::from_fn(|i| {
+    let tiles: [Option<TileData>; NEIGHBOURHOOD_LEN] = std::array::from_fn(|i| {
         let (gx, gy) = (i % 3, i / 3);
         let x = CENTRE_X + i32::try_from(gx).expect("grid index") - 1;
         let y = CENTRE_Y + i32::try_from(gy).expect("grid index") - 1;
         let path = dir.join(format!("{ZOOM}_{x}_{y}.png"));
-        Some(
+        Some(TileData::from(
             std::fs::read(&path)
                 .map_err(|e| format!("read {}: {e}", path.display()))
                 .expect("every fixture tile is committed"),
-        )
+        ))
     });
     Neighbourhood::from_row_major(tiles)
 }
@@ -169,7 +170,7 @@ fn ramp_meters(gx: usize, gy: usize) -> f32 {
 
 /// PNG-encodes one `OVERSIZED_TILE`-square Terrarium tile of the ramp, with
 /// `(grid_x, grid_y)` naming its cell in the 3x3 neighbourhood.
-fn ramp_tile(grid_x: usize, grid_y: usize) -> Vec<u8> {
+fn ramp_tile(grid_x: usize, grid_y: usize) -> TileData {
     let mut pixels = Vec::with_capacity(OVERSIZED_TILE * OVERSIZED_TILE * 4);
     for y in 0..OVERSIZED_TILE {
         for x in 0..OVERSIZED_TILE {
@@ -200,7 +201,7 @@ fn ramp_tile(grid_x: usize, grid_y: usize) -> Vec<u8> {
     .expect("the buffer matches the tile side")
     .write_to(&mut buf, image::ImageFormat::Png)
     .expect("encode the ramp tile");
-    buf.into_inner()
+    buf.into_inner().into()
 }
 
 /// Rounds an elevation to the whole meters a traced feature reports.
