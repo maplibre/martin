@@ -81,9 +81,9 @@ impl PmtilesSource {
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
-        let backend = PmtFileBackend::open(&path).map_err(|e| {
-            PmtilesError::PmtErrorWithCtx(PmtError::Reading(e), path.display().to_string())
-        })?;
+        let backend = PmtFileBackend::open(&path)
+            .await
+            .map_err(|e| PmtilesError::PmtErrorWithCtx(e, path.display().to_string()))?;
         let location = PmtLocation::File(path);
         Self::from_backend(cache, id, PmtBackend::File(backend), location, cache_zoom).await
     }
