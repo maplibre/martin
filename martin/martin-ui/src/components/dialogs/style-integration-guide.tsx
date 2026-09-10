@@ -269,6 +269,21 @@ function MyMap() {
                   </h4>
                   <CodeBlock code={reactCode} />
                 </div>
+
+                <p className="text-sm text-muted-foreground">
+                  MapLibre GL JS does not send an <code>Accept</code> header on tile requests yet.
+                  Sources served as MLT additionally need a <code>transformRequest</code> that adds
+                  it &mdash; see the{' '}
+                  <a
+                    className="underline"
+                    href="https://maplibre.org/martin/postprocessing/mlt/"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    MLT guide
+                  </a>
+                  .
+                </p>
               </div>
             </TabsContent>
 

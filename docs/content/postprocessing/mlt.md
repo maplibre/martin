@@ -40,6 +40,33 @@ pmtiles:
 
 Sources that produce other formats (raster, etc.) are unaffected.
 
+## Setting up the Client
+
+Conversion is negotiated per request: Martin only returns MLT if the client asks for it with `Accept: application/vnd.maplibre-tile`.
+A client that declares `"encoding": "mlt"` on a source but omits the header receives MVT bytes and fails to parse them.
+
+!!! warning "MapLibre GL JS does not send the header yet"
+
+    Up to and including v6, MapLibre GL JS sends no `Accept` header on tile requests.
+    Until [maplibre-gl-js#7483](https://github.com/maplibre/maplibre-gl-js/pull/7483) is released, add it yourself via the [`transformRequest`](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/RequestTransformFunction/) option.
+    Once that PR ships, MapLibre GL JS derives the header from the source's `encoding` and this workaround can be removed.
+
+```js
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://example.org/style.json',
+  transformRequest: (url, resourceType) =>
+    resourceType === 'Tile' && url.startsWith('https://example.org/my_mlt_source/')
+      ? { url, headers: { Accept: 'application/vnd.maplibre-tile' } }
+      : undefined
+});
+```
+
+Scope the header to the sources you actually serve as MLT.
+Attaching it to every request means a source configured with `convert_to_mlt: auto` is transcoded to MLT while the client still decodes it as MVT.
+
+For MapLibre Native (including the static renderer), the equivalent support is tracked in [maplibre-native#4231](https://github.com/maplibre/maplibre-native/pull/4231).
+
 ## Scoping MLT Conversion
 
 You don't have to convert everything.
