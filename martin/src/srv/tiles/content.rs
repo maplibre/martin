@@ -1587,7 +1587,7 @@ mod tests {
                 let src = TestSource {
                     id: if i == 0 { "a" } else { "b" },
                     tj: tilejson! { tiles: vec![] },
-                    data: vec![1_u8, 2, 3],
+                    data: TileData::from_static(&[1, 2, 3]),
                     format: Format::Mvt,
                 };
                 let pc = if *on {
@@ -1609,7 +1609,7 @@ mod tests {
         let src = TestSource {
             id: "mvt",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let pc = ResolvedProcess {
