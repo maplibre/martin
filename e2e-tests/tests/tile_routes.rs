@@ -20,6 +20,22 @@ async fn martin_with_a_vector_and_a_raster_source() -> Martin {
         .expect("failed to start martin")
 }
 
+const OPTED_OUT_OF_MLT: &str = "
+geojson:
+  sources:
+    feature_1:
+      path: tests/fixtures/geojson/feature_1.geojson
+      convert_to_mlt: disabled
+";
+
+async fn martin_with_a_source_that_opted_out_of_mlt() -> Martin {
+    Martin::builder()
+        .config(OPTED_OUT_OF_MLT)
+        .start()
+        .await
+        .expect("failed to start martin")
+}
+
 #[rstest]
 #[case::pbf("/webp2/0/0/0.pbf")]
 #[case::mvt("/webp2/0/0/0.mvt")]
@@ -116,6 +132,8 @@ async fn a_redirect_is_issued_before_the_source_is_resolved(#[case] path: &str) 
 #[case::anything("*/*")]
 #[case::a_list_containing_the_source_format("image/png, application/x-protobuf")]
 #[case::the_least_preferred_of_a_list("image/png;q=0.9, application/x-protobuf;q=0.1")]
+#[case::a_wildcard_behind_an_unservable_type("image/png, */*")]
+#[case::a_wildcard_behind_a_type_that_is_no_tile_format("text/html, */*")]
 #[tokio::test]
 async fn a_vector_source_serves_mvt_when_the_accept_header_allows_it(#[case] accept: &str) {
     let mut martin = martin_with_a_vector_and_a_raster_source().await;
@@ -137,6 +155,8 @@ async fn a_vector_source_serves_mvt_when_the_accept_header_allows_it(#[case] acc
 #[rstest]
 #[case::the_maplibre_tile_type("application/vnd.maplibre-tile")]
 #[case::its_vector_tile_alias("application/vnd.maplibre-vector-tile")]
+#[case::before_a_lower_ranked_wildcard("application/vnd.maplibre-tile, */*;q=0.1")]
+#[case::before_an_equally_ranked_wildcard("application/vnd.maplibre-tile, */*")]
 #[tokio::test]
 async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] accept: &str) {
     let mut martin = martin_with_a_vector_and_a_raster_source().await;
@@ -157,6 +177,48 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
 
     martin.stop().await;
     martin.assert_startup_warnings();
+}
+
+#[rstest]
+#[case::the_maplibre_tile_type("application/vnd.maplibre-tile")]
+#[case::its_vector_tile_alias("application/vnd.maplibre-vector-tile")]
+#[case::beside_another_unservable_type("image/png, application/vnd.maplibre-tile")]
+#[tokio::test]
+async fn a_source_that_opted_out_of_mlt_rejects_an_mlt_only_accept_header(#[case] accept: &str) {
+    let mut martin = martin_with_a_source_that_opted_out_of_mlt().await;
+
+    let response = martin
+        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
+        .await;
+    assert_eq!(response.status(), 406);
+    assert_eq!(
+        response.text(),
+        "Source produces application/x-protobuf, which does not match the Accept header"
+    );
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#,
+    );
+}
+
+#[rstest]
+#[case::a_lower_ranked_wildcard("application/vnd.maplibre-tile, */*;q=0.1")]
+#[case::an_equally_ranked_wildcard("application/vnd.maplibre-tile, */*")]
+#[tokio::test]
+async fn a_source_that_opted_out_of_mlt_serves_mvt_to_a_wildcard_fallback(#[case] accept: &str) {
+    let mut martin = martin_with_a_source_that_opted_out_of_mlt().await;
+
+    let tile = martin
+        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
+        .await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("application/x-protobuf"));
+    let layers = tile.mvt().layers;
+    assert_eq!(layers.len(), 1);
+    assert_eq!(layers[0].name, "feature_1");
+
+    martin.stop().await;
 }
 
 #[rstest]

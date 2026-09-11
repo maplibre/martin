@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::sync::Arc;
 
 use actix_http::ContentEncoding;
@@ -28,6 +29,8 @@ use crate::config::file::ResolvedHillshade;
 use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltConversion, MvtConversion};
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
@@ -117,33 +120,60 @@ pub async fn get_tile(
 #[derive(Debug, Default, Clone)]
 pub struct TileRequestHeaders {
     /// Formats the client will accept, parsed from the `Accept` header.
-    /// `None` means any format is acceptable (no `Accept` header, empty, or `*/*`).
-    /// Wildcards like `image/*` are expanded into all image formats.
-    pub accepted_formats: Option<Vec<Format>>,
+    pub accepted_formats: AcceptedFormats,
     pub accept_enc: Option<AcceptEncoding>,
     pub if_none_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
 }
 
-/// Parse the `Accept` header into a flat list of [`Format`] values.
+/// The formats a client will accept, parsed from the `Accept` header.
 ///
-/// Returns `Ok(None)` (= accept anything) when
-/// - the header is absent,
-/// - is empty, or
-/// - contains a `*/*` wildcard.
+/// A `*/*` wildcard is a fallback rather than a short-circuit: an explicitly named
+/// type is more specific than the wildcard and wins over it regardless of quality,
+/// so [`allow_any`](Self::allow_any) only decides what happens when none of the
+/// [`preferred`](Self::preferred) formats can be served.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AcceptedFormats {
+    /// The explicitly named formats, most preferred first.
+    /// `image/*` is expanded into all image formats.
+    pub preferred: Vec<Format>,
+    /// Whether a format outside `preferred` may be served, i.e. the header carried a `*/*`.
+    pub allow_any: bool,
+}
+
+impl AcceptedFormats {
+    /// Any format is acceptable: no `Accept` header, an empty one, or a bare `*/*`.
+    pub const ANY: Self = Self {
+        preferred: Vec::new(),
+        allow_any: true,
+    };
+}
+
+impl Default for AcceptedFormats {
+    fn default() -> Self {
+        Self::ANY
+    }
+}
+
+/// Parse the `Accept` header into the formats the client will accept.
 ///
-/// `image/*` is expanded into all image formats.
+/// Items with `q=0` are dropped, the remaining explicit types are ordered by
+/// descending quality (ties keep the header's order), and `image/*` is expanded
+/// into all image formats. A `*/*` sets [`AcceptedFormats::allow_any`].
+///
+/// Returns [`AcceptedFormats::ANY`] when the header is absent or empty.
 ///
 /// Returns `Err(406)` if
-/// - the header is present but contains no recognized tile formats.
-fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
+/// - the header is present but names neither a recognized tile format nor a wildcard.
+fn parse_accept(accept: Option<Accept>) -> ActixResult<AcceptedFormats> {
     let Some(accept) = accept else {
-        return Ok(None);
+        return Ok(AcceptedFormats::ANY);
     };
     if accept.0.is_empty() {
-        return Ok(None);
+        return Ok(AcceptedFormats::ANY);
     }
-    let mut formats = Vec::new();
+    let mut allow_any = false;
+    let mut weighted: Vec<(Quality, Format)> = Vec::new();
     for qi in &accept.0 {
         if qi.quality == Quality::ZERO {
             continue;
@@ -151,22 +181,27 @@ fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
         let mt = &qi.item;
         let (supertype, subtype) = (mt.type_().as_str(), mt.subtype().as_str());
         match (supertype, subtype) {
-            ("*", "*") => return Ok(None),
-            ("image", "*") => formats.extend_from_slice(Format::IMAGE_FORMATS),
+            ("*", "*") => allow_any = true,
+            ("image", "*") => {
+                weighted.extend(Format::IMAGE_FORMATS.iter().map(|f| (qi.quality, *f)));
+            }
             _ => {
                 if let Some(fmt) = Format::from_content_type(supertype, subtype) {
-                    formats.push(fmt);
+                    weighted.push((qi.quality, fmt));
                 }
             }
         }
     }
-    if formats.is_empty() {
-        Err(ErrorNotAcceptable(
+    if weighted.is_empty() && !allow_any {
+        return Err(ErrorNotAcceptable(
             "Accept header does not contain any supported tile format",
-        ))
-    } else {
-        Ok(Some(formats))
+        ));
     }
+    weighted.sort_by_key(|(quality, _)| Reverse(*quality));
+    Ok(AcceptedFormats {
+        preferred: weighted.into_iter().map(|(_, format)| format).collect(),
+        allow_any,
+    })
 }
 
 #[derive(Deserialize, Clone)]
@@ -264,6 +299,32 @@ fn redirect_tile_with_query(
         .finish()
 }
 
+/// Which vector transcodes every source of one request will actually perform.
+///
+/// A source opts out with `convert_to_mlt: disabled` / `convert_to_mvt: disabled`,
+/// and a composite is merged into a single format, so a target is only negotiable
+/// when all of the request's sources encode it.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TranscodeTargets {
+    to_mlt: bool,
+    to_mvt: bool,
+}
+
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+impl TranscodeTargets {
+    fn of(sources: &[(BoxedSource, ResolvedProcess)]) -> Self {
+        Self {
+            to_mlt: sources
+                .iter()
+                .all(|(_, pc)| matches!(pc.mlt, MltConversion::Encode(_))),
+            to_mvt: sources
+                .iter()
+                .all(|(_, pc)| pc.mvt == MvtConversion::Encode),
+        }
+    }
+}
+
 pub struct DynTileSource<'a> {
     pub sources: Vec<(BoxedSource, ResolvedProcess)>,
     pub info: TileInfo,
@@ -313,8 +374,10 @@ impl<'a> DynTileSource<'a> {
         }
 
         let accepted_format = Self::resolve_accepted_format(
-            headers.accepted_formats.as_deref(),
+            &headers.accepted_formats,
             resolved.info.format,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            TranscodeTargets::of(&resolved.sources),
         )?;
 
         let query = if query.is_empty() {
@@ -337,26 +400,35 @@ impl<'a> DynTileSource<'a> {
 
     /// Checks the pre-parsed accepted formats against the source format.
     ///
+    /// Serving the source format verbatim beats transcoding, so it is tried first
+    /// even when a convertible format was requested with a higher quality.
     /// The pre-cache pipeline can transcode between MVT and MLT, so a request
-    /// accepting the opposite vector format resolves to that target.
-    /// Otherwise the source format must appear in the accepted list verbatim.
+    /// accepting the opposite vector format resolves to that target - but only
+    /// when every source of the request is configured to perform that transcode,
+    /// since a target nobody encodes would otherwise be answered with the source
+    /// format's bytes under the requested format's content type.
+    /// A `*/*` wildcard is the last resort: it serves the source format as-is,
+    /// which is also what a request without an `Accept` header gets. A client that
+    /// named nothing but formats this request cannot produce gets a 406.
     fn resolve_accepted_format(
-        accepted: Option<&[Format]>,
+        accepted: &AcceptedFormats,
         source_format: Format,
+        #[cfg(all(feature = "mlt", feature = "_tiles"))] transcodes: TranscodeTargets,
     ) -> Result<Option<Format>, TileError> {
-        let Some(formats) = accepted else {
-            return Ok(None);
-        };
+        let formats = &accepted.preferred;
         if formats.contains(&source_format) {
             return Ok(Some(source_format));
         }
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        if source_format == Format::Mvt && formats.contains(&Format::Mlt) {
+        if source_format == Format::Mvt && formats.contains(&Format::Mlt) && transcodes.to_mlt {
             return Ok(Some(Format::Mlt));
         }
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        if source_format == Format::Mlt && formats.contains(&Format::Mvt) {
+        if source_format == Format::Mlt && formats.contains(&Format::Mvt) && transcodes.to_mvt {
             return Ok(Some(Format::Mvt));
+        }
+        if accepted.allow_any {
+            return Ok(None);
         }
         Err(TileError::UnacceptableFormat(source_format))
     }
@@ -1249,7 +1321,7 @@ mod tests {
     #[case::empty(Some(Accept(vec![])))]
     #[case::wildcard(Some(Accept(vec![QualityItem::max("*/*".parse().unwrap())])))]
     fn test_parse_accept_any(#[case] accept: Option<Accept>) {
-        assert_eq!(parse_accept(accept).unwrap(), None);
+        assert_eq!(parse_accept(accept).unwrap(), AcceptedFormats::ANY);
     }
 
     #[test]
@@ -1267,7 +1339,7 @@ mod tests {
         parse_accept(accept).unwrap_err();
     }
 
-    fn parse_accept_header(values: &[&str]) -> Option<Vec<Format>> {
+    fn parse_accept_header(values: &[&str]) -> AcceptedFormats {
         parse_accept(Some(Accept(
             values
                 .iter()
@@ -1275,6 +1347,70 @@ mod tests {
                 .collect(),
         )))
         .unwrap()
+    }
+
+    fn parse_weighted_accept_header(values: &[(&str, f32)]) -> AcceptedFormats {
+        parse_accept(Some(Accept(
+            values
+                .iter()
+                .map(|(value, quality)| {
+                    QualityItem::new(value.parse().unwrap(), Quality::try_from(*quality).unwrap())
+                })
+                .collect(),
+        )))
+        .unwrap()
+    }
+
+    fn resolve(
+        accepted: &AcceptedFormats,
+        source_format: Format,
+    ) -> Result<Option<Format>, TileError> {
+        DynTileSource::resolve_accepted_format(
+            accepted,
+            source_format,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            TranscodeTargets {
+                to_mlt: true,
+                to_mvt: true,
+            },
+        )
+    }
+
+    #[rstest]
+    #[case::descending(&[("image/png", 1.0), ("application/x-protobuf", 0.5)], &[Format::Png, Format::Mvt])]
+    #[case::ascending(&[("image/png", 0.5), ("application/x-protobuf", 1.0)], &[Format::Mvt, Format::Png])]
+    #[case::ties_keep_the_header_order(&[("image/png", 1.0), ("application/x-protobuf", 1.0)], &[Format::Png, Format::Mvt])]
+    #[case::a_q_zero_type_is_dropped(&[("image/png", 0.0), ("application/x-protobuf", 0.5)], &[Format::Mvt])]
+    fn parse_accept_orders_explicit_types_by_quality(
+        #[case] accept_values: &[(&str, f32)],
+        #[case] expected: &[Format],
+    ) {
+        let parsed = parse_weighted_accept_header(accept_values);
+        assert_eq!(parsed.preferred, expected);
+        assert!(!parsed.allow_any);
+    }
+
+    #[rstest]
+    #[case::alone(&[("*/*", 0.0)])]
+    #[case::with_an_unknown_type(&[("text/html", 1.0), ("*/*", 0.0)])]
+    fn parse_accept_q_zero_wildcard_does_not_allow_any(#[case] accept_values: &[(&str, f32)]) {
+        parse_accept(Some(Accept(
+            accept_values
+                .iter()
+                .map(|(value, quality)| {
+                    QualityItem::new(value.parse().unwrap(), Quality::try_from(*quality).unwrap())
+                })
+                .collect(),
+        )))
+        .unwrap_err();
+    }
+
+    #[test]
+    fn parse_accept_keeps_explicit_types_alongside_a_wildcard() {
+        let parsed =
+            parse_weighted_accept_header(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)]);
+        assert_eq!(parsed.preferred, [Format::Mlt]);
+        assert!(parsed.allow_any);
     }
 
     #[rstest]
@@ -1288,10 +1424,28 @@ mod tests {
     #[case::image_multi_wildcard_jpeg(&["image/*", "image/png"], Format::Jpeg)]
     #[case::multi_with_match(&["image/png", "application/x-protobuf"], Format::Mvt)]
     #[case::multi_with_match(&["application/x-protobuf", "image/png"], Format::Mvt)]
+    #[case::source_format_with_wildcard_fallback(&["application/x-protobuf", "*/*"], Format::Mvt)]
     fn test_accept_ok(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
-        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        let result = resolve(&parsed, source_format);
         assert_eq!(result.unwrap(), Some(source_format));
+    }
+
+    #[rstest]
+    #[case::unservable_type_then_wildcard(&["image/png", "*/*"], Format::Mvt)]
+    #[case::wildcard_then_unservable_type(&["*/*", "image/png"], Format::Mvt)]
+    #[case::image_wildcard_then_wildcard(&["image/*", "*/*"], Format::Mvt)]
+    #[case::unknown_type_then_wildcard(&["text/html", "*/*"], Format::Mvt)]
+    #[case::unknown_type_then_wildcard_raster(&["text/html", "*/*"], Format::Png)]
+    #[case::vector_type_then_wildcard_raster(&["application/x-protobuf", "*/*"], Format::Png)]
+    fn test_accept_wildcard_falls_back_to_the_source_format(
+        #[case] accept_values: &[&str],
+        #[case] source_format: Format,
+    ) {
+        let parsed = parse_accept_header(accept_values);
+        assert!(parsed.allow_any);
+        let result = resolve(&parsed, source_format);
+        assert_eq!(result.unwrap(), None);
     }
 
     #[rstest]
@@ -1300,7 +1454,7 @@ mod tests {
     #[case::mvt_vs_png(&["application/x-protobuf"], Format::Png)]
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
-        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        let result = resolve(&parsed, source_format);
         result.unwrap_err();
     }
 
@@ -1310,7 +1464,7 @@ mod tests {
     #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
     fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
-        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        let result = resolve(&parsed, source_format);
         result.unwrap_err();
     }
 
@@ -1321,18 +1475,180 @@ mod tests {
     #[case::mlt_with_other(&["image/png", "application/vnd.maplibre-tile"])]
     fn test_accept_mlt_on_mvt_source_converts(#[case] accept_values: &[&str]) {
         let parsed = parse_accept_header(accept_values);
-        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mvt);
+        let result = resolve(&parsed, Format::Mvt);
         assert_eq!(result.unwrap(), Some(Format::Mlt));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::a_lower_ranked_wildcard(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)])]
+    #[case::an_equally_ranked_wildcard(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 1.0)])]
+    #[case::a_leading_wildcard(&[("*/*", 1.0), ("application/vnd.maplibre-tile", 1.0)])]
+    #[case::a_higher_ranked_wildcard(&[("*/*", 1.0), ("application/vnd.maplibre-tile", 0.1)])]
+    fn test_accept_mlt_wins_over_the_wildcard_fallback(#[case] accept_values: &[(&str, f32)]) {
+        let parsed = parse_weighted_accept_header(accept_values);
+        let result = resolve(&parsed, Format::Mvt);
+        assert_eq!(result.unwrap(), Some(Format::Mlt));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn accept_prefers_the_source_format_over_a_higher_ranked_transcode() {
+        let parsed = parse_weighted_accept_header(&[
+            ("application/vnd.maplibre-tile", 1.0),
+            ("application/x-protobuf", 0.1),
+        ]);
+        let result = resolve(&parsed, Format::Mvt);
+        assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mvt_only(&["application/x-protobuf"])]
     #[case::mvt_with_other(&["image/png", "application/x-protobuf"])]
+    #[case::mvt_with_wildcard_fallback(&["application/x-protobuf", "*/*"])]
     fn test_accept_mvt_on_mlt_source_converts(#[case] accept_values: &[&str]) {
         let parsed = parse_accept_header(accept_values);
-        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mlt);
+        let result = resolve(&parsed, Format::Mlt);
         assert_eq!(result.unwrap(), Some(Format::Mvt));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    const NO_MLT: TranscodeTargets = TranscodeTargets {
+        to_mlt: false,
+        to_mvt: true,
+    };
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    const NO_MVT: TranscodeTargets = TranscodeTargets {
+        to_mlt: true,
+        to_mvt: false,
+    };
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mlt_disabled(&["application/vnd.maplibre-tile"], Format::Mvt, NO_MLT)]
+    #[case::mlt_disabled_beside_an_unservable_type(&["image/png", "application/vnd.maplibre-tile"], Format::Mvt, NO_MLT)]
+    #[case::mvt_disabled(&["application/x-protobuf"], Format::Mlt, NO_MVT)]
+    #[case::mvt_disabled_beside_an_unservable_type(&["image/png", "application/x-protobuf"], Format::Mlt, NO_MVT)]
+    fn test_accept_406_when_the_transcode_is_disabled(
+        #[case] accept_values: &[&str],
+        #[case] source_format: Format,
+        #[case] transcodes: TranscodeTargets,
+    ) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(&parsed, source_format, transcodes);
+        assert!(matches!(result, Err(TileError::UnacceptableFormat(f)) if f == source_format));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mlt_disabled(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)], Format::Mvt, NO_MLT)]
+    #[case::mlt_disabled_with_a_leading_wildcard(&[("*/*", 0.1), ("application/vnd.maplibre-tile", 1.0)], Format::Mvt, NO_MLT)]
+    #[case::mvt_disabled(&[("application/x-protobuf", 1.0), ("*/*", 0.1)], Format::Mlt, NO_MVT)]
+    fn test_accept_disabled_transcode_falls_back_to_the_source_format(
+        #[case] accept_values: &[(&str, f32)],
+        #[case] source_format: Format,
+        #[case] transcodes: TranscodeTargets,
+    ) {
+        let parsed = parse_weighted_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(&parsed, source_format, transcodes);
+        assert_eq!(result.unwrap(), None);
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::to_mlt(&["application/vnd.maplibre-tile"], Format::Mvt, NO_MVT, Format::Mlt)]
+    #[case::to_mvt(&["application/x-protobuf"], Format::Mlt, NO_MLT, Format::Mvt)]
+    fn test_accept_an_enabled_transcode_still_converts(
+        #[case] accept_values: &[&str],
+        #[case] source_format: Format,
+        #[case] transcodes: TranscodeTargets,
+        #[case] expected: Format,
+    ) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(&parsed, source_format, transcodes);
+        assert_eq!(result.unwrap(), Some(expected));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::all_enabled(&[true, true], true)]
+    #[case::one_disabled(&[true, false], false)]
+    #[case::all_disabled(&[false, false], false)]
+    fn a_composite_only_transcodes_when_every_source_does(
+        #[case] enabled: &[bool],
+        #[case] expected: bool,
+    ) {
+        let sources: Vec<(BoxedSource, ResolvedProcess)> = enabled
+            .iter()
+            .enumerate()
+            .map(|(i, on)| {
+                let src = TestSource {
+                    id: if i == 0 { "a" } else { "b" },
+                    tj: tilejson! { tiles: vec![] },
+                    data: vec![1_u8, 2, 3],
+                    format: Format::Mvt,
+                };
+                let pc = if *on {
+                    ResolvedProcess::default()
+                } else {
+                    ResolvedProcess {
+                        mlt: MltConversion::Disabled,
+                        ..Default::default()
+                    }
+                };
+                (Box::new(src) as BoxedSource, pc)
+            })
+            .collect();
+        assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    fn mlt_disabled_manager() -> TileSourceManager {
+        let src = TestSource {
+            id: "mvt",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
+        };
+        let pc = ResolvedProcess {
+            mlt: MltConversion::Disabled,
+            ..Default::default()
+        };
+        TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(Box::new(src), pc)]])
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn a_disabled_mlt_source_rejects_a_bare_mlt_accept() {
+        let mgr = mlt_disabled_manager();
+        let headers = TileRequestHeaders {
+            accepted_formats: parse_accept_header(&["application/vnd.maplibre-tile"]),
+            ..Default::default()
+        };
+        let Err(err) = DynTileSource::new(&mgr, "mvt", None, "", headers) else {
+            panic!("a bare MLT accept must not resolve against a source that will not encode it");
+        };
+        assert!(matches!(err, TileError::UnacceptableFormat(Format::Mvt)));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[actix_rt::test]
+    async fn a_disabled_mlt_source_serves_mvt_to_a_wildcard_fallback() {
+        let mgr = mlt_disabled_manager();
+        let headers = TileRequestHeaders {
+            accepted_formats: parse_weighted_accept_header(&[
+                ("application/vnd.maplibre-tile", 1.0),
+                ("*/*", 0.1),
+            ]),
+            ..Default::default()
+        };
+        let src = DynTileSource::new(&mgr, "mvt", None, "", headers).unwrap();
+        assert_eq!(src.accepted_format, None);
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.format, Format::Mvt);
+        assert_eq!(tile.data, vec![1_u8, 2, 3]);
     }
 
     #[actix_rt::test]

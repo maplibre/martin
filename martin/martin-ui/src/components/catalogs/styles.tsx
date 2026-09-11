@@ -8,14 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
+import { mltAcceptTransformRequest } from '@/lib/mlt';
 import type { Catalog } from '@/lib/types.gen';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
+import { FullscreenControl, Map as MapLibreMap, type MapRef } from '@vis.gl/react-maplibre';
+import { useRef } from 'react';
 
 function StylePreviewMap({ styleName }: { styleName: string }) {
+  const mapRef = useRef<MapRef>(null);
   return (
     <MapLibreMap
       mapStyle={buildMartinUrl(`/style/${styleName}`)}
+      ref={mapRef}
       reuseMaps
       style={{
         aspectRatio: 16 / 9,
@@ -24,6 +28,7 @@ function StylePreviewMap({ styleName }: { styleName: string }) {
         borderRadius: 'var(--radius)',
         width: '100%',
       }}
+      transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
     >
       <FullscreenControl />
     </MapLibreMap>
