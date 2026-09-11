@@ -2101,6 +2101,9 @@ The <code>convert_to_mlt</code> key can be placed at three levels, and the most 
 <p>If a higher level (global or source-type) enables MLT but you want one source
 to keep serving MVT, set <code>convert_to_mlt: disabled</code> or <code>convert_to_mvt: disabled</code>.
 The most-specific level wins, so this overrides any inherited <code>auto</code>.</p>
+<p>A disabled conversion is never negotiated, so a client asking only for the format
+the conversion would have produced gets <code>406 Not Acceptable</code> rather than the other
+format's bytes. Clients that also accept <code>*/*</code> still get the source format.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">              </span><span class="c1"># default everywhere</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">pmtiles</span><span class="p">:</span>
@@ -2110,7 +2113,7 @@ The most-specific level wins, so this overrides any inherited <code>auto</code>.
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="c1"># Inherits global `auto` -&gt; converted on Accept: MLT</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">legacy</span><span class="p">:</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/legacy.pmtiles</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span><span class="w">    </span><span class="c1"># always served as MVT, even on Accept: MLT</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span><span class="w">    </span><span class="c1"># served as MVT; an MLT-only Accept gets a 406</span>
 </span></code></pre></div>
 <h2 id="tuning-the-encoder">Tuning the Encoder</h2>
 <p><code>convert_to_mlt: auto</code> uses "magic" default encoder settings, which work well for most data.
