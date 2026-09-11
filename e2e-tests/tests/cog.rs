@@ -8,7 +8,10 @@
 use std::fs;
 
 use image::ImageFormat;
-use martin_e2e_tests::{Martin, StaticFiles, WatchedDir, fixture, round_floats};
+use martin_e2e_tests::{
+    CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture,
+    round_floats, tag, temp_dir,
+};
 use rstest::rstest;
 use serde_json::Value;
 
@@ -87,6 +90,9 @@ async fn a_directory_publishes_a_source_per_file() {
           "usda_naip_128_none_z2": {
             "content_type": "image/png"
           },
+          "usda_naip_256_lzw_rgb_z2": {
+            "content_type": "image/png"
+          },
           "usda_naip_256_lzw_z3": {
             "content_type": "image/png"
           },
@@ -111,6 +117,7 @@ async fn a_directory_publishes_a_source_per_file() {
       paths: tests/fixtures/cog
       sources:
         usda_naip_128_none_z2: tests/fixtures/cog/usda_naip_128_none_z2.tif
+        usda_naip_256_lzw_rgb_z2: tests/fixtures/cog/usda_naip_256_lzw_rgb_z2.tif
         usda_naip_256_lzw_z3: tests/fixtures/cog/usda_naip_256_lzw_z3.tif
         usda_naip_512_deflate_z2: tests/fixtures/cog/usda_naip_512_deflate_z2.tif
         usda_naip_512_jpeg_z5: tests/fixtures/cog/usda_naip_512_jpeg_z5.tif
@@ -580,4 +587,214 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Updated source source.id=usda_naip_128_none_z2");
     martin.assert_log_contains("Removed source source.id=usda_naip_128_none_z2");
     martin.assert_log_contains(r#"ERROR error="Source usda_naip_128_none_z2 does not exist""#);
+}
+
+/// The COG README states the requirements a file has to meet. Each case breaks one of them in a
+/// copy of a fixture that otherwise meets them all.
+#[rstest]
+#[case::compression_must_be_one_martin_can_decode(
+    |cog: CogFixture| cog.set_short(0, tag::COMPRESSION, 32773),
+    "The compression type 32773 of the tiff file"
+)]
+#[case::the_compression_must_be_stated(
+    |cog: CogFixture| cog.remove_tag(0, tag::COMPRESSION),
+    "Couldn't find tags [259]"
+)]
+#[case::the_planar_configuration_must_be_stated(
+    |cog: CogFixture| cog.remove_tag(0, tag::PLANAR_CONFIGURATION),
+    "Couldn't find tags [284]"
+)]
+#[case::the_planar_configuration_must_be_chunky(
+    |cog: CogFixture| cog.set_short(0, tag::PLANAR_CONFIGURATION, 2),
+    "as tiff file: format error: inconsistent sizes encountered"
+)]
+#[case::the_projected_crs_must_be_web_mercator(
+    |cog: CogFixture| cog.set_geo_key(PROJECTED_CRS_GEO_KEY, 4326),
+    "The projected coordinate reference system must be EPSG:3857"
+)]
+#[case::the_geo_keys_must_be_a_directory_martin_can_walk(
+    |cog: CogFixture| cog.set_geo_key_header([1, 1, 0, 0]),
+    "The projected coordinate reference system must be EPSG:3857"
+)]
+#[case::the_geo_keys_must_be_present(
+    |cog: CogFixture| cog.remove_tag(0, tag::GEO_KEY_DIRECTORY),
+    "The projected coordinate reference system must be EPSG:3857"
+)]
+#[case::the_pixels_must_be_square(
+    |cog: CogFixture| cog.set_double(0, tag::MODEL_PIXEL_SCALE, 1, 99.0),
+    "is not squared, the x_scale is 0.5971642834779395, the y_scale is 99"
+)]
+#[case::the_pixel_scale_must_have_three_values(
+    |cog: CogFixture| cog.set_count(0, tag::MODEL_PIXEL_SCALE, 2),
+    "The count of pixel scale should be 3"
+)]
+#[case::the_tie_points_must_come_in_sixes(
+    |cog: CogFixture| cog.set_count(0, tag::MODEL_TIEPOINT, 5),
+    "The count of tie points should be a multiple of 6"
+)]
+#[case::the_transformation_matrix_must_have_sixteen_values(
+    |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12),
+    "The length of matrix should be 16"
+)]
+#[case::the_image_must_be_georeferenced_at_all(
+    |cog: CogFixture| cog.remove_tag(0, tag::MODEL_PIXEL_SCALE).remove_tag(0, tag::MODEL_TIEPOINT),
+    "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided"
+)]
+#[case::every_overview_must_land_on_a_web_mercator_zoom(
+    |cog: CogFixture| cog.set_short(0, tag::TILE_WIDTH, 300),
+    "Calculating the image zoom level failed for"
+)]
+#[case::every_overview_must_use_the_same_tile_size(
+    |cog: CogFixture| cog.set_short(2, tag::TILE_WIDTH, 512),
+    "The size of each tile is not consistent."
+)]
+#[case::the_bands_must_be_a_color_type_martin_can_re_encode(
+    |cog: CogFixture| cog.set_short(0, tag::PHOTOMETRIC_INTERPRETATION, 0),
+    "The color type Multiband { bit_depth: 8, num_samples: 4 } and its bit depth"
+)]
+#[tokio::test]
+async fn a_file_that_breaks_a_requirement_is_rejected(
+    #[case] break_it: fn(CogFixture) -> CogFixture,
+    #[case] expected: &str,
+) {
+    let tmp = temp_dir();
+    let path = break_it(CogFixture::new("usda_naip_256_lzw_z3")).write_to(tmp.path(), "broken");
+
+    let error = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect_err("martin must refuse to publish a COG that breaks a requirement");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains(expected),
+        "log must say why the file was rejected, expected {expected:?}; log:\n{log}"
+    );
+}
+
+#[tokio::test]
+async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
+    let error = Martin::builder()
+        .arg(fixture("files/striped_not_tiled.tif"))
+        .start()
+        .await
+        .expect_err("martin must refuse to publish a striped TIFF");
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(
+        log.contains("Striped tiff file is not supported"),
+        "log must say the file is striped; log:\n{log}"
+    );
+}
+
+/// An overview martin cannot read costs the zoom it would have served, rather than the source.
+#[tokio::test]
+async fn an_unreadable_overview_drops_only_that_zoom() {
+    let tmp = temp_dir();
+    let path = CogFixture::new("usda_naip_256_lzw_z3")
+        .remove_tag(2, tag::IMAGE_WIDTH)
+        .write_to(tmp.path(), "usda_naip_256_lzw_z3");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tilejson = tilejson(&martin, "usda_naip_256_lzw_z3").await;
+    assert_eq!(tilejson["minzoom"], 17);
+    assert_eq!(tilejson["maxzoom"], 18);
+    assert_eq!(
+        martin
+            .get("/usda_naip_256_lzw_z3/17/21354/48672")
+            .await
+            .status(),
+        200
+    );
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn a_file_that_is_not_a_tiff_is_rejected() {
+    let tmp = temp_dir();
+    let path = tmp.path().join("not_a_tiff.tif");
+    fs::write(&path, b"this is not a tiff").expect("failed to write the file");
+
+    let error = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect_err("martin must refuse to publish a file that is not a TIFF");
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(
+        log.contains("as tiff file:"),
+        "log must say the file could not be decoded; log:\n{log}"
+    );
+}
+
+/// A north-up image may state its georeferencing as a transformation matrix instead of a pixel
+/// scale and tie point. No checked-in fixture does, so this rewrites one that does not.
+#[tokio::test]
+async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_tie_point() {
+    let tmp = temp_dir();
+    let path = CogFixture::new("usda_naip_256_lzw_z3")
+        .into_model_transformation()
+        .write_to(tmp.path(), "usda_naip_256_lzw_z3");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let mut with_the_cog_dir = martin_with_the_cog_dir().await;
+
+    assert_eq!(
+        tilejson(&martin, "usda_naip_256_lzw_z3").await,
+        tilejson(&with_the_cog_dir, "usda_naip_256_lzw_z3").await
+    );
+    let tile = martin.get("/usda_naip_256_lzw_z3/16/10677/24336").await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.image_size(), (256, 256));
+
+    with_the_cog_dir.stop().await;
+    with_the_cog_dir.assert_log_clean();
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+#[tokio::test]
+async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
+    let mut martin = martin_with_the_cog_dir().await;
+
+    let tile = martin.get("/usda_naip_256_lzw_rgb_z2/18/42709/97344").await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("image/png"));
+    assert_eq!(tile.image_size(), (256, 256));
+    assert_eq!(tile.image_color(), image::ColorType::Rgb8);
+
+    martin.stop().await;
+    martin.assert_log_clean();
+}
+
+/// A COG may leave a tile out of the file rather than store a blank one. This fixture stores only
+/// tiles 10-11 of rows 14-16, so its very first tile is one of the gaps.
+#[tokio::test]
+async fn a_tile_the_image_leaves_out_is_empty() {
+    let mut martin = martin_with_the_cog_dir().await;
+
+    let stored = martin.get("/usda_naip_512_jpeg_z5/17/21354/48670").await;
+    assert_eq!(stored.status(), 200);
+
+    let left_out = martin.get("/usda_naip_512_jpeg_z5/17/21344/48656").await;
+    assert_eq!(left_out.status(), 204);
+    assert!(left_out.body().is_empty(), "a tile left out has no body");
+
+    martin.stop().await;
+    martin.assert_log_clean();
 }

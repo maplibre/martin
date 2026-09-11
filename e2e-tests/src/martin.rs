@@ -10,7 +10,7 @@ use std::{env, fs};
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
-use image::{ImageFormat, ImageReader};
+use image::{ColorType, ImageFormat, ImageReader};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
@@ -724,6 +724,15 @@ impl TestResponse {
         self.image_reader()
             .format()
             .expect("response body is not a raster image")
+    }
+
+    /// Channels and bit depth the decompressed response body stores its pixels in.
+    #[must_use]
+    pub fn image_color(&self) -> ColorType {
+        self.image_reader()
+            .decode()
+            .expect("response body is not a raster image")
+            .color()
     }
 
     fn image_reader(&self) -> ImageReader<Cursor<&Vec<u8>>> {
