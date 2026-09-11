@@ -675,6 +675,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description One style ID, or up to 128 comma-separated style IDs to merge in order. */
                 style_id: string;
             };
             cookie?: never;
@@ -690,7 +691,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description Style file is malformed */
+            /** @description Style file is malformed or styles cannot be merged */
             400: {
                 headers: {
                     [name: string]: unknown;

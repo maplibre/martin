@@ -666,6 +666,7 @@
         "operationId": "get_style_json",
         "parameters": [
           {
+            "description": "One style ID, or up to 128 comma-separated style IDs to merge in order.",
             "in": "path",
             "name": "style_id",
             "required": true,
@@ -682,7 +683,7 @@
             "description": "MapLibre Style Spec JSON document"
           },
           "400": {
-            "description": "Style file is malformed"
+            "description": "Style file is malformed or styles cannot be merged"
           },
           "404": {
             "description": "No matching style"
