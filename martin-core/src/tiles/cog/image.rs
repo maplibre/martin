@@ -362,9 +362,7 @@ mod tests {
 
     #[test]
     fn only_jpeg_and_webp_tiles_are_passed_through_unchanged() {
-        assert!(
-            image_compressed_with(Compression::WebP.to_u16()).is_passthrough_compression()
-        );
+        assert!(image_compressed_with(Compression::WebP.to_u16()).is_passthrough_compression());
         assert!(image_compressed_with(7).is_passthrough_compression());
         assert!(!image_compressed_with(1).is_passthrough_compression());
         assert!(!image_compressed_with(5).is_passthrough_compression());
