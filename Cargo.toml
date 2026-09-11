@@ -101,6 +101,7 @@ brotli = ">=5, <10"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
+compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }

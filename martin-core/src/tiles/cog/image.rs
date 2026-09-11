@@ -85,7 +85,7 @@ impl Image {
         location: &str,
     ) -> Result<TileData, CogError> {
         let Some((tile_x, tile_y)) = self.get_tile_position(xyz) else {
-            return Ok(Vec::new());
+            return Ok(TileData::new());
         };
         let tile_index = self
             .ifd
@@ -100,7 +100,7 @@ impl Image {
             location,
         )?;
         if tile_range.is_empty() {
-            return Ok(Vec::new());
+            return Ok(TileData::new());
         }
 
         let tile = self
@@ -116,9 +116,9 @@ impl Image {
             if self.compression == Compression::ModernJPEG
                 && let Some(tables) = tile.jpeg_tables()
             {
-                return Ok(merge_jpeg_tables_with_tile(tables, bytes));
+                return Ok(merge_jpeg_tables_with_tile(tables, bytes.clone()));
             }
-            return Ok(bytes.to_vec());
+            return Ok(bytes.clone());
         }
 
         let array = tile
@@ -130,7 +130,7 @@ impl Image {
                 "Only 8-bit RGB/RGBA COG tiles are supported".to_owned(),
             ));
         };
-        encode_as_png(self.tile_size, pixels, location, self.samples_per_pixel)
+        encode_as_png(self.tile_size, pixels, location, self.samples_per_pixel).map(TileData::from)
     }
 
     pub const fn compression(&self) -> Compression {
@@ -201,12 +201,12 @@ const JPEG_EOI: [u8; 2] = [0xFF, 0xD9]; // End of Image
 /// Tile data format: SOI (FFD8) + frame header + scan data + EOI (FFD9)
 ///
 /// To merge: Take tables (without SOI/EOI) and insert after tile's SOI, before frame data.
-fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> {
+fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: bytes::Bytes) -> TileData {
     if jpeg_tables.len() < 4 || tile_data.len() < 4 {
-        return tile_data.to_vec();
+        return tile_data;
     }
     if jpeg_tables[0..2] != JPEG_SOI || tile_data[0..2] != JPEG_SOI {
-        return tile_data.to_vec();
+        return tile_data;
     }
     let tables_end = if jpeg_tables[jpeg_tables.len() - 2..] == JPEG_EOI {
         jpeg_tables.len() - 2
@@ -218,7 +218,7 @@ fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> 
     result.extend_from_slice(&JPEG_SOI);
     result.extend_from_slice(tables_content);
     result.extend_from_slice(&tile_data[2..]);
-    result
+    result.into()
 }
 
 fn encode_as_png(
@@ -254,7 +254,7 @@ fn encode_as_png(
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_tile_range, merge_jpeg_tables_with_tile};
+    use super::{TileData, checked_tile_range, merge_jpeg_tables_with_tile};
 
     #[test]
     fn malformed_tile_tables_return_errors() {
@@ -281,20 +281,20 @@ mod tests {
             0x10, 0xFF, 0xDA, 0x00, 0x02, 0x12, 0x34, 0x56, 0xFF, 0xD9,
         ];
         assert_eq!(
-            merge_jpeg_tables_with_tile(&jpeg_tables, &tile_data),
-            expected
+            merge_jpeg_tables_with_tile(&jpeg_tables, TileData::from(tile_data)),
+            TileData::from(expected)
         );
     }
 
     #[test]
     fn merge_returns_tile_data_for_invalid_tables() {
-        let tile_data = vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9];
+        let tile_data = TileData::from(vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9]);
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], &tile_data),
+            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], tile_data.clone()),
             tile_data
         );
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], &tile_data),
+            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], tile_data.clone()),
             tile_data
         );
     }

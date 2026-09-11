@@ -2014,6 +2014,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "compact_str"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79fcda08c33bb58b97008b2cdada6622500e949e060f5913361763121abd2416"
+dependencies = [
+ "castaway",
+ "cfg-if",
+ "itoa",
+ "sqlx",
+ "static_assertions",
+ "zmij",
+]
+
+[[package]]
 name = "compression-codecs"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5489,6 +5503,7 @@ dependencies = [
  "backon",
  "base64 0.23.1",
  "clap",
+ "compact_str 0.10.0",
  "cql2",
  "criterion",
  "crossterm 0.29.0",
@@ -5572,6 +5587,7 @@ dependencies = [
  "bit-set 0.11.1",
  "bytes",
  "chrono",
+ "compact_str 0.10.0",
  "contour",
  "criterion",
  "dashmap",
@@ -5674,6 +5690,7 @@ version = "0.7.8"
 dependencies = [
  "approx",
  "brotli 8.0.4",
+ "bytes",
  "flate2",
  "hotpath 0.25.1",
  "rstest",
@@ -7434,7 +7451,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbb175c433c8e28a809d1f5773a2ae96e68c0ce40db865cbab1020bf33ae479c"
 dependencies = [
  "bitflags 2.13.1",
- "compact_str",
+ "compact_str 0.9.1",
  "critical-section",
  "hashbrown 0.17.1",
  "itertools 0.14.0",

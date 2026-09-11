@@ -63,7 +63,7 @@ async fn serves_tile_bytes_with_detected_format() {
     let src = build("t", templates(&server, None)).await;
     let tile = src.get_tile_with_etag(coord(0, 0, 0), None).await.unwrap();
 
-    assert_eq!(tile.data, b"tile-bytes");
+    assert_eq!(tile.data, b"tile-bytes".as_slice());
     assert_eq!(tile.info.format, Format::Mvt);
     assert_eq!(tile.info.encoding, Encoding::Uncompressed);
 }
@@ -201,7 +201,7 @@ async fn discovers_templates_from_tilejson() {
     assert_eq!(src.get_tilejson().maxzoom, Some(7));
 
     let tile = src.get_tile(coord(3, 1, 2), None).await.unwrap();
-    assert_eq!(tile, b"vt");
+    assert_eq!(tile, b"vt".as_slice());
 }
 
 #[tokio::test]

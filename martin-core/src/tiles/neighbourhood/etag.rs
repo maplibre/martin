@@ -2,6 +2,7 @@
 
 use std::hash::Hash;
 
+use compact_str::CompactString;
 use xxhash_rust::xxh3::Xxh3;
 
 use super::NEIGHBOURHOOD_LEN;
@@ -10,7 +11,7 @@ use super::NEIGHBOURHOOD_LEN;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputEtag<'a> {
     /// The slot was read and the tile returned an etag.
-    Tagged(&'a str),
+    Tagged(&'a CompactString),
     /// The slot was read but the tile has no etag, so the output can't be tagged either.
     Untagged,
     /// The slot had no tile and was edge-clamped from the centre.
@@ -22,10 +23,10 @@ impl<'a> InputEtag<'a> {
     ///
     /// `None` means nothing was read; `Some("")` means read but untagged.
     #[must_use]
-    pub fn from_slot(etag: Option<&'a str>) -> Self {
+    pub fn from_slot(etag: Option<&'a CompactString>) -> Self {
         match etag {
             None => Self::Clamped,
-            Some("") => Self::Untagged,
+            Some(e) if e.is_empty() => Self::Untagged,
             Some(etag) => Self::Tagged(etag),
         }
     }
@@ -53,15 +54,29 @@ pub fn neighbourhood_etag(
 mod tests {
     use super::*;
 
+    static TAGS: [CompactString; NEIGHBOURHOOD_LEN] = [
+        CompactString::const_new("a"),
+        CompactString::const_new("b"),
+        CompactString::const_new("c"),
+        CompactString::const_new("d"),
+        CompactString::const_new("e"),
+        CompactString::const_new("f"),
+        CompactString::const_new("g"),
+        CompactString::const_new("h"),
+        CompactString::const_new("i"),
+    ];
+
     fn full() -> [InputEtag<'static>; NEIGHBOURHOOD_LEN] {
-        ["a", "b", "c", "d", "e", "f", "g", "h", "i"].map(InputEtag::Tagged)
+        TAGS.each_ref().map(InputEtag::Tagged)
     }
 
     #[test]
     fn slots_classify_by_what_was_read() {
         assert_eq!(InputEtag::from_slot(None), InputEtag::Clamped);
-        assert_eq!(InputEtag::from_slot(Some("")), InputEtag::Untagged);
-        assert_eq!(InputEtag::from_slot(Some("x")), InputEtag::Tagged("x"));
+        let empty = CompactString::const_new("");
+        assert_eq!(InputEtag::from_slot(Some(&empty)), InputEtag::Untagged);
+        let x = CompactString::const_new("x");
+        assert_eq!(InputEtag::from_slot(Some(&x)), InputEtag::Tagged(&x));
     }
 
     #[test]
@@ -77,7 +92,8 @@ mod tests {
         let baseline = neighbourhood_etag(&full(), "p");
         for slot in 0..NEIGHBOURHOOD_LEN {
             let mut inputs = full();
-            inputs[slot] = InputEtag::Tagged("changed");
+            let changed = CompactString::const_new("changed");
+            inputs[slot] = InputEtag::Tagged(&changed);
             assert_ne!(
                 neighbourhood_etag(&inputs, "p"),
                 baseline,
@@ -130,11 +146,21 @@ mod tests {
     #[test]
     fn inputs_cannot_be_confused_by_concatenation() {
         let mut left = full();
-        left[0] = InputEtag::Tagged("ab");
-        left[1] = InputEtag::Tagged("c");
+
+        let ab = CompactString::const_new("ab");
+        left[0] = InputEtag::Tagged(&ab);
+
+        let c = CompactString::const_new("c");
+        left[1] = InputEtag::Tagged(&c);
+
         let mut right = full();
-        right[0] = InputEtag::Tagged("a");
-        right[1] = InputEtag::Tagged("bc");
+
+        let a = CompactString::const_new("a");
+        right[0] = InputEtag::Tagged(&a);
+
+        let bc = CompactString::const_new("bc");
+        right[1] = InputEtag::Tagged(&bc);
+
         assert_ne!(
             neighbourhood_etag(&left, "p"),
             neighbourhood_etag(&right, "p")

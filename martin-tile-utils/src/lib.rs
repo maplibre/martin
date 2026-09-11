@@ -26,7 +26,7 @@ pub use rectangle::{TileRect, append_rect};
 mod coordinate;
 pub use coordinate::TileCoord;
 
-pub type TileData = Vec<u8>;
+pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, EnumIter)]

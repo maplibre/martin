@@ -5,6 +5,7 @@
 
 use std::sync::{Arc, LazyLock};
 
+use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::neighbourhood::{NEIGHBOURHOOD_LEN, Neighbourhood};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey};
@@ -20,7 +21,7 @@ pub static GATHER_PERMITS: LazyLock<Semaphore> =
     LazyLock::new(|| Semaphore::new(MAX_CONCURRENT_GATHERS));
 
 /// Tile bytes and the etag identifying them.
-pub type Slot = Option<(TileData, String)>;
+pub type Slot = Option<(TileData, CompactString)>;
 
 /// Coordinate of the neighbour `(dx, dy)` away from `centre`, if one exists.
 ///

@@ -235,7 +235,7 @@ impl Source for PmtilesSource {
             Err(e) => return Err(PmtilesError::PmtError(e).into()),
             Ok(t) => t,
         } {
-            Ok(t.to_vec())
+            Ok(t)
         } else {
             trace!(
                 source.id = %self.id,
@@ -244,7 +244,7 @@ impl Source for PmtilesSource {
                 tile.y = xyz.y(),
                 "Couldn't find tile data"
             );
-            Ok(Vec::new())
+            Ok(TileData::new())
         }
     }
 }

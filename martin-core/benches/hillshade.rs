@@ -42,7 +42,7 @@ fn synthetic_normal_tile(width: u32, height: u32, seed: u32) -> TileData {
     PngEncoder::new(&mut buf)
         .write_image(&pixels, width, height, ExtendedColorType::Rgba8)
         .expect("encode synthetic normal tile");
-    buf
+    buf.into()
 }
 
 /// A full 3x3 neighbourhood of distinct synthetic tiles.

@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use martin_core::tiles::Tile;
 use martin_tile_utils::Format;
 use mlt_core::encoder::EncoderConfig;
@@ -14,10 +16,11 @@ use crate::srv::tiles::process::ProcessError;
 /// re-hashing the (potentially large) converted bytes. This keeps the converted
 /// etag distinct from the original so the client->martin 304 path stays correct
 /// while passthrough sources can surface an upstream `ETag` verbatim.
-pub fn convert_mvt_to_mlt(tile: Tile, cfg: EncoderConfig) -> Result<Tile, ProcessError> {
+pub fn convert_mvt_to_mlt(mut tile: Tile, cfg: EncoderConfig) -> Result<Tile, ProcessError> {
     use martin_tile_utils::{Encoding, TileInfo};
 
-    let etag = format!("{}+mlt", tile.etag);
+    let mut etag = std::mem::take(&mut tile.etag);
+    etag.write_str("+mlt").expect("cannot write");
     let decoded =
         content::decode(tile).map_err(|e| ProcessError::DecompressionFailed(e.to_string()))?;
 

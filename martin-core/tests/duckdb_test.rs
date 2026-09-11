@@ -246,14 +246,14 @@ async fn source_serves_tiles_and_cloned_source_remains_usable() {
     assert!(!source.benefits_from_concurrent_scraping());
 
     let tile = source.get_tile(XYZ, None).await.expect("source tile");
-    assert_eq!(tile, b"tile-data");
+    assert_eq!(tile.as_ref(), b"tile-data");
 
     let cloned = source.clone_source();
     let cloned_tile = cloned
         .get_tile(XYZ, None)
         .await
         .expect("cloned source tile");
-    assert_eq!(cloned_tile, b"tile-data");
+    assert_eq!(cloned_tile.as_ref(), b"tile-data");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -345,24 +345,24 @@ async fn end_to_end_tile_retrieval_at_multiple_zoom_levels() {
         .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("z0 tile");
-    assert_eq!(tile_z0, b"z0-tile");
+    assert_eq!(tile_z0.to_vec(), b"z0-tile");
 
     // Test zoom level 1
     let tile_z1_00 = source
         .get_tile(TileCoord::new_unchecked(1, 0, 0), None)
         .await
         .expect("z1 tile 0,0");
-    assert_eq!(tile_z1_00, b"z1-tile-0-0");
+    assert_eq!(tile_z1_00.to_vec(), b"z1-tile-0-0");
 
     let tile_z1_11 = source
         .get_tile(TileCoord::new_unchecked(1, 1, 1), None)
         .await
         .expect("z1 tile 1,1");
-    assert_eq!(tile_z1_11, b"z1-tile-1-1");
+    assert_eq!(tile_z1_11.to_vec(), b"z1-tile-1-1");
 
     // Test original z3 tile
     let tile_z3 = source.get_tile(XYZ, None).await.expect("z3 tile");
-    assert_eq!(tile_z3, b"tile-data");
+    assert_eq!(tile_z3.as_ref(), b"tile-data");
 }
 
 #[tokio::test(flavor = "multi_thread")]

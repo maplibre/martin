@@ -289,7 +289,7 @@ impl Source for CogSource {
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
         if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
-            return Ok(Vec::new());
+            return Ok(TileData::default());
         }
         let image = self.images.get(&(xyz.z())).ok_or_else(|| {
             CogError::ZoomOutOfRange(

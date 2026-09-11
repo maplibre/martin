@@ -147,11 +147,12 @@ fn execute_tile_query(
                 "x": i64::from(xyz.x()),
                 "y": i64::from(xyz.y()),
             },
-            |row| row.get::<_, Option<TileData>>(0),
+            |row| row.get::<_, Option<Vec<u8>>>(0),
         )
         .optional()
         .map_err(|e| GetTileError(e.into(), source_id.to_owned(), xyz))?
         .flatten()
+        .map(TileData::from)
         .unwrap_or_default();
 
     Ok(tile)

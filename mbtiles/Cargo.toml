@@ -40,12 +40,12 @@ hotpath = [
     "hotpath/tokio",
     "hotpath/futures",
 ]
-transcode = ["dep:bytes", "dep:rayon", "dep:moka"]
+transcode = ["dep:rayon", "dep:moka"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
-bytes = { workspace = true, optional = true }
+bytes.workspace = true
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 flume.workspace = true

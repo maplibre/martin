@@ -10,6 +10,7 @@ use actix_web::http::header::{
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
+use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
@@ -447,7 +448,7 @@ impl<'a> DynTileSource<'a> {
         // An empty etag means the tile couldn't be identified from its inputs;
         // omit the header rather than send `ETag: ""`, which would let clients
         // treat unrelated tiles as identical.
-        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.clone()));
+        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.to_string()));
 
         if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag.as_ref()) {
             let dominated_by = match if_none_match {
@@ -763,6 +764,7 @@ impl<'a> DynTileSource<'a> {
                 for tile in &tiles {
                     combined_etag.push_str(&tile.etag);
                 }
+                let combined_etag = CompactString::from(combined_etag);
 
                 if matches!(
                     merged_info.encoding,
@@ -977,6 +979,7 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 mod tests {
     use actix_http::header::TryIntoHeaderValue as _;
     use actix_web::http::header::QualityItem;
+    use martin_tile_utils::TileData;
     use rstest::rstest;
     use tilejson::tilejson;
 
@@ -1015,7 +1018,7 @@ mod tests {
         let mgr = test_manager(vec![vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         })]]);
 
@@ -1048,7 +1051,7 @@ mod tests {
         let source1 = TestSource {
             id: source_id,
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![Box::new(source1)]]);
@@ -1075,13 +1078,13 @@ mod tests {
         let non_empty_source = TestSource {
             id: "non-empty",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let empty_source = TestSource {
             id: "empty",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![
@@ -1108,7 +1111,11 @@ mod tests {
 
     #[actix_rt::test]
     async fn source_needs_reload_is_retried() {
-        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3], Format::Mvt);
+        let source = SourceNeedsReloadTestSource::new(
+            "stale_source",
+            TileData::from_static(&[1, 2, 3]),
+            Format::Mvt,
+        );
         let mgr = test_manager(vec![vec![Box::new(source)]]);
         let src = DynTileSource::new(
             &mgr,
@@ -1172,13 +1179,13 @@ mod tests {
         let src1 = CompressedTestSource {
             id: "src1",
             tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw1, src_enc),
+            data: compress_with(&raw1, src_enc).into(),
             encoding: src_enc,
         };
         let src2 = CompressedTestSource {
             id: "src2",
             tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw2, src_enc),
+            data: compress_with(&raw2, src_enc).into(),
             encoding: src_enc,
         };
 
@@ -1231,7 +1238,7 @@ mod tests {
         Box::new(CompressedTestSource {
             id,
             tj: tilejson! { tiles: vec![] },
-            data,
+            data: data.into(),
             encoding,
         })
     }
@@ -1649,13 +1656,13 @@ mod tests {
         let mvt_source = TestSource {
             id: "mvt",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1_u8, 2, 3],
+            data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
         let mlt_source = TestSource {
             id: "mlt",
             tj: tilejson! { tiles: vec![] },
-            data: vec![4_u8, 5, 6],
+            data: TileData::from_static(&[4, 5, 6]),
             format: Format::Mlt,
         };
         let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
@@ -1670,8 +1677,9 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
     #[actix_rt::test]
     async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
-        let normal_tile =
-            include_bytes!("../../../../tests/fixtures/terrain/normal/10_163_396.png").to_vec();
+        let normal_tile = TileData::from_static(include_bytes!(
+            "../../../../tests/fixtures/terrain/normal/10_163_396.png"
+        ));
         let pc = ResolvedProcess {
             hillshade: Some(ResolvedHillshade::default()),
             ..Default::default()
