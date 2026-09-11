@@ -258,11 +258,11 @@ impl PassthroughSource {
         let etag = header_str(response.headers(), &ETAG)
             .and_then(usable_strong_etag)
             .map(CompactString::from);
-        let encoding = header_str(response.headers(), &CONTENT_TYPE)
+        let encoding = header_str(response.headers(), &CONTENT_ENCODING)
             .and_then(Encoding::parse)
             .unwrap_or(Encoding::Uncompressed);
         let content_type =
-            header_str(response.headers(), &CONTENT_ENCODING).and_then(content_type_format);
+            header_str(response.headers(), &CONTENT_TYPE).and_then(content_type_format);
         let data = response.bytes().await?;
         let format = content_type
             .or_else(|| sniff_format(&data))
