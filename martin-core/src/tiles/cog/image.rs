@@ -254,7 +254,16 @@ fn encode_as_png(
 
 #[cfg(test)]
 mod tests {
-    use super::{TileData, checked_tile_range, merge_jpeg_tables_with_tile};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use async_tiff::reader::Endianness;
+    use async_tiff::tags::{Compression, Tag};
+    use async_tiff::{ImageFileDirectory, TagValue};
+    use martin_tile_utils::Format;
+
+    use super::{Image, TileData, checked_tile_range, encode_as_png, merge_jpeg_tables_with_tile};
+    use crate::tiles::cog::CogError;
 
     #[test]
     fn malformed_tile_tables_return_errors() {
@@ -296,6 +305,79 @@ mod tests {
         assert_eq!(
             merge_jpeg_tables_with_tile(&[0, 0, 0, 0], tile_data.clone()),
             tile_data
+        );
+    }
+
+    #[test]
+    fn merge_keeps_every_table_byte_when_they_do_not_end_with_eoi() {
+        let jpeg_tables = vec![0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x05];
+        let tile_data = vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9];
+        let expected = vec![
+            0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x05, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9,
+        ];
+        assert_eq!(
+            merge_jpeg_tables_with_tile(&jpeg_tables, TileData::from(tile_data)),
+            TileData::from(expected)
+        );
+    }
+
+    fn image_compressed_with(compression: u16) -> Image {
+        let tags = HashMap::from([
+            (Tag::ImageWidth, TagValue::Short(256)),
+            (Tag::ImageLength, TagValue::Short(256)),
+            (Tag::BitsPerSample, TagValue::Short(8)),
+            (Tag::PhotometricInterpretation, TagValue::Short(2)),
+        ]);
+        let ifd = ImageFileDirectory::from_tags(tags, Endianness::LittleEndian)
+            .expect("the minimal tag set is enough to build an ifd");
+        Image::new(
+            0,
+            (0, 0),
+            1,
+            1,
+            256,
+            Compression::from_u16_exhaustive(compression),
+            3,
+            Arc::new(ifd),
+        )
+    }
+
+    #[test]
+    fn each_supported_compression_has_an_output_format() {
+        assert_eq!(
+            image_compressed_with(Compression::WebP.to_u16()).output_format(),
+            Some(Format::Webp)
+        );
+        assert_eq!(image_compressed_with(7).output_format(), Some(Format::Jpeg));
+        assert_eq!(image_compressed_with(1).output_format(), Some(Format::Png));
+        assert_eq!(image_compressed_with(5).output_format(), Some(Format::Png));
+        assert_eq!(image_compressed_with(8).output_format(), Some(Format::Png));
+    }
+
+    #[test]
+    fn a_compression_martin_cannot_decode_has_no_output_format() {
+        assert_eq!(image_compressed_with(32773).output_format(), None);
+        assert_eq!(image_compressed_with(0).output_format(), None);
+    }
+
+    #[test]
+    fn only_jpeg_and_webp_tiles_are_passed_through_unchanged() {
+        assert!(image_compressed_with(Compression::WebP.to_u16()).is_passthrough_compression());
+        assert!(image_compressed_with(7).is_passthrough_compression());
+        assert!(!image_compressed_with(1).is_passthrough_compression());
+        assert!(!image_compressed_with(5).is_passthrough_compression());
+    }
+
+    #[test]
+    fn a_sample_count_png_cannot_hold_is_not_encoded() {
+        let pixels = vec![0u8; 4];
+
+        let error = encode_as_png(2, &pixels, "gray.tif", 1)
+            .expect_err("a grayscale tile cannot be written as an RGB or RGBA png");
+
+        assert!(
+            matches!(error, CogError::InvalidGeoInformation(..)),
+            "expected an unsupported samples-per-pixel error, got {error:?}"
         );
     }
 }
