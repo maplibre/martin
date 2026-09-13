@@ -326,6 +326,7 @@ mod tests {
             (Tag::ImageWidth, TagValue::Short(256)),
             (Tag::ImageLength, TagValue::Short(256)),
             (Tag::BitsPerSample, TagValue::Short(8)),
+            (Tag::SamplesPerPixel, TagValue::Short(3)),
             (Tag::PhotometricInterpretation, TagValue::Short(2)),
         ]);
         let ifd = ImageFileDirectory::from_tags(tags, Endianness::LittleEndian)
