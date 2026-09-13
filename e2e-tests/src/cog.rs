@@ -11,6 +11,7 @@ pub mod tag {
     pub const PHOTOMETRIC_INTERPRETATION: u16 = 262;
     pub const PLANAR_CONFIGURATION: u16 = 284;
     pub const TILE_WIDTH: u16 = 322;
+    pub const TILE_LENGTH: u16 = 323;
     pub const MODEL_PIXEL_SCALE: u16 = 33550;
     pub const MODEL_TIEPOINT: u16 = 33922;
     pub const MODEL_TRANSFORMATION: u16 = 34264;
