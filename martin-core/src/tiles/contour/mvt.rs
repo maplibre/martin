@@ -67,7 +67,7 @@ pub fn encode_contours(
         layer = feature.end();
     }
 
-    Ok(layer.end().encode())
+    Ok(layer.end().encode().into())
 }
 
 /// Rounds a tile-space line onto the integer grid the encoder consumes,

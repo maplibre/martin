@@ -1,6 +1,6 @@
 //! Decodes Mapzen Terrarium RGBA texels into a grid of elevation values.
 
-use crate::tiles::neighbourhood::{RgbaField, TILE_SIZE};
+use crate::tiles::neighbourhood::RgbaField;
 
 /// Elevations at or below this read as nodata rather than terrain.
 ///
@@ -27,14 +27,18 @@ pub struct HeightGrid {
 impl HeightGrid {
     /// Decodes the centre tile of `field` plus `margin` pixels of its neighbours.
     ///
+    /// The centre is read at the field's own tile size, so a 512-square source
+    /// contributes all 512 rows rather than its top-left quadrant.
+    ///
     /// The margin is the fetch apron: contour lines are traced across it so a line
     /// crossing a tile edge meets its continuation in the adjacent tile instead of
     /// stopping short, and it is transformed back out before encoding.
     #[must_use]
     pub fn from_field(field: &RgbaField, margin: u8) -> Self {
         let margin = usize::from(margin);
-        let side = TILE_SIZE + 2 * margin;
-        let start = TILE_SIZE - margin;
+        let tile_size = field.tile_size();
+        let side = tile_size + 2 * margin;
+        let start = tile_size - margin;
 
         let mut values = Vec::with_capacity(side * side);
         for y in 0..side {
@@ -130,6 +134,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     use super::*;
+    use crate::tiles::neighbourhood::DEFAULT_TILE_SIZE;
 
     /// A grid of `values`, as a single row.
     fn grid(values: &[f32]) -> HeightGrid {
@@ -201,12 +206,22 @@ mod tests {
 
     #[test]
     fn from_field_crops_to_the_centre_plus_margin() {
-        let field = RgbaField::uniform([128, 0, 0, 255]);
-        for margin in [0u8, 1, 32] {
-            let grid = HeightGrid::from_field(&field, margin);
-            let expected = TILE_SIZE + 2 * usize::from(margin);
-            assert_eq!(grid.dimensions(), (expected, expected), "margin {margin}");
-            assert_eq!(grid.values().len(), expected * expected, "margin {margin}");
+        for tile_size in [DEFAULT_TILE_SIZE, 2 * DEFAULT_TILE_SIZE] {
+            let field = RgbaField::uniform([128, 0, 0, 255], tile_size);
+            for margin in [0u8, 1, 32] {
+                let grid = HeightGrid::from_field(&field, margin);
+                let expected = tile_size + 2 * usize::from(margin);
+                assert_eq!(
+                    grid.dimensions(),
+                    (expected, expected),
+                    "tile size {tile_size}, margin {margin}"
+                );
+                assert_eq!(
+                    grid.values().len(),
+                    expected * expected,
+                    "tile size {tile_size}, margin {margin}"
+                );
+            }
         }
     }
 }

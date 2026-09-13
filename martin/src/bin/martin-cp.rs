@@ -344,7 +344,7 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     tiles.into_iter().flat_map(|t| {
         let z = t.zoom;
         (t.min_x..=t.max_x)
-            .flat_map(move |x| (t.min_y..=t.max_y).map(move |y| TileCoord { z, x, y }))
+            .flat_map(move |x| (t.min_y..=t.max_y).map(move |y| TileCoord::new_unchecked(z, x, y)))
     })
 }
 
@@ -416,7 +416,7 @@ async fn write_tiles_to_mbtiles(
             // Empty tiles are counted but never written to disk.
             progress.increment_empty();
         } else {
-            batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
+            batch.push((tile.xyz.z(), tile.xyz.x(), tile.xyz.y(), tile.data));
             hotpath::gauge!("cp_batch_size").set(f64::from(
                 u32::try_from(batch.len()).expect("batch size should be <= 1000"),
             ));
@@ -476,14 +476,11 @@ async fn produce_tiles(
                 let empty_here = &empty_here;
                 let skipped = &skipped;
                 async move {
-                    let parent = TileCoord {
-                        z: zoom.saturating_sub(1),
-                        x: xyz.x / 2,
-                        y: xyz.y / 2,
-                    };
+                    let parent =
+                        TileCoord::new_unchecked(zoom.saturating_sub(1), xyz.x() / 2, xyz.y() / 2);
                     let data = if pruned_by.contains(&parent) {
                         skipped.fetch_add(1, Ordering::Relaxed);
-                        Vec::new()
+                        TileData::default()
                     } else {
                         src.get_tile_content(xyz).await?.data
                     };
@@ -843,7 +840,7 @@ mod tests {
                 fetches.fetch_add(1, Ordering::Relaxed);
             }
             if self.empty_if.is_some_and(|f| f(_xyz)) {
-                return Ok(Vec::new());
+                return Ok(TileData::new());
             }
             Ok(self.data.clone())
         }
@@ -883,7 +880,7 @@ mod tests {
             Box::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -891,7 +888,7 @@ mod tests {
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -899,7 +896,7 @@ mod tests {
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -907,7 +904,7 @@ mod tests {
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
-                data: Vec::default(),
+                data: TileData::default(),
                 block_after_fetch: None,
                 fetches: None,
                 empty_if: None,
@@ -920,7 +917,7 @@ mod tests {
         test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -932,7 +929,7 @@ mod tests {
         test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -1060,7 +1057,7 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             block_after_fetch: None,
             fetches: None,
             empty_if: None,
@@ -1099,10 +1096,10 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: vec![1],
+            data: TileData::from_static(&[1]),
             block_after_fetch: None,
             fetches: Some(Arc::clone(&fetches)),
-            empty_if: Some(|xyz| xyz.z > 0 && xyz.x < (1u32 << xyz.z) / 2),
+            empty_if: Some(|xyz| xyz.z() > 0 && xyz.x() < (1u32 << xyz.z()) / 2),
         })]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("sparse.mbtiles");
@@ -1138,7 +1135,7 @@ mod tests {
         let state = test_state(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default(),
+            data: TileData::default(),
             // nonstop fetching for testing interruption
             block_after_fetch: Some(Arc::clone(&fetch_started)),
             fetches: None,

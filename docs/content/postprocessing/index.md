@@ -36,7 +36,7 @@ postgres:
       convert_to_mlt: auto
     no_mlt_table:
       # Per-source: explicitly opt out
-      # Even if the client requests MLT, this source is served as MVT.
+      # This source is served as MVT; a client that accepts only MLT gets a 406.
       convert_to_mlt: disabled
 mbtiles: # gets global default
   - some/file.mbtiles

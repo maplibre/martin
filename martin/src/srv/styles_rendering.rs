@@ -133,7 +133,7 @@ pub async fn get_rendered_tile_style(
     let response = {
         use martin_core::styles::StyleError;
 
-        match styles.render(style_path, zxy.z, zxy.x, zxy.y).await {
+        match styles.render(style_path, zxy.z(), zxy.x(), zxy.y()).await {
             Ok(image) => encode_image_response(image.as_image(), path.format),
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {

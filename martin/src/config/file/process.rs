@@ -161,7 +161,8 @@ impl ProcessResolveError {
 pub enum MltConversion {
     /// Convert with these encoder settings.
     Encode(EncoderConfig),
-    /// Serve the MVT bytes as they are.
+    /// Never offer MLT: the MVT bytes are served as they are, and a client that
+    /// accepts nothing else gets a 406.
     Disabled,
 }
 
@@ -172,7 +173,8 @@ pub enum MvtConversion {
     /// Convert.
     #[default]
     Encode,
-    /// Serve the MLT bytes as they are.
+    /// Never offer MVT: the MLT bytes are served as they are, and a client that
+    /// accepts nothing else gets a 406.
     Disabled,
 }
 

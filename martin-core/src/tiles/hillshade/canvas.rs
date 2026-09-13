@@ -12,7 +12,9 @@ impl Canvas {
     /// Returns [`HillshadeError::CorruptCentreTile`] when a centre tile
     /// arrived but could not be decoded.
     pub fn from_neighbourhood(tiles: &Neighbourhood) -> Result<Self, HillshadeError> {
-        Ok(Self::from_rgba(tiles.assemble()?.into_rgba()))
+        let field = tiles.assemble()?;
+        let tile_size = field.tile_size();
+        Ok(Self::from_rgba(field.into_rgba(), tile_size))
     }
 }
 
@@ -21,7 +23,7 @@ mod tests {
     use martin_tile_utils::TileData;
 
     use super::*;
-    use crate::tiles::neighbourhood::{NEIGHBOURHOOD_LEN, TILE_SIZE};
+    use crate::tiles::neighbourhood::{DEFAULT_TILE_SIZE, NEIGHBOURHOOD_LEN};
 
     /// PNG-encodes an image whose texel `(x, y)` is `[x, y, 0, 255]`.
     fn positional_tile(width: usize, height: usize) -> TileData {
@@ -45,22 +47,23 @@ mod tests {
                 ExtendedColorType::Rgba8,
             )
             .expect("encode test tile");
-        buf
+        buf.into()
     }
 
     #[test]
     fn the_canvas_carries_the_assembled_field_through() {
-        let tiles = Neighbourhood::centre_only(positional_tile(TILE_SIZE, TILE_SIZE));
+        let tiles =
+            Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let canvas = Canvas::from_neighbourhood(&tiles).expect("centre decodes");
         assert_eq!(
-            canvas.raw_texel(TILE_SIZE + 40, TILE_SIZE + 90),
+            canvas.raw_texel(DEFAULT_TILE_SIZE + 40, DEFAULT_TILE_SIZE + 90),
             [40, 90, 0, 255]
         );
     }
 
     #[test]
     fn a_centre_that_arrived_but_will_not_decode_is_an_error() {
-        let tiles = Neighbourhood::centre_only(b"this is not an image".to_vec());
+        let tiles = Neighbourhood::centre_only(TileData::from_static(b"this is not an image"));
         assert!(matches!(
             Canvas::from_neighbourhood(&tiles),
             Err(HillshadeError::CorruptCentreTile)
@@ -77,10 +80,13 @@ mod tests {
     #[test]
     fn a_corrupt_neighbour_degrades_instead_of_failing() {
         let mut slots: [Option<TileData>; NEIGHBOURHOOD_LEN] = Default::default();
-        slots[Neighbourhood::CENTRE] = Some(positional_tile(TILE_SIZE, TILE_SIZE));
-        slots[1] = Some(b"garbage".to_vec());
+        slots[Neighbourhood::CENTRE] = Some(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
+        slots[1] = Some(TileData::from_static(b"garbage"));
         let canvas = Canvas::from_neighbourhood(&Neighbourhood::from_row_major(slots))
             .expect("a corrupt neighbour is survivable");
-        assert_eq!(canvas.raw_texel(TILE_SIZE + 40, 90), [40, 0, 0, 255]);
+        assert_eq!(
+            canvas.raw_texel(DEFAULT_TILE_SIZE + 40, 90),
+            [40, 0, 0, 255]
+        );
     }
 }

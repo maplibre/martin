@@ -42,9 +42,9 @@ pub fn is_template(url: &str) -> bool {
 #[must_use]
 pub fn substitute(template: &str, xyz: TileCoord) -> String {
     template
-        .replace("{z}", &xyz.z.to_string())
-        .replace("{x}", &xyz.x.to_string())
-        .replace("{y}", &xyz.y.to_string())
+        .replace("{z}", &xyz.z().to_string())
+        .replace("{x}", &xyz.x().to_string())
+        .replace("{y}", &xyz.y().to_string())
 }
 
 /// Deterministically pick a template for a tile so the same coordinate always maps to the same
@@ -57,9 +57,9 @@ pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
         return single;
     }
     let mut hasher = Xxh3::new();
-    xyz.z.hash(&mut hasher);
-    xyz.x.hash(&mut hasher);
-    xyz.y.hash(&mut hasher);
+    xyz.z().hash(&mut hasher);
+    xyz.x().hash(&mut hasher);
+    xyz.y().hash(&mut hasher);
     let idx = usize::try_from(hasher.finish() % urls.len() as u64).unwrap_or(0);
     urls.get(idx).map_or(&urls[0], |u| u)
 }
