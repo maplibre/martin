@@ -42,10 +42,6 @@ pub enum CogError {
     #[error("Couldn't seek to ifd number {1} (0 based indexing) in tiff file {2}: {0}")]
     IfdSeekFailed(#[source] TiffError, usize, PathBuf),
 
-    /// TIFF file contains too many images.
-    #[error("Too many images in the tiff file: {0}")]
-    TooManyImages(PathBuf),
-
     /// Required TIFF tags not found.
     #[error("Couldn't find tags {1:?} at ifd {2} of tiff file {3}: {0}")]
     TagsNotFound(#[source] TiffError, Vec<u16>, usize, PathBuf),
