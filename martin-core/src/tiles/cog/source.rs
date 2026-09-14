@@ -904,6 +904,20 @@ mod tests {
         assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
     }
 
+    #[test]
+    fn an_image_with_neither_pixel_scale_nor_matrix_has_no_full_resolution() {
+        use crate::tiles::cog::CogError;
+        use crate::tiles::cog::source::get_full_resolution;
+
+        let error = get_full_resolution(None, None, Path::new("not_exist.tif"))
+            .expect_err("neither tag is present, so there is no resolution to read");
+
+        assert!(
+            matches!(error, CogError::GetFullResolutionFailed(_)),
+            "expected a missing resolution error, got {error:?}"
+        );
+    }
+
     #[rstest]
     #[case(156_543.033_928_041_03, 256, Some(0))]
     #[case(78_271.516_964_020_51, 256, Some(1))]
@@ -917,6 +931,10 @@ mod tests {
     #[case(19_567.879_241_005_13, 1024, Some(1))]
     #[case(9_783.939_620_502_564, 1024, Some(2))]
     #[case(4_891.969_810_251_282, 1024, Some(3))]
+    #[case(156_543.033_928_041_03, 300, None)]
+    #[case(0.0, 256, None)]
+    #[case(1_000_000.0, 256, None)]
+    #[case(30_000.0, 256, None)]
     fn can_get_web_mercator_zoom(
         #[case] resolution: f64,
         #[case] tile_size: u32,
