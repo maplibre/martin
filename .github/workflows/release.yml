@@ -13,8 +13,11 @@ on:
       GH_HOMEBREW_MARTIN_TOKEN:
         description: Fine-grained PAT for maplibre/homebrew-martin, see below
         required: false
-      RELEASE_PLZ_TOKEN:
-        description: PAT release-plz publishes releases and release PRs with
+      RELEASE_PLZ_APP_ID:
+        description: ID of the GitHub App release-plz publishes releases and release PRs as
+        required: false
+      RELEASE_PLZ_APP_PRIVATE_KEY:
+        description: Private key of the GitHub App release-plz publishes releases and release PRs as
         required: false
   workflow_dispatch:
     inputs:
@@ -209,12 +212,23 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { rendering: true }
+      # A GitHub App token, so that the tags, releases and PRs release-plz creates
+      # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
+      - name: Generate GitHub token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+          # tags and releases, and the release PRs
+          permission-contents: write
+          permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         id: release
         with: { command: release }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
       - name: Download the packaged binaries
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -226,9 +240,9 @@ jobs:
       - name: Attach the binaries and publish the drafted releases
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         env:
-          # A PAT, so that publishing fires `release: published` for the docker tags
+          # The app token, so that publishing fires `release: published` for the docker tags
           # and the Homebrew PR. Events created with GITHUB_TOKEN start no workflow.
-          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           RELEASES: ${{ steps.release.outputs.releases }}
         run: |
           set -euo pipefail
@@ -249,4 +263,4 @@ jobs:
         uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with: { command: release-pr }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}

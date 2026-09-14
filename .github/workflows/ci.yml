@@ -138,7 +138,8 @@ jobs:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets:
       GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
-      RELEASE_PLZ_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      RELEASE_PLZ_APP_ID: ${{ secrets.RELEASE_PLZ_APP_ID }}
+      RELEASE_PLZ_APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
     permissions:
       contents: write
       id-token: write
