@@ -392,10 +392,6 @@ mod tests {
 
     use super::*;
 
-    fn io_error() -> std::io::Error {
-        std::io::Error::other("boom")
-    }
-
     #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
     fn object_store_error() -> object_store::Error {
         object_store::Error::NotImplemented {
@@ -424,51 +420,115 @@ mod tests {
 
     #[test]
     fn io_error() {
-        let err = ConfigFileError::IoError(io_error(), config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        let err = ConfigFileError::IoError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: IO error boom: config.yaml
+        code: martin::config::io
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn config_load_error() {
-        let err = ConfigFileError::ConfigLoadError(io_error(), config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        let err = ConfigFileError::ConfigLoadError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Unable to load config file config.yaml: boom
+        code: martin::config::io::load
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn config_write_error() {
-        let err = ConfigFileError::ConfigWriteError(io_error(), config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        let err = ConfigFileError::ConfigWriteError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Unable to write config file config.yaml: boom
+        code: martin::config::io::write
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn no_sources() {
         let err = ConfigFileError::NoSources;
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file.
+        code: martin::config::no_sources
+        help: Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn invalid_file_path() {
         let err = ConfigFileError::InvalidFilePath(config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source path is not a file: config.yaml
+        code: martin::config::invalid_file_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn invalid_source_url() {
         let err =
             ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Error empty host while parsing URL http://
+        code: martin::config::invalid_source_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn path_not_convertible_to_url() {
         let err = ConfigFileError::PathNotConvertibleToUrl(config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Could not parse source path config.yaml as a URL
+        code: martin::config::path_not_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn invalid_source_file_path() {
         let err = ConfigFileError::InvalidSourceFilePath("src".to_owned(), config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src uses bad file config.yaml
+        code: martin::config::invalid_source_file_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "passthrough")]
@@ -478,25 +538,57 @@ mod tests {
             source_id: "src".to_owned(),
             tile_format: "tiff".to_owned(),
         };
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @r#"
+        message: Passthrough source src has an unknown tile format "tiff"; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif
+        code: martin::config::passthrough::invalid_format
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        "#);
     }
 
     #[test]
     fn cors_no_origins_configured() {
         let err = ConfigFileError::CorsNoOriginsConfigured;
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: At least one 'origin' must be specified in the 'cors' configuration
+        code: martin::config::cors::no_origins
+        help: Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn invalid_base_path() {
         let err = ConfigFileError::InvalidBasePath("no-slash".to_owned());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Base path must be a valid URL path, and must begin with a '/' symbol, but is 'no-slash'
+        code: martin::config::invalid_base_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[test]
     fn tile_resolution_warnings_issued() {
         let err = ConfigFileError::TileResolutionWarningsIssued;
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: warnings issued during tile source resolution
+        code: martin::config::tile_resolution_warnings
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(all(feature = "hillshade", feature = "_tiles"))]
@@ -511,7 +603,15 @@ mod tests {
                 high: "360".to_owned(),
             }),
         };
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`
+        code: martin::config::hillshade::invalid
+        help: Check the `hillshade` block of the named source: every parameter must lie inside the range given above.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(all(feature = "contour", feature = "_tiles"))]
@@ -526,7 +626,15 @@ mod tests {
                 high: "10000".to_owned(),
             }),
         };
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src has an invalid contour configuration: Contour parameter interval must be between `0` and `10000`, but was `-1`
+        code: martin::config::contour::invalid
+        help: Check the `contour` block of the named source: every parameter must lie inside the range given above.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "styles")]
@@ -538,14 +646,30 @@ mod tests {
             .expect("a missing root yields an entry")
             .expect_err("a missing root yields an error");
         let err = ConfigFileError::DirectoryWalking(walk_err, config_yaml());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Walk directory error IO error for operation on /definitely/not/here: No such file or directory (os error 2): config.yaml
+        code: martin::config::styles::walk
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "postgres")]
     #[test]
     fn postgres_connection_string_missing() {
         let err = ConfigFileError::PostgresConnectionStringMissing;
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: A postgres connection string must be provided
+        code: martin::config::postgres::connection_string
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "postgres")]
@@ -555,7 +679,15 @@ mod tests {
             "x".to_owned(),
             "y".to_owned(),
         ));
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to create postgres pool: Filter 'x' is not valid CQL2: y
+        code: martin::config::postgres::pool_creation
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "fonts")]
@@ -565,7 +697,15 @@ mod tests {
             FontError::FontNotFound("Roboto".to_owned()),
             config_yaml(),
         );
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to load fonts from config.yaml: Font Roboto not found
+        code: martin::config::fonts::resolution
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "fonts")]
@@ -574,7 +714,15 @@ mod tests {
         let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
             "Roboto".to_owned(),
         ));
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to configure font alias: Font Roboto not found
+        code: martin::config::fonts::alias
+        help: Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "sprites")]
@@ -583,7 +731,15 @@ mod tests {
         let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound(
             "icons".to_owned(),
         ));
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to configure sprite alias: Sprite icons not found
+        code: martin::config::sprites::alias
+        help: Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(feature = "_tiles")]
@@ -592,7 +748,15 @@ mod tests {
         let err = ConfigFileError::TileAliasResolutionFailed(
             crate::source::TileAliasError::EmptyAlias("all".to_owned()),
         );
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @r#"
+        message: Failed to configure tile source alias: Tile source alias "all" does not reference any tile sources
+        code: martin::config::aliases
+        help: Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        "#);
     }
 
     #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
@@ -600,21 +764,45 @@ mod tests {
     fn object_store_url_parsing() {
         let err =
             ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to parse object store URL of s3://bucket: Operation list not yet implemented by test.
+        code: martin::config::pmtiles::object_store_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
     #[test]
     fn object_store_list() {
         let err = ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned());
-        insta::assert_snapshot!(describe(&err), @"");
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to list objects under s3://bucket: Operation list not yet implemented by test.
+        code: martin::config::pmtiles::object_store_list
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[test]
     fn renderer_pool_spawn_failed() {
-        let err = ConfigFileError::RendererPoolSpawnFailed(io_error());
-        insta::assert_snapshot!(describe(&err), @"");
+        let err = ConfigFileError::RendererPoolSpawnFailed(std::io::Error::other("boom"));
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to start style render pool: boom
+        code: martin::config::styles::render_pool_spawn
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
     }
 
     fn yaml_error(yaml: &str, with_snippet: bool) -> ConfigFileError {
