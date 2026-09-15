@@ -44,11 +44,11 @@ pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32, grid: &TileGrid) -> 
     if !(0..height).contains(&y) {
         return None;
     }
-    // Both coordinates are now within `side`, which is what makes this valid.
+    // Both coordinates are now within the grid, which is what makes this valid.
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
-        reason = "x is reduced mod side and y is bounds-checked above"
+        reason = "x is wrapped or bounds-checked and y is bounds-checked above"
     )]
     Some(TileCoord::new_unchecked(centre.z(), x as u32, y as u32))
 }
