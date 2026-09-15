@@ -62,7 +62,12 @@ fn every_format_is_either_an_image_or_vectorish() {
                 assert!(!is_image);
                 assert_eq!(info.encoding, Encoding::Internal);
             }
-            _ => {
+            Format::Gif
+            | Format::Jpeg
+            | Format::Png
+            | Format::Webp
+            | Format::Avif
+            | Format::Jxl => {
                 assert!(is_image, "{format}");
                 assert_eq!(info.encoding, Encoding::Internal);
             }
