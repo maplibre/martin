@@ -385,3 +385,192 @@ impl Diagnostic for ConfigFileError {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    fn io_error() -> std::io::Error {
+        std::io::Error::other("boom")
+    }
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    fn object_store_error() -> object_store::Error {
+        object_store::Error::NotImplemented {
+            operation: "list".to_owned(),
+            implementer: "test".to_owned(),
+        }
+    }
+
+    fn every_variant() -> Vec<ConfigFileError> {
+        let path = PathBuf::from("config.yaml");
+        let mut errors = vec![
+            ConfigFileError::IoError(io_error(), path.clone()),
+            ConfigFileError::ConfigLoadError(io_error(), path.clone()),
+            ConfigFileError::ConfigWriteError(io_error(), path.clone()),
+            ConfigFileError::NoSources,
+            ConfigFileError::InvalidFilePath(path.clone()),
+            ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned()),
+            ConfigFileError::PathNotConvertibleToUrl(path.clone()),
+            ConfigFileError::InvalidSourceFilePath("src".to_owned(), path.clone()),
+            ConfigFileError::CorsNoOriginsConfigured,
+            ConfigFileError::InvalidBasePath("no-slash".to_owned()),
+            ConfigFileError::TileResolutionWarningsIssued,
+        ];
+        #[cfg(feature = "passthrough")]
+        errors.push(ConfigFileError::InvalidPassthroughFormat {
+            source_id: "src".to_owned(),
+            tile_format: "tiff".to_owned(),
+        });
+        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+        errors.push(ConfigFileError::InvalidHillshade {
+            source_id: "src".to_owned(),
+            source: Box::new(HillshadeRangeError {
+                name: "azimuth".to_owned(),
+                value: "400".to_owned(),
+                low: "0".to_owned(),
+                high: "360".to_owned(),
+            }),
+        });
+        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        errors.push(ConfigFileError::InvalidContour {
+            source_id: "src".to_owned(),
+            source: Box::new(ContourRangeError {
+                name: "interval".to_owned(),
+                value: "-1".to_owned(),
+                low: "0".to_owned(),
+                high: "10000".to_owned(),
+            }),
+        });
+        #[cfg(feature = "styles")]
+        errors.push(ConfigFileError::DirectoryWalking(
+            walkdir::WalkDir::new("/definitely/not/here")
+                .into_iter()
+                .next()
+                .expect("a missing root yields an entry")
+                .expect_err("a missing root yields an error"),
+            path.clone(),
+        ));
+        #[cfg(feature = "postgres")]
+        errors.extend([
+            ConfigFileError::PostgresConnectionStringMissing,
+            ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter(
+                "x".to_owned(),
+                "y".to_owned(),
+            )),
+        ]);
+        #[cfg(feature = "fonts")]
+        errors.extend([
+            ConfigFileError::FontResolutionFailed(
+                FontError::FontNotFound("Roboto".to_owned()),
+                path.clone(),
+            ),
+            ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
+                "Roboto".to_owned(),
+            )),
+        ]);
+        #[cfg(feature = "sprites")]
+        errors.push(ConfigFileError::SpriteAliasResolutionFailed(
+            SpriteError::SpriteNotFound("icons".to_owned()),
+        ));
+        #[cfg(feature = "_tiles")]
+        errors.push(ConfigFileError::TileAliasResolutionFailed(
+            crate::source::TileAliasError::EmptyAlias("all".to_owned()),
+        ));
+        #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+        errors.extend([
+            ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned()),
+            ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned()),
+        ]);
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
+        errors.push(ConfigFileError::RendererPoolSpawnFailed(io_error()));
+        errors
+    }
+
+    #[test]
+    fn every_variant_has_a_code_and_url_but_no_labels() {
+        for err in every_variant() {
+            let code = err.code().expect("a code").to_string();
+            assert!(code.starts_with("martin::config::"), "{err}: {code}");
+            assert_eq!(
+                err.url().expect("a url").to_string(),
+                "https://maplibre.org/martin/config-file/"
+            );
+            assert!(err.labels().is_none(), "{err}");
+            assert!(err.source_code().is_none(), "{err}");
+            assert!(err.to_miette_report().is_none(), "{err}");
+            if let Some(help) = err.help() {
+                assert!(!help.to_string().is_empty(), "{err}");
+            }
+            assert!(!err.to_string().is_empty());
+        }
+    }
+
+    fn yaml_error(yaml: &str, with_snippet: bool) -> ConfigFileError {
+        let options = serde_saphyr::options! {
+            with_snippet: with_snippet,
+            property_syntax: serde_saphyr::options::PropertySyntax::BracedOrBare,
+        }
+        .with_properties(HashMap::new());
+        let err = serde_saphyr::from_str_with_options::<HashMap<String, String>>(yaml, options)
+            .expect_err("the yaml is invalid");
+        ConfigFileError::yaml_parse(err, yaml.to_owned(), Path::new("config.yaml"))
+    }
+
+    #[test]
+    fn yaml_parse_error_carries_the_source() {
+        let err = yaml_error("key: [unterminated", false);
+        assert_eq!(
+            err.code().expect("a code").to_string(),
+            "martin::config::yaml"
+        );
+        assert!(err.help().is_some());
+        assert!(err.source_code().is_some());
+        assert!(
+            err.to_string()
+                .starts_with("Unable to parse YAML in config file config.yaml")
+        );
+
+        let report = err
+            .to_miette_report()
+            .expect("yaml errors render as reports");
+        let diag: &dyn Diagnostic = report.as_ref();
+        assert_eq!(
+            diag.code().expect("a code").to_string(),
+            "martin::config::yaml"
+        );
+        assert!(
+            diag.help()
+                .expect("help")
+                .to_string()
+                .contains("highlighted token")
+        );
+        assert_eq!(
+            diag.url().expect("a url").to_string(),
+            "https://maplibre.org/martin/config-file/"
+        );
+        assert!(diag.source_code().is_some());
+        assert!(diag.labels().is_some());
+        assert!(diag.related().is_none());
+        assert!(diag.diagnostic_source().is_none());
+        assert!(diag.severity().is_none());
+        assert!(!report.to_string().is_empty());
+    }
+
+    #[test]
+    fn unresolved_substitution_is_reported_as_such_with_and_without_snippet() {
+        for with_snippet in [false, true] {
+            let err = yaml_error("key: ${MARTIN_TEST_UNSET_VARIABLE}", with_snippet);
+            let report = err.to_miette_report().expect("a report");
+            let diag: &dyn Diagnostic = report.as_ref();
+            assert_eq!(
+                diag.code().expect("a code").to_string(),
+                "martin::config::substitution",
+                "with_snippet={with_snippet}"
+            );
+            assert!(diag.help().expect("help").to_string().contains("${VAR}"));
+        }
+    }
+}
