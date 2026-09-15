@@ -167,7 +167,7 @@ rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
-rstest = "0.26.1"
+rstest = "0.27.0"
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
