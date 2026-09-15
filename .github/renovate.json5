@@ -45,6 +45,18 @@
       groupName: null,
     },
     {
+      // AWS SDK crates are released in lockstep and must be bumped together.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['/^aws-/'],
+      groupName: 'aws crates',
+    },
+    {
+      // Maintained by us, so no need to wait for the ecosystem to catch up.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['maplibre_native', 'mlt-core'],
+      minimumReleaseAge: '0 days',
+    },
+    {
       matchManagers: ['npm'],
       matchPackageNames: ['!@biomejs/biome'],
       groupName: 'npm dependencies',
