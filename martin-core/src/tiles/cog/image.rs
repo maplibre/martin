@@ -85,7 +85,7 @@ impl Image {
         location: &str,
     ) -> Result<TileData, CogError> {
         let Some((tile_x, tile_y)) = self.get_tile_position(xyz) else {
-            return Ok(Vec::new());
+            return Ok(TileData::new());
         };
         let tile_index = self
             .ifd
@@ -100,7 +100,7 @@ impl Image {
             location,
         )?;
         if tile_range.is_empty() {
-            return Ok(Vec::new());
+            return Ok(TileData::new());
         }
 
         let tile = self
@@ -116,9 +116,9 @@ impl Image {
             if self.compression == Compression::ModernJPEG
                 && let Some(tables) = tile.jpeg_tables()
             {
-                return Ok(merge_jpeg_tables_with_tile(tables, bytes));
+                return Ok(merge_jpeg_tables_with_tile(tables, bytes.clone()));
             }
-            return Ok(bytes.to_vec());
+            return Ok(bytes.clone());
         }
 
         let array = tile
@@ -130,7 +130,7 @@ impl Image {
                 "Only 8-bit RGB/RGBA COG tiles are supported".to_owned(),
             ));
         };
-        encode_as_png(self.tile_size, pixels, location, self.samples_per_pixel)
+        encode_as_png(self.tile_size, pixels, location, self.samples_per_pixel).map(TileData::from)
     }
 
     pub const fn compression(&self) -> Compression {
@@ -146,11 +146,11 @@ impl Image {
     }
 
     fn get_tile_position(&self, xyz: TileCoord) -> Option<(usize, usize)> {
-        if xyz.z != self.zoom_level {
+        if xyz.z() != self.zoom_level {
             return None;
         }
-        let x = i64::from(xyz.x) - i64::from(self.tiles_origin.0);
-        let y = i64::from(xyz.y) - i64::from(self.tiles_origin.1);
+        let x = i64::from(xyz.x()) - i64::from(self.tiles_origin.0);
+        let y = i64::from(xyz.y()) - i64::from(self.tiles_origin.1);
         if x < 0 || x >= i64::from(self.tiles_across) || y < 0 || y >= i64::from(self.tiles_down) {
             return None;
         }
@@ -201,12 +201,12 @@ const JPEG_EOI: [u8; 2] = [0xFF, 0xD9]; // End of Image
 /// Tile data format: SOI (FFD8) + frame header + scan data + EOI (FFD9)
 ///
 /// To merge: Take tables (without SOI/EOI) and insert after tile's SOI, before frame data.
-fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> {
+fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: bytes::Bytes) -> TileData {
     if jpeg_tables.len() < 4 || tile_data.len() < 4 {
-        return tile_data.to_vec();
+        return tile_data;
     }
     if jpeg_tables[0..2] != JPEG_SOI || tile_data[0..2] != JPEG_SOI {
-        return tile_data.to_vec();
+        return tile_data;
     }
     let tables_end = if jpeg_tables[jpeg_tables.len() - 2..] == JPEG_EOI {
         jpeg_tables.len() - 2
@@ -218,7 +218,7 @@ fn merge_jpeg_tables_with_tile(jpeg_tables: &[u8], tile_data: &[u8]) -> Vec<u8> 
     result.extend_from_slice(&JPEG_SOI);
     result.extend_from_slice(tables_content);
     result.extend_from_slice(&tile_data[2..]);
-    result
+    result.into()
 }
 
 fn encode_as_png(
@@ -254,7 +254,16 @@ fn encode_as_png(
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_tile_range, merge_jpeg_tables_with_tile};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use async_tiff::reader::Endianness;
+    use async_tiff::tags::{Compression, Tag};
+    use async_tiff::{ImageFileDirectory, TagValue};
+    use martin_tile_utils::Format;
+
+    use super::{Image, TileData, checked_tile_range, encode_as_png, merge_jpeg_tables_with_tile};
+    use crate::tiles::cog::CogError;
 
     #[test]
     fn malformed_tile_tables_return_errors() {
@@ -281,21 +290,95 @@ mod tests {
             0x10, 0xFF, 0xDA, 0x00, 0x02, 0x12, 0x34, 0x56, 0xFF, 0xD9,
         ];
         assert_eq!(
-            merge_jpeg_tables_with_tile(&jpeg_tables, &tile_data),
-            expected
+            merge_jpeg_tables_with_tile(&jpeg_tables, TileData::from(tile_data)),
+            TileData::from(expected)
         );
     }
 
     #[test]
     fn merge_returns_tile_data_for_invalid_tables() {
-        let tile_data = vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9];
+        let tile_data = TileData::from(vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9]);
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], &tile_data),
+            merge_jpeg_tables_with_tile(&[0xFF, 0xD8], tile_data.clone()),
             tile_data
         );
         assert_eq!(
-            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], &tile_data),
+            merge_jpeg_tables_with_tile(&[0, 0, 0, 0], tile_data.clone()),
             tile_data
+        );
+    }
+
+    #[test]
+    fn merge_keeps_every_table_byte_when_they_do_not_end_with_eoi() {
+        let jpeg_tables = vec![0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x05];
+        let tile_data = vec![0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9];
+        let expected = vec![
+            0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x05, 0xFF, 0xC0, 0x00, 0x02, 0xFF, 0xD9,
+        ];
+        assert_eq!(
+            merge_jpeg_tables_with_tile(&jpeg_tables, TileData::from(tile_data)),
+            TileData::from(expected)
+        );
+    }
+
+    fn image_compressed_with(compression: u16) -> Image {
+        let tags = HashMap::from([
+            (Tag::ImageWidth, TagValue::Short(256)),
+            (Tag::ImageLength, TagValue::Short(256)),
+            (Tag::BitsPerSample, TagValue::Short(8)),
+            (Tag::SamplesPerPixel, TagValue::Short(3)),
+            (Tag::PhotometricInterpretation, TagValue::Short(2)),
+        ]);
+        let ifd = ImageFileDirectory::from_tags(tags, Endianness::LittleEndian)
+            .expect("the minimal tag set is enough to build an ifd");
+        Image::new(
+            0,
+            (0, 0),
+            1,
+            1,
+            256,
+            Compression::from_u16_exhaustive(compression),
+            3,
+            Arc::new(ifd),
+        )
+    }
+
+    #[test]
+    fn each_supported_compression_has_an_output_format() {
+        assert_eq!(
+            image_compressed_with(Compression::WebP.to_u16()).output_format(),
+            Some(Format::Webp)
+        );
+        assert_eq!(image_compressed_with(7).output_format(), Some(Format::Jpeg));
+        assert_eq!(image_compressed_with(1).output_format(), Some(Format::Png));
+        assert_eq!(image_compressed_with(5).output_format(), Some(Format::Png));
+        assert_eq!(image_compressed_with(8).output_format(), Some(Format::Png));
+    }
+
+    #[test]
+    fn a_compression_martin_cannot_decode_has_no_output_format() {
+        assert_eq!(image_compressed_with(32773).output_format(), None);
+        assert_eq!(image_compressed_with(0).output_format(), None);
+    }
+
+    #[test]
+    fn only_jpeg_and_webp_tiles_are_passed_through_unchanged() {
+        assert!(image_compressed_with(Compression::WebP.to_u16()).is_passthrough_compression());
+        assert!(image_compressed_with(7).is_passthrough_compression());
+        assert!(!image_compressed_with(1).is_passthrough_compression());
+        assert!(!image_compressed_with(5).is_passthrough_compression());
+    }
+
+    #[test]
+    fn a_sample_count_png_cannot_hold_is_not_encoded() {
+        let pixels = vec![0u8; 4];
+
+        let error = encode_as_png(2, &pixels, "gray.tif", 1)
+            .expect_err("a grayscale tile cannot be written as an RGB or RGBA png");
+
+        assert!(
+            matches!(error, CogError::InvalidGeoInformation(..)),
+            "expected an unsupported samples-per-pixel error, got {error:?}"
         );
     }
 }

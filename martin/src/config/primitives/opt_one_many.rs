@@ -266,7 +266,46 @@ mod tests {
         );
     }
 
-    // ----- Existing behavior tests -----
+    #[test]
+    fn deserialize_scalars_are_one() {
+        assert_eq!(parse_yaml::<OptOneMany<bool>>("true"), One(true));
+        assert_eq!(parse_yaml::<OptOneMany<i64>>("-5"), One(-5));
+        assert_eq!(parse_yaml::<OptOneMany<u64>>("7"), One(7));
+        assert_eq!(parse_yaml::<OptOneMany<f64>>("1.5"), One(1.5));
+        assert_eq!(parse_yaml::<OptOneMany<i64>>("[1, 2]"), Many(vec![1, 2]));
+    }
+
+    #[test]
+    fn deserialize_map_is_one() {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct Inner {
+            name: String,
+        }
+        let cfg = parse_yaml::<OptOneMany<Inner>>("name: hello");
+        assert_eq!(
+            cfg,
+            One(Inner {
+                name: "hello".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_mismatched_scalar_fails() {
+        let err = serde_saphyr::from_str::<OptOneMany<bool>>("hello").unwrap_err();
+        assert!(err.to_string().contains("bool"), "{err}");
+    }
+
+    #[test]
+    fn is_none_and_is_empty() {
+        assert!(NoVals::<i32>.is_none());
+        assert!(NoVals::<i32>.is_empty());
+        assert!(!One(1).is_none());
+        assert!(!One(1).is_empty());
+        assert!(!Many(vec![1]).is_none());
+        assert!(Many(Vec::<i32>::new()).is_empty());
+        assert!(!Many(vec![1]).is_empty());
+    }
 
     #[test]
     fn one_or_many_new() {

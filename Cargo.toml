@@ -101,6 +101,7 @@ brotli = ">=5, <10"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
+compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
@@ -141,14 +142,14 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.8" }
 mbtiles = { path = "./mbtiles", version = "0.19.3" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.12.3", default-features = false }
+mlt-core = { version = "0.13.0", default-features = false }
 moka = { version = "0.12", default-features = false }
-multiversion = "0.8"
+multiversion = "0.9"
 notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
-pmtiles = { version = "0.24.0", default-features = false, features = ["tilejson", "object-store"] }
+pmtiles = { version = "0.24.0", default-features = false, features = ["tilejson", "object-store", "mmap-async-tokio"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
@@ -166,7 +167,7 @@ rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
-rstest = "0.26.1"
+rstest = "0.27.0"
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }

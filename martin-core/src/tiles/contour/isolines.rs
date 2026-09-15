@@ -214,15 +214,19 @@ impl ContourOptions {
         }
     }
 
-    /// Image-space to MVT-space transform.
+    /// Image-space to MVT-space transform for a `tile_size`-square source grid.
     ///
-    /// `scaling` maps the 256px source grid onto the MVT extent; `margin` is the
-    /// fetch apron in the contour's resolution-scaled units (`fetch_margin`
-    /// source pixels times `resolution`).
+    /// `scaling` maps that grid onto the MVT extent; `margin` is the fetch apron
+    /// in the contour's resolution-scaled units (`fetch_margin` source pixels
+    /// times `resolution`).
     #[must_use]
-    pub fn geometry_transform(&self) -> GeometryTransform {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a tile side is a small power of two"
+    )]
+    pub fn geometry_transform(&self, tile_size: usize) -> GeometryTransform {
         GeometryTransform {
-            scaling: f64::from(self.extent) / (256.0 * f64::from(self.resolution)),
+            scaling: f64::from(self.extent) / (tile_size as f64 * f64::from(self.resolution)),
             margin: f64::from(self.resolution) * f64::from(self.fetch_margin),
         }
     }
@@ -410,9 +414,14 @@ mod tests {
     fn default_derives_expected_config() {
         let opts = ContourOptions::default();
 
-        let transform = opts.geometry_transform();
+        let transform = opts.geometry_transform(256);
         assert_relative_eq!(transform.scaling, 1.6); // 4096 / (256 * 10)
         assert_relative_eq!(transform.margin, 320.0); // 10 * 32
+
+        // A 512-square source halves the scaling, so the same tile still maps
+        // onto the whole extent.
+        let transform = opts.geometry_transform(512);
+        assert_relative_eq!(transform.scaling, 0.8); // 4096 / (512 * 10)
 
         let iso = opts.isoline();
         assert_relative_eq!(iso.resolution, 10.0);
@@ -437,7 +446,7 @@ mod tests {
             ..Default::default()
         };
 
-        let transform = opts.geometry_transform();
+        let transform = opts.geometry_transform(256);
         assert_relative_eq!(transform.scaling, 1.0); // 2048 / (256 * 8)
         assert_relative_eq!(transform.margin, 128.0); // 8 * 16
         assert_eq!(opts.mvt_encoding().extent, 2048);

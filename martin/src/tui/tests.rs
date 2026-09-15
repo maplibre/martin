@@ -2,13 +2,15 @@ use std::io::Write as _;
 use std::time::{Duration, Instant};
 
 use actix_web::http::StatusCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use tracing::Level;
 
 use super::data::{Dashboard, TileRequest};
-use super::render;
+use super::observer::{observe, tile_request};
 use super::state::{LogSize, LogView};
+use super::{Flow, press, render};
 
 fn render(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
     let view = dashboard.snapshot_at(now);
@@ -183,4 +185,142 @@ fn clearing_forgets_the_requests_and_keeps_the_address() {
     assert_eq!(view.requests, 0);
     assert!(view.sources.is_empty());
     assert!(view.tiles.is_empty());
+}
+
+fn key(code: KeyCode) -> KeyEvent {
+    KeyEvent::new(code, KeyModifiers::NONE)
+}
+
+#[test]
+fn quit_keys_stop_the_dashboard() {
+    let dashboard = Dashboard::new();
+    let mut log = LogView::default();
+    for code in [KeyCode::Char('q'), KeyCode::Esc] {
+        assert_eq!(press(key(code), &dashboard, &mut log, 0), Flow::Quit);
+    }
+    let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(press(ctrl_c, &dashboard, &mut log, 0), Flow::Quit);
+    assert_eq!(
+        press(key(KeyCode::Char('x')), &dashboard, &mut log, 0),
+        Flow::Continue
+    );
+}
+
+#[test]
+fn c_clears_and_l_toggles_the_log_size() {
+    let dashboard = Dashboard::new();
+    dashboard.record(
+        Some(tile("berlin", 1, 0, 0)),
+        StatusCode::OK,
+        Duration::ZERO,
+    );
+    let mut log = LogView::default();
+
+    assert_eq!(
+        press(key(KeyCode::Char('c')), &dashboard, &mut log, 0),
+        Flow::Continue
+    );
+    assert_eq!(dashboard.snapshot().requests, 0);
+
+    press(key(KeyCode::Char('l')), &dashboard, &mut log, 0);
+    assert_eq!(log.size, LogSize::Expanded);
+    press(key(KeyCode::Char('l')), &dashboard, &mut log, 0);
+    assert_eq!(log.size, LogSize::Normal);
+}
+
+#[test]
+fn the_arrow_and_page_keys_scroll_within_the_log() {
+    let dashboard = Dashboard::new();
+    let mut log = LogView::default();
+    let lines = 25;
+
+    press(key(KeyCode::Up), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 1);
+    press(key(KeyCode::Char('k')), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 2);
+    press(key(KeyCode::PageUp), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 12);
+    press(key(KeyCode::PageUp), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 22);
+    press(key(KeyCode::PageUp), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 24, "stops at the oldest line");
+    press(key(KeyCode::Down), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 23);
+    press(key(KeyCode::Char('j')), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 22);
+    press(key(KeyCode::PageDown), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 12);
+    press(key(KeyCode::End), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 0);
+    press(key(KeyCode::Home), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 24);
+    press(key(KeyCode::PageDown), &dashboard, &mut log, lines);
+    press(key(KeyCode::PageDown), &dashboard, &mut log, lines);
+    press(key(KeyCode::PageDown), &dashboard, &mut log, lines);
+    assert_eq!(log.scroll, 0, "stops at the newest line");
+}
+
+#[test]
+fn a_shrinking_log_pulls_the_view_back_into_range() {
+    let mut log = LogView {
+        size: LogSize::Normal,
+        scroll: 100,
+    };
+    log.scroll_back(1, 10);
+    assert_eq!(log.scroll, 9);
+    log.scroll = 100;
+    log.scroll_forward(1, 10);
+    assert_eq!(log.scroll, 8);
+    log.scroll_to_oldest(0);
+    assert_eq!(log.scroll, 0);
+    log.follow();
+    assert_eq!(log.scroll, 0);
+}
+
+#[actix_web::test]
+async fn the_observer_reads_the_tile_from_the_matched_route() {
+    use actix_web::test::TestRequest;
+
+    let req = TestRequest::default()
+        .param("source_ids", "berlin")
+        .param("z", "3")
+        .param("x", "4")
+        .param("y", "5")
+        .to_http_request();
+    assert_eq!(tile_request(&req), Some(tile("berlin", 3, 4, 5)));
+
+    let req = TestRequest::default()
+        .param("ids", "munich")
+        .param("z", "1")
+        .param("x", "0")
+        .param("y", "0")
+        .to_http_request();
+    assert_eq!(tile_request(&req), Some(tile("munich", 1, 0, 0)));
+
+    let req = TestRequest::default().to_http_request();
+    assert_eq!(tile_request(&req), None);
+
+    let req = TestRequest::default()
+        .param("source_ids", "berlin")
+        .param("z", "300")
+        .param("x", "4")
+        .param("y", "5")
+        .to_http_request();
+    assert_eq!(tile_request(&req), None);
+}
+
+#[actix_web::test]
+async fn the_observer_passes_the_response_through() {
+    use actix_web::middleware::from_fn;
+    use actix_web::test::{TestRequest, call_service, init_service};
+    use actix_web::{App, HttpResponse, web};
+
+    let app = init_service(
+        App::new()
+            .wrap(from_fn(observe))
+            .route("/{source_ids}/{z}/{x}/{y}", web::get().to(HttpResponse::Ok)),
+    )
+    .await;
+    let res = call_service(&app, TestRequest::get().uri("/berlin/1/2/3").to_request()).await;
+    assert_eq!(res.status(), StatusCode::OK);
 }

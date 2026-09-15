@@ -40,6 +40,29 @@ pmtiles:
 
 Sources that produce other formats (raster, etc.) are unaffected.
 
+## Setting up the Client
+
+Conversion is negotiated per request: Martin only returns MLT if the client asks for it with `Accept: application/vnd.maplibre-tile`.
+A client that declares `"encoding": "mlt"` on a source but omits the header receives MVT bytes and fails to parse them.
+
+!!! warning "MapLibre GL JS and Maplibre Native do not send the headers yet"
+
+    Until [maplibre-gl-js#7483](https://github.com/maplibre/maplibre-gl-js/pull/7483) and [maplibre-native#4231](https://github.com/maplibre/maplibre-native/pull/4231) is released, add it yourself via the [`transformRequest`](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/RequestTransformFunction/) option or similar plugin facilities on native.
+
+    ```js
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://example.org/style.json',
+      transformRequest: (url, resourceType) =>
+        resourceType === 'Tile' && url.startsWith('https://example.org/my_mlt_source/')
+          ? { url, headers: { Accept: 'application/vnd.maplibre-tile' } }
+          : undefined
+    });
+    ```
+
+    Scope the header to the sources you actually serve as MLT.
+    Attaching it to every request means a source configured with `convert_to_mlt: auto` assumes you have `encoding: mlt` set for all sources.
+
 ## Scoping MLT Conversion
 
 You don't have to convert everything.
@@ -72,6 +95,10 @@ If a higher level (global or source-type) enables MLT but you want one source
 to keep serving MVT, set `convert_to_mlt: disabled` or `convert_to_mvt: disabled`.
 The most-specific level wins, so this overrides any inherited `auto`.
 
+A disabled conversion is never negotiated, so a client asking only for the format
+the conversion would have produced gets `406 Not Acceptable` rather than the other
+format's bytes. Clients that also accept `*/*` still get the source format.
+
 ```yaml
 convert_to_mlt: auto              # default everywhere
 
@@ -82,7 +109,7 @@ pmtiles:
       # Inherits global `auto` -> converted on Accept: MLT
     legacy:
       path: /data/legacy.pmtiles
-      convert_to_mlt: disabled    # always served as MVT, even on Accept: MLT
+      convert_to_mlt: disabled    # served as MVT; an MLT-only Accept gets a 406
 ```
 
 ## Tuning the Encoder

@@ -2,6 +2,7 @@ name: Hotpath profile
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
       - '**.md'
       - 'demo/**'
@@ -20,6 +21,7 @@ permissions:
 
 jobs:
   profile:
+    if: contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-latest
     env:
       PGDATABASE: test

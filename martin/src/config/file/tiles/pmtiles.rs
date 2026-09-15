@@ -271,18 +271,7 @@ impl TileSourceConfiguration for PmtConfig {
         let path = path
             .canonicalize()
             .map_err(|e| ConfigFileError::IoError(e, path))?;
-        // path->url conversion requires absolute path, otherwise it errors
-        let path = std::path::absolute(&path).map_err(|e| ConfigFileError::IoError(e, path))?;
-        // windows needs unix style paths, I.e. replace backslashes with forward slashes
-        // a simple "add file://" does not work on windows
-        // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
-        let url = Url::from_file_path(&path)
-            .or(Err(ConfigFileError::PathNotConvertibleToUrl(path.clone())))?;
-        trace!(
-            "Pmtiles source {id} ({}) will be loaded as {url}",
-            path.display()
-        );
-        self.new_sources_url(id, url, cache).await
+        self.new_local_source(id, path, cache).await
     }
 
     async fn new_sources_url(
@@ -291,11 +280,31 @@ impl TileSourceConfiguration for PmtConfig {
         url: Url,
         cache: CachePolicy,
     ) -> SourceBuildResult<BoxedSource> {
+        if url.scheme() == "file"
+            && let Ok(path) = url.to_file_path()
+        {
+            return self.new_local_source(id, path, cache).await;
+        }
         let (store, path) = self
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        Ok(Box::new(source))
+    }
+}
+
+impl PmtConfig {
+    /// Builds a source that reads the file at `path` in place.
+    async fn new_local_source(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> SourceBuildResult<BoxedSource> {
+        trace!("Pmtiles source {id} will be read from {}", path.display());
+        let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
+        let source = PmtilesSource::new_local(dir_cache, id, path, cache.zoom()).await?;
         Ok(Box::new(source))
     }
 }

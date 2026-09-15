@@ -277,9 +277,9 @@ impl Source for CogSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -288,12 +288,12 @@ impl Source for CogSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
-            return Ok(Vec::new());
+        if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
+            return Ok(TileData::default());
         }
-        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+        let image = self.images.get(&(xyz.z())).ok_or_else(|| {
             CogError::ZoomOutOfRange(
-                xyz.z,
+                xyz.z(),
                 PathBuf::from(&self.location),
                 self.min_zoom,
                 self.max_zoom,
@@ -640,14 +640,7 @@ mod tests {
             .await
             .unwrap();
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 18,
-                    x: 42_712,
-                    y: 97_343,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(18, 42_712, 97_343), None)
             .await
             .unwrap();
 
@@ -681,14 +674,7 @@ mod tests {
         .unwrap();
 
         let tile = source
-            .get_tile(
-                TileCoord {
-                    z: 19,
-                    x: 85_424,
-                    y: 194_685,
-                },
-                None,
-            )
+            .get_tile(TileCoord::new_unchecked(19, 85_424, 194_685), None)
             .await
             .unwrap();
         assert!(tile.is_empty());
@@ -918,6 +904,20 @@ mod tests {
         assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
     }
 
+    #[test]
+    fn an_image_with_neither_pixel_scale_nor_matrix_has_no_full_resolution() {
+        use crate::tiles::cog::CogError;
+        use crate::tiles::cog::source::get_full_resolution;
+
+        let error = get_full_resolution(None, None, Path::new("not_exist.tif"))
+            .expect_err("neither tag is present, so there is no resolution to read");
+
+        assert!(
+            matches!(error, CogError::GetFullResolutionFailed(_)),
+            "expected a missing resolution error, got {error:?}"
+        );
+    }
+
     #[rstest]
     #[case(156_543.033_928_041_03, 256, Some(0))]
     #[case(78_271.516_964_020_51, 256, Some(1))]
@@ -931,6 +931,10 @@ mod tests {
     #[case(19_567.879_241_005_13, 1024, Some(1))]
     #[case(9_783.939_620_502_564, 1024, Some(2))]
     #[case(4_891.969_810_251_282, 1024, Some(3))]
+    #[case(156_543.033_928_041_03, 300, None)]
+    #[case(0.0, 256, None)]
+    #[case(1_000_000.0, 256, None)]
+    #[case(30_000.0, 256, None)]
     fn can_get_web_mercator_zoom(
         #[case] resolution: f64,
         #[case] tile_size: u32,

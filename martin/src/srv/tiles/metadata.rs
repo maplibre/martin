@@ -213,7 +213,7 @@ pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: Str
 pub mod tests {
     use std::collections::BTreeMap;
 
-    use martin_tile_utils::Format;
+    use martin_tile_utils::{Format, TileData};
     use tilejson::{Bounds, VectorLayer};
 
     use super::*;
@@ -237,7 +237,7 @@ pub mod tests {
                     ]))
                 ],
             },
-            data: Vec::default(),
+            data: TileData::default(),
             format: Format::Mvt,
         };
         let tj = merge_tilejson(
@@ -270,7 +270,7 @@ pub mod tests {
                     ]))
                 ],
             },
-            data: Vec::default(),
+            data: TileData::default(),
             format: Format::Mvt,
         };
 

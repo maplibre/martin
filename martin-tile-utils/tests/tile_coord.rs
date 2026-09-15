@@ -48,7 +48,7 @@ fn packed_id_leading_zeros_are_the_zoom_level() {
         let last = (1_u32 << z) - 1;
         for (x, y) in [(0, 0), (last, 0), (0, last), (last, last)] {
             let coord = TileCoord::new_unchecked(z, x, y);
-            assert_eq!((coord.z, coord.x, coord.y), (z, x, y));
+            assert_eq!((coord.z(), coord.x(), coord.y()), (z, x, y));
         }
     }
 }

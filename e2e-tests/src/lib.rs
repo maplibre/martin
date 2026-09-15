@@ -6,6 +6,7 @@
 #![expect(clippy::panic, reason = "tests fail by panicking")]
 
 mod cassette;
+mod cog;
 mod images;
 mod martin;
 mod martin_cp;
@@ -23,6 +24,7 @@ use tempfile::TempDir;
 use tokio::process::Command;
 
 pub use crate::cassette::Cassette;
+pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
 pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
 pub use crate::martin_cp::MartinCp;

@@ -20,8 +20,8 @@ pub const MAX_EXTENT: u32 = 16_384;
 /// Largest accepted [`ContourSettings::fetch_margin`], in source pixels.
 ///
 /// The margin is traced beyond the tile edge and transformed back out, so it is
-/// pure overdraw: past a small fraction of the 256px source tile it costs
-/// tracing time without joining any more lines across the seam.
+/// pure overdraw: past a small fraction of the source tile it costs tracing
+/// time without joining any more lines across the seam.
 pub const MAX_FETCH_MARGIN: u32 = 64;
 
 /// A contour parameter outside the range it is defined over.
