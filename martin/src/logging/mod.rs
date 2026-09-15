@@ -6,8 +6,8 @@
 
 use std::str::FromStr;
 
-use tracing::Level;
 use tracing::level_filters::LevelFilter;
+use tracing::{Dispatch, Level};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -40,7 +40,13 @@ pub enum LogFormat {
 impl LogFormat {
     /// Initialize logging according to the selected format.
     pub fn init(self, env_filter: EnvFilter) {
-        let dispatch = match self {
+        tracing::dispatcher::set_global_default(self.dispatch(env_filter))
+            .expect("failed to set global default subscriber");
+    }
+
+    /// The subscriber for the selected format, writing to stdout.
+    fn dispatch(self, env_filter: EnvFilter) -> Dispatch {
+        match self {
             Self::Full => tracing_subscriber::fmt()
                 .with_span_events(FmtSpan::NONE)
                 .with_env_filter(env_filter)
@@ -72,10 +78,9 @@ impl LogFormat {
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
-        };
-        tracing::dispatcher::set_global_default(dispatch)
-            .expect("failed to set global default subscriber");
+        }
     }
+
     /// Initialize logging according to the selected format with a progress bar.
     ///
     /// Uses `tracing::dispatcher::set_global_default` directly instead of
@@ -83,13 +88,19 @@ impl LogFormat {
     /// to prevent `tracing-subscriber`'s `tracing-log` feature from installing
     /// its own `LogTracer`, which would conflict with `init_log_bridge`.
     pub fn init_with_progress(self, env_filter: EnvFilter) {
+        tracing::dispatcher::set_global_default(self.dispatch_with_progress(env_filter))
+            .expect("failed to set global default subscriber");
+    }
+
+    /// The subscriber for the selected format, writing to stderr around an indicatif progress bar.
+    fn dispatch_with_progress(self, env_filter: EnvFilter) -> Dispatch {
         use tracing_subscriber::fmt::layer as fmt_layer;
 
         let registry = tracing_subscriber::registry().with(env_filter);
 
         // code below looks duplicated, but it has to be this way due to how types currently work.
         // maybe there is a better way that I can not see
-        let dispatch = match self {
+        match self {
             Self::Full => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
@@ -151,11 +162,7 @@ impl LogFormat {
                     .with(indicatif_layer)
                     .into()
             }
-        };
-        // Uses `tracing::dispatcher::set_global_default` directly instead of
-        // `SubscriberInitExt::init()`, because the latter also calls `tracing_log::LogTracer::init()
-        tracing::dispatcher::set_global_default(dispatch)
-            .expect("failed to set global default subscriber");
+        }
     }
 }
 
@@ -310,4 +317,89 @@ where
         .into();
     tracing::dispatcher::set_global_default(dispatch)
         .expect("failed to set global default subscriber");
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case(LogFormat::Full)]
+    #[case(LogFormat::Compact)]
+    #[case(LogFormat::Pretty)]
+    #[case(LogFormat::Bare)]
+    #[case(LogFormat::Json)]
+    fn every_format_builds_a_subscriber(#[case] format: LogFormat) {
+        let dispatch = format.dispatch(EnvFilter::new("info"));
+        tracing::dispatcher::with_default(&dispatch, || {
+            tracing::info!(answer = 42, "hello from {format:?}");
+            tracing::trace!("filtered out");
+        });
+
+        let dispatch = format.dispatch_with_progress(EnvFilter::new("debug"));
+        tracing::dispatcher::with_default(&dispatch, || {
+            tracing::debug!("hello from {format:?} with progress");
+        });
+    }
+
+    #[rstest]
+    #[case("full", "Full")]
+    #[case("COMPACT", "Compact")]
+    #[case("pretty", "Pretty")]
+    #[case("verbose", "Pretty")]
+    #[case("bare", "Bare")]
+    #[case("json", "Json")]
+    #[case("jsonl", "Json")]
+    fn formats_parse_case_insensitively(#[case] input: &str, #[case] expected: &str) {
+        let format: LogFormat = input.parse().expect("a known format");
+        assert_eq!(format!("{format:?}"), expected);
+        assert_eq!(format.is_json(), expected == "Json");
+    }
+
+    #[test]
+    fn unknown_format_is_rejected() {
+        let err = "xml".parse::<LogFormat>().unwrap_err();
+        assert_eq!(
+            err,
+            "Invalid log format 'xml'. Valid options: json, full, compact, bare or pretty"
+        );
+    }
+
+    #[test]
+    fn default_format_depends_on_the_build_profile() {
+        let default = format!("{:?}", LogFormat::default());
+        assert_eq!(
+            default,
+            if cfg!(debug_assertions) {
+                "Pretty"
+            } else {
+                "Compact"
+            }
+        );
+    }
+
+    #[rstest]
+    #[case::unset(None, "martin=info,martin_core=info")]
+    #[case::mirrored(Some("martin=debug"), "martin=debug,martin_core=debug")]
+    #[case::mirrored_in_list(
+        Some("actix=warn,martin=trace"),
+        "actix=warn,martin=trace,martin_core=trace"
+    )]
+    #[case::already_set(Some("martin=debug,martin_core=warn"), "martin=debug,martin_core=warn")]
+    #[case::unrelated(Some("actix=warn"), "actix=warn")]
+    #[case::not_a_directive(Some("martin"), "martin")]
+    #[case::embedded(Some("xmartin=debug"), "xmartin=debug")]
+    fn martin_core_level_mirrors_martin(#[case] env_filter: Option<&str>, #[case] expected: &str) {
+        let actual =
+            ensure_martin_core_log_level_matches(env_filter.map(ToOwned::to_owned), "martin=");
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn invalid_filter_falls_back_to_debug() {
+        assert_eq!(parse_filter("info").to_string(), "info");
+        assert_eq!(parse_filter("=!!=").to_string(), "debug");
+    }
 }
