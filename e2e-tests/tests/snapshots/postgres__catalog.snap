@@ -39,6 +39,10 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.empty_bounds.geom"
   },
+  "floor_plan": {
+    "content_type": "application/x-protobuf",
+    "description": "public.floor_plan.geom"
+  },
   "function_Mixed_Name": {
     "content_type": "application/x-protobuf",
     "description": "a function source with MixedCase name"
@@ -135,9 +139,17 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.linestring_bounds_vertical.geom"
   },
+  "mars_points": {
+    "content_type": "application/x-protobuf",
+    "description": "public.mars_points.geom"
+  },
   "mat_view": {
     "content_type": "application/x-protobuf",
     "description": "materialized view comment"
+  },
+  "nz_points": {
+    "content_type": "application/x-protobuf",
+    "description": "public.nz_points.geom"
   },
   "point_bounds": {
     "content_type": "application/x-protobuf",

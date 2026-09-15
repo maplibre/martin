@@ -15,4 +15,7 @@ pub use builder::PostgresAutoDiscoveryBuilder;
 mod spec;
 pub use spec::SourceSpec;
 
+mod tile_grid;
+pub use tile_grid::PgTileGrid;
+
 pub mod resolver;

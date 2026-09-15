@@ -67,8 +67,11 @@ nav = [
         {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
         {"GeoJSON Sources" = "sources-geojson.md"},
         {"DuckDB Sources" = "sources-duckdb.md"},
-        {"Passthrough Sources" = "sources-passthrough.md"},
-        {"Composite Sources" = "sources-composite.md"}
+        {"Passthrough Sources" = "sources-passthrough.md"}
+    ]},
+    {"Tile Serving" = [
+        {"Composite Sources" = "sources-composite.md"},
+        {"Tile Grids" = "tile-grids.md"}
     ]},
     {"Postprocessing" = [
         "postprocessing/index.md",

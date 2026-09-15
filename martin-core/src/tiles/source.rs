@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use martin_tile_utils::{TileCoord, TileData, TileInfo};
+use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo, WEB_MERCATOR_QUAD};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
@@ -27,6 +27,11 @@ pub trait Source: Send + Sync + Debug {
 
     /// Technical tile information (format, encoding, etc.).
     fn get_tile_info(&self) -> TileInfo;
+
+    /// The tile grid this source's `z/x/y` addresses refer to, Web Mercator unless a source says otherwise.
+    fn tile_grid(&self) -> &TileGrid {
+        &WEB_MERCATOR_QUAD
+    }
 
     /// Creates a boxed clone for trait object storage.
     fn clone_source(&self) -> BoxedSource;
@@ -114,12 +119,14 @@ pub trait Source: Send + Sync + Debug {
         let id = self.get_id();
         let tilejson = self.get_tilejson();
         let info = self.get_tile_info();
+        let grid = self.tile_grid();
         CatalogSourceEntry {
             content_type: info.format.content_type().to_owned(),
             content_encoding: info.encoding.compression().map(str::to_owned),
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
+            tile_grid: (!grid.is_web_mercator()).then(|| grid.id().to_owned()),
             // FIXME: surface `tilejson.vector_layers.len()` once we always have it.
             layer_count: None,
             // FIXME: surface the source's mtime (mbtiles/pmtiles modtime, etc.).

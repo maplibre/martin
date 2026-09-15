@@ -1,0 +1,98 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: dump
+---
+layer: 0
+  name: points1_wgs84
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(529,1959)
+    properties:
+      gid = 12 (uint)
+  feature: 1
+    id: (none)
+    geometry: POINT(536,1546)
+    properties:
+      gid = 24 (uint)
+  feature: 2
+    id: (none)
+    geometry: POINT(1142,1092)
+    properties:
+      gid = 8 (uint)
+  feature: 3
+    id: (none)
+    geometry: POINT(1413,490)
+    properties:
+      gid = 17 (uint)
+  feature: 4
+    id: (none)
+    geometry: POINT(3508,311)
+    properties:
+      gid = 7 (uint)
+  feature: 5
+    id: (none)
+    geometry: POINT(3700,828)
+    properties:
+      gid = 29 (uint)
+  feature: 6
+    id: (none)
+    geometry: POINT(3475,1155)
+    properties:
+      gid = 6 (uint)
+  feature: 7
+    id: (none)
+    geometry: POINT(3250,1777)
+    properties:
+      gid = 3 (uint)
+  feature: 8
+    id: (none)
+    geometry: POINT(3250,1777)
+    properties:
+      gid = 2 (uint)
+  feature: 9
+    id: (none)
+    geometry: POINT(3250,1777)
+    properties:
+      gid = 1 (uint)
+  feature: 10
+    id: (none)
+    geometry: POINT(1401,1394)
+    properties:
+      gid = 20 (uint)
+  feature: 11
+    id: (none)
+    geometry: POINT(1464,1751)
+    properties:
+      gid = 30 (uint)
+  feature: 12
+    id: (none)
+    geometry: POINT(3183,3450)
+    properties:
+      gid = 10 (uint)
+  feature: 13
+    id: (none)
+    geometry: POINT(3011,3485)
+    properties:
+      gid = 22 (uint)
+  feature: 14
+    id: (none)
+    geometry: POINT(577,3059)
+    properties:
+      gid = 13 (uint)
+  feature: 15
+    id: (none)
+    geometry: POINT(1071,2720)
+    properties:
+      gid = 23 (uint)
+  feature: 16
+    id: (none)
+    geometry: POINT(1826,2471)
+    properties:
+      gid = 11 (uint)
+  feature: 17
+    id: (none)
+    geometry: POINT(3555,2243)
+    properties:
+      gid = 19 (uint)

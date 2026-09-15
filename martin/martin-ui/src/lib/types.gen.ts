@@ -317,6 +317,8 @@ export interface components {
                     layer_count?: number | null;
                     /** @description Human-readable name for the tile source */
                     name?: string | null;
+                    /** @description Tile grid the source is served in, when it is not the default Web Mercator grid */
+                    tile_grid?: string | null;
                 };
             };
         };

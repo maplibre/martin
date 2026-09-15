@@ -52,6 +52,9 @@ pub mod neighbourhood;
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};
 
+mod declared_grid;
+pub use declared_grid::DeclaredGridSource;
+
 mod error;
 pub use error::{MartinCoreError, MartinCoreResult};
 
