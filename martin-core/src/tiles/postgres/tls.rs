@@ -385,7 +385,7 @@ mod tests {
     fn native_roots_are_loadable() -> bool {
         let errors = load_native_certs().errors;
         if !errors.is_empty() {
-            eprintln!("skipping: the platform root certificates cannot be loaded: {errors:?}");
+            warn!("skipping: the platform root certificates cannot be loaded: {errors:?}");
         }
         errors.is_empty()
     }
