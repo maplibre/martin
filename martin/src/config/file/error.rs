@@ -404,28 +404,103 @@ mod tests {
         }
     }
 
-    fn every_variant() -> Vec<ConfigFileError> {
-        let path = PathBuf::from("config.yaml");
-        let mut errors = vec![
-            ConfigFileError::IoError(io_error(), path.clone()),
-            ConfigFileError::ConfigLoadError(io_error(), path.clone()),
-            ConfigFileError::ConfigWriteError(io_error(), path.clone()),
-            ConfigFileError::NoSources,
-            ConfigFileError::InvalidFilePath(path.clone()),
-            ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned()),
-            ConfigFileError::PathNotConvertibleToUrl(path.clone()),
-            ConfigFileError::InvalidSourceFilePath("src".to_owned(), path.clone()),
-            ConfigFileError::CorsNoOriginsConfigured,
-            ConfigFileError::InvalidBasePath("no-slash".to_owned()),
-            ConfigFileError::TileResolutionWarningsIssued,
-        ];
-        #[cfg(feature = "passthrough")]
-        errors.push(ConfigFileError::InvalidPassthroughFormat {
+    fn config_yaml() -> PathBuf {
+        PathBuf::from("config.yaml")
+    }
+
+    fn describe(err: &ConfigFileError) -> String {
+        let some_or_none = |is_some: bool| if is_some { "some" } else { "none" };
+        format!(
+            "message: {err}\ncode: {}\nhelp: {}\nurl: {}\nlabels: {}\nsource_code: {}\nmiette_report: {}",
+            err.code().expect("a code"),
+            err.help().map_or_else(|| "none".to_owned(), |h| h.to_string()),
+            err.url().expect("a url"),
+            some_or_none(err.labels().is_some()),
+            some_or_none(err.source_code().is_some()),
+            some_or_none(err.to_miette_report().is_some()),
+        )
+    }
+
+    #[test]
+    fn io_error() {
+        let err = ConfigFileError::IoError(io_error(), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn config_load_error() {
+        let err = ConfigFileError::ConfigLoadError(io_error(), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn config_write_error() {
+        let err = ConfigFileError::ConfigWriteError(io_error(), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn no_sources() {
+        let err = ConfigFileError::NoSources;
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn invalid_file_path() {
+        let err = ConfigFileError::InvalidFilePath(config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn invalid_source_url() {
+        let err = ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn path_not_convertible_to_url() {
+        let err = ConfigFileError::PathNotConvertibleToUrl(config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn invalid_source_file_path() {
+        let err = ConfigFileError::InvalidSourceFilePath("src".to_owned(), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "passthrough")]
+    #[test]
+    fn invalid_passthrough_format() {
+        let err = ConfigFileError::InvalidPassthroughFormat {
             source_id: "src".to_owned(),
             tile_format: "tiff".to_owned(),
-        });
-        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
-        errors.push(ConfigFileError::InvalidHillshade {
+        };
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn cors_no_origins_configured() {
+        let err = ConfigFileError::CorsNoOriginsConfigured;
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn invalid_base_path() {
+        let err = ConfigFileError::InvalidBasePath("no-slash".to_owned());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[test]
+    fn tile_resolution_warnings_issued() {
+        let err = ConfigFileError::TileResolutionWarningsIssued;
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[test]
+    fn invalid_hillshade() {
+        let err = ConfigFileError::InvalidHillshade {
             source_id: "src".to_owned(),
             source: Box::new(HillshadeRangeError {
                 name: "azimuth".to_owned(),
@@ -433,9 +508,14 @@ mod tests {
                 low: "0".to_owned(),
                 high: "360".to_owned(),
             }),
-        });
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
-        errors.push(ConfigFileError::InvalidContour {
+        };
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[test]
+    fn invalid_contour() {
+        let err = ConfigFileError::InvalidContour {
             source_id: "src".to_owned(),
             source: Box::new(ContourRangeError {
                 name: "interval".to_owned(),
@@ -443,69 +523,96 @@ mod tests {
                 low: "0".to_owned(),
                 high: "10000".to_owned(),
             }),
-        });
-        #[cfg(feature = "styles")]
-        errors.push(ConfigFileError::DirectoryWalking(
-            walkdir::WalkDir::new("/definitely/not/here")
-                .into_iter()
-                .next()
-                .expect("a missing root yields an entry")
-                .expect_err("a missing root yields an error"),
-            path.clone(),
-        ));
-        #[cfg(feature = "postgres")]
-        errors.extend([
-            ConfigFileError::PostgresConnectionStringMissing,
-            ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter(
-                "x".to_owned(),
-                "y".to_owned(),
-            )),
-        ]);
-        #[cfg(feature = "fonts")]
-        errors.extend([
-            ConfigFileError::FontResolutionFailed(
-                FontError::FontNotFound("Roboto".to_owned()),
-                path.clone(),
-            ),
-            ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
-                "Roboto".to_owned(),
-            )),
-        ]);
-        #[cfg(feature = "sprites")]
-        errors.push(ConfigFileError::SpriteAliasResolutionFailed(
-            SpriteError::SpriteNotFound("icons".to_owned()),
-        ));
-        #[cfg(feature = "_tiles")]
-        errors.push(ConfigFileError::TileAliasResolutionFailed(
-            crate::source::TileAliasError::EmptyAlias("all".to_owned()),
-        ));
-        #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
-        errors.extend([
-            ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned()),
-            ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned()),
-        ]);
-        #[cfg(all(feature = "rendering", target_os = "linux"))]
-        errors.push(ConfigFileError::RendererPoolSpawnFailed(io_error()));
-        errors
+        };
+        insta::assert_snapshot!(describe(&err), @"");
     }
 
+    #[cfg(feature = "styles")]
     #[test]
-    fn every_variant_has_a_code_and_url_but_no_labels() {
-        for err in every_variant() {
-            let code = err.code().expect("a code").to_string();
-            assert!(code.starts_with("martin::config::"), "{err}: {code}");
-            assert_eq!(
-                err.url().expect("a url").to_string(),
-                "https://maplibre.org/martin/config-file/"
-            );
-            assert!(err.labels().is_none(), "{err}");
-            assert!(err.source_code().is_none(), "{err}");
-            assert!(err.to_miette_report().is_none(), "{err}");
-            if let Some(help) = err.help() {
-                assert!(!help.to_string().is_empty(), "{err}");
-            }
-            assert!(!err.to_string().is_empty());
-        }
+    fn directory_walking() {
+        let walk_err = walkdir::WalkDir::new("/definitely/not/here")
+            .into_iter()
+            .next()
+            .expect("a missing root yields an entry")
+            .expect_err("a missing root yields an error");
+        let err = ConfigFileError::DirectoryWalking(walk_err, config_yaml());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn postgres_connection_string_missing() {
+        let err = ConfigFileError::PostgresConnectionStringMissing;
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn postgres_pool_creation_failed() {
+        let err = ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter(
+            "x".to_owned(),
+            "y".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "fonts")]
+    #[test]
+    fn font_resolution_failed() {
+        let err = ConfigFileError::FontResolutionFailed(
+            FontError::FontNotFound("Roboto".to_owned()),
+            config_yaml(),
+        );
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "fonts")]
+    #[test]
+    fn font_alias_resolution_failed() {
+        let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
+            "Roboto".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn sprite_alias_resolution_failed() {
+        let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound(
+            "icons".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn tile_alias_resolution_failed() {
+        let err = ConfigFileError::TileAliasResolutionFailed(
+            crate::source::TileAliasError::EmptyAlias("all".to_owned()),
+        );
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[test]
+    fn object_store_url_parsing() {
+        let err =
+            ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[test]
+    fn object_store_list() {
+        let err = ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned());
+        insta::assert_snapshot!(describe(&err), @"");
+    }
+
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[test]
+    fn renderer_pool_spawn_failed() {
+        let err = ConfigFileError::RendererPoolSpawnFailed(io_error());
+        insta::assert_snapshot!(describe(&err), @"");
     }
 
     fn yaml_error(yaml: &str, with_snippet: bool) -> ConfigFileError {
