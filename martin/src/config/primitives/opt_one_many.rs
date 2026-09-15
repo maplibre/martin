@@ -307,8 +307,6 @@ mod tests {
         assert!(!Many(vec![1]).is_empty());
     }
 
-    // ----- Existing behavior tests -----
-
     #[test]
     fn one_or_many_new() {
         assert_eq!(OptOneMany::new(vec![1, 2, 3]), Many(vec![1, 2, 3]));
