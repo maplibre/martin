@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/maplibre/martin/compare/martin-core-v0.11.2...martin-core-v0.12.0) - 2026-09-15
+
+### Fixed
+
+- oversized tiles in contour ([#3292](https://github.com/maplibre/martin/pull/3292))
+
+### Other
+
+- *(unstable-cog)* cover the requirements a COG has to meet ([#3300](https://github.com/maplibre/martin/pull/3300))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+
 ## [0.11.2](https://github.com/maplibre/martin/compare/martin-core-v0.11.1...martin-core-v0.11.2) - 2026-09-06
 
 ### Added

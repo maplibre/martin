@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v1.17.0) - 2026-09-15
+
+### Added
+
+- *(cog)* detect and reload replaced remote objects ([#3268](https://github.com/maplibre/martin/pull/3268))
+
+### Fixed
+
+- *(deps)* update dependency maplibre-gl to v6.8.0 ([#3313](https://github.com/maplibre/martin/pull/3313))
+- *(deps)* update npm dependencies ([#3307](https://github.com/maplibre/martin/pull/3307))
+- *(srv)* reject a transcode the source is configured not to perform ([#3297](https://github.com/maplibre/martin/pull/3297))
+- *(srv)* let an explicit Accept type outrank a `*/*` wildcard ([#3296](https://github.com/maplibre/martin/pull/3296))
+- *(webui)* request MLT tiles with an Accept header ([#3295](https://github.com/maplibre/martin/pull/3295))
+- oversized tiles in contour ([#3292](https://github.com/maplibre/martin/pull/3292))
+
+### Other
+
+- *(deps)* autoupdate pre-commit ([#3303](https://github.com/maplibre/martin/pull/3303))
+- *(unstable-cog)* cover the requirements a COG has to meet ([#3300](https://github.com/maplibre/martin/pull/3300))
+- *(hotpath)* only profile PRs labeled "bench" ([#3299](https://github.com/maplibre/martin/pull/3299))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
+- add a benchmark to make sure we don't regress on cache usage ops ([#3291](https://github.com/maplibre/martin/pull/3291))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+
 ## [1.16.1](https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1) - 2026-09-07
 
 ### Fixed
