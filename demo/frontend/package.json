@@ -10,9 +10,9 @@
     "debounce": "3.0.0",
     "maplibre-gl": "^6.0.0",
     "normalize.css": "8.0.1",
-    "react": "19.2.8",
+    "react": "19.3.0",
     "react-day-picker": "^10.0.1",
-    "react-dom": "19.2.8",
+    "react-dom": "19.3.0",
     "react-map-gl": "^8.1.1",
     "react-scroll-parallax": "3.5.0",
     "styled-components": "6.5.3"

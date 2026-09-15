@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tokio::sync::oneshot;
 use tracing::error;
 
@@ -104,31 +104,45 @@ fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::
         if key.kind != KeyEventKind::Press {
             continue;
         }
-        let control = key.modifiers.contains(KeyModifiers::CONTROL);
-        if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
-            || (control && key.code == KeyCode::Char('c'))
-        {
+        if press(key, dashboard, &mut log, view.log.len()) == Flow::Quit {
             return Ok(());
         }
-        if key.code == KeyCode::Char('c') {
-            dashboard.clear();
-        }
-        if key.code == KeyCode::Char('l') {
-            log.toggle_size();
-        }
-        let lines = view.log.len();
-        if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
-            log.scroll_back(1, lines);
-        } else if key.code == KeyCode::PageUp {
-            log.scroll_back(PAGE, lines);
-        } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
-            log.scroll_forward(1, lines);
-        } else if key.code == KeyCode::PageDown {
-            log.scroll_forward(PAGE, lines);
-        } else if key.code == KeyCode::Home {
-            log.scroll_to_oldest(lines);
-        } else if key.code == KeyCode::End {
-            log.follow();
-        }
     }
+}
+
+/// Whether the dashboard keeps running after a key press.
+#[derive(Debug, PartialEq, Eq)]
+enum Flow {
+    Continue,
+    Quit,
+}
+
+/// Applies a pressed key to the dashboard and the log view of `lines` lines.
+fn press(key: KeyEvent, dashboard: &Dashboard, log: &mut LogView, lines: usize) -> Flow {
+    let control = key.modifiers.contains(KeyModifiers::CONTROL);
+    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
+        || (control && key.code == KeyCode::Char('c'))
+    {
+        return Flow::Quit;
+    }
+    if key.code == KeyCode::Char('c') {
+        dashboard.clear();
+    }
+    if key.code == KeyCode::Char('l') {
+        log.toggle_size();
+    }
+    if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
+        log.scroll_back(1, lines);
+    } else if key.code == KeyCode::PageUp {
+        log.scroll_back(PAGE, lines);
+    } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
+        log.scroll_forward(1, lines);
+    } else if key.code == KeyCode::PageDown {
+        log.scroll_forward(PAGE, lines);
+    } else if key.code == KeyCode::Home {
+        log.scroll_to_oldest(lines);
+    } else if key.code == KeyCode::End {
+        log.follow();
+    }
+    Flow::Continue
 }

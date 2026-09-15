@@ -23,7 +23,7 @@ pub async fn observe(
 }
 
 /// The tile a matched request asked for.
-fn tile_request(req: &HttpRequest) -> Option<TileRequest> {
+pub(super) fn tile_request(req: &HttpRequest) -> Option<TileRequest> {
     let info = req.match_info();
     let source = info.get("source_ids").or_else(|| info.get("ids"))?;
     Some(TileRequest {

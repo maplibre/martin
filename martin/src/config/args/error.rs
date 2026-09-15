@@ -40,3 +40,39 @@ fn elide_vec(vec: &[String], max_items: usize, max_len: usize) -> String {
     }
     s
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::empty(&[], "")]
+    #[case::one(&["a"], "a")]
+    #[case::spaced(&["a", "b", "c"], "a b c")]
+    #[case::truncated(&["0123456789abcdefXYZ"], "0123456789abcde…")]
+    #[case::utf8_boundary(&["ääääääääää"], "äääääää…")]
+    #[case::elided(&["1", "2", "3", "4", "5", "6", "7"], "1 2 3 4 and 3 more")]
+    fn elide_vec_shortens_long_lists(#[case] input: &[&str], #[case] expected: &str) {
+        let input: Vec<String> = input.iter().map(ToString::to_string).collect();
+        assert_eq!(elide_vec(&input, 3, 15), expected);
+    }
+
+    #[test]
+    fn config_and_connections_lists_the_offending_parameters() {
+        let err = ArgsError::ConfigAndConnections(vec![
+            "postgres://x".to_owned(),
+            "b.mbtiles".to_owned(),
+        ]);
+        assert_eq!(
+            err.to_string(),
+            "The --config and the connection parameters cannot be used together. Please remove unsupported parameters 'postgres://x b.mbtiles'"
+        );
+        let err = ArgsError::UnrecognizableConnections(vec!["what".to_owned()]);
+        assert_eq!(
+            err.to_string(),
+            r#"Unrecognizable connection strings: ["what"]"#
+        );
+    }
+}
