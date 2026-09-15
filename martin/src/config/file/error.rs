@@ -413,7 +413,8 @@ mod tests {
         format!(
             "message: {err}\ncode: {}\nhelp: {}\nurl: {}\nlabels: {}\nsource_code: {}\nmiette_report: {}",
             err.code().expect("a code"),
-            err.help().map_or_else(|| "none".to_owned(), |h| h.to_string()),
+            err.help()
+                .map_or_else(|| "none".to_owned(), |h| h.to_string()),
             err.url().expect("a url"),
             some_or_none(err.labels().is_some()),
             some_or_none(err.source_code().is_some()),
@@ -453,7 +454,8 @@ mod tests {
 
     #[test]
     fn invalid_source_url() {
-        let err = ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
+        let err =
+            ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
         insta::assert_snapshot!(describe(&err), @"");
     }
 
