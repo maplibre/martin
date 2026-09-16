@@ -35,11 +35,11 @@ docker run -p 3000:3000 \
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | x64                                                                                                                                         | ARM-64                                                                                                              |
-|----------|---------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| Platform | x64                                                                                                                                          | ARM-64                                                                                                               |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    |                                                                                                                                             | [.tar.gz][rl-macos-a64]                                                                                              |
-| Windows  | [.zip][rl-win64-zip]                                                                                                                        |                                                                                                                      |
+| macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]                                                                                              |
+| Windows  | [.zip][rl-win64-zip]                                                                                                                         |                                                                                                                      |
 
 !!! note
     The standard binaries do **not** include server-side style [rendering](sources-styles/rendering.md).
