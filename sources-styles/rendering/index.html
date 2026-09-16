@@ -2124,7 +2124,15 @@
 as XYZ tiles, or as a single static image at a chosen camera.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>This feature is included in the default build on Linux.
+<p>Rendering is <strong>not</strong> part of the default build.
+It relies on <code>maplibre_native</code>, which links pre-compiled native libraries with strict runtime requirements.
+We only ship it where we control the runtime environment.
+You get it by either:</p>
+<ul>
+<li>using the <strong><code>-full</code> Docker image</strong> variant, tagged <code>:latest-full</code>, or the matching <code>-full</code> Linux-gnu release tarball, or</li>
+<li>building from source with the <code>rendering</code> feature enabled (Linux only): <code>cargo install martin --features rendering</code>.</li>
+</ul>
+<p>The default Docker image, the default release binaries, and <code>cargo install martin</code> do <strong>not</strong> include rendering.
 Its behavior may change in patch releases.</p>
 <p>Limitations of our current implementation:</p>
 <ul>
@@ -2135,7 +2143,7 @@ Its behavior may change in patch releases.</p>
 </ul>
 <p>We welcome contributions to help stabilize this feature!</p>
 </div>
-<p>To enable rendering, turn it on in the configuration file:</p>
+<p>To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">styles</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>

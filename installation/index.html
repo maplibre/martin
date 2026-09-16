@@ -1227,6 +1227,12 @@ passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or U
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">           </span>ghcr.io/maplibre/martin:1.16.1<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">           </span>--config<span class="w"> </span>/config/config.yaml
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The default image is lean and does <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
+If you need it, use the batteries-included <code>-full</code> image variant instead, tagged <code>:latest-full</code> or <code>:&lt;version&gt;-full</code>.
+It is larger because it bundles the <code>maplibre_native</code> runtime libraries.</p>
+</div>
 <h3 id="from-binary-distributions-manually">From Binary Distributions Manually</h3>
 <p>You can download martin from <a href="https://github.com/maplibre/martin/releases">GitHub releases page</a>.</p>
 <table>
@@ -1240,8 +1246,8 @@ passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or U
 <tbody>
 <tr>
 <td>Linux</td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb">.deb</a></td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td>
+<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz">.tar.gz</a> (gnu, full)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb">.deb</a></td>
+<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz">.tar.gz</a> (gnu, full)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td>
 </tr>
 <tr>
 <td>macOS</td>
@@ -1255,6 +1261,12 @@ passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or U
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The standard binaries do <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
+The <code>-full</code> Linux-gnu tarballs do.
+They add the <code>rendering</code> feature and its bundled native libraries.</p>
+</div>
 <p>Rust users can install pre-built martin binary
 with <a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a> and <code>cargo</code>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>cargo-binstall
@@ -1297,6 +1309,11 @@ To experiment with them, build Martin from source with the feature enabled:</p>
 </span></code></pre></div>
 <p>The currently available unstable features are <code>unstable-cog</code> for <a href="../sources-cog-files/">COG sources</a>
 and <code>unstable-duckdb</code> for <a href="../sources-duckdb/">DuckDB / GeoParquet sources</a>.</p>
+<p>Server-side style <a href="../sources-styles/rendering/">rendering</a> is also left out of the default feature set.
+To include it (Linux only), add the <code>rendering</code> feature.
+You will need its build dependencies first (<code>just install-dependencies</code>).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="w"> </span>rendering
+</span></code></pre></div>
 <h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
 <h5 id="windows">Windows</h5>
 <p>When building from source on Windows, please note the following feature limitations:</p>
