@@ -108,7 +108,6 @@ default = [
     "passthrough",
     "pmtiles",
     "postgres",
-    "rendering",
     "sprites",
     "styles",
     "webui",
