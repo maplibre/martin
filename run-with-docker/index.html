@@ -1643,7 +1643,7 @@ Use <code>-full</code> only if you need rendering; it is a larger image.</p>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>ghcr.io/maplibre/martin:1.16.1<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>/files
 </span></code></pre></div>
-<p>You can also pass any <a href="../run-with-cli/">CLI flags</a> after the image name, for example <code>--webui enable-for-all</code> to serve the built-in web UI (disabled by default):</p>
+<p>You can also pass any <a href="../run-with-cli/">CLI flags</a> after the image name, for example <code>--webui enable-for-all</code> to serve the built-in web UI to all clients (by default it is only served to connections from localhost, which inside a container excludes the host):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-v<span class="w"> </span>/path/to/local/files:/files<span class="w"> </span><span class="se">\</span>
