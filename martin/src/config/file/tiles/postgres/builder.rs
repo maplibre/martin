@@ -9,7 +9,7 @@ use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
-    query_available_function, query_available_tables, query_schemas, table_to_query,
+    function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
 };
 use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
@@ -50,7 +50,7 @@ pub struct PostgresAutoDiscoveryBuilder {
 }
 
 /// Configuration for auto-discovering `PostgreSQL` functions.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PostgresAutoDiscoveryBuilderFunctions {
     schemas: Option<HashSet<String>>,
@@ -58,7 +58,7 @@ pub struct PostgresAutoDiscoveryBuilderFunctions {
 }
 
 /// Configuration for auto-discovering `PostgreSQL` tables.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PostgresAutoDiscoveryBuilderTables {
     schemas: Option<HashSet<String>>,
@@ -108,6 +108,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
             config.pool_size.unwrap_or(DEFAULT_POOL_SIZE).get(),
+            config.retry_timeout.unwrap_or_default(),
         )
         .await
         .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
@@ -130,7 +131,7 @@ impl PostgresAutoDiscoveryBuilder {
 
     /// Returns the bounds calculation type for this builder.
     #[must_use]
-    pub fn auto_bounds(&self) -> BoundsCalcType {
+    pub const fn auto_bounds(&self) -> BoundsCalcType {
         self.auto_bounds
     }
 
@@ -164,15 +165,26 @@ impl PostgresAutoDiscoveryBuilder {
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
+        if self.tables.is_empty() && self.auto_tables.is_none() {
+            // No table source can come out of this, so the catalog query is skipped.
+            return Ok(());
+        }
         let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
         let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
+        let mut declared = HashSet::<(&str, &str, &str, Option<&str>)>::new();
         for (id, cfg_inf) in &self.tables {
             match self.build_one_table_info(&db_tables_info, all_schemas, id, cfg_inf) {
                 Ok(merged_inf) => {
-                    if !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column)) {
+                    used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+                    if !declared.insert((
+                        &cfg_inf.schema,
+                        &cfg_inf.table,
+                        &cfg_inf.geometry_column,
+                        cfg_inf.filter.as_deref(),
+                    )) {
                         warn!(
                             source.id = %id,
                             schema = %cfg_inf.schema,
@@ -243,6 +255,10 @@ impl PostgresAutoDiscoveryBuilder {
         specs: &mut BTreeMap<String, SourceSpec>,
         warnings: &mut Vec<TileSourceWarning>,
     ) -> PostgresResult<()> {
+        if self.functions.is_empty() && self.auto_functions.is_none() {
+            // No function source can come out of this, so the catalog query is skipped.
+            return Ok(());
+        }
         let mut db_funcs_info = query_available_function(&self.pool).await?;
 
         // Match configured function sources against the discovered catalog.
@@ -294,7 +310,7 @@ impl PostgresAutoDiscoveryBuilder {
                     let source_id = auto_funcs
                         .source_id_format
                         .replace("{schema}", &schema)
-                        .replace("{function}", &func);
+                        .replace("{function}", function_name(&func));
                     let id2 = self.resolve_id(&source_id, &db_inf);
                     specs.insert(id2, SourceSpec::Function(db_inf, pg_sql));
                 }
@@ -575,7 +591,7 @@ fn calc_auto(
     (auto_tables, auto_functions)
 }
 
-fn use_auto_publish(config: &PostgresConfig, for_functions: bool) -> bool {
+const fn use_auto_publish(config: &PostgresConfig, for_functions: bool) -> bool {
     match &config.auto_publish {
         NoValue => config.tables.is_none() && config.functions.is_none(),
         Object(funcs) => {
@@ -617,6 +633,8 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use std::assert_matches;
+
     use indoc::indoc;
     use insta::{assert_debug_snapshot, assert_yaml_snapshot};
     use rstest::rstest;
@@ -659,7 +677,7 @@ mod tests {
     #[case::auto_publish_false("auto_publish: false")]
     fn auto_publish_disabled(#[case] config_yaml: &str) {
         insta::allow_duplicates! {
-            assert_yaml_snapshot!(auto(config_yaml), @r"
+            assert_yaml_snapshot!(auto(config_yaml), @"
             auto_table: ~
             auto_funcs: ~
             ");
@@ -855,8 +873,9 @@ mod tests {
           gid: int4
         ");
         // The function is auto-published too, under the default `{function}` id.
-        assert!(
-            matches!(first.get("my_func"), Some(SourceSpec::Function(..))),
+        assert_matches!(
+            first.get("my_func"),
+            Some(SourceSpec::Function(..)),
             "expected an auto-published function spec for my_func"
         );
 
@@ -906,7 +925,10 @@ mod tests {
         PostgresSqlInfo {
             sql_query: "SELECT \"public\".\"my_func\"($1::integer, $2::integer, $3::integer) AS tile",
             use_url_query: false,
+            empty_tile_implies_empty_children: false,
             signature: "public.my_func(integer, integer, integer) -> bytea",
+            has_etag_column: false,
+            queryless: None,
         }
         "#);
 

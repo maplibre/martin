@@ -9,7 +9,7 @@ use martin_core::tiles::{Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
-const ORIGIN: TileCoord = TileCoord { z: 0, x: 0, y: 0 };
+const ORIGIN: TileCoord = TileCoord::new_unchecked(0, 0, 0);
 
 #[tokio::test]
 async fn cache_entry_available_before_ttl_expires() {
@@ -19,7 +19,7 @@ async fn cache_entry_available_before_ttl_expires() {
     insert(&cache, "src", ORIGIN, None, b"tile-data").await;
 
     let hit = assert_hit(&cache, "src", ORIGIN).await;
-    assert_eq!(hit.data, b"tile-data");
+    assert_eq!(hit.data, b"tile-data".as_slice());
 }
 
 #[tokio::test]
@@ -69,7 +69,7 @@ async fn cache_entry_persists_without_ttl_or_tti() {
     wait_and_flush(&cache, Duration::from_millis(50)).await;
 
     let hit = assert_hit(&cache, "src", ORIGIN).await;
-    assert_eq!(hit.data, b"data");
+    assert_eq!(hit.data, b"data".as_slice());
 }
 
 #[tokio::test]
@@ -114,7 +114,7 @@ async fn wait_and_flush(cache: &TileCache, duration: Duration) {
 }
 
 fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>) -> TileCacheKey {
-    TileCacheKey::new(source.into(), xyz, query.map(Into::into), format)
+    TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format, None)
 }
 
 async fn insert(
@@ -183,7 +183,7 @@ async fn cache_differentiates_by_format() {
         })
         .await
         .unwrap();
-    assert_eq!(got_a.data, b"mvt-data");
+    assert_eq!(got_a.data, b"mvt-data".as_slice());
 
     // Same source/xyz/query but format=Png -> must be a miss
     let mut recomputed = false;
@@ -196,7 +196,7 @@ async fn cache_differentiates_by_format() {
         .await
         .unwrap();
     assert!(recomputed, "different format should produce a cache miss");
-    assert_eq!(got_b.data, b"png-data");
+    assert_eq!(got_b.data, b"png-data".as_slice());
 
     // Requesting format=Mvt again -> must be a hit (returns original data)
     let got_a2 = cache
@@ -206,7 +206,7 @@ async fn cache_differentiates_by_format() {
         )
         .await
         .unwrap();
-    assert_eq!(got_a2.data, b"mvt-data");
+    assert_eq!(got_a2.data, b"mvt-data".as_slice());
 
     // format=None is a separate key from format=Some(Mvt)
     let mut recomputed_none = false;
@@ -222,4 +222,92 @@ async fn cache_differentiates_by_format() {
         recomputed_none,
         "format=None should be a separate cache entry from format=Some(Mvt)"
     );
+}
+
+#[tokio::test]
+async fn raw_and_rendered_entries_never_collide() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    let raw = TileCacheKey::new_request_static("src", ORIGIN);
+    let rendered = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None);
+
+    assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
+
+    let stored = cache
+        .get_or_insert(raw.clone(), async || {
+            Ok::<_, Infallible>(test_tile(b"raw-normals"))
+        })
+        .await
+        .unwrap();
+    assert_eq!(stored.data, b"raw-normals".as_slice());
+
+    // The rendered key must still miss: it is a different entry entirely.
+    let mut recomputed = false;
+    let served = cache
+        .get_or_insert(rendered.clone(), || {
+            recomputed = true;
+            async { Ok::<_, Infallible>(test_tile(b"baked-hillshade")) }
+        })
+        .await
+        .unwrap();
+    assert!(recomputed, "a rendered key must not hit a raw entry");
+    assert_eq!(served.data, b"baked-hillshade".as_slice());
+
+    // ...and the raw entry is untouched by the rendered one.
+    let reread = cache
+        .get_or_insert::<_, _, Infallible>(raw, async || {
+            panic!("the raw entry should still be cached");
+        })
+        .await
+        .unwrap();
+    assert_eq!(reread.data, b"raw-normals".as_slice());
+}
+
+#[tokio::test]
+async fn raw_entries_ignore_request_shape() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
+        .await
+        .unwrap();
+
+    // A second raw request for the same tile hits, whatever the caller was
+    // asked for, because a raw key cannot express a request shape at all.
+    let hit = cache
+        .get_or_insert::<_, _, Infallible>(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || {
+                panic!("raw entries must be shared across request shapes");
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(hit.data, b"normals".as_slice());
+}
+
+#[tokio::test]
+async fn invalidation_reaches_raw_and_rendered_entries() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_static("src", ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
+        .await
+        .unwrap();
+    cache
+        .get_or_insert(
+            TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None),
+            async || Ok::<_, Infallible>(test_tile(b"baked")),
+        )
+        .await
+        .unwrap();
+    cache.run_pending_tasks().await;
+    assert_eq!(cache.entry_count(), 2);
+
+    cache.invalidate_source("src");
+    cache.run_pending_tasks().await;
+    assert_eq!(cache.entry_count(), 0, "both entries must be invalidated");
 }

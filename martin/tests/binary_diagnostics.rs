@@ -1,6 +1,6 @@
 //! End-to-end binary smoke tests for config-error diagnostics.
 //!
-//! Unit tests in `src/config/...` exercise `MartinError::render_diagnostic_with` in-process,
+//! Unit tests in `src/config/...` exercise `StartupError::render_diagnostic_with` in-process,
 //! but they don't catch wiring regressions in the binary entry point - for example, if
 //! `main()` stops calling `render_diagnostic_with` or if `RUST_LOG_FORMAT=json` no longer
 //! propagates from env to the renderer. These tests spawn the actual `martin` binary, feed
@@ -37,7 +37,10 @@ fn run_with_bad_config(yaml: &str, extra_env: &[(&str, &str)]) -> String {
     );
     let stderr = String::from_utf8(output.stderr).expect("stderr was not UTF-8");
     let path = cfg.path().to_str().expect("temp path was not UTF-8");
-    stderr.replace(path, "<config>")
+    // The JSON format escapes the backslashes of a Windows path.
+    stderr
+        .replace(&path.replace('\\', "\\\\"), "<config>")
+        .replace(path, "<config>")
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::env;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
@@ -11,9 +11,9 @@ use tracing::warn;
 
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues,
+    FileConfigEnum, UnrecognizedValues, subdirectories,
 };
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use crate::config::primitives::OptBoolObj;
 
 #[derive(
@@ -21,6 +21,7 @@ use crate::config::primitives::OptBoolObj;
     Debug,
     Default,
     PartialEq,
+    Eq,
     Serialize,
     Deserialize,
     CollectUnrecognizedKeys,
@@ -33,7 +34,7 @@ pub struct InnerStyleConfig {
     /// Note on EXPERIMENTAL status:
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
 
@@ -42,12 +43,13 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[derive(
     Clone,
     Debug,
     Default,
     PartialEq,
+    Eq,
     Serialize,
     Deserialize,
     CollectUnrecognizedKeys,
@@ -100,6 +102,14 @@ impl StyleConfig {
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
             }
         }
+        #[cfg(all(feature = "rendering", not(target_os = "linux")))]
+        match cfg.custom.rendering {
+            OptBoolObj::NoValue | OptBoolObj::Bool(false) => {}
+            OptBoolObj::Object(ref o) if !o.enabled => {}
+            OptBoolObj::Bool(true) | OptBoolObj::Object(_) => {
+                warn!("rendering is configured, but only available in Linux builds. Ignoring it.");
+            }
+        }
 
         let mut configs = BTreeMap::new();
 
@@ -146,7 +156,22 @@ impl StyleConfig {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        *self = Self::new_extended(paths_with_names, configs, cfg.custom);
+        let collections: Vec<_> = cfg.collections.into_iter().collect();
+        for collection in &collections {
+            for (project, dir) in subdirectories(collection)
+                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            {
+                for path in list_contained_files(&dir, "json")? {
+                    let Some(stem) = path.file_stem() else {
+                        continue;
+                    };
+                    let style_id = format!("{project}.{}", stem.to_string_lossy().trim());
+                    results.add_style(style_id, path);
+                }
+            }
+        }
+
+        *self = Self::new_extended(paths_with_names, collections, configs, cfg.custom);
 
         Ok(results)
     }
@@ -184,9 +209,23 @@ fn list_contained_files(
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
+    use martin_core::styles::StyleCatalog;
 
     use super::*;
     use crate::config::file::FileConfigSrc;
+
+    /// The catalog keeps the paths as joined, so on Windows they hold backslashes.
+    fn catalog_with_forward_slashes(styles: &StyleSources) -> StyleCatalog {
+        let mut catalog = styles.get_catalog();
+        for entry in catalog.values_mut() {
+            entry.path = entry
+                .path
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+                .into();
+        }
+        catalog
+    }
 
     #[test]
     fn styles_parse_paths_only_without_rendering_field() {
@@ -203,7 +242,7 @@ mod tests {
         assert_eq!(paths, vec![PathBuf::from("/data")]);
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_config_parses_workers() {
         use std::num::NonZeroUsize;
@@ -221,7 +260,7 @@ mod tests {
         assert_eq!(renderer.workers, NonZeroUsize::new(4));
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_config_rejects_zero_workers() {
         let yaml = indoc! {"
@@ -250,7 +289,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+        insta::assert_yaml_snapshot!(catalog_with_forward_slashes(&styles), @r#"
         maplibre_demo:
           path: "../tests/fixtures/styles/maplibre_demo.json"
         maptiler_basic:
@@ -275,12 +314,13 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg = StyleConfig::new_extended(vec![], configs, InnerStyleConfig::default());
+        let mut cfg =
+            StyleConfig::new_extended(vec![], vec![], configs, InnerStyleConfig::default());
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+        insta::assert_yaml_snapshot!(catalog_with_forward_slashes(&styles), @r#"
         maplibre_demo:
           path: "../tests/fixtures/styles/maplibre_demo.json"
         osm-liberty-lite:
@@ -300,7 +340,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
 
-        let catalog = styles.get_catalog();
+        let catalog = catalog_with_forward_slashes(&styles);
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"

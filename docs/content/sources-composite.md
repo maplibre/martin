@@ -25,3 +25,30 @@ curl localhost:3000/points,lines
 # Whole world as a single tile
 curl localhost:3000/points,lines/0/0/0
 ```
+
+## Source Aliases
+
+An alias is a named combination of tile sources that a client requests like a single source.
+Each alias serves the listed sources exactly like the composite request `/{source1},...,{sourceN}`.
+
+```yaml
+mbtiles:
+  paths:
+    - /path/to/roads.mbtiles
+    - /path/to/buildings.mbtiles
+# Each alias can be requested like a tile source and serves the listed sources combined.
+aliases:
+  basemap: [roads, buildings]
+```
+
+Aliases may only reference tile sources, not other aliases.
+An alias may share the name of a source it references; requests for that name then serve the alias.
+This extends an existing source without changing the name a style uses:
+
+```yaml
+aliases:
+  # Requests for "roads" also get the buildings.
+  roads: [roads, buildings]
+```
+
+Aliases are listed in the catalog under their own name with the format of the sources they combine.

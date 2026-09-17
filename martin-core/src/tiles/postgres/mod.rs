@@ -9,6 +9,9 @@ mod tls;
 mod pool;
 pub use pool::{ActiveQueryRegistry, PostgresPool};
 
+mod retry_timeout;
+pub use retry_timeout::RetryTimeout;
+
 mod source;
 pub use source::{PostgresSource, PostgresSqlInfo};
 

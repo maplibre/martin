@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::config::file::CollectUnrecognizedKeys;
 
 /// A generic three-state configuration value: auto, disabled, or explicit.
-#[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, CollectUnrecognizedKeys)]
 pub enum AutoOption<T> {
     /// Use the feature with its default settings.
     #[default]
@@ -21,22 +21,22 @@ pub enum AutoOption<T> {
 impl<T> AutoOption<T> {
     /// Returns `true` if this is the [`Disabled`](Self::Disabled) variant.
     #[must_use]
-    pub fn is_disabled(&self) -> bool {
+    pub const fn is_disabled(&self) -> bool {
         matches!(self, Self::Disabled)
     }
 
     /// Returns `true` if this is the [`Auto`](Self::Auto) variant.
     #[must_use]
-    pub fn is_auto(&self) -> bool {
+    pub const fn is_auto(&self) -> bool {
         matches!(self, Self::Auto)
     }
 
     /// Returns a reference to the explicit value, if present.
     #[must_use]
-    pub fn as_explicit(&self) -> Option<&T> {
+    pub const fn as_explicit(&self) -> Option<&T> {
         match self {
             Self::Explicit(v) => Some(v),
-            _ => None,
+            Self::Auto | Self::Disabled => None,
         }
     }
 }

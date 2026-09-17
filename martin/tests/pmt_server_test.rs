@@ -3,7 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -45,7 +45,7 @@ const CONFIG: &str = indoc! {"
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pmt_get_catalog_with_rendering_feature() {
@@ -57,18 +57,18 @@ async fn pmt_get_catalog_with_rendering_feature() {
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       stamen_toner__raster_CC-BY-ODbL_z3:
         content_type: image/png
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pmt_get_catalog_gzip_with_rendering_feature() {
@@ -80,19 +80,19 @@ async fn pmt_get_catalog_gzip_with_rendering_feature() {
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       p_png:
         content_type: image/png
       s3:
-        content_encoding: gzip
         content_type: application/x-protobuf
-        description: cb_2018_us_zcta510_500k.mbtiles
+        content_encoding: gzip
         name: cb_2018_us_zcta510_500k.mbtiles
+        description: cb_2018_us_zcta510_500k.mbtiles
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 

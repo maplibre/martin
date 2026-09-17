@@ -16,7 +16,7 @@ use tilejson::tilejson;
 
 const SOURCE_ID: &str = "duckdb-test-source";
 const POOL_ID: &str = "duckdb-test-pool";
-const XYZ: TileCoord = TileCoord { z: 3, x: 4, y: 5 };
+const XYZ: TileCoord = TileCoord::new_unchecked(3, 4, 5);
 
 struct TestDatabase {
     _dir: TempDir,
@@ -184,7 +184,13 @@ async fn pool_propagates_connection_work_errors() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 
@@ -207,7 +213,13 @@ async fn database_file_pool_is_read_only() {
             assert_eq!(source_id, POOL_ID);
             assert_eq!(xyz, XYZ);
         }
-        other => panic!("expected GetTileError, got {other:?}"),
+        other @ (DuckDBError::DuckDBPoolBuildError(..)
+        | DuckDBError::DuckDBPoolConnError(..)
+        | DuckDBError::DuckDBTaskJoinError(..)
+        | DuckDBError::PrepareQueryError { .. }
+        | DuckDBError::GetTileWithQueryError(..)) => {
+            panic!("expected GetTileError, got {other:?}")
+        }
     }
 }
 
@@ -220,7 +232,7 @@ async fn source_serves_tiles_and_cloned_source_remains_usable() {
     let db = TestDatabase::new();
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     assert_eq!(source.get_id(), SOURCE_ID);
@@ -234,14 +246,14 @@ async fn source_serves_tiles_and_cloned_source_remains_usable() {
     assert!(!source.benefits_from_concurrent_scraping());
 
     let tile = source.get_tile(XYZ, None).await.expect("source tile");
-    assert_eq!(tile, b"tile-data");
+    assert_eq!(tile.as_ref(), b"tile-data");
 
     let cloned = source.clone_source();
     let cloned_tile = cloned
         .get_tile(XYZ, None)
         .await
         .expect("cloned source tile");
-    assert_eq!(cloned_tile, b"tile-data");
+    assert_eq!(cloned_tile.as_ref(), b"tile-data");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -249,15 +261,15 @@ async fn source_returns_empty_tiles_for_missing_or_null_rows() {
     let db = TestDatabase::new();
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     let missing = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("missing tile query");
     let null = source
-        .get_tile(TileCoord { z: 6, x: 7, y: 8 }, None)
+        .get_tile(TileCoord::new_unchecked(6, 7, 8), None)
         .await
         .expect("null tile query");
 
@@ -273,9 +285,9 @@ async fn source_generates_mvt_with_duckdb_spatial_functions() {
         "
 WITH bounds AS (
     SELECT ST_TileEnvelope(
-        CAST(? AS INTEGER),
-        CAST(? AS INTEGER),
-        CAST(? AS INTEGER)
+        CAST($z AS INTEGER),
+        CAST($x AS INTEGER),
+        CAST($y AS INTEGER)
     ) AS geom
 ),
 features AS (
@@ -293,7 +305,7 @@ FROM features
     );
 
     let tile = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("DuckDB spatial MVT tile");
 
@@ -325,32 +337,32 @@ async fn end_to_end_tile_retrieval_at_multiple_zoom_levels() {
 
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     // Test zoom level 0
     let tile_z0 = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("z0 tile");
-    assert_eq!(tile_z0, b"z0-tile");
+    assert_eq!(tile_z0.to_vec(), b"z0-tile");
 
     // Test zoom level 1
     let tile_z1_00 = source
-        .get_tile(TileCoord { z: 1, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(1, 0, 0), None)
         .await
         .expect("z1 tile 0,0");
-    assert_eq!(tile_z1_00, b"z1-tile-0-0");
+    assert_eq!(tile_z1_00.to_vec(), b"z1-tile-0-0");
 
     let tile_z1_11 = source
-        .get_tile(TileCoord { z: 1, x: 1, y: 1 }, None)
+        .get_tile(TileCoord::new_unchecked(1, 1, 1), None)
         .await
         .expect("z1 tile 1,1");
-    assert_eq!(tile_z1_11, b"z1-tile-1-1");
+    assert_eq!(tile_z1_11.to_vec(), b"z1-tile-1-1");
 
     // Test original z3 tile
     let tile_z3 = source.get_tile(XYZ, None).await.expect("z3 tile");
-    assert_eq!(tile_z3, b"tile-data");
+    assert_eq!(tile_z3.as_ref(), b"tile-data");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -375,16 +387,16 @@ async fn concurrent_tile_requests_from_different_coordinates() {
 
     let source = create_source(
         db.path(),
-        "SELECT tile FROM tiles WHERE z = ? AND x = ? AND y = ?",
+        "SELECT tile FROM tiles WHERE z = $z AND x = $x AND y = $y",
     );
 
     // Create concurrent requests for different tiles
     let tasks = [
-        TileCoord { z: 0, x: 0, y: 0 },
-        TileCoord { z: 1, x: 1, y: 1 },
-        TileCoord { z: 2, x: 2, y: 2 },
-        TileCoord { z: 2, x: 3, y: 0 },
-        TileCoord { z: 1, x: 0, y: 3 },
+        TileCoord::new_unchecked(0, 0, 0),
+        TileCoord::new_unchecked(1, 1, 1),
+        TileCoord::new_unchecked(2, 2, 2),
+        TileCoord::new_unchecked(2, 3, 0),
+        TileCoord::new_unchecked(1, 0, 3),
     ];
 
     let results = join_all(tasks.iter().map(|&coord| {
@@ -400,7 +412,7 @@ async fn concurrent_tile_requests_from_different_coordinates() {
 
     // Verify each returned tile matches expected content
     for (i, coord) in tasks.iter().enumerate() {
-        let expected = format!("tile_z{}_x{}_y{}", coord.z, coord.x, coord.y);
+        let expected = format!("tile_z{}_x{}_y{}", coord.z(), coord.x(), coord.y());
         assert_eq!(
             results[i],
             expected.as_bytes(),

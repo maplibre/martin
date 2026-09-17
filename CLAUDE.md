@@ -18,7 +18,7 @@ just start
 # all tests
 just test
 # all unit tests
-cargo test --workspace
+cargo nextest run --workspace
 # PG tests (needs `just start`)
 just test-pg
 # end-to-end tests driving the built binaries

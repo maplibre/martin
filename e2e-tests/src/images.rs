@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use image::{DynamicImage, ImageFormat};
+use image::DynamicImage;
 use image_compare::rgba_hybrid_compare;
 
 /// How alike two renders of the same image have to be.
@@ -41,7 +41,7 @@ pub fn assert_image_matches(path: impl AsRef<Path>, body: &[u8]) {
         decode(&fs::read(path).unwrap_or_else(|e| {
             panic!("failed to read the reference image {}: {e}", path.display())
         }));
-    let minimum = if rendered.format == ImageFormat::Jpeg {
+    let minimum = if rendered.is_jpeg {
         MIN_JPEG_SIMILARITY
     } else {
         MIN_SIMILARITY
@@ -79,20 +79,24 @@ pub fn assert_images_differ(a: &[u8], b: &[u8]) {
     );
 }
 
-/// A decoded image, and the format its bytes were in.
+/// A decoded image, and whether its bytes were JPEG.
 struct Decoded {
     image: DynamicImage,
-    format: ImageFormat,
+    is_jpeg: bool,
 }
 
 fn decode(body: &[u8]) -> Decoded {
+    crate::ensure_jxl_decoding_hook();
+    // Checked directly rather than through `ImageReader::format()`: that maps a guessed format
+    // back to `image::ImageFormat` by extension, which has no JPEG XL entry even once the hook
+    // above lets `image` decode it.
+    let is_jpeg = body.starts_with(b"\xFF\xD8\xFF");
     let reader = image::ImageReader::new(std::io::Cursor::new(body))
         .with_guessed_format()
         .expect("reading from memory cannot fail");
-    let format = reader.format().expect("the body is not a raster image");
     Decoded {
         image: reader.decode().expect("the body is not a decodable image"),
-        format,
+        is_jpeg,
     }
 }
 

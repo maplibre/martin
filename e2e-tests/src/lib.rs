@@ -6,6 +6,7 @@
 #![expect(clippy::panic, reason = "tests fail by panicking")]
 
 mod cassette;
+mod cog;
 mod images;
 mod martin;
 mod martin_cp;
@@ -23,6 +24,7 @@ use tempfile::TempDir;
 use tokio::process::Command;
 
 pub use crate::cassette::Cassette;
+pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
 pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
 pub use crate::martin_cp::MartinCp;
@@ -37,6 +39,16 @@ pub use crate::statics::StaticFiles;
 #[must_use]
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().expect("failed to create a temp dir")
+}
+
+/// `image` only recognizes JPEG XL once this hook is registered; every other format this crate
+/// decodes is supported out of the box. The hook is process-global, so anything decoding a
+/// response body or a reference fixture through `image` should call this first.
+pub(crate) fn ensure_jxl_decoding_hook() {
+    static REGISTERED: std::sync::Once = std::sync::Once::new();
+    REGISTERED.call_once(|| {
+        jxl_oxide::integration::register_image_decoding_hook();
+    });
 }
 
 /// Martin subprocesses run with this as their working directory,
@@ -116,7 +128,7 @@ pub fn round_floats(value: &mut serde_json::Value) {
         }
         Value::Array(items) => items.iter_mut().for_each(round_floats),
         Value::Object(entries) => entries.values_mut().for_each(round_floats),
-        _ => {}
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
     }
 }
 

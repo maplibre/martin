@@ -121,13 +121,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
       {/* +N bubble */}
       {previewMode && spriteIds.length > PREVIEW_LIMIT && (
         <div
-          className={`
-            ${previewMode ? 'h-7' : 'h-12'}
-            flex items-center justify-center
-            ${previewMode ? 'text-sm' : 'text-lg'}
-            text-gray-600 font-semibold
-            ${previewMode ? 'm-1.5' : 'm-4'}
-          `}
+          className="h-7 flex items-center justify-center text-sm text-gray-600 font-semibold m-1.5"
           data-spritecnt={spriteIds.length}
         >
           +{spriteIds.length - PREVIEW_LIMIT + 1}

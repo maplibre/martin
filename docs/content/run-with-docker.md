@@ -9,13 +9,18 @@ tags:
 
 You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/maplibre/martin)
 
+!!! note "Image variants"
+    The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](sources-styles/rendering.md).
+    The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the `maplibre_native` runtime libraries and enables rendering.
+    Use `-full` only if you need rendering; it is a larger image.
+
 ### Using Non-Local PostgreSQL
 
 ```bash
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
-  ghcr.io/maplibre/martin:1.14.0
+  ghcr.io/maplibre/martin:1.16.1
 ```
 
 ### Exposing Local Files
@@ -26,7 +31,7 @@ You can expose local files to the Docker container using the `-v` flag.
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.14.0 \
+  ghcr.io/maplibre/martin:1.16.1 \
   /files
 ```
 
@@ -36,7 +41,7 @@ You can also pass any [CLI flags](run-with-cli.md) after the image name, for exa
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.14.0 \
+  ghcr.io/maplibre/martin:1.16.1 \
   --webui enable-for-all \
   /files
 ```
@@ -53,7 +58,7 @@ You would not need to export ports with `-p` because the container is already us
 docker run \
   --net=host \
   -e DATABASE_URL=postgres://postgres@localhost/db \
-  ghcr.io/maplibre/martin:1.14.0
+  ghcr.io/maplibre/martin:1.16.1
 ```
 
 ### Accessing Local PostgreSQL on macOS
@@ -64,7 +69,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  ghcr.io/maplibre/martin:1.14.0
+  ghcr.io/maplibre/martin:1.16.1
 ```
 
 ### Accessing Local PostgreSQL on Windows
@@ -75,5 +80,5 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  ghcr.io/maplibre/martin:1.14.0
+  ghcr.io/maplibre/martin:1.16.1
 ```

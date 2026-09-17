@@ -38,6 +38,7 @@ async fn addr_is_the_os_assigned_port() {
         "tiles at http://[ADDR]/webp2"
     );
     martin.stop().await;
+    martin.assert_startup_warnings();
 }
 
 #[tokio::test]

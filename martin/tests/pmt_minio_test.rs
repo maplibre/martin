@@ -8,15 +8,16 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body, read_b
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
-use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
+use martin::config::file::{CachePolicy, ProcessConfig};
 use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use serde_json::Value;
 use testcontainers_modules::minio::MinIO;
 use testcontainers_modules::testcontainers::ContainerAsync;
+use testcontainers_modules::testcontainers::ImageExt as _;
 use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 use url::Url;
@@ -34,6 +35,7 @@ const STAMEN_FIXTURE: &[u8] =
 
 async fn start_minio() -> (ContainerAsync<MinIO>, String) {
     let minio = MinIO::default()
+        .with_name("quay.io/minio/minio")
         .start()
         .await
         .expect("MinIO container failed to start (is Docker running?)");
@@ -157,6 +159,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,
+        CachePolicy::default(),
         &ProcessConfig::default(),
     );
     reloader.start().expect("reloader start");
@@ -214,8 +217,8 @@ async fn pmt_minio_polls_catalog_via_public_api() {
             "body_non_empty": !body.is_empty(),
         }),
         @r"
-    body_non_empty: true
     status: 200
+    body_non_empty: true
     "
     );
 
@@ -271,6 +274,7 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,
+        CachePolicy::default(),
         &ProcessConfig::default(),
     );
     reloader.start().expect("reloader start");
@@ -310,9 +314,13 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
     // disappear from the catalog.
     upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
 
-    // Sleep through several polling ticks (the interval is 1s) to give the reloader
-    // every opportunity to detect the overwrite.
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    wait_for_catalog(
+        &app,
+        Duration::from_secs(10),
+        "alpha updated with name removed",
+        |t| t.get("alpha").is_some_and(|v| v.get("name").is_none()),
+    )
+    .await;
 
     // Snapshot the catalog. The `name` field should be gone.
     let tiles = catalog_tiles(&app).await;

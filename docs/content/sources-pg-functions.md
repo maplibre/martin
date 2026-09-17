@@ -12,7 +12,7 @@ A Function Source is a database function which can be used to
 query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with
 a suitable signature.
 
-A function can be used as a Function Source if it returns either a `bytea` value, or a record with `bytea` and a `text` values.  The `text` value is expected to be a user-defined hash, e.g. an MD5 value, and it will eventually be used as an [ETag](https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag).
+A function can be used as a Function Source if it returns either a `bytea` value, or a record with `bytea` and a `text` values.  The `text` value is expected to be a user-defined hash, e.g. an MD5 value, and it is served as the tile's [ETag](https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/ETag).
 
 A valid function must also have these arguments:
 
@@ -174,6 +174,22 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
+### Overloaded functions
+
+PostgreSQL lets several functions share a name as long as their argument types differ, such as a `function_zxy(z, x, y)` next to a `function_zxy(z, x, y, query json)`.
+Martin publishes such a pair as one source.
+A request with a query string runs the variant that takes one and a request without runs the other, so `/function_zxy/0/0/0` and `/function_zxy/0/0/0?answer=42` can each run the function written for it.
+The comments of both variants are merged into the source's `TileJSON`, with the query variant's winning where they overlap.
+A further variant of the name, such as a `jsonb` twin of the `json` one, becomes its own source with a numbered suffix, `function_zxy.1`, and a configuration file picks it by its signature.
+
+```yaml
+postgres:
+  functions:
+    with_jsonb:
+      schema: public
+      function: function_zxy(integer, integer, integer, jsonb)
+```
+
 ### Postprocessing
 
 Function sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
@@ -287,3 +303,9 @@ END $do$;
     `content_type` is not a standard TileJSON field.
     Martin reads it from the SQL comment to determine how to serve tiles with the correct MIME type.
     It is also preserved in the TileJSON output so clients can inspect the tile format.
+
+#### Serving compressed tiles from PostgreSQL functions
+
+A function may return tiles that are already gzip or zlib compressed.
+Martin detects the compression of every tile the function returns.
+Clients that accept that encoding receive the bytes unchanged, and clients that do not receive the decompressed tile.

@@ -16,7 +16,9 @@ pub const NO_SPRITE_CACHE: OptSpriteCache = None;
 /// `ids` is the comma-joined list of sprite source IDs from the request path,
 /// normalized (sorted and deduplicated) via [`crate::sprites::normalize_sprite_ids`]
 /// so that equivalent requests - different id order, repeated ids - share one
-/// cache entry. Invalidation by source ID matches by token (not substring):
+/// cache entry, with aliases already expanded to their member sources so
+/// invalidating a source also evicts entries reached through an alias.
+/// Invalidation by source ID matches by token (not substring):
 /// invalidating `"foo"` does not invalidate entries keyed against `"foobar"`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct SpriteCacheKey {

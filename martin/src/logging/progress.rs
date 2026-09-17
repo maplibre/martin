@@ -10,7 +10,7 @@ struct LogBackoff {
     iteration: u64,
 }
 impl LogBackoff {
-    fn new(last_logged: Instant) -> Self {
+    const fn new(last_logged: Instant) -> Self {
         Self {
             last_logged,
             iteration: 0,

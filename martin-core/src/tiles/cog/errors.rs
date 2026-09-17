@@ -9,6 +9,21 @@ use tiff::TiffError;
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum CogError {
+    /// Cannot read the COG from its backing object store.
+    #[error(transparent)]
+    Reader(#[from] super::reader::CogReaderError),
+
+    /// Cannot decode the COG using the asynchronous TIFF parser.
+    #[error("Couldn't decode {1} as tiff file: {0}")]
+    AsyncTiff(#[source] async_tiff::error::AsyncTiffError, String),
+
+    /// A passthrough (WebP/JPEG) tile used a planar sample layout instead of the required
+    /// chunky layout.
+    #[error(
+        "Unsupported planar TIFF layout in {0}: passthrough tile reads require chunky sample data"
+    )]
+    UnsupportedPlanarLayout(String),
+
     /// Cannot decode file as valid TIFF.
     #[error("Couldn't decode {1} as tiff file: {0}")]
     InvalidTiffFile(#[source] TiffError, PathBuf),
@@ -26,10 +41,6 @@ pub enum CogError {
     /// Cannot seek to Image File Directory.
     #[error("Couldn't seek to ifd number {1} (0 based indexing) in tiff file {2}: {0}")]
     IfdSeekFailed(#[source] TiffError, usize, PathBuf),
-
-    /// TIFF file contains too many images.
-    #[error("Too many images in the tiff file: {0}")]
-    TooManyImages(PathBuf),
 
     /// Required TIFF tags not found.
     #[error("Couldn't find tags {1:?} at ifd {2} of tiff file {3}: {0}")]
@@ -98,4 +109,10 @@ pub enum CogError {
     /// Images are not tiled consistently within the file.
     #[error("The size of each tile is not consistent.")]
     InconsistentTiling(PathBuf),
+}
+
+impl crate::Classify for CogError {
+    fn kind(&self) -> crate::ErrorKind {
+        crate::ErrorKind::Internal
+    }
 }

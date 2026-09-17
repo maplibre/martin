@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::config::file::CollectUnrecognizedKeys;
 
 /// An enum that can hold no values, one value, or many values of type T.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, CollectUnrecognizedKeys)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptOneMany<T> {
@@ -129,12 +129,12 @@ impl<T> OptOneMany<T> {
     }
 
     /// Returns `true` if this contains no values.
-    pub fn is_none(&self) -> bool {
+    pub const fn is_none(&self) -> bool {
         matches!(self, Self::NoVals)
     }
 
     /// Returns `true` if this contains no values or an empty vector.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         match self {
             Self::NoVals => true,
             Self::One(_) => false,
@@ -172,7 +172,7 @@ impl<T> OptOneMany<T> {
     }
 
     /// Returns a slice view of the contained values.
-    pub fn as_slice(&self) -> &[T] {
+    pub const fn as_slice(&self) -> &[T] {
         match self {
             Self::NoVals => &[],
             Self::One(item) => std::slice::from_ref(item),
@@ -252,12 +252,12 @@ mod tests {
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × unexpected event: expected string scalar
+          × expected string scalar
            ╭─[config.yaml:3:5]
          2 │   connection_string:
          3 │     - first
            ·     ┬
-           ·     ╰── unexpected event: expected string scalar
+           ·     ╰── expected string scalar
          4 │     - second
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
@@ -266,7 +266,46 @@ mod tests {
         );
     }
 
-    // ----- Existing behavior tests -----
+    #[test]
+    fn deserialize_scalars_are_one() {
+        assert_eq!(parse_yaml::<OptOneMany<bool>>("true"), One(true));
+        assert_eq!(parse_yaml::<OptOneMany<i64>>("-5"), One(-5));
+        assert_eq!(parse_yaml::<OptOneMany<u64>>("7"), One(7));
+        assert_eq!(parse_yaml::<OptOneMany<f64>>("1.5"), One(1.5));
+        assert_eq!(parse_yaml::<OptOneMany<i64>>("[1, 2]"), Many(vec![1, 2]));
+    }
+
+    #[test]
+    fn deserialize_map_is_one() {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct Inner {
+            name: String,
+        }
+        let cfg = parse_yaml::<OptOneMany<Inner>>("name: hello");
+        assert_eq!(
+            cfg,
+            One(Inner {
+                name: "hello".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_mismatched_scalar_fails() {
+        let err = serde_saphyr::from_str::<OptOneMany<bool>>("hello").unwrap_err();
+        assert!(err.to_string().contains("bool"), "{err}");
+    }
+
+    #[test]
+    fn is_none_and_is_empty() {
+        assert!(NoVals::<i32>.is_none());
+        assert!(NoVals::<i32>.is_empty());
+        assert!(!One(1).is_none());
+        assert!(!One(1).is_empty());
+        assert!(!Many(vec![1]).is_none());
+        assert!(Many(Vec::<i32>::new()).is_empty());
+        assert!(!Many(vec![1]).is_empty());
+    }
 
     #[test]
     fn one_or_many_new() {

@@ -79,6 +79,32 @@ postgres:
       properties:
         big_feat_id: int8
         id: int4
+    curves:
+      schema: public
+      table: curves
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -0.8284271247
+      - -0.8284271247
+      - 14.8284271247
+      - 14.8284271247
+      geometry_type: CURVEPOLYGON
+      properties:
+        gid: int4
+    curves_untyped:
+      schema: public
+      table: curves_untyped
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -0.2071067811
+      - 0.0
+      - 2.0
+      - 1.2071067811
+      geometry_type: GEOMETRY
+      properties:
+        gid: int4
     empty_bounds:
       schema: public
       table: empty_bounds
@@ -355,6 +381,12 @@ postgres:
     function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name
+    function_dup:
+      schema: public
+      function: function_dup
+    function_dup.1:
+      schema: public
+      function: function_dup(integer, integer, integer, jsonb)
     function_null:
       schema: public
       function: function_null
@@ -364,6 +396,24 @@ postgres:
     function_null_row2:
       schema: public
       function: function_null_row2
+    function_pair_json:
+      schema: public
+      function: function_pair_json
+    function_pair_jsonb:
+      schema: public
+      function: function_pair_jsonb
+    function_pair_query:
+      schema: public
+      function: function_pair_query
+    function_pair_query.1:
+      schema: public
+      function: function_pair_query(integer, integer, integer, jsonb)
+    function_two_schemas:
+      schema: schema_a
+      function: function_two_schemas
+    function_two_schemas.1:
+      schema: schema_b
+      function: function_two_schemas
     function_zoom_xy:
       schema: public
       function: function_zoom_xy
@@ -373,6 +423,9 @@ postgres:
     function_zxy2:
       schema: public
       function: function_zxy2
+    function_zxy_gzip:
+      schema: public
+      function: function_zxy_gzip
     function_zxy_query:
       schema: public
       function: function_zxy_query

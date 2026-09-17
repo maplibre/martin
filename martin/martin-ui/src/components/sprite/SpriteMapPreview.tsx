@@ -1,6 +1,6 @@
 import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
-import type { ExpressionSpecification, StyleSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, MapLayerMouseEvent, StyleSpecification } from 'maplibre-gl';
 import { useId, useRef, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -35,7 +35,7 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   const layerId = `${id}-sprite-icons`;
   const { copy } = useCopyToClipboard();
 
-  const handleMapClick = (e: maplibregl.MapLayerMouseEvent) => {
+  const handleMapClick = (e: MapLayerMouseEvent) => {
     const features = e.target.queryRenderedFeatures(e.point, { layers: [layerId] });
     const iconName = features?.[0]?.properties?.icon;
     if (iconName) {

@@ -17,6 +17,7 @@ expression: actual_value
     - "(  \"agg_tiles_hash\", \"9AFEC3326B465CB939664C47A572D4C6\"  )"
     - "(  \"agg_tiles_hash_after_apply\", \"A18D0C39730FB52E5A547F096F5C60E8\"  )"
     - "(  \"agg_tiles_hash_before_apply\", \"C0CA886B149CE416242AB2AFE8E641AD\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
     - "(  \"md-edit\", \"value - v2\"  )"
     - "(  \"md-new\", \"value - new\"  )"
     - "(  \"md-remove\", NULL  )"

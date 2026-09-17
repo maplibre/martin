@@ -16,7 +16,7 @@ use std::path::Path;
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::de::DeserializeOwned;
 
-use crate::MartinError;
+use crate::StartupError;
 use crate::config::file::parse_config;
 use crate::logging::LogFormat;
 
@@ -76,7 +76,7 @@ pub(crate) async fn render_finalize_failure(yaml: &str) -> String {
     err.render_diagnostic()
 }
 
-/// Same as [`render_failure`] but routes through `MartinError::render_diagnostic_with` in
+/// Same as [`render_failure`] but routes through `StartupError::render_diagnostic_with` in
 /// JSON mode, mirroring what the binary emits when `RUST_LOG_FORMAT=json` is set.
 ///
 /// JSON output has no terminal-width dependency, so no fixed-width override is needed.
@@ -85,5 +85,5 @@ pub(crate) fn render_failure_json(yaml: &str) -> String {
     let err = parse_config(yaml, &env, Path::new("config.yaml"))
         .err()
         .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
-    MartinError::ConfigFileError(err).render_diagnostic_with(LogFormat::Json)
+    StartupError::Config(err).render_diagnostic_with(LogFormat::Json)
 }

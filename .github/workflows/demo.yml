@@ -1,26 +1,19 @@
-name: Demo
+name: Demo CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'demo/**'
-  release:
-    types: [ published ]
+  workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'release' }}
+defaults:
+  run:
+    shell: bash
 
 permissions:
   contents: read
 
 jobs:
-  demo:
-    name: Demo
+  build-demo:
+    name: Build the demo images
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +22,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: ./.github/actions/setup-rust
+      - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - run: just demo::build

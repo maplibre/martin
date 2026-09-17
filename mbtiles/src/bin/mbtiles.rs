@@ -10,15 +10,20 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
+use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
-    AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType,
-    apply_patch, pack, unpack,
+    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError,
+    MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme,
+    UnixSeconds, UpdateZoomType, apply_patch, pack, unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
-use tracing::error;
-use tracing_subscriber::EnvFilter;
+use tracing::{Instrument as _, error, info_span};
+use tracing_indicatif::IndicatifLayer;
+use tracing_indicatif::span_ext::IndicatifSpanExt as _;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
+use tracing_subscriber::{EnvFilter, Layer as _};
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -169,9 +174,11 @@ enum Commands {
 
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
-    /// `MBTiles` file to read from
-    src_file: PathBuf,
+    /// `MBTiles` files to read from
+    #[arg(required = true, num_args = 1..)]
+    src_files: Vec<PathBuf>,
     /// `MBTiles` file to write to
+    #[arg(required = true)]
     dst_file: PathBuf,
     #[command(flatten)]
     pub options: SharedCopyOpts,
@@ -223,6 +230,9 @@ pub struct SharedCopyOpts {
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
     mbtiles_type: Option<MbtTypeCli>,
+    /// Algorithm the destination hashes its tiles with. If not specified, defaults to the source file's, and to md5 when the source records none
+    #[arg(long, value_enum, value_name = "ALGORITHM")]
+    hash_algorithm: Option<HashAlgorithm>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
     #[arg(long, value_enum)]
     on_duplicate: Option<CopyDuplicateMode>,
@@ -273,6 +283,7 @@ impl SharedCopyOpts {
             zoom_levels: self.zoom_levels,
             bbox: self.bbox,
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
+            hash_algorithm: self.hash_algorithm,
             force: self.force,
             validate: self.validate,
             strict: self.strict,
@@ -287,13 +298,18 @@ async fn main() {
     let env_filter = EnvFilter::builder()
         .with_default_directive("mbtiles=info".parse().expect("valid default directive"))
         .from_env_lossy();
-    tracing_subscriber::fmt()
-        .compact()
-        .without_time()
-        .with_target(false)
-        .with_ansi(std::io::stderr().is_terminal())
-        .with_writer(std::io::stderr)
-        .with_env_filter(env_filter)
+    let indicatif_layer = IndicatifLayer::new().with_progress_style(spinner_style());
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .compact()
+                .without_time()
+                .with_target(false)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_writer(indicatif_layer.get_stderr_writer())
+                .with_filter(env_filter),
+        )
+        .with(indicatif_layer)
         .init();
 
     if let Err(err) = main_int().await {
@@ -314,16 +330,7 @@ async fn main_int() -> anyhow::Result<()> {
         Commands::MetaSetValue { file, key, value } => {
             meta_set_value(file.as_path(), &key, value.as_deref()).await?;
         }
-        Commands::Copy(args) => {
-            let copier = args.options.into_copier(
-                args.src_file,
-                args.dst_file,
-                args.diff_with_file,
-                args.apply_patch,
-                args.patch_type,
-            );
-            copier.run().await?;
-        }
+        Commands::Copy(args) => copy(args).await?,
         Commands::Diff(args) => {
             let copier = args.options.into_copier(
                 args.file1,
@@ -332,14 +339,16 @@ async fn main_int() -> anyhow::Result<()> {
                 None,
                 args.patch_type,
             );
-            copier.run().await?;
+            copier.run().instrument(info_span!("diff")).await?;
         }
         Commands::ApplyPatch {
             base_file,
             patch_file,
             force,
         } => {
-            apply_patch(base_file, patch_file, force).await?;
+            apply_patch(base_file, patch_file, force)
+                .instrument(info_span!("apply-patch"))
+                .await?;
         }
         Commands::UpdateMetadata { file, update_zoom } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -363,7 +372,9 @@ async fn main_int() -> anyhow::Result<()> {
                 }
             });
             let mbt = Mbtiles::new(file.as_path())?;
-            mbt.open_and_validate(integrity_check, agg_hash).await?;
+            mbt.open_and_validate(integrity_check, agg_hash)
+                .instrument(info_span!("validate"))
+                .await?;
         }
         Commands::Summary { file, format } => {
             let mbt = Mbtiles::new(file.as_path())?;
@@ -381,14 +392,22 @@ async fn main_int() -> anyhow::Result<()> {
             scheme,
             compress,
         } => {
-            pack(&input_directory, &output_file, scheme, compress).await?;
+            let span = info_span!("pack");
+            span.pb_set_style(&counting_style());
+            pack(&input_directory, &output_file, scheme, compress)
+                .instrument(span)
+                .await?;
         }
         Commands::Unpack {
             input_file,
             output_directory,
             scheme,
         } => {
-            unpack(&input_file, &output_directory, scheme).await?;
+            let span = info_span!("unpack");
+            span.pb_set_style(&bar_style());
+            unpack(&input_file, &output_directory, scheme)
+                .instrument(span)
+                .await?;
         }
         Commands::CachePurge { file, max_size } => {
             cache_purge(file.as_path(), max_size).await?;
@@ -433,6 +452,37 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Copies every source file in `args` into the last one, in order.
+async fn copy(args: CopyArgs) -> anyhow::Result<()> {
+    let src_files = &args.src_files;
+    let dst_file = &args.dst_file;
+    if src_files.len() > 1 {
+        if args.diff_with_file.is_some() || args.apply_patch.is_some() {
+            anyhow::bail!(
+                "--diff-with-file and --apply-patch take exactly one source file, got {}",
+                src_files.len()
+            );
+        }
+        if args.options.on_duplicate.is_none() {
+            anyhow::bail!(
+                "copying {} sources into one file needs --on-duplicate to say what happens when two of them hold the same tile",
+                src_files.len()
+            );
+        }
+    }
+    for src_file in src_files {
+        let copier = args.options.clone().into_copier(
+            src_file.clone(),
+            dst_file.clone(),
+            args.diff_with_file.clone(),
+            args.apply_patch.clone(),
+            args.patch_type,
+        );
+        copier.run().instrument(info_span!("copy")).await?;
+    }
+    Ok(())
+}
+
 async fn meta_get_value(file: &Path, key: &str) -> MbtResult<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open_readonly().await?;
@@ -450,6 +500,36 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
     } else {
         mbt.delete_metadata_value(&mut conn, key).await
     }
+}
+
+/// Spinner with the command name and elapsed time.
+fn spinner_style() -> ProgressStyle {
+    ProgressStyle::with_template("{spinner} {span_name} {elapsed}")
+        .expect("valid progress template")
+}
+
+/// Progress bar for a command that knows how many tiles it will handle.
+fn bar_style() -> ProgressStyle {
+    ProgressStyle::with_template(
+        "{span_name} {elapsed_precise} [{bar:40.cyan/blue} {percent}%] {human_pos}/{human_len} ({rate}/s)",
+    )
+    .expect("valid progress template")
+    .with_key("rate", rate)
+    .progress_chars("█▓▒░ ")
+}
+
+/// Progress line for a command that counts tiles as it goes.
+fn counting_style() -> ProgressStyle {
+    ProgressStyle::with_template(
+        "{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)",
+    )
+    .expect("valid progress template")
+    .with_key("rate", rate)
+}
+
+/// Tiles per second, rounded to a whole number.
+fn rate(state: &ProgressState, w: &mut dyn std::fmt::Write) {
+    let _ = write!(w, "{:.0}", state.per_sec());
 }
 
 #[cfg(test)]
@@ -482,7 +562,22 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
+                    dst_file: PathBuf::from("dst_file"),
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn copy_several_sources() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "a", "b", "c", "dst_file"]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_files: vec![PathBuf::from("a"), PathBuf::from("b"), PathBuf::from("c")],
                     dst_file: PathBuf::from("dst_file"),
                     ..Default::default()
                 })
@@ -507,7 +602,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         min_zoom: Some(1),
@@ -527,7 +622,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         strict: true,
@@ -591,7 +686,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         zoom_levels: vec![3, 7, 1],
@@ -617,7 +712,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     diff_with_file: Some(PathBuf::from("no_file")),
                     ..Default::default()
@@ -640,7 +735,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         on_duplicate: Some(CopyDuplicateMode::Override),
@@ -661,7 +756,7 @@ mod tests {
             Args {
                 verbose: false,
                 command: Copy(CopyArgs {
-                    src_file: PathBuf::from("src_file"),
+                    src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
                     options: SharedCopyOpts {
                         copy: CopyType::Metadata,

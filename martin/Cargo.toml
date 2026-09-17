@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.14.0"
+version = "1.16.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -108,19 +108,29 @@ default = [
     "passthrough",
     "pmtiles",
     "postgres",
-    "rendering",
     "sprites",
     "styles",
     "webui",
     "geojson",
     "mlt",
+    "hillshade",
+    "contour",
+    "tui",
 ]
-unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-cog = [
+    "martin-core/unstable-cog",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+    "dep:xxhash-rust",
+    "_tiles",
+    "_file_kinds",
+]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
 rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
@@ -130,8 +140,10 @@ pmtiles = [
     "dep:object_store",
     "dep:xxhash-rust",
     "_tiles",
+    "_file_kinds",
 ]
 postgres = [
+    "dep:cql2",
     "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
@@ -140,27 +152,19 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles", "mlt"]
+geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
+hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
+contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-mlt = ["dep:mlt-core"]
-_tiles = ["martin-core/_tiles", "_catalog"]
+tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
+mlt = ["dep:mlt-core", "_process"]
+_tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
+_process = []
 _catalog = []
-unstable-schemas = [
-    "dep:schemars",
-    "dep:utoipa",
-    "martin-core/unstable-schemas",
-    "fonts",
-    "mbtiles",
-    "metrics",
-    "mlt",
-    "passthrough",
-    "pmtiles",
-    "postgres",
-    "sprites",
-    "styles",
-]
+_file_kinds = []
+unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
 unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [
     "hotpath/hotpath",
@@ -186,7 +190,11 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 clap.workspace = true
+compact_str = { workspace = true, optional = true }
+cql2 = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
@@ -213,13 +221,15 @@ object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+ratatui = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-saphyr.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 static-files = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = [

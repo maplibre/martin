@@ -22,6 +22,49 @@ pub enum SpriteError {
         max: usize,
     },
 
+    /// A sprite alias name is empty, contains a comma, or ends with `@2x`.
+    #[error(
+        "Sprite alias {0:?} is invalid: alias names must be non-empty, must not contain commas and must not end with @2x"
+    )]
+    InvalidAliasName(String),
+
+    /// A sprite alias does not reference any sprite sources.
+    #[error("Sprite alias {0:?} does not reference any sprite sources")]
+    EmptyAlias(String),
+
+    /// A sprite alias references more sources than a single request may use.
+    #[error(
+        "Sprite alias {alias:?} references {requested} sprite sources, but at most {max} are allowed"
+    )]
+    TooManySpritesInAlias {
+        /// Alias name.
+        alias: String,
+        /// Referenced source count.
+        requested: usize,
+        /// Allowed maximum.
+        max: usize,
+    },
+
+    /// A sprite alias references another alias instead of a sprite source.
+    #[error(
+        "Sprite alias {alias:?} references {sprite:?}, which is itself an alias; aliases may only reference sprite sources"
+    )]
+    AliasWithinAlias {
+        /// Alias name.
+        alias: String,
+        /// The referenced alias.
+        sprite: String,
+    },
+
+    /// A sprite alias references a sprite source that was not configured.
+    #[error("Sprite alias {alias:?} references unknown sprite source {sprite:?}")]
+    AliasSpriteNotFound {
+        /// Alias name.
+        alias: String,
+        /// The referenced sprite source.
+        sprite: String,
+    },
+
     /// I/O error accessing sprite file or directory.
     #[error("IO error {0}: {1}")]
     IoError(#[source] std::io::Error, PathBuf),
@@ -57,4 +100,28 @@ pub enum SpriteError {
     /// Failed to create sprite from SVG file.
     #[error("Unable to create a sprite from file {0}")]
     SpriteInstError(PathBuf),
+}
+
+impl crate::Classify for SpriteError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, InvalidInput, NotFound};
+        match self {
+            Self::SpriteNotFound(_) => NotFound,
+            Self::TooManySpriteIds { .. }
+            | Self::InvalidAliasName(_)
+            | Self::EmptyAlias(_)
+            | Self::TooManySpritesInAlias { .. }
+            | Self::AliasWithinAlias { .. }
+            | Self::AliasSpriteNotFound { .. } => InvalidInput,
+            Self::IoError(..)
+            | Self::InvalidFilePath(_)
+            | Self::InvalidSpriteFilePath(..)
+            | Self::NoSpriteFilesFound(_)
+            | Self::UnableToReadSprite(_)
+            | Self::SpriteProcessingError(..)
+            | Self::SpriteParsingError(..)
+            | Self::UnableToGenerateSpritesheet
+            | Self::SpriteInstError(_) => Internal,
+        }
+    }
 }

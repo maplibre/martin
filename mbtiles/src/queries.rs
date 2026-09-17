@@ -21,18 +21,19 @@ where
         .is_none())
 }
 
-/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL:
-/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...` (idempotent; `SQLite` strips
-/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a `STRICT` table-option when
+/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL.
+///
+/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...`
+/// `SQLite` strips `IF NOT EXISTS` from the stored DDL, and each `CREATE TABLE` gets a `STRICT` table-option when
 /// `strict` is set. `STRICT` is comma-joined with any options already present after the closing `)`
 /// (e.g. `WITHOUT ROWID`), producing a valid `... ) STRICT, WITHOUT ROWID`.
 ///
-/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
-/// on `;` is safe because these files are ours and contain no embedded semicolons.
+/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs.
 pub async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    // Splitting on `;` is safe because these files are ours and contain no embedded semicolons.
     for stmt in sql.split(';') {
         let stmt = stmt.trim();
         if stmt.is_empty() {
@@ -131,11 +132,13 @@ pub async fn compute_min_max_zoom<T>(conn: &mut T) -> MbtResult<Option<(u8, u8)>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    // SQLite only applies the min/max index optimization to a query with a single aggregate.
+    // Two scalar subqueries work around that until the planner does the rewrite itself.
+    // https://www.sqlite.org/optoverview.html#the_min_max_optimization
     let info = query!(
         "
-SELECT min(zoom_level) AS min_zoom,
-       max(zoom_level) AS max_zoom
-FROM tiles;"
+SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
+       (SELECT max(zoom_level) FROM tiles) AS max_zoom;"
     )
     .fetch_one(conn)
     .await?;
@@ -162,4 +165,49 @@ pub async fn action_with_rusqlite(
     let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
     action(&rusqlite_conn)
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_snapshot;
+    use sqlx::Row as _;
+
+    use super::*;
+    use crate::metadata::anonymous_mbtiles;
+
+    async fn min_max_zoom_plan(script: &str) -> String {
+        let (_, mut conn) = anonymous_mbtiles(script).await;
+        query(
+            "
+EXPLAIN QUERY PLAN
+SELECT min(zoom_level), max(zoom_level) FROM tiles;",
+        )
+        .fetch_all(&mut conn)
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get::<String, _>("detail"))
+        .collect::<Vec<_>>()
+        .join("\n")
+    }
+
+    /// Workaround test for the query rewrite in [`compute_min_max_zoom`].
+    /// Delete this test and inline query above once sqlite does not do an entire query scan here..
+    #[actix_rt::test]
+    async fn min_max_zoom_uses_index_seek() {
+        let flat = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        assert_snapshot!(min_max_zoom_plan(flat).await, @"SCAN tiles USING COVERING INDEX tile_index");
+
+        let normalized = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        assert_snapshot!(min_max_zoom_plan(normalized).await, @"
+        SCAN map
+        SEARCH images USING COVERING INDEX images_id (tile_id=?)
+        ");
+
+        let dedup_id = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        assert_snapshot!(min_max_zoom_plan(dedup_id).await, @"
+        SCAN tiles_shallow
+        SEARCH tiles_data USING INTEGER PRIMARY KEY (rowid=?)
+        ");
+    }
 }

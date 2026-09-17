@@ -286,7 +286,7 @@ Read it when you're curious **why** certain choices were made.
 ??? "Async-first architecture"
     Allows Martin to handle many concurrent requests efficiently.
 
-    - Handles hundreds of thousdands of concurrent connections
+    - Handles hundreds of thousands of concurrent connections
     - Avoids blocking database queries
     - Enables efficient file and network I/O
     - Keeps thread usage low under load
@@ -377,7 +377,7 @@ Read it when you're curious **why** certain choices were made.
 
 ## Component Interactions
 
-=== "PosgtgreSQL Integration"
+=== "PostgreSQL Integration"
 
     ```mermaid
     graph TB
@@ -402,9 +402,10 @@ Read it when you're curious **why** certain choices were made.
     1. Martin connects to PostgreSQL using connection string
     2. Queries `geometry_columns` view to discover tables
     3. Queries `pg_proc` to discover MVT-returning functions
-    4. Maintains connection pool for efficient query execution
-    5. Generates tile SQL queries with bbox parameters
-    6. Returns results as MVT tiles
+    4. Publishes them through the Reload Driver, which re-runs discovery every `reload_interval`
+    5. Maintains connection pool for efficient query execution
+    6. Generates tile SQL queries with bbox parameters
+    7. Returns results as MVT tiles
 
 === "File Source Integration"
 
@@ -486,7 +487,7 @@ Read it when you're curious **why** certain choices were made.
 
     - `extent` (default `4096`) - side length of the MVT integer coordinate grid a tile is encoded into.
       A `NonZeroU32`, so `0` is rejected at parse time.
-    - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.
+    - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighboring tiles.
 
     Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed `.geojson`/`.json` files.
 
@@ -568,9 +569,9 @@ Read it when you're curious **why** certain choices were made.
 
     They interact in this loop:
 
-    1. **Seed**.
-       Run Discovery once to record a baseline, applying nothing.
-       The catalog was already populated during initialization, so applying would double-add.
+    1. **Init or seed**.
+       PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
+       `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
     2. **Reconcile**.
        On each Trigger, re-run Discovery.
        Diff the new `Version`s against the baseline into a `ReloadAdvisory`.

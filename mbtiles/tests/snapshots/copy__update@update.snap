@@ -6,6 +6,7 @@ expression: actual_value
   tbl_name: metadata
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
+    - "(  \"hash_algorithm\", \"md5\"  )"
     - "(  \"maxzoom\", \"6\"  )"
     - "(  \"md-edit\", \"value - v1\"  )"
     - "(  \"md-remove\", \"value - remove\"  )"

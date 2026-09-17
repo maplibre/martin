@@ -176,7 +176,7 @@ async fn meta_get_says_nothing_about_a_key_that_is_not_there() {
 async fn meta_all_documents_itself() {
     let help = MbtilesCli::new("meta-all").arg("--help").run().await;
 
-    insta::assert_snapshot!(help, @r"
+    insta::assert_snapshot!(help, @"
     Prints all values in the metadata table in a free-style, unstable YAML format
 
     Usage: mbtiles meta-all <FILE>
@@ -193,7 +193,7 @@ async fn meta_all_documents_itself() {
 async fn meta_get_documents_itself() {
     let help = MbtilesCli::new("meta-get").arg("--help").run().await;
 
-    insta::assert_snapshot!(help, @r"
+    insta::assert_snapshot!(help, @"
     Gets a single value from the MBTiles metadata table
 
     Usage: mbtiles meta-get <FILE> <KEY>
@@ -230,7 +230,7 @@ async fn validate_rejects_a_tile_outside_its_zoom_level() {
     let output = MbtilesCli::new("validate").arg(&source).run_failing().await;
 
     insta::assert_snapshot!(redact(&dir, &output), @"
-     INFO Integrity check passed mbtiles.file=[TMP]/invalid-tile-idx.mbtiles integrity_check=Quick
+     INFO validate: Integrity check passed mbtiles.file=[TMP]/invalid-tile-idx.mbtiles integrity_check=Quick
     ERROR At least one tile in the tiles table/view has an invalid value: zoom_level=6, tile_column=10, tile_row=64 in MBTile file [TMP]/invalid-tile-idx.mbtiles
     ");
 }
@@ -244,9 +244,9 @@ async fn validate_rejects_a_stale_aggregate_hash() {
 
     // The per-tile hashes are fine here; only the file-wide roll-up is wrong.
     insta::assert_snapshot!(redact(&dir, &output), @"
-     INFO Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
-     INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
-     INFO All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+     INFO validate: Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
+     INFO validate: All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+     INFO validate: All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
     ERROR Computed aggregate tiles hash E89600605FA137D684A10EE91463CEE0 does not match tile data in metadata CAFEC0DEDEADBEEFDEADBEEFDEADBEEF for MBTile file [TMP]/bad_hash.mbtiles
     ");
 }
@@ -265,10 +265,10 @@ async fn validate_agg_hash_update_repairs_a_stale_hash() {
         .await;
 
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
-    INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
-    INFO All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
-    INFO Updating agg_tiles_hash mbtiles.file=[TMP]/bad_hash.mbtiles agg_tiles_hash.old=CAFEC0DEDEADBEEFDEADBEEFDEADBEEF agg_tiles_hash.new=E89600605FA137D684A10EE91463CEE0
+    INFO validate: Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
+    INFO validate: All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+    INFO validate: All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+    INFO validate: Updating agg_tiles_hash mbtiles.file=[TMP]/bad_hash.mbtiles agg_tiles_hash.old=CAFEC0DEDEADBEEFDEADBEEFDEADBEEF agg_tiles_hash.new=E89600605FA137D684A10EE91463CEE0
     ");
     assert_eq!(metadata(&source).await["agg_tiles_hash"], REAL_AGG_HASH);
 

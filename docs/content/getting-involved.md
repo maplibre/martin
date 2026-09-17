@@ -131,11 +131,11 @@ use clap::Parser;
 use tracing::{error, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
-use martin::{read_config, Config, MartinResult};
+use martin::{read_config, Config, StartupResult};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-async fn start(args: Args) -> MartinResult<()> {
+async fn start(args: Args) -> StartupResult<()> {
     info!("Starting Martin v{VERSION}");
 ```
 

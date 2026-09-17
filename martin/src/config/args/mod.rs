@@ -1,3 +1,6 @@
+mod error;
+pub use error::{ArgsError, ArgsResult};
+
 mod connections;
 pub use connections::State;
 

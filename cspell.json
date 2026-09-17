@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "dictionaries": ["martin"],
+  "dictionaryDefinitions": [
+    {
+      "addWords": true,
+      "description": "Martin's domain vocabulary",
+      "name": "martin",
+      "path": ".cspell/project-words.txt"
+    }
+  ],
+  "files": ["docs/**/*.md"],
+  "ignoreRegExpList": ["Urls", "HexValues", "Base64"],
+  "language": "en",
+  "version": "0.2"
+}

@@ -42,9 +42,9 @@ pub fn is_template(url: &str) -> bool {
 #[must_use]
 pub fn substitute(template: &str, xyz: TileCoord) -> String {
     template
-        .replace("{z}", &xyz.z.to_string())
-        .replace("{x}", &xyz.x.to_string())
-        .replace("{y}", &xyz.y.to_string())
+        .replace("{z}", &xyz.z().to_string())
+        .replace("{x}", &xyz.x().to_string())
+        .replace("{y}", &xyz.y().to_string())
 }
 
 /// Deterministically pick a template for a tile so the same coordinate always maps to the same
@@ -57,9 +57,9 @@ pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
         return single;
     }
     let mut hasher = Xxh3::new();
-    xyz.z.hash(&mut hasher);
-    xyz.x.hash(&mut hasher);
-    xyz.y.hash(&mut hasher);
+    xyz.z().hash(&mut hasher);
+    xyz.x().hash(&mut hasher);
+    xyz.y().hash(&mut hasher);
     let idx = usize::try_from(hasher.finish() % urls.len() as u64).unwrap_or(0);
     urls.get(idx).map_or(&urls[0], |u| u)
 }
@@ -88,6 +88,8 @@ fn extension_format(url: &str) -> Option<Format> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use martin_tile_utils::{Format, TileCoord};
     use rstest::rstest;
 
@@ -107,10 +109,7 @@ mod tests {
         if ok {
             assert_eq!(parsed.unwrap().as_str(), url);
         } else {
-            assert!(matches!(
-                parsed,
-                Err(PassthroughError::InvalidUrlTemplate(_))
-            ));
+            assert_matches!(parsed, Err(PassthroughError::InvalidUrlTemplate(_)));
         }
     }
 
@@ -173,9 +172,9 @@ mod tests {
 
     #[test]
     fn derive_format_errors_when_undeterminable() {
-        assert!(matches!(
+        assert_matches!(
             derive_format("my-src", None, "https://e/{z}/{x}/{y}", None),
             Err(PassthroughError::FormatUndeterminable(id)) if id == "my-src"
-        ));
+        );
     }
 }

@@ -61,6 +61,10 @@ You should also consider
     Use `identity` to disable compression.
     Ignored for non-encodable tiles like PNG and JPEG.
 
+!!! note
+    When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin-cp` copies zoom by zoom and never fetches the tiles below an empty tile.
+    This means that even sparse sources can usually be fairly performant.
+
 ## Arguments
 
 Use `martin-cp --help` to see a list of available options:

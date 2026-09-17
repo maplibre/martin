@@ -6,8 +6,8 @@ use tracing::{debug, info, warn};
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
 use crate::{
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtError, MbtResult,
-    MbtType, Mbtiles,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm,
+    MbtError, MbtResult, MbtType, Mbtiles,
 };
 
 #[hotpath::measure]
@@ -57,7 +57,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     );
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
-    let select_from = get_select_from(base_info.mbt_type, patch_type);
+    let algorithm = base_mbt.get_hash_algorithm(&mut conn).await?;
+    let select_from = get_select_from(base_info.mbt_type, patch_type, algorithm);
     let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
@@ -111,16 +112,20 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     detach_db(&mut conn, "patchDb").await
 }
 
-fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
+fn get_select_from(src_type: MbtType, patch_type: MbtType, algorithm: HashAlgorithm) -> String {
     if src_type == Flat {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_owned()
     } else {
         match patch_type {
             // A Cache patch file is read via its `tiles` view, like Flat
-            Flat | Cache => "
-        SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
+            Flat | Cache => {
+                let hash = algorithm.sql_hash("tile_data");
+                format!(
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, {hash} as hash
         FROM patchDb.tiles"
-                .to_owned(),
+                )
+            }
             FlatWithHash
             | Normalized {
                 hash_view: true, ..

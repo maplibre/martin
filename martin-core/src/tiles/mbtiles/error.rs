@@ -22,3 +22,15 @@ pub enum MbtilesError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 }
+
+impl crate::Classify for MbtilesError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::AcquireConnError(..) => Unavailable,
+            Self::MbtilesLibraryError(_) | Self::IoError(..) | Self::InvalidMetadata(..) => {
+                Internal
+            }
+        }
+    }
+}

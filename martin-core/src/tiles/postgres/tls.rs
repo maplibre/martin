@@ -207,6 +207,21 @@ pub fn make_connector(
     ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
 ) -> PostgresResult<MakeRustlsConnect> {
+    Ok(MakeRustlsConnect::new(client_config(
+        ssl_cert,
+        ssl_key,
+        ssl_root_cert,
+        ssl_mode,
+    )?))
+}
+
+/// The rustls configuration `make_connector` wraps: roots, client auth and the verifier for `ssl_mode`.
+fn client_config(
+    ssl_cert: Option<&PathBuf>,
+    ssl_key: Option<&PathBuf>,
+    ssl_root_cert: Option<&PathBuf>,
+    ssl_mode: SslModeOverride,
+) -> PostgresResult<rustls::ClientConfig> {
     ensure_rustls_provider();
 
     let (verify_ca, verify_hostname) = match ssl_mode {
@@ -282,7 +297,7 @@ pub fn make_connector(
             .set_certificate_verifier(Arc::new(NoHostnameVerification(verifier)));
     }
 
-    Ok(MakeRustlsConnect::new(builder))
+    Ok(builder)
 }
 
 #[cfg(test)]
@@ -325,5 +340,183 @@ mod tests {
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyCa);
+    }
+
+    #[test]
+    fn bad_conn_str_is_reported() {
+        let err = parse_conn_str("postgres://localhost:notaport/db").unwrap_err();
+        assert!(matches!(err, BadConnectionString(..)), "{err}");
+    }
+
+    #[test]
+    fn default_connector_is_plain() {
+        assert!(matches!(
+            PgTlsConnector::default(),
+            PgTlsConnector::NoTls(_)
+        ));
+    }
+
+    struct Pki {
+        ca: rcgen::Certificate,
+        server: rcgen::Certificate,
+        server_key: rcgen::KeyPair,
+    }
+
+    fn pki(hostname: &str) -> Pki {
+        use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
+
+        let ca_key = KeyPair::generate().unwrap();
+        let mut ca_params = CertificateParams::new(Vec::<String>::new()).unwrap();
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        ca_params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
+        let ca = ca_params.self_signed(&ca_key).unwrap();
+        let issuer = Issuer::new(ca_params, ca_key);
+
+        let server_key = KeyPair::generate().unwrap();
+        let server_params = CertificateParams::new(vec![hostname.to_owned()]).unwrap();
+        let server = server_params.signed_by(&server_key, &issuer).unwrap();
+        Pki {
+            ca,
+            server,
+            server_key,
+        }
+    }
+
+    fn native_roots_are_loadable() -> bool {
+        let errors = load_native_certs().errors;
+        if !errors.is_empty() {
+            warn!("skipping: the platform root certificates cannot be loaded: {errors:?}");
+        }
+        errors.is_empty()
+    }
+
+    fn write_temp(contents: &str) -> tempfile::NamedTempFile {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        io::Write::write_all(&mut file, contents.as_bytes()).unwrap();
+        file
+    }
+
+    fn handshake(client: rustls::ClientConfig, server: &Pki, hostname: &str) -> Result<(), Error> {
+        use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(server.server_key.serialize_der()));
+        let server_config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![server.server.der().clone()], key)
+            .unwrap();
+        let mut server = rustls::ServerConnection::new(Arc::new(server_config)).unwrap();
+        let name = ServerName::try_from(hostname.to_owned()).unwrap();
+        let mut client = rustls::ClientConnection::new(Arc::new(client), name).unwrap();
+
+        while client.is_handshaking() || server.is_handshaking() {
+            let mut wire = Vec::new();
+            client.write_tls(&mut wire).unwrap();
+            server.read_tls(&mut wire.as_slice()).unwrap();
+            server.process_new_packets()?;
+            let mut wire = Vec::new();
+            server.write_tls(&mut wire).unwrap();
+            client.read_tls(&mut wire.as_slice()).unwrap();
+            client.process_new_packets()?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn verify_ca_checks_the_issuer_but_not_the_hostname() {
+        if !native_roots_are_loadable() {
+            return;
+        }
+        let trusted = pki("postgres.internal");
+        let ca_file = write_temp(&trusted.ca.pem());
+        let ca_path = ca_file.path().to_path_buf();
+        let verify_ca =
+            || client_config(None, None, Some(&ca_path), SslModeOverride::VerifyCa).unwrap();
+
+        handshake(verify_ca(), &trusted, "postgres.internal").unwrap();
+        handshake(verify_ca(), &trusted, "db.example.com").unwrap();
+
+        let untrusted = pki("postgres.internal");
+        let err = handshake(verify_ca(), &untrusted, "postgres.internal").unwrap_err();
+        assert!(matches!(err, Error::InvalidCertificate(_)), "{err}");
+
+        let verify_full =
+            client_config(None, None, Some(&ca_path), SslModeOverride::VerifyFull).unwrap();
+        let err = handshake(verify_full, &trusted, "db.example.com").unwrap_err();
+        assert!(matches!(err, Error::InvalidCertificate(_)), "{err}");
+    }
+
+    #[test]
+    fn require_without_roots_trusts_any_certificate() {
+        let untrusted = pki("postgres.internal");
+        for mode in [
+            SslModeOverride::Unmodified(SslMode::Disable),
+            SslModeOverride::Unmodified(SslMode::Prefer),
+            SslModeOverride::Unmodified(SslMode::Require),
+        ] {
+            let config = client_config(None, None, None, mode).unwrap();
+            handshake(config, &untrusted, "db.example.com")
+                .unwrap_or_else(|e| panic!("{mode:?}: {e}"));
+        }
+    }
+
+    #[test]
+    fn require_with_roots_behaves_like_verify_ca() {
+        if !native_roots_are_loadable() {
+            return;
+        }
+        let trusted = pki("postgres.internal");
+        let ca_file = write_temp(&trusted.ca.pem());
+        let ca_path = ca_file.path().to_path_buf();
+        let mode = SslModeOverride::Unmodified(SslMode::Require);
+
+        let config = client_config(None, None, Some(&ca_path), mode).unwrap();
+        handshake(config, &trusted, "db.example.com").unwrap();
+
+        let untrusted = pki("postgres.internal");
+        let config = client_config(None, None, Some(&ca_path), mode).unwrap();
+        assert!(handshake(config, &untrusted, "postgres.internal").is_err());
+    }
+
+    #[test]
+    fn connector_rejects_unusable_certificate_files() {
+        if !native_roots_are_loadable() {
+            return;
+        }
+        let pki = pki("postgres.internal");
+        let cert_file = write_temp(&pki.server.pem());
+        let cert = cert_file.path().to_path_buf();
+        let pkcs8_key_file = write_temp(&pki.server_key.serialize_pem());
+        let pkcs8_key = pkcs8_key_file.path().to_path_buf();
+        let garbage_file =
+            write_temp("-----BEGIN CERTIFICATE-----\nnot base64!\n-----END CERTIFICATE-----\n");
+        let garbage = garbage_file.path().to_path_buf();
+        let missing = PathBuf::from("/definitely/not/here.pem");
+        let mode = SslModeOverride::Unmodified(SslMode::Require);
+
+        let err = client_config(Some(&cert), Some(&pkcs8_key), None, mode).unwrap_err();
+        assert!(
+            matches!(err, InvalidPrivateKey(ref p) if *p == pkcs8_key),
+            "{err}"
+        );
+
+        let err = client_config(Some(&cert), Some(&missing), None, mode).unwrap_err();
+        assert!(
+            matches!(err, CannotOpenCert(_, ref p) if *p == missing),
+            "{err}"
+        );
+
+        let err = client_config(None, None, Some(&missing), mode).unwrap_err();
+        assert!(
+            matches!(err, CannotOpenCert(_, ref p) if *p == missing),
+            "{err}"
+        );
+
+        let err = client_config(None, None, Some(&garbage), mode).unwrap_err();
+        assert!(
+            matches!(err, CannotParseCert(_, ref p) if *p == garbage),
+            "{err}"
+        );
+
+        make_connector(None, Some(&pkcs8_key), None, mode).expect("a lone key is ignored");
     }
 }

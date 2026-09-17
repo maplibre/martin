@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 #![expect(clippy::print_stderr, reason = "test diagnostics on failure")]
+use std::assert_matches;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -667,10 +668,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
     .run()
     .await
     .unwrap_err();
-    assert!(
-        matches!(err, MbtError::UnsupportedCopyOperation { .. }),
-        "{err:?}"
-    );
+    assert_matches!(err, MbtError::UnsupportedCopyOperation { .. });
 
     // Applying a patch into a cache destination
     let err = MbtilesCopier {
@@ -683,10 +681,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
     .run()
     .await
     .unwrap_err();
-    assert!(
-        matches!(err, MbtError::UnsupportedCopyOperation { .. }),
-        "{err:?}"
-    );
+    assert_matches!(err, MbtError::UnsupportedCopyOperation { .. });
 
     // Patching a cache file in place
     let (cache_mbt, mut cache_cn) = open!(cache_unsupported_operations, "base");
@@ -694,10 +689,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
     let err = apply_patch(path(&cache_mbt), databases.path("dif", Flat), true)
         .await
         .unwrap_err();
-    assert!(
-        matches!(err, MbtError::UnsupportedCopyOperation { .. }),
-        "{err:?}"
-    );
+    assert_matches!(err, MbtError::UnsupportedCopyOperation { .. });
 
     Ok(())
 }

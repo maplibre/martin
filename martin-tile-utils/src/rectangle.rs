@@ -19,7 +19,7 @@ use serde::Serialize;
 /// let rect = TileRect::new(10, 0, 0, 255, 255);
 /// assert_eq!(rect.size(), 256 * 256);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TileRect {
     /// The zoom level of the tiles
     pub zoom: u8,

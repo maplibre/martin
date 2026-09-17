@@ -4,24 +4,22 @@
 )]
 
 use std::env;
+#[cfg(feature = "tui")]
+use std::sync::Arc;
 
 use clap::Parser as _;
-use martin::MartinResult;
+use martin::StartupResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
-use martin::config::file::ProcessConfig;
-#[cfg(feature = "unstable-cog")]
-use martin::config::file::reload::cog::CogReloader;
-#[cfg(feature = "geojson")]
-use martin::config::file::reload::geojson::GeoJsonReloader;
-#[cfg(feature = "mbtiles")]
-use martin::config::file::reload::mbtiles::MbtilesReloader;
-#[cfg(feature = "pmtiles")]
-use martin::config::file::reload::pmtiles::PmtilesReloader;
-#[cfg(feature = "postgres")]
-use martin::config::file::reload::postgres::PostgresReloader;
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+use martin::config::file::reload::TileReloaders;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -30,13 +28,19 @@ use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_trac
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
+#[cfg(feature = "tui")]
+use martin::tui;
+#[cfg(feature = "tui")]
+use tokio::sync::oneshot;
 use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
-#[expect(clippy::too_many_lines)]
-async fn start(args: Args) -> MartinResult<()> {
+async fn start(
+    args: Args,
+    #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
+) -> StartupResult<()> {
     info!("Starting Martin v{VERSION}");
 
     let env = OsEnv;
@@ -57,13 +61,6 @@ async fn start(args: Args) -> MartinResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
-    // Snapshot the PostgreSQL config before `resolve()` rewrites its resolved tables/functions
-    // back into it, so each reloader re-derives discovery from the same inputs startup used.
-    #[cfg(feature = "postgres")]
-    let pg_snapshot = config.postgres.clone();
-    #[cfg(feature = "postgres")]
-    let pg_default_cache = config.cache.policy();
-
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
@@ -81,67 +78,26 @@ async fn start(args: Args) -> MartinResult<()> {
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    let mgr = sources.tile_manager.clone();
-
-    #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
-    let global_pc = {
-        #[cfg(feature = "mlt")]
-        let pc = ProcessConfig {
-            convert_to_mlt: config.convert_to_mlt.clone(),
-            convert_to_mvt: config.convert_to_mvt.clone(),
-        };
-        #[cfg(not(feature = "mlt"))]
-        let pc = ProcessConfig::default();
-        pc
-    };
-
-    #[cfg(feature = "mbtiles")]
-    {
-        let reloader =
-            MbtilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start MbtilesReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "unstable-cog")]
-    {
-        let reloader = CogReloader::new(mgr.clone(), resolver.clone(), &config.cog);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start CogReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "geojson")]
-    {
-        let reloader = GeoJsonReloader::new(mgr.clone(), resolver.clone(), &config.geojson);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start GeoJsonReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "pmtiles")]
-    {
-        let reloader =
-            PmtilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
-        if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start PmtilesReloader {e:?}");
-        }
-    }
-    #[cfg(feature = "postgres")]
-    for pg_config in pg_snapshot {
-        let reloader = PostgresReloader::new(
-            mgr.clone(),
-            resolver.clone(),
-            pg_config,
-            pg_default_cache,
-            &global_pc,
-        );
-        reloader.start();
-    }
+    let reloaders = TileReloaders::init(&config, &sources.tile_manager, &resolver).await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name.as_path())?;
+        config.save_to_file(
+            file_name.as_path(),
+            #[cfg(feature = "_tiles")]
+            &sources.tile_manager,
+        )?;
     } else {
         info!("Use --save-config to save or print Martin configuration.");
     }
+
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    reloaders.start();
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
@@ -177,20 +133,57 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");
 
-    server.await
+    #[cfg(feature = "tui")]
+    if let Some(dashboard) = dashboard {
+        dashboard.set_address(base_url);
+        let (quit, quit_rx) = oneshot::channel();
+        tui::run(dashboard, quit);
+        tokio::select! {
+            result = server => return Ok(result?),
+            _ = quit_rx => {
+                info!("Dashboard closed, stopping");
+                return Ok(());
+            }
+        }
+    }
+
+    Ok(server.await?)
 }
 
 #[tokio::main]
 #[hotpath::main]
 async fn main() {
+    let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
     let log_format = LogFormat::from_env();
+    #[cfg(feature = "tui")]
+    let dashboard = if args.meta.tui {
+        if !tui::is_available() {
+            eprintln!("--tui needs an interactive terminal");
+            std::process::exit(2);
+        }
+        Some(tui::install(&filter))
+    } else {
+        init_tracing(&filter, log_format, false);
+        None
+    };
+    #[cfg(not(feature = "tui"))]
     init_tracing(&filter, log_format, false);
 
-    let args = Args::parse();
-    if let Err(e) = start(args).await {
+    let started = start(
+        args,
+        #[cfg(feature = "tui")]
+        dashboard,
+    );
+    if let Err(e) = Box::pin(started).await {
         let rendered = e.render_diagnostic_with(log_format);
-        if tracing::event_enabled!(tracing::Level::ERROR) {
+        #[cfg(feature = "tui")]
+        let swallowed_by_dashboard = tui::is_installed();
+        #[cfg(not(feature = "tui"))]
+        let swallowed_by_dashboard = false;
+        #[cfg(feature = "tui")]
+        tui::restore_terminal();
+        if tracing::event_enabled!(tracing::Level::ERROR) && !swallowed_by_dashboard {
             error!("{rendered}");
         } else {
             eprintln!("{rendered}");

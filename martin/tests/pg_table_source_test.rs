@@ -29,12 +29,25 @@ async fn table_source() {
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
+    curves:
+      content_type: application/x-protobuf
+      description: public.curves.geom
+    curves_untyped:
+      content_type: application/x-protobuf
+      description: public.curves_untyped.geom
     empty_bounds:
       content_type: application/x-protobuf
       description: public.empty_bounds.geom
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
+    function_dup:
+      content_type: application/x-protobuf
+      description: the json variant
+      attribution: from the queryless comment
+    function_dup.1:
+      content_type: application/x-protobuf
+      description: the jsonb variant
     function_null:
       content_type: application/x-protobuf
       description: public.function_null
@@ -44,6 +57,24 @@ async fn table_source() {
     function_null_row2:
       content_type: application/x-protobuf
       description: public.function_null_row2
+    function_pair_json:
+      content_type: application/x-protobuf
+      description: public.function_pair_json
+    function_pair_jsonb:
+      content_type: application/x-protobuf
+      description: public.function_pair_jsonb
+    function_pair_query:
+      content_type: application/x-protobuf
+      description: public.function_pair_query
+    function_pair_query.1:
+      content_type: application/x-protobuf
+      description: "public.function_pair_query(integer, integer, integer, jsonb)"
+    function_two_schemas:
+      content_type: application/x-protobuf
+      description: the schema_a comment
+    function_two_schemas.1:
+      content_type: application/x-protobuf
+      description: the schema_b comment
     function_zoom_xy:
       content_type: application/x-protobuf
       description: public.function_zoom_xy
@@ -53,6 +84,9 @@ async fn table_source() {
     function_zxy2:
       content_type: application/x-protobuf
       description: public.function_zxy2
+    function_zxy_gzip:
+      content_type: application/x-protobuf
+      description: a function source returning gzip-compressed tiles
     function_zxy_query:
       content_type: application/x-protobuf
     function_zxy_query_jsonb:
@@ -118,7 +152,7 @@ async fn table_source() {
     });
 
     let source = table(&mock, "table_source");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: table_source
     srid: 4326
@@ -134,7 +168,7 @@ async fn table_source() {
     ");
 
     let source2 = table(&mock, "table_source_geog");
-    assert_yaml_snapshot!(source2, @r"
+    assert_yaml_snapshot!(source2, @"
     schema: public
     table: table_source_geog
     srid: 4326
@@ -170,7 +204,7 @@ async fn table_source() {
 async fn tables_tilejson() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let src = source(&mock, "table_source");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -192,7 +226,7 @@ async fn tables_tilejson() {
 async fn tables_tile_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let tile = source(&mock, "table_source")
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .unwrap();
 
@@ -245,7 +279,7 @@ async fn table_source_schemas() {
     "})
     .await;
     let sources = mock_sources(cfg).await.0;
-    assert_yaml_snapshot!(sources.tile_manager.tile_sources().get_catalog(), @r"
+    assert_yaml_snapshot!(sources.tile_manager.tile_sources().get_catalog(), @"
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
@@ -296,7 +330,7 @@ async fn table_bounds_linestring_vertical_ok() {
 async fn table_bounds_single_point_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "point_bounds");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: point_bounds
     srid: 4326
@@ -316,7 +350,7 @@ async fn table_bounds_single_point_ok() {
 async fn table_bounds_empty_table_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
     let source = table(&mock, "empty_bounds");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: empty_bounds
     srid: 4326

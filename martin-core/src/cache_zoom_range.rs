@@ -5,18 +5,20 @@ use serde::{Deserialize, Serialize};
 /// Zoom-level bounds for tile caching. Used at the top level (as a global default),
 /// at backend level, and per-source to control which zoom levels are cached.
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheZoomRange {
     /// Default minimum zoom level (inclusive) for tile caching.
     /// Tiles further zoomed out than this will bypass the cache entirely.
-    /// Can be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).
+    /// Can be overridden with `cache.minzoom` on an individual source.
     /// default: null (no lower bound, all zoom levels cached)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
     minzoom: Option<u8>,
     /// Default maximum zoom level (inclusive) for tile caching.
     /// Tiles further zoomed in than this will bypass the cache entirely.
     /// Can be overridden per-source.
     /// default: null (no upper bound, all zoom levels cached)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &14u8))]
     maxzoom: Option<u8>,
 }
 

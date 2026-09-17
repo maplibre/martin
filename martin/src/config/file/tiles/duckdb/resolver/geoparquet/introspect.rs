@@ -2,8 +2,13 @@ use std::collections::BTreeMap;
 use std::num::NonZeroI32;
 
 use martin_core::tiles::duckdb::DuckDBPool;
+use tracing::warn;
 
 use crate::config::file::tiles::duckdb::resolver::errors::{GeoparquetError, GeoparquetResult};
+use crate::config::file::tiles::duckdb::resolver::geoparquet::covering::{
+    CoveringBbox, query_covering,
+};
+use crate::config::file::tiles::duckdb::resolver::geoparquet::mvt_types::mvt_property_type;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sql_string};
 
@@ -12,18 +17,28 @@ use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sq
 pub struct GeoParquetIntrospection {
     pub geometry_column: String,
     pub srid: NonZeroI32,
+    /// Column name to the `DuckDB` type it must be cast to for `ST_AsMVT`, not the type it
+    /// has on disk. Columns with no MVT representation are excluded.
     pub property_columns: BTreeMap<String, String>,
+    /// The file's `GeoParquet` 1.1 `covering` bounding box, when it declares one.
+    pub covering: Option<CoveringBbox>,
+}
+
+/// The finalized location as a `DuckDB` string literal, for functions that take a path.
+fn geoparquet_source_literal(entry: &GeoParquetEntry) -> String {
+    escape_sql_string(
+        &entry
+            .location
+            .as_ref()
+            .expect("GeoParquetEntry must be finalized before resolve")
+            .to_source_string(),
+    )
 }
 
 /// Builds the `DuckDB` `FROM` expression from the finalized location.
 pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
-    let source = entry
-        .location
-        .as_ref()
-        .expect("GeoParquetEntry must be finalized before resolve")
-        .to_source_string();
     (
-        format!("read_parquet({})", escape_sql_string(&source)),
+        format!("read_parquet({})", geoparquet_source_literal(entry)),
         entry.geoparquet.clone(),
     )
 }
@@ -48,14 +63,12 @@ pub(crate) async fn introspect(
         return Err(GeoparquetError::IdColumnNotFound(id_column.clone()));
     }
 
-    let property_columns = all_columns
-        .iter()
-        .filter(|(name, _)| {
-            name.as_str() != geometry_column.as_str()
-                && entry.id_column.as_deref() != Some(name.as_str())
-        })
-        .map(|(name, column_type)| (name.clone(), column_type.clone()))
-        .collect();
+    let property_columns = select_property_columns(
+        &all_columns,
+        &geometry_column,
+        entry.id_column.as_deref(),
+        source_label,
+    );
 
     let srid = match entry.srid {
         Some(srid) => NonZeroI32::new(srid).ok_or_else(|| {
@@ -68,11 +81,62 @@ pub(crate) async fn introspect(
         None => query_srid(pool, from_expr, source_label, &geometry_column).await?,
     };
 
+    let covering = query_covering(
+        pool,
+        &geoparquet_source_literal(entry),
+        &geometry_column,
+        source_label,
+    )
+    .await;
+
     Ok(GeoParquetIntrospection {
         geometry_column,
         srid,
         property_columns,
+        covering,
     })
+}
+
+fn select_property_columns(
+    all_columns: &BTreeMap<String, String>,
+    geometry_column: &str,
+    id_column: Option<&str>,
+    source_label: &str,
+) -> BTreeMap<String, String> {
+    let mut properties = BTreeMap::new();
+    let mut dropped = Vec::new();
+
+    for (name, column_type) in all_columns {
+        if name == geometry_column || id_column == Some(name.as_str()) {
+            continue;
+        }
+        match mvt_property_type(column_type) {
+            Some(mvt_type) => {
+                properties.insert(name.clone(), mvt_type.to_owned());
+            }
+            None => dropped.push(format!("{name} ({column_type})")),
+        }
+    }
+
+    match dropped.as_slice() {
+        [] => {}
+        [col] => {
+            warn!(
+                "Ignoring {col} column of {source_label} with no MVT representation. \
+             Vector tiles can only carry text, numeric and boolean properties."
+            );
+        }
+        cols => {
+            warn!(
+                "Ignoring {} columns of {source_label} with no MVT representation: {}. \
+             Vector tiles can only carry text, numeric and boolean properties.",
+                cols.len(),
+                cols.join(", ")
+            );
+        }
+    }
+
+    properties
 }
 
 fn select_geometry_column(
@@ -199,6 +263,8 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use rstest::rstest;
 
     use super::*;
@@ -217,6 +283,6 @@ mod tests {
     #[test]
     fn parse_crs_to_srid_rejects_unknown_crs() {
         let err = parse_crs_to_srid("UNKNOWN:1", "geom").expect_err("unknown crs");
-        assert!(matches!(err, GeoparquetError::SridUnsupportedCrs(..)));
+        assert_matches!(err, GeoparquetError::SridUnsupportedCrs(..));
     }
 }

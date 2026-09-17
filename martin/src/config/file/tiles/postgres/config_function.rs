@@ -9,7 +9,9 @@ use super::config::PostgresInfo;
 #[cfg(feature = "unstable-schemas")]
 use crate::config::file::postgres::config_table::bounds_world_example;
 use crate::config::file::postgres::utils::patch_json;
-use crate::config::file::{CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
+};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
@@ -49,6 +51,12 @@ pub struct FunctionInfo {
         schemars(with = "Option<crate::config::file::CachePolicyShape>")
     )]
     pub cache: Option<CachePolicy>,
+
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
 
     /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]

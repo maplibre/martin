@@ -1,6 +1,5 @@
 ---
 source: martin-core/tests/geojson_test.rs
-assertion_line: 408
 expression: tile.layers
 ---
 [

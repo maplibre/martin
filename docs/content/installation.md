@@ -22,21 +22,35 @@ docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.14.0 \
+           ghcr.io/maplibre/martin:1.16.1 \
            --config /config/config.yaml
 ```
+
+!!! note
+    The default image is lean and does **not** include server-side style [rendering](sources-styles/rendering.md).
+    If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`.
+    It is larger because it bundles the `maplibre_native` runtime libraries.
 
 ### From Binary Distributions Manually
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | x64                                                                                              | ARM-64                                                                   |
-|----------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    |                                                                                                  | [.tar.gz][rl-macos-a64]                                                  |
-| Windows  | [.zip][rl-win64-zip]                                                                             |                                                                          |
+| Platform | x64                                                                                                                                          | ARM-64                                                                                                               |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
+| macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]                                                                                              |
+| Windows  | [.zip][rl-win64-zip]                                                                                                                         |                                                                                                                      |
+
+!!! note
+    The standard binaries do **not** include server-side style [rendering](sources-styles/rendering.md).
+    The `-full` Linux-gnu tarballs do.
+    They add the `rendering` feature and its bundled native libraries.
 
 [rl-linux-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
+
+[rl-linux-x64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz
+
+[rl-linux-a64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz
 
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz
 
@@ -66,10 +80,9 @@ to [improve packaging for various platforms](https://github.com/maplibre/martin/
 
 #### Homebrew
 
-If you are using macOS and [Homebrew](https://brew.sh/) you can install martin using Homebrew tap.
+If you are using [Homebrew](https://brew.sh/) you can install martin using
 
 ```bash
-brew tap maplibre/martin
 brew install martin
 martin --help
 ```
@@ -83,6 +96,24 @@ martin --help
 rm ./debian-x86_64.deb
 ```
 
+#### Arch Linux
+
+The [AUR](https://aur.archlinux.org/packages/martin) carries `martin` and `martin-cp`, maintained by the community.
+With an AUR helper such as `yay`:
+
+```bash
+yay -S martin
+martin --help
+```
+
+#### Nix
+
+[nixpkgs](https://search.nixos.org/packages?query=martin) carries `martin`, usually a release or two behind.
+
+```bash
+nix-shell -p martin --run 'martin --help'
+```
+
 ### Building from source
 
 If you [install Rust](https://www.rust-lang.org/tools/install), you can build martin from source with Cargo:
@@ -94,11 +125,22 @@ martin --help
 
 #### Optional features
 
-`unstable-foobar` features are **not included** in default builds, Homebrew, Debian packages, or the Docker image.
+Features prefixed with `unstable-` are **not included** in default builds, Homebrew, Debian packages, or the Docker image.
 To experiment with them, build Martin from source with the feature enabled:
 
 ```bash
-cargo install martin --locked --features=unstable-foobar
+cargo install martin --locked --features=unstable-duckdb
+```
+
+The currently available unstable features are `unstable-cog` for [COG sources](sources-cog-files.md)
+and `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
+
+Server-side style [rendering](sources-styles/rendering.md) is also left out of the default feature set.
+To include it (Linux only), add the `rendering` feature.
+You will need its build dependencies first (`just install-dependencies`).
+
+```bash
+cargo install martin --locked --features rendering
 ```
 
 #### Platform-Specific Build Notes
@@ -107,4 +149,4 @@ cargo install martin --locked --features=unstable-foobar
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`unstable-rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).
+- **`rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).

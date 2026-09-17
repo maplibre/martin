@@ -70,7 +70,6 @@ pub enum DuckDBPoolManagerError {
 }
 
 /// Errors that can occur when working with `DuckDB` tile sources.
-#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum DuckDBError {
     /// Cannot build the shared `DuckDB` pool.
@@ -113,4 +112,18 @@ pub enum DuckDBError {
         TileCoord,
         Option<UrlQuery>,
     ),
+}
+
+impl crate::Classify for DuckDBError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::DuckDBPoolConnError(..) => Unavailable,
+            Self::DuckDBPoolBuildError(..)
+            | Self::DuckDBTaskJoinError(..)
+            | Self::PrepareQueryError { .. }
+            | Self::GetTileError(..)
+            | Self::GetTileWithQueryError(..) => Internal,
+        }
+    }
 }

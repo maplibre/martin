@@ -153,9 +153,10 @@ pub fn summary(path: impl AsRef<Path>) -> MbtilesCli {
         .arg(path.as_ref())
 }
 
-/// The insta filters a summary document needs to be snapshotted: the file lives in a temp
-/// directory, its page geometry depends on the sqlite build that wrote it, and the bounding box
-/// is computed by trigonometry, so its last digits differ between machines.
+/// The insta filters a summary document needs to be snapshotted.
+///
+/// The file lives in a temp directory, its page geometry depends on the sqlite build that wrote it,
+/// and the bounding box is computed by trigonometry, so its last digits differ between machines.
 #[must_use]
 pub fn summary_filters() -> Vec<(&'static str, &'static str)> {
     vec![

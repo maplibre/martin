@@ -57,7 +57,7 @@ enum FeatureTag {
 /// the `OpenAPI` request-body schema.
 #[derive(Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
-pub(crate) struct StaticStyleOverlay {
+pub struct StaticStyleOverlay {
     /// `GeoJSON` type discriminator. Must be `"FeatureCollection"`.
     #[serde(rename = "type")]
     #[expect(dead_code, reason = "validated by Deserialize, then discarded")]

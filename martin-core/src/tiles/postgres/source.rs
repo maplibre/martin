@@ -1,6 +1,8 @@
 use async_trait::async_trait;
+use compact_str::CompactString;
+use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use martin_tile_utils::{TileCoord, TileData, TileInfo};
+use martin_tile_utils::{Encoding, TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
@@ -10,7 +12,7 @@ use crate::tiles::postgres::PostgresError::{
 };
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::postgres::{ActiveQueryRegistry, PostgresPool};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
@@ -72,6 +74,10 @@ impl Source for PostgresSource {
         true
     }
 
+    fn empty_tile_implies_empty_children(&self) -> bool {
+        self.info.empty_tile_implies_empty_children
+    }
+
     fn cache_zoom(&self) -> CacheZoomRange {
         self.cache_zoom
     }
@@ -80,22 +86,82 @@ impl Source for PostgresSource {
         Some(self.pool.active_query_registry().clone())
     }
 
-    #[instrument(
-        level = "debug",
-        skip_all,
-        fields(
-            source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
-        ),
-        err(Debug),
-    )]
     async fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
+        Ok(self
+            .query_row(xyz, url_query)
+            .await?
+            .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
+            .map(TileData::from)
+            .unwrap_or_default())
+    }
+
+    async fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Tile> {
+        if !self.sql_for(url_query).has_etag_column {
+            let data = self.get_tile(xyz, url_query).await?;
+            let info = self.tile_info_for(&data);
+            return Ok(Tile::new_hash_etag(data, info));
+        }
+        let row = self.query_row(xyz, url_query).await?;
+        let data: TileData = row
+            .as_ref()
+            .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
+            .map(TileData::from)
+            .unwrap_or_default();
+        let etag = row
+            .and_then(|row| row.get::<_, Option<String>>(1))
+            .map(CompactString::from);
+        let info = self.tile_info_for(&data);
+        match etag {
+            Some(etag) if !data.is_empty() && !etag.is_empty() => {
+                Ok(Tile::new_with_etag(data, info, etag))
+            }
+            _ => Ok(Tile::new_hash_etag(data, info)),
+        }
+    }
+}
+
+impl PostgresSource {
+    /// The query answering a request, by whether the request carries a query string.
+    fn sql_for(&self, url_query: Option<&UrlQuery>) -> &PostgresSqlInfo {
+        match (&self.info.queryless, url_query) {
+            (Some(queryless), None) => queryless,
+            _ => &self.info,
+        }
+    }
+
+    /// The declared tile info, with the encoding the bytes carry when the function compressed them.
+    fn tile_info_for(&self, data: &[u8]) -> TileInfo {
+        match Encoding::detect(data) {
+            Some(encoding) => TileInfo::new(self.tile_info.format, encoding),
+            None => self.tile_info,
+        }
+    }
+
+    /// Runs the tile query, returning the row when the query produced one.
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            source.id = %self.id,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
+        ),
+        err(Debug),
+    )]
+    async fn query_row(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Option<Row>> {
         let conn = self.pool.get().await?;
 
         let cancel_token = conn.cancel_token();
@@ -103,30 +169,31 @@ impl Source for PostgresSource {
         // Auto-clean up if task completes or is interrupted
         let _query_guard = self.pool.active_query_registry().register(cancel_token);
 
-        let param_types: &[Type] = if self.support_url_query() {
+        let info = self.sql_for(url_query);
+        let param_types: &[Type] = if info.use_url_query {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
         } else {
             &[Type::INT2, Type::INT8, Type::INT8]
         };
 
-        let sql = &self.info.sql_query;
+        let sql = &info.sql_query;
         let prep_query = conn
             .prepare_typed_cached(sql, param_types)
             .await
             .map_err(|e| PrepareQueryError {
                 source: e,
                 source_id: self.id.clone(),
-                signature: self.info.signature.clone(),
-                query: self.info.sql_query.clone(),
+                signature: info.signature.clone(),
+                query: info.sql_query.clone(),
             })?;
 
-        let tile = if self.support_url_query() {
+        let tile = if info.use_url_query {
             let json = query_to_json(url_query);
             debug!("SQL: {sql} [{xyz}, {json:?}]");
             let params: &[&(dyn ToSql + Sync)] = &[
-                &i16::from(xyz.z),
-                &i64::from(xyz.x),
-                &i64::from(xyz.y),
+                &i16::from(xyz.z()),
+                &i64::from(xyz.x()),
+                &i64::from(xyz.y()),
                 &json,
             ];
             conn.query_opt(&prep_query, params).await
@@ -134,26 +201,22 @@ impl Source for PostgresSource {
             debug!("SQL: {sql} [{xyz}]");
             conn.query_opt(
                 &prep_query,
-                &[&i16::from(xyz.z), &i64::from(xyz.x), &i64::from(xyz.y)],
+                &[
+                    &i16::from(xyz.z()),
+                    &i64::from(xyz.x()),
+                    &i64::from(xyz.y()),
+                ],
             )
             .await
         };
 
-        let tile = tile
-            .map(|row| {
-                let r = row?;
-                r.get::<_, Option<TileData>>(0)
-            })
-            .map_err(|e| {
-                if self.support_url_query() {
-                    GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
-                } else {
-                    GetTileError(e, self.id.clone(), xyz)
-                }
-            })?
-            .unwrap_or_default();
-
-        Ok(tile)
+        Ok(tile.map_err(|e| {
+            if info.use_url_query {
+                GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
+            } else {
+                GetTileError(e, self.id.clone(), xyz)
+            }
+        })?)
     }
 }
 
@@ -164,18 +227,40 @@ pub struct PostgresSqlInfo {
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
+    /// Whether an empty tile implies that all tiles below it are empty.
+    pub empty_tile_implies_empty_children: bool,
     /// Signature of the query.
     pub signature: String,
+    /// Whether the query's second column is the tile's `ETag`.
+    pub has_etag_column: bool,
+    /// The variant to run for a request without a query string, when the function has one.
+    pub queryless: Option<Box<Self>>,
 }
 
 impl PostgresSqlInfo {
     /// Creates new SQL query information.
     #[must_use]
-    pub const fn new(query: String, has_query_params: bool, signature: String) -> Self {
+    pub const fn new(
+        query: String,
+        has_query_params: bool,
+        empty_tile_implies_empty_children: bool,
+        signature: String,
+        has_etag_column: bool,
+    ) -> Self {
         Self {
             sql_query: query,
             use_url_query: has_query_params,
+            empty_tile_implies_empty_children,
             signature,
+            has_etag_column,
+            queryless: None,
         }
+    }
+
+    /// This query with `queryless` answering the requests that carry no query string.
+    #[must_use]
+    pub fn with_queryless(mut self, queryless: Self) -> Self {
+        self.queryless = Some(Box::new(queryless));
+        self
     }
 }

@@ -8,13 +8,16 @@ mod demo 'demo/justfile'
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
-# list of features we deem stable for release packaging
-stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,webui'
+# list of features we deem stable for release packaging (also the default feature set)
+stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,tui,webui'
+# stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
+full_features := stable_features + ',rendering'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 # cargo-binstall needs a workaround due to caching when used in CI
 binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
+insta_test := 'cargo insta test --test-runner nextest --disable-nextest-doctest --accept --force-update-snapshots'
 
 # if running in CI, treat warnings as errors by setting CARGO_BUILD_WARNINGS to 'deny' unless it is already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -105,26 +108,20 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # Include `rendering` on Linux (the only platform it compiles on) so the
-    # spec covers all routes a release build serves.
-    feats=unstable-schemas
-    case "$(uname -s)" in
-        Linux) feats="$feats,rendering" ;;
-    esac
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target config      > schemas/config.json
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target openapi     > schemas/openapi.json
+    cargo build --quiet --features unstable-schemas --bin gen-schemas
+    gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
+    "$gen" --target config      > schemas/config.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
-    cargo run --quiet --no-default-features --features "$feats" \
-        --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
+    "$gen" --target config-doc  > docs/content/files/generated_config.md
+    "$gen" --target openapi     > schemas/openapi.json
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
+    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -168,7 +165,7 @@ test-schemas:
             rm -f "$tmp"
         else
             echo "missing $f aborting"
-            exit -1
+            exit 1
         fi
     done
     echo "::endgroup::"
@@ -192,7 +189,7 @@ test-schemas:
         rm -f "$tmp"
     else
         echo "missing $doc aborting"
-        exit -1
+        exit 1
     fi
     echo "::endgroup::"
 
@@ -209,23 +206,46 @@ bless:
     done
 
     echo "Blessing end-to-end tests"
-    {{just}} bless-e2e
+    for target in bless-e2e bless-cog bless-duckdb {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
+      echo "::group::just $target"
+      {{just}} $target
+      echo "::endgroup::"
+    done
 
 # Run insta snapshot tests and save their output as the new expected output.
-bless-insta *args:  fetch (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --workspace {{args}}
+bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} --all-targets --workspace {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
-bless-e2e *args: fetch start (cargo-install 'cargo-insta')
+bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --package mbtiles
-    cargo insta test --accept --package martin-e2e-tests --features test-pg {{args}}
+    {{insta_test}} --package martin-e2e-tests --features test-pg {{args}}
 
-bless-pg: fetch start  (cargo-install 'cargo-insta')
-    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo insta test --accept --features test-pg --no-default-features --package martin --lib
-    cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
+bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    {{insta_test}} --features test-pg --no-default-features --package martin --lib
+    {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
-# Build binaries for a target. In release mode (default), strips debug info.
+# Bless the COG/GeoTIFF tests, including the end-to-end ones
+bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} -p martin --features unstable-cog --no-default-features --lib
+    {{insta_test}} -p martin-core --features unstable-cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features unstable-cog
+    {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
+
+# Bless the DuckDB/GeoParquet tests, including the end-to-end ones
+bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
+    {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
+
+# Bless the style rendering tests end-to-end
+[linux]
+bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    cargo build --package martin --no-default-features --features rendering
+    {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
+
+# Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release target: fetch
     #!/usr/bin/env bash
@@ -235,19 +255,26 @@ build-release target: fetch
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        if [[ "{{release_mode}}" == "1" ]]; then
-            export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        fi
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
+build-release-full target: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
+    RUSTFLAGS='-C strip=symbols' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -255,9 +282,12 @@ build-deb output: fetch (cargo-install 'cargo-deb')
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-musl target: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
     rustup target add {{target}}
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages'
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
 
 # Move build artifacts to target_releases directory
@@ -284,7 +314,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath_tui,unstable-schemas,test-duckdb,test-minio,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -369,7 +399,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.14.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.16.1 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -402,6 +432,10 @@ fmt: fetch
         echo 'Reformatting Rust with the stable cargo fmt.  Install nightly with `rustup install nightly` for better results'
         cargo fmt --all
     fi
+
+# Spellcheck the docs using cspell
+spellcheck *args:
+    npx --yes cspell@10.1.1 lint --no-progress {{args}}
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
@@ -470,7 +504,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run common lints
-lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
 
 # Run mbtiles command
 mbtiles *args: fetch
@@ -591,65 +625,61 @@ test: fetch start
     {{just}} test-e2e
 
 # Run PostgreSQL-requiring tests only
-test-pg: fetch start
-    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo test --features test-pg --no-default-features --package martin --lib
-    cargo test --features test-pg --package martin-core --no-default-features --lib
+test-pg: fetch start (cargo-install 'cargo-nextest')
+    cargo nextest run --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    cargo nextest run --features test-pg --no-default-features --package martin --lib
+    cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
 
 # Run MinIO/S3-requiring tests only (Docker required)
-test-minio: fetch
-    cargo test --features test-minio --no-default-features --test pmt_minio_test
+test-minio: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run --features test-minio --no-default-features --test pmt_minio_test
 
 # Run COG/GeoTIFF tests only, including the end-to-end ones
-test-cog: fetch
-    cargo test -p martin --features unstable-cog --no-default-features --lib
-    cargo test -p martin-core --features unstable-cog --no-default-features --lib
+test-cog: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run -p martin --features unstable-cog --no-default-features --lib
+    cargo nextest run -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
-    cargo test --package martin-e2e-tests --features test-cog --test cog
+    cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
-test-duckdb: fetch
-    cargo test -p martin --features test-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --lib
-    cargo test -p martin-core --features unstable-duckdb --no-default-features --test duckdb_test
-    cargo build --package martin --no-default-features --features unstable-duckdb
-    cargo test --package martin-e2e-tests --features test-duckdb --test duckdb
+test-duckdb: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
+    cargo nextest run --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
 [linux]
-test-rendering *args: fetch
+test-rendering *args: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --package martin --no-default-features --features rendering
-    # Each test runs a martin of its own, whose render pool software rendering on CI makes too
-    # heavy to run one per core.
-    cargo test --package martin-e2e-tests --features test-rendering --test rendering {{args}} -- --test-threads=2
+    cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
-# Run Rust unit tests (cargo test)
-test-cargo *args: fetch
-    cargo test {{args}}
+# Run Rust unit tests
+test-cargo *args: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run {{args}}
 
 # Run unit tests for each package in dependency order
-test-packages-ci: fetch
+test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo test --package martin-tile-utils
-    cargo test --package mbtiles --no-default-features
-    cargo test --package mbtiles
-    cargo test --package martin-core
-    cargo test --package martin
+    cargo nextest run --package martin-tile-utils
+    cargo nextest run --package mbtiles --no-default-features
+    cargo nextest run --package mbtiles
+    cargo nextest run --package martin-core
+    cargo nextest run --package martin
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
-test-e2e *args: fetch
+test-e2e *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles
-    cargo test --package martin-e2e-tests {{args}}
+    cargo nextest run --package martin-e2e-tests {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
-test-e2e-pg *args: fetch start
+test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles
-    cargo test --package martin-e2e-tests --features test-pg --test config_file --test martin_cp --test postgres --test process {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-pg --test config_file --test martin_cp --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
@@ -710,18 +740,22 @@ test-lambda martin_bin='target/debug/martin':
 # within the test. Additionally, some of the benches that run with --all-targets
 # are also docker-based integration tests.
 # We limit parallelism to prevent OOM during linking of large test binaries.
-test-freebsd: (test-cargo "-j 2 --lib --bins --tests --examples") test-doc
+test-freebsd: (test-cargo "--build-jobs 2 --lib --bins --tests --examples") test-doc
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
 # Run all tests using an SSL connection to a test database
-test-ssl: start-ssl (test-cargo "--all-targets") test-pg test-doc
+test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets") test-pg test-doc
     cargo build --package martin --package mbtiles
-    cargo test --package martin-e2e-tests --features test-pg
+
+# Install the nextest test runner if not already installed.
+[private]
+install-nextest:  (cargo-install 'cargo-nextest')
+    cargo nextest run --package martin-e2e-tests --features test-pg
 
 # Run all tests using an SSL connection with client cert to a test database
-test-ssl-cert: start-ssl-cert
+test-ssl-cert: start-ssl-cert (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euxo pipefail
     # copy client cert to the tests folder from the docker container
@@ -736,7 +770,7 @@ test-ssl-cert: start-ssl-cert
     {{just}} test-cargo --all-targets
     {{just}} test-doc
     cargo build --package martin --package mbtiles
-    cargo test --package martin-e2e-tests --features test-pg
+    cargo nextest run --package martin-e2e-tests --features test-pg
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update: fetch
@@ -857,4 +891,4 @@ install-sqlx:  (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '-
 
 # Install mvt cli if not already installed.
 [private]
-install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')
+install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')(cargo-install 'cargo-nextest')

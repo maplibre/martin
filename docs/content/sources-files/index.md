@@ -69,7 +69,7 @@ pmtiles:
       convert_to_mvt: auto    # convert MLT -> MVT when client requests it
     mlt_archive:
       path: /data/mlt_tiles.pmtiles
-      convert_to_mvt: disable # disabllow any on the the fly conversion
+      convert_to_mvt: disable # disallow any on the fly conversion
       convert_to_mlt: disable
 ```
 

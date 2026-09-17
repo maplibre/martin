@@ -13,7 +13,8 @@ expression: actual_value
 - type: table
   tbl_name: metadata
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
-  values: []
+  values:
+    - "(  \"hash_algorithm\", \"md5\"  )"
 - type: index
   tbl_name: images
   sql: ~

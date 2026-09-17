@@ -593,10 +593,10 @@ mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
         // compression=none must round-trip through tilejson.other
-        insta::assert_yaml_snapshot!(meta.tilejson.other, @r#"
+        insta::assert_yaml_snapshot!(meta.tilejson.other, @"
         compression: none
         format: application/vnd.maplibre-vector-tile
-        "#);
+        ");
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(
             tile_info,

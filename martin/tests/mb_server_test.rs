@@ -4,7 +4,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
@@ -94,7 +94,7 @@ async fn config(
     )
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn mbt_get_catalog_with_rendering_feature() {
@@ -105,36 +105,36 @@ async fn mbt_get_catalog_with_rendering_feature() {
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       m_json:
         content_type: application/json
         name: Dummy json data
       m_mvt:
-        content_encoding: gzip
         content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
+        content_encoding: gzip
         name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
       m_raw_mlt:
-        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
         content_type: application/vnd.maplibre-tile
-        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
       m_raw_mvt:
         content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
       m_webp:
         content_type: image/webp
         name: ne2sr
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     "#);
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn mbt_get_catalog_gzip_with_rendering_feature() {
@@ -147,32 +147,32 @@ async fn mbt_get_catalog_gzip_with_rendering_feature() {
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
     tiles:
       m_json:
         content_type: application/json
         name: Dummy json data
       m_mvt:
-        content_encoding: gzip
         content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
+        content_encoding: gzip
         name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
       m_raw_mlt:
-        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
         content_type: application/vnd.maplibre-tile
-        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
       m_raw_mvt:
         content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
       m_webp:
         content_type: image/webp
         name: ne2sr
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     "#);
 }
 

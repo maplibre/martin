@@ -48,6 +48,11 @@ pub trait Source: Send + Sync + Debug {
         false
     }
 
+    /// Whether an empty tile implies that all tiles below it are empty. Default: false.
+    fn empty_tile_implies_empty_children(&self) -> bool {
+        false
+    }
+
     /// Returnes the cancellation registry for queries
     ///
     /// Only works for postgresql sources for now

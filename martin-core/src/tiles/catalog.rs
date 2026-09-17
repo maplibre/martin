@@ -3,7 +3,7 @@
 //! Provides a type-safe catalog system for storing and retrieving tile source
 //! information, including content types, encoding, and attribution data.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ use serde_with;
 /// };
 /// catalog.insert("my_source".to_string(), entry);
 /// ```
-pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
+pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
 
 /// Metadata for a tile source in the catalog.
 ///

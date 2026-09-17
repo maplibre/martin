@@ -107,6 +107,7 @@ impl DuckDbConfig {
         id_resolver: IdResolver,
         default_cache: CachePolicy,
     ) -> ResolutionResult {
+        let default_cache = self.cache.or(default_cache);
         let pending = self
             .sources
             .iter()

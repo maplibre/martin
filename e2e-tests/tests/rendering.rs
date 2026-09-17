@@ -46,11 +46,12 @@ async fn martin_rendering(cassette: &Cassette) -> Martin {
         .expect("failed to start martin")
 }
 
-async fn stop_and_assert_log_clean(martin: &mut Martin) {
+/// Stop martin and consume the log lines rendering always emits, leaving the log clean for the
+/// assertion dropping a [`Martin`] makes.
+async fn stop_and_take_rendering_log(martin: &mut Martin) {
     martin.stop().await;
     martin.assert_log_contains("experimental feature rendering is enabled");
     martin.take_log_lines("[Render]");
-    martin.assert_log_clean();
 }
 
 fn reference(group: &str, name: &str) -> PathBuf {
@@ -84,7 +85,7 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     assert_eq!(response.image_format(), ImageFormat::Png);
     assert_eq!(response.image_size(), (512, 512));
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -102,7 +103,7 @@ async fn a_style_renders_as_a_jpeg_tile(#[case] path: &str) {
     assert_eq!(response.image_format(), ImageFormat::Jpeg);
     assert_eq!(response.image_size(), (512, 512));
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -126,7 +127,7 @@ async fn a_rendered_tile_matches_its_reference(
     let name = format!("{style}_{}.{extension}", tile.replace('/', "_"));
     assert_image_matches(reference(TILE_REFERENCES, &name), &body);
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -140,7 +141,7 @@ async fn a_rendered_tile_is_served_as_an_image() {
         insta::assert_snapshot!(response.headers_snapshot());
     });
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -164,7 +165,7 @@ async fn a_render_fetches_what_the_style_points_at() {
     fetched.dedup();
     insta::assert_snapshot!(fetched.join("\n"));
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -183,7 +184,7 @@ async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target:
     assert_eq!(response.status(), 301);
     assert_eq!(response.header("location"), Some(target));
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -196,7 +197,7 @@ async fn an_unknown_style_renders_nothing() {
     assert_eq!(response.status(), 404);
     assert_eq!(response.text(), "No such style exists");
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -212,7 +213,7 @@ async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
     assert_eq!(response.status(), 400);
     assert_eq!(response.text(), "Invalid tile coordinates for zoom level");
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -225,7 +226,7 @@ async fn neighbouring_tiles_render_differently() {
     let east = martin.get("/style/maplibre_demo/1/1/0.png").await;
     assert_ne!(west.body(), east.body());
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -258,7 +259,7 @@ async fn tiles_requested_at_once_each_render_their_own_coordinates() {
         .collect::<HashSet<_>>();
     assert_eq!(bodies.len(), paths.len(), "the tiles are not all different");
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -274,7 +275,7 @@ async fn a_static_image_renders_as_a_jpeg() {
     assert_eq!(response.header("content-type"), Some("image/jpeg"));
     assert_eq!(response.image_format(), ImageFormat::Jpeg);
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -298,7 +299,7 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
     .await;
     assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -317,7 +318,7 @@ async fn a_camera_option_changes_the_static_image(#[case] one: &str, #[case] oth
     let other = rendered(&martin, &format!("/style/maplibre_demo/static/{other}.png")).await;
     assert_images_differ(&one, &other);
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -334,7 +335,7 @@ async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
     let center = rendered(&martin, "/style/maplibre_demo/static/0,0,2.16/200x200.png").await;
     assert_images_alike(&bbox, &center);
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -352,7 +353,7 @@ async fn a_doubled_pixel_ratio_doubles_the_static_image() {
     assert_eq!(one_x.image_size(), (100, 100));
     assert_eq!(two_x.image_size(), (200, 200));
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -373,7 +374,7 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
         response.body(),
     );
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
@@ -406,7 +407,7 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
         response.body(),
     );
 
-    stop_and_assert_log_clean(&mut martin).await;
+    stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 

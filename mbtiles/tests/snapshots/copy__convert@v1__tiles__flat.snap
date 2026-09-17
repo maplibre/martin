@@ -7,6 +7,7 @@ expression: actual_value
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"9ED9178D7025276336C783C2B54D6258\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
 - type: table
   tbl_name: tiles
   sql: "CREATE TABLE tiles (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_data BLOB,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"

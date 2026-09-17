@@ -1,5 +1,5 @@
 /* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
-import maplibregl from 'maplibre-gl';
+import { MapLibreMap, NavigationControl } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -58,7 +58,7 @@ const MaplibreMap = () => {
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    mapRef.current = new maplibregl.Map({
+    mapRef.current = new MapLibreMap({
       center: [-74.005308, 40.71337],
       container: mapContainerRef.current,
       cooperativeGestures: true,
@@ -67,7 +67,7 @@ const MaplibreMap = () => {
       zoom: 9,
     });
 
-    navRef.current = new maplibregl.NavigationControl();
+    navRef.current = new NavigationControl();
     mapRef.current.addControl(navRef.current, 'top-right');
     mapRef.current.on('load', mapOnLoad);
 

@@ -12,8 +12,16 @@ Martin can render a [style](index.md) into raster images server-side:
 as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
-    This feature is included in the default build on Linux.
-    Its behaviour may change in patch releases.
+    Rendering is **not** part of the default build.
+    It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements.
+    We only ship it where we control the runtime environment.
+    You get it by either:
+
+    - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
+    - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
+
+    The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.
+    Its behavior may change in patch releases.
 
     Limitations of our current implementation:
 
@@ -22,9 +30,9 @@ as XYZ tiles, or as a single static image at a chosen camera.
     - Currently, martin does not cache style rendered requests and
     - does not support concurrency for this feature.
 
-    We welcome contributions to help stabilise this feature!
+    We welcome contributions to help stabilize this feature!
 
-To enable rendering, turn it on in the configuration file:
+To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
 
 ```yaml
 styles:
@@ -33,7 +41,7 @@ styles:
 
 ## Rendered XYZ tiles
 
-We support generating a rasterised image for an XYZ tile of a given style.
+We support generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
 

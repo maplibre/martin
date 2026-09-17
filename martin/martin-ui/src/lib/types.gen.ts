@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/cache/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["purge_source"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/catalog": {
         parameters: {
             query?: never;
@@ -133,46 +149,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/style/{style_id}/static/{camera}/{size}.{format}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Render a static map image at an arbitrary camera into `{size}.{format}`. */
-        get: operations["get_rendered_static_style"];
-        put?: never;
-        /**
-         * Render a static map image with optional vector overlays.
-         *     See [our documentation](https://maplibre.org/martin/sources-styles/) for
-         *     the supported overlay body -- a `GeoJSON` `FeatureCollection` with style
-         *     properties on each feature.
-         * @description An empty or missing body renders the base map alone.
-         */
-        post: operations["post_rendered_static_style"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/style/{style_id}/{z}/{x}/{y}.{format}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_rendered_tile_style"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/{source_ids}": {
         parameters: {
             query?: never;
@@ -238,10 +214,7 @@ export interface components {
                 };
             };
             /** @description Server-wide capability flags */
-            settings: {
-                /** @description Whether server-side style rendering endpoints are enabled. */
-                rendering: boolean;
-            };
+            settings: Record<string, never>;
             sprites: {
                 [key: string]: {
                     /** @description Available sprite image names. */
@@ -305,18 +278,6 @@ export interface components {
             };
         };
         /**
-         * @description `"FeatureCollection"` discriminator for the top-level body. A unit enum so
-         *     any other `type` (a bare `Feature`, `Geometry`, or garbage) fails to
-         *     deserialize with a clear serde error.
-         * @enum {string}
-         */
-        FeatureCollectionTag: "FeatureCollection";
-        /**
-         * @description `"Feature"` discriminator for each member of the collection.
-         * @enum {string}
-         */
-        FeatureTag: "Feature";
-        /**
          * @description Source font file container format.
          *
          *     The string serialization (serde and `strum`) is the lowercase file
@@ -325,89 +286,6 @@ export interface components {
          * @enum {string}
          */
         FontFormat: "otf" | "ttf" | "ttc";
-        /**
-         * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
-         *     `None` and skipped at apply time.
-         */
-        StaticOverlayFeature: {
-            /**
-             * @description `GeoJSON` geometry. `Point`/`MultiPoint` -> circle layer;
-             *     `LineString`/`MultiLineString` -> line layer;
-             *     `Polygon`/`MultiPolygon` -> fill (and optionally outline-line) layer.
-             *     `GeometryCollection` and `null` are silently skipped.
-             */
-            geometry?: unknown;
-            properties?: null | components["schemas"]["StaticOverlayProperties"];
-            /** @description `GeoJSON` type discriminator. Must be `"Feature"`. */
-            type: components["schemas"]["FeatureTag"];
-        };
-        /**
-         * @description Wire shape of a feature's `properties`, keyed by canonical `MapLibre`
-         *     paint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];
-         *     enums and numbers are validated by serde. Unknown keys (`id`, `name`,
-         *     `title`, …) are ignored.
-         */
-        StaticOverlayProperties: {
-            /**
-             * @description CSS color for `Point` geometries.
-             * @example #285DAA
-             */
-            "circle-color"?: string | null;
-            /** Format: float */
-            "circle-opacity"?: number | null;
-            /**
-             * Format: float
-             * @description Radius in pixels at the rendered scale.
-             * @example 8
-             */
-            "circle-radius"?: number | null;
-            "circle-stroke-color"?: string | null;
-            /** Format: float */
-            "circle-stroke-opacity"?: number | null;
-            /** Format: float */
-            "circle-stroke-width"?: number | null;
-            /**
-             * @description CSS color for `Polygon` fills.
-             * @example #95BEFA
-             */
-            "fill-color"?: string | null;
-            /** Format: float */
-            "fill-opacity"?: number | null;
-            "fill-outline-color"?: string | null;
-            /**
-             * @description One of `butt`, `round`, `square`.
-             * @example round
-             */
-            "line-cap"?: string | null;
-            /**
-             * @description CSS color for `LineString` geometries (and `Polygon` outlines).
-             * @example #285DAA
-             */
-            "line-color"?: string | null;
-            /**
-             * @description One of `miter`, `bevel`, `round`.
-             * @example round
-             */
-            "line-join"?: string | null;
-            /** Format: float */
-            "line-opacity"?: number | null;
-            /**
-             * Format: float
-             * @description Line width in pixels at the rendered scale.
-             * @example 2
-             */
-            "line-width"?: number | null;
-        };
-        /**
-         * @description Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as
-         *     the `OpenAPI` request-body schema.
-         */
-        StaticStyleOverlay: {
-            /** @description Features to overlay on the rendered base map, in draw order. */
-            features: components["schemas"]["StaticOverlayFeature"][];
-            /** @description `GeoJSON` type discriminator. Must be `"FeatureCollection"`. */
-            type: components["schemas"]["FeatureCollectionTag"];
-        };
         /**
          * @description What kind of layers a `MapLibre` style draws.
          * @enum {string}
@@ -421,15 +299,40 @@ export interface components {
     pathItems: never;
 }
 export type Catalog = components['schemas']['Catalog'];
-export type FeatureCollectionTag = components['schemas']['FeatureCollectionTag'];
-export type FeatureTag = components['schemas']['FeatureTag'];
 export type FontFormat = components['schemas']['FontFormat'];
-export type StaticOverlayFeature = components['schemas']['StaticOverlayFeature'];
-export type StaticOverlayProperties = components['schemas']['StaticOverlayProperties'];
-export type StaticStyleOverlay = components['schemas']['StaticStyleOverlay'];
 export type StyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
+    purge_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Source ID */
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source's cached tiles are gone, or tile cacheing is disabled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description No such source */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_catalog: {
         parameters: {
             query?: never;
@@ -653,185 +556,6 @@ export interface operations {
             };
             /** @description No matching style */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    get_rendered_static_style: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                style_id: string;
-                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
-                camera: string;
-                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
-                size: string;
-                /**
-                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
-                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
-                 */
-                format: "png" | "jpg" | "webp";
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rendered static map image */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/jpeg": unknown;
-                    "image/png": unknown;
-                    "image/webp": unknown;
-                };
-            };
-            /** @description Invalid params or size */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Rendering is disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No matching style */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Renderer or encoder failure */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    post_rendered_static_style: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                style_id: string;
-                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
-                camera: string;
-                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
-                size: string;
-                /**
-                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
-                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
-                 */
-                format: "png" | "jpg" | "webp";
-            };
-            cookie?: never;
-        };
-        /** @description GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored. */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StaticStyleOverlay"];
-            };
-        };
-        responses: {
-            /** @description Rendered static map image */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/jpeg": unknown;
-                    "image/png": unknown;
-                    "image/webp": unknown;
-                };
-            };
-            /** @description Invalid params, size, or overlay body */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Rendering is disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No matching style */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Renderer or encoder failure */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    get_rendered_tile_style: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                style_id: string;
-                z: number;
-                x: number;
-                y: number;
-                format: "png" | "jpg" | "webp";
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Server-side rendered style tile (PNG/JPEG/WebP) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid tile coordinates */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Rendering is disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No matching style */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Renderer or encoder failure */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };

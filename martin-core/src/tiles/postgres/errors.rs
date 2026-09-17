@@ -20,6 +20,10 @@ pub type PostgresResult<T> = Result<T, PostgresError>;
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum PostgresError {
+    /// The configured filter is not valid CQL2
+    #[error("Filter '{0}' is not valid CQL2: {1}")]
+    InvalidFilter(String, String),
+
     /// Cannot load platform root certificates.
     #[error("Cannot load platform root certificates: {0:?}")]
     CannotLoadRoots(Vec<rustls_native_certs::Error>),
@@ -131,4 +135,32 @@ pub enum PostgresError {
         TileCoord,
         Option<UrlQuery>,
     ),
+}
+
+impl crate::Classify for PostgresError {
+    fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::{Internal, Unavailable};
+        match self {
+            Self::PostgresPoolConnError(..) => Unavailable,
+            Self::InvalidFilter(..)
+            | Self::CannotLoadRoots(_)
+            | Self::CannotOpenCert(..)
+            | Self::CannotParseCert(..)
+            | Self::InvalidPrivateKey(_)
+            | Self::CannotUseClientKey { .. }
+            | Self::RustlsError(_)
+            | Self::CannotBuildTlsVerifier(_)
+            | Self::UnknownSslMode(_)
+            | Self::PostgresError(..)
+            | Self::PostgresPoolBuildError(..)
+            | Self::BadConnectionString(..)
+            | Self::BadPostgisVersion(..)
+            | Self::BadPostgresVersion { .. }
+            | Self::PostgisTooOld { .. }
+            | Self::PostgresqlTooOld { .. }
+            | Self::PrepareQueryError { .. }
+            | Self::GetTileError(..)
+            | Self::GetTileWithQueryError(..) => Internal,
+        }
+    }
 }

@@ -233,6 +233,12 @@ impl MbtilesPool {
         self.mbtiles.detect_format(tilejson, &mut *conn).await
     }
 
+    /// See [`Mbtiles::missing_tile_index`].
+    pub async fn missing_tile_index(&self) -> MbtResult<Option<&'static str>> {
+        let mut conn = self.pool.acquire().await?;
+        self.mbtiles.missing_tile_index(&mut *conn).await
+    }
+
     /// Retrieves a tile from the pool by its coordinates.
     ///
     /// Automatically acquires a connection from the pool, fetches the tile data,
@@ -578,7 +584,10 @@ mod tests {
           tilestats:
             layerCount: 1
             layers:
-              - attributeCount: 1
+              - layer: cities
+                count: 68
+                geometry: Point
+                attributeCount: 1
                 attributes:
                   - attribute: name
                     count: 68
@@ -652,9 +661,6 @@ mod tests {
                       - "Washington, D.C."
                       - Ürümqi
                       - Ōsaka
-                count: 68
-                geometry: Point
-                layer: cities
         agg_tiles_hash: AC15E26A1FCF82FDB6D0E8F43EE37821
         "#);
 

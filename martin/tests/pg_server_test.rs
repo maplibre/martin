@@ -5,6 +5,8 @@
     not(feature = "styles")
 ))]
 
+use std::assert_matches;
+
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
@@ -56,7 +58,6 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    settings: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
@@ -76,12 +77,25 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      curves:
+        content_type: application/x-protobuf
+        description: public.curves.geom
+      curves_untyped:
+        content_type: application/x-protobuf
+        description: public.curves_untyped.geom
       empty_bounds:
         content_type: application/x-protobuf
         description: public.empty_bounds.geom
       function_Mixed_Name:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
+      function_dup:
+        content_type: application/x-protobuf
+        description: the json variant
+        attribution: from the queryless comment
+      function_dup.1:
+        content_type: application/x-protobuf
+        description: the jsonb variant
       function_null:
         content_type: application/x-protobuf
         description: public.function_null
@@ -91,6 +105,24 @@ postgres:
       function_null_row2:
         content_type: application/x-protobuf
         description: public.function_null_row2
+      function_pair_json:
+        content_type: application/x-protobuf
+        description: public.function_pair_json
+      function_pair_jsonb:
+        content_type: application/x-protobuf
+        description: public.function_pair_jsonb
+      function_pair_query:
+        content_type: application/x-protobuf
+        description: public.function_pair_query
+      function_pair_query.1:
+        content_type: application/x-protobuf
+        description: "public.function_pair_query(integer, integer, integer, jsonb)"
+      function_two_schemas:
+        content_type: application/x-protobuf
+        description: the schema_a comment
+      function_two_schemas.1:
+        content_type: application/x-protobuf
+        description: the schema_b comment
       function_zoom_xy:
         content_type: application/x-protobuf
         description: public.function_zoom_xy
@@ -100,6 +132,9 @@ postgres:
       function_zxy2:
         content_type: application/x-protobuf
         description: public.function_zxy2
+      function_zxy_gzip:
+        content_type: application/x-protobuf
+        description: a function source returning gzip-compressed tiles
       function_zxy_query:
         content_type: application/x-protobuf
       function_zxy_query_jsonb:
@@ -130,9 +165,9 @@ postgres:
         content_type: application/x-protobuf
         description: public.points1.geom
       points1_vw:
-        attribution: some attribution from SQL comment
         content_type: application/x-protobuf
         description: description from SQL comment
+        attribution: some attribution from SQL comment
       points2:
         content_type: application/x-protobuf
         description: public.points2.geom
@@ -161,6 +196,7 @@ postgres:
       view_name_existing_two_schemas.1:
         content_type: application/x-protobuf
         description: schema_b.view_name_existing_two_schemas.b_geom
+    settings: {}
     "#);
 }
 
@@ -1075,9 +1111,9 @@ tables:
 
     let src = table(&mock, "no_id");
     assert_eq!(src.id_column, None);
-    assert!(matches!(&src.properties, Some(v) if v.len() == 1));
+    assert_matches!(&src.properties, Some(v) if v.len() == 1);
     let src = source(&mock, "no_id");
-    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
     tiles: []
     vector_layers:
@@ -1094,7 +1130,7 @@ tables:
     name: no_id
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1110,7 +1146,7 @@ tables:
       TABLE: text
     ");
 
-    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @r"
+    assert_yaml_snapshot!(table(&mock, "id_and_prop"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326
@@ -1127,7 +1163,7 @@ tables:
       giD: int4
     ");
 
-    assert_yaml_snapshot!(table(&mock, "prop_only"), @r"
+    assert_yaml_snapshot!(table(&mock, "prop_only"), @"
     schema: MixedCase
     table: MixPoints
     srid: 4326

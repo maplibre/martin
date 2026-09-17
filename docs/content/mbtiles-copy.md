@@ -23,6 +23,23 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
          --dst-type flat-with-hash
 ```
 
+The destination hashes its tiles with the source's [hash algorithm](mbtiles-validation.md#hash-algorithm), or with the one `--hash-algorithm` names.
+
+```bash
+mbtiles copy src.mbtiles dst.mbtiles \
+         --dst-type flat-with-hash --hash-algorithm xxh3
+```
+
+### Merging several files
+
+`copy` takes any number of source files before the destination and copies them into it one after another.
+Two sources can hold the same tile, so `--on-duplicate` is required to say which one wins.
+`--diff-with-file` and `--apply-patch` take exactly one source.
+
+```bash
+mbtiles copy north.mbtiles south.mbtiles merged.mbtiles --on-duplicate override
+```
+
 ## `mbtiles copy --diff-with-file`
 
 This option is identical to using [`mbtiles diff ...`](mbtiles-diff.md). The following commands two are equivalent:

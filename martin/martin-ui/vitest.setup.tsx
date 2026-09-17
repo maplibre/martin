@@ -215,6 +215,7 @@ vi.mock('maplibre-gl', () => ({
     setLngLat: vi.fn(),
   })),
   ScaleControl: vi.fn(),
+  setWorkerUrl: vi.fn(),
 }));
 
 // Mock maplibre-gl CSS import

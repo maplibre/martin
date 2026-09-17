@@ -1,18 +1,19 @@
 use std::num::NonZeroUsize;
 
+use martin_core::tiles::postgres::RetryTimeout;
 use tracing::{info, warn};
 
 use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, Debug, PartialEq, Eq, Default)]
 #[command(about, version)]
 pub struct PostgresArgs {
     /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
@@ -26,6 +27,9 @@ pub struct PostgresArgs {
     pub default_srid: Option<i32>,
     #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
     pub pool_size: Option<NonZeroUsize>,
+    /// How long the first PostgreSQL connection is retried before startup fails, a duration like `30s` or `infinite`. [DEFAULT: 30s]
+    #[arg(long)]
+    pub pg_retry_timeout: Option<RetryTimeout>,
     /// Limit the number of geo features per tile.
     ///
     /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
@@ -62,6 +66,8 @@ impl PostgresArgs {
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
+                cache: CachePolicy::default(),
+                retry_timeout: self.pg_retry_timeout,
                 reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
@@ -87,6 +93,7 @@ impl PostgresArgs {
         let Self {
             default_srid,
             pool_size,
+            pg_retry_timeout,
             auto_bounds,
             max_feature_count,
             ca_root_file,
@@ -108,6 +115,14 @@ impl PostgresArgs {
             );
             pg_config.iter_mut().for_each(|c| {
                 c.pool_size = pool_size;
+            });
+        }
+        if let Some(value) = pg_retry_timeout {
+            info!(
+                "Overriding retry_timeout to {value} on all Postgres connections because of a CLI parameter"
+            );
+            pg_config.iter_mut().for_each(|c| {
+                c.retry_timeout = pg_retry_timeout;
             });
         }
         if let Some(value) = auto_bounds {
@@ -231,11 +246,12 @@ fn is_postgres_connection_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::ffi::OsString;
     use std::path::PathBuf;
 
     use super::*;
-    use crate::MartinError;
+    use crate::config::args::ArgsError;
     use crate::config::primitives::env::FauxEnv;
 
     #[test]
@@ -249,8 +265,10 @@ mod tests {
             PostgresArgs::extract_conn_strings(&mut args, &FauxEnv::default()),
             vec!["postgresql://localhost:5432", "postgres://localhost:5432"]
         );
-        assert!(matches!(args.check(), Err(
-            MartinError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]));
+        assert_matches!(
+            args.check(),
+            Err(ArgsError::UnrecognizableConnections(v)) if v == vec!["mysql://localhost:3306"]
+        );
     }
 
     #[test]

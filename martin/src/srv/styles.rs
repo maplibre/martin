@@ -116,7 +116,7 @@ fn path_prefix(req: &HttpRequest, srv_config: &SrvConfig) -> String {
 /// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
+pub async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let StyleRequest { style_id } = path.as_ref();
     WARNING

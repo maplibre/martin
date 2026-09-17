@@ -164,11 +164,11 @@ impl Rect {
 
         let max_x =
             buffer.mul_add(self.min_x, (1.0 + buffer) * self.max_x) / 2.0f64.mul_add(buffer, 1.0);
-        let min_x = (self.min_x + max_x * buffer) / (1.0 + buffer);
+        let min_x = max_x.mul_add(buffer, self.min_x) / (1.0 + buffer);
 
         let max_y =
             buffer.mul_add(self.min_y, (1.0 + buffer) * self.max_y) / 2.0f64.mul_add(buffer, 1.0);
-        let min_y = (self.min_y + max_y * buffer) / (1.0 + buffer);
+        let min_y = max_y.mul_add(buffer, self.min_y) / (1.0 + buffer);
 
         let x_multiplier = extent / (max_x - min_x);
         let y_multiplier = extent / (max_y - min_y);

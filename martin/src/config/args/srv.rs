@@ -9,7 +9,7 @@ use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, Srv
     clippy::doc_markdown,
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]
-#[derive(clap::Args, Debug, PartialEq, Default)]
+#[derive(clap::Args, Debug, PartialEq, Eq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]

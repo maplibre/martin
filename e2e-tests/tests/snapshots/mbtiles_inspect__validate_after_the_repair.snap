@@ -2,7 +2,7 @@
 source: e2e-tests/tests/mbtiles_inspect.rs
 expression: "redact(&dir, &output)"
 ---
- INFO Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
- INFO All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
- INFO All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
- INFO agg_tiles_hash has been verified mbtiles.file=[TMP]/bad_hash.mbtiles agg_tiles_hash=E89600605FA137D684A10EE91463CEE0
+ INFO validate: Integrity check passed mbtiles.file=[TMP]/bad_hash.mbtiles integrity_check=Quick
+ INFO validate: All values in the `tiles` table/view are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+ INFO validate: All tile hashes are valid mbtiles.file=[TMP]/bad_hash.mbtiles
+ INFO validate: agg_tiles_hash has been verified mbtiles.file=[TMP]/bad_hash.mbtiles agg_tiles_hash=E89600605FA137D684A10EE91463CEE0

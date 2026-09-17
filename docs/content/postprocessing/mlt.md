@@ -16,7 +16,7 @@ See the [MLT spec](https://github.com/maplibre/maplibre-tile-spec) for details.
 
 Martin can convert MVT tiles to MLT at serve time, so you don't need to re-generate your tile archives or change your database functions.
 If you generate your own tile archives, consider generating them using MLT instead since you save CPU cycles and latency this way.
-The default for this is optimised for size, optimises for network size (!= low CPU usage) and can thus convert approximately 10k tiles/s.
+The default for this is optimized for size, optimizes for network size (!= low CPU usage) and can thus convert approximately 10k tiles/s.
 
 !!! note "Prerequisites"
 
@@ -39,6 +39,29 @@ pmtiles:
 ```
 
 Sources that produce other formats (raster, etc.) are unaffected.
+
+## Setting up the Client
+
+Conversion is negotiated per request: Martin only returns MLT if the client asks for it with `Accept: application/vnd.maplibre-tile`.
+A client that declares `"encoding": "mlt"` on a source but omits the header receives MVT bytes and fails to parse them.
+
+!!! warning "MapLibre GL JS and Maplibre Native do not send the headers yet"
+
+    Until [maplibre-gl-js#7483](https://github.com/maplibre/maplibre-gl-js/pull/7483) and [maplibre-native#4231](https://github.com/maplibre/maplibre-native/pull/4231) is released, add it yourself via the [`transformRequest`](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/RequestTransformFunction/) option or similar plugin facilities on native.
+
+    ```js
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://example.org/style.json',
+      transformRequest: (url, resourceType) =>
+        resourceType === 'Tile' && url.startsWith('https://example.org/my_mlt_source/')
+          ? { url, headers: { Accept: 'application/vnd.maplibre-tile' } }
+          : undefined
+    });
+    ```
+
+    Scope the header to the sources you actually serve as MLT.
+    Attaching it to every request means a source configured with `convert_to_mlt: auto` assumes you have `encoding: mlt` set for all sources.
 
 ## Scoping MLT Conversion
 
@@ -72,6 +95,10 @@ If a higher level (global or source-type) enables MLT but you want one source
 to keep serving MVT, set `convert_to_mlt: disabled` or `convert_to_mvt: disabled`.
 The most-specific level wins, so this overrides any inherited `auto`.
 
+A disabled conversion is never negotiated, so a client asking only for the format
+the conversion would have produced gets `406 Not Acceptable` rather than the other
+format's bytes. Clients that also accept `*/*` still get the source format.
+
 ```yaml
 convert_to_mlt: auto              # default everywhere
 
@@ -82,7 +109,7 @@ pmtiles:
       # Inherits global `auto` -> converted on Accept: MLT
     legacy:
       path: /data/legacy.pmtiles
-      convert_to_mlt: disabled    # always served as MVT, even on Accept: MLT
+      convert_to_mlt: disabled    # served as MVT; an MLT-only Accept gets a 406
 ```
 
 ## Tuning the Encoder
@@ -104,7 +131,7 @@ Only the fields you specify override the defaults; unset fields keep their `mlt-
 
 | Field                      | When to change                                                                                              |
 |----------------------------|-------------------------------------------------------------------------------------------------------------|
-| `tessellate`               | Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your usecase |
+| `tessellate`               | Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case |
 | `try_spatial_morton_sort`  | Disable if your data is already spatially ordered                                                           |
 | `try_spatial_hilbert_sort` | Disable if Morton sort doesn't compress well for your data                                                  |
 | `try_id_sort`              | Enable when features have sequential IDs and spatial sorting isn't beneficial                               |
@@ -120,7 +147,7 @@ Only the fields you specify override the defaults; unset fields keep their `mlt-
 !!! warning
 
     MLT uses lightweight compressions (FastPFOR, FSST, ...), so combining it with heavyweight compression (e.g. gzip) removes most of the reasons for using it.
-    Do this only if you have benchmarked that this actually makes your usecase better.
+    Do this only if you have benchmarked that this actually makes your use case better.
     If for example CPU usage is an issue, disable some sorting options that you have benchmarked to be ineffective.
 
 ## Serving MVT from MLT Sources

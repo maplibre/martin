@@ -3,7 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -43,7 +43,7 @@ const CONFIG: &str = indoc! {"
                 geo2: ../tests/fixtures/geojson/feature_collection_2.geojson
     "};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn geojson_get_catalog_with_rendering_feature() {
@@ -54,19 +54,19 @@ async fn geojson_get_catalog_with_rendering_feature() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
+    assert_yaml_snapshot!(body, @"
     tiles:
       feature_collection_1:
         content_type: application/x-protobuf
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn geojson_get_catalog_gzip_with_rendering_feature() {
@@ -77,17 +77,17 @@ async fn geojson_get_catalog_gzip_with_rendering_feature() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
-    fonts: {}
-    settings:
-      rendering: false
-    sprites: {}
-    styles: {}
+    assert_yaml_snapshot!(body, @"
     tiles:
       geo1:
         content_type: application/x-protobuf
       geo2:
         content_type: application/x-protobuf
+    sprites: {}
+    fonts: {}
+    styles: {}
+    settings:
+      rendering: false
     ");
 }
 

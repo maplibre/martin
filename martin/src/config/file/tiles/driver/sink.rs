@@ -1,4 +1,4 @@
-use crate::MartinResult;
+use crate::config::file::SourceBuildResult;
 use crate::reload::ReloadAdvisory;
 
 /// Where a reload driver applies advisories.
@@ -10,5 +10,5 @@ pub trait Sink: Send + 'static {
     fn apply_changes(
         &self,
         advisory: ReloadAdvisory,
-    ) -> impl Future<Output = MartinResult<()>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<()>> + Send;
 }

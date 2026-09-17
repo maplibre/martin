@@ -13,7 +13,7 @@
 //! let path = sources.style_json_path("basic").unwrap();
 //! ```
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use std::num::NonZeroUsize;
@@ -86,7 +86,7 @@ pub struct CatalogStyleEntry {
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).
-pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
+pub type StyleCatalog = BTreeMap<String, CatalogStyleEntry>;
 
 /// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]
@@ -146,7 +146,7 @@ impl StyleSources {
     /// Adds a style JSON file with an ID to the catalog.
     pub fn add_style(&self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
-        debug_assert!(!id.is_empty());
+        debug_assert_ne!(id, "");
         match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
@@ -250,7 +250,15 @@ mod tests {
         );
         assert_eq!(styles.sources.len(), 3);
 
-        let catalog = styles.get_catalog();
+        let mut catalog = styles.get_catalog();
+        // The catalog keeps the paths as joined, so on Windows they hold backslashes.
+        for entry in catalog.values_mut() {
+            entry.path = entry
+                .path
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+                .into();
+        }
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"

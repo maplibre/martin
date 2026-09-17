@@ -7,7 +7,7 @@
 #[cfg(feature = "test-pg")]
 pub(crate) mod pg {
     use backon::{ConstantBuilder, Retryable as _};
-    use martin_core::tiles::postgres::PostgresPool;
+    use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
     use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
@@ -80,9 +80,16 @@ pub(crate) mod pg {
 
     /// Runs arbitrary setup SQL against the database behind `connection_string`.
     pub(crate) async fn seed(connection_string: &str, sql: &str) {
-        let pool = PostgresPool::new(connection_string, None, None, None, 2)
-            .await
-            .expect("open seed pool");
+        let pool = PostgresPool::new(
+            connection_string,
+            None,
+            None,
+            None,
+            2,
+            RetryTimeout::default(),
+        )
+        .await
+        .expect("open seed pool");
         pool.get()
             .await
             .expect("acquire seed connection")

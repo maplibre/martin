@@ -1,19 +1,35 @@
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+mod contour;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+pub use contour::trace_contour;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+mod hillshade;
+#[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
+mod neighbourhood;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mvt;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+pub use hillshade::bake_hillshade;
 use martin_core::tiles::Tile;
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use martin_core::tiles::contour::ContourError;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use martin_core::tiles::hillshade::HillshadeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use martin_tile_utils::Format;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use mlt_core::encoder::EncoderConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use to_mlt::convert_mvt_to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use to_mvt::convert_mlt_to_mvt;
 
+#[cfg(all(feature = "contour", feature = "_tiles"))]
+use crate::config::file::ContourRangeError;
+#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+use crate::config::file::HillshadeRangeError;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::{MltProcessConfig, MvtProcessConfig, ProcessConfig};
+use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
 
 /// Errors that can occur during tile post-processing.
 #[derive(thiserror::Error, Debug)]
@@ -29,11 +45,81 @@ pub enum ProcessError {
     MvtConversion(String),
     #[error("Tile decompression failed: {0}")]
     DecompressionFailed(String),
+
+    /// A hillshade parameter supplied by the request was out of range.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error(transparent)]
+    HillshadeParameter(#[from] HillshadeRangeError),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Hillshade failed: {0}")]
+    Hillshade(#[from] HillshadeError),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("Could not read the normal tiles a hillshade needs: {0}")]
+    HillshadeSource(String),
+
+    /// The normals source changed underneath us and must be reloaded before the bake can be retried.
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The normals source changed and must be reloaded")]
+    HillshadeSourceNeedsReload,
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The hillshade bake did not complete: {0}")]
+    HillshadeBakeFailed(String),
+
+    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[error("The server is shutting down and cannot start a new hillshade bake")]
+    HillshadeShuttingDown,
+
+    /// A contour parameter supplied by the request was out of range.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error(transparent)]
+    ContourParameter(#[from] ContourRangeError),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Contour tracing failed: {0}")]
+    Contour(#[from] ContourError),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("Could not read the elevation tiles a contour needs: {0}")]
+    ContourSource(String),
+
+    /// The elevation source changed underneath us and must be reloaded before the trace can be retried.
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The elevation source changed and must be reloaded")]
+    ContourSourceNeedsReload,
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The contour trace did not complete: {0}")]
+    ContourTraceFailed(String),
+
+    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[error("The server is shutting down and cannot start a new contour trace")]
+    ContourShuttingDown,
 }
 
 impl From<ProcessError> for actix_web::Error {
     fn from(e: ProcessError) -> Self {
-        actix_web::error::ErrorInternalServerError(e.to_string())
+        match e {
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            ProcessError::HillshadeParameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            ProcessError::HillshadeShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            ProcessError::ContourParameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            ProcessError::ContourShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            other => actix_web::error::ErrorInternalServerError(other.to_string()),
+        }
     }
 }
 
@@ -42,19 +128,22 @@ impl From<ProcessError> for actix_web::Error {
 ///
 /// Currently supports:
 /// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
-///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an
-///   absent block is treated as `convert_to_mlt: auto` and uses `mlt-core`'s defaults.
-///   `convert_to_mlt: disabled` (or any of `off`/`no`/`false`) skips conversion entirely
-///   even if the client asked for MLT - the original MVT bytes are returned.
+///   (requires `mlt` feature). Encoder settings come from `config.mlt`, resolved from
+///   `convert_to_mlt` at startup.
 /// - MLT -> MVT conversion when the client requests `application/vnd.mapbox-vector-tile`
-///   from an MLT source (requires `mlt` feature). `convert_to_mvt: disabled` skips it.
+///   from an MLT source (requires `mlt` feature), settings from `config.mvt`.
+///
+/// A `disabled` conversion is never negotiated as the accepted format - the request
+/// either falls back to the source format or is rejected with a 406 before any tile
+/// is fetched - so the matching `Disabled` arms here are only reached by callers that
+/// pass a target the config does not encode, and leave the tile untouched.
 ///
 /// Runs inside the cache miss path so cached entries are already post-processed.
 /// MVT and MLT requests are keyed separately in the tile cache, so both formats
 /// coexist naturally.
 pub fn apply_pre_cache_processors(
     tile: Tile,
-    #[cfg(all(feature = "mlt", feature = "_tiles"))] config: &ProcessConfig,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))] config: &ResolvedProcess,
     #[cfg(all(feature = "mlt", feature = "_tiles"))] accepted: Option<Format>,
 ) -> Result<Tile, ProcessError> {
     if tile.data.is_empty() {
@@ -63,23 +152,13 @@ pub fn apply_pre_cache_processors(
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        match config.convert_to_mlt.as_ref() {
-            // No level configured anything -> use defaults.
-            None | Some(MltProcessConfig::Auto) => {
-                convert_mvt_to_mlt(tile, EncoderConfig::default())?
-            }
-            Some(MltProcessConfig::Explicit(cfg)) => {
-                convert_mvt_to_mlt(tile, EncoderConfig::from(cfg.clone()))?
-            }
-            // Explicitly opted out - serve the original MVT bytes.
-            Some(MltProcessConfig::Disabled) => tile,
+        match config.mlt {
+            MltConversion::Encode(cfg) => convert_mvt_to_mlt(tile, cfg)?,
+            MltConversion::Disabled => tile,
         }
     } else if accepted == Some(Format::Mvt)
         && tile.info.format == Format::Mlt
-        && !config
-            .convert_to_mvt
-            .as_ref()
-            .is_some_and(MvtProcessConfig::is_disabled)
+        && config.mvt == MvtConversion::Encode
     {
         convert_mlt_to_mvt(tile)?
     } else {
@@ -94,7 +173,9 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_core::tiles::Tile;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    use martin_tile_utils::{Encoding, Format, TileInfo};
+    use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use mlt_core::encoder::EncoderConfig;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use rstest::rstest;
 
@@ -104,7 +185,7 @@ mod tests {
     use super::*;
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    fn make_tile(data: Vec<u8>, format: Format, encoding: Encoding) -> Tile {
+    fn make_tile(data: impl Into<TileData>, format: Format, encoding: Encoding) -> Tile {
         Tile::new_hash_etag(data, TileInfo::new(format, encoding))
     }
 
@@ -119,7 +200,7 @@ mod tests {
     ) {
         let tile = make_tile(Vec::new(), format, encoding);
         let result =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(target)).unwrap();
+            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(target)).unwrap();
         assert!(result.data.is_empty());
     }
 
@@ -127,10 +208,7 @@ mod tests {
     #[test]
     fn mvt_request_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
-        let config = ProcessConfig {
-            convert_to_mlt: Some(MltProcessConfig::Auto),
-            ..Default::default()
-        };
+        let config = ResolvedProcess::default();
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mvt)).unwrap();
         assert_eq!(result.data, vec![1, 2, 3]);
         assert_eq!(result.info.format, Format::Mvt);
@@ -140,7 +218,7 @@ mod tests {
     #[test]
     fn no_accept_header_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
-        let result = apply_pre_cache_processors(tile, &ProcessConfig::default(), None).unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), None).unwrap();
         assert_eq!(result.data, vec![1, 2, 3]);
         assert_eq!(result.info.format, Format::Mvt);
     }
@@ -150,7 +228,8 @@ mod tests {
     fn non_mvt_source_with_mlt_accept_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Png, Encoding::Internal);
         let result =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
+            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
+                .unwrap();
         assert_eq!(result.info.format, Format::Png);
     }
 
@@ -159,7 +238,8 @@ mod tests {
     fn mlt_accept_converts_mvt_with_default_encoder() {
         let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
         let result =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
+            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
+                .unwrap();
         assert_eq!(result.info.format, Format::Mlt);
         assert_eq!(result.info.encoding, Encoding::Internal);
     }
@@ -168,24 +248,74 @@ mod tests {
     #[test]
     fn mlt_accept_uses_explicit_encoder_overrides() {
         let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
-        let config = ProcessConfig {
-            convert_to_mlt: Some(MltProcessConfig::Auto),
-            ..Default::default()
-        };
+        let config = ResolvedProcess::default();
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
     }
 
+    /// `Accept` negotiation never resolves to a target a `disabled` source would
+    /// have to encode - such a request is a 406, or falls back to the source format
+    /// with `accepted` unset - so the pipeline only ever sees `None` for those.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[test]
-    fn mlt_accept_with_disabled_serves_mvt_unchanged() {
-        let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
-        let config = ProcessConfig {
-            convert_to_mlt: Some(MltProcessConfig::Disabled),
+    #[rstest]
+    #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt)]
+    #[case::mvt_disabled(
+        MltConversion::Encode(EncoderConfig::default()),
+        MvtConversion::Disabled,
+        Format::Mlt
+    )]
+    fn a_disabled_conversion_is_never_negotiated(
+        #[case] mlt: MltConversion,
+        #[case] mvt: MvtConversion,
+        #[case] source_format: Format,
+    ) {
+        let tile = make_tile(
+            empty_layer_mvt_bytes(),
+            source_format,
+            Encoding::Uncompressed,
+        );
+        let config = ResolvedProcess {
+            mlt,
+            mvt,
             ..Default::default()
         };
-        let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
-        assert_eq!(result.info.format, Format::Mvt);
+        let result = apply_pre_cache_processors(tile, &config, None).unwrap();
+        assert_eq!(result.info.format, source_format);
+        assert_eq!(result.data, empty_layer_mvt_bytes());
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mlt_disabled(
+        MltConversion::Disabled,
+        MvtConversion::Encode,
+        Format::Mvt,
+        Format::Mlt
+    )]
+    #[case::mvt_disabled(
+        MltConversion::Encode(EncoderConfig::default()),
+        MvtConversion::Disabled,
+        Format::Mlt,
+        Format::Mvt
+    )]
+    fn a_disabled_conversion_leaves_the_tile_untouched(
+        #[case] mlt: MltConversion,
+        #[case] mvt: MvtConversion,
+        #[case] source_format: Format,
+        #[case] accepted: Format,
+    ) {
+        let tile = make_tile(
+            empty_layer_mvt_bytes(),
+            source_format,
+            Encoding::Uncompressed,
+        );
+        let config = ResolvedProcess {
+            mlt,
+            mvt,
+            ..Default::default()
+        };
+        let result = apply_pre_cache_processors(tile, &config, Some(accepted)).unwrap();
+        assert_eq!(result.info.format, source_format);
         assert_eq!(result.data, empty_layer_mvt_bytes());
     }
 
@@ -197,7 +327,8 @@ mod tests {
         let gzipped = encode_gzip(&empty_layer_mvt_bytes()).unwrap();
         let tile = make_tile(gzipped, Format::Mvt, Encoding::Gzip);
         let result =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
+            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
+                .unwrap();
         assert_eq!(result.info.format, Format::Mlt);
         assert_eq!(result.info.encoding, Encoding::Internal);
     }
@@ -216,14 +347,14 @@ mod tests {
         // First convert MVT->MLT
         let original = make_tile(mvt_with_feature(), Format::Mvt, Encoding::Uncompressed);
         let encoded =
-            apply_pre_cache_processors(original, &ProcessConfig::default(), Some(Format::Mlt))
+            apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt))
                 .unwrap();
         assert_eq!(encoded.info.format, Format::Mlt);
         assert!(!encoded.data.is_empty(), "MLT tile should have data");
 
         // Now convert MLT->MVT via the pipeline
         let decoded =
-            apply_pre_cache_processors(encoded, &ProcessConfig::default(), Some(Format::Mvt))
+            apply_pre_cache_processors(encoded, &ResolvedProcess::default(), Some(Format::Mvt))
                 .unwrap();
         assert_eq!(decoded.info.format, Format::Mvt);
         assert_eq!(decoded.info.encoding, Encoding::Uncompressed);
@@ -239,15 +370,15 @@ mod tests {
         let tile = Tile::new_with_etag(
             mvt_with_feature_bytes(),
             TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-            "upstream-etag".to_owned(),
+            "upstream-etag".into(),
         );
-        let mlt =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
+        let mlt = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
+            .unwrap();
         assert_eq!(mlt.info.format, Format::Mlt);
         assert_eq!(mlt.etag, "upstream-etag+mlt");
 
-        let mvt =
-            apply_pre_cache_processors(mlt, &ProcessConfig::default(), Some(Format::Mvt)).unwrap();
+        let mvt = apply_pre_cache_processors(mlt, &ResolvedProcess::default(), Some(Format::Mvt))
+            .unwrap();
         assert_eq!(mvt.info.format, Format::Mvt);
         assert_eq!(mvt.etag, "upstream-etag+mlt+mvt");
     }
@@ -259,14 +390,15 @@ mod tests {
         // First produce an MLT tile from MVT
         let original = make_tile(mvt_with_feature(), Format::Mvt, Encoding::Uncompressed);
         let encoded =
-            apply_pre_cache_processors(original, &ProcessConfig::default(), Some(Format::Mlt))
+            apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt))
                 .unwrap();
         assert!(!encoded.data.is_empty());
 
         // Simulate an MLT source receiving Accept: MVT
         let tile = make_tile(encoded.data, Format::Mlt, Encoding::Uncompressed);
         let result =
-            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mvt)).unwrap();
+            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mvt))
+                .unwrap();
         assert_eq!(result.info.format, Format::Mvt);
     }
 }

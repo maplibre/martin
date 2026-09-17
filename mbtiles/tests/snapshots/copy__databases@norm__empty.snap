@@ -15,6 +15,7 @@ expression: actual_value
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"D41D8CD98F00B204E9800998ECF8427E\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
 - type: index
   tbl_name: images
   sql: ~

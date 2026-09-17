@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 #![expect(clippy::panic)]
 
+use std::assert_matches;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -29,16 +30,14 @@ fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
-        .join("tests/fixtures/pmtiles")
+        .join("tests")
+        .join("fixtures")
+        .join("pmtiles")
 }
 
 async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> PmtilesSource {
     let path = fixtures_dir().join(filename);
-    let store = Box::new(LocalFileSystem::new());
-    let path = object_store::path::Path::from_filesystem_path(&path)
-        .expect("Failed to convert filesystem path");
-
-    PmtilesSource::new(cache, id.to_owned(), store, path, CacheZoomRange::default())
+    PmtilesSource::new_local(cache, id.to_owned(), path, CacheZoomRange::default())
         .await
         .expect("Failed to create PMTiles source")
 }
@@ -115,11 +114,9 @@ async fn nonexistent_file_returns_error() {
     .await;
 
     let err = result.expect_err("Expected error for nonexistent file");
-    assert!(
-        matches!(
-            err,
-            PmtilesError::PmtError(_) | PmtilesError::PmtErrorWithCtx(_, _)
-        ),
+    assert_matches!(
+        err,
+        PmtilesError::PmtError(_) | PmtilesError::PmtErrorWithCtx(_, _),
         "Expected PMTiles-related error for nonexistent file, got: {err:?}"
     );
 }
@@ -184,7 +181,7 @@ async fn retrieve_valid_tile() {
     .await;
 
     let tile = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile");
 
@@ -198,14 +195,7 @@ async fn missing_tile_returns_empty() {
     let source = create_source("png.pmtiles", "missing_tile_test", cache).await;
 
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: 20,
-                x: 999_999,
-                y: 999_999,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(20, 999_999, 999_999), None)
         .await
         .expect("Should succeed with empty tile");
 
@@ -229,7 +219,7 @@ async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[
     )
     .await;
 
-    let coord = TileCoord { z, x, y };
+    let coord = TileCoord::new_unchecked(z, x, y);
     let tile = source
         .get_tile(coord, None)
         .await
@@ -246,7 +236,7 @@ async fn repeated_tile_requests_return_same_data() {
     let cache = test_cache_bytes(0);
     let source = create_source("png.pmtiles", "consistency_test", cache).await;
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile1 = source.get_tile(coord, None).await.expect("First request");
     let tile2 = source.get_tile(coord, None).await.expect("Second request");
@@ -278,14 +268,7 @@ async fn retrieve_tile_at_max_zoom() {
         .maxzoom
         .expect("Test file should have a maxzoom value");
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: max_zoom,
-                x: 0,
-                y: 0,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(max_zoom, 0, 0), None)
         .await
         .expect("Should successfully retrieve tile");
     assert_ne!(
@@ -304,14 +287,7 @@ async fn tile_beyond_max_zoom_returns_empty() {
     let max_zoom = tilejson.maxzoom.unwrap_or(0);
 
     let tile = source
-        .get_tile(
-            TileCoord {
-                z: max_zoom + 5,
-                x: 0,
-                y: 0,
-            },
-            None,
-        )
+        .get_tile(TileCoord::new_unchecked(max_zoom + 5, 0, 0), None)
         .await
         .expect("Should succeed for tile beyond max zoom");
 
@@ -329,7 +305,7 @@ async fn tile_with_etag() {
     .await;
 
     let tile = source
-        .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile with etag");
 
@@ -343,7 +319,7 @@ async fn repeated_requests_return_same_etag() {
     let cache = test_cache_bytes(0);
     let source = create_source("png.pmtiles", "etag_consistency_test", cache).await;
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile1 = source.get_tile_with_etag(coord, None).await.expect("First");
     let tile2 = source
@@ -372,14 +348,7 @@ async fn empty_tile_has_etag() {
     let source = create_source("png.pmtiles", "empty_etag_test", cache).await;
 
     let tile = source
-        .get_tile_with_etag(
-            TileCoord {
-                z: 20,
-                x: 999_999,
-                y: 999_999,
-            },
-            None,
-        )
+        .get_tile_with_etag(TileCoord::new_unchecked(20, 999_999, 999_999), None)
         .await
         .expect("Should get empty tile");
 
@@ -401,12 +370,12 @@ async fn different_tiles_have_different_etags() {
     .await;
 
     let tile1 = source
-        .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("First tile");
     assert!(!tile1.data.is_empty(), "Tile 1 should have data");
     let tile2 = source
-        .get_tile_with_etag(TileCoord { z: 1, x: 0, y: 0 }, None)
+        .get_tile_with_etag(TileCoord::new_unchecked(1, 0, 0), None)
         .await
         .expect("Second tile");
     assert!(!tile2.data.is_empty(), "Tile 2 should have data");
@@ -448,7 +417,7 @@ async fn source_returns_error_after_object_store_update() {
     .await
     .expect("source created");
 
-    let coord = TileCoord { z: 0, x: 0, y: 0 };
+    let coord = TileCoord::new_unchecked(0, 0, 0);
 
     let tile = source
         .get_tile(coord, None)
@@ -466,10 +435,7 @@ async fn source_returns_error_after_object_store_update() {
         .get_tile(coord, None)
         .await
         .expect_err("should fail after ETag change");
-    assert!(
-        matches!(err, MartinCoreError::SourceNeedsReload),
-        "expected SourceNeedsReload, got: {err:?}"
-    );
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
 }
 
 #[tokio::test]
@@ -497,7 +463,7 @@ async fn cache_entry_only_root_directory() {
 
     // Fetch tiles from first source
     let tile1 = source
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Should get tile from source1");
     assert!(!tile1.is_empty(), "Tile should have data");
@@ -535,11 +501,11 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
     let source2 = create_source("png.pmtiles", "shared2", cache2.clone()).await;
 
     let tile1 = source1
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Source1 tile");
     let tile2 = source2
-        .get_tile(TileCoord { z: 0, x: 0, y: 0 }, None)
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
         .await
         .expect("Source2 tile");
 
@@ -779,4 +745,117 @@ async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
         .await
         .unwrap();
     assert!(rx.try_recv().is_ok(), "expected cache miss, but got a hit");
+}
+
+#[tokio::test]
+async fn a_file_renamed_over_the_source_reloads_to_the_new_contents() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(
+        fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
+        &path,
+    )
+    .expect("copy the first archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "renamed_over".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let staged = dir.path().join("source.pmtiles.new");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &staged).expect("stage the second archive");
+    std::fs::rename(&staged, &path).expect("rename over the source");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a replaced file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the new file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    let expected = create_source("png.pmtiles", "second", test_cache_bytes(0))
+        .await
+        .get_tile(coord, None)
+        .await
+        .expect("read the second archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &path).expect("copy the first archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "rewritten".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let smaller = std::fs::read(
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+    )
+    .expect("read the smaller archive");
+    std::fs::write(&path, smaller).expect("rewrite the source in place");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("a rewritten file needs a reload");
+    assert_matches!(err, MartinCoreError::SourceNeedsReload);
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the rewritten file");
+    let after = reloaded
+        .get_tile(coord, None)
+        .await
+        .expect("read after reload succeeds");
+    let expected = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "smaller".to_owned(),
+        fixtures_dir()
+            .parent()
+            .unwrap()
+            .join("pmtiles2")
+            .join("webp2.pmtiles"),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("open the smaller archive directly")
+    .get_tile(coord, None)
+    .await
+    .expect("read the smaller archive directly");
+    assert_ne!(after, before);
+    assert_eq!(after, expected);
 }
