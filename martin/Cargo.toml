@@ -38,11 +38,6 @@ assets = [
     "755",
   ],
     [
-    "target/release/martin-cp",
-    "/usr/bin/martin-cp",
-    "755",
-  ],
-    [
     "target/release/mbtiles",
     "/usr/bin/mbtiles",
     "755",
@@ -78,11 +73,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "martin"
 path = "src/bin/martin.rs"
-
-[[bin]]
-name = "martin-cp"
-path = "src/bin/martin-cp.rs"
-required-features = ["mbtiles"]
 
 [[bin]]
 name = "gen-schemas"

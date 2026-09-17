@@ -85,8 +85,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
     **Main Modules**:
 
-    - `src/bin/martin.rs` - Server entry point
-    - `src/bin/martin-cp.rs` - Bulk tile copying tool
+    - `src/bin/martin.rs` - Server and `martin cp` entry point
+    - `src/cp.rs` - Bulk tile copying (`martin cp`)
     - `src/srv/` - HTTP service handlers
     - `server.rs` - Main server setup and routing
     - `tiles/` - Tile serving endpoints
