@@ -335,8 +335,12 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
-                let origin = &url[..url::Position::BeforePath];
-                Box::new(with_options!(HttpBuilder, origin).build()?)
+                let mut base = url[..url::Position::BeforePath].to_owned();
+                if let Some(query) = url.query() {
+                    base.push('?');
+                    base.push_str(query);
+                }
+                Box::new(with_options!(HttpBuilder, base).build()?)
             }
             _ => return object_store::parse_url_opts(url, &self.options),
         };

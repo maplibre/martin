@@ -24,6 +24,15 @@ pub struct StaticFiles {
 impl StaticFiles {
     /// Start a server answering `GET` and `HEAD` for each `path` with the contents of `file`.
     pub async fn serving(files: &[(&str, PathBuf)]) -> Self {
+        Self::serving_inner(files, None).await
+    }
+
+    /// Start a server that requires every object request to carry `query`.
+    pub async fn serving_with_query(query: &str, files: &[(&str, PathBuf)]) -> Self {
+        Self::serving_inner(files, Some(query.to_owned())).await
+    }
+
+    async fn serving_inner(files: &[(&str, PathBuf)], required_query: Option<String>) -> Self {
         let files = files
             .iter()
             .map(|(path, file)| ((*path).to_owned(), read(file)))
@@ -31,13 +40,18 @@ impl StaticFiles {
         let server = MockServer::start().await;
         let files = Arc::new(RwLock::new(files));
         let get_files = Arc::clone(&files);
+        let get_query = required_query.clone();
         Mock::given(method("GET"))
-            .respond_with(move |request: &Request| respond(&get_files, request))
+            .respond_with(move |request: &Request| {
+                respond(&get_files, get_query.as_deref(), request)
+            })
             .mount(&server)
             .await;
         let head_files = Arc::clone(&files);
         Mock::given(method("HEAD"))
-            .respond_with(move |request: &Request| respond(&head_files, request))
+            .respond_with(move |request: &Request| {
+                respond(&head_files, required_query.as_deref(), request)
+            })
             .mount(&server)
             .await;
         Self { server, files }
@@ -99,7 +113,14 @@ fn content_hash(body: &[u8]) -> u64 {
     hasher.finish()
 }
 
-fn respond(files: &RwLock<HashMap<String, Vec<u8>>>, request: &Request) -> ResponseTemplate {
+fn respond(
+    files: &RwLock<HashMap<String, Vec<u8>>>,
+    required_query: Option<&str>,
+    request: &Request,
+) -> ResponseTemplate {
+    if required_query.is_some_and(|query| request.url.query() != Some(query)) {
+        return ResponseTemplate::new(403);
+    }
     let files = files.read().expect("a file map that is never poisoned");
     let path = request.url.path().trim_start_matches('/');
     let Some(body) = files.get(path) else {
