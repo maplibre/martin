@@ -157,10 +157,10 @@ async fn start(
 async fn main() {
     let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    let log_format = LogFormat::from_env();
 
     #[cfg(feature = "mbtiles")]
     if let Some(Command::Cp(copy_args)) = args.command {
+        let log_format = LogFormat::from_env();
         init_tracing(&filter, log_format, true);
         if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
             let rendered = e.render_diagnostic_with(log_format);
@@ -175,12 +175,17 @@ async fn main() {
     }
 
     #[cfg(feature = "tui")]
-    let dashboard = if args.meta.tui {
-        if !tui::is_available() {
-            eprintln!("--tui needs an interactive terminal");
-            std::process::exit(2);
-        }
-        Some(tui::install(&filter))
+    let use_dashboard = !args.meta.no_tui && tui::is_available();
+    #[cfg(not(feature = "tui"))]
+    let use_dashboard = false;
+    let log_format = if use_dashboard {
+        LogFormat::from_env_or(LogFormat::Pretty)
+    } else {
+        LogFormat::from_env()
+    };
+    #[cfg(feature = "tui")]
+    let dashboard = if use_dashboard {
+        Some(tui::install(&filter, log_format))
     } else {
         init_tracing(&filter, log_format, false);
         None
