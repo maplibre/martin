@@ -1,3 +1,5 @@
+#[cfg(all(feature = "webui", not(docsrs)))]
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
@@ -197,10 +199,7 @@ fn register_services(
     #[cfg(all(feature = "webui", not(docsrs)))]
     match usr_cfg.web_ui.unwrap_or_default() {
         WebUiMode::EnableForAll => {
-            cfg.service(actix_web_static_files::ResourceFiles::new(
-                "/",
-                webui::generate(),
-            ));
+            cfg.service(webui_scope());
         }
         WebUiMode::Enable => {
             let guard = fn_guard(|c| {
@@ -208,10 +207,8 @@ fn register_services(
                     .peer_addr
                     .is_some_and(|addr| addr.ip().is_loopback())
             });
-            cfg.service(web::scope("").guard(guard).service(
-                actix_web_static_files::ResourceFiles::new("/", webui::generate()),
-            ))
-            .service(get_index_ui_disabled);
+            cfg.service(webui_scope().guard(guard))
+                .service(get_index_ui_disabled);
         }
         WebUiMode::Disable => {
             cfg.service(get_index_ui_disabled);
@@ -220,6 +217,24 @@ fn register_services(
 
     #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(get_index_no_ui);
+}
+
+#[cfg(all(feature = "webui", not(docsrs)))]
+fn webui_scope() -> actix_web::Scope {
+    use actix_web_static_files::ResourceFiles;
+
+    let mut files = webui::generate();
+    let index = files
+        .remove_entry("index.html")
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+    let assets = files
+        .into_iter()
+        .filter_map(|(path, file)| Some((path.strip_prefix("_/assets/")?, file)))
+        .collect::<HashMap<_, _>>();
+    web::scope("")
+        .service(web::scope("/").service(ResourceFiles::new("", index)))
+        .service(web::scope("/_/assets").service(ResourceFiles::new("", assets)))
 }
 
 type Server = Pin<Box<dyn Future<Output = Result<(), ServerStartError>>>>;
