@@ -203,17 +203,14 @@ fn register_services(
             ));
         }
         WebUiMode::Enable => {
-            let guard = fn_guard(|c| c.head()
-        .peer_addr
-        .is_some_and(|addr| addr.ip().is_loopback()));
-            cfg.service(
-                web::scope("")
-                    .guard(guard)
-                    .service(actix_web_static_files::ResourceFiles::new(
-                        "/",
-                        webui::generate(),
-                    )),
-            )
+            let guard = fn_guard(|c| {
+                c.head()
+                    .peer_addr
+                    .is_some_and(|addr| addr.ip().is_loopback())
+            });
+            cfg.service(web::scope("").guard(guard).service(
+                actix_web_static_files::ResourceFiles::new("/", webui::generate()),
+            ))
             .service(get_index_ui_disabled);
         }
         WebUiMode::Disable => {
