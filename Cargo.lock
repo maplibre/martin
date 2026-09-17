@@ -1305,7 +1305,6 @@ checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
  "bytes",
- "form_urlencoded",
  "futures-util",
  "http 1.4.2",
  "http-body 1.1.0",
@@ -1319,15 +1318,11 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tower 0.5.3",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -1346,7 +1341,6 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -4051,6 +4045,15 @@ version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "366c5db5a8e4643bdde121a1d6f35cfa035e7850b8b8ea94c6960a139d44e93a"
 dependencies = [
+ "hotpath-macros 0.25.1",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37234f85a8d1bda6b84d486245dd0847c5b33cca10d5f3691375e66704de0f8"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -4060,9 +4063,10 @@ dependencies = [
  "eyre",
  "futures-channel",
  "futures-core",
+ "futures-sink",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros",
+ "hotpath-macros 0.26.0",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4083,6 +4087,12 @@ name = "hotpath-macros"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "846bde0d9600d98434e1aac376977d7718bfe3d2f5312a041b7c59a6a466c51a"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ac39b5517f540cab511bdbd5a4dc8cfc62858d6cd26a095463c1d2acfb3f290"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5530,7 +5540,7 @@ dependencies = [
  "enum-display",
  "futures",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.26.0",
  "humantime-serde",
  "image",
  "indicatif",
@@ -5619,7 +5629,7 @@ dependencies = [
  "geo-index",
  "geo-types",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.26.0",
  "humantime",
  "image",
  "insta",
@@ -5709,7 +5719,7 @@ dependencies = [
  "brotli 8.0.4",
  "bytes",
  "flate2",
- "hotpath",
+ "hotpath 0.26.0",
  "rstest",
  "serde",
  "serde_json",
@@ -5757,7 +5767,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath",
+ "hotpath 0.26.0",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -5935,7 +5945,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.25.1",
  "integer-encoding",
  "num-traits",
  "num_enum",
@@ -7130,7 +7140,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -8423,17 +8433,6 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
-]
-
-[[package]]
-name = "serde_path_to_error"
-version = "0.1.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10a9ff822e371bb5403e391ecd83e182e0e77ba7f6fe0160b795797109d1b457"
-dependencies = [
- "itoa",
- "serde",
- "serde_core",
 ]
 
 [[package]]
