@@ -335,7 +335,11 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
-                let mut base = url[..url::Position::BeforePath].to_owned();
+                // Carry the URL query onto every request: the backend stores only the origin and
+                // builds per-object URLs by extending the path, so a query (e.g. a presigned or
+                // token-authenticated URL) must be pinned onto the base. The fragment is auth
+                // local and must never be sent.
+                let mut base = url[..url::Position::BeforePath].to_string();
                 if let Some(query) = url.query() {
                     base.push('?');
                     base.push_str(query);

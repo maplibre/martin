@@ -2,8 +2,8 @@ use crate::TileSourceManager;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{
-    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreParser,
-    ObjectStoreSourceBuilder,
+    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery,
+    ObjectStoreParser, ObjectStoreSourceBuilder,
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
@@ -12,16 +12,16 @@ use crate::config::file::{
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
-/// Watches configured directories for `.tif`/`.tiff` changes, and configured remote objects
-/// for replacement.
+/// Watches configured directories for `.tif`/`.tiff` changes, configured remote objects for
+/// replacement, and remote prefixes for additions, replacements, and removals.
 ///
-/// Local directories use a [`NotifyTrigger`] for sub-second feedback; configured remote objects
-/// (`s3://`, `https://`, …) are re-checked with a `HEAD` request once per
-/// [`CogConfig::reload_interval`](CogConfig::reload_interval) because blob stores have no event
-/// channel. Each half is its own [`ReloadDriver`] so neither needs a shared mutex.
+/// Local directories use a [`NotifyTrigger`] for sub-second feedback. Configured remote objects
+/// and prefixes (`s3://`, `https://`, …) use [`PollTrigger`]s because blob stores have no event
+/// channel. Each source group has its own [`ReloadDriver`] so none needs a shared mutex.
 pub struct CogReloader {
     local: ReloadDriver<FsDiscovery, TileSourceManager>,
-    remote: ReloadDriver<ConfiguredObjectDiscovery, TileSourceManager>,
+    configured: ReloadDriver<ConfiguredObjectDiscovery, TileSourceManager>,
+    prefixes: ReloadDriver<ObjectStoreDiscovery, TileSourceManager>,
 }
 
 impl CogReloader {
@@ -44,65 +44,92 @@ impl CogReloader {
             let config = local_config.clone();
             Box::pin(async move { config.new_sources(id, path, policy).await })
         });
-        let discovery = FsDiscovery::from_config(
+        let local = FsDiscovery::from_config(
             FileKind::Cog,
             config,
             cog_config.recursive.unwrap_or_default(),
             &["tif", "tiff"],
-            id_resolver,
+            id_resolver.clone(),
             default_cache,
             &ProcessConfig::default(),
             build,
         );
-        let parser_config = cog_config.clone();
-        let parser: ObjectStoreParser =
-            Box::new(move |url| parser_config.object_store.parse_url_opts(url));
-        let remote = ConfiguredObjectDiscovery::from_config(
+        let configured_parser_config = cog_config.clone();
+        let configured_parser: ObjectStoreParser =
+            Box::new(move |url| configured_parser_config.object_store.parse_url_opts(url));
+        let configured = ConfiguredObjectDiscovery::from_config(
             FileKind::Cog,
             config,
             "CogReloader",
             cog_config.reload_interval,
             default_cache,
             &ProcessConfig::default(),
-            parser,
+            configured_parser,
+            ObjectStoreSourceBuilder::Cog(Box::new(cog_config.clone())),
+        );
+        let prefix_parser_config = cog_config.clone();
+        let prefix_parser: ObjectStoreParser =
+            Box::new(move |url| prefix_parser_config.object_store.parse_url_opts(url));
+        let prefixes = ObjectStoreDiscovery::from_config(
+            config,
+            &["tif", "tiff"],
+            "CogReloader",
+            cog_config.reload_interval,
+            id_resolver,
+            default_cache,
+            &ProcessConfig::default(),
+            prefix_parser,
             ObjectStoreSourceBuilder::Cog(Box::new(cog_config)),
         );
         Self {
-            local: ReloadDriver::new(discovery, tsm.clone()),
-            remote: ReloadDriver::new(remote, tsm),
+            local: ReloadDriver::new(local, tsm.clone()),
+            configured: ReloadDriver::new(configured, tsm.clone()),
+            prefixes: ReloadDriver::new(prefixes, tsm),
         }
     }
 
     /// Publishes every discovered local source into the catalog and returns the discovery warnings.
-    /// Remote sources were already loaded by startup resolution; their reload baseline is seeded
-    /// when the polling driver starts.
+    /// Configured remote sources were already loaded by startup resolution; remote prefixes are
+    /// first listed when their polling driver starts.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         self.local.init().await
     }
 
-    /// Spawns the reload drivers. Local discovery starts only with configured directories;
-    /// remote replacement detection starts only with configured remote objects.
+    /// Spawns the reload drivers that have configured inputs.
     pub fn start(self) -> notify::Result<()> {
-        let Self { local, remote } = self;
+        let Self {
+            local,
+            configured,
+            prefixes,
+        } = self;
 
         let directories = local.discovery().directories();
         let recursive = local.discovery().recursive();
-        let has_remote = !remote.discovery().is_empty();
-        let interval = remote.discovery().reload_interval();
+        let has_configured = !configured.discovery().is_empty();
+        let has_prefixes = !prefixes.discovery().remote_prefixes().is_empty();
+        let interval = configured.discovery().reload_interval();
+        debug_assert_eq!(interval, prefixes.discovery().reload_interval());
 
         if !directories.is_empty() {
             let trigger = NotifyTrigger::new(&directories, recursive)?;
             local.spawn(trigger, Baseline::Initialized);
         }
 
-        if has_remote {
+        if has_configured || has_prefixes {
             if interval.is_zero() {
                 tracing::info!(
-                    "CogReloader: remote object polling disabled (reload_interval = 0s)"
+                    "CogReloader: remote object and prefix polling disabled (reload_interval = 0s)"
                 );
             } else {
-                let trigger = PollTrigger::after_interval(interval);
-                remote.spawn(trigger, Baseline::StartupResolved);
+                if has_configured {
+                    configured.spawn(
+                        PollTrigger::after_interval(interval),
+                        Baseline::StartupResolved,
+                    );
+                }
+                if has_prefixes {
+                    prefixes.spawn(PollTrigger::new(interval), Baseline::Empty);
+                }
             }
         }
 
