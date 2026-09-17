@@ -10,6 +10,8 @@ use std::sync::Arc;
 use clap::Parser as _;
 use martin::StartupResult;
 use martin::config::args::Args;
+#[cfg(feature = "mbtiles")]
+use martin::config::args::Command;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 #[cfg(any(
@@ -148,6 +150,23 @@ async fn start(
 async fn main() {
     let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    let log_format = LogFormat::from_env();
+
+    #[cfg(feature = "mbtiles")]
+    if let Some(Command::Cp(copy_args)) = args.command {
+        init_tracing(&filter, log_format, true);
+        if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
+            let rendered = e.render_diagnostic_with(log_format);
+            if tracing::event_enabled!(tracing::Level::ERROR) {
+                error!("{rendered}");
+            } else {
+                eprintln!("{rendered}");
+            }
+            std::process::exit(1);
+        }
+        return;
+    }
+
     #[cfg(feature = "tui")]
     let use_dashboard = !args.meta.no_tui && tui::is_available();
     #[cfg(not(feature = "tui"))]

@@ -1,11 +1,7 @@
-#![expect(
-    clippy::print_stderr,
-    reason = "binary entrypoint reports startup errors to stderr"
-)]
+//! Bulk copying of tiles from any configured source into an `MBTiles` file: `martin cp`.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashSet};
-use std::env;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::num::NonZeroUsize;
@@ -18,34 +14,10 @@ use std::time::Duration;
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
-use clap::Parser;
-use clap::builder::Styles;
-use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
 use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
-use martin::StartupError;
-#[cfg(feature = "postgres")]
-use martin::config::args::PostgresArgs;
-use martin::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "pmtiles",
-    feature = "postgres"
-))]
-use martin::config::file::reload::TileReloaders;
-use martin::config::file::{Config, ResolvedProcess, ServerState, read_config};
-#[cfg(feature = "_tiles")]
-use martin::config::primitives::IdResolver;
-use martin::config::primitives::env::OsEnv;
-use martin::logging::progress::TileCopyProgress;
-use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
-#[cfg(feature = "_tiles")]
-use martin::srv::RESERVED_KEYWORDS;
-use martin::srv::{DynTileSource, TileError, TileRequestHeaders, merge_tilejson};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
@@ -61,7 +33,19 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
+
+use crate::StartupError;
+#[cfg(feature = "postgres")]
+use crate::config::args::PostgresArgs;
+use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
+use crate::config::file::reload::TileReloaders;
+use crate::config::file::{Config, ResolvedProcess, ServerState, read_config};
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::env::OsEnv;
+use crate::logging::LogFormat;
+use crate::logging::progress::TileCopyProgress;
+use crate::srv::{DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders, merge_tilejson};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
@@ -69,19 +53,10 @@ const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
 const INTERRUPT_DRAIN_TIMEOUT: Duration = Duration::from_secs(10);
-/// Defines the styles used for the CLI help output.
-const HELP_STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Blue.on_default().bold())
-    .usage(AnsiColor::Blue.on_default().bold())
-    .literal(AnsiColor::White.on_default())
-    .placeholder(AnsiColor::Green.on_default());
-
-#[derive(Parser, Debug, PartialEq)]
+#[derive(clap::Args, Debug, PartialEq)]
 #[command(
-    about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
-    version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
-    styles = HELP_STYLES
+    about = "Bulk copy tiles from any Martin-supported sources into an mbtiles file",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information."
 )]
 pub struct CopierArgs {
     #[command(flatten)]
@@ -115,7 +90,7 @@ pub struct CopyArgs {
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
     ///
-    /// If set to multiple values like `gzip,br`, martin-cp will use the first encoding,
+    /// If set to multiple values like `gzip,br`, the first encoding is used,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
@@ -145,7 +120,7 @@ pub struct CopyArgs {
     /// List of zoom levels to copy
     #[arg(short, long, alias = "zooms", value_delimiter = ',')]
     pub zoom_levels: Vec<u8>,
-    /// Skip generating a global hash for mbtiles validation. By default, `martin-cp` will compute and update `agg_tiles_hash` metadata value.
+    /// Skip generating a global hash for mbtiles validation. By default, the `agg_tiles_hash` metadata value is computed and updated.
     #[arg(long)]
     pub skip_agg_tiles_hash: bool,
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
@@ -188,8 +163,9 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
     }
 }
 
-async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
-    info!("martin-cp tile copier v{VERSION}");
+/// Resolves the configured sources and copies the requested tiles into the output file.
+pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
+    info!("Martin v{VERSION} tile copier");
 
     let env = OsEnv;
     let save_config = copy_args.meta.save_config.clone();
@@ -202,6 +178,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     };
 
     let args = Args {
+        command: None,
         meta: copy_args.meta,
         extras: ExtraArgs::default(),
         srv: SrvArgs::default(),
@@ -217,33 +194,15 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
-    #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
+    let sources = config.resolve(&resolver).await?;
 
-    let sources = config
-        .resolve(
-            #[cfg(feature = "_tiles")]
-            &resolver,
-        )
-        .await?;
-
-    // The reload loops are never started: martin-cp only needs the initial publication.
-    #[cfg(any(
-        feature = "mbtiles",
-        feature = "unstable-cog",
-        feature = "geojson",
-        feature = "pmtiles",
-        feature = "postgres"
-    ))]
+    // The reload loops are never started: a copy only needs the initial publication.
     drop(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?);
 
     if let Some(file_name) = save_config {
         config
-            .save_to_file(
-                file_name.as_path(),
-                #[cfg(feature = "_tiles")]
-                &sources.tile_manager,
-            )
+            .save_to_file(file_name.as_path(), &sources.tile_manager)
             .map_err(StartupError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
@@ -311,10 +270,10 @@ impl Debug for TileXyz {
     }
 }
 
-type MartinCpResult<T> = Result<T, MartinCpError>;
+pub type MartinCpResult<T> = Result<T, MartinCpError>;
 
 #[derive(thiserror::Error, Debug)]
-enum MartinCpError {
+pub enum MartinCpError {
     #[error(transparent)]
     Martin(#[from] StartupError),
     #[error(transparent)]
@@ -723,7 +682,7 @@ async fn init_schema(
         );
         tj.other.insert(
             "generator".to_owned(),
-            serde_json::Value::String(format!("martin-cp v{VERSION}")),
+            serde_json::Value::String(format!("martin cp v{VERSION}")),
         );
         let zooms = get_zooms(args);
         if let Some(min_zoom) = zooms.iter().min() {
@@ -739,31 +698,21 @@ async fn init_schema(
     })
 }
 
-#[tokio::main]
-async fn main() {
-    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    let log_format = LogFormat::from_env();
-    init_tracing(&filter, log_format, true);
-
-    let args = CopierArgs::parse();
-    if let Err(e) = Box::pin(start(args)).await {
-        let rendered: String = match e {
-            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
-            other @ (MartinCpError::EncodingParse(_)
-            | MartinCpError::Tile(_)
-            | MartinCpError::Mbt(_)
-            | MartinCpError::NoSources
-            | MartinCpError::MultipleSources(_)
-            | MartinCpError::InvalidBoundingBox(..)
-            | MartinCpError::Args(_)
-            | MartinCpError::Mbtiles(_)) => format!("{other}"),
-        };
-        if tracing::event_enabled!(tracing::Level::ERROR) {
-            error!("{rendered}");
-        } else {
-            eprintln!("{rendered}");
+impl MartinCpError {
+    /// Renders the error for the terminal, with config errors as diagnostics matching `log_format`.
+    #[must_use]
+    pub fn render_diagnostic_with(self, log_format: LogFormat) -> String {
+        match self {
+            Self::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
+            other @ (Self::EncodingParse(_)
+            | Self::Tile(_)
+            | Self::Mbt(_)
+            | Self::NoSources
+            | Self::MultipleSources(_)
+            | Self::InvalidBoundingBox(..)
+            | Self::Args(_)
+            | Self::Mbtiles(_)) => format!("{other}"),
         }
-        std::process::exit(1);
     }
 }
 
@@ -777,8 +726,6 @@ mod tests {
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use martin::TileSourceManager;
-    use martin::config::file::{OnInvalid, ResolvedProcess, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
@@ -787,6 +734,8 @@ mod tests {
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
+    use crate::TileSourceManager;
+    use crate::config::file::{OnInvalid, ResolvedProcess, ServerState};
 
     #[derive(Debug, Clone)]
     pub struct MockSource {

@@ -81,6 +81,6 @@ The `mbtiles` tool treats `cache` as a first-class schema, with a few deliberate
 
 * `summary`, `validate`, `meta-*`, and serving the file with `martin` all work. Like `flat`, there are no hashes to check during per-tile validation.
 * `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `fetched`/`expires`/`etag` values are dropped, since standard schemas cannot store them.
-* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
+* `copy` **into** a cache file works from any schema (including `martin cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
 * `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob column exposed through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
 * `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.

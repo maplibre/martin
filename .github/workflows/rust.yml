@@ -346,7 +346,6 @@ jobs:
           # it writes into those directories stay ours to read and delete.
           RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
-          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -365,7 +364,6 @@ jobs:
           # it writes into those directories stay ours to read and delete.
           RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
-          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -561,10 +559,9 @@ jobs:
       - name: End-to-end tests
         run: |
           export MARTIN_BIN=target/martin${{ matrix.ext }}
-          export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           if [[ "${{ runner.os }}" != "Windows" ]]; then
-            chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+            chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           fi
           if [ "$RUNNER_OS" == "Linux" ]; then
             export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
@@ -588,7 +585,6 @@ jobs:
         run: |
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
-          export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -775,9 +771,8 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BIN=target_releases/martin
-          export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
-          chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+          chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           rm -rf target_releases
         env:
@@ -792,7 +787,6 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BIN=/usr/bin/martin
-          export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           sudo dpkg -P martin

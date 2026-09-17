@@ -34,7 +34,7 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 
 /// metadata key naming the algorithm used to hash tiles and compute [`AGG_TILES_HASH`].
 ///
-/// old `mbtiles`/`martin-cp`/`tilelive-copy` always used md5 and never stored this,
+/// old `mbtiles`/`martin cp`/`tilelive-copy` always used md5 and never stored this,
 /// so an absent key means md5. other tools like `tippecanoe` use e.g. `fnv1a`, which
 /// used to show up as a confusing [`AGG_TILES_HASH`] mismatch (#1086).
 pub const HASH_ALGORITHM: &str = "hash_algorithm";
@@ -47,7 +47,7 @@ pub const HASH_ALGORITHM: &str = "hash_algorithm";
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum HashAlgorithm {
-    /// `MD5`, what `mbtiles`, `martin-cp` and `tilelive-copy` write, and the default when the key is absent.
+    /// `MD5`, what `mbtiles`, `martin cp` and `tilelive-copy` write, and the default when the key is absent.
     #[default]
     Md5,
     /// 64-bit `FNV-1a` as 16 hex characters.
