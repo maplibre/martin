@@ -25,8 +25,8 @@ Options:
           - warn:  Log warning messages, abort if the error is critical
           - abort: Log warnings as errors, abort startup
 
-      --tui
-          Show a live dashboard of the server in this terminal instead of the log stream
+      --no-tui
+          Print the log stream instead of the live dashboard an interactive terminal gets by default
 
   -s, --sprite <SPRITE>
           Export a directory with SVG files as a sprite source. Can be specified multiple times

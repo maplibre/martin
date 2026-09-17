@@ -1577,8 +1577,8 @@ See <code>martin --help</code> or <code>cargo run -- --help</code> for more info
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>          - warn:  Log warning messages, abort if the error is critical
 </span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>          - abort: Log warnings as errors, abort startup
 </span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>      --tui
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>          Show a live dashboard of the server in this terminal instead of the log stream
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>      --no-tui
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>          Print the log stream instead of the live dashboard an interactive terminal gets by default
 </span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
 </span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>  -s, --sprite &lt;SPRITE&gt;
 </span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>          Export a directory with SVG files as a sprite source. Can be specified multiple times
@@ -1677,10 +1677,11 @@ See <code>martin --help</code> or <code>cargo run -- --help</code> for more info
 </span><span id="__span-0-125"><a id="__codelineno-0-125" name="__codelineno-0-125" href="#__codelineno-0-125"></a>See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.
 </span></code></pre></div>
 <h2 id="terminal-dashboard">Terminal dashboard</h2>
-<p><code>martin --tui</code> turns the terminal Martin runs in into a live view of the server.
+<p>Started from an interactive terminal, Martin turns it into a live view of the server.
 It lists the sources with how often each was asked for and how long that took, plots the last minute of tile requests on a world map, charts the request rate, and keeps the log in a pane at the bottom.
 Press <code>q</code> to stop the server and <code>c</code> to reset the counters.
-The dashboard needs an interactive terminal, so a service or a container keeps the plain log stream.</p>
+The log pane writes its lines in the format <code>RUST_LOG_FORMAT</code> selects, <code>pretty</code> by default.
+<code>martin --no-tui</code> prints the log stream instead, which is also what a service, a container or a pipe gets, as the dashboard needs a terminal to draw on.</p>
 
 
   <nav class="md-tags" >
