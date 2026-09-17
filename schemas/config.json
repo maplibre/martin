@@ -1671,7 +1671,12 @@
       "oneOf": [
         {
           "const": "disable",
-          "description": "Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***",
+          "description": "Disable Web UI interface",
+          "type": "string"
+        },
+        {
+          "const": "enable",
+          "description": "Enable Web UI interface on connections from the localhost",
           "type": "string"
         },
         {
