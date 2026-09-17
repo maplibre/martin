@@ -33,6 +33,8 @@ pub type ObjectStoreParser = Box<
         + Sync,
 >;
 
+type PrefixEntry = (String, Url, Version);
+
 /// Builds a source discovered in an object store.
 ///
 /// The enum keeps the supported source kinds explicit and avoids erasing async builders behind
@@ -241,6 +243,8 @@ pub struct ObjectStoreDiscovery {
     id_resolver: IdResolver,
     reload_interval: Duration,
     parser: ObjectStoreParser,
+    /// Last successful listing per prefix, retained across transient listing failures.
+    last_entries: Mutex<BTreeMap<String, Vec<PrefixEntry>>>,
     build: ObjectStoreSourceBuilder,
     default_cache: CachePolicy,
     process: ResolvedProcess,
@@ -293,6 +297,7 @@ impl ObjectStoreDiscovery {
             id_resolver,
             reload_interval,
             parser,
+            last_entries: Mutex::new(BTreeMap::new()),
             build,
             default_cache,
             process: process
@@ -318,19 +323,50 @@ impl Discovery for ObjectStoreDiscovery {
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
-                .await
+            let entries = match list_remote_prefix(
+                prefix,
+                &self.extensions,
+                &self.id_resolver,
+                &self.parser,
+            )
+            .await
             {
                 Ok(entries) => {
-                    for (id, url, version) in entries {
-                        out.insert(id, (version, url));
+                    self.last_entries
+                        .lock()
+                        .expect("prefix listing map mutex")
+                        .insert(prefix.to_string(), entries.clone());
+                    entries
+                }
+                Err(error) => {
+                    let retained = self
+                        .last_entries
+                        .lock()
+                        .expect("prefix listing map mutex")
+                        .get(prefix.as_str())
+                        .cloned();
+                    match retained {
+                        Some(entries) => {
+                            tracing::warn!(
+                                "{}: list failed for {}: {error:?}; retaining last successful listing",
+                                self.label,
+                                sanitized_url(prefix)
+                            );
+                            entries
+                        }
+                        None => {
+                            tracing::warn!(
+                                "{}: list failed for {}: {error:?}; skipping prefix this tick",
+                                self.label,
+                                sanitized_url(prefix)
+                            );
+                            continue;
+                        }
                     }
                 }
-                Err(error) => tracing::warn!(
-                    "{}: list failed for {}: {error:?}; skipping prefix this tick",
-                    self.label,
-                    sanitized_url(prefix)
-                ),
+            };
+            for (id, url, version) in entries {
+                out.insert(id, (version, url));
             }
         }
         Ok(Discovered::new(out))
@@ -361,7 +397,7 @@ async fn list_remote_prefix(
     extensions: &[String],
     id_resolver: &IdResolver,
     parser: &ObjectStoreParser,
-) -> SourceBuildResult<Vec<(String, Url, Version)>> {
+) -> SourceBuildResult<Vec<PrefixEntry>> {
     let (store, base) = parser(prefix)
         .map_err(|error| ConfigFileError::ObjectStoreUrlParsing(error, sanitized_url(prefix)))?;
     let mut out = Vec::new();
@@ -417,6 +453,11 @@ fn sanitized_url(url: &Url) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "pmtiles")]
+    use std::path::PathBuf;
+    #[cfg(feature = "pmtiles")]
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use object_store::PutPayload;
     use object_store::memory::InMemory;
 
@@ -474,6 +515,53 @@ mod tests {
                 ),
             ]
         );
+    }
+    #[cfg(feature = "pmtiles")]
+    #[tokio::test]
+    async fn prefix_listing_failure_retains_the_last_successful_entries() {
+        let store = InMemory::new();
+        store
+            .put(
+                &object_store::path::Path::from("imagery/vienna.pmtiles"),
+                PutPayload::from_static(b"fixture"),
+            )
+            .await
+            .unwrap();
+        let failing = Arc::new(AtomicBool::new(false));
+        let failing_flag = Arc::clone(&failing);
+        let parser_store = store.clone();
+        let parser: ObjectStoreParser = Box::new(move |_url: &Url| {
+            if failing_flag.load(Ordering::Relaxed) {
+                return Err(object_store::Error::Generic {
+                    store: "test",
+                    source: Box::new(std::io::Error::other("boom")),
+                });
+            }
+            Ok((
+                Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from("imagery"),
+            ))
+        });
+        let config: FileConfigEnum<PmtConfig> =
+            FileConfigEnum::Path(PathBuf::from("s3://bucket/imagery/"));
+        let discovery = ObjectStoreDiscovery::from_config(
+            &config,
+            &["pmtiles"],
+            "test",
+            Duration::from_secs(1),
+            IdResolver::new(&[]),
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+            parser,
+            ObjectStoreSourceBuilder::Pmtiles(Box::default()),
+        );
+
+        let first = discovery.discover().await.unwrap().sources;
+        assert_eq!(first.len(), 1);
+        failing.store(true, Ordering::Relaxed);
+        let retained = discovery.discover().await.unwrap().sources;
+
+        assert_eq!(retained, first);
     }
 }
 
