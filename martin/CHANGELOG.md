@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### The terminal dashboard is the default in a terminal
-
-Martin started from an interactive terminal now shows the dashboard `--tui` used to opt into, and `--no-tui` keeps the plain log stream.
-The log pane of the dashboard follows `RUST_LOG_FORMAT`, so `RUST_LOG_FORMAT=json` shows JSON lines there instead of being ignored.
-A stdout that is not a terminal, such as a service, a container or a pipe, still gets the log without any flag, so `--tui` is gone rather than refusing to start there.
-See the [documentation](https://maplibre.org/martin/run-with-cli/).
 
 ## [1.16.1](https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1) - 2026-09-07
 
