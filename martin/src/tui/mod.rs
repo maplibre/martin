@@ -1,6 +1,6 @@
 //! A dashboard for the terminal Martin was started from.
 //!
-//! `martin --tui` replaces the log stream with a live view of the server.
+//! In an interactive terminal it replaces the log stream with a live view of the server unless `--no-tui` keeps the log.
 //! It shows the sources and how often each is asked for, the request rate, where on the world tiles are being requested, and the log itself.
 //! `l` gives the log the whole screen and the arrow keys scroll it, for reading it without leaving the dashboard.
 
@@ -12,6 +12,8 @@ use std::time::Duration;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tokio::sync::oneshot;
 use tracing::error;
+
+use crate::logging::LogFormat;
 
 mod data;
 mod log;
@@ -28,7 +30,7 @@ use state::LogView;
 /// How many lines the page keys move the log by.
 const PAGE: usize = 10;
 
-/// The dashboard of this process, once `--tui` installed it.
+/// The dashboard of this process, once installed at startup.
 static DASHBOARD: OnceLock<Arc<Dashboard>> = OnceLock::new();
 
 /// Whether the dashboard thread is drawing on the terminal right now.
@@ -44,9 +46,9 @@ pub fn is_available() -> bool {
 ///
 /// # Panics
 /// Panics if a dashboard was installed before.
-pub fn install(log_filter: &str) -> Arc<Dashboard> {
-    let dashboard = Arc::new(Dashboard::new());
-    crate::logging::init_tracing_into(log_filter, dashboard.log());
+pub fn install(log_filter: &str, log_format: LogFormat) -> Arc<Dashboard> {
+    let dashboard = Arc::new(Dashboard::new(log_format));
+    crate::logging::init_tracing_into(log_filter, log_format, dashboard.log());
     assert!(
         DASHBOARD.set(Arc::clone(&dashboard)).is_ok(),
         "the dashboard is installed once per process"
@@ -54,7 +56,7 @@ pub fn install(log_filter: &str) -> Arc<Dashboard> {
     dashboard
 }
 
-/// Whether `--tui` installed a dashboard, so requests are worth observing.
+/// Whether a dashboard is installed, so requests are worth observing.
 #[must_use]
 pub fn is_installed() -> bool {
     DASHBOARD.get().is_some()

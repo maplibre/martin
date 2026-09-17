@@ -15,7 +15,7 @@ use tracing_subscriber::layer::SubscriberExt as _;
 pub mod progress;
 
 /// Log output format options.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFormat {
     /// Emit human-readable, single-line logs.
     /// See [format::Full](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Full.html#example-output)
@@ -78,6 +78,31 @@ impl LogFormat {
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
+        }
+    }
+
+    /// The subscriber for the selected format, writing without colors into `writer`.
+    #[cfg(feature = "tui")]
+    fn dispatch_into<W>(self, env_filter: EnvFilter, writer: W) -> Dispatch
+    where
+        W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + Send + Sync + 'static,
+    {
+        let builder = tracing_subscriber::fmt()
+            .with_span_events(FmtSpan::NONE)
+            .with_ansi(false)
+            .with_writer(writer)
+            .with_env_filter(env_filter);
+        match self {
+            Self::Full => builder.finish().into(),
+            Self::Compact => builder.compact().finish().into(),
+            Self::Pretty => builder.pretty().finish().into(),
+            Self::Bare => builder
+                .compact()
+                .without_time()
+                .with_target(false)
+                .finish()
+                .into(),
+            Self::Json => builder.json().finish().into(),
         }
     }
 
@@ -182,17 +207,26 @@ impl LogFormat {
     /// Falls back to [`LogFormat::default`] when the variable is unset, empty, or invalid.
     /// On invalid values, a warning is written to stderr.
     #[must_use]
+    pub fn from_env() -> Self {
+        Self::from_env_or(Self::default())
+    }
+
+    /// Read `RUST_LOG_FORMAT` and resolve it to a [`LogFormat`].
+    ///
+    /// Falls back to `default` when the variable is unset, empty, or invalid.
+    /// On invalid values, a warning is written to stderr.
+    #[must_use]
     #[expect(
         clippy::print_stderr,
         reason = "tracing subscriber not yet initialized at this point"
     )]
-    pub fn from_env() -> Self {
+    pub fn from_env_or(default: Self) -> Self {
         match std::env::var("RUST_LOG_FORMAT").ok().as_deref() {
-            None | Some("") => Self::default(),
+            None | Some("") => default,
             Some(s) => s.parse().unwrap_or_else(|e| {
                 eprintln!("Warning: {e}");
-                eprintln!("Falling back to default format ({:?})", Self::default());
-                Self::default()
+                eprintln!("Falling back to default format ({default:?})");
+                default
             }),
         }
     }
@@ -299,23 +333,15 @@ fn parse_filter(filter: &str) -> EnvFilter {
     })
 }
 
-/// Initialize the global tracing subscriber writing pretty lines without colors into `writer`.
+/// Initialize the global tracing subscriber writing `log_format` lines without colors into `writer`.
 #[cfg(feature = "tui")]
-pub fn init_tracing_into<W>(filter: &str, writer: W)
+pub fn init_tracing_into<W>(filter: &str, log_format: LogFormat, writer: W)
 where
     W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + Send + Sync + 'static,
 {
     let env_filter = parse_filter(filter);
     init_log_bridge(&env_filter);
-    let dispatch = tracing_subscriber::fmt()
-        .pretty()
-        .with_span_events(FmtSpan::NONE)
-        .with_ansi(false)
-        .with_writer(writer)
-        .with_env_filter(env_filter)
-        .finish()
-        .into();
-    tracing::dispatcher::set_global_default(dispatch)
+    tracing::dispatcher::set_global_default(log_format.dispatch_into(env_filter, writer))
         .expect("failed to set global default subscriber");
 }
 
