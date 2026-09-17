@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+#[cfg(feature = "mbtiles")]
+use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 
@@ -33,6 +35,8 @@ use crate::config::file::warn_legacy_env_vars;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::env::Env;
+#[cfg(feature = "mbtiles")]
+use crate::cp::CopierArgs;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -41,14 +45,19 @@ const HELP_STYLES: Styles = Styles::styled()
     .literal(AnsiColor::White.on_default())
     .placeholder(AnsiColor::Green.on_default());
 
-#[derive(Parser, Debug, PartialEq, Eq, Default)]
+#[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
+    propagate_version = true,
+    args_conflicts_with_subcommands = true,
     after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct Args {
+    #[cfg(feature = "mbtiles")]
+    #[command(subcommand)]
+    pub command: Option<Command>,
     #[command(flatten)]
     pub meta: MetaArgs,
     #[command(flatten)]
@@ -58,6 +67,13 @@ pub struct Args {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<PostgresArgs>,
+}
+
+#[cfg(feature = "mbtiles")]
+#[derive(Subcommand, Debug, PartialEq)]
+pub enum Command {
+    /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
+    Cp(CopierArgs),
 }
 
 // None of these params will be transferred to the config
@@ -395,6 +411,38 @@ mod tests {
         assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
         assert!(!is_file_scheme_uri("", &["mbtiles"]));
+    }
+
+    #[cfg(feature = "mbtiles")]
+    #[test]
+    fn cli_cp_subcommand() {
+        let args = Args::parse_from([
+            "martin",
+            "cp",
+            "--output-file",
+            "out.mbtiles",
+            "--max-zoom",
+            "3",
+            "tiles.mbtiles",
+        ]);
+        let Some(Command::Cp(cp)) = args.command else {
+            panic!("expected the cp subcommand, got {args:?}");
+        };
+        assert_eq!(cp.copy.output_file, PathBuf::from("out.mbtiles"));
+        assert_eq!(cp.copy.max_zoom, Some(3));
+        assert_eq!(cp.meta.connection, vec!["tiles.mbtiles".to_owned()]);
+
+        let res = Args::try_parse_from([
+            "martin",
+            "--config",
+            "c.toml",
+            "cp",
+            "--output-file",
+            "out.mbtiles",
+            "--max-zoom",
+            "3",
+        ]);
+        assert!(res.is_err(), "server args must not mix with cp: {res:?}");
     }
 
     #[test]

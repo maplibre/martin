@@ -2,7 +2,7 @@
 
 Martin is a high-performance tile server serving vector/raster tiles from PostGIS, PMTiles, and MBTiles.
 Also serves fonts, sprites, and styles.
-Includes `martin-cp` (bulk tile copier) and `mbtiles` (MBTiles CLI) binaries.
+Includes `martin cp` (bulk tile copier subcommand) and the `mbtiles` (MBTiles CLI) binary.
 
 ## Commands
 
@@ -35,7 +35,7 @@ just bless
 
 4-crate workspace:
 
-- **`martin`** - HTTP server, CLI, configuration, routing. Binaries: `martin`, `martin-cp`
+- **`martin`** - HTTP server, CLI (including `martin cp`), configuration, routing. Binary: `martin`
   - `martin-ui/` - React frontend, embedded at build time
 - **`martin-core`** - Core source logic `src/tiles/{postgres,mbtiles,pmtiles,cog}/` and `src/resources/{fonts,sprites,styles}/`
   All code that is likely useful for others is here.

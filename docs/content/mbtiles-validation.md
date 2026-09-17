@@ -78,7 +78,7 @@ The `mbtiles` tool writes the value into every file it creates.
 
 | `hash_algorithm` | Hash of a tile                    | Written by                                       |
 |------------------|-----------------------------------|--------------------------------------------------|
-| `md5`            | 32 hex characters                 | `mbtiles`, `martin-cp`, `tilelive-copy`          |
+| `md5`            | 32 hex characters                 | `mbtiles`, `martin cp`, `tilelive-copy`          |
 | `fnv1a`          | 64-bit FNV-1a, 16 hex characters  |                                                  |
 | `fnv1a-decimal`  | 64-bit FNV-1a as a decimal number | [tippecanoe](https://github.com/felt/tippecanoe) |
 | `xxh64`          | xxHash64, 16 hex characters       |                                                  |

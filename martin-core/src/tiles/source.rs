@@ -43,7 +43,7 @@ pub trait Source: Send + Sync + Debug {
         false
     }
 
-    /// Whether martin-cp should use concurrent scraping. Default: false.
+    /// Whether `martin cp` should use concurrent scraping. Default: false.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         false
     }

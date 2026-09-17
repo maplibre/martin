@@ -261,9 +261,9 @@ impl Source for CogSource {
         Box::new(self.clone())
     }
 
-    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
+    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin cp`.
     ///
-    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    /// If this returns `true`, `martin cp` will suggest concurrent scraping.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
     }

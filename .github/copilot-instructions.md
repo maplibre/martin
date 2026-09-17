@@ -159,7 +159,7 @@ cargo run --bin martin -- --webui enable-for-all
 ### Scenario 3 - CLI Tools
 
 ```bash
-cargo run --bin martin-cp -- --help
+cargo run --bin martin -- cp --help
 cargo run --bin mbtiles -- --help
 ```
 
