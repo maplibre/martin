@@ -386,17 +386,9 @@ async fn list_remote_prefix(
         if stem.is_empty() {
             continue;
         }
-        let object_url_str = format!(
-            "{}://{}/{}",
-            prefix.scheme(),
-            prefix.host_str().unwrap_or(""),
-            meta.location
-        );
-        let Ok(object_url) = Url::parse(&object_url_str) else {
-            tracing::warn!("cannot build absolute URL from {object_url_str}");
-            continue;
-        };
-        let id = id_resolver.resolve(stem, object_url.to_string());
+        let mut object_url = prefix.clone();
+        object_url.set_path(meta.location.as_ref());
+        let id = id_resolver.resolve(stem, sanitized_url(&object_url));
         out.push((id, object_url, version_from_meta(&meta)));
     }
     Ok(out)
@@ -449,7 +441,8 @@ mod tests {
             ))
         });
         let entries = list_remote_prefix(
-            &Url::parse("s3://bucket/imagery/").unwrap(),
+            &Url::parse("https://user:secret@example.com:8443/imagery/?token=secret#fragment")
+                .unwrap(),
             &["tif".to_owned(), "tiff".to_owned()],
             &IdResolver::new(&[]),
             &parser,
@@ -466,11 +459,13 @@ mod tests {
             [
                 (
                     "ortho".to_owned(),
-                    "s3://bucket/imagery/ortho.TIFF".to_owned()
+                    "https://user:secret@example.com:8443/imagery/ortho.TIFF?token=secret#fragment"
+                        .to_owned(),
                 ),
                 (
                     "vienna".to_owned(),
-                    "s3://bucket/imagery/vienna.tif".to_owned()
+                    "https://user:secret@example.com:8443/imagery/vienna.tif?token=secret#fragment"
+                        .to_owned(),
                 ),
             ]
         );
