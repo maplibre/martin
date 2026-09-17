@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::time::Duration;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
-use actix_web::guard;
+use actix_web::guard::fn_guard;
 use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
 use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
@@ -170,9 +170,12 @@ fn register_services(
             ));
         }
         WebUiMode::Enable => {
+            let guard = fn_guard(|c| c.head()
+        .peer_addr
+        .is_some_and(|addr| addr.ip().is_loopback()));
             cfg.service(
                 web::scope("")
-                    .guard(guard::fn_guard(is_loopback_peer))
+                    .guard(guard)
                     .service(actix_web_static_files::ResourceFiles::new(
                         "/",
                         webui::generate(),
@@ -187,13 +190,6 @@ fn register_services(
 
     #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(get_index_no_ui);
-}
-
-#[cfg(all(feature = "webui", not(docsrs)))]
-fn is_loopback_peer(ctx: &guard::GuardContext<'_>) -> bool {
-    ctx.head()
-        .peer_addr
-        .is_some_and(|addr| addr.ip().is_loopback())
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
