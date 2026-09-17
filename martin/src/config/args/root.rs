@@ -28,6 +28,8 @@ use crate::config::file::ConfigurationLivecycleHooks;
     feature = "geojson",
 ))]
 use crate::config::file::FileConfigEnum;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
 #[cfg(feature = "postgres")]
@@ -152,7 +154,8 @@ impl Args {
                 feature = "mbtiles",
                 feature = "pmtiles",
                 feature = "geojson",
-                feature = "unstable-cog"
+                feature = "unstable-cog",
+                feature = "unstable-duckdb"
             )),
             expect(
                 unused_mut,
@@ -190,6 +193,30 @@ impl Args {
         #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
+        }
+
+        #[cfg(feature = "unstable-duckdb")]
+        if !cli_strings.is_empty() {
+            use super::State::{Ignore, Take};
+
+            let sources = cli_strings.process(|s| {
+                let path = PathBuf::from(s);
+                if !path.is_file() {
+                    return Ignore;
+                }
+                match path.extension().and_then(|ext| ext.to_str()) {
+                    Some("parquet") => Take(DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+                        geoparquet: s.to_owned(),
+                        ..GeoParquetEntry::default()
+                    })),
+                    Some("duckdb") => Take(DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
+                        database: path,
+                        ..DuckDbDatabaseEntry::default()
+                    })),
+                    _ => Ignore,
+                }
+            });
+            config.duckdb.sources.extend(sources);
         }
 
         #[cfg(feature = "styles")]

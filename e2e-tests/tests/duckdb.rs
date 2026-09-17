@@ -354,3 +354,76 @@ async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest()
         "Ignoring 5 columns of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB). Vector tiles can only carry text, numeric and boolean properties.",
     );
 }
+
+#[tokio::test]
+async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
+    let dir = temp_dir();
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/duckdb/geoparquet_polygons.parquet")
+        .arg("--save-config")
+        .arg(&save_config)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
+    duckdb:
+      sources:
+      - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+        pool_size: 4
+        auto_bounds: quick
+    ");
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "geoparquet_polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "GeoParquet (tests/fixtures/duckdb/geoparquet_polygons.parquet)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/geoparquet_polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
+    let dir = temp_dir();
+    let database = dir.path().join("tiles.duckdb");
+    fs::write(&database, b"").expect("failed to create the database file");
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin = Martin::builder()
+        .arg(&database)
+        .arg("--on-invalid")
+        .arg("warn")
+        .arg("--save-config")
+        .arg(&save_config)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::with_settings!({filters => vec![(r"(?m)^  - database: .*$", "  - database: [PATH]")]}, {
+        insta::assert_snapshot!(saved, @r"
+        on_invalid: warn
+        listen_addresses: 127.0.0.1:0
+        duckdb:
+          sources:
+          - database: [PATH]
+            pool_size: 4
+            auto_bounds: quick
+        ");
+    });
+    assert_eq!(
+        martin.get("/catalog").await.json()["tiles"],
+        serde_json::json!({})
+    );
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Tile source resolution warning: Source tiles: DuckDB database sources are not yet supported; entry skipped",
+    );
+}
