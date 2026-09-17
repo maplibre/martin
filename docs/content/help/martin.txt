@@ -61,10 +61,11 @@ Options:
           [possible values: brotli, gzip]
 
   -u, --webui <WEB_UI>
-          Control Martin web UI. [DEFAULT: disabled]
+          Control Martin web UI. [DEFAULT: enable]
 
           Possible values:
-          - disable:        Disable Web UI interface. This is the default, but once implemented, the default will be enabled for localhost.
+          - disable:        Disable Web UI interface
+          - enable:         Enable Web UI interface on connections from the localhost
           - enable-for-all: Enable Web UI interface on all connections
 
       --tilejson-url-version-param <TILEJSON_URL_VERSION_PARAM>

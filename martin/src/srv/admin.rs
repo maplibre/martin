@@ -123,8 +123,9 @@ async fn get_index_no_ui() -> &'static str {
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
 async fn get_index_ui_disabled() -> &'static str {
-    "Martin server is running.\n\n
-    The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
+    "Martin server is running.\n\n\
+    The WebUI is served to localhost connections by default (--webui enable). \
+    Use --webui enable-for-all in CLI or in the config file to serve it to all connections.\n\n\
     A list of all available sources is available at http://<host>/catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }
