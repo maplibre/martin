@@ -119,7 +119,7 @@ flume = "0.12"
 fnv = "1"
 futures = "0.3"
 geo = "0.33.1"
-geo-index = { version = "0.3.3", features = ["rayon"] }
+geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
 hotpath = "0.26"
