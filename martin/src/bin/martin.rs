@@ -150,10 +150,10 @@ async fn start(
 async fn main() {
     let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    let log_format = LogFormat::from_env();
 
     #[cfg(feature = "mbtiles")]
     if let Some(Command::Cp(copy_args)) = args.command {
+        let log_format = LogFormat::from_env();
         init_tracing(&filter, log_format, true);
         if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
             let rendered = e.render_diagnostic_with(log_format);
