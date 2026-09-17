@@ -1,4 +1,4 @@
-//! One-shot runs of the `martin-cp` tile copier binary.
+//! One-shot runs of the `martin cp` tile copier.
 
 use std::env;
 use std::ffi::OsString;
@@ -6,7 +6,7 @@ use std::process::Stdio;
 
 use crate::{binary_command, display_args, workspace_root};
 
-/// One run of the `martin-cp` binary, which reaches a database only through
+/// One run of `martin cp`, which reaches a database only through
 /// [`MartinCp::with_postgres`].
 #[derive(Debug, Default)]
 pub struct MartinCp {
@@ -38,11 +38,12 @@ impl MartinCp {
 
     /// Run the copy, require it to succeed, and return what it logged.
     pub async fn run(self) -> String {
-        let mut cmd = binary_command("MARTIN_CP_BIN", "martin-cp");
+        let mut cmd = binary_command("MARTIN_BIN", "martin");
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
             .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
+            .arg("cp")
             .args(&self.args)
             .stdin(Stdio::null());
         if let Some(url) = &self.database_url {
@@ -52,12 +53,12 @@ impl MartinCp {
         let output = cmd
             .output()
             .await
-            .unwrap_or_else(|e| panic!("failed to run `martin-cp {described}`: {e}"));
+            .unwrap_or_else(|e| panic!("failed to run `martin cp {described}`: {e}"));
         let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
         log.push_str(&String::from_utf8_lossy(&output.stderr));
         assert!(
             output.status.success(),
-            "`martin-cp {described}` failed with {}; log:\n{log}",
+            "`martin cp {described}` failed with {}; log:\n{log}",
             output.status
         );
         log

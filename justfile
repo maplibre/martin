@@ -302,11 +302,9 @@ move-artifacts target:
     else
         if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
             mv target/{{target}}/"$build_dir"/martin.exe target_releases/
-            mv target/{{target}}/"$build_dir"/martin-cp.exe target_releases/
             mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
         else
             mv target/{{target}}/"$build_dir"/martin target_releases/
-            mv target/{{target}}/"$build_dir"/martin-cp target_releases/
             mv target/{{target}}/"$build_dir"/mbtiles target_releases/
         fi
     fi
@@ -388,9 +386,9 @@ coverage-report suite:
 coverage-merge dir='target/coverage' out='target/cobertura.xml': (cargo-install 'grcov')
     grcov {{quote(dir)}} --source-dir . --output-types cobertura --output-path {{quote(out)}}
 
-# Start Martin server
+# Bulk copy tiles into an mbtiles file
 cp *args: fetch
-    cargo run --bin martin-cp -- {{args}}
+    cargo run --bin martin -- cp {{args}}
 
 # Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
@@ -521,12 +519,12 @@ package-assets target:
     mkdir -p target/files
     cd target/{{target}}
     if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
-        7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+        7z a ../files/martin-{{target}}.zip martin.exe mbtiles.exe
     elif [[ '{{target}}' == 'debian-x86_64' ]]; then
         mv *.deb ../files/
     else
-        chmod +x martin martin-cp mbtiles
-        tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+        chmod +x martin mbtiles
+        tar czvf ../files/martin-{{target}}.tar.gz martin mbtiles
     fi
     cd ../..
 

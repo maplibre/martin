@@ -98,7 +98,7 @@ rm ./debian-x86_64.deb
 
 #### Arch Linux
 
-The [AUR](https://aur.archlinux.org/packages/martin) carries `martin` and `martin-cp`, maintained by the community.
+The [AUR](https://aur.archlinux.org/packages/martin) carries `martin`, maintained by the community.
 With an AUR helper such as `yay`:
 
 ```bash

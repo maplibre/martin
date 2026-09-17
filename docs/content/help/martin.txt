@@ -1,6 +1,11 @@
 Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
 
 Usage: martin [OPTIONS] [CONNECTION]...
+       martin <COMMAND>
+
+Commands:
+  cp    Bulk copy tiles from any Martin-supported sources into an mbtiles file
+  help  Print this message or the help of the given subcommand(s)
 
 Arguments:
   [CONNECTION]...
@@ -13,8 +18,15 @@ Options:
       --save-config <SAVE_CONFIG>
           Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 
-  -C, --cache-size <CACHE_SIZE>
-          Main cache size (in MB)
+      --on-invalid <ON_INVALID>
+          Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+
+          Possible values:
+          - warn:  Log warning messages, abort if the error is critical
+          - abort: Log warnings as errors, abort startup
+
+      --tui
+          Show a live dashboard of the server in this terminal instead of the log stream
 
   -s, --sprite <SPRITE>
           Export a directory with SVG files as a sprite source. Can be specified multiple times
@@ -31,12 +43,12 @@ Options:
   -l, --listen-addresses <LISTEN_ADDRESSES>
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
-      --base-path <BASE_PATH>
-          Set TileJSON URL path prefix.
+      --route-prefix <ROUTE_PREFIX>
+          Set URL path prefix for all API routes.
 
-          This overrides the default of respecting the X-Rewrite-URL header. Only modifies the JSON (TileJSON) returned, martins' API-URLs remain unchanged. If you need to rewrite URLs, please use a reverse proxy. Must begin with a /.
+          When set, Martin will serve all endpoints under this path prefix (e.g., /tiles/health, /tiles/catalog). This allows Martin to be served under a subpath when behind a reverse proxy. Must begin with a /.
 
-          Examples: /, /tiles
+          Examples: /tiles, /api/v1/tiles
 
   -W, --workers <WORKERS>
           Number of web server workers
@@ -56,6 +68,19 @@ Options:
           - enable:         Enable Web UI interface on connections from the localhost
           - enable-for-all: Enable Web UI interface on all connections
 
+      --tilejson-url-version-param <TILEJSON_URL_VERSION_PARAM>
+          If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata) will be embedded in the TileJSON tiles URL, with the set identifier. For example, if the value of this option is version, and the tileset version is 1.0.0,
+          the TileJSON tiles URL will be like .../{z}/{x}/{y}?version=1.0.0
+
+  -C, --cache-size <CACHE_SIZE>
+          Main cache size (in MB)
+
+      --cache-expiry <CACHE_EXPIRY>
+          Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
+
+      --cache-idle-timeout <CACHE_IDLE_TIMEOUT>
+          Maximum idle time before cache entries are evicted (e.g. "15m", "1h")
+
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
@@ -73,11 +98,14 @@ Options:
   -p, --pool-size <POOL_SIZE>
           Maximum Postgres connections pool size [DEFAULT: 20]
 
+      --pg-retry-timeout <PG_RETRY_TIMEOUT>
+          How long the first PostgreSQL connection is retried before startup fails, a duration like 30s or infinite. [DEFAULT: 30s]
+
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of geo features per tile.
 
-          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of
-          not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
+          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost
+          of not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
 
           Can be either a positive integer or unlimited if omitted.
 
@@ -93,4 +121,6 @@ Options:
   -V, --version
           Print version
 
-Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.
+Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.
+Use RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.
+See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.

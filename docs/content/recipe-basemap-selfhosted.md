@@ -170,5 +170,5 @@ The complete map is served from your machine.
 
 - [Overlay your own data from PostGIS on this basemap](recipe-basemap-postgis.md)
 - Put Martin behind a [reverse proxy](run-with-reverse-proxy/index.md) for TLS, caching, and a public hostname, and update the three URLs in the style to the public one
-- Pre-generate tiles for offline use or for seeding a cache with [`martin-cp`](martin-cp.md)
+- Pre-generate tiles for offline use or for seeding a cache with [`martin cp`](martin-cp.md)
 - [Render the style into raster tiles server-side](sources-styles/rendering.md)

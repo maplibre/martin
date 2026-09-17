@@ -47,7 +47,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
 
     ---
 
-    Generate tiles into an archive with [martin-cp](martin-cp.md), then examine, copy, validate, and diff it with [mbtiles](mbtiles/index.md).
+    Generate tiles into an archive with [martin cp](martin-cp.md), then examine, copy, validate, and diff it with [mbtiles](mbtiles/index.md).
 
     [:octicons-arrow-right-24: Provided tools](tools.md)
 

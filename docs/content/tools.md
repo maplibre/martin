@@ -12,12 +12,12 @@ In addition to the `martin` tile server, we provide a set of tools to help build
 
 Martin project contains additional tooling to help manage the data servable with Martin tile server.
 
-### `martin-cp`
+### `martin cp`
 
-`martin-cp` is a tool for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
+`martin cp` is a subcommand of `martin` for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
 It can be used to generate tiles for a large area or multiple areas.
 If multiple areas overlap, it will generate tiles only once.
-`martin-cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+`martin cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
 
 See [this article](martin-cp.md) for more information.
 
@@ -31,4 +31,4 @@ See [this article](mbtiles/index.md) for more information.
 ## Supporting crates
 
 Next to these tools, we also have a set of supporting crates for supporting the `martin` server and its ecosystem.
-Example of this is `martin-tile-utils` which is used in `martin`, `mbtiles` and `martin-cp`.
+Example of this is `martin-tile-utils` which is used in `martin` and `mbtiles`.
