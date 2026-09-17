@@ -24,11 +24,7 @@ tags:
 
     We welcome contributions to help stabilize this feature!
 
-Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
-
-!!! note
-    For cog on remote storage like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875).
-    We welcome any assistance.
+Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 
 ## Supported color type and bits per sample
 
@@ -50,10 +46,12 @@ Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)]
 ```bash
 # Configured with a directory containing `*.tif` or `*.tiff` TIFF files.
 martin /with/tiff/dir1 /with/tiff/dir2
-# Configured with dedicated TIFF file
-martin /path/to/target1.tif /path/to/target2.tiff
+# Configured with dedicated TIFF files, local or remote.
+martin /path/to/target1.tif https://example.org/path/cog.tif
 # Configured with a combination of directories and dedicated TIFF files.
 martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
+# Configured with a remote prefix; every TIFF object under it becomes a source.
+martin s3://bucket/imagery/
 ```
 
 ## Run Martin with configuration file
@@ -63,21 +61,32 @@ To add a COG in martin, simply add
 ```yml
 # Cloud Optimized GeoTIFF File Sources
 cog:
+  # Interval between remote polls (HEAD checks and prefix re-listings). Defaults to "10m".
+  # Set to "0s" to disable remote polling and remote-prefix discovery.
+  reload_interval: 10m
+  # Authentication, endpoint, and HTTP client settings (see "Remote COG" below).
+  allow_http: true
   paths:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
     - /path/to/cog_file1.tif
     - /path/to/cog_file2.tiff
+    # every TIFF object under this remote prefix becomes a cog source
+    - s3://my-bucket/imagery/
   sources:
-    # named source matching source name to a single file
+    # named source matching source name to a single file, local or remote
      cog-src1: /path/to/cog1.tif
-     cog-src2: /path/to/cog2.tif
+     cog-src2: https://example.org/path/cog2.tif
 ```
 
 ## COG Hot Reload
 
-Martin watches directories configured under `cog` for changes at runtime. When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
+Two mechanisms keep the catalog current at runtime — local directories are watched with filesystem events, remote COGs are polled.
+
+### Local directories
+
+When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
 
 ```yaml
 cog:
@@ -98,8 +107,79 @@ The following events are handled automatically:
 - **File modified** - the source is reloaded and its tile cache is invalidated.
 - **File removed** - the source is removed from the catalog.
 
+### Remote COGs
+
+Remote object stores and HTTP(S) servers have no event channel, so Martin polls them at `cog.reload_interval` (default `10m`):
+
+- **Configured remote objects** — `cog.sources` entries with an `s3://`, `gs://`, `az://`, `http://`, or `https://` URL, as well as remote URLs passed on the CLI, are re-checked with a `HEAD` request and rebuilt when their `ETag` or `Last-Modified` changes.
+- **Remote prefixes** — prefixes in `cog.paths` are re-listed, and the resulting objects are diffed against the previous snapshot, so added, updated, and removed TIFF objects propagate to the catalog.
+
+Configured remote objects still load at startup when `reload_interval` is `0s`, but are not checked again.
+Remote prefixes are first discovered by the polling loop, so setting `reload_interval` to `0s` prevents their sources from loading.
+
+If a later `HEAD` request or prefix listing fails, Martin retains the last-known object version or last successful listing, so a transient outage does not remove live sources.
+Before the first successful listing, a failed prefix is skipped for that poll and retried later.
+With `on_invalid: warn`, failed additions and replacements also remain pending for the next poll; an unsuccessful replacement keeps serving the last good source.
+
+## Remote COG
+
+COG files can be served from any object store or HTTP(S) endpoint supported by the underlying object-store client, using the same URL schemes and settings as [PMTiles sources](sources-pmtiles.md#serving-pmtiles-from-local-file-systems-http-or-object-storage).
+Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
+The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
+Plain `http://` URLs are enabled by default for COG sources; prefer HTTPS outside trusted networks.
+
+Supported URL schemes include:
+
+- `s3://<bucket>/<prefix>` and `s3a://<bucket>/<prefix>`, also for S3-compatible services such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), and others
+- `gs://<bucket>/<prefix>`
+- `az://<container>/<prefix>` and the other Azure schemes
+- `https://host/path`, `http://host/path`
+
+HTTP(S) URLs can name individual files.
+Prefix discovery requires a backend that supports object listing; an ordinary web directory cannot be enumerated.
+Only `.tif` and `.tiff` objects under a prefix are published, using the file stem as the initial source ID.
+
+```yaml
+cog:
+  reload_interval: 1m
+  allow_http: true
+  paths:
+    - s3://my-bucket/imagery/
+  sources:
+    mosaic: s3://my-bucket/imagery/mosaic.tif
+    raster: https://tiles.example.org/mosaic.tif
+```
+
+For AWS S3, a directly configured object requires `s3:GetObject`.
+Discovering a prefix additionally requires `s3:ListBucket` on the bucket, scoped to that prefix where appropriate.
+
+To connect to a custom S3-compatible endpoint (e.g. MinIO), allow plain `http://` endpoints, or provide credentials, use the object-store options documented in the [PMTiles source documentation](sources-pmtiles.md#serving-pmtiles-from-local-file-systems-http-or-object-storage). For example:
+
+```yaml
+cog:
+  aws_endpoint: http://localhost:9000
+  aws_region: us-east-1
+  allow_http: true
+  skip_signature: false
+  aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+  aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+  paths:
+    - s3://my-bucket/imagery/
+```
+
+URL queries are preserved on object requests, so presigned and token-authenticated URLs keep working:
+
+```bash
+martin 'https://tiles.example.org/mosaic.tif?token=secret-query'
+```
+
+When Martin derives object URLs from a remote prefix, it retains the configured scheme, host, custom port, query, and fragment.
+For safety, URL user information, query strings, and fragments are removed from errors, logs, and `--save-config` output.
+A saved configuration therefore does not retain a presigned URL token; provide that secret again before restarting from the generated file.
+
 !!! note
-    Hot reload applies to directories configured under `cog.paths` (or passed on the CLI). Named sources listed under `cog.sources` are snapshotted at startup and are not watched for changes.
+    Local files configured directly in `cog.paths` or `cog.sources` are loaded at startup but are not watched for changes.
+    Remote objects in either setting are polled, while remote prefixes in `cog.paths` are re-listed.
 
 ## About COG
 
