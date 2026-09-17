@@ -323,48 +323,40 @@ impl Discovery for ObjectStoreDiscovery {
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            let entries = match list_remote_prefix(
-                prefix,
-                &self.extensions,
-                &self.id_resolver,
-                &self.parser,
-            )
-            .await
-            {
-                Ok(entries) => {
-                    self.last_entries
-                        .lock()
-                        .expect("prefix listing map mutex")
-                        .insert(prefix.to_string(), entries.clone());
-                    entries
-                }
-                Err(error) => {
-                    let retained = self
-                        .last_entries
-                        .lock()
-                        .expect("prefix listing map mutex")
-                        .get(prefix.as_str())
-                        .cloned();
-                    match retained {
-                        Some(entries) => {
-                            tracing::warn!(
-                                "{}: list failed for {}: {error:?}; retaining last successful listing",
-                                self.label,
-                                sanitized_url(prefix)
-                            );
-                            entries
-                        }
-                        None => {
+            let entries =
+                match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
+                    .await
+                {
+                    Ok(entries) => {
+                        self.last_entries
+                            .lock()
+                            .expect("prefix listing map mutex")
+                            .insert(prefix.to_string(), entries.clone());
+                        entries
+                    }
+                    Err(error) => {
+                        let Some(entries) = self
+                            .last_entries
+                            .lock()
+                            .expect("prefix listing map mutex")
+                            .get(prefix.as_str())
+                            .cloned()
+                        else {
                             tracing::warn!(
                                 "{}: list failed for {}: {error:?}; skipping prefix this tick",
                                 self.label,
                                 sanitized_url(prefix)
                             );
                             continue;
-                        }
+                        };
+                        tracing::warn!(
+                            "{}: list failed for {}: {error:?}; retaining last successful listing",
+                            self.label,
+                            sanitized_url(prefix)
+                        );
+                        entries
                     }
-                }
-            };
+                };
             for (id, url, version) in entries {
                 out.insert(id, (version, url));
             }
