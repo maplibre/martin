@@ -700,3 +700,80 @@ async fn auto_publishing_only_macros_leaves_the_tables_out_and_formats_the_macro
 
     martin.stop().await;
 }
+
+#[tokio::test]
+async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
+    let dir = temp_dir();
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/duckdb/geoparquet_polygons.parquet")
+        .arg("--save-config")
+        .arg(&save_config)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
+    duckdb:
+      sources:
+      - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+        pool_size: 4
+        auto_bounds: quick
+    ");
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "geoparquet_polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "GeoParquet (tests/fixtures/duckdb/geoparquet_polygons.parquet)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/geoparquet_polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
+    let dir = temp_dir();
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/duckdb/database.duckdb")
+        .arg("--save-config")
+        .arg(&save_config)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
+    duckdb:
+      sources:
+      - database: tests/fixtures/duckdb/database.duckdb
+        pool_size: 4
+        auto_bounds: quick
+        auto_publish: true
+    ");
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "points": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table places.points (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table main.polygons (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons_mvt": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+}

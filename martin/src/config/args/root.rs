@@ -28,6 +28,8 @@ use crate::config::file::ConfigurationLivecycleHooks;
     feature = "geojson",
 ))]
 use crate::config::file::FileConfigEnum;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
 #[cfg(feature = "postgres")]
@@ -152,7 +154,8 @@ impl Args {
                 feature = "mbtiles",
                 feature = "pmtiles",
                 feature = "geojson",
-                feature = "unstable-cog"
+                feature = "unstable-cog",
+                feature = "unstable-duckdb"
             )),
             expect(
                 unused_mut,
@@ -192,6 +195,28 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
         }
 
+        #[cfg(feature = "unstable-duckdb")]
+        if !cli_strings.is_empty() {
+            let geoparquet =
+                parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
+                    .into_iter()
+                    .map(|path| {
+                        DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
+                            geoparquet: path.to_string_lossy().into_owned(),
+                            ..GeoParquetEntry::default()
+                        }))
+                    });
+            let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
+                .into_iter()
+                .map(|database| {
+                    DuckDbSourceEntry::Database(Box::new(DuckDbDatabaseEntry {
+                        database,
+                        ..DuckDbDatabaseEntry::default()
+                    }))
+                });
+            config.duckdb.sources.extend(geoparquet.chain(databases));
+        }
+
         #[cfg(feature = "styles")]
         if !self.extras.style.is_empty() {
             config.styles = FileConfigEnum::new(self.extras.style);
@@ -216,7 +241,8 @@ impl Args {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "geojson",
+    feature = "unstable-duckdb"
 ))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
@@ -247,7 +273,8 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "geojson",
+    feature = "unstable-duckdb"
 ))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
@@ -273,9 +300,28 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     extensions: &[&str],
     allow_url: bool,
 ) -> FileConfigEnum<T> {
+    FileConfigEnum::new(parse_file_paths(cli_strings, extensions, allow_url, true))
+}
+
+/// Claim the unclaimed CLI arguments that are files with one of `extensions`.
+///
+/// Directories are shared with other consumers when `share_dirs` is set, and otherwise left unclaimed.
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson",
+    feature = "unstable-duckdb"
+))]
+fn parse_file_paths(
+    cli_strings: &mut Arguments,
+    extensions: &[&str],
+    allow_url: bool,
+    share_dirs: bool,
+) -> Vec<PathBuf> {
     use super::State::{Ignore, Share, Take};
 
-    let paths = cli_strings.process(|s| {
+    cli_strings.process(|s| {
         let path = PathBuf::from(s);
         if allow_url && is_url(s, extensions) {
             Take(path)
@@ -283,7 +329,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
             // Handle file: scheme URIs (SQLite connection strings) as valid paths
             Take(path)
         } else if path.is_dir() {
-            Share(path)
+            if share_dirs { Share(path) } else { Ignore }
         } else if path.is_file()
             && extensions.iter().any(|&expected_ext| {
                 path.extension()
@@ -294,9 +340,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
         } else {
             Ignore
         }
-    });
-
-    FileConfigEnum::new(paths)
+    })
 }
 
 #[cfg(test)]
