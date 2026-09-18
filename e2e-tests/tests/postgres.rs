@@ -1651,7 +1651,7 @@ postgres:
 }
 
 /// Three tables on three grids.
-/// New Zealand on LINZ's NZTM2000Quad, world points on a square WGS84 grid, and Mars landing sites on a CRS PostGIS only knows from a `spatial_ref_sys` row.
+/// New Zealand on LINZ's `NZTM2000Quad`, world points on a square WGS84 grid, and Mars landing sites on a CRS `PostGIS` only knows from a `spatial_ref_sys` row.
 const TILE_GRIDS_CONFIG: &str = "
 tile_grids:
   NZTM2000Quad:
@@ -2010,7 +2010,7 @@ async fn an_archive_can_be_declared_to_be_on_a_grid() {
     assert_tile_grid_warnings(&mut martin);
 }
 
-/// The zoom-0 tile of NZTM2000Quad reaches across 180 degrees, where longitude and latitude cut the world open.
+/// The zoom-0 tile of `NZTM2000Quad` reaches across 180 degrees, where longitude and latitude cut the world open.
 /// Transformed into WGS84, its corners lie at both ends of the world, so a plain bounding box of them lands on the wrong side and misses the strip next to the cut.
 /// `points1` has a point at 175.7 degrees west inside that strip.
 #[tokio::test]
