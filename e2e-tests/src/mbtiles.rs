@@ -59,6 +59,7 @@ impl MbtilesCli {
 
     /// Run the command, require it to succeed, and parse what it printed as JSON.
     /// The CLI logs to stderr, leaving stdout to the reported document alone.
+    /// The keys of every object are sorted.
     pub async fn run_json(self) -> serde_json::Value {
         let (status, stdout, stderr) = self.output().await;
         assert!(
@@ -66,12 +67,14 @@ impl MbtilesCli {
             "`mbtiles {}` failed with {status}; output:\n{stdout}{stderr}",
             display_args(&self.args)
         );
-        serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        let mut json: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
             panic!(
                 "`mbtiles {}` did not print json: {e}; output:\n{stdout}",
                 display_args(&self.args)
             )
-        })
+        });
+        json.sort_all_objects();
+        json
     }
 
     /// Run the command, require it to fail, and return its output.

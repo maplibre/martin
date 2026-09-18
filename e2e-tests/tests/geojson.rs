@@ -143,8 +143,7 @@ async fn a_tilejson_points_back_at_the_source() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let mut tilejson = serde_json::from_str::<Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let mut tilejson = martin.redacted_json(&response);
     round_coordinates(&mut tilejson);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
