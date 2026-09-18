@@ -179,8 +179,6 @@ impl StyleSources {
         self.sources.is_empty()
     }
 
-    /// EXPERIMENTAL support for rendering styles.
-    ///
     /// Renders a 512×512 slippy tile via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
