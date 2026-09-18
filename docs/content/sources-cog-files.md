@@ -4,6 +4,10 @@ tags:
   - cog
   - tile-sources
   - configuration
+  - aws
+  - azure
+  - google-cloud
+  - object-storage
 ---
 
 # Cloud Optimized GeoTIFF File Sources
@@ -64,7 +68,7 @@ cog:
   # Interval between remote polls (HEAD checks and prefix re-listings). Defaults to "10m".
   # Set to "0s" to disable remote polling and remote-prefix discovery.
   reload_interval: 10m
-  # Authentication, endpoint, and HTTP client settings (see "Remote COG" below).
+  # Authentication, endpoint, and HTTP client settings are documented under "Remote COG" below.
   allow_http: true
   paths:
     # scan this whole dir, matching all *.tif and *.tiff files
@@ -123,28 +127,17 @@ With `on_invalid: warn`, failed additions and replacements also remain pending f
 
 ## Remote COG
 
-COG files can be served from any object store or HTTP(S) endpoint supported by the underlying object-store client, using the same URL schemes and settings as [PMTiles sources](sources-pmtiles.md#serving-pmtiles-from-local-file-systems-http-or-object-storage).
 Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
-The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
-Plain `http://` URLs are refused unless `allow_http` is set to `true`.
-This option can only be set in the configuration file, so a plain `http://` URL cannot be passed on the command line.
-Prefer HTTPS outside trusted networks.
-
-Supported URL schemes include:
-
-- `s3://<bucket>/<prefix>` and `s3a://<bucket>/<prefix>`, also for S3-compatible services such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), and others
-- `gs://<bucket>/<prefix>`
-- `az://<container>/<prefix>` and the other Azure schemes
-- `https://host/path`, `http://host/path`
-
-HTTP(S) URLs can name individual files.
-Prefix discovery requires a backend that supports object listing; an ordinary web directory cannot be enumerated.
-Only `.tif` and `.tiff` objects under a prefix are published, using the file stem as the initial source ID.
+Only `.tif` and `.tiff` objects under a listed prefix are published, using the file stem as the initial source ID.
 
 ```yaml
 cog:
   reload_interval: 1m
+  endpoint: http://localhost:9000
+  region: us-east-1
   allow_http: true
+  access_key_id: ${AWS_ACCESS_KEY_ID}
+  secret_access_key: ${AWS_SECRET_ACCESS_KEY}
   paths:
     - s3://my-bucket/imagery/
   sources:
@@ -152,36 +145,11 @@ cog:
     raster: https://tiles.example.org/mosaic.tif
 ```
 
-For AWS S3, a directly configured object requires `s3:GetObject`.
-Discovering a prefix additionally requires `s3:ListBucket` on the bucket, scoped to that prefix where appropriate.
-
-To connect to a custom S3-compatible endpoint (e.g. MinIO), allow plain `http://` endpoints, or provide credentials, use the object-store options documented in the [PMTiles source documentation](sources-pmtiles.md#serving-pmtiles-from-local-file-systems-http-or-object-storage). For example:
-
-```yaml
-cog:
-  aws_endpoint: http://localhost:9000
-  aws_region: us-east-1
-  allow_http: true
-  skip_signature: false
-  aws_access_key_id: ${AWS_ACCESS_KEY_ID}
-  aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
-  paths:
-    - s3://my-bucket/imagery/
-```
-
-URL queries are preserved on object requests, so presigned and token-authenticated URLs keep working:
-
-```bash
-martin 'https://tiles.example.org/mosaic.tif?token=secret-query'
-```
-
-When Martin derives object URLs from a remote prefix, it retains the configured scheme, host, custom port, query, and fragment.
-For safety, URL user information, query strings, and fragments are removed from errors, logs, and `--save-config` output.
-A saved configuration therefore does not retain a presigned URL token; provide that secret again before restarting from the generated file.
-
 !!! note
     Local files configured directly in `cog.paths` or `cog.sources` are loaded at startup but are not watched for changes.
     Remote objects in either setting are polled, while remote prefixes in `cog.paths` are re-listed.
+
+--8<-- "object-store/configuration.md"
 
 ## About COG
 
