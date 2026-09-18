@@ -1,0 +1,3787 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for Martin Tile Server">
+      
+      
+        <meta name="author" content="Maplibre Contributors">
+      
+      
+        <link rel="canonical" href="https://maplibre.org/martin/changelog/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/favicon.ico">
+      <meta name="generator" content="zensical-0.0.62">
+    
+    
+      
+        <title>Changelog - Martin Tile Server Documentation</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.ce62732f.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+  
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+  
+  <style>:root{--md-admonition-icon--abstract:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2.5%201.75v11.5c0%20.138.112.25.25.25h3.17a.75.75%200%200%201%200%201.5H2.75A1.75%201.75%200%200%201%201%2013.25V1.75C1%20.784%201.784%200%202.75%200h8.5C12.216%200%2013%20.784%2013%201.75v7.736a.75.75%200%200%201-1.5%200V1.75a.25.25%200%200%200-.25-.25h-8.5a.25.25%200%200%200-.25.25m13.274%209.537zl-4.557%204.45a.75.75%200%200%201-1.055-.008l-1.943-1.95a.75.75%200%200%201%201.062-1.058l1.419%201.425%204.026-3.932a.75.75%200%201%201%201.048%201.074M4.75%204h4.5a.75.75%200%200%201%200%201.5h-4.5a.75.75%200%200%201%200-1.5M4%207.75A.75.75%200%200%201%204.75%207h2a.75.75%200%200%201%200%201.5h-2A.75.75%200%200%201%204%207.75%22/%3E%3C/svg%3E');--md-admonition-icon--bug:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M4.72.22a.75.75%200%200%201%201.06%200l1%20.999a3.5%203.5%200%200%201%202.441%200l.999-1a.748.748%200%200%201%201.265.332.75.75%200%200%201-.205.729l-.775.776c.616.63.995%201.493.995%202.444v.327q0%20.15-.025.292c.408.14.764.392%201.029.722l1.968-.787a.75.75%200%200%201%20.556%201.392L13%207.258V9h2.25a.75.75%200%200%201%200%201.5H13v.5q-.002.615-.141%201.186l2.17.868a.75.75%200%200%201-.557%201.392l-2.184-.873A5%205%200%200%201%208%2016a5%205%200%200%201-4.288-2.427l-2.183.873a.75.75%200%200%201-.558-1.392l2.17-.868A5%205%200%200%201%203%2011v-.5H.75a.75.75%200%200%201%200-1.5H3V7.258L.971%206.446a.75.75%200%200%201%20.558-1.392l1.967.787c.265-.33.62-.583%201.03-.722a1.7%201.7%200%200%201-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72%201.28a.75.75%200%200%201%200-1.06m.53%206.28a.75.75%200%200%200-.75.75V11a3.5%203.5%200%201%200%207%200V7.25a.75.75%200%200%200-.75-.75ZM6.173%205h3.654A.17.17%200%200%200%2010%204.827V4.5a2%202%200%201%200-4%200v.327c0%20.096.077.173.173.173%22/%3E%3C/svg%3E');--md-admonition-icon--danger:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M9.504.43a1.516%201.516%200%200%201%202.437%201.713L10.415%205.5h2.123c1.57%200%202.346%201.909%201.22%203.004l-7.34%207.142a1.25%201.25%200%200%201-.871.354h-.302a1.25%201.25%200%200%201-1.157-1.723L5.633%2010.5H3.462c-1.57%200-2.346-1.909-1.22-3.004zm1.047%201.074L3.286%208.571A.25.25%200%200%200%203.462%209H6.75a.75.75%200%200%201%20.694%201.034l-1.713%204.188%206.982-6.793A.25.25%200%200%200%2012.538%207H9.25a.75.75%200%200%201-.683-1.06l2.008-4.418.003-.006-.004-.009-.006-.006-.008-.001q-.005%200-.009.004%22/%3E%3C/svg%3E');--md-admonition-icon--example:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M5%205.782V2.5h-.25a.75.75%200%200%201%200-1.5h6.5a.75.75%200%200%201%200%201.5H11v3.282l3.666%205.76C15.619%2013.04%2014.543%2015%2012.767%2015H3.233c-1.776%200-2.852-1.96-1.899-3.458Zm-2.4%206.565a.75.75%200%200%200%20.633%201.153h9.534a.75.75%200%200%200%20.633-1.153L12.225%2010.5h-8.45ZM9.5%202.5h-3V6c0%20.143-.04.283-.117.403L4.73%209h6.54L9.617%206.403A.75.75%200%200%201%209.5%206Z%22/%3E%3C/svg%3E');--md-admonition-icon--failure:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2.344%202.343za8%208%200%200%201%2011.314%2011.314A8.002%208.002%200%200%201%20.234%2010.089a8%208%200%200%201%202.11-7.746m1.06%2010.253a6.5%206.5%200%201%200%209.108-9.275%206.5%206.5%200%200%200-9.108%209.275M6.03%204.97%208%206.94l1.97-1.97a.749.749%200%200%201%201.275.326.75.75%200%200%201-.215.734L9.06%208l1.97%201.97a.749.749%200%200%201-.326%201.275.75.75%200%200%201-.734-.215L8%209.06l-1.97%201.97a.749.749%200%200%201-1.275-.326.75.75%200%200%201%20.215-.734L6.94%208%204.97%206.03a.75.75%200%200%201%20.018-1.042.75.75%200%200%201%201.042-.018%22/%3E%3C/svg%3E');--md-admonition-icon--info:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208m8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13M6.5%207.75A.75.75%200%200%201%207.25%207h1a.75.75%200%200%201%20.75.75v2.75h.25a.75.75%200%200%201%200%201.5h-2a.75.75%200%200%201%200-1.5h.25v-2h-.25a.75.75%200%200%201-.75-.75M8%206a1%201%200%201%201%200-2%201%201%200%200%201%200%202%22/%3E%3C/svg%3E');--md-admonition-icon--note:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M1%207.775V2.75C1%201.784%201.784%201%202.75%201h5.025c.464%200%20.91.184%201.238.513l6.25%206.25a1.75%201.75%200%200%201%200%202.474l-5.026%205.026a1.75%201.75%200%200%201-2.474%200l-6.25-6.25A1.75%201.75%200%200%201%201%207.775m1.5%200c0%20.066.026.13.073.177l6.25%206.25a.25.25%200%200%200%20.354%200l5.025-5.025a.25.25%200%200%200%200-.354l-6.25-6.25a.25.25%200%200%200-.177-.073H2.75a.25.25%200%200%200-.25.25ZM6%205a1%201%200%201%201%200%202%201%201%200%200%201%200-2%22/%3E%3C/svg%3E');--md-admonition-icon--question:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208m8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13M6.92%206.085h.001a.749.749%200%201%201-1.342-.67c.169-.339.436-.701.849-.977C6.845%204.16%207.369%204%208%204a2.76%202.76%200%200%201%201.637.525c.503.377.863.965.863%201.725%200%20.448-.115.83-.329%201.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6%206%200%200%200-.26.16%201%201%200%200%200-.276.245.75.75%200%200%201-1.248-.832c.184-.264.42-.489.692-.661q.154-.1.313-.195l.007-.004c.1-.061.182-.11.258-.161a1%201%200%200%200%20.277-.245C8.96%206.514%209%206.427%209%206.25a.61.61%200%200%200-.262-.525A1.27%201.27%200%200%200%208%205.5c-.369%200-.595.09-.74.187a1%201%200%200%200-.34.398M9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200%22/%3E%3C/svg%3E');--md-admonition-icon--quote:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M1.75%202.5h10.5a.75.75%200%200%201%200%201.5H1.75a.75.75%200%200%201%200-1.5m4%205h8.5a.75.75%200%200%201%200%201.5h-8.5a.75.75%200%200%201%200-1.5m0%205h8.5a.75.75%200%200%201%200%201.5h-8.5a.75.75%200%200%201%200-1.5M2.5%207.75v6a.75.75%200%200%201-1.5%200v-6a.75.75%200%200%201%201.5%200%22/%3E%3C/svg%3E');--md-admonition-icon--success:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M13.78%204.22a.75.75%200%200%201%200%201.06l-7.25%207.25a.75.75%200%200%201-1.06%200L2.22%209.28a.75.75%200%200%201%20.018-1.042.75.75%200%200%201%201.042-.018L6%2010.94l6.72-6.72a.75.75%200%200%201%201.06%200%22/%3E%3C/svg%3E');--md-admonition-icon--tip:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M3.499.75a.75.75%200%200%201%201.5%200v.996C5.9%202.903%206.793%203.65%207.662%204.376l.24.202c-.036-.694.055-1.422.426-2.163C9.1.873%2010.794-.045%2012.622.26%2014.408.558%2016%201.94%2016%204.25c0%201.278-.954%202.575-2.44%202.734l.146.508.065.22c.203.701.412%201.455.476%202.226.142%201.707-.4%203.03-1.487%203.898C11.714%2014.671%2010.27%2015%208.75%2015h-6a.75.75%200%200%201%200-1.5h1.376a4.5%204.5%200%200%201-.563-1.191%203.84%203.84%200%200%201-.05-2.063%204.65%204.65%200%200%201-2.025-.293.75.75%200%200%201%20.525-1.406c1.357.507%202.376-.006%202.698-.318l.009-.01a.747.747%200%200%201%201.06%200%20.75.75%200%200%201-.012%201.074c-.912.92-.992%201.835-.768%202.586.221.74.745%201.337%201.196%201.621H8.75c1.343%200%202.398-.296%203.074-.836.635-.507%201.036-1.31.928-2.602-.05-.603-.216-1.224-.422-1.93l-.064-.221c-.12-.407-.246-.84-.353-1.29a2.4%202.4%200%200%201-.507-.441%203.1%203.1%200%200%201-.633-1.248.75.75%200%200%201%201.455-.364c.046.185.144.436.31.627.146.168.353.305.712.305.738%200%201.25-.615%201.25-1.25%200-1.47-.95-2.315-2.123-2.51-1.172-.196-2.227.387-2.706%201.345-.46.92-.27%201.774.019%203.062l.042.19.01.05c.348.443.666.949.94%201.553a.75.75%200%201%201-1.365.62c-.553-1.217-1.32-1.94-2.3-2.768L6.7%205.527c-.814-.68-1.75-1.462-2.692-2.619a3.7%203.7%200%200%200-1.023.88c-.406.495-.663%201.036-.722%201.508.116.122.306.21.591.239.388.038.797-.06%201.032-.19a.75.75%200%200%201%20.728%201.31c-.515.287-1.23.439-1.906.373-.682-.067-1.473-.38-1.879-1.193L.75%205.677V5.5c0-.984.48-1.94%201.077-2.664.46-.559%201.05-1.055%201.673-1.353z%22/%3E%3C/svg%3E');--md-admonition-icon--warning:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M6.457%201.047c.659-1.234%202.427-1.234%203.086%200l6.082%2011.378A1.75%201.75%200%200%201%2014.082%2015H1.918a1.75%201.75%200%200%201-1.543-2.575Zm1.763.707a.25.25%200%200%200-.44%200L1.698%2013.132a.25.25%200%200%200%20.22.368h12.164a.25.25%200%200%200%20.22-.368Zm.53%203.996v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200M9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200%22/%3E%3C/svg%3E');}</style>
+
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#changelog" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Martin Tile Server Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/maplibre/martin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="./.." class="md-tabs__link">
+        
+  
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quick-start/" class="md-tabs__link">
+          
+  
+  Quick Start
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../run/" class="md-tabs__link">
+          
+  
+  Running
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../config-file/" class="md-tabs__link">
+          
+  
+  Configuration File
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../using/" class="md-tabs__link">
+        
+  
+  Available API Endpoints
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../using-guides/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/" class="md-tabs__link">
+          
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="././" class="md-tabs__link">
+        
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Martin Tile Server Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/maplibre/martin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Introduction
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../quick-start/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m13.13 22.19-1.63-3.83c1.57-.58 3.04-1.36 4.4-2.27zM5.64 12.5l-3.83-1.63 6.1-2.77C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39S16.66.269 11 5.93c-2.19 2.19-3.5 4.6-4.35 6.71-.28.75-.09 1.57.46 2.13l2.13 2.12c.55.56 1.37.74 2.12.46A19.1 19.1 0 0 0 18.07 13c5.66-5.66 3.54-10.61 3.54-10.61m-7.07 7.07c-.78-.78-.78-2.05 0-2.83s2.05-.78 2.83 0c.77.78.78 2.05 0 2.83s-2.05.78-2.83 0m-5.66 7.07-1.41-1.41zM6.24 22l3.64-3.64c-.34-.09-.67-.24-.97-.45L4.83 22zM2 22h1.41l4.77-4.76-1.42-1.41L2 20.59zm0-2.83 4.09-4.08c-.21-.3-.36-.62-.45-.97L2 17.76z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Quick Start
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../run/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 16.5v-9l6 4.5M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Running
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../config-file/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h6.68a7 7 0 0 1-.68-3 7 7 0 0 1 7-7 7 7 0 0 1 1 .08V8l-6-6zm7 1.5L18.5 9H13zM18 14a.26.26 0 0 0-.26.21l-.19 1.32c-.3.13-.59.29-.85.47l-1.24-.5c-.11 0-.24 0-.31.13l-1 1.73c-.06.11-.04.24.06.32l1.06.82a4.2 4.2 0 0 0 0 1l-1.06.82a.26.26 0 0 0-.06.32l1 1.73c.06.13.19.13.31.13l1.24-.5c.26.18.54.35.85.47l.19 1.32c.02.12.12.21.26.21h2c.11 0 .22-.09.24-.21l.19-1.32c.3-.13.57-.29.84-.47l1.23.5c.13 0 .26 0 .33-.13l1-1.73a.26.26 0 0 0-.06-.32l-1.07-.82c.02-.17.04-.33.04-.5s-.01-.33-.04-.5l1.06-.82a.26.26 0 0 0 .06-.32l-1-1.73c-.06-.13-.19-.13-.32-.13l-1.23.5c-.27-.18-.54-.35-.85-.47l-.19-1.32A.236.236 0 0 0 20 14zm1 3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5c-.84 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration File
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../using/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 7H5a2 2 0 0 0-2 2v8h2v-4h2v4h2V9a2 2 0 0 0-2-2m0 4H5V9h2m7-2h-4v10h2v-4h2a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2m0 4h-2V9h2m6 0v6h1v2h-4v-2h1V9h-1V7h4v2Z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Available API Endpoints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../using-guides/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19 2-5 4.5v11l5-4.5zM6.5 5C4.55 5 2.45 5.4 1 6.5v14.66c0 .25.25.5.5.5.1 0 .15-.07.25-.07 1.35-.65 3.3-1.09 4.75-1.09 1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.31 4.75 1.06.1.05.15.03.25.03.25 0 .5-.25.5-.5V6.5c-.6-.45-1.25-.75-2-1V19c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V6.5C10.55 5.4 8.45 5 6.5 5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../development/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Development
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        [Unreleased]
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1161-2026-09-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.16.1 - 2026-09-07
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.16.1 - 2026-09-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1160-2026-09-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.16.0 - 2026-09-06
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.16.0 - 2026-09-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aliases-for-fonts-sprites-and-tile-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Aliases for fonts, sprites and tile sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cql2-filters-on-table-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CQL2 filters on table sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-terminal-dashboard-behind-tui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A terminal dashboard behind <code>--tui</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1150-2026-08-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.15.0 - 2026-08-31
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.15.0 - 2026-08-31">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hillshade-postprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hillshade postprocessing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contour-postprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Contour postprocessing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1140-2026-08-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.14.0 - 2026-08-17
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.14.0 - 2026-08-17">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1130-2026-07-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.13.0 - 2026-07-25
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.13.0 - 2026-07-25">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#passthrough-sources-config-file-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Passthrough sources: config-file wiring
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-cache-mbtiles-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        New <code>cache</code> MBTiles schema
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#martin-cp-now-responds-to-ctrlc-when-copying-from-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>martin-cp</code> now responds to Ctrl+C when copying from PostgreSQL
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1120-2026-07-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.12.0 - 2026-07-07
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.12.0 - 2026-07-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geojson-tile-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GeoJSON tile source
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-map-overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static map overlays
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mbtiles-pack-and-mbtiles-unpack" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>mbtiles pack</code> and <code>mbtiles unpack</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passthrough-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Passthrough sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#more-capable-config-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        More capable config parsing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gsoc-spotlight-duckdb-geoparquet-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ☀️ GSoC spotlight: duckdb GeoParquet sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1110-2026-06-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.11.0 - 2026-06-16
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.11.0 - 2026-06-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#live-reloading-for-postgresql-pmtiles-and-cog-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Live reloading for PostgreSQL, PMTiles and COG sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gsoc-spotlight-a-new-duckdb-source-in-martin-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ☀️ GSoC spotlight: a new <code>duckdb</code> source (in <code>martin-core</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-rendering-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static rendering core
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1101-2026-05-19" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.10.1 - 2026-05-19
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.10.1 - 2026-05-19">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1100-2026-05-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.10.0 - 2026-05-16
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.10.0 - 2026-05-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#191-2026-05-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.9.1 - 2026-05-09
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.9.1 - 2026-05-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#other_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#190-2026-05-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.9.0 - 2026-05-06
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.9.0 - 2026-05-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mvt-mlt-pre-processing-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MVT - MLT pre-processing encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#improved-sprite-and-font-previews-in-the-web-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Improved sprite and font previews in the Web UI
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structured-logging-for-martin-core-and-mbtiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Structured logging for <code>martin-core</code> and <code>mbtiles</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#182-2026-04-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.8.2 - 2026-04-29
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.8.2 - 2026-04-29">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#181-2026-04-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.8.1 - 2026-04-29
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.8.1 - 2026-04-29">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#180-2026-04-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.8.0 - 2026-04-28
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.8.0 - 2026-04-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mbtiles-auto-reloading" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MBTiles auto-reloading
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-vector-pg-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Non-vector PG sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#170-2026-04-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.7.0 - 2026-04-23
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.7.0 - 2026-04-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#martin_tile_cache_requests_total-and-martin_cache_requests_total-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>martin_tile_cache_requests_total</code> and <code>martin_cache_requests_total</code> metrics
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stabilized-server-side-raster-tile-rendering-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stabilized Server-side raster tile rendering backend
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#160-2026-04-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.6.0 - 2026-04-18
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.6.0 - 2026-04-18">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#smarter-more-configurable-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Smarter, more configurable caching
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#broader-mbtiles-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Broader MBTiles compatibility
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-on-invalid-cli-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>--on-invalid</code> CLI argument
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#150-2026-04-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.5.0 - 2026-04-02
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.5.0 - 2026-04-02">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#140-2026-03-14" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.4.0 - 2026-03-14
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.0 - 2026-03-14">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#zstd-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ZSTD support
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-new-documentation-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A new documentation site
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#131-2026-02-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.3.1 - 2026-02-11
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.3.1 - 2026-02-11">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#130-2026-01-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.3.0 - 2026-01-27
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.3.0 - 2026-01-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#more-flexible-log-formatting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        More flexible log formatting
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#glyph-ranges-beyond-0xffff" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Glyph ranges beyond <code>0xFFFF</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simpler-native-subpath-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simpler native subpath support
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mlt-decoding-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MLT decoding support
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#120-2026-01-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.2.0 - 2026-01-03
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2.0 - 2026-01-03">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optionally-fail-config-loadingresolution-for-missing-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optionally fail config loading/resolution for missing sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#click-to-copy-when-clicking-on-various-ids-in-the-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Click to copy when clicking on various IDs in the UI
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#110-2025-12-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.1.0 - 2025-12-11
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.1.0 - 2025-12-11">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100-2025-11-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.0.0 - 2025-11-10
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.0.0 - 2025-11-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0202-2025-11-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.20.2 - 2025-11-07
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.20.2 - 2025-11-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#other_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0201-2025-11-03" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.20.1 - 2025-11-03
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed-prefixes-in-ghcr-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed prefixes in ghcr tags
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fix
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Maintenance
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0200-2025-10-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.20.0 - 2025-10-27
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.20.0 - 2025-10-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-better-more-configurable-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A better, more configurable cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pmtiles-support-for-google-cloud-azure-and-much-more-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pmtiles support for Google Cloud, Azure and much more options
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unstable-style-rendering-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        unstable style rendering support
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rename-cog-feature-to-unstable-cog" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rename <code>cog</code> feature to <code>unstable-cog</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removal-of-deprecated-functionality" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Removal of deprecated functionality
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fix_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fix
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0193-2025-10-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.19.3 - 2025-10-01
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.19.3 - 2025-10-01">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0192-2025-09-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.19.2 - 2025-09-28
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.19.2 - 2025-09-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#other_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0191-2025-09-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.19.1 - 2025-09-28
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.19.1 - 2025-09-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0190-2025-09-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.19.0 - 2025-09-26
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0.19.0 - 2025-09-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Breaking Changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Documentation
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/changelog.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="changelog">Changelog</h1>
+<p>All notable changes to this project will be documented in this file.</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
+and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="unreleased">[Unreleased]</h2>
+<h2 id="1161-2026-09-07"><a href="https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1">1.16.1</a> - 2026-09-07</h2>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li>generate the config schema identically on every OS (<a href="https://github.com/maplibre/martin/pull/3276">#3276</a>)</li>
+</ul>
+<h2 id="1160-2026-09-06"><a href="https://github.com/maplibre/martin/compare/martin-v1.15.0...martin-v1.16.0">1.16.0</a> - 2026-09-06</h2>
+<h3 id="aliases-for-fonts-sprites-and-tile-sources">Aliases for fonts, sprites and tile sources</h3>
+<p>A style no longer has to spell out a combination of sources on every request.
+<code>fonts.aliases</code>, <code>sprites.aliases</code> and the top-level <code>aliases</code> block each name a combination of sources that a client requests like a single one: a named font stack served in the listed fallback order, one sprite name covering several sprite sources, and <code>/{alias}/{z}/{x}/{y}</code> serving exactly what <code>/{a},{b}</code> serves.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">basemap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">roads</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">buildings</span><span class="p p-Indicator">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">fonts</span><span class="p">:</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">Noto Sans Stack</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Noto Sans Regular</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Noto Sans Arabic Regular</span><span class="p p-Indicator">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">sprites</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">aliases</span><span class="p">:</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">icons</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">transit</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">poi</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<p>An alias may only reference real sources, never another alias, and it may share the name of a source it references, so an existing name can gain fallbacks or icons without touching a single style.
+Every alias is validated at startup, listed in the catalog under its own name, and its cache keys are the expanded sources, so purging a source also drops what its aliases served.
+See the documentation for <a href="https://maplibre.org/martin/sources-composite/">tile</a>, <a href="https://maplibre.org/martin/sources-fonts/">font</a> and <a href="https://maplibre.org/martin/sources-sprites/">sprite</a> aliases.
+Done in <a href="https://github.com/maplibre/martin/pull/3229">#3229</a>, <a href="https://github.com/maplibre/martin/pull/3210">#3210</a> and <a href="https://github.com/maplibre/martin/pull/3220">#3220</a>.</p>
+<h3 id="cql2-filters-on-table-sources">CQL2 filters on table sources</h3>
+<p>A table source serves every row of its table, and narrowing it down used to mean writing a function source that re-declares by hand what table discovery already knows.
+A configured table now takes a <code>filter</code> written in CQL2 text, which Martin validates at startup and translates to SQL for the tile query, so a typo fails at load rather than on the first tile.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">large_cities</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population &gt; 100000 AND name NOT LIKE 'Old %'</span>
+</span></code></pre></div>
+<p>The filter also narrows the computed bounds, and two entries on the same table with different filters are two distinct sources instead of the duplicate they used to warn about.
+See the <a href="https://maplibre.org/martin/sources-pg-tables/">documentation</a>.
+Done in <a href="https://github.com/maplibre/martin/pull/3238">#3238</a>.</p>
+<h3 id="a-terminal-dashboard-behind-tui">A terminal dashboard behind <code>--tui</code></h3>
+<p><code>martin --tui</code> turns the terminal Martin runs in into a live view of the server: the sources with their request counts and timings, the request rate, the tile requests of the last minute on a world map, and the log in a pane at the bottom, with <code>q</code> stopping the server.
+It is meant for the moments where Prometheus and Grafana are too much setup, such as a demo, a first run against a new database, or a look at a deployment over ssh.
+The flag refuses a stdout that is not a terminal, so a service or a container keeps its plain log stream.
+See the <a href="https://maplibre.org/martin/run-with-cli/">documentation</a>.
+Done in <a href="https://github.com/maplibre/martin/pull/3244">#3244</a>.</p>
+<h3 id="added">Added</h3>
+<ul>
+<li><em>(unstable-cog)</em> an explicitly configured remote HTTP or S3-compatible COG object is read through a new async, range-based reader over the object-store configuration PMTiles uses, so authentication, endpoint, proxy and client options carry over, credentials are redacted from logs, errors and <code>--save-config</code> output, and malformed metadata is an error rather than a panic. This is a step of <a href="https://github.com/maplibre/martin/issues/875">#875</a>: such an object is loaded once at startup, and replacement detection, remote prefix listing and the matching docs are not yet implemented (<a href="https://github.com/maplibre/martin/pull/3266">#3266</a>)</li>
+<li><em>(unstable-duckdb)</em> GeoParquet sources became usable on the datasets they are meant for. Locations accept <code>s3</code>, <code>gs</code>, <code>gcs</code>, <code>r2</code>, <code>az</code>, <code>azure</code>, <code>abfss</code> and <code>hf</code> URLs on top of <code>http(s)</code> and are handed to DuckDB to read: an <code>s3://</code> path (see Overture Maps documentation) could not be configured at all before, and DuckDB expands globs over it but not over plain HTTP, so one source can cover a dataset split across part files. Tile queries then prune row groups with the file's covering bbox, so a tile reads the parts of the file that can contain it instead of all of them. duckdb lacks this due to the interop between <code>duckdb-spatial</code> &lt;-&gt; <code>duckdb-parquet</code> this would require by default. (<a href="https://github.com/maplibre/martin/pull/3214">#3214</a>, <a href="https://github.com/maplibre/martin/pull/3215">#3215</a>)</li>
+<li><em>(discovery)</em> an opt-in <code>recursive: true</code> next to <code>paths</code> for the mbtiles, pmtiles, cog and geojson kinds. A nested file is published under its path relative to the scanned directory with <code>/</code> replaced by <code>.</code>, so <code>2024/roads.pmtiles</code> becomes <code>2024.roads</code> and no existing id moves. The watcher follows the same flag (<a href="https://github.com/maplibre/martin/pull/3203">#3203</a>)</li>
+<li><em>(sprites, styles)</em> <code>collections</code>, which publishes every directory inside a listed root as its own source: a sprite per directory, and every <code>.json</code> inside one as <code>&lt;directory&gt;.&lt;file&gt;</code>. That is a per-project layout in one line of config, without the single merged sprite a recursive <code>paths</code> entry produces (<a href="https://github.com/maplibre/martin/pull/3230">#3230</a>)</li>
+<li><em>(cache)</em> a second cache entry keyed by the negotiated encoding, so a tile a source hands over uncompressed is no longer compressed again on every request. On a warm cache against PostgreSQL sources, <code>get_tile_content</code> dropped from 107 µs to 29 µs on average and throughput rose from 103k to 114k req/s (<a href="https://github.com/maplibre/martin/pull/3211">#3211</a>)</li>
+<li><em>(postgres)</em> an overloaded function is one source that routes on the request: a bare URL runs the queryless variant, a URL with a query string the query-taking one, and any further variant becomes its own source with a <code>.1</code> suffix. Previously whichever variant the discovery query listed last won, behind a warning nobody could act on (<a href="https://github.com/maplibre/martin/pull/3243">#3243</a>)</li>
+<li><em>(postgres)</em> functions returning gzip- or zlib-compressed tiles are detected by magic bytes and passed through to clients that accept the encoding, instead of being compressed a second time (<a href="https://github.com/maplibre/martin/pull/3236">#3236</a>)</li>
+<li><em>(postgres)</em> a function's key column is served as the tile ETag instead of a hash of the tile bytes, which was never stable for a PostGIS tile since PostgreSQL does not fix feature order without an <code>ORDER BY</code> (<a href="https://github.com/maplibre/martin/pull/3219">#3219</a>)</li>
+<li><em>(postgres)</em> <code>postgres.connection_retries</code> (<code>--pg-connection-retries</code>) retries the first connection once per second, 30 times by default, so Martin no longer exits when the database is not accepting connections yet a few seconds into a container stack boot. A wrong password or database name still fails at once (<a href="https://github.com/maplibre/martin/pull/3231">#3231</a>)</li>
+<li><em>(cache)</em> a per-connection <code>postgres.cache</code> and a per-kind <code>cache</code> in the <code>mbtiles</code>, <code>pmtiles</code>, <code>cog</code>, <code>geojson</code>, <code>duckdb</code> and <code>passthrough</code> blocks, layered over the global bounds. Keeping a whole discovered schema or kind out of the cache no longer means declaring every source (<a href="https://github.com/maplibre/martin/pull/3221">#3221</a>, <a href="https://github.com/maplibre/martin/pull/3223">#3223</a>)</li>
+<li><em>(martin-cp)</em> copying zoom by zoom and skipping the tiles below an empty tile, wherever the source promises that an empty tile only has empty tiles below it, which PostgreSQL table sources do. On the test database's <code>table_source</code> over z0-z10, a world-bbox run went from 243 s and 1,398,101 fetched tiles to 11 s and 15,557, writing the same 14,619 tiles (<a href="https://github.com/maplibre/martin/pull/3208">#3208</a>)</li>
+<li><em>(mbtiles)</em> a startup warning naming the missing <code>CREATE UNIQUE INDEX</code> when a served file has no index on <code>(zoom_level, tile_column, tile_row)</code>, which made every tile request scan the table (<a href="https://github.com/maplibre/martin/pull/3234">#3234</a>)</li>
+<li><em>(mbtiles)</em> every hash is computed with the algorithm the file records in <code>hash_algorithm</code>, and every file the tool creates records one. <code>fnv1a</code>, <code>xxh64</code>, <code>xxh3</code> and tippecanoe's <code>fnv1a-decimal</code> join <code>md5</code>, which stays the meaning of a file without the key (<a href="https://github.com/maplibre/martin/pull/3262">#3262</a>)</li>
+<li><em>(mbtiles)</em> <code>copy</code> takes any number of source files before the destination and copies them in order, with <code>--on-duplicate</code> deciding which file wins (<a href="https://github.com/maplibre/martin/pull/3239">#3239</a>)</li>
+<li><em>(mbtiles)</em> progress for the long commands: a bar for <code>unpack</code>, a running tile count for <code>pack</code>, and a spinner with the elapsed time for <code>copy</code>, <code>diff</code>, <code>apply-patch</code> and <code>validate</code>. Nothing is drawn when stderr is not a terminal (<a href="https://github.com/maplibre/martin/pull/3235">#3235</a>)</li>
+</ul>
+<h3 id="fixed_1">Fixed</h3>
+<ul>
+<li><em>(duckdb)</em> cast or drop the property columns <code>ST_AsMVT</code> cannot encode, instead of failing the tile (<a href="https://github.com/maplibre/martin/pull/3213">#3213</a>)</li>
+<li><em>(contour)</em> run traced tiles through the MLT transcoder, so a contour source honours <code>convert_to_mlt</code> (<a href="https://github.com/maplibre/martin/pull/3202">#3202</a>)</li>
+<li><em>(reload)</em> apply the global cache zoom bounds to discovered files (<a href="https://github.com/maplibre/martin/pull/3222">#3222</a>)</li>
+<li><em>(mbtiles)</em> drop the kind-level <code>convert_to_hillshade</code> and <code>convert_to_contour</code> fields, which an inherited value would also have applied to sources that cannot be shaded (<a href="https://github.com/maplibre/martin/pull/3199">#3199</a>)</li>
+<li><em>(reload)</em> recover when a project or collection directory is removed mid-rescan, and recheck when a new directory appears (<a href="https://github.com/maplibre/martin/pull/3263">#3263</a>, <a href="https://github.com/maplibre/martin/pull/3258">#3258</a>, <a href="https://github.com/maplibre/martin/pull/3240">#3240</a>)</li>
+<li>address misc static-analysis findings across docs, justfile, UI and tile-utils (<a href="https://github.com/maplibre/martin/pull/3259">#3259</a>)</li>
+<li><em>(deps)</em> update npm dependencies (<a href="https://github.com/maplibre/martin/pull/3249">#3249</a>, <a href="https://github.com/maplibre/martin/pull/3205">#3205</a>)</li>
+</ul>
+<h3 id="other">Other</h3>
+<ul>
+<li><em>(postgres)</em> startup and query work that is not needed is skipped: only geometry columns that can hold arcs are linearized, the catalog queries for source kinds nothing publishes are not run, and the reload poll starts one interval after init (<a href="https://github.com/maplibre/martin/pull/3224">#3224</a>, <a href="https://github.com/maplibre/martin/pull/3225">#3225</a>, <a href="https://github.com/maplibre/martin/pull/3226">#3226</a>)</li>
+<li><em>(pmtiles)</em> extract the shared object-store configuration the remote COG reader builds on (<a href="https://github.com/maplibre/martin/pull/3242">#3242</a>)</li>
+<li><em>(config)</em> classify source paths through a <code>SourceLocation</code> type (<a href="https://github.com/maplibre/martin/pull/3218">#3218</a>) and enable the serde_json <code>preserve_order</code> that cql2 requires (<a href="https://github.com/maplibre/martin/pull/3241">#3241</a>)</li>
+<li>CI and lints: clippy fixes, a lighter <code>gen-schemas</code>, a shorter pipeline, a Windows-only unit test job that passes again, and some hardening and codeql cleanup (<a href="https://github.com/maplibre/martin/pull/3272">#3272</a>, <a href="https://github.com/maplibre/martin/pull/3265">#3265</a>, <a href="https://github.com/maplibre/martin/pull/3267">#3267</a>, <a href="https://github.com/maplibre/martin/pull/3269">#3269</a>, <a href="https://github.com/maplibre/martin/pull/3256">#3256</a>)</li>
+<li><em>(deps)</em> cargo and npm dependency updates and pre-commit autoupdates (<a href="https://github.com/maplibre/martin/pull/3253">#3253</a>, <a href="https://github.com/maplibre/martin/pull/3233">#3233</a>, <a href="https://github.com/maplibre/martin/pull/3204">#3204</a>, <a href="https://github.com/maplibre/martin/pull/3201">#3201</a>)</li>
+<li><em>(docs)</em> the cache zoom default is overridable per source, not per source type (<a href="https://github.com/maplibre/martin/pull/3198">#3198</a>)</li>
+</ul>
+<h2 id="1150-2026-08-31"><a href="https://github.com/maplibre/martin/compare/martin-v1.14.0...martin-v1.15.0">1.15.0</a> - 2026-08-31</h2>
+<h3 id="hillshade-postprocessing">Hillshade postprocessing</h3>
+<p>Martin can now bake a hillshade from a source serving Mapzen normal tiles, so clients get shaded relief instead of a normal map they have to shade themselves.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">terrain</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://elevation-tiles-prod.s3.amazonaws.com/normal/{z}/{x}/{y}.png</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">convert_to_hillshade</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span></code></pre></div>
+<p><code>auto</code> bakes with the defaults, a map of settings overrides light angle, exaggeration, contrast, banding and output format (<code>png</code>, <code>webp</code> or <code>jxl</code>).
+It is a per-source key only, since an inherited value would also reach sources that cannot be shaded.
+Baking reads a 3x3 neighborhood so tiles do not have seams at their edges, and caches the normal maps rather than the baked output.
+See the <a href="https://maplibre.org/martin/postprocessing/hillshade/">documentation</a>.
+Done in <a href="https://github.com/maplibre/martin/pull/3180">#3180</a>.</p>
+<h3 id="contour-postprocessing">Contour postprocessing</h3>
+<p><code>convert_to_contour</code> traces contour lines from a source serving Mapzen Terrarium elevation tiles and serves them as MVT.
+Each tile has one <code>contour</code> layer of linestrings tagged with their elevation (<code>ele</code>) and whether they are a major line (<code>major</code>), with the interval per zoom set by <code>zoom_intervals</code>.
+Unlike hillshade the output is vector, so the client styles and labels the lines itself.
+See the <a href="https://maplibre.org/martin/postprocessing/contour/">documentation</a>.
+Done in <a href="https://github.com/maplibre/martin/pull/3183">#3183</a>.</p>
+<h3 id="added_1">Added</h3>
+<ul>
+<li>JPEG XL: <code>jxl</code> tiles are detected and decoded (via <code>jxl-oxide</code>), and hillshade can encode its output as lossless JPEG XL (via <code>zune-jpegxl</code>), which is usually smaller than PNG or lossless WebP (<a href="https://github.com/maplibre/martin/pull/3181">#3181</a>)</li>
+<li><em>(cache-control)</em> per-source <code>Cache-Control</code> overrides on top of the server-wide default. A composite request only uses one if all of its sources are configured with the same value (<a href="https://github.com/maplibre/martin/pull/3167">#3167</a>, <a href="https://github.com/maplibre/martin/pull/3148">#3148</a>)</li>
+<li><em>(postgres)</em> <code>--ssl-cert</code> and <code>--ssl-key</code> flags for the client certificate and key, mirroring <code>--ca-root-file</code> (<a href="https://github.com/maplibre/martin/pull/3150">#3150</a> by <a href="https://github.com/reddynitish">@reddynitish</a>)</li>
+<li><em>(config)</em> warn once at startup when Martin falls back to a legacy Postgres env var (<code>DATABASE_URL</code>, <code>DEFAULT_SRID</code>, <code>PGSSLCERT</code>, <code>PGSSLKEY</code>, <code>PGSSLROOTCERT</code>), naming the config key that replaces it. All five keep working, the removal is deferred to v2 (<a href="https://github.com/maplibre/martin/pull/3151">#3151</a> by <a href="https://github.com/reddynitish">@reddynitish</a>)</li>
+</ul>
+<h3 id="fixed_2">Fixed</h3>
+<ul>
+<li><em>(mbtiles)</em> avoid a full tiles scan when computing min/max zoom. Startup on a 5M tile file drops from 367ms to 203ms flat, and from 1650ms to 203ms normalized (<a href="https://github.com/maplibre/martin/pull/3185">#3185</a>)</li>
+<li><em>(catalog)</em> serialize the catalog in a stable key order, so <code>/catalog</code> no longer differs between restarts (<a href="https://github.com/maplibre/martin/pull/3189">#3189</a>)</li>
+<li><em>(fonts)</em> redirect glyph URLs ending in <code>.pbf</code> instead of answering 404, so OpenMapTiles styles work unedited (<a href="https://github.com/maplibre/martin/pull/3187">#3187</a>)</li>
+<li><em>(pmtiles)</em> pick up the ECS and EKS credential env vars, so S3 sources use the task role on Fargate and EKS (<a href="https://github.com/maplibre/martin/pull/3165">#3165</a>)</li>
+<li><em>(reload)</em> keep per-source <code>convert_to_*</code> overrides for file-backed (<a href="https://github.com/maplibre/martin/pull/3160">#3160</a>) and Postgres (<a href="https://github.com/maplibre/martin/pull/3144">#3144</a>) sources</li>
+<li><em>(config)</em> gate the <code>resolve_process_config</code> imports on <code>_process</code> (<a href="https://github.com/maplibre/martin/pull/3191">#3191</a>)</li>
+<li>fix cors logging logging <code>unrecognizable</code> (<a href="https://github.com/maplibre/martin/pull/3136">#3136</a>)</li>
+<li><em>(deps)</em> update npm dependencies (<a href="https://github.com/maplibre/martin/pull/3177">#3177</a>, <a href="https://github.com/maplibre/martin/pull/3175">#3175</a>)</li>
+</ul>
+<h3 id="other_1">Other</h3>
+<ul>
+<li><em>(pmtiles)</em> open file sources concurrently and share one client per store (<a href="https://github.com/maplibre/martin/pull/3131">#3131</a>)</li>
+<li>Reload and config refactors: the reloader is now the single writer of Postgres sources, the tile reloaders moved into <code>TileReloaders</code>, file source ids resolve before the sources open, and <code>Discovery::discover</code> returns its warnings (<a href="https://github.com/maplibre/martin/pull/3130">#3130</a>, <a href="https://github.com/maplibre/martin/pull/3178">#3178</a>, <a href="https://github.com/maplibre/martin/pull/3190">#3190</a>, <a href="https://github.com/maplibre/martin/pull/3133">#3133</a>, <a href="https://github.com/maplibre/martin/pull/3142">#3142</a>, <a href="https://github.com/maplibre/martin/pull/3143">#3143</a>)</li>
+<li>Split <code>MartinError</code> into separate error types (<a href="https://github.com/maplibre/martin/pull/3162">#3162</a>)</li>
+<li>Docs: a postprocessing section for the two new guides (<a href="https://github.com/maplibre/martin/pull/3139">#3139</a>, <a href="https://github.com/maplibre/martin/pull/3140">#3140</a>), authenticating requests with nginx <code>auth_request</code> (<a href="https://github.com/maplibre/martin/pull/3184">#3184</a>), typo fixes (<a href="https://github.com/maplibre/martin/pull/3147">#3147</a> by <a href="https://github.com/vaibhav8a">@vaibhav8a</a>)</li>
+<li>Lints and tests: warn on <code>wildcard_enum_match_arm</code>, adopt clippy 1.98, use <code>assert_matches!</code>, test cleanup and formatting (<a href="https://github.com/maplibre/martin/pull/3168">#3168</a>, <a href="https://github.com/maplibre/martin/pull/3137">#3137</a>, <a href="https://github.com/maplibre/martin/pull/3166">#3166</a>, <a href="https://github.com/maplibre/martin/pull/3179">#3179</a>, <a href="https://github.com/maplibre/martin/pull/3135">#3135</a>)</li>
+<li>CI: the save-config e2e tests moved to rust and <code>tests/test.sh</code> is gone, the bundled DuckDB builds once and without debuginfo, build caches and duplicated job setup were cleaned up, and a few flaky tests were fixed (<a href="https://github.com/maplibre/martin/pull/3105">#3105</a>, <a href="https://github.com/maplibre/martin/pull/3186">#3186</a>, <a href="https://github.com/maplibre/martin/pull/3169">#3169</a>, <a href="https://github.com/maplibre/martin/pull/3157">#3157</a>, <a href="https://github.com/maplibre/martin/pull/3161">#3161</a>, <a href="https://github.com/maplibre/martin/pull/3152">#3152</a>, <a href="https://github.com/maplibre/martin/pull/3145">#3145</a>, <a href="https://github.com/maplibre/martin/pull/3132">#3132</a>, <a href="https://github.com/maplibre/martin/pull/3149">#3149</a>, <a href="https://github.com/maplibre/martin/pull/3146">#3146</a>)</li>
+<li><em>(deps)</em> cargo dependencies, docker images, github actions and pre-commit autoupdates (<a href="https://github.com/maplibre/martin/pull/3172">#3172</a>, <a href="https://github.com/maplibre/martin/pull/3174">#3174</a>, <a href="https://github.com/maplibre/martin/pull/3171">#3171</a>, <a href="https://github.com/maplibre/martin/pull/3173">#3173</a>, <a href="https://github.com/maplibre/martin/pull/3176">#3176</a>, <a href="https://github.com/maplibre/martin/pull/3155">#3155</a>)</li>
+</ul>
+<h2 id="1140-2026-08-17"><a href="https://github.com/maplibre/martin/compare/martin-v1.13.0...martin-v1.14.0">1.14.0</a> - 2026-08-17</h2>
+<h3 id="security">Security</h3>
+<p>Two vulnerabilities reported through our security advisories are fixed in this release:</p>
+<ul>
+<li><strong>Out-of-gamut CIE colors in the static-overlay body could permanently kill render workers</strong> (<a href="https://github.com/maplibre/martin/security/advisories/GHSA-6774-6cqw-f586">GHSA-6774-6cqw-f586</a>, high severity, only affects deployments with the opt-in, Linux-only <code>rendering</code> feature enabled). An unauthenticated <code>POST /style/{id}/static/...</code> body could carry a CSS color such as <code>lab()</code> or <code>oklch()</code> whose channels <code>csscolorparser</code> does not clamp to <code>0..=1</code>. That out-of-gamut value reached an unchecked assertion deep in the renderer, permanently killing one of martin's 2-8 render workers per request; a handful of ~180-byte requests could disable static rendering for the life of the process. Fixed by clamping colors to the valid gamut before they reach the renderer. Done in <a href="https://github.com/maplibre/martin/pull/3124">#3124</a>.</li>
+<li><strong>Repeated sprite ids let a single request amplify into unbounded rasterization work</strong> (<a href="https://github.com/maplibre/martin/security/advisories/GHSA-5x5g-6p4c-jqfh">GHSA-5x5g-6p4c-jqfh</a>, medium severity). <code>/sprite/{ids}.png</code> rasterized and cached one SVG per id in the comma-separated id list, with no cap on id count and no deduplication, so repeating a single valid id let an unauthenticated client multiply server work at a ratio of its own choosing. Fixed by capping ids per request, deduplicating before doing the work, and bounding rasterization concurrency. Done in <a href="https://github.com/maplibre/martin/pull/3123">#3123</a>.</li>
+</ul>
+<h3 id="added_2">Added</h3>
+<ul>
+<li>e2e local geoparquet wiring via duckdb (<a href="https://github.com/maplibre/martin/pull/3054">#3054</a>)</li>
+</ul>
+<h3 id="fixed_3">Fixed</h3>
+<ul>
+<li>install configuration in /etc for debian package (<a href="https://github.com/maplibre/martin/pull/3078">#3078</a>)</li>
+<li>log the resolved listen address on startup (<a href="https://github.com/maplibre/martin/pull/3053">#3053</a>)</li>
+<li><em>(geojson)</em> advertise vector_layers in TileJSON (<a href="https://github.com/maplibre/martin/pull/3082">#3082</a>)</li>
+</ul>
+<h3 id="other_2">Other</h3>
+<ul>
+<li>migrated the COG source, MBTiles pack/unpack, and the remaining rendering e2e tests to Rust, dropping mitmproxy in the process (<a href="https://github.com/maplibre/martin/pull/3104">#3104</a>, <a href="https://github.com/maplibre/martin/pull/3101">#3101</a>, <a href="https://github.com/maplibre/martin/pull/3064">#3064</a>)</li>
+<li>replace Codecov with GitHub-native code coverage (<a href="https://github.com/maplibre/martin/pull/3108">#3108</a>)</li>
+<li>enable additional clippy restriction lints (<a href="https://github.com/maplibre/martin/pull/3095">#3095</a>)</li>
+<li>Change dynamic brotli encoding level from 11 to 4 (<a href="https://github.com/maplibre/martin/pull/3061">#3061</a>)</li>
+<li><em>(deps)</em> update dependency lucide-react to v1.27.0 (<a href="https://github.com/maplibre/martin/pull/3096">#3096</a>)</li>
+<li><em>(deps)</em> update npm dependencies (<a href="https://github.com/maplibre/martin/pull/3083">#3083</a>)</li>
+<li><em>(deps)</em> Update hotpath and instrument decoders (<a href="https://github.com/maplibre/martin/pull/3059">#3059</a>)</li>
+<li><em>(deps)</em> dependency bumps and pre-commit autoupdates (<a href="https://github.com/maplibre/martin/pull/3110">#3110</a>, <a href="https://github.com/maplibre/martin/pull/3109">#3109</a>, <a href="https://github.com/maplibre/martin/pull/3100">#3100</a>, <a href="https://github.com/maplibre/martin/pull/3099">#3099</a>, <a href="https://github.com/maplibre/martin/pull/3098">#3098</a>, <a href="https://github.com/maplibre/martin/pull/3071">#3071</a>)</li>
+</ul>
+<h2 id="1130-2026-07-25"><a href="https://github.com/maplibre/martin/compare/martin-v1.12.0...martin-v1.13.0">1.13.0</a> - 2026-07-25</h2>
+<h3 id="passthrough-sources-config-file-wiring">Passthrough sources: config-file wiring</h3>
+<p><code>1.12.0</code> introduced passthrough sources at the <code>martin-core</code> level; this release finishes the job by wiring them into <code>martin</code>'s config file.
+This adds a dedicated typed config section, clearer errors for unrecognized keys, and correct etag-suffixing so cached passthrough tiles don't collide with tiles from other sources.
+Done in <a href="https://github.com/maplibre/martin/pull/2910">#2910</a>.</p>
+<h3 id="new-cache-mbtiles-schema">New <code>cache</code> MBTiles schema</h3>
+<p>MBTiles files can now use a <code>cache</code> schema: like <code>flat</code>, but with <code>fetched</code>, <code>expires</code> and <code>etag</code> columns stored alongside each tile, so a <code>.mbtiles</code> file can double as a persistent, inspectable web-tile cache.
+It still exposes a spec-compatible <code>tiles</code> view, so any standard MBTiles reader (including <code>martin</code> itself) can serve a cache file unmodified.
+The <code>mbtiles</code> CLI gained a matching <code>cache-purge &lt;file&gt; [--max-size &lt;MB&gt;]</code> subcommand to evict expired (and, if needed, soonest-expiring) entries and reclaim space.
+Done in <a href="https://github.com/maplibre/martin/pull/3009">#3009</a>.</p>
+<h3 id="martin-cp-now-responds-to-ctrlc-when-copying-from-postgresql"><code>martin-cp</code> now responds to Ctrl+C when copying from PostgreSQL</h3>
+<p>Previously, interrupting a <code>martin-cp</code> run against PostgreSQL could hang instead of exiting.
+In-flight Postgres queries are now tracked and cancelled on interrupt, and the copier drains already-queued tiles instead of getting stuck.
+Done in <a href="https://github.com/maplibre/martin/pull/2901">#2901</a>.</p>
+<h3 id="added_3">Added</h3>
+<ul>
+<li><em>(mbtiles)</em> read and validate the <code>hash_algorithm</code> metadata key, so files hashed with an algorithm other than MD5 (e.g. by <code>tippecanoe</code>) report a clear "unsupported algorithm" error instead of a misleading hash mismatch during validation (<a href="https://github.com/maplibre/martin/pull/2985">#2985</a>)</li>
+</ul>
+<h3 id="fixed_4">Fixed</h3>
+<ul>
+<li><em>(pmtiles)</em> restore AWS profile support (<a href="https://github.com/maplibre/martin/pull/3029">#3029</a>)</li>
+<li><em>(deps)</em> update npm dependencies (<a href="https://github.com/maplibre/martin/pull/3012">#3012</a>)</li>
+<li><em>(martin-ui)</em> center tile inspect map on tileset bounds, not 0/0/0 (<a href="https://github.com/maplibre/martin/pull/3002">#3002</a>)</li>
+<li><em>(postgres)</em> clearer error when a source schema exists but has no tile sources (<a href="https://github.com/maplibre/martin/pull/2979">#2979</a>)</li>
+<li><em>(martin-ui)</em> match metric endpoints when a route_prefix is set (<a href="https://github.com/maplibre/martin/pull/2986">#2986</a>)</li>
+<li>connect to prerelease PostgreSQL versions (<a href="https://github.com/maplibre/martin/pull/3024">#3024</a>)</li>
+<li><em>(postgres)</em> honor sslmode=verify-ca by skipping only the hostname check (<a href="https://github.com/maplibre/martin/pull/2987">#2987</a>)</li>
+<li><em>(mbtiles)</em> validate min/max zoom metadata against actual tiles (<a href="https://github.com/maplibre/martin/pull/2983">#2983</a>)</li>
+</ul>
+<h3 id="other_3">Other</h3>
+<ul>
+<li><em>(deps)</em> Bump the npm_and_yarn group across 2 directories with 1 update (<a href="https://github.com/maplibre/martin/pull/3045">#3045</a>)</li>
+<li><em>(deps)</em> update dependency postcss to v8.5.18 [security] (<a href="https://github.com/maplibre/martin/pull/3044">#3044</a>)</li>
+<li><em>(deps)</em> autoupdate pre-commit (<a href="https://github.com/maplibre/martin/pull/3040">#3040</a>)</li>
+<li>use re-exported mvt from mlt (<a href="https://github.com/maplibre/martin/pull/3037">#3037</a>)</li>
+<li>derive CollectUnrecognizedKeys instead of hand-written impls (<a href="https://github.com/maplibre/martin/pull/3031">#3031</a>)</li>
+<li>make UnrecognizedValues a newtype (<a href="https://github.com/maplibre/martin/pull/3030">#3030</a>)</li>
+<li><em>(deps)</em> update cargo dependencies (<a href="https://github.com/maplibre/martin/pull/3011">#3011</a>)</li>
+<li><em>(deps)</em> update dependency pbf to v5.1.1 (<a href="https://github.com/maplibre/martin/pull/3020">#3020</a>)</li>
+<li><em>(deps)</em> update dependency @types/node to v26.1.1 (<a href="https://github.com/maplibre/martin/pull/3019">#3019</a>)</li>
+<li>add render_finalize_failure helper and snapshot tests (<a href="https://github.com/maplibre/martin/pull/3000">#3000</a>)</li>
+<li><em>(deps)</em> autoupdate pre-commit (<a href="https://github.com/maplibre/martin/pull/2998">#2998</a>)</li>
+<li><em>(postgres)</em> use NonZeroUsize for pool_size (<a href="https://github.com/maplibre/martin/pull/2996">#2996</a>)</li>
+<li>run <code>just fmt</code> (<a href="https://github.com/maplibre/martin/pull/2981">#2981</a>)</li>
+<li><em>(deps)</em> lock file maintenance (<a href="https://github.com/maplibre/martin/pull/2961">#2961</a>)</li>
+<li>split file sources into MBTiles and PMTiles subpages (<a href="https://github.com/maplibre/martin/pull/2978">#2978</a>)</li>
+<li>update fast-mvt and other deps (<a href="https://github.com/maplibre/martin/pull/3028">#3028</a>)</li>
+<li>update sqlite queries (<a href="https://github.com/maplibre/martin/pull/3003">#3003</a>)</li>
+<li>address feedback from fast-mvt migration (<a href="https://github.com/maplibre/martin/pull/2993">#2993</a>)</li>
+<li>migrate geozero to fast-mvt, make duckdb non-dflt (<a href="https://github.com/maplibre/martin/pull/2991">#2991</a>)</li>
+<li>fix clippy lints for 1.97 release (<a href="https://github.com/maplibre/martin/pull/2989">#2989</a>)</li>
+<li>more sqlx precompiled stmts (<a href="https://github.com/maplibre/martin/pull/3010">#3010</a>)</li>
+<li>cleanup normalized-dedup sql (<a href="https://github.com/maplibre/martin/pull/2990">#2990</a>)</li>
+<li>reuse .sql schema files in code (<a href="https://github.com/maplibre/martin/pull/2988">#2988</a>)</li>
+<li><em>(mbtiles)</em> refactor schemas to individual files (<a href="https://github.com/maplibre/martin/pull/2982">#2982</a>)</li>
+</ul>
+<h2 id="1120-2026-07-07"><a href="https://github.com/maplibre/martin/compare/martin-v1.11.0...martin-v1.12.0">1.12.0</a> - 2026-07-07</h2>
+<h3 id="geojson-tile-source">GeoJSON tile source</h3>
+<p>Martin can now serve vector tiles directly from a <code>.geojson</code>/<code>.json</code> file, no pre-processing into MBTiles/PMTiles required.</p>
+<p>How it works:</p>
+<ul>
+<li><strong>On startup</strong> the features are reprojected from WGS84 (EPSG:4326) to Web Mercator (EPSG:3857) and indexed in a packed Hilbert R-Tree.</li>
+<li><strong>Per tile request</strong> Martin queries the R-Tree for geometries overlapping the tile bbox, clips them (with a configurable <code>buffer</code>), transforms into tile coordinate space and encodes MVT, all on the fly. The tile <code>extent</code> and <code>buffer</code> are configurable.</li>
+</ul>
+<p>Because it's file-backed, GeoJSON sources <strong>hot-reload</strong>: point Martin at a directory and it watches for <code>.geojson</code>/<code>.json</code> changes via filesystem events, adding, updating and removing sources without a restart, just like PMTiles and COG.</p>
+<p>Great for smaller datasets and quick prototyping.
+Done in <a href="https://github.com/maplibre/martin/pull/2538">#2538</a>, <a href="https://github.com/maplibre/martin/pull/2925">#2925</a> by <a href="https://github.com/thomfuhrmann">@thomfuhrmann</a>.</p>
+<h3 id="static-map-overlays">Static map overlays</h3>
+<p>Building on the static rendering core from the last release, we added an endpoint to render a static map image with overlays drawn on top:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>POST /style/{id}/static/{camera}/{wxh.fmt}
+</span></code></pre></div>
+<p>The camera can be a center point, a bounding box, or auto-fit to the overlays you pass in.
+Overlays support fills, lines and circles with configurable color/opacity.
+See the <a href="https://maplibre.org/martin/sources-styles/">documentation</a> for the full field list and examples.
+Done in <a href="https://github.com/maplibre/martin/pull/2794">#2794</a>, <a href="https://github.com/maplibre/martin/pull/2922">#2922</a>.</p>
+<h3 id="mbtiles-pack-and-mbtiles-unpack"><code>mbtiles pack</code> and <code>mbtiles unpack</code></h3>
+<p>The <code>mbtiles</code> CLI gained two subcommands for converting between an MBTiles archive and a <code>{z}/{x}/{y}.{ext}</code> directory tree.
+<code>unpack</code> extracts an archive into a directory (handy for inspecting individual tiles or serving them with any static HTTP server), and <code>pack</code> does the inverse.
+Done in <a href="https://github.com/maplibre/martin/pull/2199">#2199</a> by <a href="https://github.com/JakeLow">@JakeLow</a>.</p>
+<h3 id="passthrough-sources">Passthrough sources</h3>
+<p>Martin can now proxy tiles from an upstream HTTP tile server.
+It fetches each tile from the configured upstream and serves the bytes verbatim, while the rest of Martin's pipeline (caching, headers, MVT&lt;-&gt;MLT conversion) applies on top.
+Use it to put Martin's cache in front of an existing tile server, hide an upstream API key from browsers, or spread requests across mirrors.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">osm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tile.openstreetmap.org/{z}/{x}/{y}.png</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">secure</span><span class="p">:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com/{z}/{x}/{y}</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="nt">headers</span><span class="p">:</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">        </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${API_TOKEN}</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
+</span></code></pre></div>
+<p>An upstream can be a <code>{z}/{x}/{y}</code> template, a TileJSON document URL, a list of mirror templates, or the detailed object form above.
+See the <a href="https://maplibre.org/martin/sources-passthrough/">documentation</a> for the full field list.
+Done in <a href="https://github.com/maplibre/martin/pull/2913">#2913</a>, <a href="https://github.com/maplibre/martin/pull/2908">#2908</a>, <a href="https://github.com/maplibre/martin/pull/2924">#2924</a>.</p>
+<h3 id="more-capable-config-parsing">More capable config parsing</h3>
+<p>We reworked how config files are parsed by migrating YAML handling to <code>serde-saphyr</code> (dropping <code>serde_yaml</code>).
+YAML anchors and aliases now work, and the <code>${VAR:default}</code> (with all the docker-compose shorthands now also supported) environment-variable substitution syntax is still supported.
+Done in <a href="https://github.com/maplibre/martin/pull/2943">#2943</a>, <a href="https://github.com/maplibre/martin/pull/2877">#2877</a>, <a href="https://github.com/maplibre/martin/pull/2870">#2870</a>, <a href="https://github.com/maplibre/martin/pull/2921">#2921</a>.</p>
+<h3 id="gsoc-spotlight-duckdb-geoparquet-sources">☀️ GSoC spotlight: duckdb GeoParquet sources</h3>
+<p><strong>GeoParquet</strong> (via DuckDB) config parsing and resolver wiring landed as a building block, continuing our GSoC DuckDB work.
+Top-level config/lifecycle wiring is planned for a follow-up.
+Done in <a href="https://github.com/maplibre/martin/pull/2931">#2931</a>, <a href="https://github.com/maplibre/martin/pull/2902">#2902</a> by <a href="https://github.com/manbhav234">@manbhav234</a>.</p>
+<h3 id="fixed_5">Fixed</h3>
+<ul>
+<li><em>(pg)</em> Redact the password in the <code>BadConnectionString</code> error so it can't leak into logs (<a href="https://github.com/maplibre/martin/pull/2944">#2944</a>).</li>
+<li>Improve logging when a requested zoom is out of range (<a href="https://github.com/maplibre/martin/pull/2893">#2893</a>).</li>
+</ul>
+<h3 id="other_4">Other</h3>
+<ul>
+<li>Documented the new passthrough and GeoJSON sources, plus assorted docs fixes (<a href="https://github.com/maplibre/martin/pull/2965">#2965</a>).</li>
+<li>Migrated dependency automation from Dependabot to Renovate (<a href="https://github.com/maplibre/martin/pull/2947">#2947</a>, <a href="https://github.com/maplibre/martin/pull/2949">#2949</a>, <a href="https://github.com/maplibre/martin/pull/2951">#2951</a>, <a href="https://github.com/maplibre/martin/pull/2952">#2952</a>, <a href="https://github.com/maplibre/martin/pull/2960">#2960</a>, <a href="https://github.com/maplibre/martin/pull/2962">#2962</a>, <a href="https://github.com/maplibre/martin/pull/2967">#2967</a>, <a href="https://github.com/maplibre/martin/pull/2969">#2969</a>).</li>
+<li>Numerous CI stability fixes (<a href="https://github.com/maplibre/martin/pull/2920">#2920</a>, <a href="https://github.com/maplibre/martin/pull/2916">#2916</a>, <a href="https://github.com/maplibre/martin/pull/2963">#2963</a>, <a href="https://github.com/maplibre/martin/pull/2903">#2903</a>, <a href="https://github.com/maplibre/martin/pull/2909">#2909</a>)</li>
+<li>various dependency bumps (<a href="https://github.com/maplibre/martin/pull/2899">#2899</a>, <a href="https://github.com/maplibre/martin/pull/2955">#2955</a>,  <a href="https://github.com/maplibre/martin/pull/2966">#2966</a>, <a href="https://github.com/maplibre/martin/pull/2906">#2906</a>, <a href="https://github.com/maplibre/martin/pull/2933">#2933</a>, <a href="https://github.com/maplibre/martin/pull/2932">#2932</a>, <a href="https://github.com/maplibre/martin/pull/2940">#2940</a>, <a href="https://github.com/maplibre/martin/pull/2900">#2900</a>)</li>
+</ul>
+<h2 id="1110-2026-06-16"><a href="https://github.com/maplibre/martin/compare/martin-v1.10.1...martin-v1.11.0">1.11.0</a> - 2026-06-16</h2>
+<h3 id="live-reloading-for-postgresql-pmtiles-and-cog-sources">Live reloading for PostgreSQL, PMTiles and COG sources</h3>
+<p>Back in <code>1.8.0</code> we taught Martin to hot-reload MBTiles directories.
+This release finishes the job: PostgreSQL, PMTiles and COG sources now reload automatically too, so Martin keeps serving fresh data without a restart.</p>
+<p>Two reload mechanisms are used, depending on what the source can observe:</p>
+<ul>
+<li><strong>File system events</strong> - local <strong>PMTiles</strong> and <strong>COG</strong> files reload as soon as the underlying file changes on disk (<a href="https://github.com/maplibre/martin/pull/2750">#2750</a>, <a href="https://github.com/maplibre/martin/pull/2858">#2858</a>).</li>
+<li><strong>Fixed timer (polling)</strong> - <strong>PostgreSQL</strong> and remote <strong>PMTiles</strong> (object stores) can't watch the file system, so Martin polls them on a timer (configurable, default 10m) and reloads when it detects a change. PostgreSQL picks up new and changed tables/functions as they appear, and remote object stores now track source data versions to know when to reload (<a href="https://github.com/maplibre/martin/pull/2841">#2841</a>, <a href="https://github.com/maplibre/martin/pull/2864">#2864</a>).</li>
+</ul>
+<p>Under the hood, every source type now shares a common <code>ReloadDriver</code>/<code>Discovery</code> mechanism, which should make future source types easier to support. (<a href="https://github.com/maplibre/martin/pull/2835">#2835</a>, <a href="https://github.com/maplibre/martin/pull/2836">#2836</a>, <a href="https://github.com/maplibre/martin/pull/2837">#2837</a>, <a href="https://github.com/maplibre/martin/pull/2886">#2886</a>, <a href="https://github.com/maplibre/martin/pull/2844">#2844</a>, <a href="https://github.com/maplibre/martin/pull/2845">#2845</a>, <a href="https://github.com/maplibre/martin/pull/2840">#2840</a>, <a href="https://github.com/maplibre/martin/pull/2852">#2852</a>, <a href="https://github.com/maplibre/martin/pull/2853">#2853</a>, <a href="https://github.com/maplibre/martin/pull/2861">#2861</a>, <a href="https://github.com/maplibre/martin/pull/2867">#2867</a>).</p>
+<h3 id="gsoc-spotlight-a-new-duckdb-source-in-martin-core">☀️ GSoC spotlight: a new <code>duckdb</code> source (in <code>martin-core</code>)</h3>
+<p>A warm welcome to <a href="https://github.com/manbhav234">Manbhav Sugla (@manbhav234)</a>, our Google Summer of Code student!
+This release lands his first PR, kicking off a brand-new DuckDB source for Martin and laying the groundwork for serving tiles from DuckDB.</p>
+<p>It is still early and not currently entirely plumbed through the system, but it is a good start.
+Done in <a href="https://github.com/maplibre/martin/pull/2831">#2831</a>.</p>
+<h3 id="static-rendering-core">Static rendering core</h3>
+<p>We added the core machinery for static (single-image) rendering.</p>
+<p>This allows you to do static rendering such as for example this OG-image showing the :
+<img src="https://nav.tum.de/api/locations/mi/preview" alt="OG-image" width="500"></p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2804">#2804</a>.</p>
+<h3 id="fixed_6">Fixed</h3>
+<ul>
+<li><em>(martin)</em> Static rendering now rejects invalid scale values and inverted bounding boxes instead of producing broken output (<a href="https://github.com/maplibre/martin/pull/2830">#2830</a>).</li>
+<li><em>(pg)</em> Use <code>ST_EstimatedExtent</code> for faster bounds calculation at startup (<a href="https://github.com/maplibre/martin/pull/1220">#1220</a>).</li>
+<li><em>(sprites)</em> Ignored directories are now skipped during sprite resolution (<a href="https://github.com/maplibre/martin/pull/2815">#2815</a>).</li>
+<li><em>(unstable-cog)</em> Allow up to 0.1% tolerance (up to 3m of error at z0) when matching a COG's zoom level to WebMercatorQuad (<a href="https://github.com/maplibre/martin/pull/2878">#2878</a>).</li>
+</ul>
+<h3 id="other_5">Other</h3>
+<ul>
+<li>The MapLibre Native renderer is now multi-threaded and was updated to <code>maplibre_native@8.1</code> (<a href="https://github.com/maplibre/martin/pull/2826">#2826</a>, <a href="https://github.com/maplibre/martin/pull/2859">#2859</a>).</li>
+<li>A large refactor split the config code into dedicated <code>config</code>, parsing and lifecycle modules, added tests for exactly how config parsing behaves, and moved test helpers to <code>test_support</code> (<a href="https://github.com/maplibre/martin/pull/2874">#2874</a>, <a href="https://github.com/maplibre/martin/pull/2875">#2875</a>, <a href="https://github.com/maplibre/martin/pull/2876">#2876</a>, <a href="https://github.com/maplibre/martin/pull/2872">#2872</a>, <a href="https://github.com/maplibre/martin/pull/2885">#2885</a>).</li>
+<li><code>martin-tile-utils</code> now has <code>#![forbid(unsafe_code)]</code>, error types with multiple identical fields got names, import ordering drift was fixed, and a pre-commit hook simplifies UTF characters (<a href="https://github.com/maplibre/martin/pull/2847">#2847</a>, <a href="https://github.com/maplibre/martin/pull/2832">#2832</a>, <a href="https://github.com/maplibre/martin/pull/2838">#2838</a>, <a href="https://github.com/maplibre/martin/pull/2827">#2827</a>).</li>
+<li>Render fixtures are now cached in CI (<a href="https://github.com/maplibre/martin/pull/2828">#2828</a>).</li>
+<li><em>(deps)</em> Updated <code>sqlx</code> to 0.9.0 (adapting MBTiles dynamic SQL to <code>SqlSafeStr</code>), refreshed the lockfile, autoupdated pre-commit, and bumped npm dependencies (<a href="https://github.com/maplibre/martin/pull/2821">#2821</a>, <a href="https://github.com/maplibre/martin/pull/2822">#2822</a>, <a href="https://github.com/maplibre/martin/pull/2849">#2849</a>, <a href="https://github.com/maplibre/martin/pull/2896">#2896</a>, <a href="https://github.com/maplibre/martin/pull/2856">#2856</a>, <a href="https://github.com/maplibre/martin/pull/2889">#2889</a>).</li>
+</ul>
+<h2 id="1101-2026-05-19"><a href="https://github.com/maplibre/martin/compare/martin-v1.10.0...martin-v1.10.1">1.10.1</a> - 2026-05-19</h2>
+<h3 id="fixed_7">Fixed</h3>
+<ul>
+<li>Do not use heavyweight compression with MLT (<a href="https://github.com/maplibre/martin/pull/2813">#2813</a>)</li>
+</ul>
+<h3 id="other_6">Other</h3>
+<ul>
+<li>share code across the resource caches (<a href="https://github.com/maplibre/martin/pull/2810">#2810</a>)</li>
+</ul>
+<h2 id="1100-2026-05-16"><a href="https://github.com/maplibre/martin/compare/martin-v1.9.1...martin-v1.10.0">1.10.0</a> - 2026-05-16</h2>
+<h3 id="added_4">Added</h3>
+<ul>
+<li>add if rendering is active to the catalog (<a href="https://github.com/maplibre/martin/pull/2795">#2795</a>)</li>
+<li>Expand relative URLs in style response (<a href="https://github.com/maplibre/martin/pull/2801">#2801</a>)</li>
+<li><em>(sprites)</em> warn early and explain <code>.svg</code>-only requirement (<a href="https://github.com/maplibre/martin/pull/2793">#2793</a>)</li>
+</ul>
+<h3 id="other_7">Other</h3>
+<ul>
+<li>tests fail when terminal is not exactly 80 columns (<a href="https://github.com/maplibre/martin/pull/2803">#2803</a>)</li>
+<li><em>(ui)</em> generate <code>types.gen.ts</code> from OpenAPI and adopt openapi-fetch (<a href="https://github.com/maplibre/martin/pull/2797">#2797</a>)</li>
+<li>make sure that unused variables are handled for MLT configuration (<a href="https://github.com/maplibre/martin/pull/2808">#2808</a>)</li>
+<li>various minor docs improvements (<a href="https://github.com/maplibre/martin/pull/2807">#2807</a>)</li>
+<li>fix all m-dashes to use regular dashes (<a href="https://github.com/maplibre/martin/pull/2805">#2805</a>)</li>
+<li><em>(deps)</em> autoupdate pre-commit (<a href="https://github.com/maplibre/martin/pull/2799">#2799</a>)</li>
+</ul>
+<h2 id="191-2026-05-09"><a href="https://github.com/maplibre/martin/compare/martin-v1.9.0...martin-v1.9.1">1.9.1</a> - 2026-05-09</h2>
+<h3 id="other_8">Other</h3>
+<ul>
+<li>fix cargo-binstall metadata and add a test in CI (<a href="https://github.com/maplibre/martin/pull/2789">#2789</a>)</li>
+<li>add a data underlay for the inspector (<a href="https://github.com/maplibre/martin/pull/2782">#2782</a>)</li>
+</ul>
+<h2 id="190-2026-05-06"><a href="https://github.com/maplibre/martin/compare/martin-v1.8.2...martin-v1.9.0">1.9.0</a> - 2026-05-06</h2>
+<h3 id="mvt-mlt-pre-processing-encoding">MVT - MLT pre-processing encoding</h3>
+<p>Martin can now serve <a href="https://github.com/maplibre/maplibre-tile-spec">MLT (MapLibre Tiles)</a> by transcoding MVT on the fly.
+MLT is a columnar successor to MVT - for our test fixture it is roughly 39% smaller on the wire and 12% faster to serve from cache due to this size difference.
+No tile re-generation or schema migration is required:
+the conversion runs at request time when the client sends <code>Accept: application/vnd.maplibre-tile</code>.
+We also can convert MLT tiles back to MVT if the client requests it.</p>
+<p>The <code>mlt</code> cargo feature is now part of the <code>default</code> feature set, so prebuilt binaries ship with MLT support.
+Builds without <code>mlt</code> will return an error if a client requests MLT.</p>
+<p>You can configure this behavior with the new <code>convert-to-mlt</code> or <code>convert-to-mvt</code> config key.
+It accepts three states (<code>auto</code>, <code>disabled</code>, or an explicit encoder object) and can be set at three nesting levels (global, source-type, individual source).
+The most-specific level wins and the default is <code>auto</code>.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">convert-to-mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">basemap</span><span class="p">:</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/basemap.pmtiles</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="c1"># inherits the global `auto`</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="nt">legacy</span><span class="p">:</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/legacy.pmtiles</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="c1"># this one source always serves MLT and configures how to serve it</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">convert-to-mlt</span><span class="p">:</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="nt">tessellate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">convert-to-mvt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span>
+</span></code></pre></div>
+<p>To override the encoder defaults (rarely needed; see the docs for the full field list), pass an explicit object:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">convert-to-mlt</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">tessellate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">try_spatial_morton_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable if your data is already spatially ordered</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">try_spatial_hilbert_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable if Morton sort doesn't compress well for your data</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">try_id_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w"> </span><span class="c1"># Enable when features have sequential IDs and spatial sorting isn't beneficial</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">allow_fsst</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable to reduce search space</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">allow_fastpfor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable to reduce search space</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nt">allow_shared_dict</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Disable to reduce search space</span>
+</span></code></pre></div>
+<p><a href="https://github.com/maplibre/martin/blob/main/docs/content/postprocessing/mlt.md">A full guide is available here</a>.
+Implemented in <a href="https://github.com/maplibre/martin/pull/2769">#2769</a> <a href="https://github.com/maplibre/martin/pull/2773">#2773</a> and  <a href="https://github.com/maplibre/martin/pull/2775">#2775</a></p>
+<h3 id="improved-sprite-and-font-previews-in-the-web-ui">Improved sprite and font previews in the Web UI</h3>
+<p>The Web UI now renders sprites and font previews directly using MapLibre GL and SDF glyph data.
+Sprite catalogs support live PNG/SDF rendering, icon scaling, SDF tint and halo previews, and quick sprite ID copying.
+Font cards now render real sample text from <code>/font/{name}/0-255</code> instead of placeholder previews, with graceful fallback handling when glyph loading fails.
+Existing sprite and font endpoints are unchanged. (<a href="https://github.com/maplibre/martin/pull/2774">#2774</a>, <a href="https://github.com/maplibre/martin/pull/2772">#2772</a>)</p>
+<h3 id="structured-logging-for-martin-core-and-mbtiles">Structured logging for <code>martin-core</code> and <code>mbtiles</code></h3>
+<p><code>martin-core</code> and <code>mbtiles</code> now emit structured <code>tracing</code> fields instead of interpolated log strings.
+Human-readable logs remain unchanged, but external log scrapers that rely on the old free-text format may need updates. (<a href="https://github.com/maplibre/martin/pull/2777">#2777</a>, <a href="https://github.com/maplibre/martin/pull/2778">#2778</a>)</p>
+<h3 id="fixed_8">Fixed</h3>
+<ul>
+<li><em>(mbtiles)</em> Prevent folder sources from disappearing when a single MBTiles file fails to initialize.
+  Invalid files now emit a warning while the remaining sources continue loading normally. (<a href="https://github.com/maplibre/martin/pull/2768">#2768</a>)</li>
+</ul>
+<h3 id="other_9">Other</h3>
+<ul>
+<li>Various dependency updates (<a href="https://github.com/maplibre/martin/pull/2780">#2780</a>, <a href="https://github.com/maplibre/martin/pull/2770">#2770</a>, <a href="https://github.com/maplibre/martin/pull/2776">#2776</a>)</li>
+</ul>
+<h2 id="182-2026-04-29"><a href="https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.8.2">1.8.2</a> - 2026-04-29</h2>
+<h3 id="added_5">Added</h3>
+<h3 id="added_6">Added</h3>
+<ul>
+<li>We now publish an JSONSchema for our configuration and OpenAPI documentation for our HTTP API (<a href="https://github.com/maplibre/martin/pull/2760">#2760</a>)</li>
+</ul>
+<h3 id="fixed_9">Fixed</h3>
+<ul>
+<li>The last release had some artifact not get attached, so this release fixes this</li>
+</ul>
+<h3 id="other_10">Other</h3>
+<ul>
+<li>add debug-only <code>#[tracing::instrument]</code> to hot-path entry points (<a href="https://github.com/maplibre/martin/pull/2759">#2759</a>)</li>
+<li><em>(deps)</em> Bump the all-npm-version-updates group across 2 directories with 5 updates (<a href="https://github.com/maplibre/martin/pull/2756">#2756</a>)</li>
+<li><em>(mbtiles)</em> migrate from log/env_logger to tracing (<a href="https://github.com/maplibre/martin/pull/2755">#2755</a>)</li>
+</ul>
+<h2 id="181-2026-04-29"><a href="https://github.com/maplibre/martin/compare/martin-v1.8.0...martin-v1.8.1">1.8.1</a> - 2026-04-29</h2>
+<h3 id="fixed_10">Fixed</h3>
+<ul>
+<li><em>(styles)</em> default the optional <code>rendering</code> field so configs without it parse (<a href="https://github.com/maplibre/martin/pull/2752">#2752</a>)</li>
+</ul>
+<h3 id="other_11">Other</h3>
+<ul>
+<li><em>(deps)</em> autoupdate pre-commit (<a href="https://github.com/maplibre/martin/pull/2743">#2743</a>)</li>
+<li><em>(deps)</em> Bump the all-npm-version-updates group across 2 directories with 6 updates (<a href="https://github.com/maplibre/martin/pull/2745">#2745</a>)</li>
+<li>update Cargo.toml dependencies</li>
+</ul>
+<h2 id="180-2026-04-28"><a href="https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0">1.8.0</a> - 2026-04-28</h2>
+<h3 id="added_7">Added</h3>
+<ul>
+<li>Add MbtilesReloader (Tile Reload Phase 2) (<a href="https://github.com/maplibre/martin/pull/2717">#2717</a>)</li>
+</ul>
+<h3 id="mbtiles-auto-reloading">MBTiles auto-reloading</h3>
+<p>Previously, if you configured an directory with us, we would list it once and then serve this.
+This is no longer the case, we now can hot-reload (including updates clearing a sources cache) mbtiles (!).
+Work towards PMtiles, PG or COG is underway, but if you want this faster a PR to finish the plumbing would be appreciated.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2717">#2717</a> by by <a href="https://github.com/Auspicus">@Auspicus</a></p>
+<h3 id="non-vector-pg-sources">Non-vector PG sources</h3>
+<p>Some users, might want to serve non-MVT sources from postgres.
+We now support this via the <code>content_type</code> in PostgreSQL function source SQL comments.
+For further information see our docs or <a href="https://github.com/maplibre/martin/pull/2671">#2671</a></p>
+<h3 id="other_12">Other</h3>
+<ul>
+<li>remove a few unused deps from Cargo.toml to not waste time building them (<a href="https://github.com/maplibre/martin/pull/2738">#2738</a>)</li>
+<li>update Cargo.toml dependencies</li>
+</ul>
+<h2 id="170-2026-04-23"><a href="https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0">1.7.0</a> - 2026-04-23</h2>
+<h3 id="martin_tile_cache_requests_total-and-martin_cache_requests_total-metrics"><code>martin_tile_cache_requests_total</code> and <code>martin_cache_requests_total</code> metrics</h3>
+<p>We have added the following metrics, allowing for knowing what your cache hit rate.
+These are two metrics because for tiles we include the zoom while for fonts/sprites this does not make sense.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a># HELP martin_cache_requests_total Martin cache lookups, labeled by cache type and hit/miss result
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a># TYPE martin_cache_requests_total counter
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>martin_cache_requests_total{cache="font",result="miss"} NUMBER
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>martin_cache_requests_total{cache="sprite",result="miss"} NUMBER
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a># HELP martin_tile_cache_requests_total Martin tile-coordinate cache lookups, labeled by cache type, hit/miss result, and zoom
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a># TYPE martin_tile_cache_requests_total counter
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} NUMBER
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER
+</span></code></pre></div>
+<blockquote>
+<p>[!TIP]
+If you have concrete needs for what metrics you would like to see, please open an issue.
+The set of metrics we offer is quite early in its development lifecycle.</p>
+</blockquote>
+<h3 id="stabilized-server-side-raster-tile-rendering-backend">Stabilized Server-side raster tile rendering backend</h3>
+<p>We have stabilized our rendering backend, which means that you can now render images using MapLibre Native.
+We have some work planned to improve performance by prefetching and better parallelism, or to add capabilities like overlaying lines/text/shapes.. via query params.
+If you have needs/interests towards this area, we would also invite you to open a discussion/issue on the API that you would like to see.
+If you need configurability, we would also like to know what kind of configurability you need.</p>
+<p>To enable this feature, you need to add the following to your configuration file:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">styles</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span></code></pre></div>
+<h3 id="added_8">Added</h3>
+<ul>
+<li><em>(ui)</em> Add Tile URLs TileJSON and XYZ Tiles URLs to the inspect UI (<a href="https://github.com/maplibre/martin/pull/2731">#2731</a>)</li>
+<li><em>(mbtiles)</em> add --strict flag to use STRICT SQLite tables (<a href="https://github.com/maplibre/martin/pull/2712">#2712</a>)</li>
+</ul>
+<h3 id="fixed_11">Fixed</h3>
+<ul>
+<li>Keep /health available with <code>--route-prefix foo</code> instead of just moving it to /foo/health to enable docker healthchecks (<a href="https://github.com/maplibre/martin/pull/2723">#2723</a>)</li>
+</ul>
+<h3 id="other_13">Other</h3>
+<ul>
+<li>Some refactorings to increase CI reliability (<a href="https://github.com/maplibre/martin/pull/2724">#2724</a>, <a href="https://github.com/maplibre/martin/pull/2715">#2715</a>, <a href="https://github.com/maplibre/martin/pull/2725">#2725</a>)</li>
+<li><em>(deps)</em> autoupdate pre-commit (<a href="https://github.com/maplibre/martin/pull/2720">#2720</a>)</li>
+</ul>
+<h2 id="160-2026-04-18"><a href="https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0">1.6.0</a> - 2026-04-18</h2>
+<h3 id="smarter-more-configurable-caching">Smarter, more configurable caching</h3>
+<p>The tile cache received several improvements in this release:</p>
+<ul>
+<li><strong>Configurable cache expiry</strong>
+  The in-memory tile cache Time To Live (TTL -&gt; e.g. <code>cache.expiry: 1h</code>) and Time To Idle (TTI -&gt;  e.g. <code>cache.idle_timeout: 20m</code>) was previously hardcoded to "∞" (aka never expiring).
+  You can now configure how long cached tiles stay in memory, allowing better trade-offs between freshness and performance for your specific workload.</li>
+</ul>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="c1"># Maximum lifetime for all cache entries (time-to-live from creation).</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="c1"># Entries are evicted after this duration regardless of access.</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="c1"># Supports human-readable formats: "1h", "30m", "1d", "3600s".</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="c1"># default: null (no expiry, entries only evicted by size pressure)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">expiry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="c1"># Maximum idle time for all cache entries (time-to-idle since last access).</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="c1"># Entries are evicted if not accessed within this duration.</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="c1"># default: null (no idle timeout)</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span><span class="nt">idle_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span></code></pre></div>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2691">#2691</a>.
+- <strong>Per-source cache zoom levels</strong>
+  New <code>cache.minzoom</code> and <code>cache.maxzoom</code> options (both globally and per-source) let you skip caching at zoom levels that don't benefit from it.
+  For example, you can avoid filling the cache with rarely-reused high-zoom tiles or low-detail overviews.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="c1"># Default minimum zoom level (inclusive) for tile caching.</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="c1"># Tiles further zoomed out than this will bypass the cache entirely.</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="c1"># Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="c1"># default: null (no lower bound, all zoom levels cached)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="c1"># Default maximum zoom level (inclusive) for tile caching.</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span><span class="c1"># Tiles further zoomed in than this will bypass the cache entirely.</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="c1"># Can be overridden per-source.</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span><span class="c1"># default: null (no upper bound, all zoom levels cached)</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span></code></pre></div>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2673">#2673</a> by <a href="https://github.com/carderne">@carderne</a>.
+- <strong>Cache deduplication under concurrency</strong>
+  Cache insertions now use moka's entry API, so concurrent requests for the same tile only compute it once instead of redundantly.
+  This is a meaningful performance win under thundering-herd scenarios.
+  Done in <a href="https://github.com/maplibre/martin/pull/2688">#2688</a>.
+- <strong>Accept header in cache key</strong> -- The sanitized <code>Accept</code> HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
+  This <strong>previously did not have any effect and was also not incorrect</strong>, but in the next release we will add MLT encoding support (which we worked hard for).</p>
+<p>This also has the side-effect that if your client now says that you only <code>Accept</code> a certain format, we now correctly abort requests early.
+  Done in <a href="https://github.com/maplibre/martin/pull/2703">#2703</a>.</p>
+<h3 id="broader-mbtiles-compatibility">Broader MBTiles compatibility</h3>
+<ul>
+<li><strong>Planetiler <code>normalized</code> schema alias</strong> -- Martin now recognizes Planetiler's <code>normalized</code> and <code>normalized-with-view</code> schema names as aliases for its own <code>norm</code> schema type, so MBTiles files produced by Planetiler no longer trigger schema-detection warnings. Done in <a href="https://github.com/maplibre/martin/pull/2681">#2681</a>.</li>
+<li><strong>Compression type stored in metadata</strong> -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess.
+  Done in <a href="https://github.com/maplibre/martin/pull/2618">#2618</a>.</li>
+<li><strong>Transcoder API for library consumers</strong> -- The <code>mbtiles</code> crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically.
+  Done in <a href="https://github.com/maplibre/martin/pull/2682">#2682</a>.</li>
+</ul>
+<h3 id="-on-invalid-cli-argument"><code>--on-invalid</code> CLI argument</h3>
+<p>The <code>on_invalid</code> setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only.
+It is now available as <code>--on-invalid &lt;warn|abort&gt;</code> on the command line, which is especially handy in CI/CD and container environments.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2668">#2668</a> by <a href="https://github.com/Auspicus">@Auspicus</a>.</p>
+<h3 id="other_14">Other</h3>
+<ul>
+<li>Introduced <code>TileSourceManager</code> and <code>ReloadAdvisory</code> as groundwork for future live-reload of tile sources (<a href="https://github.com/maplibre/martin/pull/2661">#2661</a>) by <a href="https://github.com/Auspicus">@Auspicus</a></li>
+<li>Added hotpath-based profiling integration (<a href="https://github.com/maplibre/martin/pull/2663">#2663</a>)</li>
+<li>Enabled React Compiler for martin-ui and demo frontend (<a href="https://github.com/maplibre/martin/pull/2686">#2686</a>)</li>
+<li>Enabled <code>clippy::unwrap_used</code> workspace lint (<a href="https://github.com/maplibre/martin/pull/2670">#2670</a>)</li>
+<li>Ensured unit tests run on macOS (<a href="https://github.com/maplibre/martin/pull/2648">#2648</a>) by <a href="https://github.com/Weixing-Zhang">@Weixing-Zhang</a></li>
+<li>Various dependency bumps (<a href="https://github.com/maplibre/martin/pull/2702">#2702</a>, <a href="https://github.com/maplibre/martin/pull/2684">#2684</a>, <a href="https://github.com/maplibre/martin/pull/2624">#2624</a>, <a href="https://github.com/maplibre/martin/pull/2662">#2662</a>, <a href="https://github.com/maplibre/martin/pull/2657">#2657</a>)</li>
+</ul>
+<h2 id="150-2026-04-02"><a href="https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0">1.5.0</a> - 2026-04-02</h2>
+<h3 id="fixed_12">Fixed</h3>
+<ul>
+<li><em>(postgres)</em> startup crash when ST_Extent returns LineString instead of Polygon (<a href="https://github.com/maplibre/martin/pull/2600">#2600</a>)</li>
+</ul>
+<h3 id="other_15">Other</h3>
+<ul>
+<li>typos (<a href="https://github.com/maplibre/martin/pull/2651">#2651</a>)</li>
+<li>migrate to workspaced justfiles using <code>mod</code> for demo and martin-ui (<a href="https://github.com/maplibre/martin/pull/2623">#2623</a>)</li>
+<li><em>(deps)</em> Bump the all-npm-security-updates group across 2 directories with 1 update (<a href="https://github.com/maplibre/martin/pull/2647">#2647</a>)</li>
+<li>Enable <code>clippy::use_self</code> at workspace level and resolve all violations (<a href="https://github.com/maplibre/martin/pull/2645">#2645</a>)</li>
+<li><em>(deps-dev)</em> Bump flatted from 3.3.3 to 3.4.2 in /martin/martin-ui in the all-npm-security-updates group across 1 directory (<a href="https://github.com/maplibre/martin/pull/2640">#2640</a>)</li>
+<li><em>(perf)</em> don't test pg twice (<a href="https://github.com/maplibre/martin/pull/2619">#2619</a>)</li>
+</ul>
+<h2 id="140-2026-03-14"><a href="https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0">1.4.0</a> - 2026-03-14</h2>
+<h3 id="zstd-support">ZSTD support</h3>
+<p>If your browser prefers this, we will now start sending ZSTD (or deflate) compressed tiles your way.
+Done in <a href="https://github.com/maplibre/martin/pull/2597">#2597</a> by <a href="https://github.com/nuts-rice">@nuts-rice</a></p>
+<h3 id="a-new-documentation-site">A new documentation site</h3>
+<p>We migrated our documentation to zensical, a more modern documentation platform.
+Just have a look for yourself, does it not look pretty? -&gt; https://maplibre.org/martin
+Done in <a href="https://github.com/maplibre/martin/pull/2576">#2576</a> by <a href="https://github.com/manbhav234">@manbhav234</a></p>
+<h3 id="added_9">Added</h3>
+<ul>
+<li><em>(martin-cp)</em> now has a prettier, indicatif based progress bar (<a href="https://github.com/maplibre/martin/pull/2495">#2495</a>)</li>
+<li>Add retry mechanism on locked/busy mbtiles files was added (<a href="https://github.com/maplibre/martin/pull/2572">#2572</a>)</li>
+</ul>
+<h3 id="fixed_13">Fixed</h3>
+<ul>
+<li><em>(ui)</em> render MLT tiles correctly in Tile Inspector (<a href="https://github.com/maplibre/martin/pull/2601">#2601</a>)</li>
+<li>redirect ignoring <code>--route-prefix</code> for .pbf tile requests (<a href="https://github.com/maplibre/martin/pull/2599">#2599</a>)</li>
+<li>restrict zooming and panning on data inspector (<a href="https://github.com/maplibre/martin/pull/2574">#2574</a>)</li>
+<li>Accept any INT-containing type in MBTiles validation to be an integer (<a href="https://github.com/maplibre/martin/pull/2560">#2560</a>)</li>
+</ul>
+<h3 id="other_16">Other</h3>
+<ul>
+<li>rename the <code>webp.sql</code> fixture to <code>webp-no-primary.sql</code> (<a href="https://github.com/maplibre/martin/pull/2564">#2564</a>)</li>
+<li>more cfg magic instead of #[allow(unused_variables)] (<a href="https://github.com/maplibre/martin/pull/2563">#2563</a>)</li>
+<li>More restrictive expects (<a href="https://github.com/maplibre/martin/pull/2562">#2562</a>)</li>
+<li>feature-gate PostgreSQL tests to remove external dependencies from <code>cargo test</code> (<a href="https://github.com/maplibre/martin/pull/2558">#2558</a>)</li>
+<li>Bump some dependencies (<a href="https://github.com/maplibre/martin/pull/2608">#2608</a>, <a href="https://github.com/maplibre/martin/pull/2602">#2602</a>, <a href="https://github.com/maplibre/martin/pull/2592">#2592</a>, <a href="https://github.com/maplibre/martin/pull/2577">#2577</a>, <a href="https://github.com/maplibre/martin/pull/2575">#2575</a>, <a href="https://github.com/maplibre/martin/pull/2567">#2567</a>)</li>
+</ul>
+<h2 id="131-2026-02-11"><a href="https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1">1.3.1</a> - 2026-02-11</h2>
+<h3 id="added_10">Added</h3>
+<ul>
+<li><em>(srv)</em> Add HTTP 301 redirects for common URL mistakes (<a href="https://github.com/maplibre/martin/pull/2528">#2528</a>)</li>
+<li><em>(unstable-cog)</em> Change tile path semantics for COG sources to match other sources, expose COG bounds, center and tileSize in TileJSON (<a href="https://github.com/maplibre/martin/pull/2510">#2510</a>)</li>
+</ul>
+<h3 id="fixed_14">Fixed</h3>
+<ul>
+<li>Fixed the <code>path-prefix</code> feature when it comes to frontend assets and log output (<a href="https://github.com/maplibre/martin/pull/2549">#2549</a>, <a href="https://github.com/maplibre/martin/pull/2541">#2541</a>)</li>
+</ul>
+<h3 id="other_17">Other</h3>
+<ul>
+<li>Add test coverage for header handling in tilejson requests (<a href="https://github.com/maplibre/martin/pull/2529">#2529</a>)</li>
+<li><em>(martin-core)</em> [<strong>breaking</strong>] remove the configuration from the martin-core crate (<a href="https://github.com/maplibre/martin/pull/2521">#2521</a>)</li>
+<li>restrict <code>unused_trait_names</code> for trait imports (<a href="https://github.com/maplibre/martin/pull/2542">#2542</a>)</li>
+<li><em>(deps)</em> Bump various dependencies (<a href="https://github.com/maplibre/martin/pull/2553">#2553</a>, <a href="https://github.com/maplibre/martin/pull/2545">#2545</a>, <a href="https://github.com/maplibre/martin/pull/2533">#2533</a>)</li>
+</ul>
+<h2 id="130-2026-01-27"><a href="https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0">1.3.0</a> - 2026-01-27</h2>
+<h3 id="more-flexible-log-formatting">More flexible log formatting</h3>
+<p>We migrated our <code>log</code> library to <code>tracing</code>.
+This gives us a few internal improvements, but also allows us to introduce a new <code>RUST_LOG_FORMAT</code> environment variable.
+The available values are: <code>json</code>, <code>full</code>, <code>compact</code> (default), <code>bare</code> or <code>pretty</code>.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2494">#2494</a>, <a href="https://github.com/maplibre/martin/pull/2508">#2508</a>, <a href="https://github.com/maplibre/martin/pull/2500">#2500</a> by @CommanderStorm</p>
+<h3 id="glyph-ranges-beyond-0xffff">Glyph ranges beyond <code>0xFFFF</code></h3>
+<p>If you are using fonts which span beyond the <code>0xFFFF</code> range, this release improves how Martin loads and renders those glyphs so they are handled correctly.</p>
+<p>Here is a short explanation of why this might matter to you based on <a href="https://en.wikipedia.org/wiki/Unicode_block">https://en.wikipedia.org/wiki/Unicode_block</a>.</p>
+<ul>
+<li><code>U+0000</code> - <code>U+FFFF</code> is Basic Multilingual Plane, which covers characters for almost all modern languages</li>
+<li><code>U+10000</code> - <code>U+3347F</code> covers minor characters such as historic scripts and emojis</li>
+<li><code>U+E0000</code> - <code>U+E01EF</code> is for tags and variation selectors</li>
+<li><code>U+F0000</code> - <code>U+10FFFF</code> is for private use (i.e. can be assigned arbitrary custom characters without worrying about possible conflict with the future standards)</li>
+</ul>
+<p>Done in (<a href="https://github.com/maplibre/martin/pull/2438">#2438</a>) by @yutannihilation</p>
+<p>As a related performance optimization, we also removed <code>FontSources.masks</code> as it was consuming large amounts of memory and some startup time, even when no font sources were set (<a href="https://github.com/maplibre/martin/pull/2519">#2519</a>) by @Auspicus</p>
+<h3 id="simpler-native-subpath-support">Simpler native subpath support</h3>
+<p>We added the <code>route_prefix</code> configuration and <code>--route-prefix</code> cli arguments.
+This allows you to configure the subpath martin is serving from without the need for your reverse proxy to strip these subpaths before getting to us.</p>
+<p>Done in (<a href="https://github.com/maplibre/martin/pull/2523">#2523</a>)</p>
+<h3 id="mlt-decoding-support">MLT decoding support</h3>
+<p>Martin now supports the MapLibre Tiles Specification.
+This means that if you want to serve MLT based tiles with this tileserver, you now can.
+Read more about what the MapLibre Tile Specification is and why we are "reinventing the wheel on this one" in our <a href="https://maplibre.org/news/2026-01-23-mlt-release/">blog post</a>.</p>
+<p>Done in (<a href="https://github.com/maplibre/martin/pull/2512">#2512</a>)</p>
+<h3 id="added_11">Added</h3>
+<ul>
+<li>improve martin-cp progress output time estimate by displaying in human time instead of seconds (<a href="https://github.com/maplibre/martin/pull/2491">#2491</a>)</li>
+<li><em>(pg)</em> support PostgreSQL materialized views (<a href="https://github.com/maplibre/martin/pull/2279">#2279</a>)</li>
+<li><em>(pg)</em> include ID column info for tables (<a href="https://github.com/maplibre/martin/pull/2485">#2485</a>)</li>
+</ul>
+<h3 id="fixed_15">Fixed</h3>
+<ul>
+<li>improve error message if no SVG sprite files are present (<a href="https://github.com/maplibre/martin/pull/2516">#2516</a>)</li>
+<li><em>(ui)</em> Fix clipboard copy for <a href="http://0.0.0.0:3000">http://0.0.0.0:3000</a> and unify implementations and their design (<a href="https://github.com/maplibre/martin/pull/2487">#2487</a>, <a href="https://github.com/maplibre/martin/pull/2489">#2489</a>, <a href="https://github.com/maplibre/martin/pull/2483">#2483</a>, <a href="https://github.com/maplibre/martin/pull/2482">#2482</a>)</li>
+</ul>
+<h3 id="other_18">Other</h3>
+<ul>
+<li><em>(deps)</em> <code>cargo-shear</code> our dependencies for improved compile times (<a href="https://github.com/maplibre/martin/pull/2497">#2497</a>)</li>
+<li><em>(mbtiles)</em> improve a few test cases (<a href="https://github.com/maplibre/martin/pull/2478">#2478</a>, <a href="https://github.com/maplibre/martin/pull/2480">#2480</a>, <a href="https://github.com/maplibre/martin/pull/2477">#2477</a>)</li>
+</ul>
+<h2 id="120-2026-01-03"><a href="https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0">1.2.0</a> - 2026-01-03</h2>
+<h3 id="optionally-fail-config-loadingresolution-for-missing-sources">Optionally fail config loading/resolution for missing sources</h3>
+<p>We added the <code>on_invalid: abort</code> (default) and <code>on_invalid: warn</code> settings, which controls what happens when martin encounters an missing/invalid source.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2412">#2412</a>, <a href="https://github.com/maplibre/martin/pull/2426">#2426</a> by @gabeschine</p>
+<h3 id="click-to-copy-when-clicking-on-various-ids-in-the-ui">Click to copy when clicking on various IDs in the UI</h3>
+<p>When clicking on various IDs in the UI, a click to copy feature is now available.</p>
+<p><img width="720" height="393" alt="image" src="https://github.com/user-attachments/assets/6d062bb1-18f1-4827-a378-44b141eb11d5" /></p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2427">#2427</a> by @todtb</p>
+<h3 id="fixed_16">Fixed</h3>
+<ul>
+<li><em>(pg)</em> Instead of reporting on all available tables, we now filter the result to the configured sources when <code>auto_publish: false</code> (<a href="https://github.com/maplibre/martin/pull/2411">#2411</a>)</li>
+<li><em>(sprites)</em> Scale SDF buffer and radius by pixel ratio leading to weird artifacts when using retina sdf sprites (<a href="https://github.com/maplibre/martin/pull/2458">#2458</a>)</li>
+</ul>
+<h3 id="other_19">Other</h3>
+<ul>
+<li>made our dependency management more reproducible/stable (<a href="https://github.com/maplibre/martin/pull/2442">#2442</a>, <a href="https://github.com/maplibre/martin/pull/2429">#2429</a>, <a href="https://github.com/maplibre/martin/pull/2415">#2415</a>)</li>
+<li>various dependency bumps (<a href="https://github.com/maplibre/martin/pull/2439">#2439</a>, <a href="https://github.com/maplibre/martin/pull/2435">#2435</a>, <a href="https://github.com/maplibre/martin/pull/2418">#2418</a>, <a href="https://github.com/maplibre/martin/pull/2471">#2471</a>)</li>
+<li><em>(bench)</em> improve benchmark accuracy by adding black_box for tables/functions (<a href="https://github.com/maplibre/martin/pull/2413">#2413</a>)</li>
+<li><em>(pmtiles)</em> add pmtiles test in <code>martin-core</code> (<a href="https://github.com/maplibre/martin/pull/2443">#2443</a>)</li>
+</ul>
+<h2 id="110-2025-12-11"><a href="https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0">1.1.0</a> - 2025-12-11</h2>
+<h3 id="added_12">Added</h3>
+<ul>
+<li><em>(martin-cp)</em> infer default bounds from configured sources for better performance (<a href="https://github.com/maplibre/martin/pull/2385">#2385</a>)</li>
+<li><em>(martin-core)</em> add an pmtiles example (<a href="https://github.com/maplibre/martin/pull/2370">#2370</a>)</li>
+</ul>
+<h3 id="fixed_17">Fixed</h3>
+<ul>
+<li>allow <code>az://</code> URL schemes in discovery (<a href="https://github.com/maplibre/martin/pull/2408">#2408</a>)</li>
+</ul>
+<h3 id="other_20">Other</h3>
+<ul>
+<li><em>(config)</em> move the resolve impl to a different function (<a href="https://github.com/maplibre/martin/pull/2397">#2397</a>)</li>
+<li><em>(docs)</em> fix martin-cp bbox docs (<a href="https://github.com/maplibre/martin/pull/2387">#2387</a>)</li>
+<li><em>(deps)</em> miscellaneous dependency bumps (<a href="https://github.com/maplibre/martin/pull/2403">#2403</a>, <a href="https://github.com/maplibre/martin/pull/2404">#2404</a>, <a href="https://github.com/maplibre/martin/pull/2373">#2373</a>, <a href="https://github.com/maplibre/martin/pull/2375">#2375</a>, <a href="https://github.com/maplibre/martin/pull/2374">#2374</a>)</li>
+</ul>
+<h2 id="100-2025-11-10"><a href="https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0">1.0.0</a> - 2025-11-10</h2>
+<p>🎉🎉🎉 <strong>After 8 years in development, we are excited to release v1.0.0 of martin.</strong> 🎉🎉🎉
+Functionally, it is the same as <code>v0.20.2</code>, just with our releases further automated.
+There are no breaking changes between <code>v0.20.X</code> and <code>v1.X.X</code></p>
+<h3 id="fixed_18">Fixed</h3>
+<ul>
+<li>broken url to github release in web-ui (<a href="https://github.com/maplibre/martin/pull/2354">#2354</a>)</li>
+</ul>
+<h2 id="0202-2025-11-07"><a href="https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2">0.20.2</a> - 2025-11-07</h2>
+<p>In 0.20.1 we claimed to have fixed the bug regarding how our release script determines versions for docker containers.
+This was incorrect and is fixed now with a more manual approach instead of relying on <code>docker/metadata-action</code>.
+Done in <a href="https://github.com/maplibre/martin/pull/2348">#2348</a></p>
+<h3 id="other_21">Other</h3>
+<ul>
+<li>Remove unused optional 'tiff' dependency from Cargo.toml (<a href="https://github.com/maplibre/martin/pull/2343">#2343</a>)</li>
+</ul>
+<h2 id="0201-2025-11-03"><a href="https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1">0.20.1</a> - 2025-11-03</h2>
+<h2 id="fixed-prefixes-in-ghcr-tags">Fixed prefixes in ghcr tags</h2>
+<p>We fixed a bug where in the 0.20.0 release our ghcr.io tags always had the prefix <code>:martin-v0.20.0</code> and were also published under <code>:martin-core-v0.2.0</code> and <code>:mbtiles-v0.14.0</code>.</p>
+<p>Sorry for users affected by this change.
+Done in <a href="https://github.com/maplibre/martin/pull/2338">#2338</a></p>
+<h2 id="fix">Fix</h2>
+<p>Fixed a potential crash due to an off-by-one error when zooming in at exactly Zoom 30 (our limit). <a href="https://github.com/maplibre/martin/pull/2340">#2340</a></p>
+<h2 id="maintenance">Maintenance</h2>
+<ul>
+<li><em>(ci)</em> add pre commit step to sync the fronted version to the backend (<a href="https://github.com/maplibre/martin/pull/2324">#2324</a>)</li>
+<li>reduce pg discovery bench sizes (<a href="https://github.com/maplibre/martin/pull/2321">#2321</a>)</li>
+<li>various dependency bumps (<a href="https://github.com/maplibre/martin/pull/2331">#2331</a>, <a href="https://github.com/maplibre/martin/pull/2333">#2333</a>, <a href="https://github.com/maplibre/martin/pull/2332">#2332</a>)</li>
+</ul>
+<h2 id="0200-2025-10-27"><a href="https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0">0.20.0</a> - 2025-10-27</h2>
+<blockquote>
+<p>[!NOTE]
+This release can be considered the last beta of the v1.0 release.
+We have locked down key parts of the architecture.</p>
+<p>We will republish this release as v1.0 in roughly a week, unless we see any bugs in this release.</p>
+</blockquote>
+<p>A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
+Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.</p>
+<p>We couldn't have done it without you ❤️</p>
+<h3 id="a-better-more-configurable-cache">A better, more configurable cache</h3>
+<p>In previous versions, the cache was a single monolithic cache.
+We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles martin is allowed in the cache.</p>
+<blockquote>
+<p>[!TIP]
+We also now support caching sprites and fonts - speeding up the rendering of vector maps.</p>
+</blockquote>
+<p>See our <a href="https://maplibre.org/martin/config-file/">documentation here</a> for further context.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2295">#2295</a> <a href="https://github.com/maplibre/martin/pull/2304">#2304</a> <a href="https://github.com/maplibre/martin/pull/2303">#2303</a>, <a href="https://github.com/maplibre/martin/pull/2297">#2297</a></p>
+<h3 id="pmtiles-support-for-google-cloud-azure-and-much-more-options">Pmtiles support for Google Cloud, Azure and much more options</h3>
+<p>The good news first:
+- <a href="https://maplibre.org/martin/sources-files/">greatly expanded</a> options for AWS and HTTP backends
+- New support for Google Cloud and Azure object storage
+- Local files remain unaffected</p>
+<p>How did we do this?
+We replaced our entire pmtiles backend with the <a href="http://docs.rs/object_storage"><code>object_storage</code> crate</a>.</p>
+<p>Most of the options are cleanly migratable, but we deprecated the following:</p>
+<ul>
+<li>AWS specific environment variable usages are deprecated.</li>
+<li><code>pmtiles.allow_http</code> being unset is currently defaulting to <code>true</code>.
+  In v2.0, we will change this to be <code>false</code> by default for better security defaults.</li>
+</ul>
+<p>The deprecated items will be removed in v2.0 at the earliest.</p>
+<blockquote>
+<p>[!TIP]
+Each of the deprecations also has its own warning in the log, so you don't have to guess if you are affected 😉</p>
+</blockquote>
+<p><code>AWS_PROFILE</code> presented a challenge and we had to drop this environment variable.
+We asked for community feedback on Slack (see <a href="https://maplibre.org/community">here</a>), and it seems this may not be a necessary feature.
+If you depend on <code>AWS_PROFILE</code>, we opened the following issue to discuss details:
+- https://github.com/maplibre/martin/issues/2286</p>
+<p>For further details on the now available options, please <a href="https://maplibre.org/martin/sources-files/">see our documentation</a>.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2251">#2251</a></p>
+<h3 id="unstable-style-rendering-support">unstable style rendering support</h3>
+<p>We added an experimental option for server-side style rendering, allowing you to convert your configured styles into images on the server side instead of the client.
+See our <a href="https://maplibre.org/martin/sources-styles/rendering/">documentation here</a> for further context.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2306">#2306</a></p>
+<h3 id="rename-cog-feature-to-unstable-cog">rename <code>cog</code> feature to <code>unstable-cog</code></h3>
+<p>The <code>cog</code> feature was renamed to <code>unstable-cog</code> and thus removed from the features active by default.
+If you compile martin from source with this feature enabled, experimentation is still possible.
+This change signals that the feature is still evolving and allows us to iterate more freely as we add the missing functionality.
+Currently, our COG support does not support certain projection aspects required for good usability.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2285">#2285</a></p>
+<h3 id="removal-of-deprecated-functionality">Removal of deprecated functionality</h3>
+<p>We removed the long-deprecated <code>--watch</code> CLI option, which previously only displayed a deprecation warning in the log.</p>
+<p>Done in <a href="https://github.com/maplibre/martin/pull/2294">#2294</a></p>
+<h3 id="fix_1">Fix</h3>
+<ul>
+<li>Make mbtiles dependency properly optional again (<a href="https://github.com/maplibre/martin/pull/2292">#2292</a>)</li>
+</ul>
+<h3 id="other_22">Other</h3>
+<ul>
+<li><em>(core)</em> enable overriding of the automatic hashing for source traits (<a href="https://github.com/maplibre/martin/pull/2293">#2293</a>)</li>
+<li><em>(pg)</em> Add benchmark for source discovery timing (<a href="https://github.com/maplibre/martin/pull/2263">#2263</a>)</li>
+<li><em>(admin)</em> move functionality into better modules (<a href="https://github.com/maplibre/martin/pull/2315">#2315</a>)</li>
+<li>move config files to new folders (<a href="https://github.com/maplibre/martin/pull/2298">#2298</a>)</li>
+<li><em>(core)</em> add a <code>_tiles</code> feature  to simplify our feature configuration (<a href="https://github.com/maplibre/martin/pull/2296">#2296</a>)</li>
+<li><em>(config)</em> refactor the lifecycle hooks to be cleaner and better documented (<a href="https://github.com/maplibre/martin/pull/2282">#2282</a>)</li>
+<li><em>(lints)</em> apply tighter clippy lints like <code>clippy::panic_in_result_fn</code>, <code>clippy::todo</code> or similar [#2284](https://github.com/maplibre/martin/pull/2284 <a href="https://github.com/maplibre/martin/pull/2283">#2283</a>, <a href="https://github.com/maplibre/martin/pull/2288">#2288</a>, <a href="https://github.com/maplibre/martin/pull/2287">#2287</a></li>
+<li><em>(mbtiles)</em> Generate mbtiles dynamically from SQL files to increase debuggability, transparency and supply chain trust/security (<a href="https://github.com/maplibre/martin/pull/1868">#1868</a>)</li>
+<li>A number of dependency updates <a href="https://github.com/maplibre/martin/pull/2277">#2277</a>, <a href="https://github.com/maplibre/martin/pull/2308">#2308</a></li>
+</ul>
+<h2 id="0193-2025-10-01"><a href="https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3">0.19.3</a> - 2025-10-01</h2>
+<h3 id="added_13">Added</h3>
+<ul>
+<li>add <code>tilejson_url_version_param</code> configuration which allows embedding the version of tile sources (specifically pmtiles) in tilejson tiles URL, resulting in better cache hit rates (<a href="https://github.com/maplibre/martin/pull/2198">#2198</a>)</li>
+</ul>
+<h3 id="other_23">Other</h3>
+<ul>
+<li>fix docs.rs not build failing due to misconfiguration of the <code>cfg(feature="webui")</code> (<a href="https://github.com/maplibre/martin/pull/2273">#2273</a>)</li>
+<li>release (<a href="https://github.com/maplibre/martin/pull/2265">#2265</a>)</li>
+</ul>
+<h2 id="0192-2025-09-28"><a href="https://github.com/maplibre/martin/compare/martin-v0.19.1...martin-v0.19.2">0.19.2</a> - 2025-09-28</h2>
+<h3 id="other_24">Other</h3>
+<ul>
+<li>The previous <code>0.19.1</code> release had another bug which prevented proper releasing which is now fixed (<a href="https://github.com/maplibre/martin/pull/2262">#2262</a>)</li>
+<li>update Cargo.lock dependencies</li>
+</ul>
+<h2 id="0191-2025-09-28"><a href="https://github.com/maplibre/martin/compare/martin-v0.19.0...martin-v0.19.1">0.19.1</a> - 2025-09-28</h2>
+<h3 id="fixed_19">Fixed</h3>
+<ul>
+<li><em>(release)</em> Our release new process for <code>0.19.0</code> did not properly attach binaries and build docker files due to permission issues (<a href="https://github.com/maplibre/martin/pull/2253">#2253</a>, <a href="https://github.com/maplibre/martin/pull/2260">#2260</a>)</li>
+</ul>
+<h2 id="0190-2025-09-26"><a href="https://github.com/maplibre/martin/compare/martin-v0.18.1...martin-v0.19.0">0.19.0</a> - 2025-09-26</h2>
+<h3 id="breaking-changes">Breaking Changes</h3>
+<ul>
+<li>we migrated our internal codebase to be split into <code>martin-core</code> and <code>martin</code>. While this does have <strong>NO</strong> have an <strong>public facing impact</strong> for <strong>API, Configuration and behavior</strong>, this ensures that we can release v1.0 without breaking the SemVer promise. If you previously used <strong><code>martin</code> as a crates.io library, please use <code>martin-core</code> instead</strong>. (<a href="https://github.com/maplibre/martin/pull/2227">#2227</a>,<a href="https://github.com/maplibre/martin/pull/2215">#2215</a>,<a href="https://github.com/maplibre/martin/pull/2217">#2217</a>,<a href="https://github.com/maplibre/martin/pull/2213">#2213</a>,<a href="https://github.com/maplibre/martin/pull/2216">#2216</a>,<a href="https://github.com/maplibre/martin/pull/2192">#2192</a>,<a href="https://github.com/maplibre/martin/pull/2194">#2194</a>,<a href="https://github.com/maplibre/martin/pull/2191">#2191</a>,<a href="https://github.com/maplibre/martin/pull/2185">#2185</a>,<a href="https://github.com/maplibre/martin/pull/2182">#2182</a>,<a href="https://github.com/maplibre/martin/pull/2181">#2181</a>,<a href="https://github.com/maplibre/martin/pull/2184">#2184</a>,<a href="https://github.com/maplibre/martin/pull/2179">#2179</a>,<a href="https://github.com/maplibre/martin/pull/2176">#2176</a>,<a href="https://github.com/maplibre/martin/pull/2178">#2178</a>,<a href="https://github.com/maplibre/martin/pull/2177">#2177</a>,<a href="https://github.com/maplibre/martin/pull/2172">#2172</a>,<a href="https://github.com/maplibre/martin/pull/2171">#2171</a>,<a href="https://github.com/maplibre/martin/pull/2167">#2167</a>,<a href="https://github.com/maplibre/martin/pull/2158">#2158</a>,<a href="https://github.com/maplibre/martin/pull/2157">#2157</a>,<a href="https://github.com/maplibre/martin/pull/2160">#2160</a>,<a href="https://github.com/maplibre/martin/pull/2156">#2156</a>,<a href="https://github.com/maplibre/martin/pull/2105">#2105</a>,<a href="https://github.com/maplibre/martin/pull/2048">#2048</a>,<a href="https://github.com/maplibre/martin/pull/1944">#1944</a>, <a href="https://github.com/maplibre/martin/pull/2159">#2159</a>)</li>
+<li><em>(martin-cp)</em> The <code>--cache-size</code> option has been removed from martin-cp. For most use cases, this is not what you want. (<a href="https://github.com/maplibre/martin/pull/2026">#2026</a>)</li>
+</ul>
+<h3 id="added_14">Added</h3>
+<ul>
+<li>We updated Martins' Logo (<a href="https://github.com/maplibre/martin/pull/1959">#1959</a>)</li>
+<li><em>(config)</em> Implement unrecognized value in config file warning (<a href="https://github.com/maplibre/martin/pull/2151">#2151</a>, <a href="https://github.com/maplibre/martin/pull/2152">#2152</a>, <a href="https://github.com/maplibre/martin/pull/2236">#2236</a>, <a href="https://github.com/maplibre/martin/pull/1967">#1967</a>)</li>
+<li><em>(martin-cp)</em> add a warning if <code>--concurrency 1</code> and an error if <code>--concurrency 0</code> (<a href="https://github.com/maplibre/martin/pull/2027">#2027</a>)</li>
+</ul>
+<h3 id="fixed_20">Fixed</h3>
+<ul>
+<li><em>(docs)</em> publish docs to docs.rs again (<a href="https://github.com/maplibre/martin/pull/2239">#2239</a>)</li>
+<li><em>(ui)</em> inspect button not working for raster sources (<a href="https://github.com/maplibre/martin/pull/2155">#2155</a>)</li>
+<li><em>(pg)</em> fixed if one has a table and an identically named view in another schemas, tile serving did not work (<a href="https://github.com/maplibre/martin/pull/2149">#2149</a>, <a href="https://github.com/maplibre/martin/pull/2112">#2112</a>)</li>
+</ul>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li>reworded the error messages for <code>InternalError</code>, <code>FontError</code> (<a href="https://github.com/maplibre/martin/pull/2226">#2226</a>)</li>
+<li>add doc comments for pmtiles and mbtiles (<a href="https://github.com/maplibre/martin/pull/2164">#2164</a>)</li>
+<li>document public parts of the  <code>cog</code>-module (<a href="https://github.com/maplibre/martin/pull/2166">#2166</a>)</li>
+<li>document the exposed parts of the <code>pg</code> module (<a href="https://github.com/maplibre/martin/pull/2165">#2165</a>)</li>
+<li>improve <code>IdResolver::resolve</code> warnings (<a href="https://github.com/maplibre/martin/pull/2066">#2066</a>)</li>
+<li>improve doc comment for <code>IdResolver::resolve</code> to remove ambiguity if we should log for reserved names (<a href="https://github.com/maplibre/martin/pull/2065">#2065</a>)</li>
+</ul>
+<h3 id="other_25">Other</h3>
+<ul>
+<li>We have automated our release pipeline and are now releasing via <code>release-plz</code> (<a href="https://github.com/maplibre/martin/pull/2242">#2242</a>)</li>
+<li>fix various clippy or related code style issues (<a href="https://github.com/maplibre/martin/pull/1904">#1904</a>, <a href="https://github.com/maplibre/martin/pull/1903">#1903</a>, <a href="https://github.com/maplibre/martin/pull/2092">#2092</a>, <a href="https://github.com/maplibre/martin/pull/2052">#2052</a>, <a href="https://github.com/maplibre/martin/pull/2193">#2193</a>, <a href="https://github.com/maplibre/martin/pull/2130">#2130</a>, <a href="https://github.com/maplibre/martin/pull/2233">#2233</a>)</li>
+<li>Add comprehensive GitHub Copilot instructions for Martin development workflow (<a href="https://github.com/maplibre/martin/pull/2210">#2210</a>)</li>
+<li><em>(bench)</em> add an benchmark that tests the impact of the error variant (<a href="https://github.com/maplibre/martin/pull/2168">#2168</a>)</li>
+<li><em>(cog)</em> use binary snapshots for testing (<a href="https://github.com/maplibre/martin/pull/2129">#2129</a>)</li>
+<li><em>(ui)</em>make sure that the fronted forces esm instead of cjs (<a href="https://github.com/maplibre/martin/pull/2038">#2038</a>)</li>
+<li><em>(ui)</em> migration <code>jest</code> to <code>vitest</code> (<a href="https://github.com/maplibre/martin/pull/2040">#2040</a>)</li>
+<li><em>(ui)</em> move from eslint to biomejs for formatting/linting (<a href="https://github.com/maplibre/martin/pull/1909">#1909</a>)</li>
+<li><em>(ci)</em> add cargo-sort to consistently sort our <code>Cargo.toml</code> (<a href="https://github.com/maplibre/martin/pull/2020">#2020</a>)</li>
+<li><em>(ci)</em> Split tests and lints in CI (<a href="https://github.com/maplibre/martin/pull/2225">#2225</a>)</li>
+<li><em>dependencies</em> And a bunch of dependency updates (<a href="https://github.com/maplibre/martin/pull/2218">#2218</a>, <a href="https://github.com/maplibre/martin/pull/2189">#2189</a>), <a href="https://github.com/maplibre/martin/pull/2161">#2161</a>, <a href="https://github.com/maplibre/martin/pull/2143">#2143</a>, <a href="https://github.com/maplibre/martin/pull/2147">#2147</a>, <a href="https://github.com/maplibre/martin/pull/2139">#2139</a>, <a href="https://github.com/maplibre/martin/pull/2128">#2128</a>, <a href="https://github.com/maplibre/martin/pull/2135">#2135</a>, <a href="https://github.com/maplibre/martin/pull/2125">#2125</a>, <a href="https://github.com/maplibre/martin/pull/2126">#2126</a>, <a href="https://github.com/maplibre/martin/pull/2120">#2120</a>, <a href="https://github.com/maplibre/martin/pull/2119">#2119</a>, <a href="https://github.com/maplibre/martin/pull/2111">#2111</a>, <a href="https://github.com/maplibre/martin/pull/2082">#2082</a>, <a href="https://github.com/maplibre/martin/pull/2093">#2093</a>, <a href="https://github.com/maplibre/martin/pull/2084">#2084</a>, <a href="https://github.com/maplibre/martin/pull/2081">#2081</a>, <a href="https://github.com/maplibre/martin/pull/2069">#2069</a>, <a href="https://github.com/maplibre/martin/pull/2070">#2070</a>, <a href="https://github.com/maplibre/martin/pull/2013">#2013</a>, <a href="https://github.com/maplibre/martin/pull/2106">#2106</a>, <a href="https://github.com/maplibre/martin/pull/2104">#2104</a>, <a href="https://github.com/maplibre/martin/pull/2050">#2050</a>, <a href="https://github.com/maplibre/martin/pull/2049">#2049</a>, <a href="https://github.com/maplibre/martin/pull/2100">#2100</a>, <a href="https://github.com/maplibre/martin/pull/2232">#2232</a>)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 MapLibre Contributors
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/maplibre/martin" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>
