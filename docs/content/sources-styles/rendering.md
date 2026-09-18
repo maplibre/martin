@@ -35,9 +35,9 @@ styles:
     rendering: true
 ```
 
-Renders run on a dedicated thread pool. `rendering: true` sizes it from the
-logical CPU count, clamped to 2..=8; the long form sets the number of render
-threads explicitly:
+Renders run on a dedicated thread pool.
+`rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
+The long form sets the number of render threads explicitly:
 
 ```yaml
 styles:
