@@ -44,7 +44,7 @@ pmtiles:
     List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/roads.pmtiles` becomes `project1.roads`.
     A collection is a local directory.
 
-For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
+For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
 object `ETag` or `Last-Modified` headers to detect updates to an existing source.
 There is no event channel from blob storage to subscribe to.
 Added, updated, and removed objects propagate to the catalog.
@@ -76,170 +76,31 @@ This approach has several limitations:
 - **Caching behavior**
   Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.
 
-## Serving PMTiles from local file systems, http or Object Storage
+## Serving PMTiles from local file systems, HTTP, or object storage
 
-The settings available for a PMTiles source depend on the backend:
+### Local files
 
-=== "Local File System"
+Pass a path or `file://` URL on the command line:
 
-    For local sources, you need to provide the path or URL.
-    For example:
+```bash
+martin path/to/tiles.pmtiles
+```
 
-    ```bash
-    martin  path/to/tiles.pmtiles
-    ```
+Or configure a named source:
 
-    The available schemes are:
+```yaml
+pmtiles:
+  sources:
+    tiles: file:///path/to/tiles.pmtiles
+```
 
-    - `file:///path/to/my/file.pmtiles`
-    - `path/to/my/file.pmtiles`
+### Remote files and prefixes
 
-    You can also configure this via the configuration file:
+PMTiles supports HTTP(S), Amazon S3 and compatible services, Google Cloud Storage, and Microsoft Azure Storage.
+See [Remote Object Storage](sources-object-storage.md) for URL schemes, credentials, cloud profiles, custom endpoints, proxy settings, and HTTP client configuration.
 
-    ```yaml
-    pmtiles:
-      sources:
-        tiles: file:///path/to/my/file.pmtiles
-    ```
-
-=== "Http(s)"
-
-    For HTTP(s), you need to provide the url.
-    For example:
-
-    ```bash
-    martin  https://example.com/tiles.pmtiles
-    ```
-
-    The available url schemes are:
-
-    - `http://example.com/path.pmtiles`
-    - `https://example.com/path.pmtiles`
-
-    If you want more control over your requests, you can configure additional options here as such:
-
-    ```yaml
-    pmtiles:
-      allow_http: true
-      sources:
-        tiles: s3://bucket/path/to/tiles.pmtiles
-    ```
-
-    ### Available http client settings
-
-    --8<-- "pmtiles/client.md"
-
-=== "Amazon S3"
-
-    !!! info "Important"
-        Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
-
-    For AWS, you need to provide the bucket name and the prefix of the object key.
-    For example:
-
-    ```bash
-    martin  s3://my-bucket/tiles.pmtiles
-    ```
-
-    The available url schemes are:
-
-    - `s3://<bucket>/<path>`
-    - `s3a://<bucket>/<path>`
-    - `https://s3.<region>.amazonaws.com/<bucket>`
-    - `https://<bucket>.s3.<region>.amazonaws.com`
-    - `https://ACCOUNT_ID.r2.cloudflarestorage.com/bucket`
-
-    If you want more control over your requests, you can configure additional options here as such:
-
-    ```yaml
-    pmtiles:
-      allow_http: true
-      sources:
-        tiles: s3://bucket/path/to/tiles.pmtiles
-    ```
-
-    !!! tip
-        All settings are also available under the `aws_` prefix.
-        This can be useful if you want to have different cloud providers.
-
-    ### Available AWS S3 settings
-
-    --8<-- "pmtiles/aws.md"
-
-    --8<-- "pmtiles/client.md"
-
-=== "Google Cloud Storage"
-
-    For Google Cloud, you need to provide the bucket name and the prefix of the object key.
-    For example:
-
-    ```bash
-    martin  gs://my-bucket/tiles.pmtiles
-    ```
-
-    The available url scheme is:
-
-    - `gs://bucket/path`
-
-    If you want more control over your requests, you can configure additional options here as such:
-
-    ```yaml
-    pmtiles:
-      allow_http: true
-      sources:
-        tiles: gs://bucket/path/to/tiles.pmtiles
-    ```
-
-    !!! tip
-        All settings are also available under the `google_` prefix.
-        This can be useful if you want to have different cloud providers.
-
-    ### Available google settings
-
-    --8<-- "pmtiles/google.md"
-
-    --8<-- "pmtiles/client.md"
-
-=== "Microsoft Azure"
-
-    For Azure, you need to provide the account name, container and path.
-    For example:
-
-    ```bash
-    martin  az://my-container/tiles.pmtiles
-    ```
-
-    The available url schemes are:
-
-    - `abfs[s]://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-    - `abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>`
-    - `abfs[s]://<file_system>@<account_name>.dfs.fabric.microsoft.com/<path>`
-    - `az://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-    - `adl://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-    - `azure://<container>/<path>` (custom)
-    - `https://<account>.dfs.core.windows.net`
-    - `https://<account>.blob.core.windows.net`
-    - `https://<account>.blob.core.windows.net/<container>`
-    - `https://<account>.dfs.fabric.microsoft.com`
-    - `https://<account>.dfs.fabric.microsoft.com/<container>`
-    - `https://<account>.blob.fabric.microsoft.com`
-    - `https://<account>.blob.fabric.microsoft.com/<container>`
-
-    If you want more control over your requests, you can configure additional options here as such:
-
-    ```yaml
-    pmtiles:
-      allow_http: true
-      sources:
-        tiles: az://my-container/tiles.pmtiles
-    ```
-
-    !!! tip
-        All settings are also available under the `azure_` prefix.
-        This can be useful if you want to have different cloud providers.
-
-    ### Available azure settings
-
-    --8<-- "pmtiles/azure.md"
-
-    --8<-- "pmtiles/client.md"
+```yaml
+pmtiles:
+  sources:
+    tiles: s3://my-bucket/tiles.pmtiles
+```
