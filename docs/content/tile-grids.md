@@ -198,6 +198,7 @@ postgres:
     rooms:
       schema: public
       table: rooms
+      srid: 0
       geometry_column: geom
       tile_grid: FloorPlan
 ```
