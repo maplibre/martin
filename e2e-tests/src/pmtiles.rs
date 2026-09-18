@@ -56,7 +56,6 @@ fn coord(z: i64, x: i64, row: i64) -> TileCoord {
 ///
 /// The `json` row is itself an object holding `vector_layers`, which readers expect alongside the
 /// other rows rather than nested, so it is merged in.
-/// The keys are sorted so the archive has the same bytes in every build.
 fn pmtiles_metadata(metadata: &Metadata) -> String {
     let mut object = serde_json::Map::new();
     for (key, value) in metadata {
