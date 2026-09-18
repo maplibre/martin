@@ -37,9 +37,11 @@ async fn tilejson(martin: &Martin, id: &str) -> Value {
 fn assert_remote_reads_use_ranges(
     requests: &str,
     path: &str,
+    query: Option<&str>,
     expected_reads: usize,
     ranges: &[&str],
 ) {
+    let path = query.map_or_else(|| path.to_owned(), |query| format!("{path}?{query}"));
     let head = format!("HEAD {path} no range");
     let gets = ranges
         .iter()
@@ -50,22 +52,9 @@ fn assert_remote_reads_use_ranges(
     let mut get_counts = vec![0; gets.len()];
 
     for request in requests.lines() {
-        // Strip a query a URL may carry (only for asserting reads, which the caller checks
-        // separately): `METHOD /path[?query] range` loses its `?query` slice, keeping path and
-        // range for comparison.
-        let request = match request.split_once('?') {
-            Some((before, rest)) => {
-                let range_tail = rest.split_once(' ').map_or(rest, |pair| pair.1);
-                format!("{before} {range_tail}")
-            }
-            None => request.to_owned(),
-        };
         if request == head {
             head_count += 1;
-        } else if let Some(index) = gets
-            .iter()
-            .position(|expected| request.as_str() == expected.as_str())
-        {
+        } else if let Some(index) = gets.iter().position(|expected| request == expected) {
             get_counts[index] += 1;
         }
     }
@@ -264,14 +253,12 @@ cog:
     assert_remote_reads_use_ranges(
         &statics.request_log().await,
         "/cogtest/usda_naip_128_none_z2.tif",
+        None,
         2,
         &["bytes=0-32767", "bytes=1284-66819"],
     );
 }
 
-/// A configured COG whose object is served but whose range reads fail at startup must load the
-/// moment reads heal, even though the object's version never changes. This is the P1 regression
-/// for "warn-policy sinks advance the reload baseline past a source they skipped".
 #[tokio::test]
 async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
@@ -295,26 +282,24 @@ cog:
         .await
         .expect("failed to start martin with a read-failing remote COG");
 
-    // Reads fail, so the object must not be served; the source is absent, not stale.
-    let catalog = async || {
+    assert!(
         martin.get("/catalog").await.json()["tiles"]
             .get("remote")
-            .is_some()
-    };
-    assert!(!catalog().await, "the failed source must not be published");
+            .is_none(),
+        "the failed source must not be published"
+    );
     tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
     assert!(
-        !catalog().await,
+        martin.get("/catalog").await.json()["tiles"]
+            .get("remote")
+            .is_none(),
         "the failed source must not appear while reads keep failing"
     );
-    // Two poll cycles have now run against the failing object.
 
-    // Heal the object: the unchanged ETag must not matter, the next poll retries the build.
     statics.set_fail_gets(false);
-    let tile_url = "/remote/18/42712/97343";
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
-            if martin.get(tile_url).await.status() == 200 {
+            if martin.get("/remote/18/42712/97343").await.status() == 200 {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -323,20 +308,38 @@ cog:
     .await
     .expect("the source must load once reads heal");
 
-    // The failure was expected; consume the warnings the harness would otherwise flag. Every
-    // failure line carries `error=`, regardless of the shape the log takes.
-    martin.assert_log_contains("Tile source resolution warning");
-    let drained = martin.take_log_lines("error=");
-    assert!(
-        !drained.is_empty(),
-        "the failing reads must have been logged"
-    );
-
     martin.stop().await;
+    martin.assert_log_contains("Tile source resolution warning");
+    let errors = martin.take_log_lines("error=");
+    assert!(
+        errors.iter().all(|line| {
+            line.contains("WARN Skipping addition source.id=remote error=")
+                || line == "ERROR error=\"Source remote does not exist\""
+        }),
+        "unexpected errors: {errors:#?}"
+    );
+    let skipped = errors
+        .iter()
+        .find(|line| line.contains("WARN Skipping addition source.id=remote error="))
+        .expect("the failed reload must be logged");
+    let missing = errors
+        .iter()
+        .find(|line| line.as_str() == "ERROR error=\"Source remote does not exist\"")
+        .expect("the unavailable source request must be logged");
+    insta::with_settings!({
+        filters => vec![
+            (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
+            (r" in [0-9.]+(?:ns|µs|ms|s) -", " in [TIME] -"),
+            (r"(?m) +$", ""),
+        ]
+    }, {
+        insta::assert_snapshot!(format!("{skipped}\n{missing}"), @r#"
+         WARN Skipping addition source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
+        ERROR error="Source remote does not exist"
+        "#);
+    });
 }
 
-/// A source that is live-replaced while its reads are failing must be retried on the next poll
-/// rather than stuck at its old version: an update failure has to hold the baseline entry back.
 #[tokio::test]
 async fn a_failed_update_is_retried_until_the_replacement_reads() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
@@ -362,9 +365,6 @@ cog:
     let tile_url = "/remote/19/85424/194685";
     assert_eq!(martin.get(tile_url).await.status(), 200);
 
-    // Replace the object with one that is present in the original but sparse in the replacement,
-    // while every read of it fails. The gate answers 404 so a failing build errors immediately;
-    // two poll cycles later the skip is guaranteed to have been recorded.
     statics.set_fail_gets(true);
     statics.replace(
         key,
@@ -377,7 +377,6 @@ cog:
         "a failed update must keep serving the last good version"
     );
 
-    // Heal the reads: the replacement must be picked up although its version never changed.
     statics.set_fail_gets(false);
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
@@ -390,15 +389,24 @@ cog:
     .await
     .expect("the failed update must be retried and applied once reads heal");
 
-    // The failure was expected; consume the warnings the harness would otherwise flag. Every
-    // failure line carries `error=`, regardless of the shape the log takes.
-    let drained = martin.take_log_lines("error=");
-    assert!(
-        !drained.is_empty(),
-        "the failing reads must have been logged"
-    );
-
     martin.stop().await;
+    let errors = martin.take_log_lines("error=");
+    assert!(
+        errors
+            .iter()
+            .all(|line| line.contains("WARN Skipping update source.id=remote error=")),
+        "unexpected errors: {errors:#?}"
+    );
+    let skipped = errors.first().expect("the failed reload must be logged");
+    insta::with_settings!({
+        filters => vec![
+            (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
+            (r" in [0-9.]+(?:ns|µs|ms|s) -", " in [TIME] -"),
+            (r"(?m) +$", ""),
+        ]
+    }, {
+        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
+    });
 }
 
 #[tokio::test]
@@ -478,14 +486,19 @@ cog:
 #[tokio::test]
 async fn a_remote_cog_prefix_is_discovered_and_polled() {
     let first_key = "cogtest/imagery/first.tif";
+    let removed_key = "cogtest/imagery/removed.tif";
     let second_key = "cogtest/imagery/second.tiff";
     let original_fixture = fixture("cog/usda_naip_128_none_z2.tif");
-    let statics = StaticFiles::serving(&[(first_key, original_fixture.clone())]).await;
+    let statics = StaticFiles::serving(&[
+        (first_key, original_fixture.clone()),
+        (removed_key, original_fixture.clone()),
+    ])
+    .await;
     let mut martin = Martin::builder()
         .config(&format!(
             "\
 cog:
-  reload_interval: 1s
+  reload_interval: 2s
   allow_http: true
   aws_endpoint: {}
   skip_signature: true
@@ -499,6 +512,7 @@ cog:
         .expect("failed to start martin with a remote COG prefix");
 
     martin.wait_for_source("first").await;
+    martin.wait_for_source("removed").await;
     let first_tile = "/first/19/85424/194685";
     let original = martin.get(first_tile).await;
     assert_eq!(original.status(), 200);
@@ -508,6 +522,11 @@ cog:
         first_key,
         &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
     );
+    statics.insert(second_key, &original_fixture);
+    statics.remove(removed_key);
+
+    martin.wait_for_source("second").await;
+    martin.wait_for_source_removed("removed").await;
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
             if martin.get(first_tile).await.status() == 204 {
@@ -518,28 +537,24 @@ cog:
     })
     .await
     .expect("a replaced object under the prefix must reload within the poll window");
-
-    statics.insert(second_key, &original_fixture);
-    martin.wait_for_source("second").await;
     assert_eq!(martin.get("/second/19/85424/194685").await.status(), 200);
 
-    statics.remove(first_key);
-    martin.wait_for_source_removed("first").await;
     martin.stop().await;
-
-    let requests = statics.request_log().await;
-    let list_count = requests
+    let list_requests = statics
+        .request_log()
+        .await
         .lines()
         .filter(|request| {
             request.starts_with("GET /cogtest?")
                 && request.contains("list-type=2")
                 && request.contains("prefix=imagery")
         })
-        .count();
-    assert!(
-        list_count >= 4,
-        "the prefix must be re-listed for each observed change:\n{requests}"
-    );
+        .collect::<Vec<_>>()
+        .join("\n");
+    insta::assert_snapshot!(list_requests, @"
+    GET /cogtest?list-type=2&prefix=imagery%2F no range
+    GET /cogtest?list-type=2&prefix=imagery%2F no range
+    ");
 }
 
 #[tokio::test]
@@ -586,18 +601,9 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     assert_remote_reads_use_ranges(
         &statics.request_log().await,
         "/usda_naip_512_webp_z5.tif",
+        Some("token=secret-query"),
         1,
         &["bytes=0-28219", "bytes=11166-11777"],
-    );
-
-    // Every request must have carried the query token; the server 403s otherwise, so serving
-    // the tile already proves the query was forwarded, and the log makes it checkable.
-    let requests = statics.request_log().await;
-    assert!(
-        requests
-            .lines()
-            .all(|line| line.contains("?token=secret-query")),
-        "every remote request must carry the configured query:\n{requests}"
     );
 }
 
