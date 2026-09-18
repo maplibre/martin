@@ -197,7 +197,7 @@ impl Args {
 
         #[cfg(feature = "unstable-duckdb")]
         if !cli_strings.is_empty() {
-            let geoparquet = parse_file_paths(&mut cli_strings, &["parquet"], false, false)
+            let geoparquet = parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
                 .into_iter()
                 .map(|path| {
                     DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
