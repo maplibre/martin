@@ -23,7 +23,6 @@ tags:
 
     - DuckDB sources are not included in default binaries, Homebrew, or the Docker image
     - There is no CLI shorthand for `.parquet` or `.duckdb` files
-    - DuckDB database sources (`database:`) are not yet supported
     - Local GeoParquet must be a single file; directories and globs are rejected
     - Hot reload is not implemented
     - MLT postprocessing is not supported
@@ -31,7 +30,7 @@ tags:
 
     We welcome contributions to help stabilize this feature!
 
-Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files via [DuckDB](https://duckdb.org/).
+Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files and from the tables and macros of `.duckdb` database files via [DuckDB](https://duckdb.org/).
 Instead of incurring the overhead of serving them directly, we serve them as vector tiles.
 
 DuckDB sources are only available via the [configuration file](config-file/index.md).
@@ -124,41 +123,89 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
 
 ## Database sources
 
-A `database:` entry names a DuckDB database file.
-The configuration parser accepts the `auto_publish`, `tables`, and `macros` blocks shown below, but does not interpret them yet.
-Database sources are not yet supported; Martin logs a warning and skips the entire entry.
+A `database:` entry names a DuckDB database file, which Martin opens read-only.
+One connection pool serves every source of that file.
+Tables with a `GEOMETRY` column are served as MVT layers the same way GeoParquet files are, and table macros taking `(z, x, y)` are served as ready-made tiles.
 
 ```yaml
-# Keep serving the working GeoParquet sources when the database source is skipped.
-on_invalid: warn
 duckdb:
   pool_size: 4
   auto_bounds: quick
   sources:
+    # Publish every geometry table and (z, x, y) macro of the file
     - database: /data/tiles.duckdb
+    # Or pick what to publish
+    - database: /data/more_tiles.duckdb
       auto_publish:
+        # Optionally limit both tables and macros to these schemas
+        from_schemas: [main, places]
         tables:
-          from_schemas: autodetect
-          source_id_format: "{table}"
+          # Add more schemas to the ones listed above
+          from_schemas: roads
+          # How the source id is built from the schema, the table and its geometry column [default: "{table}"]
+          source_id_format: "{schema}.{table}"
+          # The first integer column of this list becomes the MVT feature id
           id_columns: [id, gid]
           extent: 4096
           buffer: 64
           clip_geom: true
+        macros:
+          from_schemas: main
+          # How the source id is built from the schema and the macro name [default: "{macro}"]
+          source_id_format: "{schema}.{macro}"
       tables:
+        # Source id
         roads:
+          # Schema the table lives in [default: main]
           schema: main
           table: roads
+          # Same options as a GeoParquet source
           geometry_column: geom
+          id_column: id
           srid: 4326
           minzoom: 0
           maxzoom: 14
-          properties:
-            id: int4
-            name: varchar
+          extent: 4096
+          buffer: 64
+          clip_geom: true
+      macros:
+        # Source id
+        roads_at_zoom:
+          schema: main
+          macro: roads_mvt
+          minzoom: 0
+          maxzoom: 14
+          # Bounds in WGS84 [left, bottom, right, top]; not computed for macros
+          bounds: [-180, -85, 180, 85]
 ```
 
-Without `on_invalid: warn`, the default `abort` policy stops Martin because the database entry cannot be resolved.
-Do not rely on any of the database source options above yet; they are included to show the accepted configuration shape only.
+`auto_publish` follows the [PostgreSQL rules](sources-pg-tables.md): a bare `database:` entry publishes every geometry table and `(z, x, y)` macro; configuring `tables` or `macros` explicitly turns discovery off unless `auto_publish` is set; and inside `auto_publish`, mentioning only one of `tables` or `macros` disables the other.
+A table with several geometry columns yields one source per column.
+Discovered tables detect their SRID from the column's CRS, so store it with `GEOMETRY('EPSG:4326')` or set `srid` on an explicit table.
+
+A macro is any `CREATE MACRO name(z, x, y) AS TABLE ...` whose first row's first column is the tile, for example:
+
+```sql
+CREATE MACRO roads_mvt(z, x, y) AS TABLE
+SELECT ST_AsMVT(tile, 'roads', 4096, 'geom') AS mvt
+FROM (
+    SELECT
+        ST_AsMVTGeom(
+            ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
+            ST_Extent(ST_TileEnvelope(z, x, y)),
+            4096, 64, true
+        ) AS geom,
+        id,
+        name
+    FROM roads
+    WHERE ST_Intersects(
+        ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
+        ST_TileEnvelope(z, x, y)
+    )
+) AS tile;
+```
+
+Macros are served as-is: Martin does not compute their bounds or `vector_layers`.
 
 ## About GeoParquet
 
