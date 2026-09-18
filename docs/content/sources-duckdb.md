@@ -180,6 +180,7 @@ duckdb:
 ```
 
 `auto_publish` follows the [PostgreSQL rules](sources-pg-tables.md):
+
 - A bare `database:` entry publishes every geometry table and `(z, x, y)` macro. - Configuring `tables` or `macros` explicitly turns discovery off unless `auto_publish` is set.
 - Inside `auto_publish`, mentioning only one of `tables` or `macros` disables the other.
 - A table with several geometry columns yields one source per column.
