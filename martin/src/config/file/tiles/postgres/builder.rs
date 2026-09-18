@@ -371,6 +371,10 @@ impl PostgresAutoDiscoveryBuilder {
                             continue;
                         };
                         db_inf.srid = srid;
+                        if let Err(reason) = self.check_srid_fits_tile_grid(&db_inf) {
+                            warn!("{reason}, skipping");
+                            continue;
+                        }
                         update_auto_fields(&id2, &mut db_inf, auto_tables);
                         specs.insert(id2, SourceSpec::Table(db_inf));
                     }
@@ -543,6 +547,7 @@ impl PostgresAutoDiscoveryBuilder {
         let merged_table_info = table_info_for_geometry_column
             .append_cfg_info(table_info_from_config, id, default_srid)
             .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
+        self.check_srid_fits_tile_grid(&merged_table_info)?;
         Ok(merged_table_info)
     }
 
@@ -597,6 +602,20 @@ impl PostgresAutoDiscoveryBuilder {
         } else {
             self.default_srid
         }
+    }
+
+    /// Refuses a table with an SRID on a simple grid, which has no CRS to convert it to.
+    fn check_srid_fits_tile_grid(&self, info: &TableInfo) -> Result<(), String> {
+        let grid = self.tile_grid_for(info.tile_grid.as_deref()).grid();
+        if grid.is_simple() && info.srid != 0 {
+            return Err(format!(
+                "Table {} has SRID={}, but only SRID 0 can be served on the simple tile grid {}",
+                info.format_id(),
+                info.srid,
+                grid.id()
+            ));
+        }
+        Ok(())
     }
 
     /// Constructs a [`PostgresSource`] from a resolved source description and its SQL.

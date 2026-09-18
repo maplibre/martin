@@ -206,6 +206,7 @@ postgres:
 The table stores its geometry with SRID 0.
 An SRID is the number PostGIS tags a geometry column with to say which CRS it is in, and 0 means "none".
 Nothing is ever converted.
+A table with any other SRID is not served on a simple grid.
 No `bounds` are computed, since there is no longitude and latitude to express them in.
 
 ## Non-EPSG coordinate reference systems

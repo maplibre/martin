@@ -1904,7 +1904,7 @@ async fn a_simple_grid_serves_plain_planar_coordinates() {
 }
 
 #[tokio::test]
-async fn a_simple_grid_set_on_the_connection_auto_publishes_tables_without_a_srid() {
+async fn a_simple_grid_set_on_the_connection_auto_publishes_only_tables_without_a_srid() {
     let mut martin = Martin::builder()
         .with_postgres()
         .config(
@@ -1931,10 +1931,68 @@ postgres:
     let tilejson = tilejson(&martin, "/floor_plan").await;
     assert_eq!(tilejson["tileGrid"]["crs"], "simple");
     assert_eq!(martin.get("/floor_plan/1/0/0").await.status(), 200);
+    assert_eq!(martin.get("/points1").await.status(), 404);
 
     martin.stop().await;
+    insta::assert_snapshot!(martin.take_log_lines("simple tile grid").join("\n"), @"
+    WARN Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.table_source.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.table_source_geog.geog has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.table_source_multiple_geom.geom1 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    ");
     assert_unindexed_table_warnings(&mut martin);
     martin.assert_log_contains("source.id.new=table_source_multiple_geom.1");
+}
+
+#[tokio::test]
+async fn a_table_with_a_srid_on_a_simple_grid_stops_martin_at_startup() {
+    let error = Martin::builder()
+        .with_postgres()
+        .env("RUST_LOG", "martin=error")
+        .config(
+            "
+tile_grids:
+  FloorPlan:
+    crs: simple
+    origin: [0, 1000]
+    extent_at_zoom0: 1000
+postgres:
+  connection_string: ${DATABASE_URL}
+  auto_publish: false
+  tables:
+    points1:
+      schema: public
+      table: points1
+      srid: 4326
+      geometry_column: geom
+      tile_grid: FloorPlan
+",
+        )
+        .start()
+        .await
+        .expect_err("martin must not start with a table a simple grid cannot serve");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"
+    ERROR Tile source resolution warning: Source points1: Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    ERROR error=TileResolutionWarningsIssued
+    ERROR warnings issued during tile source resolution
+    ");
 }
 
 #[tokio::test]
