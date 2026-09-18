@@ -273,7 +273,7 @@ POST /style/{id}/static/{camera}/{wxh.fmt}
 
 The camera can be a center point, a bounding box, or auto-fit to the overlays you pass in.
 Overlays support fills, lines and circles with configurable color/opacity.
-See the [documentation](https://maplibre.org/martin/sources-styles.html) for the full field list and examples.
+See the [documentation](https://maplibre.org/martin/sources-styles/) for the full field list and examples.
 Done in [#2794](https://github.com/maplibre/martin/pull/2794), [#2922](https://github.com/maplibre/martin/pull/2922).
 
 ### `mbtiles pack` and `mbtiles unpack`
@@ -300,7 +300,7 @@ passthrough:
 ```
 
 An upstream can be a `{z}/{x}/{y}` template, a TileJSON document URL, a list of mirror templates, or the detailed object form above.
-See the [documentation](https://maplibre.org/martin/sources-passthrough.html) for the full field list.
+See the [documentation](https://maplibre.org/martin/sources-passthrough/) for the full field list.
 Done in [#2913](https://github.com/maplibre/martin/pull/2913), [#2908](https://github.com/maplibre/martin/pull/2908), [#2924](https://github.com/maplibre/martin/pull/2924).
 
 ### More capable config parsing
@@ -895,14 +895,14 @@ We have split this up into different parts and you can now specify how much spri
 > [!TIP]
 > We also now support caching sprites and fonts - speeding up the rendering of vector maps.
 
-See our [documentation here](https://maplibre.org/martin/config-file.html) for further context.
+See our [documentation here](https://maplibre.org/martin/config-file/) for further context.
 
 Done in [#2295](https://github.com/maplibre/martin/pull/2295) [#2304](https://github.com/maplibre/martin/pull/2304) [#2303](https://github.com/maplibre/martin/pull/2303), [#2297](https://github.com/maplibre/martin/pull/2297)
 
 ### Pmtiles support for Google Cloud, Azure and much more options
 
 The good news first:
-- [greatly expanded](https://maplibre.org/martin/sources-files.html) options for AWS and HTTP backends
+- [greatly expanded](https://maplibre.org/martin/sources-files/) options for AWS and HTTP backends
 - New support for Google Cloud and Azure object storage
 - Local files remain unaffected
 
@@ -925,7 +925,7 @@ We asked for community feedback on Slack (see [here](https://maplibre.org/commun
 If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
 - https://github.com/maplibre/martin/issues/2286
 
-For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files/).
 
 Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 
@@ -933,7 +933,7 @@ Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 ### unstable style rendering support
 
 We added an experimental option for server-side style rendering, allowing you to convert your configured styles into images on the server side instead of the client.
-See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
+See our [documentation here](https://maplibre.org/martin/sources-styles/rendering/) for further context.
 
 Done in [#2306](https://github.com/maplibre/martin/pull/2306)
 
