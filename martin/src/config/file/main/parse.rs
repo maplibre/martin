@@ -147,7 +147,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    #[cfg(any(feature = "sprites", feature = "fonts"))]
+    #[cfg(feature = "sprites"))]
     use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
@@ -173,10 +173,6 @@ mod tests {
     fn parse_with_env(yaml: &str, env: &HashMap<String, String>) -> Config {
         parse_config(yaml, env, Path::new("test.yaml")).unwrap()
     }
-
-    // ----- `parse_config` pipeline diagnostics: failures that don't belong to a single
-    // ----- field's deserializer (raw YAML syntax, ${VAR} substitution, derive-`Deserialize`
-    // ----- enums) live here next to the function under test.
 
     #[test]
     fn syntax_error_unbalanced_quote() {
