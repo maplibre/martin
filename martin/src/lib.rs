@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+#[cfg(feature = "mbtiles")]
+pub mod cp;
 pub mod logging;
 
 #[cfg(feature = "_tiles")]

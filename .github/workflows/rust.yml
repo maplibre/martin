@@ -44,7 +44,6 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with:
           tools: 'just,nextest'
-          rendering: true
           # The 10GB cache quota only has room for the Linux entry; a macOS entry
           # gets evicted before the next run can restore it (see #3156).
           cache: ${{ matrix.os == 'ubuntu-latest' }}
@@ -168,9 +167,23 @@ jobs:
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   docker-build-test:
-    name: Build and test docker images
+    name: Build and test docker images (${{ matrix.variant }})
     runs-on: ubuntu-latest
-    needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu ]
+    needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu, build-aarch64-unknown-linux-gnu-full, build-x86_64-unknown-linux-gnu-full ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: base
+            suffix: ''
+            flavor: ''
+            extra_packages: ''
+            description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+          - variant: full
+            suffix: '-full'
+            flavor: suffix=-full,onlatest=true
+            extra_packages: mesa-vulkan-drivers libcurl4 libglfw3 libicu74 libjpeg-turbo8 libpng16-16t64 libuv1 libwebp7
+            description: Martin tile server with server-side style rendering (batteries-included)
     permissions:
       id-token: write
       attestations: write
@@ -225,7 +238,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1 # v5.4.0
+        uses: docker/setup-docker-action@2bf61fb9464cc67f0cbdeabed6aa0380accd1c70 # v5.5.0
         with:
           daemon-config: |
             {
@@ -239,19 +252,19 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: "${{ env.DOCKER_PLATFORMS }}" }
-      - name: Download build artifact build-aarch64-unknown-linux-gnu
+      - name: Download build artifact build-aarch64-unknown-linux-gnu${{ matrix.suffix }}
         if: contains(env.DOCKER_PLATFORMS, 'arm64')
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target_releases/linux/arm64/' }
+        with: { name: 'build-aarch64-unknown-linux-gnu${{ matrix.suffix }}', path: 'target_releases/linux/arm64/' }
       - name: Mark target_releases/linux/arm64/* as executable
         if: contains(env.DOCKER_PLATFORMS, 'arm64')
         run: chmod +x target_releases/linux/arm64/*
-      - name: Download build artifact build-x86_64-unknown-linux-gnu
+      - name: Download build artifact build-x86_64-unknown-linux-gnu${{ matrix.suffix }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/linux/amd64/' }
+        with: { name: 'build-x86_64-unknown-linux-gnu${{ matrix.suffix }}', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
       - name: Prepare tag
@@ -274,6 +287,7 @@ jobs:
         # https://github.com/docker/metadata-action
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: ${{ matrix.flavor }}
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
@@ -287,7 +301,7 @@ jobs:
             org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
-            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.description=${{ matrix.description }}
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.source=https://github.com/maplibre/martin
           annotations: |
@@ -300,7 +314,7 @@ jobs:
             org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
-            org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
+            org.opencontainers.image.description=${{ matrix.description }}
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.source=https://github.com/maplibre/martin
         env:
@@ -313,9 +327,10 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
           push: false
           load: true
-          tags: ${{ github.repository }}:linux
+          tags: ${{ github.repository }}:linux${{ matrix.suffix }}
           annotations: ${{ steps.docker_meta.outputs.annotations }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: ${{ env.DOCKER_TEST_PLATFORMS }}
@@ -324,14 +339,13 @@ jobs:
         if: contains(env.DOCKER_TEST_PLATFORMS, 'arm64')
         run: |
           PLATFORM=linux/arm64
-          TAG=${{ github.repository }}:linux
+          TAG=${{ github.repository }}:linux${{ matrix.suffix }}
           # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
           RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
-          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -343,14 +357,13 @@ jobs:
       - name: End-to-end tests against the linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
-          TAG=${{ github.repository }}:linux
+          TAG=${{ github.repository }}:linux${{ matrix.suffix }}
           # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
           RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
-          export MARTIN_CP_BIN="docker run $RUN --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -375,6 +388,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
           push: true
           load: false
           tags: ${{ steps.docker_meta.outputs.tags }}
@@ -427,6 +441,23 @@ jobs:
     with:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
+  # `-full` builds (adds rendering) for the `-full` image and Linux-gnu tarballs.
+  build-x86_64-unknown-linux-gnu-full:
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-linux-gnu
+      os: ubuntu-latest
+      full: true
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
+  build-aarch64-unknown-linux-gnu-full:
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-linux-gnu
+      os: ubuntu-24.04-arm
+      full: true
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   test-aws-lambda:
@@ -528,10 +559,9 @@ jobs:
       - name: End-to-end tests
         run: |
           export MARTIN_BIN=target/martin${{ matrix.ext }}
-          export MARTIN_CP_BIN=target/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=target/mbtiles${{ matrix.ext }}
           if [[ "${{ runner.os }}" != "Windows" ]]; then
-            chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+            chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           fi
           if [ "$RUNNER_OS" == "Linux" ]; then
             export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
@@ -555,7 +585,6 @@ jobs:
         run: |
           sudo dpkg -i target/debian-x86_64.deb
           export MARTIN_BIN=/usr/bin/martin${{ matrix.ext }}
-          export MARTIN_CP_BIN=/usr/bin/martin-cp${{ matrix.ext }}
           export MBTILES_BIN=/usr/bin/mbtiles${{ matrix.ext }}
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
@@ -742,9 +771,8 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BIN=target_releases/martin
-          export MARTIN_CP_BIN=target_releases/martin-cp
           export MBTILES_BIN=target_releases/mbtiles
-          chmod +x "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
+          chmod +x "$MARTIN_BIN" "$MBTILES_BIN"
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           rm -rf target_releases
         env:
@@ -759,7 +787,6 @@ jobs:
             export PGSSLROOTCERT=target/certs/server.crt
           fi
           export MARTIN_BIN=/usr/bin/martin
-          export MARTIN_CP_BIN=/usr/bin/martin-cp
           export MBTILES_BIN=/usr/bin/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
           sudo dpkg -P martin

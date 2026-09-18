@@ -3,14 +3,35 @@ use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use tracing::debug;
 
-use super::introspect::{geoparquet_from_expr, introspect};
-use super::metadata::build_tilejson;
-use super::sql::build_mvt_sql;
+use super::covering::query_covering;
 use crate::config::args::BoundsCalcType;
 use crate::config::file::CachePolicy;
 use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
-use crate::config::file::tiles::duckdb::resolver::errors::GeoparquetResult;
+use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
+use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
+use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
+use crate::config::file::tiles::duckdb::resolver::sql::build_mvt_sql;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
+use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
+
+/// The finalized location as a `DuckDB` string literal, for functions that take a path.
+fn geoparquet_source_literal(entry: &GeoParquetEntry) -> String {
+    escape_sql_string(
+        &entry
+            .location
+            .as_ref()
+            .expect("GeoParquetEntry must be finalized before resolve")
+            .to_source_string(),
+    )
+}
+
+/// Builds the `DuckDB` `FROM` expression from the finalized location.
+pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
+    (
+        format!("read_parquet({})", geoparquet_source_literal(entry)),
+        entry.geoparquet.clone(),
+    )
+}
 
 /// Introspects geometry metadata, resolves SRID, and builds a tile-ready `DuckDBSource`.
 pub async fn resolve_geoparquet_source(
@@ -18,9 +39,16 @@ pub async fn resolve_geoparquet_source(
     entry: &GeoParquetEntry,
     pool: DuckDBPool,
     cache: CachePolicy,
-) -> GeoparquetResult<BoxedSource> {
+) -> DuckDbSourceResult<BoxedSource> {
     let (from_expr, source_label) = geoparquet_from_expr(entry);
-    let introspection = introspect(&pool, &from_expr, &source_label, entry).await?;
+    let mut introspection = introspect(&pool, &from_expr, &source_label, &entry.layer).await?;
+    introspection.covering = query_covering(
+        &pool,
+        &geoparquet_source_literal(entry),
+        &introspection.geometry_column,
+        &source_label,
+    )
+    .await;
     debug!(
         source.id = %source_id,
         geometry_column = %introspection.geometry_column,
@@ -39,8 +67,16 @@ pub async fn resolve_geoparquet_source(
     )
     .await?;
 
-    let sql_query = build_mvt_sql(&introspection, entry, &source_id, &from_expr);
-    let tilejson = build_tilejson(&introspection, entry, &source_id, &source_label, bounds);
+    let layer_id = entry.layer_id.as_deref().unwrap_or(&source_id);
+    let sql_query = build_mvt_sql(&introspection, &entry.layer, layer_id, &from_expr);
+    let tilejson = build_tilejson(
+        &introspection,
+        &entry.layer,
+        layer_id,
+        &source_id,
+        format!("GeoParquet ({source_label})"),
+        bounds,
+    );
     let source = DuckDBSource::new(
         source_id,
         DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_owned()),
@@ -62,15 +98,18 @@ mod tests {
     use martin_core::tiles::duckdb::DuckDBPool;
 
     use super::*;
-    use crate::config::file::tiles::duckdb::resolver::geoparquet::introspect::GeoParquetIntrospection;
-    use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
+    use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
+    use crate::config::file::tiles::duckdb::sources::MvtLayerOptions;
 
     const FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_covering.parquet";
 
     fn fixture_entry() -> GeoParquetEntry {
         let mut entry = GeoParquetEntry {
             geoparquet: FIXTURE.to_owned(),
-            srid: Some(4326),
+            layer: MvtLayerOptions {
+                srid: Some(4326),
+                ..MvtLayerOptions::default()
+            },
             ..GeoParquetEntry::default()
         };
         entry.finalize().expect("finalize the covering fixture");
@@ -88,18 +127,26 @@ mod tests {
         .expect("local GeoParquet pool")
     }
 
-    async fn fixture_introspection(pool: &DuckDBPool) -> GeoParquetIntrospection {
+    async fn fixture_introspection(pool: &DuckDBPool) -> LayerIntrospection {
         let entry = fixture_entry();
         let (from_expr, source_label) = geoparquet_from_expr(&entry);
-        introspect(pool, &from_expr, &source_label, &entry)
+        let mut introspection = introspect(pool, &from_expr, &source_label, &entry.layer)
             .await
-            .expect("introspect the covering fixture")
+            .expect("introspect the covering fixture");
+        introspection.covering = query_covering(
+            pool,
+            &geoparquet_source_literal(&entry),
+            &introspection.geometry_column,
+            &source_label,
+        )
+        .await;
+        introspection
     }
 
     /// The tile one request produced, and the physical operators `DuckDB` used to produce it.
     async fn tile_and_operators(
         pool: &DuckDBPool,
-        introspection: &GeoParquetIntrospection,
+        introspection: &LayerIntrospection,
         z: i16,
         x: i64,
         y: i64,
@@ -110,7 +157,7 @@ mod tests {
         let profile_path = escape_sql_string(&profile.to_string_lossy());
         let entry = fixture_entry();
         let (from_expr, _) = geoparquet_from_expr(&entry);
-        let sql = build_mvt_sql(introspection, &entry, "covering", &from_expr);
+        let sql = build_mvt_sql(introspection, &entry.layer, "covering", &from_expr);
 
         let tile = pool
             .generate_tile(move |conn| {
@@ -162,7 +209,7 @@ mod tests {
     async fn a_tile_no_feature_reaches_is_answered_from_parquet_statistics_alone() {
         let pool = fixture_pool();
         let introspection = fixture_introspection(&pool).await;
-        let unpruned = GeoParquetIntrospection {
+        let unpruned = LayerIntrospection {
             covering: None,
             ..introspection.clone()
         };
@@ -189,7 +236,7 @@ mod tests {
     async fn pruning_does_not_change_a_tile_that_has_features() {
         let pool = fixture_pool();
         let introspection = fixture_introspection(&pool).await;
-        let unpruned = GeoParquetIntrospection {
+        let unpruned = LayerIntrospection {
             covering: None,
             ..introspection.clone()
         };

@@ -11,6 +11,7 @@ use super::data::{Dashboard, TileRequest};
 use super::observer::{observe, tile_request};
 use super::state::{LogSize, LogView};
 use super::{Flow, press, render};
+use crate::logging::LogFormat;
 
 fn render(dashboard: &Dashboard, now: Instant, log: LogView) -> String {
     let view = dashboard.snapshot_at(now);
@@ -33,7 +34,7 @@ fn tile(source: &str, z: u8, x: u32, y: u32) -> TileRequest {
 #[test]
 fn a_fresh_dashboard_shows_the_address_and_an_empty_map() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
 
     let now = started + Duration::from_secs(5);
@@ -43,7 +44,7 @@ fn a_fresh_dashboard_shows_the_address_and_an_empty_map() {
 #[test]
 fn requests_fill_the_sources_the_map_and_the_rate() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     writeln!(dashboard.log().writer(Level::INFO), "INFO Starting Martin").expect("a log line");
     writeln!(
@@ -95,7 +96,7 @@ fn requests_fill_the_sources_the_map_and_the_rate() {
 #[test]
 fn an_expanded_log_takes_the_screen() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     writeln!(dashboard.log().writer(Level::INFO), "INFO Starting Martin").expect("a log line");
 
@@ -112,7 +113,7 @@ fn an_expanded_log_takes_the_screen() {
 #[test]
 fn scrolling_the_log_stops_short_of_the_newest_line() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     for line in 1..=40 {
         writeln!(dashboard.log().writer(Level::INFO), "INFO log line {line}").expect("a log line");
@@ -135,7 +136,7 @@ fn scrolling_the_log_stops_short_of_the_newest_line() {
 #[test]
 fn the_log_paints_the_parts_of_a_line_the_way_pretty_does() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     writeln!(
         dashboard.log().writer(Level::INFO),
@@ -167,9 +168,43 @@ fn the_log_paints_the_parts_of_a_line_the_way_pretty_does() {
 }
 
 #[test]
+fn the_log_keeps_another_format_as_written() {
+    let started = Instant::now();
+    let dashboard = Dashboard::started_at(started, LogFormat::Json);
+    dashboard.set_address("http://127.0.0.1:3000/".to_owned());
+    writeln!(
+        dashboard.log().writer(Level::INFO),
+        r#"{{"timestamp":"2026-09-05T09:41:12.123456Z","level":"INFO","fields":{{"message":"Starting Martin","port":3000}},"target":"martin::srv::server"}}"#
+    )
+    .expect("a log line");
+    writeln!(
+        dashboard.log().writer(Level::WARN),
+        "    at a line the pretty format would take for a note"
+    )
+    .expect("a log line");
+
+    let view = dashboard.snapshot_at(started + Duration::from_secs(1));
+    let mut terminal = Terminal::new(TestBackend::new(110, 6)).expect("a test terminal");
+    terminal
+        .draw(|frame| {
+            render::frame(
+                frame,
+                &view,
+                LogView {
+                    size: LogSize::Expanded,
+                    scroll: 0,
+                },
+            );
+        })
+        .expect("a drawn frame");
+
+    insta::assert_debug_snapshot!(terminal.backend().buffer());
+}
+
+#[test]
 fn clearing_forgets_the_requests_and_keeps_the_address() {
     let started = Instant::now();
-    let dashboard = Dashboard::started_at(started);
+    let dashboard = Dashboard::started_at(started, LogFormat::Pretty);
     dashboard.set_address("http://127.0.0.1:3000/".to_owned());
     dashboard.record_at(
         Some(tile("berlin", 12, 2200, 1343)),
@@ -193,7 +228,7 @@ fn key(code: KeyCode) -> KeyEvent {
 
 #[test]
 fn quit_keys_stop_the_dashboard() {
-    let dashboard = Dashboard::new();
+    let dashboard = Dashboard::new(LogFormat::Pretty);
     let mut log = LogView::default();
     for code in [KeyCode::Char('q'), KeyCode::Esc] {
         assert_eq!(press(key(code), &dashboard, &mut log, 0), Flow::Quit);
@@ -208,7 +243,7 @@ fn quit_keys_stop_the_dashboard() {
 
 #[test]
 fn c_clears_and_l_toggles_the_log_size() {
-    let dashboard = Dashboard::new();
+    let dashboard = Dashboard::new(LogFormat::Pretty);
     dashboard.record(
         Some(tile("berlin", 1, 0, 0)),
         StatusCode::OK,
@@ -230,7 +265,7 @@ fn c_clears_and_l_toggles_the_log_size() {
 
 #[test]
 fn the_arrow_and_page_keys_scroll_within_the_log() {
-    let dashboard = Dashboard::new();
+    let dashboard = Dashboard::new(LogFormat::Pretty);
     let mut log = LogView::default();
     let lines = 25;
 

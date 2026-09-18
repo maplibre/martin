@@ -357,7 +357,7 @@ impl TileSources {
         is_valid
     }
 
-    /// Returns if any source benefits from concurrent scraping by martin-cp
+    /// Returns if any source benefits from concurrent scraping by `martin cp`
     #[must_use]
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.sources

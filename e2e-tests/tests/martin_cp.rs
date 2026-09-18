@@ -1,4 +1,4 @@
-//! The `martin-cp` bulk tile copier.
+//! The `martin cp` bulk tile copier.
 
 use std::fs;
 use std::path::Path;
@@ -7,7 +7,7 @@ use martin_e2e_tests::{MartinCp, MbtilesCli, mbtiles_fixture, metadata, summary,
 use rstest::rstest;
 use serde_json::{Value, json};
 
-const GENERATOR: &str = "generator=martin-cp v0.0.0";
+const GENERATOR: &str = "generator=martin cp v0.0.0";
 
 async fn validate(path: &Path) {
     MbtilesCli::new("validate").arg(path).run().await;
@@ -45,7 +45,7 @@ async fn copies_the_only_source_when_none_is_named() {
         metadata["name"], "Major cities from Natural Earth data",
         "the copy did not carry over the source metadata: {metadata:?}"
     );
-    assert_eq!(metadata["generator"], "martin-cp v0.0.0");
+    assert_eq!(metadata["generator"], "martin cp v0.0.0");
     assert_eq!(metadata["format"], "pbf");
     validate(&output).await;
 }
@@ -212,7 +212,7 @@ mod postgres {
         let metadata = metadata(&output).await;
         assert_eq!(metadata["format"], "pbf");
         assert_eq!(metadata["compression"], "gzip");
-        assert_eq!(metadata["generator"], "martin-cp v0.0.0");
+        assert_eq!(metadata["generator"], "martin cp v0.0.0");
 
         let tile = lowest_zoom_tile(&output).await;
         assert!(tile.starts_with(&GZIP_MAGIC), "the tile is not gzipped");

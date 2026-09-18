@@ -10,6 +10,8 @@ use std::sync::Arc;
 use clap::Parser as _;
 use martin::StartupResult;
 use martin::config::args::Args;
+#[cfg(feature = "mbtiles")]
+use martin::config::args::Command;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 #[cfg(any(
@@ -115,13 +117,20 @@ async fn start(
     };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
-    if web_ui_mode == WebUiMode::EnableForAll {
-        tracing::info!("Martin server is now active at {base_url}");
-    } else {
-        info!("Martin server is now active. See {base_url}catalog to see available services");
-        info!(
-            "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
-        );
+    match web_ui_mode {
+        WebUiMode::EnableForAll => info!("Martin server is now active at {base_url}"),
+        WebUiMode::Enable => {
+            info!("Martin server is now active at {base_url}");
+            info!(
+                "Web UI is only served to localhost connections. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
+            );
+        }
+        WebUiMode::Disable => {
+            info!("Martin server is now active. See {base_url}catalog to see available services");
+            info!(
+                "Web UI is disabled. Use `--webui enable` or `--webui enable-for-all` in CLI or a config value to enable it."
+            );
+        }
     }
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");
@@ -148,14 +157,35 @@ async fn start(
 async fn main() {
     let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    let log_format = LogFormat::from_env();
-    #[cfg(feature = "tui")]
-    let dashboard = if args.meta.tui {
-        if !tui::is_available() {
-            eprintln!("--tui needs an interactive terminal");
-            std::process::exit(2);
+
+    #[cfg(feature = "mbtiles")]
+    if let Some(Command::Cp(copy_args)) = args.command {
+        let log_format = LogFormat::from_env();
+        init_tracing(&filter, log_format, true);
+        if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
+            let rendered = e.render_diagnostic_with(log_format);
+            if tracing::event_enabled!(tracing::Level::ERROR) {
+                error!("{rendered}");
+            } else {
+                eprintln!("{rendered}");
+            }
+            std::process::exit(1);
         }
-        Some(tui::install(&filter))
+        return;
+    }
+
+    #[cfg(feature = "tui")]
+    let use_dashboard = !args.meta.no_tui && tui::is_available();
+    #[cfg(not(feature = "tui"))]
+    let use_dashboard = false;
+    let log_format = if use_dashboard {
+        LogFormat::from_env_or(LogFormat::Pretty)
+    } else {
+        LogFormat::from_env()
+    };
+    #[cfg(feature = "tui")]
+    let dashboard = if use_dashboard {
+        Some(tui::install(&filter, log_format))
     } else {
         init_tracing(&filter, log_format, false);
         None

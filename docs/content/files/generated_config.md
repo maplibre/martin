@@ -560,15 +560,6 @@ styles:
   collections: []
   # A list of file paths
   paths: []
-  # Allows static, server side, style rendering
-  #
-  # Note on EXPERIMENTAL status:
-  # We are not currently happy with the performance of this endpoint and intend to improve this in the future
-  # Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-  rendering:
-    enabled: false
-    # Number of render worker threads. Unset picks a platform default.
-    workers: null
   # A map of source IDs to file paths or config objects
   sources: {}
 # Tile grids sources can be served in, besides the built-in `WebMercatorQuad`

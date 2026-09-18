@@ -13,6 +13,7 @@ use tracing::Level;
 use super::data::Snapshot;
 use super::log::LogLine;
 use super::state::{LogSize, LogView};
+use crate::logging::LogFormat;
 
 /// A tile asked for this recently is drawn as fresh.
 const FRESH: Duration = Duration::from_secs(10);
@@ -155,7 +156,7 @@ fn log_pane(view: &Snapshot, area: Rect, log_view: LogView) -> Paragraph<'_> {
     let start = end.saturating_sub(shown);
     let lines: Vec<Line<'_>> = view.log[start..end]
         .iter()
-        .map(|line| log_line(line))
+        .map(|line| log_line(line, view.log_format))
         .collect();
     let mut block = Block::bordered().title(<&str>::from(log_view.size));
     if scroll > 0 {
@@ -164,12 +165,15 @@ fn log_pane(view: &Snapshot, area: Rect, log_view: LogView) -> Paragraph<'_> {
     Paragraph::new(lines).block(block)
 }
 
-/// One log line, split into the parts the pretty format paints separately on a terminal.
-fn log_line(line: &LogLine) -> Line<'_> {
+/// One log line in the level's color, split into the parts the pretty format paints separately on a terminal.
+fn log_line(line: &LogLine, log_format: LogFormat) -> Line<'_> {
+    let color = level_color(line.level);
+    if log_format != LogFormat::Pretty {
+        return Line::from(line.text.as_str()).fg(color);
+    }
     if let Some(note) = line.text.strip_prefix(NOTE_INDENT) {
         return note_line(note);
     }
-    let color = level_color(line.level);
     event_line(&line.text, line.level, color)
         .unwrap_or_else(|| Line::from(line.text.as_str()).fg(color))
 }

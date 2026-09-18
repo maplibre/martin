@@ -717,9 +717,14 @@ mod tests {
             .next()
             .expect("a missing root yields an entry")
             .expect_err("a missing root yields an error");
+        let os_error = walk_err
+            .io_error()
+            .expect("a missing root is an IO error")
+            .to_string();
         let err = ConfigFileError::DirectoryWalking(walk_err, config_yaml());
-        insta::assert_snapshot!(describe(&err), @"
-        message: Walk directory error IO error for operation on /definitely/not/here: No such file or directory (os error 2): config.yaml
+        let described = describe(&err).replace(&os_error, "<OS ERROR>");
+        insta::assert_snapshot!(described, @"
+        message: Walk directory error IO error for operation on /definitely/not/here: <OS ERROR>: config.yaml
         code: martin::config::styles::walk
         help: none
         url: https://maplibre.org/martin/config-file/

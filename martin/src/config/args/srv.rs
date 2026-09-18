@@ -44,7 +44,7 @@ pub struct SrvArgs {
     /// `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
-    /// Control Martin web UI. [DEFAULT: disabled]
+    /// Control Martin web UI. [DEFAULT: enable]
     #[arg(short = 'u', long = "webui")]
     #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<WebUiMode>,
@@ -76,14 +76,13 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
-    /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
-    #[default]
+    /// Disable Web UI interface
     #[serde(alias = "false")]
     Disable,
-    // /// Enable Web UI interface on connections from the localhost
-    // #[default]
-    // #[serde(alias = "true")]
-    // Enable,
+    /// Enable Web UI interface on connections from the localhost
+    #[default]
+    #[serde(alias = "true")]
+    Enable,
     /// Enable Web UI interface on all connections
     #[serde(alias = "enable-for-all")]
     #[clap(alias("enable-for-all"))]

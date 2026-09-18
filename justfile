@@ -8,8 +8,10 @@ mod demo 'demo/justfile'
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
-# list of features we deem stable for release packaging
+# list of features we deem stable for release packaging (also the default feature set)
 stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,tui,webui'
+# stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
+full_features := stable_features + ',rendering'
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -243,7 +245,7 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
     cargo build --package martin --no-default-features --features rendering
     {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
 
-# Build binaries for a target. In release mode (default), strips debug info.
+# Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release target: fetch
     #!/usr/bin/env bash
@@ -253,19 +255,26 @@ build-release target: fetch
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        if [[ "{{release_mode}}" == "1" ]]; then
-            export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        fi
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
+build-release-full target: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
+    RUSTFLAGS='-C strip=symbols' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -273,9 +282,12 @@ build-deb output: fetch (cargo-install 'cargo-deb')
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-musl target: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
     rustup target add {{target}}
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo -A linker_messages"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages'
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
 
 # Move build artifacts to target_releases directory
@@ -290,11 +302,9 @@ move-artifacts target:
     else
         if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
             mv target/{{target}}/"$build_dir"/martin.exe target_releases/
-            mv target/{{target}}/"$build_dir"/martin-cp.exe target_releases/
             mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
         else
             mv target/{{target}}/"$build_dir"/martin target_releases/
-            mv target/{{target}}/"$build_dir"/martin-cp target_releases/
             mv target/{{target}}/"$build_dir"/mbtiles target_releases/
         fi
     fi
@@ -376,9 +386,9 @@ coverage-report suite:
 coverage-merge dir='target/coverage' out='target/cobertura.xml': (cargo-install 'grcov')
     grcov {{quote(dir)}} --source-dir . --output-types cobertura --output-path {{quote(out)}}
 
-# Start Martin server
+# Bulk copy tiles into an mbtiles file
 cp *args: fetch
-    cargo run --bin martin-cp -- {{args}}
+    cargo run --bin martin -- cp {{args}}
 
 # Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
@@ -509,12 +519,12 @@ package-assets target:
     mkdir -p target/files
     cd target/{{target}}
     if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
-        7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+        7z a ../files/martin-{{target}}.zip martin.exe mbtiles.exe
     elif [[ '{{target}}' == 'debian-x86_64' ]]; then
         mv *.deb ../files/
     else
-        chmod +x martin martin-cp mbtiles
-        tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+        chmod +x martin mbtiles
+        tar czvf ../files/martin-{{target}}.tar.gz martin mbtiles
     fi
     cd ../..
 

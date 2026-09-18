@@ -3,8 +3,8 @@ use std::num::NonZeroU32;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use tracing::debug;
 
-use crate::config::file::tiles::duckdb::resolver::geoparquet::introspect::GeoParquetIntrospection;
-use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
+use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
+use crate::config::file::tiles::duckdb::sources::MvtLayerOptions;
 use crate::config::file::tiles::duckdb::sql_utils::{
     epsg_crs, escape_identifier, escape_sql_string,
 };
@@ -32,14 +32,14 @@ const AXIS_MONOTONE_SRIDS: [i32; 2] = [3857, 4326];
 
 #[must_use]
 pub fn build_mvt_sql(
-    introspection: &GeoParquetIntrospection,
-    entry: &GeoParquetEntry,
-    source_id: &str,
+    introspection: &LayerIntrospection,
+    layer: &MvtLayerOptions,
+    layer_id: &str,
     from_expr: &str,
 ) -> String {
-    let extent = entry.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
-    let buffer = entry.buffer.unwrap_or(DEFAULT_BUFFER);
-    let clip_geom = entry.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+    let extent = layer.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
+    let buffer = layer.buffer.unwrap_or(DEFAULT_BUFFER);
+    let clip_geom = layer.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let margin = f64::from(buffer) / f64::from(extent);
     let source_crs = epsg_crs(introspection.srid.get());
     let target_crs = epsg_crs(3857);
@@ -50,7 +50,7 @@ pub fn build_mvt_sql(
     let source_geometry = format!("ST_SetCRS({escaped_geometry_column}::GEOMETRY, {source_crs})");
     let transformed_geometry =
         format!("ST_Transform({source_geometry}, {source_crs}, {target_crs}, always_xy := true)");
-    let layer_id = escape_sql_string(entry.layer_id.as_deref().unwrap_or(source_id));
+    let layer_name = escape_sql_string(layer_id);
 
     let buffered_envelope = if buffer == 0 {
         TILE_ENVELOPE.to_owned()
@@ -60,7 +60,7 @@ pub fn build_mvt_sql(
         )
     };
 
-    let mut filters = covering_filters(introspection, &buffered_envelope, source_id);
+    let mut filters = covering_filters(introspection, &buffered_envelope, layer_id);
     filters.push(format!(
         "ST_Intersects({transformed_geometry}, {buffered_envelope})"
     ));
@@ -75,7 +75,7 @@ pub fn build_mvt_sql(
         })
         .collect::<String>();
 
-    let (id_name, id_field) = if let Some(id_column) = &entry.id_column {
+    let (id_name, id_field) = if let Some(id_column) = &layer.id_column {
         (
             format!(", {}", escape_sql_string(id_column)),
             format!(", {}", escape_identifier(id_column)),
@@ -86,7 +86,7 @@ pub fn build_mvt_sql(
 
     format!(
         r"
-SELECT ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
+SELECT ST_AsMVT(tile, {layer_name}, {extent}, 'geom'{id_name})
 FROM (
   SELECT
     ST_AsMVTGeom(
@@ -113,9 +113,9 @@ FROM (
 /// that is `ST_Within`, and it drops every feature straddling a tile edge or larger than the
 /// tile. The failure is invisible on point layers, where the two agree.
 fn covering_filters(
-    introspection: &GeoParquetIntrospection,
+    introspection: &LayerIntrospection,
     buffered_envelope: &str,
-    source_id: &str,
+    layer_id: &str,
 ) -> Vec<String> {
     let Some(covering) = &introspection.covering else {
         return Vec::new();
@@ -124,7 +124,7 @@ fn covering_filters(
     let srid = introspection.srid.get();
     if !AXIS_MONOTONE_SRIDS.contains(&srid) {
         debug!(
-            source.id = %source_id,
+            layer.id = %layer_id,
             srid,
             "Skipping GeoParquet covering pruning: a tile envelope cannot be transformed into this SRID without possibly under-covering the tile"
         );
@@ -159,11 +159,10 @@ mod tests {
 
     use super::*;
     use crate::config::file::tiles::duckdb::resolver::geoparquet::covering::CoveringBbox;
-    use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
     use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
 
-    fn introspection_with_srid(srid: i32) -> GeoParquetIntrospection {
-        GeoParquetIntrospection {
+    fn introspection_with_srid(srid: i32) -> LayerIntrospection {
+        LayerIntrospection {
             geometry_column: "geom".to_owned(),
             srid: NonZeroI32::new(srid).expect("test srid is non-zero"),
             property_columns: BTreeMap::from([
@@ -174,8 +173,8 @@ mod tests {
         }
     }
 
-    fn introspection_with_covering(srid: i32) -> GeoParquetIntrospection {
-        GeoParquetIntrospection {
+    fn introspection_with_covering(srid: i32) -> LayerIntrospection {
+        LayerIntrospection {
             covering: Some(CoveringBbox {
                 xmin: r#""bbox"."xmin""#.to_owned(),
                 ymin: r#""bbox"."ymin""#.to_owned(),
@@ -197,7 +196,7 @@ mod tests {
     fn build_mvt_sql_includes_core_fragments() {
         let sql = build_mvt_sql(
             &introspection_with_srid(4326),
-            &GeoParquetEntry::default(),
+            &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
         );
@@ -223,7 +222,7 @@ mod tests {
     fn build_mvt_sql_expands_bounds_for_buffered_non_wgs84_sources() {
         let sql = build_mvt_sql(
             &introspection_with_srid(3857),
-            &GeoParquetEntry::default(),
+            &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
         );
@@ -247,13 +246,13 @@ mod tests {
 
     #[test]
     fn build_mvt_sql_skips_bounds_expansion_when_buffer_is_zero() {
-        let entry = GeoParquetEntry {
+        let layer = MvtLayerOptions {
             buffer: Some(0),
-            ..GeoParquetEntry::default()
+            ..MvtLayerOptions::default()
         };
         let sql = build_mvt_sql(
             &introspection_with_srid(4326),
-            &entry,
+            &layer,
             "buildings",
             &from_expr(),
         );
@@ -279,7 +278,7 @@ mod tests {
     fn build_mvt_sql_compares_the_covering_against_the_tile_in_the_source_crs() {
         let sql = build_mvt_sql(
             &introspection_with_covering(4326),
-            &GeoParquetEntry::default(),
+            &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
         );
@@ -309,7 +308,7 @@ mod tests {
     fn build_mvt_sql_needs_no_transform_when_the_source_is_already_web_mercator() {
         let sql = build_mvt_sql(
             &introspection_with_covering(3857),
-            &GeoParquetEntry::default(),
+            &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
         );
@@ -339,7 +338,7 @@ mod tests {
     fn build_mvt_sql_leaves_out_the_covering_for_a_projected_source() {
         let sql = build_mvt_sql(
             &introspection_with_covering(25832),
-            &GeoParquetEntry::default(),
+            &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
         );

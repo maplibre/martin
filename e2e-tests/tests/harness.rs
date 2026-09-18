@@ -1,6 +1,6 @@
 //! Tests for the harness's own failure reporting.
 
-use martin_e2e_tests::{Martin, StartError};
+use martin_e2e_tests::{Martin, StartError, mbtiles_fixture};
 
 #[tokio::test]
 async fn startup_failure_reports_exit_and_log() {
@@ -51,4 +51,19 @@ async fn missing_log_line_fails() {
         .expect("failed to start martin");
     martin.stop().await;
     martin.assert_log_contains("this text never appears in martin's log");
+}
+
+#[tokio::test]
+async fn no_tui_keeps_the_log_stream() {
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .arg("--no-tui")
+        .arg(&cities)
+        .start()
+        .await
+        .expect("failed to start martin");
+    assert_eq!(martin.get("/health").await.status(), 200);
+    martin.stop().await;
+    martin.assert_log_contains("Martin server is now active");
 }
