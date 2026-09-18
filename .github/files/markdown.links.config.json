@@ -19,6 +19,13 @@
       "pattern": "^http://localhost"
     },
     {
+      "pattern": "^http://0.0.0.0"
+    },
+    {
+      "__comment__": "The changelog links a pull request or compare view for nearly every entry, so checking them adds ~550 github.com requests (and several minutes) to every docs build",
+      "pattern": "^https://github.com/maplibre/martin/(pull|compare)/"
+    },
+    {
       "pattern": "^https://ghcr.io/maplibre/martin($|/|\\?)"
     },
     {

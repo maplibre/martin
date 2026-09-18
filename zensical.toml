@@ -119,7 +119,8 @@ nav = [
     {"Provided Tools" = "tools.md"},
     {"Martin as a library" = "martin-as-a-library.md"},
     {"Architecture" = "architecture.md"}
-  ]}
+  ]},
+  {"Changelog" = "changelog.md"}
 ]
 
 # With the "extra_css" option you can add your own CSS styling to customize
