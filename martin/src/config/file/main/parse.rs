@@ -147,7 +147,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    #[cfg(feature = "sprites"))]
+    #[cfg(feature = "sprites")]
     use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     #[cfg(feature = "postgres")]
