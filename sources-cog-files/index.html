@@ -1169,6 +1169,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="COG Hot Reload">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#local-directories" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Local directories
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remote-cogs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Remote COGs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#remote-cog" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Remote COG
+      </span>
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2030,12 +2069,7 @@ Its behavior may change in patch releases.</p>
 </ul>
 <p>We welcome contributions to help stabilize this feature!</p>
 </div>
-<p>Martin supports serving raster sources like local <a href="https://cogeo.org/">COG(Cloud Optimized GeoTIFF)</a> files.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>For cog on remote storage like S3 and other improvements, you could track them on <a href="https://github.com/maplibre/martin/issues/875">issue 875</a>.
-We welcome any assistance.</p>
-</div>
+<p>Martin supports serving raster sources such as local and remote <a href="https://cogeo.org/">COG (Cloud Optimized GeoTIFF)</a> files.</p>
 <h2 id="supported-color-type-and-bits-per-sample">Supported color type and bits per sample</h2>
 <table>
 <thead>
@@ -2077,28 +2111,39 @@ We welcome any assistance.</p>
 <h2 id="run-martin-with-cli-to-serve-cog-files">Run Martin with CLI to serve cog files</h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Configured with a directory containing `*.tif` or `*.tiff` TIFF files.</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>martin<span class="w"> </span>/with/tiff/dir1<span class="w"> </span>/with/tiff/dir2
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Configured with dedicated TIFF file</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>martin<span class="w"> </span>/path/to/target1.tif<span class="w"> </span>/path/to/target2.tiff
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Configured with dedicated TIFF files, local or remote.</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>martin<span class="w"> </span>/path/to/target1.tif<span class="w"> </span>https://example.org/path/cog.tif
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Configured with a combination of directories and dedicated TIFF files.</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>martin<span class="w"> </span>/with/tiff/files<span class="w"> </span>/path/to/target1.tif<span class="w"> </span>/path/to/target2.tiff
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Configured with a remote prefix; every TIFF object under it becomes a source.</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>martin<span class="w"> </span>s3://bucket/imagery/
 </span></code></pre></div>
 <h2 id="run-martin-with-configuration-file">Run Martin with configuration file</h2>
 <p>To add a COG in martin, simply add</p>
 <div class="language-yml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Cloud Optimized GeoTIFF File Sources</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">cog</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="c1"># scan this whole dir, matching all *.tif and *.tiff files</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dir-path</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="c1"># specific TIFF file will be published as a cog source</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog_file1.tif</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog_file2.tiff</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="c1"># named source matching source name to a single file</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">     </span><span class="nt">cog-src1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog1.tif</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">     </span><span class="nt">cog-src2</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog2.tif</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="c1"># Interval between remote polls (HEAD checks and prefix re-listings). Defaults to "10m".</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="c1"># Set to "0s" to disable remote polling and remote-prefix discovery.</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10m</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="c1"># Authentication, endpoint, and HTTP client settings (see "Remote COG" below).</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="c1"># scan this whole dir, matching all *.tif and *.tiff files</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/dir-path</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="c1"># specific TIFF file will be published as a cog source</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog_file1.tif</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog_file2.tiff</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="c1"># every TIFF object under this remote prefix becomes a cog source</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="c1"># named source matching source name to a single file, local or remote</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">     </span><span class="nt">cog-src1</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog1.tif</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">     </span><span class="nt">cog-src2</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.org/path/cog2.tif</span>
 </span></code></pre></div>
 <h2 id="cog-hot-reload">COG Hot Reload</h2>
-<p>Martin watches directories configured under <code>cog</code> for changes at runtime. When <code>.tif</code> or <code>.tiff</code> files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.</p>
+<p>Two mechanisms keep the catalog current at runtime - local directories are watched with filesystem events, remote COGs are polled.</p>
+<h3 id="local-directories">Local directories</h3>
+<p>When <code>.tif</code> or <code>.tiff</code> files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">cog</span><span class="p">:</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog/directory</span>
@@ -2118,9 +2163,64 @@ A nested file is named by its path relative to the scanned directory with <code>
 <li><strong>File modified</strong> - the source is reloaded and its tile cache is invalidated.</li>
 <li><strong>File removed</strong> - the source is removed from the catalog.</li>
 </ul>
+<h3 id="remote-cogs">Remote COGs</h3>
+<p>Remote object stores and HTTP(S) servers have no event channel, so Martin polls them at <code>cog.reload_interval</code> (default <code>10m</code>):</p>
+<ul>
+<li><strong>Configured remote objects</strong> - <code>cog.sources</code> entries with an <code>s3://</code>, <code>gs://</code>, <code>az://</code>, <code>http://</code>, or <code>https://</code> URL, as well as remote URLs passed on the CLI, are re-checked with a <code>HEAD</code> request and rebuilt when their <code>ETag</code> or <code>Last-Modified</code> changes.</li>
+<li><strong>Remote prefixes</strong> - prefixes in <code>cog.paths</code> are re-listed, and the resulting objects are diffed against the previous snapshot, so added, updated, and removed TIFF objects propagate to the catalog.</li>
+</ul>
+<p>Configured remote objects still load at startup when <code>reload_interval</code> is <code>0s</code>, but are not checked again.
+Remote prefixes are first discovered by the polling loop, so setting <code>reload_interval</code> to <code>0s</code> prevents their sources from loading.</p>
+<p>If a later <code>HEAD</code> request or prefix listing fails, Martin retains the last-known object version or last successful listing, so a transient outage does not remove live sources.
+Before the first successful listing, a failed prefix is skipped for that poll and retried later.
+With <code>on_invalid: warn</code>, failed additions and replacements also remain pending for the next poll; an unsuccessful replacement keeps serving the last good source.</p>
+<h2 id="remote-cog">Remote COG</h2>
+<p>COG files can be served from any object store or HTTP(S) endpoint supported by the underlying object-store client, using the same URL schemes and settings as <a href="../sources-pmtiles/#serving-pmtiles-from-local-file-systems-http-or-object-storage">PMTiles sources</a>.
+Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
+The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
+Plain <code>http://</code> URLs are enabled by default for COG sources; prefer HTTPS outside trusted networks.</p>
+<p>Supported URL schemes include:</p>
+<ul>
+<li><code>s3://&lt;bucket&gt;/&lt;prefix&gt;</code> and <code>s3a://&lt;bucket&gt;/&lt;prefix&gt;</code>, also for S3-compatible services such as <a href="https://www.min.io/">MinIO</a>, <a href="https://docs.ceph.com/en/latest/radosgw/s3/">Ceph</a>, <a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a>, and others</li>
+<li><code>gs://&lt;bucket&gt;/&lt;prefix&gt;</code></li>
+<li><code>az://&lt;container&gt;/&lt;prefix&gt;</code> and the other Azure schemes</li>
+<li><code>https://host/path</code>, <code>http://host/path</code></li>
+</ul>
+<p>HTTP(S) URLs can name individual files.
+Prefix discovery requires a backend that supports object listing; an ordinary web directory cannot be enumerated.
+Only <code>.tif</code> and <code>.tiff</code> objects under a prefix are published, using the file stem as the initial source ID.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">cog</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1m</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">mosaic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/mosaic.tif</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">raster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tiles.example.org/mosaic.tif</span>
+</span></code></pre></div>
+<p>For AWS S3, a directly configured object requires <code>s3:GetObject</code>.
+Discovering a prefix additionally requires <code>s3:ListBucket</code> on the bucket, scoped to that prefix where appropriate.</p>
+<p>To connect to a custom S3-compatible endpoint (e.g. MinIO), allow plain <code>http://</code> endpoints, or provide credentials, use the object-store options documented in the <a href="../sources-pmtiles/#serving-pmtiles-from-local-file-systems-http-or-object-storage">PMTiles source documentation</a>. For example:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">cog</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">aws_endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://localhost:9000</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">aws_region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">us-east-1</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">skip_signature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">aws_access_key_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_ACCESS_KEY_ID}</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">aws_secret_access_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_SECRET_ACCESS_KEY}</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/</span>
+</span></code></pre></div>
+<p>URL queries are preserved on object requests, so presigned and token-authenticated URLs keep working:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>martin<span class="w"> </span><span class="s1">'https://tiles.example.org/mosaic.tif?token=secret-query'</span>
+</span></code></pre></div>
+<p>When Martin derives object URLs from a remote prefix, it retains the configured scheme, host, custom port, query, and fragment.
+For safety, URL user information, query strings, and fragments are removed from errors, logs, and <code>--save-config</code> output.
+A saved configuration therefore does not retain a presigned URL token; provide that secret again before restarting from the generated file.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Hot reload applies to directories configured under <code>cog.paths</code> (or passed on the CLI). Named sources listed under <code>cog.sources</code> are snapshotted at startup and are not watched for changes.</p>
+<p>Local files configured directly in <code>cog.paths</code> or <code>cog.sources</code> are loaded at startup but are not watched for changes.
+Remote objects in either setting are polled, while remote prefixes in <code>cog.paths</code> are re-listed.</p>
 </div>
 <h2 id="about-cog">About COG</h2>
 <p><a href="https://cogeo.org/">COG</a> is just Cloud Optimized GeoTIFF file.</p>
@@ -2138,15 +2238,15 @@ For quick access to tiles in TIFF files, Martin relies on the requirements/recom
 </ul>
 <h3 id="cog-generation-with-gdal">COG generation with GDAL</h3>
 <p>You could generate cog with <code>gdal_translate</code> or <code>gdalwarp</code>. See more details in <a href="https://gdal.org/en/latest/drivers/raster/cog.html">gdal doc</a>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># gdal-bin installation</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># sudo apt update</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># sudo apt install gdal-bin</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># gdalwarp</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># or gdal_translate</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># gdal-bin installation</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># sudo apt update</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># sudo apt install gdal-bin</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># gdalwarp</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># or gdal_translate</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
 </span></code></pre></div>
 <h3 id="the-mapping-from-zxy-to-tiff-chunk">The mapping from ZXY to tiff chunk</h3>
 <ul>
