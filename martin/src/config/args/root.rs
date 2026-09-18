@@ -197,14 +197,15 @@ impl Args {
 
         #[cfg(feature = "unstable-duckdb")]
         if !cli_strings.is_empty() {
-            let geoparquet = parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
-                .into_iter()
-                .map(|path| {
-                    DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
-                        geoparquet: path.to_string_lossy().into_owned(),
-                        ..GeoParquetEntry::default()
-                    })
-                });
+            let geoparquet =
+                parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
+                    .into_iter()
+                    .map(|path| {
+                        DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+                            geoparquet: path.to_string_lossy().into_owned(),
+                            ..GeoParquetEntry::default()
+                        })
+                    });
             let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
                 .into_iter()
                 .map(|database| {
