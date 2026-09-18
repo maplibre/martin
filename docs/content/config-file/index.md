@@ -18,10 +18,6 @@ default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}
 martin --config config.yaml
 ```
 
-!!! warning "Single-colon defaults were removed in v2.0"
-    The single-colon default `${MY_DATABASE_URL:postgres://postgres@localhost/db}` is no longer accepted.
-    Use the `:-` form shown above.
-
 !!! tip "auto-generate a config file with `--save-config`"
     You can generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
