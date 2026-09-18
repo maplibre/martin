@@ -2220,7 +2220,9 @@ With <code>on_invalid: warn</code>, failed additions and replacements also remai
 <p>COG files can be served from any object store or HTTP(S) endpoint supported by the underlying object-store client, using the same URL schemes and settings as <a href="../sources-pmtiles/#serving-pmtiles-from-local-file-systems-http-or-object-storage">PMTiles sources</a>.
 Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
 The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
-Plain <code>http://</code> URLs are enabled by default for COG sources; prefer HTTPS outside trusted networks.</p>
+Plain <code>http://</code> URLs are refused unless <code>allow_http</code> is set to <code>true</code>.
+This option can only be set in the configuration file, so a plain <code>http://</code> URL cannot be passed on the command line.
+Prefer HTTPS outside trusted networks.</p>
 <p>Supported URL schemes include:</p>
 <ul>
 <li><code>s3://&lt;bucket&gt;/&lt;prefix&gt;</code> and <code>s3a://&lt;bucket&gt;/&lt;prefix&gt;</code>, also for S3-compatible services such as <a href="https://www.min.io/">MinIO</a>, <a href="https://docs.ceph.com/en/latest/radosgw/s3/">Ceph</a>, <a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a>, and others</li>

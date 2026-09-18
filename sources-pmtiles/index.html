@@ -2486,6 +2486,8 @@ For example:</p>
 <li><code>http://example.com/path.pmtiles</code></li>
 <li><code>https://example.com/path.pmtiles</code></li>
 </ul>
+<p>Plain <code>http://</code> urls are refused unless <code>allow_http</code> is set to <code>true</code>.
+This option can only be set in the configuration file, so a plain <code>http://</code> url cannot be passed on the command line.</p>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2505,7 +2507,7 @@ For example:</p>
 <tbody>
 <tr>
 <td><code>allow_http</code></td>
-<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request<br><br>Defaults to <code>false</code></td>
 <td><code>true</code></td>
 </tr>
 <tr>
@@ -2851,7 +2853,7 @@ On EC2, the instance metadata service is used when nothing else is configured.</
 <tbody>
 <tr>
 <td><code>allow_http</code></td>
-<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request<br><br>Defaults to <code>false</code></td>
 <td><code>true</code></td>
 </tr>
 <tr>
@@ -3041,7 +3043,7 @@ This can be useful if you want to have different cloud providers.</p>
 <tbody>
 <tr>
 <td><code>allow_http</code></td>
-<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request<br><br>Defaults to <code>false</code></td>
 <td><code>true</code></td>
 </tr>
 <tr>
@@ -3353,7 +3355,7 @@ This can be useful if you want to have different cloud providers.</p>
 <tbody>
 <tr>
 <td><code>allow_http</code></td>
-<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td>
+<td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request<br><br>Defaults to <code>false</code></td>
 <td><code>true</code></td>
 </tr>
 <tr>
