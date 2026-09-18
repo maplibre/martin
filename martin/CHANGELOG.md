@@ -141,7 +141,7 @@ Done in [#3183](https://github.com/maplibre/martin/pull/3183).
 - *(pmtiles)* pick up the ECS and EKS credential env vars, so S3 sources use the task role on Fargate and EKS ([#3165](https://github.com/maplibre/martin/pull/3165))
 - *(reload)* keep per-source `convert_to_*` overrides for file-backed ([#3160](https://github.com/maplibre/martin/pull/3160)) and Postgres ([#3144](https://github.com/maplibre/martin/pull/3144)) sources
 - *(config)* gate the `resolve_process_config` imports on `_process` ([#3191](https://github.com/maplibre/martin/pull/3191))
-- fix cors logging logging `unrecognisable` ([#3136](https://github.com/maplibre/martin/pull/3136))
+- fix cors logging logging `unrecognizable` ([#3136](https://github.com/maplibre/martin/pull/3136))
 - *(deps)* update npm dependencies ([#3177](https://github.com/maplibre/martin/pull/3177), [#3175](https://github.com/maplibre/martin/pull/3175))
 
 ### Other
@@ -273,7 +273,7 @@ POST /style/{id}/static/{camera}/{wxh.fmt}
 
 The camera can be a center point, a bounding box, or auto-fit to the overlays you pass in.
 Overlays support fills, lines and circles with configurable color/opacity.
-See the [documentation](https://maplibre.org/martin/sources-styles.html) for the full field list and examples.
+See the [documentation](https://maplibre.org/martin/sources-styles/) for the full field list and examples.
 Done in [#2794](https://github.com/maplibre/martin/pull/2794), [#2922](https://github.com/maplibre/martin/pull/2922).
 
 ### `mbtiles pack` and `mbtiles unpack`
@@ -300,7 +300,7 @@ passthrough:
 ```
 
 An upstream can be a `{z}/{x}/{y}` template, a TileJSON document URL, a list of mirror templates, or the detailed object form above.
-See the [documentation](https://maplibre.org/martin/sources-passthrough.html) for the full field list.
+See the [documentation](https://maplibre.org/martin/sources-passthrough/) for the full field list.
 Done in [#2913](https://github.com/maplibre/martin/pull/2913), [#2908](https://github.com/maplibre/martin/pull/2908), [#2924](https://github.com/maplibre/martin/pull/2924).
 
 ### More capable config parsing
@@ -346,7 +346,7 @@ Under the hood, every source type now shares a common `ReloadDriver`/`Discovery`
 A warm welcome to [Manbhav Sugla (@manbhav234)](https://github.com/manbhav234), our Google Summer of Code student!
 This release lands his first PR, kicking off a brand-new DuckDB source for Martin and laying the groundwork for serving tiles from DuckDB.
 
-It is still early and not currently entierly plumbed through the system, but it is a good start.
+It is still early and not currently entirely plumbed through the system, but it is a good start.
 Done in [#2831](https://github.com/maplibre/martin/pull/2831).
 
 ### Static rendering core
@@ -381,7 +381,7 @@ Done in [#2804](https://github.com/maplibre/martin/pull/2804).
 
 ### Other
 
-- share code accross the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
+- share code across the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
 
 ## [1.10.0](https://github.com/maplibre/martin/compare/martin-v1.9.1...martin-v1.10.0) - 2026-05-16
 
@@ -395,7 +395,7 @@ Done in [#2804](https://github.com/maplibre/martin/pull/2804).
 
 - tests fail when terminal is not exactly 80 columns ([#2803](https://github.com/maplibre/martin/pull/2803))
 - *(ui)* generate `types.gen.ts` from OpenAPI and adopt openapi-fetch ([#2797](https://github.com/maplibre/martin/pull/2797))
-- make sure that unused variables are handled for MLT configration ([#2808](https://github.com/maplibre/martin/pull/2808))
+- make sure that unused variables are handled for MLT configuration ([#2808](https://github.com/maplibre/martin/pull/2808))
 - various minor docs improvements ([#2807](https://github.com/maplibre/martin/pull/2807))
 - fix all m-dashes to use regular dashes ([#2805](https://github.com/maplibre/martin/pull/2805))
 - *(deps)* autoupdate pre-commit ([#2799](https://github.com/maplibre/martin/pull/2799))
@@ -420,7 +420,7 @@ We also can convert MLT tiles back to MVT if the client requests it.
 The `mlt` cargo feature is now part of the `default` feature set, so prebuilt binaries ship with MLT support.
 Builds without `mlt` will return an error if a client requests MLT.
 
-You can configure this behaviour with the new `convert-to-mlt` or `convert-to-mvt` config key.
+You can configure this behavior with the new `convert-to-mlt` or `convert-to-mvt` config key.
 It accepts three states (`auto`, `disabled`, or an explicit encoder object) and can be set at three nesting levels (global, source-type, individual source).
 The most-specific level wins and the default is `auto`.
 
@@ -448,7 +448,7 @@ To override the encoder defaults (rarely needed; see the docs for the full field
 
 ```yaml
 convert-to-mlt:
-  tessellate: false # Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your usecase
+  tessellate: false # Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case
   try_spatial_morton_sort: true # Disable if your data is already spatially ordered
   try_spatial_hilbert_sort: true # Disable if Morton sort doesn't compress well for your data
   try_id_sort: false # Enable when features have sequential IDs and spatial sorting isn't beneficial
@@ -457,7 +457,7 @@ convert-to-mlt:
   allow_shared_dict: true # Disable to reduce search space
 ```
 
-[A full guide is avaliable here](https://github.com/maplibre/martin/blob/main/docs/content/postprocessing/mlt.md).
+[A full guide is available here](https://github.com/maplibre/martin/blob/main/docs/content/postprocessing/mlt.md).
 Implemented in [#2769](https://github.com/maplibre/martin/pull/2769) [#2773](https://github.com/maplibre/martin/pull/2773) and  [#2775](https://github.com/maplibre/martin/pull/2775)
 
 ### Improved sprite and font previews in the Web UI
@@ -479,7 +479,7 @@ Human-readable logs remain unchanged, but external log scrapers that rely on the
 
 ### Other
 
-- Various dependecy updates ([#2780](https://github.com/maplibre/martin/pull/2780), [#2770](https://github.com/maplibre/martin/pull/2770), [#2776](https://github.com/maplibre/martin/pull/2776))
+- Various dependency updates ([#2780](https://github.com/maplibre/martin/pull/2780), [#2770](https://github.com/maplibre/martin/pull/2770), [#2776](https://github.com/maplibre/martin/pull/2776))
 
 ## [1.8.2](https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.8.2) - 2026-04-29
 
@@ -491,7 +491,7 @@ Human-readable logs remain unchanged, but external log scrapers that rely on the
 
 ### Fixed
 
-- The last release had some aretefact not get attached, so this release fixes this
+- The last release had some artifact not get attached, so this release fixes this
 
 ### Other
 
@@ -555,12 +555,12 @@ martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER
 
 > [!TIP]
 > If you have concrete needs for what metrics you would like to see, please open an issue.
-> The set of metrics we offer is quite early in its development livecycle.
+> The set of metrics we offer is quite early in its development lifecycle.
 
-### Stabilised Server-side raster tile rendering backend
+### Stabilized Server-side raster tile rendering backend
 
-We have stabilised our rendering backend, which means that you can now render images using MapLibre Native.
-We have some work planned to improve performance by prefetching and better paralelism, or to add capabilites like overlaying lines/text/shapes.. via query params.
+We have stabilized our rendering backend, which means that you can now render images using MapLibre Native.
+We have some work planned to improve performance by prefetching and better parallelism, or to add capabilities like overlaying lines/text/shapes.. via query params.
 If you have needs/interests towards this area, we would also invite you to open a discussion/issue on the API that you would like to see.
 If you need configurability, we would also like to know what kind of configurability you need.
 
@@ -634,7 +634,7 @@ The tile cache received several improvements in this release:
   Cache insertions now use moka's entry API, so concurrent requests for the same tile only compute it once instead of redundantly.
   This is a meaningful performance win under thundering-herd scenarios.
   Done in [#2688](https://github.com/maplibre/martin/pull/2688).
-- **Accept header in cache key** -- The sanitised `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
+- **Accept header in cache key** -- The sanitized `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
   This **previously did not have any effect and was also not incorrect**, but in the next release we will add MLT encoding support (which we worked hard for).
 
   This also has the side-effect that if your client now says that you only `Accept` a certain format, we now correctly abort requests early.
@@ -688,15 +688,13 @@ Done in [#2597](https://github.com/maplibre/martin/pull/2597) by [@nuts-rice](ht
 
 ### A new documentation site
 
-We migrated our documentation to zenzical, a more modern documentation platform.
+We migrated our documentation to zensical, a more modern documentation platform.
 Just have a look for yourself, does it not look pretty? -> https://maplibre.org/martin
-Done in [#2576](https://github.com/maplibre/martin/pull/2576) by [@
-manbhav234](https://github.com/
-manbhav234)
+Done in [#2576](https://github.com/maplibre/martin/pull/2576) by [@manbhav234](https://github.com/manbhav234)
 
 ### Added
 
-- *(martin-cp)* now has a prettier, indicativ based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
+- *(martin-cp)* now has a prettier, indicatif based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
 - Add retry mechanism on locked/busy mbtiles files was added ([#2572](https://github.com/maplibre/martin/pull/2572))
 
 ### Fixed
@@ -755,7 +753,7 @@ Here is a short explanation of why this might matter to you based on <https://en
 
 Done in ([#2438](https://github.com/maplibre/martin/pull/2438)) by @yutannihilation
 
-As a related performance optimisation, we also removed `FontSources.masks` as it was consuming large amounts of memory and some startup time, even when no font sources were set ([#2519](https://github.com/maplibre/martin/pull/2519)) by @Auspicus
+As a related performance optimization, we also removed `FontSources.masks` as it was consuming large amounts of memory and some startup time, even when no font sources were set ([#2519](https://github.com/maplibre/martin/pull/2519)) by @Auspicus
 
 ### Simpler native subpath support
 
@@ -808,7 +806,7 @@ Done in [#2427](https://github.com/maplibre/martin/pull/2427) by @todtb
 ### Fixed
 
 - *(pg)* Instead of reporting on all available tables, we now filter the result to the configured sources when `auto_publish: false` ([#2411](https://github.com/maplibre/martin/pull/2411))
-- *(sprites)* Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- *(sprites)* Scale SDF buffer and radius by pixel ratio leading to weird artifacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
 
 ### Other
 
@@ -836,7 +834,7 @@ Done in [#2427](https://github.com/maplibre/martin/pull/2427) by @todtb
 
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
-🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
+🎉🎉🎉 **After 8 years in development, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
 Functionally, it is the same as `v0.20.2`, just with our releases further automated.
 There are no breaking changes between `v0.20.X` and `v1.X.X`
 
@@ -846,7 +844,7 @@ There are no breaking changes between `v0.20.X` and `v1.X.X`
 
 ## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
 
-In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
+In 0.20.1 we claimed to have fixed the bug regarding how our release script determines versions for docker containers.
 This was incorrect and is fixed now with a more manual approach instead of relying on `docker/metadata-action`.
 Done in [#2348](https://github.com/maplibre/martin/pull/2348)
 
@@ -880,7 +878,7 @@ Fixed a potential crash due to an off-by-one error when zooming in at exactly Zo
 > This release can be considered the last beta of the v1.0 release.
 > We have locked down key parts of the architecture.
 >
-> We will republish this release as v1.0 in roghly a week, unless we see any bugs in this release.
+> We will republish this release as v1.0 in roughly a week, unless we see any bugs in this release.
 
 A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
 Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.
@@ -895,14 +893,14 @@ We have split this up into different parts and you can now specify how much spri
 > [!TIP]
 > We also now support caching sprites and fonts - speeding up the rendering of vector maps.
 
-See our [documentation here](https://maplibre.org/martin/config-file.html) for further context.
+See our [documentation here](https://maplibre.org/martin/config-file/) for further context.
 
 Done in [#2295](https://github.com/maplibre/martin/pull/2295) [#2304](https://github.com/maplibre/martin/pull/2304) [#2303](https://github.com/maplibre/martin/pull/2303), [#2297](https://github.com/maplibre/martin/pull/2297)
 
 ### Pmtiles support for Google Cloud, Azure and much more options
 
 The good news first:
-- [greatly expanded](https://maplibre.org/martin/sources-files.html) options for AWS and HTTP backends
+- [greatly expanded](https://maplibre.org/martin/sources-files/) options for AWS and HTTP backends
 - New support for Google Cloud and Azure object storage
 - Local files remain unaffected
 
@@ -925,7 +923,7 @@ We asked for community feedback on Slack (see [here](https://maplibre.org/commun
 If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
 - https://github.com/maplibre/martin/issues/2286
 
-For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files/).
 
 Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 
@@ -933,7 +931,7 @@ Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 ### unstable style rendering support
 
 We added an experimental option for server-side style rendering, allowing you to convert your configured styles into images on the server side instead of the client.
-See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
+See our [documentation here](https://maplibre.org/martin/sources-styles/rendering/) for further context.
 
 Done in [#2306](https://github.com/maplibre/martin/pull/2306)
 
@@ -997,13 +995,13 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 
 ### Breaking Changes
 
-- we migrated our internal codebase to be split into `martin-core` and `martin`. While this does have **NO** have an **public facing impact** for **API, Configuration and behaviour**, this ensures that we can release v1.0 without breaking the SemVer promise. If you previously used **`martin` as a crates.io library, please use `martin-core` instead**. ([#2227](https://github.com/maplibre/martin/pull/2227),[#2215](https://github.com/maplibre/martin/pull/2215),[#2217](https://github.com/maplibre/martin/pull/2217),[#2213](https://github.com/maplibre/martin/pull/2213),[#2216](https://github.com/maplibre/martin/pull/2216),[#2192](https://github.com/maplibre/martin/pull/2192),[#2194](https://github.com/maplibre/martin/pull/2194),[#2191](https://github.com/maplibre/martin/pull/2191),[#2185](https://github.com/maplibre/martin/pull/2185),[#2182](https://github.com/maplibre/martin/pull/2182),[#2181](https://github.com/maplibre/martin/pull/2181),[#2184](https://github.com/maplibre/martin/pull/2184),[#2179](https://github.com/maplibre/martin/pull/2179),[#2176](https://github.com/maplibre/martin/pull/2176),[#2178](https://github.com/maplibre/martin/pull/2178),[#2177](https://github.com/maplibre/martin/pull/2177),[#2172](https://github.com/maplibre/martin/pull/2172),[#2171](https://github.com/maplibre/martin/pull/2171),[#2167](https://github.com/maplibre/martin/pull/2167),[#2158](https://github.com/maplibre/martin/pull/2158),[#2157](https://github.com/maplibre/martin/pull/2157),[#2160](https://github.com/maplibre/martin/pull/2160),[#2156](https://github.com/maplibre/martin/pull/2156),[#2105](https://github.com/maplibre/martin/pull/2105),[#2048](https://github.com/maplibre/martin/pull/2048),[#1944](https://github.com/maplibre/martin/pull/1944), [#2159](https://github.com/maplibre/martin/pull/2159))
-- *(martin-cp)* The `--cache-size` option has been removed from martin-cp. For most usecases, this is not what you want. ([#2026](https://github.com/maplibre/martin/pull/2026))
+- we migrated our internal codebase to be split into `martin-core` and `martin`. While this does have **NO** have an **public facing impact** for **API, Configuration and behavior**, this ensures that we can release v1.0 without breaking the SemVer promise. If you previously used **`martin` as a crates.io library, please use `martin-core` instead**. ([#2227](https://github.com/maplibre/martin/pull/2227),[#2215](https://github.com/maplibre/martin/pull/2215),[#2217](https://github.com/maplibre/martin/pull/2217),[#2213](https://github.com/maplibre/martin/pull/2213),[#2216](https://github.com/maplibre/martin/pull/2216),[#2192](https://github.com/maplibre/martin/pull/2192),[#2194](https://github.com/maplibre/martin/pull/2194),[#2191](https://github.com/maplibre/martin/pull/2191),[#2185](https://github.com/maplibre/martin/pull/2185),[#2182](https://github.com/maplibre/martin/pull/2182),[#2181](https://github.com/maplibre/martin/pull/2181),[#2184](https://github.com/maplibre/martin/pull/2184),[#2179](https://github.com/maplibre/martin/pull/2179),[#2176](https://github.com/maplibre/martin/pull/2176),[#2178](https://github.com/maplibre/martin/pull/2178),[#2177](https://github.com/maplibre/martin/pull/2177),[#2172](https://github.com/maplibre/martin/pull/2172),[#2171](https://github.com/maplibre/martin/pull/2171),[#2167](https://github.com/maplibre/martin/pull/2167),[#2158](https://github.com/maplibre/martin/pull/2158),[#2157](https://github.com/maplibre/martin/pull/2157),[#2160](https://github.com/maplibre/martin/pull/2160),[#2156](https://github.com/maplibre/martin/pull/2156),[#2105](https://github.com/maplibre/martin/pull/2105),[#2048](https://github.com/maplibre/martin/pull/2048),[#1944](https://github.com/maplibre/martin/pull/1944), [#2159](https://github.com/maplibre/martin/pull/2159))
+- *(martin-cp)* The `--cache-size` option has been removed from martin-cp. For most use cases, this is not what you want. ([#2026](https://github.com/maplibre/martin/pull/2026))
 
 ### Added
 
 - We updated Martins' Logo ([#1959](https://github.com/maplibre/martin/pull/1959))
-- *(config)* Implement unrecognised value in config file warning ([#2151](https://github.com/maplibre/martin/pull/2151), [#2152](https://github.com/maplibre/martin/pull/2152), [#2236](https://github.com/maplibre/martin/pull/2236), [#1967](https://github.com/maplibre/martin/pull/1967))
+- *(config)* Implement unrecognized value in config file warning ([#2151](https://github.com/maplibre/martin/pull/2151), [#2152](https://github.com/maplibre/martin/pull/2152), [#2236](https://github.com/maplibre/martin/pull/2236), [#1967](https://github.com/maplibre/martin/pull/1967))
 - *(martin-cp)* add a warning if `--concurrency 1` and an error if `--concurrency 0` ([#2027](https://github.com/maplibre/martin/pull/2027))
 
 ### Fixed
@@ -1023,7 +1021,7 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 
 ### Other
 
-- We have automated our release pipeline and are now releasing via `relese-plz` ([#2242](https://github.com/maplibre/martin/pull/2242))
+- We have automated our release pipeline and are now releasing via `release-plz` ([#2242](https://github.com/maplibre/martin/pull/2242))
 - fix various clippy or related code style issues ([#1904](https://github.com/maplibre/martin/pull/1904), [#1903](https://github.com/maplibre/martin/pull/1903), [#2092](https://github.com/maplibre/martin/pull/2092), [#2052](https://github.com/maplibre/martin/pull/2052), [#2193](https://github.com/maplibre/martin/pull/2193), [#2130](https://github.com/maplibre/martin/pull/2130), [#2233](https://github.com/maplibre/martin/pull/2233))
 - Add comprehensive GitHub Copilot instructions for Martin development workflow ([#2210](https://github.com/maplibre/martin/pull/2210))
 - *(bench)* add an benchmark that tests the impact of the error variant ([#2168](https://github.com/maplibre/martin/pull/2168))
