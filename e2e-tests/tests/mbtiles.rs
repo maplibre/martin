@@ -22,7 +22,7 @@ async fn martin_serving(args: &[&str], names: &[&str]) -> (TempDir, Martin) {
 async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
     let response = martin.get(&format!("/{id}")).await;
     assert_eq!(response.status(), 200);
-    serde_json::from_str(&martin.redact(&response.text())).expect("the tilejson is not valid json")
+    martin.redacted_json(&response)
 }
 
 #[tokio::test]

@@ -118,8 +118,7 @@ async fn a_tilejson_describes_the_parquet_columns() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "bounds": [
@@ -387,8 +386,7 @@ async fn an_explicit_table_of_a_database_file_is_served() {
 
     let response = martin.get("/polygons").await;
     assert_eq!(response.status(), 200);
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "bounds": [
@@ -565,8 +563,7 @@ async fn an_explicit_table_macro_taking_z_x_y_is_served_as_a_source() {
 
     let response = martin.get("/polygons_from_macro").await;
     assert_eq!(response.status(), 200);
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "bounds": [

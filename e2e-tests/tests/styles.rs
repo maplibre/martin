@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, TestResponse, fixture};
+use martin_e2e_tests::{Martin, fixture};
 use rstest::rstest;
 use serde_json::Value;
 
@@ -22,10 +22,6 @@ async fn martin_with_styles() -> Martin {
 fn fixture_json(relative: &str) -> Value {
     let text = fs::read_to_string(fixture(relative)).expect("failed to read the fixture");
     serde_json::from_str(&text).expect("the fixture is not valid json")
-}
-
-fn redacted_json(martin: &Martin, response: &TestResponse) -> Value {
-    serde_json::from_str(&martin.redact(&response.text())).expect("response body is not valid json")
 }
 
 /// Normalizes path separators inside every string leaf of a decoded JSON value.
@@ -109,7 +105,7 @@ async fn relative_urls_expand_against_the_listen_address() {
 
     let response = martin.get("/style/relative_urls").await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://[ADDR]/font/{fontstack}/{range}",
       "layers": [
@@ -150,7 +146,7 @@ async fn relative_urls_expand_against_the_host_header() {
         .get_with_headers("/style/relative_urls", &[("Host", "example.com")])
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://example.com/font/{fontstack}/{range}",
       "layers": [
@@ -191,7 +187,7 @@ async fn relative_urls_expand_against_a_host_with_a_port() {
         .get_with_headers("/style/relative_urls", &[("Host", "example.com:6000")])
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://example.com:6000/font/{fontstack}/{range}",
       "layers": [
@@ -235,7 +231,7 @@ async fn relative_urls_expand_against_a_forwarded_host() {
         )
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://tiles.example.com/font/{fontstack}/{range}",
       "layers": [
@@ -276,7 +272,7 @@ async fn relative_urls_expand_against_a_forwarded_prefix() {
         .get_with_headers("/style/relative_urls", &[("X-Forwarded-Prefix", "/tiles")])
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://[ADDR]/tiles/font/{fontstack}/{range}",
       "layers": [
@@ -317,7 +313,7 @@ async fn relative_urls_expand_against_a_forwarded_prefix_without_its_trailing_sl
         .get_with_headers("/style/relative_urls", &[("X-Forwarded-Prefix", "/tiles/")])
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://[ADDR]/tiles/font/{fontstack}/{range}",
       "layers": [
@@ -361,7 +357,7 @@ async fn relative_urls_ignore_a_forwarded_for() {
         )
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://[ADDR]/font/{fontstack}/{range}",
       "layers": [
@@ -405,7 +401,7 @@ async fn relative_urls_ignore_a_rewritten_url() {
         )
         .await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(redacted_json(&martin, &response), @r##"
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"
     {
       "glyphs": "http://[ADDR]/font/{fontstack}/{range}",
       "layers": [

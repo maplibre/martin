@@ -139,8 +139,7 @@ async fn a_raster_source_serves_its_tilejson() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "bounds": [

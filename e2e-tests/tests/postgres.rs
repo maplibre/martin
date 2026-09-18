@@ -178,8 +178,7 @@ async fn tilejson(martin: &Martin, path: &str) -> Value {
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
     assert_eq!(response.header("content-type"), Some("application/json"));
-    let mut tilejson = serde_json::from_str::<Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let mut tilejson = martin.redacted_json(&response);
     round_floats(&mut tilejson);
     tilejson
 }

@@ -346,6 +346,15 @@ impl Martin {
         text.replace(&self.addr, "[ADDR]")
     }
 
+    /// [`TestResponse::json`] of `response` with this instance's `host:port` redacted.
+    #[must_use]
+    pub fn redacted_json(&self, response: &TestResponse) -> serde_json::Value {
+        let mut json: serde_json::Value = serde_json::from_str(&self.redact(&response.text()))
+            .expect("response body is not valid json");
+        json.sort_all_objects();
+        json
+    }
+
     /// Perform a GET request, advertising `Accept-Encoding: br, gzip`; the body is
     /// transparently decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
@@ -614,10 +623,13 @@ impl TestResponse {
         String::from_utf8(self.body.clone()).expect("response body is not valid utf-8")
     }
 
-    /// Decompressed response body parsed as JSON.
+    /// Decompressed response body parsed as JSON with the keys of every object sorted.
     #[must_use]
     pub fn json(&self) -> serde_json::Value {
-        serde_json::from_slice(&self.body).expect("response body is not valid json")
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&self.body).expect("response body is not valid json");
+        json.sort_all_objects();
+        json
     }
 
     /// Decompressed response body decoded as a vector tile.
