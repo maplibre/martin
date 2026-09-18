@@ -260,6 +260,156 @@ cog:
 }
 
 #[tokio::test]
+async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
+    let key = "cogtest/usda_naip_128_none_z2.tif";
+    let statics =
+        StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "\
+on_invalid: warn
+cog:
+  reload_interval: 500ms
+  allow_http: true
+  aws_endpoint: {}
+  skip_signature: true
+  sources:
+    remote: s3://cogtest/usda_naip_128_none_z2.tif
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin with a read-failing remote COG");
+
+    assert!(
+        martin.get("/catalog").await.json()["tiles"]
+            .get("remote")
+            .is_none(),
+        "the failed source must not be published"
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
+    assert!(
+        martin.get("/catalog").await.json()["tiles"]
+            .get("remote")
+            .is_none(),
+        "the failed source must not appear while reads keep failing"
+    );
+
+    statics.set_fail_gets(false);
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if martin.get("/remote/18/42712/97343").await.status() == 200 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    })
+    .await
+    .expect("the source must load once reads heal");
+
+    martin.stop().await;
+    martin.assert_log_contains("Tile source resolution warning");
+    let errors = martin.take_log_lines("error=");
+    assert!(
+        errors.iter().all(|line| {
+            line.contains("WARN Skipping addition source.id=remote error=")
+                || line == "ERROR error=\"Source remote does not exist\""
+        }),
+        "unexpected errors: {errors:#?}"
+    );
+    let skipped = errors
+        .iter()
+        .find(|line| line.contains("WARN Skipping addition source.id=remote error="))
+        .expect("the failed reload must be logged");
+    let missing = errors
+        .iter()
+        .find(|line| line.as_str() == "ERROR error=\"Source remote does not exist\"")
+        .expect("the unavailable source request must be logged");
+    insta::with_settings!({
+        filters => vec![
+            (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
+            (r" in [0-9.]+(?:ns|µs|ms|s) -", " in [TIME] -"),
+            (r"(?m) +$", ""),
+        ]
+    }, {
+        insta::assert_snapshot!(format!("{skipped}\n{missing}"), @r#"
+         WARN Skipping addition source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
+        ERROR error="Source remote does not exist"
+        "#);
+    });
+}
+
+#[tokio::test]
+async fn a_failed_update_is_retried_until_the_replacement_reads() {
+    let key = "cogtest/usda_naip_128_none_z2.tif";
+    let fixture_path = fixture("cog/usda_naip_128_none_z2.tif");
+    let statics = StaticFiles::serving(&[(key, fixture_path.clone())]).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "\
+on_invalid: warn
+cog:
+  reload_interval: 500ms
+  allow_http: true
+  aws_endpoint: {}
+  skip_signature: true
+  sources:
+    remote: s3://cogtest/usda_naip_128_none_z2.tif
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin with a polled remote COG");
+    let tile_url = "/remote/19/85424/194685";
+    assert_eq!(martin.get(tile_url).await.status(), 200);
+
+    statics.set_fail_gets(true);
+    statics.replace(
+        key,
+        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(2_000)).await;
+    assert_eq!(
+        martin.get(tile_url).await.status(),
+        200,
+        "a failed update must keep serving the last good version"
+    );
+
+    statics.set_fail_gets(false);
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if martin.get(tile_url).await.status() == 204 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    })
+    .await
+    .expect("the failed update must be retried and applied once reads heal");
+
+    martin.stop().await;
+    let errors = martin.take_log_lines("error=");
+    assert!(
+        errors
+            .iter()
+            .all(|line| line.contains("WARN Skipping update source.id=remote error=")),
+        "unexpected errors: {errors:#?}"
+    );
+    let skipped = errors.first().expect("the failed reload must be logged");
+    insta::with_settings!({
+        filters => vec![
+            (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
+            (r" in [0-9.]+(?:ns|µs|ms|s) -", " in [TIME] -"),
+            (r"(?m) +$", ""),
+        ]
+    }, {
+        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
+    });
+}
+
+#[tokio::test]
 async fn a_replaced_remote_cog_is_detected_and_reloaded() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
@@ -331,6 +481,80 @@ cog:
     assert_eq!(reloaded.status(), 204);
     assert!(reloaded.body().is_empty());
     martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_remote_cog_prefix_is_discovered_and_polled() {
+    let first_key = "cogtest/imagery/first.tif";
+    let removed_key = "cogtest/imagery/removed.tif";
+    let second_key = "cogtest/imagery/second.tiff";
+    let original_fixture = fixture("cog/usda_naip_128_none_z2.tif");
+    let statics = StaticFiles::serving(&[
+        (first_key, original_fixture.clone()),
+        (removed_key, original_fixture.clone()),
+    ])
+    .await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "\
+cog:
+  reload_interval: 2s
+  allow_http: true
+  aws_endpoint: {}
+  skip_signature: true
+  paths:
+    - s3://cogtest/imagery/
+",
+            statics.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin with a remote COG prefix");
+
+    martin.wait_for_source("first").await;
+    martin.wait_for_source("removed").await;
+    let first_tile = "/first/19/85424/194685";
+    let original = martin.get(first_tile).await;
+    assert_eq!(original.status(), 200);
+    assert!(!original.body().is_empty());
+
+    statics.replace(
+        first_key,
+        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
+    );
+    statics.insert(second_key, &original_fixture);
+    statics.remove(removed_key);
+
+    martin.wait_for_source("second").await;
+    martin.wait_for_source_removed("removed").await;
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            if martin.get(first_tile).await.status() == 204 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    })
+    .await
+    .expect("a replaced object under the prefix must reload within the poll window");
+    assert_eq!(martin.get("/second/19/85424/194685").await.status(), 200);
+
+    martin.stop().await;
+    let list_requests = statics
+        .request_log()
+        .await
+        .lines()
+        .filter(|request| {
+            request.starts_with("GET /cogtest?")
+                && request.contains("list-type=2")
+                && request.contains("prefix=imagery")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    insta::assert_snapshot!(list_requests, @"
+    GET /cogtest?list-type=2&prefix=imagery%2F no range
+    GET /cogtest?list-type=2&prefix=imagery%2F no range
+    ");
 }
 
 #[tokio::test]
