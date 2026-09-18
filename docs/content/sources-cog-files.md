@@ -127,6 +127,7 @@ COG files can be served from any object store or HTTP(S) endpoint supported by t
 Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
 The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
 Plain `http://` URLs are refused unless `allow_http` is set to `true`.
+This option can only be set in the configuration file, so a plain `http://` URL cannot be passed on the command line.
 Prefer HTTPS outside trusted networks.
 
 Supported URL schemes include:

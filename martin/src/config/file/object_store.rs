@@ -335,7 +335,14 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
-                if url.scheme() == "http" && !self.options.contains_key("allow_http") {
+                // object_store keeps its boolean parser private, these are the spellings it accepts
+                let allow_http = self.options.get("allow_http").is_some_and(|value| {
+                    matches!(
+                        value.to_ascii_lowercase().as_str(),
+                        "1" | "true" | "on" | "yes" | "y"
+                    )
+                });
+                if url.scheme() == "http" && !allow_http {
                     return Err(object_store::Error::Generic {
                         store: "HttpStore",
                         source: "plain http is refused unless `allow_http` is set to `true`".into(),
@@ -504,6 +511,7 @@ impl ObjectStoreConfig {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -516,6 +524,20 @@ mod tests {
         config.prepare(&mut unrecognized, "pmtiles");
         assert!(unrecognized.keys().next().is_none());
         config
+    }
+
+    #[rstest]
+    #[case::unset(None, false)]
+    #[case::disabled(Some(json!(false)), false)]
+    #[case::enabled(Some(json!(true)), true)]
+    #[case::enabled_as_a_word(Some(json!("yes")), true)]
+    fn plain_http_needs_allow_http(
+        #[case] allow_http: Option<serde_json::Value>,
+        #[case] accepted: bool,
+    ) {
+        let config = prepared(allow_http.map(|value| ("allow_http", value)));
+        let url = Url::parse("http://example.com/tiles.pmtiles").unwrap();
+        assert_eq!(config.parse_url_opts(&url).is_ok(), accepted);
     }
 
     #[test]
