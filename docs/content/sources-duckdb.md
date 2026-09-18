@@ -179,9 +179,11 @@ duckdb:
           bounds: [-180, -85, 180, 85]
 ```
 
-`auto_publish` follows the [PostgreSQL rules](sources-pg-tables.md): a bare `database:` entry publishes every geometry table and `(z, x, y)` macro; configuring `tables` or `macros` explicitly turns discovery off unless `auto_publish` is set; and inside `auto_publish`, mentioning only one of `tables` or `macros` disables the other.
-A table with several geometry columns yields one source per column.
-Discovered tables detect their SRID from the column's CRS, so store it with `GEOMETRY('EPSG:4326')` or set `srid` on an explicit table.
+`auto_publish` follows the [PostgreSQL rules](sources-pg-tables.md):
+- A bare `database:` entry publishes every geometry table and `(z, x, y)` macro. - Configuring `tables` or `macros` explicitly turns discovery off unless `auto_publish` is set.
+- Inside `auto_publish`, mentioning only one of `tables` or `macros` disables the other.
+- A table with several geometry columns yields one source per column.
+- Discovered tables detect their SRID from the column's CRS, so store it with `GEOMETRY('EPSG:4326')` or set `srid` on an explicit table.
 
 A macro is any `CREATE MACRO name(z, x, y) AS TABLE ...` whose first row's first column is the tile, for example:
 
