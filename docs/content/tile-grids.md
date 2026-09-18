@@ -148,7 +148,7 @@ It uses the same field names as MapLibre GL JS:
 The `/catalog` entry of such a source names the grid in `tile_grid`.
 Sources on different grids cannot be combined into one composite source.
 
-`martin-cp` copies a source on its own grid.
+`martin cp` copies a source on its own grid.
 Without `--bbox` it copies the whole grid.
 With `--bbox`, the bounds are `min_x,min_y,max_x,max_y` in the units of the grid's CRS, not longitude and latitude.
 The `TileJSON` written into the archive contains the `tileGrid` key.
