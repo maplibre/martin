@@ -28,8 +28,7 @@ async fn martin_with_the_cog_dir() -> Martin {
 async fn tilejson(martin: &Martin, id: &str) -> Value {
     let response = martin.get(&format!("/{id}")).await;
     assert_eq!(response.status(), 200);
-    let mut tilejson = serde_json::from_str::<Value>(&martin.redact(&response.text()))
-        .expect("tilejson is not valid json");
+    let mut tilejson = martin.redacted_json(&response);
     round_floats(&mut tilejson);
     tilejson
 }

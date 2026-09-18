@@ -36,8 +36,7 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "basename": "ne2sr.mbtiles",

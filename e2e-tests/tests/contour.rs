@@ -244,8 +244,7 @@ async fn a_contoured_source_advertises_vector_tiles() {
     "#);
 
     let response = martin.get("/elevation").await;
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "maxzoom": 12,
