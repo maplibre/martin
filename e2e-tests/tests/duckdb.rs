@@ -219,11 +219,11 @@ async fn the_saved_config_fills_in_the_source_defaults() {
 #[rstest]
 #[case::an_absent_geometry_column(
     POLYGONS_WITH_A_SIBLING_NAMING_AN_ABSENT_GEOMETRY_COLUMN,
-    "GeoParquet geometry column 'nonexistent' was not found"
+    "Geometry column 'nonexistent' was not found"
 )]
 #[case::an_absent_id_column(
     POLYGONS_WITH_A_SIBLING_NAMING_AN_ABSENT_ID_COLUMN,
-    "GeoParquet id_column 'nonexistent' was not found"
+    "id_column 'nonexistent' was not found"
 )]
 #[tokio::test]
 async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
@@ -355,6 +355,352 @@ async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest()
     );
 }
 
+const DATABASE_WITH_AN_EXPLICIT_TABLE: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      tables:
+        polygons:
+          schema: main
+          table: polygons
+          geometry_column: geom
+          srid: 4326
+          minzoom: 0
+          maxzoom: 14
+";
+
+#[tokio::test]
+async fn an_explicit_table_of_a_database_file_is_served() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, DATABASE_WITH_AN_EXPLICIT_TABLE).await;
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.status(), 200);
+    insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+    {
+      "polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table main.polygons (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+
+    let response = martin.get("/polygons").await;
+    assert_eq!(response.status(), 200);
+    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
+        .expect("response body is not valid json");
+    insta::assert_json_snapshot!(tilejson, @r#"
+    {
+      "bounds": [
+        -50.0,
+        20.0,
+        5.0,
+        30.0
+      ],
+      "description": "DuckDB table main.polygons (tests/fixtures/duckdb/database.duckdb)",
+      "maxzoom": 14,
+      "minzoom": 0,
+      "name": "polygons",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/polygons/{z}/{x}/{y}"
+      ],
+      "vector_layers": [
+        {
+          "fields": {
+            "id": "INTEGER",
+            "name": "VARCHAR"
+          },
+          "id": "polygons"
+        }
+      ]
+    }
+    "#);
+
+    let tile = martin.get("/polygons/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: polygons
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)[OUTER]
+        properties:
+          id = 1 (int)
+          name = "boundary_span"
+      feature: 1
+        id: (none)
+        geometry: RING[count=5](3186 3631,2958 3631,2958 3380,3186 3380,3186 3631)[OUTER]
+        properties:
+          id = 2 (int)
+          name = "inside_west"
+    "#);
+
+    martin.stop().await;
+}
+
+const BARE_DATABASE: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+";
+
+#[tokio::test]
+async fn a_bare_database_entry_publishes_every_geometry_table_and_zxy_macro_across_all_schemas() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, BARE_DATABASE).await;
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.status(), 200);
+    insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+    {
+      "points": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table places.points (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table main.polygons (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons_mvt": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/polygons_mvt/1/0/0").await.status(), 200);
+
+    let tilejson = martin.get("/points").await.json();
+    insta::assert_json_snapshot!(tilejson["vector_layers"], @r#"
+    [
+      {
+        "fields": {
+          "gid": "INTEGER",
+          "label": "VARCHAR"
+        },
+        "id": "points"
+      }
+    ]
+    "#);
+
+    let tile = martin.get("/points/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: points
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(3072,3508)
+        properties:
+          gid = 1 (int)
+          label = "west"
+      feature: 1
+        id: (none)
+        geometry: POINT(4096,3508)
+        properties:
+          gid = 2 (int)
+          label = "east"
+    "#);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn the_saved_config_makes_the_implied_auto_publish_of_a_bare_database_explicit() {
+    let dir = temp_dir();
+    let save_config = dir.path().join("save_config.yaml");
+    let mut martin = martin_with_config(&dir, BARE_DATABASE)
+        .arg("--save-config")
+        .arg(&save_config)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    insta::assert_snapshot!(saved, @"
+    listen_addresses: 127.0.0.1:0
+    duckdb:
+      sources:
+      - database: tests/fixtures/duckdb/database.duckdb
+        pool_size: 4
+        auto_bounds: quick
+        auto_publish: true
+    ");
+
+    martin.stop().await;
+}
+
+const DATABASE_WITH_AN_EXPLICIT_MACRO: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      macros:
+        polygons_from_macro:
+          schema: main
+          macro: polygons_mvt
+          minzoom: 0
+          maxzoom: 10
+          bounds: [-50, 20, 5, 30]
+";
+
+#[tokio::test]
+async fn an_explicit_table_macro_taking_z_x_y_is_served_as_a_source() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, DATABASE_WITH_AN_EXPLICIT_MACRO).await;
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.status(), 200);
+    insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+    {
+      "polygons_from_macro": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+
+    let response = martin.get("/polygons_from_macro").await;
+    assert_eq!(response.status(), 200);
+    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
+        .expect("response body is not valid json");
+    insta::assert_json_snapshot!(tilejson, @r#"
+    {
+      "bounds": [
+        -50.0,
+        20.0,
+        5.0,
+        30.0
+      ],
+      "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)",
+      "maxzoom": 10,
+      "minzoom": 0,
+      "name": "polygons_from_macro",
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/polygons_from_macro/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+
+    let tile = martin.get("/polygons_from_macro/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: polygons_mvt
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)[OUTER]
+        properties:
+          id = 1 (int)
+          name = "boundary_span"
+      feature: 1
+        id: (none)
+        geometry: RING[count=5](3186 3631,2958 3631,2958 3380,3186 3380,3186 3631)[OUTER]
+        properties:
+          id = 2 (int)
+          name = "inside_west"
+    "#);
+
+    martin.stop().await;
+}
+
+const AUTO_PUBLISH_ONE_SCHEMA_WITH_IDS: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      auto_publish:
+        tables:
+          from_schemas: places
+          source_id_format: '{schema}.{table}'
+          id_columns: [id, gid]
+";
+
+#[tokio::test]
+async fn auto_publish_limits_the_schemas_formats_the_ids_and_picks_the_feature_id_column() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, AUTO_PUBLISH_ONE_SCHEMA_WITH_IDS).await;
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.status(), 200);
+    insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+    {
+      "places.points": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table places.points (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+
+    let tilejson = martin.get("/places.points").await.json();
+    insta::assert_json_snapshot!(tilejson["vector_layers"], @r#"
+    [
+      {
+        "fields": {
+          "label": "VARCHAR"
+        },
+        "id": "places.points"
+      }
+    ]
+    "#);
+
+    let tile = martin.get("/places.points/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: places.points
+      version: 2
+      extent: 4096
+      feature: 0
+        id: 1
+        geometry: POINT(3072,3508)
+        properties:
+          label = "west"
+      feature: 1
+        id: 2
+        geometry: POINT(4096,3508)
+        properties:
+          label = "east"
+    "#);
+
+    martin.stop().await;
+}
+
+const AUTO_PUBLISH_MACROS_ONLY: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      auto_publish:
+        macros:
+          from_schemas: main
+          source_id_format: '{schema}.{macro}'
+";
+
+#[tokio::test]
+async fn auto_publishing_only_macros_leaves_the_tables_out_and_formats_the_macro_ids() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, AUTO_PUBLISH_MACROS_ONLY).await;
+
+    let catalog = martin.get("/catalog").await;
+    assert_eq!(catalog.status(), 200);
+    insta::assert_json_snapshot!(catalog.json()["tiles"], @r#"
+    {
+      "main.polygons_mvt": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/main.polygons_mvt/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+}
+
 #[tokio::test]
 async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
     let dir = temp_dir();
@@ -392,13 +738,9 @@ async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
 #[tokio::test]
 async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
     let dir = temp_dir();
-    let database = dir.path().join("tiles.duckdb");
-    fs::write(&database, b"").expect("failed to create the database file");
     let save_config = dir.path().join("save_config.yaml");
     let mut martin = Martin::builder()
-        .arg(&database)
-        .arg("--on-invalid")
-        .arg("warn")
+        .arg("tests/fixtures/duckdb/database.duckdb")
         .arg("--save-config")
         .arg(&save_config)
         .start()
@@ -406,24 +748,32 @@ async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::with_settings!({filters => vec![(r"(?m)^  - database: .*$", "  - database: [PATH]")]}, {
-        insta::assert_snapshot!(saved, @r"
-        on_invalid: warn
-        listen_addresses: 127.0.0.1:0
-        duckdb:
-          sources:
-          - database: [PATH]
-            pool_size: 4
-            auto_bounds: quick
-        ");
-    });
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    insta::assert_snapshot!(saved, @r"
+    listen_addresses: 127.0.0.1:0
+    duckdb:
+      sources:
+      - database: tests/fixtures/duckdb/database.duckdb
+        pool_size: 4
+        auto_bounds: quick
+        auto_publish: true
+    ");
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "points": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table places.points (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB table main.polygons (tests/fixtures/duckdb/database.duckdb)"
+      },
+      "polygons_mvt": {
+        "content_type": "application/x-protobuf",
+        "description": "DuckDB macro main.polygons_mvt (tests/fixtures/duckdb/database.duckdb)"
+      }
+    }
+    "#);
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_contains(
-        "Tile source resolution warning: Source tiles: DuckDB database sources are not yet supported; entry skipped",
-    );
 }

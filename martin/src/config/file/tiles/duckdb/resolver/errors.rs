@@ -2,7 +2,7 @@ use duckdb::Error as DuckdbError;
 use martin_core::tiles::duckdb::DuckDBError;
 
 pub type BoundsResult<T> = Result<T, BoundsError>;
-pub type GeoparquetResult<T> = Result<T, GeoparquetError>;
+pub type DuckDbSourceResult<T> = Result<T, DuckDbSourceError>;
 
 /// Errors raised while computing `DuckDB` bounds during config resolution.
 #[derive(thiserror::Error, Debug)]
@@ -16,53 +16,51 @@ pub enum BoundsError {
     Pool(#[from] DuckDBError),
 }
 
-/// Errors raised while resolving `GeoParquet` tile sources.
+/// Errors raised while resolving `DuckDB` relations into tile sources.
 #[derive(thiserror::Error, Debug)]
-pub enum GeoparquetError {
-    /// No geometry column was found in the `GeoParquet` file.
-    #[error("GeoParquet source has no geometry column")]
+pub enum DuckDbSourceError {
+    /// No geometry column was found in the relation.
+    #[error("Source has no geometry column")]
     NoGeometryColumn,
 
     /// Multiple geometry columns were found without an explicit `geometry_column`.
-    #[error(
-        "GeoParquet source has multiple geometry columns ({0:?}); set geometry_column explicitly"
-    )]
+    #[error("Source has multiple geometry columns ({0:?}); set geometry_column explicitly")]
     AmbiguousGeometryColumn(Vec<String>),
 
     /// The configured geometry column does not exist.
-    #[error("GeoParquet geometry column '{0}' was not found")]
+    #[error("Geometry column '{0}' was not found")]
     GeometryColumnNotFound(String),
 
     /// The configured geometry column is not a geometry type.
-    #[error("GeoParquet column '{0}' is not a geometry column (type {1})")]
+    #[error("Column '{0}' is not a geometry column (type {1})")]
     NotGeometryColumn(String, String),
 
     /// The configured id column does not exist.
-    #[error("GeoParquet id_column '{0}' was not found")]
+    #[error("id_column '{0}' was not found")]
     IdColumnNotFound(String),
 
     /// `ST_CRS` returned no CRS for the geometry column.
-    #[error("Unable to determine SRID for GeoParquet geometry column '{0}'")]
+    #[error("Unable to determine SRID for geometry column '{0}'")]
     SridUnknown(String),
 
     /// CRS string from `ST_CRS` was empty.
-    #[error("GeoParquet geometry column '{0}' has an empty CRS string")]
+    #[error("Geometry column '{0}' has an empty CRS string")]
     SridEmpty(String, String),
 
     /// CRS authority is not EPSG or OGC:CRS84.
-    #[error("GeoParquet geometry column '{0}' uses unsupported CRS '{1}'")]
+    #[error("Geometry column '{0}' uses unsupported CRS '{1}'")]
     SridUnsupportedCrs(String, String),
 
     /// EPSG code is not a valid integer.
-    #[error("GeoParquet geometry column '{0}' has invalid EPSG code in CRS '{1}'")]
+    #[error("Geometry column '{0}' has invalid EPSG code in CRS '{1}'")]
     SridInvalidEpsgCode(String, String),
 
     /// Parsed EPSG code is zero or negative.
-    #[error("GeoParquet geometry column '{0}' has non-positive EPSG code {2} in CRS '{1}'")]
+    #[error("Geometry column '{0}' has non-positive EPSG code {2} in CRS '{1}'")]
     SridNonPositive(String, String, i32),
 
     /// An introspection query failed to execute.
-    #[error("Error introspecting GeoParquet source '{1}' ({2}): {3} {0}")]
+    #[error("Error introspecting DuckDB source '{1}' ({2}): {3} {0}")]
     IntrospectionQuery(String, String, String, String),
 
     /// An error from bounds calculation.
@@ -74,7 +72,7 @@ pub enum GeoparquetError {
     Pool(#[from] DuckDBError),
 }
 
-impl GeoparquetError {
+impl DuckDbSourceError {
     pub(crate) fn introspection_query(
         source: DuckdbError,
         source_label: String,

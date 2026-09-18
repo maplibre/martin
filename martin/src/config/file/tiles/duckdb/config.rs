@@ -109,17 +109,14 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
-    Database(DuckDbDatabaseEntry),
-    GeoParquet(GeoParquetEntry),
+    Database(Box<DuckDbDatabaseEntry>),
+    GeoParquet(Box<GeoParquetEntry>),
 }
 
 impl DuckDbSourceEntry {
     pub(crate) fn finalize(&mut self) -> ConfigFileResult<()> {
         match self {
-            Self::Database(v) => {
-                v.finalize();
-                Ok(())
-            }
+            Self::Database(v) => v.finalize(),
             Self::GeoParquet(v) => v.finalize(),
         }
     }
@@ -161,6 +158,10 @@ mod tests {
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one debug snapshot of both entry kinds"
+    )]
     fn source_list_may_mix_database_and_geoparquet() {
         let yaml = r"
 pool_size: 4
@@ -191,17 +192,35 @@ sources:
                 Database(
                     DuckDbDatabaseEntry {
                         database: "/data/tiles.duckdb",
+                        path: None,
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        auto_publish: Some(
-                            Object {
-                                "tables": Object {
-                                    "from_schemas": String("autodetect"),
-                                },
+                        auto_publish: Object(
+                            DuckDbCfgPublish {
+                                from_schemas: NoVals,
+                                tables: Object(
+                                    DuckDbCfgPublishTables {
+                                        from_schemas: One(
+                                            "autodetect",
+                                        ),
+                                        source_id_format: None,
+                                        id_columns: NoVals,
+                                        clip_geom: None,
+                                        buffer: None,
+                                        extent: None,
+                                        unrecognized: UnrecognizedValues(
+                                            {},
+                                        ),
+                                    },
+                                ),
+                                macros: NoValue,
+                                unrecognized: UnrecognizedValues(
+                                    {},
+                                ),
                             },
                         ),
                         tables: None,
@@ -218,26 +237,28 @@ sources:
                         layer_id: Some(
                             "buildings",
                         ),
-                        id_column: None,
-                        geometry_column: Some(
-                            "geom",
-                        ),
-                        srid: Some(
-                            4326,
-                        ),
-                        minzoom: Some(
-                            0,
-                        ),
-                        maxzoom: Some(
-                            14,
-                        ),
-                        extent: Some(
-                            4096,
-                        ),
-                        buffer: Some(
-                            64,
-                        ),
-                        clip_geom: None,
+                        layer: MvtLayerOptions {
+                            id_column: None,
+                            geometry_column: Some(
+                                "geom",
+                            ),
+                            srid: Some(
+                                4326,
+                            ),
+                            minzoom: Some(
+                                0,
+                            ),
+                            maxzoom: Some(
+                                14,
+                            ),
+                            extent: Some(
+                                4096,
+                            ),
+                            buffer: Some(
+                                64,
+                            ),
+                            clip_geom: None,
+                        },
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
@@ -325,13 +346,14 @@ sources:
                 Database(
                     DuckDbDatabaseEntry {
                         database: "/data/tiles.duckdb",
+                        path: None,
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        auto_publish: None,
+                        auto_publish: NoValue,
                         tables: None,
                         macros: None,
                         unrecognized: UnrecognizedValues(

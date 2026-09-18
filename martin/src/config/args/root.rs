@@ -201,18 +201,18 @@ impl Args {
                 parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
                     .into_iter()
                     .map(|path| {
-                        DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+                        DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
                             geoparquet: path.to_string_lossy().into_owned(),
                             ..GeoParquetEntry::default()
-                        })
+                        }))
                     });
             let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
                 .into_iter()
                 .map(|database| {
-                    DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
+                    DuckDbSourceEntry::Database(Box::new(DuckDbDatabaseEntry {
                         database,
                         ..DuckDbDatabaseEntry::default()
-                    })
+                    }))
                 });
             config.duckdb.sources.extend(geoparquet.chain(databases));
         }
