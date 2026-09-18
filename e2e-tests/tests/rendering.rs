@@ -50,7 +50,6 @@ async fn martin_rendering(cassette: &Cassette) -> Martin {
 /// assertion dropping a [`Martin`] makes.
 async fn stop_and_take_rendering_log(martin: &mut Martin) {
     martin.stop().await;
-    martin.assert_log_contains("experimental feature rendering is enabled");
     martin.take_log_lines("[Render]");
 }
 

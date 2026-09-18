@@ -30,10 +30,6 @@ use crate::config::primitives::OptBoolObj;
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
-    ///
-    /// Note on EXPERIMENTAL status:
-    /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
-    /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
     #[cfg(feature = "rendering")]
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
@@ -86,17 +82,11 @@ impl StyleConfig {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
-                warn!(
-                    "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
-                );
                 results
                     .enable_rendering(None)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
             }
             OptBoolObj::Object(ref o) => {
-                warn!(
-                    "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
-                );
                 results
                     .enable_rendering(o.workers)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
