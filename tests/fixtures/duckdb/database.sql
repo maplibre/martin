@@ -42,23 +42,23 @@ INSERT INTO places.points VALUES
 (1, 'west', ST_POINT(-45, 25)),
 (2, 'east', ST_POINT(0, 25));
 
-CREATE MACRO polygons_mvt(z, x, y) AS TABLE
-SELECT ST_ASMVT(tile, 'polygons_mvt', 4096, 'geom') AS mvt
-FROM (
-    SELECT
-        ST_ASMVTGEOM(
-            ST_TRANSFORM(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
-            ST_EXTENT(ST_TILEENVELOPE(z, x, y)),
-            4096,
-            64,
-            true
-        ) AS geom,
-        id,
-        name
-    FROM polygons
-    WHERE
-        ST_INTERSECTS(
-            ST_TRANSFORM(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
-            ST_TILEENVELOPE(z, x, y)
-        )
-) AS tile;
+CREATE MACRO POLYGONS_MVT(Z, X, Y) AS TABLE
+    SELECT ST_ASMVT(tile, 'polygons_mvt', 4096, 'geom') AS mvt
+    FROM (
+        SELECT
+            id,
+            name,
+            ST_ASMVTGEOM(
+                ST_TRANSFORM(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_EXTENT(ST_TILEENVELOPE(z, x, y)),
+                4096,
+                64,
+                true
+            ) AS geom
+        FROM polygons
+        WHERE
+            ST_INTERSECTS(
+                ST_TRANSFORM(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_TILEENVELOPE(z, x, y)
+            )
+    ) AS tile;
