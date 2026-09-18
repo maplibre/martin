@@ -109,6 +109,7 @@ queryless
 reproject
 reprojected
 reprojects
+rescan
 rgba
 rustaceanvim
 saphyr
@@ -125,6 +126,7 @@ sslmode
 stackoverflow
 stmts
 strs
+subpages
 subpaths
 subrequest
 subtransaction

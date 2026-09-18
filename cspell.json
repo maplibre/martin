@@ -11,6 +11,6 @@
   ],
   "files": ["README.md", "docs/**/*.md", "*/CHANGELOG.md"],
   "ignoreRegExpList": ["Urls", "HexValues", "Base64", "/@[A-Za-z0-9-]+/g", "/GHSA-[0-9A-Za-z-]+/g"],
-  "language": "en,en-GB",
+  "language": "en",
   "version": "0.2"
 }

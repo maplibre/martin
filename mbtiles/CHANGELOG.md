@@ -145,7 +145,7 @@ The `mbtiles` CLI output stays readable in the default formatter, but log scrape
 
 - store compression type in the MBTiles metadata table ([#2618](https://github.com/maplibre/martin/pull/2618))
 - *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
-- *(mbtiles)* Support planetilers' normalised schema ([#2681](https://github.com/maplibre/martin/pull/2681))
+- *(mbtiles)* Support planetilers' normalized schema ([#2681](https://github.com/maplibre/martin/pull/2681))
 
 ### Other
 

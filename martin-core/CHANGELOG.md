@@ -264,7 +264,7 @@ The human-readable message text was shortened in the process, so any downstream 
 
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
 
-- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artifacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
 
 ## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
@@ -348,7 +348,7 @@ The motivation for this split is mostly to be able to not couple the SemVer prom
 - *(core)* more consistently use `#[non_exhaustive]` and `#[source]` in our public `thiserror` errors ([#2217](https://github.com/maplibre/martin/pull/2217))
 - *(core)* move error types to more appropriate places ([#2213](https://github.com/maplibre/martin/pull/2213))
 - *(core)* fix MartinCoreError being a `Box<dyn Error>` ([#2216](https://github.com/maplibre/martin/pull/2216))
-- *(core)* minimise the dependency Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
+- *(core)* minimize the dependency Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
 - apply the no `use super::..` except in tests guidance ([#2193](https://github.com/maplibre/martin/pull/2193))
 - *(core)* move postgres' `PgPool` and `PgSource` to the core ([#2191](https://github.com/maplibre/martin/pull/2191))
 - *(core)* move config handling out of the pool ([#2185](https://github.com/maplibre/martin/pull/2185))
