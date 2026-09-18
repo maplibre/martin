@@ -1904,6 +1904,40 @@ async fn a_simple_grid_serves_plain_planar_coordinates() {
 }
 
 #[tokio::test]
+async fn a_simple_grid_set_on_the_connection_auto_publishes_tables_without_a_srid() {
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(
+            "
+tile_grids:
+  FloorPlan:
+    crs: simple
+    origin: [0, 1000]
+    extent_at_zoom0: 1000
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 1
+  tile_grid: FloorPlan
+  auto_publish:
+    tables:
+      from_schemas: public
+    functions: false
+",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tilejson = tilejson(&martin, "/floor_plan").await;
+    assert_eq!(tilejson["tileGrid"]["crs"], "simple");
+    assert_eq!(martin.get("/floor_plan/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+    assert_unindexed_table_warnings(&mut martin);
+    martin.assert_log_contains("source.id.new=table_source_multiple_geom.1");
+}
+
+#[tokio::test]
 async fn an_archive_can_be_declared_to_be_on_a_grid() {
     let (mut martin, _dir) = martin_with_tile_grids().await;
 

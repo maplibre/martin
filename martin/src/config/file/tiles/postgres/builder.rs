@@ -366,7 +366,8 @@ impl PostgresAutoDiscoveryBuilder {
                             .replace("{table}", &table)
                             .replace("{column}", &geom_column);
                         let id2 = self.resolve_id(&source_id, &db_inf);
-                        let Some(srid) = db_inf.calc_srid(&id2, 0, self.default_srid) else {
+                        let default_srid = self.default_srid_for(db_inf.tile_grid.as_deref());
+                        let Some(srid) = db_inf.calc_srid(&id2, 0, default_srid) else {
                             continue;
                         };
                         db_inf.srid = srid;
@@ -538,16 +539,7 @@ impl PostgresAutoDiscoveryBuilder {
             "geometry column",
             id,
         )?;
-        // a table on a simple grid stores plain planar coordinates, which is PostGIS's SRID 0
-        let default_srid = if self
-            .tile_grid_for(table_info_from_config.tile_grid.as_deref())
-            .grid()
-            .is_simple()
-        {
-            Some(0)
-        } else {
-            self.default_srid
-        };
+        let default_srid = self.default_srid_for(table_info_from_config.tile_grid.as_deref());
         let merged_table_info = table_info_for_geometry_column
             .append_cfg_info(table_info_from_config, id, default_srid)
             .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
@@ -596,6 +588,15 @@ impl PostgresAutoDiscoveryBuilder {
         self.tile_grids
             .get(name)
             .expect("every grid a source of this connection can name was resolved when the builder was created")
+    }
+
+    /// The SRID a table without one is read in, which on a simple grid is the plain planar SRID 0.
+    fn default_srid_for(&self, tile_grid: Option<&str>) -> Option<i32> {
+        if self.tile_grid_for(tile_grid).grid().is_simple() {
+            Some(0)
+        } else {
+            self.default_srid
+        }
     }
 
     /// Constructs a [`PostgresSource`] from a resolved source description and its SQL.
