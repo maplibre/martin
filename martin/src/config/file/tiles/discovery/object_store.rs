@@ -33,6 +33,8 @@ pub type ObjectStoreParser = Box<
         + Sync,
 >;
 
+type PrefixEntry = (String, Url, Version);
+
 /// Builds a source discovered in an object store.
 ///
 /// The enum keeps the supported source kinds explicit and avoids erasing async builders behind
@@ -241,6 +243,8 @@ pub struct ObjectStoreDiscovery {
     id_resolver: IdResolver,
     reload_interval: Duration,
     parser: ObjectStoreParser,
+    /// Last successful listing per prefix, retained across transient listing failures.
+    last_entries: Mutex<BTreeMap<String, Vec<PrefixEntry>>>,
     build: ObjectStoreSourceBuilder,
     default_cache: CachePolicy,
     process: ResolvedProcess,
@@ -293,6 +297,7 @@ impl ObjectStoreDiscovery {
             id_resolver,
             reload_interval,
             parser,
+            last_entries: Mutex::new(BTreeMap::new()),
             build,
             default_cache,
             process: process
@@ -318,19 +323,42 @@ impl Discovery for ObjectStoreDiscovery {
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
-                .await
-            {
-                Ok(entries) => {
-                    for (id, url, version) in entries {
-                        out.insert(id, (version, url));
+            let entries =
+                match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
+                    .await
+                {
+                    Ok(entries) => {
+                        self.last_entries
+                            .lock()
+                            .expect("prefix listing map mutex")
+                            .insert(prefix.to_string(), entries.clone());
+                        entries
                     }
-                }
-                Err(error) => tracing::warn!(
-                    "{}: list failed for {}: {error:?}; skipping prefix this tick",
-                    self.label,
-                    sanitized_url(prefix)
-                ),
+                    Err(error) => {
+                        let Some(entries) = self
+                            .last_entries
+                            .lock()
+                            .expect("prefix listing map mutex")
+                            .get(prefix.as_str())
+                            .cloned()
+                        else {
+                            tracing::warn!(
+                                "{}: list failed for {}: {error:?}; skipping prefix this tick",
+                                self.label,
+                                sanitized_url(prefix)
+                            );
+                            continue;
+                        };
+                        tracing::warn!(
+                            "{}: list failed for {}: {error:?}; retaining last successful listing",
+                            self.label,
+                            sanitized_url(prefix)
+                        );
+                        entries
+                    }
+                };
+            for (id, url, version) in entries {
+                out.insert(id, (version, url));
             }
         }
         Ok(Discovered::new(out))
@@ -361,7 +389,7 @@ async fn list_remote_prefix(
     extensions: &[String],
     id_resolver: &IdResolver,
     parser: &ObjectStoreParser,
-) -> SourceBuildResult<Vec<(String, Url, Version)>> {
+) -> SourceBuildResult<Vec<PrefixEntry>> {
     let (store, base) = parser(prefix)
         .map_err(|error| ConfigFileError::ObjectStoreUrlParsing(error, sanitized_url(prefix)))?;
     let mut out = Vec::new();
@@ -386,17 +414,9 @@ async fn list_remote_prefix(
         if stem.is_empty() {
             continue;
         }
-        let object_url_str = format!(
-            "{}://{}/{}",
-            prefix.scheme(),
-            prefix.host_str().unwrap_or(""),
-            meta.location
-        );
-        let Ok(object_url) = Url::parse(&object_url_str) else {
-            tracing::warn!("cannot build absolute URL from {object_url_str}");
-            continue;
-        };
-        let id = id_resolver.resolve(stem, object_url.to_string());
+        let mut object_url = prefix.clone();
+        object_url.set_path(meta.location.as_ref());
+        let id = id_resolver.resolve(stem, sanitized_url(&object_url));
         out.push((id, object_url, version_from_meta(&meta)));
     }
     Ok(out)
@@ -417,6 +437,11 @@ fn sanitized_url(url: &Url) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "pmtiles")]
+    use std::path::PathBuf;
+    #[cfg(feature = "pmtiles")]
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use object_store::PutPayload;
     use object_store::memory::InMemory;
 
@@ -449,7 +474,8 @@ mod tests {
             ))
         });
         let entries = list_remote_prefix(
-            &Url::parse("s3://bucket/imagery/").unwrap(),
+            &Url::parse("https://user:secret@example.com:8443/imagery/?token=secret#fragment")
+                .unwrap(),
             &["tif".to_owned(), "tiff".to_owned()],
             &IdResolver::new(&[]),
             &parser,
@@ -466,14 +492,63 @@ mod tests {
             [
                 (
                     "ortho".to_owned(),
-                    "s3://bucket/imagery/ortho.TIFF".to_owned()
+                    "https://user:secret@example.com:8443/imagery/ortho.TIFF?token=secret#fragment"
+                        .to_owned(),
                 ),
                 (
                     "vienna".to_owned(),
-                    "s3://bucket/imagery/vienna.tif".to_owned()
+                    "https://user:secret@example.com:8443/imagery/vienna.tif?token=secret#fragment"
+                        .to_owned(),
                 ),
             ]
         );
+    }
+    #[cfg(feature = "pmtiles")]
+    #[tokio::test]
+    async fn prefix_listing_failure_retains_the_last_successful_entries() {
+        let store = InMemory::new();
+        store
+            .put(
+                &object_store::path::Path::from("imagery/vienna.pmtiles"),
+                PutPayload::from_static(b"fixture"),
+            )
+            .await
+            .unwrap();
+        let failing = Arc::new(AtomicBool::new(false));
+        let failing_flag = Arc::clone(&failing);
+        let parser_store = store.clone();
+        let parser: ObjectStoreParser = Box::new(move |_url: &Url| {
+            if failing_flag.load(Ordering::Relaxed) {
+                return Err(object_store::Error::Generic {
+                    store: "test",
+                    source: Box::new(std::io::Error::other("boom")),
+                });
+            }
+            Ok((
+                Box::new(parser_store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from("imagery"),
+            ))
+        });
+        let config: FileConfigEnum<PmtConfig> =
+            FileConfigEnum::Path(PathBuf::from("s3://bucket/imagery/"));
+        let discovery = ObjectStoreDiscovery::from_config(
+            &config,
+            &["pmtiles"],
+            "test",
+            Duration::from_secs(1),
+            IdResolver::new(&[]),
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+            parser,
+            ObjectStoreSourceBuilder::Pmtiles(Box::default()),
+        );
+
+        let first = discovery.discover().await.unwrap().sources;
+        assert_eq!(first.len(), 1);
+        failing.store(true, Ordering::Relaxed);
+        let retained = discovery.discover().await.unwrap().sources;
+
+        assert_eq!(retained, first);
     }
 }
 

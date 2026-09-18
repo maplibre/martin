@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
-use crate::config::file::driver::Sink;
+use crate::config::file::driver::{ApplyOutcome, Sink};
 use crate::config::file::{OnInvalid, ResolvedProcess, SourceBuildResult};
 use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
 use crate::source::TileSources;
@@ -119,9 +120,14 @@ impl Sink for TileSourceManager {
     /// 1. **Updates** - time-critical; invalidate cache then replace the source.
     /// 2. **Additions** - make new sources available.
     /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
-    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<()> {
+    fn contains(&self, id: &str) -> bool {
+        self.tile_sources.contains_key(id)
+    }
+
+    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<ApplyOutcome> {
+        let mut failed = BTreeSet::new();
         if advisory.is_empty() {
-            return Ok(());
+            return Ok(ApplyOutcome { failed });
         }
 
         // 1. Updates: time-critical, invalidate cache then swap
@@ -144,6 +150,7 @@ impl Sink for TileSourceManager {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
                         warn!(source.id = %id, error = %err, "Skipping update");
+                        failed.insert(id);
                     }
                 },
             }
@@ -166,6 +173,7 @@ impl Sink for TileSourceManager {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
                         warn!(source.id = %id, error = %err, "Skipping addition");
+                        failed.insert(id);
                     }
                 },
             }
@@ -186,7 +194,7 @@ impl Sink for TileSourceManager {
             cache.run_pending_tasks().await;
         }
 
-        Ok(())
+        Ok(ApplyOutcome { failed })
     }
 }
 
@@ -284,7 +292,7 @@ mod tests {
         - src_b
         ");
 
-        let mut removals = std::collections::BTreeSet::new();
+        let mut removals = BTreeSet::new();
         removals.insert(DeletedSource {
             id: "src_a".to_owned(),
         });
@@ -415,14 +423,16 @@ mod tests {
                 ResolvedProcess::default(),
             )
             .await;
-            mgr.apply_changes(advisory)
+            let outcome = mgr
+                .apply_changes(advisory)
                 .await
                 .expect("warn policy must not abort on a bad file");
             *state = next;
+            outcome.failed
         };
 
         std::fs::write(dir.path().join("bad_a.tiles"), b"").unwrap();
-        tick(&mut state).await;
+        assert_eq!(tick(&mut state).await, BTreeSet::from(["bad_a".to_owned()]));
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
 
         std::fs::write(dir.path().join("good_x.tiles"), b"").unwrap();

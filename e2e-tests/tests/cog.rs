@@ -37,9 +37,11 @@ async fn tilejson(martin: &Martin, id: &str) -> Value {
 fn assert_remote_reads_use_ranges(
     requests: &str,
     path: &str,
+    query: Option<&str>,
     expected_reads: usize,
     ranges: &[&str],
 ) {
+    let path = query.map_or_else(|| path.to_owned(), |query| format!("{path}?{query}"));
     let head = format!("HEAD {path} no range");
     let gets = ranges
         .iter()
@@ -251,6 +253,7 @@ cog:
     assert_remote_reads_use_ranges(
         &statics.request_log().await,
         "/cogtest/usda_naip_128_none_z2.tif",
+        None,
         2,
         &["bytes=0-32767", "bytes=1284-66819"],
     );
@@ -335,7 +338,11 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");
     let name = "usda_naip_512_webp_z5.tif";
-    let statics = StaticFiles::serving(&[(name, fixture(&format!("cog/{name}")))]).await;
+    let statics = StaticFiles::serving_with_query(
+        "token=secret-query",
+        &[(name, fixture(&format!("cog/{name}")))],
+    )
+    .await;
     let clean_url = statics.url(name);
     let configured_url = format!("{clean_url}?token=secret-query#secret-fragment");
     let mut martin = Martin::builder()
@@ -370,6 +377,7 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     assert_remote_reads_use_ranges(
         &statics.request_log().await,
         "/usda_naip_512_webp_z5.tif",
+        Some("token=secret-query"),
         1,
         &["bytes=0-28219", "bytes=11166-11777"],
     );

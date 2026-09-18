@@ -117,13 +117,20 @@ async fn start(
     };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
-    if web_ui_mode == WebUiMode::EnableForAll {
-        tracing::info!("Martin server is now active at {base_url}");
-    } else {
-        info!("Martin server is now active. See {base_url}catalog to see available services");
-        info!(
-            "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
-        );
+    match web_ui_mode {
+        WebUiMode::EnableForAll => info!("Martin server is now active at {base_url}"),
+        WebUiMode::Enable => {
+            info!("Martin server is now active at {base_url}");
+            info!(
+                "Web UI is only served to localhost connections. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
+            );
+        }
+        WebUiMode::Disable => {
+            info!("Martin server is now active. See {base_url}catalog to see available services");
+            info!(
+                "Web UI is disabled. Use `--webui enable` or `--webui enable-for-all` in CLI or a config value to enable it."
+            );
+        }
     }
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");

@@ -35,7 +35,7 @@ docker run \
   /files
 ```
 
-You can also pass any [CLI flags](run-with-cli.md) after the image name, for example `--webui enable-for-all` to serve the built-in web UI (disabled by default):
+You can also pass any [CLI flags](run-with-cli.md) after the image name, for example `--webui enable-for-all` to serve the built-in web UI to all clients (by default it is only served to connections from localhost, which inside a container excludes the host):
 
 ```bash
 docker run \
