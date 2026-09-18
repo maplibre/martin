@@ -507,11 +507,9 @@ impl Martin {
         );
     }
 
-    /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
-    /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the `AWS_SKIP_CREDENTIALS`
-    /// variable [`MartinBuilder::start`] sets.
+    /// Assert the `AWS_SKIP_CREDENTIALS` deprecation warning a martin start that resolves pmtiles
+    /// configuration emits, because [`MartinBuilder::start`] sets that variable.
     pub fn assert_startup_warnings(&mut self) {
-        self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
         self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
     }
 

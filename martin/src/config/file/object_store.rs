@@ -335,6 +335,12 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
+                if url.scheme() == "http" && !self.options.contains_key("allow_http") {
+                    return Err(object_store::Error::Generic {
+                        store: "HttpStore",
+                        source: "plain http is refused unless `allow_http` is set to `true`".into(),
+                    });
+                }
                 // Carry the URL query onto every request: the backend stores only the origin and
                 // builds per-object URLs by extending the path, so a query (e.g. a presigned or
                 // token-authenticated URL) must be pinned onto the base. The fragment is auth
@@ -382,13 +388,6 @@ impl ObjectStoreConfig {
     }
 
     fn migrate_deprecated_keys(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
-        if !self.options.contains_key("allow_http") {
-            warn!(
-                "Defaulting `{namespace}.allow_http` to `true`. This may become an error in the future."
-            );
-            self.options
-                .insert("allow_http".to_owned(), "true".to_owned());
-        }
         for key in ["aws_s3_force_path_style", "force_path_style"] {
             if let Some(Some(force)) = unrecognized.remove(key).map(|v| v.as_bool())
                 && self.migrate_aws_value(
@@ -693,6 +692,8 @@ mod cog_tests {
             .await;
 
         let mut cog = CogConfig::default();
+        cog.unrecognized
+            .insert("allow_http".to_owned(), serde_json::json!(true));
         cog.finalize().await.unwrap();
         let config = &cog.object_store;
         let url = url::Url::parse(&format!("{}/image.tif", server.uri())).unwrap();

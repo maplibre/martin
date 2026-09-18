@@ -3,7 +3,9 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, StaticFiles, WatchedDir, fixture, mbtiles_fixture, vector_pmtiles};
+use martin_e2e_tests::{
+    Martin, StartError, StaticFiles, WatchedDir, fixture, mbtiles_fixture, vector_pmtiles,
+};
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
 /// that has to be derived from a file name carrying characters a URL cannot.
@@ -235,54 +237,32 @@ async fn statics_serving(name: &str) -> StaticFiles {
 }
 
 #[tokio::test]
-async fn a_source_url_is_read_over_http() {
-    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
-    let save_config = tmp.path().join("save_config.yaml");
+async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
     let statics = statics_serving("webp2.pmtiles").await;
-    let mut martin = Martin::builder()
-        .arg("--save-config")
-        .arg(&save_config)
+    let error = Martin::builder()
         .arg(statics.url("webp2.pmtiles"))
         .start()
         .await
-        .expect("failed to start martin");
-
-    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
-    {
-      "webp2": {
-        "content_type": "image/webp",
-        "name": "ne2sr"
-      }
-    }
-    "#);
-
-    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::with_settings!({filters => vec![(r"http://127\.0\.0\.1:\d+", "http://[STATICS]")]}, {
-        insta::assert_snapshot!(saved, @"
-        listen_addresses: 127.0.0.1:0
-        pmtiles:
-          sources:
-            webp2: http://[STATICS]/webp2.pmtiles
+        .expect_err("martin must refuse a plain http source without allow_http");
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
+        (r"Martin v\S+", "Martin v[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin v[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+         WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.
+         INFO resolve: Initializing PMTiles directory cache with maximum size 128 MB
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning: Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
         ");
     });
-
-    let tile = martin.get("/webp2/1/0/0").await;
-    assert_eq!(tile.status(), 200);
-    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
-    content-length: 10658
-    content-type: image/webp
-    etag: "YQCG8_HEN_sExq050B7MCQ"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-    "#);
-    assert_eq!(tile.image_size(), (512, 512));
-
-    martin.stop().await;
-    insta::assert_snapshot!(statics.request_log().await, @"
-    GET /webp2.pmtiles bytes=0-16383
-    GET /webp2.pmtiles bytes=171-314
-    GET /webp2.pmtiles bytes=11901-22558
-    ");
-    martin.assert_startup_warnings();
+    insta::assert_snapshot!(statics.request_log().await, @"");
 }
 
 #[tokio::test]
@@ -292,6 +272,7 @@ async fn a_configured_source_url_is_read_over_http() {
         .config(&format!(
             "
 pmtiles:
+  allow_http: true
   sources:
     pmt2: {}
 ",

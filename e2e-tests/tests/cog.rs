@@ -572,7 +572,14 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .arg(configured_url)
+        .config(&format!(
+            "\
+cog:
+  allow_http: true
+  sources:
+    usda_naip_512_webp_z5: {configured_url}
+"
+        ))
         .start()
         .await
         .expect("failed to start martin with an HTTP COG");
@@ -595,6 +602,7 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
         cog:
           sources:
             usda_naip_512_webp_z5: http://[STATICS]/usda_naip_512_webp_z5.tif
+          allow_http: true
         ");
     });
 
