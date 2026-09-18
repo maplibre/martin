@@ -138,7 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- share code accross the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
+- share code across the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
 
 ## [0.6.0](https://github.com/maplibre/martin/compare/martin-core-v0.5.4...martin-core-v0.6.0) - 2026-05-16
 
@@ -264,7 +264,7 @@ The human-readable message text was shortened in the process, so any downstream 
 
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
 
-- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artifacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
 
 ## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
@@ -331,7 +331,7 @@ This release migrates to the new usage.
 
 ## [0.1.1](https://github.com/maplibre/martin/compare/martin-core-v0.1.0...martin-core-v0.1.1) - 2025-09-27
 
-- fix release not working for some packages due to outdated dependedncy definitions
+- fix release not working for some packages due to outdated dependency definitions
 - update documentation to reflect the features better
 
 ## [0.1.0](https://github.com/maplibre/martin/releases/tag/martin-core-v0.1.0) - 2025-09-26
@@ -344,11 +344,11 @@ The motivation for this split is mostly to be able to not couple the SemVer prom
 - *(release)* bump pmtiles ([#2232](https://github.com/maplibre/martin/pull/2232))
 - *(core)* remove the last bit of the onetime use utils ([#2227](https://github.com/maplibre/martin/pull/2227))
 - *(ci)* Split tests and lints in CI ([#2225](https://github.com/maplibre/martin/pull/2225))
-- *(core)* be consistent in posgres naming ([#2215](https://github.com/maplibre/martin/pull/2215))
+- *(core)* be consistent in Postgres naming ([#2215](https://github.com/maplibre/martin/pull/2215))
 - *(core)* more consistently use `#[non_exhaustive]` and `#[source]` in our public `thiserror` errors ([#2217](https://github.com/maplibre/martin/pull/2217))
 - *(core)* move error types to more appropriate places ([#2213](https://github.com/maplibre/martin/pull/2213))
 - *(core)* fix MartinCoreError being a `Box<dyn Error>` ([#2216](https://github.com/maplibre/martin/pull/2216))
-- *(core)* minimise the dependedncy Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
+- *(core)* minimize the dependency Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
 - apply the no `use super::..` except in tests guidance ([#2193](https://github.com/maplibre/martin/pull/2193))
 - *(core)* move postgres' `PgPool` and `PgSource` to the core ([#2191](https://github.com/maplibre/martin/pull/2191))
 - *(core)* move config handling out of the pool ([#2185](https://github.com/maplibre/martin/pull/2185))
