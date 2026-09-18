@@ -335,6 +335,19 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
+                // object_store keeps its boolean parser private, these are the spellings it accepts
+                let allow_http = self.options.get("allow_http").is_some_and(|value| {
+                    matches!(
+                        value.to_ascii_lowercase().as_str(),
+                        "1" | "true" | "on" | "yes" | "y"
+                    )
+                });
+                if url.scheme() == "http" && !allow_http {
+                    return Err(object_store::Error::Generic {
+                        store: "HttpStore",
+                        source: "plain http is refused unless `allow_http` is set to `true`".into(),
+                    });
+                }
                 // Carry the URL query onto every request: the backend stores only the origin and
                 // builds per-object URLs by extending the path, so a query (e.g. a presigned or
                 // token-authenticated URL) must be pinned onto the base. The fragment is auth
@@ -382,13 +395,6 @@ impl ObjectStoreConfig {
     }
 
     fn migrate_deprecated_keys(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
-        if !self.options.contains_key("allow_http") {
-            warn!(
-                "Defaulting `{namespace}.allow_http` to `true`. This may become an error in the future."
-            );
-            self.options
-                .insert("allow_http".to_owned(), "true".to_owned());
-        }
         for key in ["aws_s3_force_path_style", "force_path_style"] {
             if let Some(Some(force)) = unrecognized.remove(key).map(|v| v.as_bool())
                 && self.migrate_aws_value(
@@ -505,6 +511,7 @@ impl ObjectStoreConfig {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -517,6 +524,20 @@ mod tests {
         config.prepare(&mut unrecognized, "pmtiles");
         assert!(unrecognized.keys().next().is_none());
         config
+    }
+
+    #[rstest]
+    #[case::unset(None, false)]
+    #[case::disabled(Some(json!(false)), false)]
+    #[case::enabled(Some(json!(true)), true)]
+    #[case::enabled_as_a_word(Some(json!("yes")), true)]
+    fn plain_http_needs_allow_http(
+        #[case] allow_http: Option<serde_json::Value>,
+        #[case] accepted: bool,
+    ) {
+        let config = prepared(allow_http.map(|value| ("allow_http", value)));
+        let url = Url::parse("http://example.com/tiles.pmtiles").unwrap();
+        assert_eq!(config.parse_url_opts(&url).is_ok(), accepted);
     }
 
     #[test]
@@ -693,6 +714,8 @@ mod cog_tests {
             .await;
 
         let mut cog = CogConfig::default();
+        cog.unrecognized
+            .insert("allow_http".to_owned(), serde_json::json!(true));
         cog.finalize().await.unwrap();
         let config = &cog.object_store;
         let url = url::Url::parse(&format!("{}/image.tif", server.uri())).unwrap();

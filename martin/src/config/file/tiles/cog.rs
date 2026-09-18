@@ -99,12 +99,6 @@ impl Serialize for CogConfig {
 
 impl ConfigurationLivecycleHooks for CogConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
-        // Match the long-standing PMTiles URL behavior without warning for local-only COG
-        // configurations. An explicit value still wins during option partitioning below.
-        self.object_store
-            .options
-            .entry("allow_http".to_owned())
-            .or_insert_with(|| "true".to_owned());
         self.object_store.prepare(&mut self.unrecognized, "cog");
         self.object_store.finalize_runtime("cog").await;
         Ok(())
