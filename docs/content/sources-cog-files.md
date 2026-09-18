@@ -126,7 +126,9 @@ With `on_invalid: warn`, failed additions and replacements also remain pending f
 COG files can be served from any object store or HTTP(S) endpoint supported by the underlying object-store client, using the same URL schemes and settings as [PMTiles sources](sources-pmtiles.md#serving-pmtiles-from-local-file-systems-http-or-object-storage).
 Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
 The shared settings include AWS profiles and runtime task-role discovery, cloud-specific credentials, custom endpoints, proxies, and HTTP client options.
-Plain `http://` URLs are enabled by default for COG sources; prefer HTTPS outside trusted networks.
+Plain `http://` URLs are refused unless `allow_http` is set to `true`.
+This option can only be set in the configuration file, so a plain `http://` URL cannot be passed on the command line.
+Prefer HTTPS outside trusted networks.
 
 Supported URL schemes include:
 

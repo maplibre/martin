@@ -116,6 +116,9 @@ The settings available for a PMTiles source depend on the backend:
     - `http://example.com/path.pmtiles`
     - `https://example.com/path.pmtiles`
 
+    Plain `http://` urls are refused unless `allow_http` is set to `true`.
+    This option can only be set in the configuration file, so a plain `http://` url cannot be passed on the command line.
+
     If you want more control over your requests, you can configure additional options here as such:
 
     ```yaml
