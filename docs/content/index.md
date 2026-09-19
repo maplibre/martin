@@ -11,7 +11,6 @@ hide:
 [![join our community](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/martin.svg)](https://crates.io/crates/martin)
-[![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
