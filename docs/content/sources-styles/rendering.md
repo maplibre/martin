@@ -21,22 +21,29 @@ as XYZ tiles, or as a single static image at a chosen camera.
     - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
 
     The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.
-    Its behavior may change in patch releases.
 
     Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
       To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
-    - Currently, martin does not cache style rendered requests and
-    - does not support concurrency for this feature.
-
-    We welcome contributions to help stabilize this feature!
+    - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
 
 ```yaml
 styles:
     rendering: true
+```
+
+Renders run on a dedicated thread pool.
+`rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
+The long form sets the number of render threads explicitly:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        workers: 4
 ```
 
 ## Rendered XYZ tiles
@@ -52,8 +59,7 @@ After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filety
     We are working on adding this feature and are very open to contributions if you want to help!
 
 !!! warning
-    Static rendering shares the limitations listed above (Linux only, no caching, no concurrency).
-    The HTTP shape may still change in patch releases.
+    Static rendering shares the limitations listed above (Linux only, no caching).
 
 Martin can render a single PNG/JPEG/WebP of a style at a chosen camera.
 The same URL is served by two methods:
