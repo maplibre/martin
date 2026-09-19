@@ -1219,6 +1219,68 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn diff_and_patch_from_dedup_id_store_valid_tile_hashes() {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, v1_file) =
+            temp_named_mbtiles("v1_diff_and_patch_from_dedup_id_mem", script).await;
+        let script =
+            format!("{script}\nUPDATE tiles_data SET tile_data = X'0102' WHERE tile_data_id = 1;");
+        let (_mbt, _conn, v2_file) =
+            temp_named_mbtiles("v2_diff_and_patch_from_dedup_id_mem", &script).await;
+
+        let v1_hashed_file = PathBuf::from(
+            "file:v1_hashed_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let _v1_hashed_conn = MbtilesCopier {
+            src_file: v1_file.clone(),
+            dst_file: v1_hashed_file.clone(),
+            dst_type: Some(FlatWithHash),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let diff_file =
+            PathBuf::from("file:diff_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared");
+        let mut diff_conn = MbtilesCopier {
+            src_file: v1_hashed_file,
+            dst_file: diff_file.clone(),
+            diff_with_file: Some((v2_file, None)),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        Mbtiles::new(&diff_file)
+            .unwrap()
+            .check_each_tile_hash(&mut diff_conn)
+            .await
+            .unwrap();
+
+        let patched_file = PathBuf::from(
+            "file:patched_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let mut patched_conn = MbtilesCopier {
+            src_file: v1_file,
+            dst_file: patched_file.clone(),
+            apply_patch: Some(diff_file),
+            dst_type: Some(FlatWithHash),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        Mbtiles::new(patched_file)
+            .unwrap()
+            .check_each_tile_hash(&mut patched_conn)
+            .await
+            .unwrap();
+    }
+
+    #[actix_rt::test]
     async fn copy_with_min_max_zoom() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (_mbt, _conn, src_file) =
