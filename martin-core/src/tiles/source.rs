@@ -33,9 +33,6 @@ pub trait Source: Send + Sync + Debug {
         &WEB_MERCATOR_QUAD
     }
 
-    /// Creates a boxed clone for trait object storage.
-    fn clone_source(&self) -> BoxedSource;
-
     /// A version string for this source, if available. Default: None.
     /// If available, this string is appended to tile URLs as a query parameter,
     /// invalidating caches.
@@ -135,11 +132,5 @@ pub trait Source: Send + Sync + Debug {
     }
 }
 
-/// Boxed tile source trait object for storage in collections.
-pub type BoxedSource = Box<dyn Source>;
-
-impl Clone for BoxedSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
-    }
-}
+/// Shared tile source trait object for storage in collections.
+pub type BoxedSource = std::sync::Arc<dyn Source>;

@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
@@ -306,7 +307,7 @@ impl Discovery for FsDiscovery {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
         let configured = self.configured.get(&args.0);
         let source = match configured.and_then(|cfg| cfg.grid.as_ref()) {
-            Some(grid) => Box::new(DeclaredGridSource::new(source, grid.clone())),
+            Some(grid) => Arc::new(DeclaredGridSource::new(source, grid.clone())),
             None => source,
         };
         BuiltSource::with_file_config(
@@ -446,6 +447,7 @@ impl FsDiscovery {
 #[cfg(feature = "mbtiles")]
 mod tests {
     use std::fs::File;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
@@ -479,9 +481,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -503,7 +502,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(Box::new(TestSource {
+                Ok(Arc::new(TestSource {
                     id,
                     tj: tilejson! { tiles: vec![] },
                 }) as BoxedSource)

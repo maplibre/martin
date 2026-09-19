@@ -16,7 +16,7 @@ use tracing::{debug, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
 #[derive(Clone, Dbg)]
@@ -118,10 +118,6 @@ impl Source for MbtSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn get_version(&self) -> Option<String> {

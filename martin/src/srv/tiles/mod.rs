@@ -4,6 +4,8 @@ pub mod process;
 
 #[cfg(test)]
 pub mod tests {
+    use std::sync::Arc;
+
     use async_trait::async_trait;
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
@@ -30,10 +32,6 @@ pub mod tests {
 
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(self.format, Encoding::Uncompressed)
-        }
-
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
         }
 
         fn cache_zoom(&self) -> CacheZoomRange {
@@ -89,10 +87,6 @@ pub mod tests {
             TileInfo::new(self.format, Encoding::Uncompressed)
         }
 
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -112,7 +106,7 @@ pub mod tests {
         async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
             let mut reloaded = self.clone();
             reloaded.call_count += 1;
-            Ok(Box::new(reloaded))
+            Ok(Arc::new(reloaded))
         }
     }
 
@@ -137,10 +131,6 @@ pub mod tests {
 
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, self.encoding)
-        }
-
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
         }
 
         fn cache_zoom(&self) -> CacheZoomRange {

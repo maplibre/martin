@@ -7,7 +7,7 @@ use tracing::{instrument, trace};
 use crate::CacheZoomRange;
 use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
 use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `DuckDB File` tile source that executes SQL queries to generate tiles.
@@ -54,10 +54,6 @@ impl Source for DuckDBSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn support_url_query(&self) -> bool {
