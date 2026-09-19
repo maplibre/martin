@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo, WEB_MERCATOR_QUAD};
@@ -13,6 +14,9 @@ use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
+
+/// Shared tile source trait object for storage in collections.
+pub type BoxedSource = Arc<dyn Source>;
 
 /// Core trait for tile sources providing data to Martin
 ///
@@ -131,6 +135,3 @@ pub trait Source: Send + Sync + Debug {
         }
     }
 }
-
-/// Shared tile source trait object for storage in collections.
-pub type BoxedSource = std::sync::Arc<dyn Source>;
