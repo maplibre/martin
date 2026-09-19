@@ -516,10 +516,8 @@ impl<'a> DynTileSource<'a> {
             return Ok(tile);
         }
 
-        // One source is the overwhelmingly common case, and driving it through
-        // `buffered()` costs a `FuturesOrdered` task node per request for no
-        // concurrency. Await it directly instead; with a single tile `merge_tiles`
-        // has nothing to join, so only its empty-tile and `recompress` steps apply.
+        // One source is the common case.
+        // Using `buffered()` means a `FuturesOrdered` task node per request for no concurrency.
         let (produced, tile) = if let [(s, pc)] = self.sources.as_slice() {
             let tile = self.get_tile_content_from_one_source(s, pc, xyz).await?;
             let produced = Some(tile.info.encoding);
