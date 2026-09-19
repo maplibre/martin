@@ -244,6 +244,12 @@ pub enum MbtType {
 }
 
 impl MbtType {
+    /// What [`Mbtiles::detect_type`] reports for a `tiles_shallow` + `tiles_data` file
+    pub(crate) const DEDUP_ID: Self = Self::Normalized {
+        hash_view: false,
+        schema: NormalizedSchema::DedupId,
+    };
+
     #[must_use]
     pub const fn is_normalized(self) -> bool {
         matches!(self, Self::Normalized { .. })
@@ -591,10 +597,7 @@ impl Mbtiles {
                 schema: NormalizedSchema::Hash,
             })
         } else if is_dedup_id_normalized_tables_type(&mut *conn).await? {
-            Ok(MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::DedupId,
-            })
+            Ok(MbtType::DEDUP_ID)
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             Ok(MbtType::FlatWithHash)
         } else if is_flat_tables_type(&mut *conn).await? {

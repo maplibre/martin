@@ -808,8 +808,8 @@ fn get_select_from_apply_patch(
         match to_type {
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
-                // A Cache source/patch file is read via its `tiles` view, like Flat
-                Flat | Cache => {
+                // A Cache or dedup-id source/patch file is read via its `tiles` view, like Flat
+                Flat | Cache | MbtType::DEDUP_ID => {
                     let hash = algorithm.sql_hash("tile_data");
                     format!(
                         "
@@ -836,7 +836,7 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType, algorithm: HashAlgorithm) -> String {
             match typ {
-                Flat | Cache => {
+                Flat | Cache | MbtType::DEDUP_ID => {
                     let hash = algorithm.sql_hash(&format!("{tbl}.tile_data"));
                     format!("IIF({tbl}.tile_data ISNULL, NULL, {hash})")
                 }
@@ -897,7 +897,7 @@ fn get_select_from_with_diff(
 ) -> String {
     let tile_hash_expr: String = match (dst_type, dif_type) {
         (Flat, _) => String::new(),
-        (_, Flat | Cache) => {
+        (_, Flat | Cache | MbtType::DEDUP_ID) => {
             let hash = algorithm.sql_hash("difTiles.tile_data");
             format!(", COALESCE({hash}, '') as tile_hash")
         }
@@ -907,7 +907,7 @@ fn get_select_from_with_diff(
     };
 
     let diff_tiles: String = match (dst_type, dif_type) {
-        (_, Flat | Cache) => "diffDb.tiles".to_owned(),
+        (_, Flat | Cache | MbtType::DEDUP_ID) => "diffDb.tiles".to_owned(),
         (
             _,
             Normalized {
@@ -956,9 +956,9 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
             .to_owned()
     } else {
         match src_type {
-            // A Cache source has no md5 hashes, so like Flat it is read via the
+            // Cache and dedup-id sources store no hashes, so like Flat they are read via the
             // `tiles` view with hashes computed on the fly
-            Flat | Cache => {
+            Flat | Cache | MbtType::DEDUP_ID => {
                 let hash = algorithm.sql_hash("tile_data");
                 format!(
                     "
@@ -1006,6 +1006,7 @@ mod tests {
     use std::assert_matches;
 
     use insta::assert_snapshot;
+    use rstest::rstest;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
@@ -1185,6 +1186,36 @@ mod tests {
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
         verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+    }
+
+    #[rstest]
+    #[case::flat_with_hash("flat_with_hash", FlatWithHash)]
+    #[case::normalized("normalized", NORM_WITH_VIEW)]
+    #[actix_rt::test]
+    async fn copy_from_dedup_id_stores_valid_tile_hashes(
+        #[case] name: &str,
+        #[case] dst_type: MbtType,
+    ) {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles(&format!("src_copy_from_dedup_id_{name}_mem"), script).await;
+        let dst_file = PathBuf::from(format!(
+            "file:copy_from_dedup_id_{name}_mem_db?mode=memory&cache=shared"
+        ));
+
+        let opt = MbtilesCopier {
+            src_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(dst_type),
+            ..Default::default()
+        };
+        let mut dst_conn = opt.run().await.unwrap();
+
+        Mbtiles::new(dst_file)
+            .unwrap()
+            .check_each_tile_hash(&mut dst_conn)
+            .await
+            .unwrap();
     }
 
     #[actix_rt::test]
