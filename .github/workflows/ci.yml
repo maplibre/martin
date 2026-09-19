@@ -32,6 +32,10 @@ jobs:
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
       demo: ${{ github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true' }}
       schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
+      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+      cargo-deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true' }}
+      deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
+      codeql-languages: ${{ steps.codeql.outputs.languages }}
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
       run-release-builds: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-') }}
     steps:
@@ -43,12 +47,20 @@ jobs:
             shared: &shared
               - '.github/**'
               - 'justfile'
-            rust:
-              - *shared
+            cargo-manifests: &cargo-manifests
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - 'clippy.toml'
+              - '**/Cargo.toml'
               - 'deny.toml'
+            npm-manifests: &npm-manifests
+              - 'martin/martin-ui/package.json'
+              - 'martin/martin-ui/package-lock.json'
+              - 'demo/frontend/package.json'
+              - 'demo/frontend/package-lock.json'
+            rust:
+              - *shared
+              - *cargo-manifests
+              - 'clippy.toml'
               - 'release-plz.toml'
               - 'docker-compose.yml'
               - 'debian/**'
@@ -77,6 +89,27 @@ jobs:
               - 'schemas/**'
               - 'docs/content/files/generated_config.md'
               - 'e2e-tests/tests/snapshots/save_config__*'
+            actions:
+              - *shared
+            cargo-deps:
+              - *shared
+              - *cargo-manifests
+            deps:
+              - *shared
+              - *cargo-manifests
+              - *npm-manifests
+      - name: Collect the CodeQL languages worth analysing
+        id: codeql
+        env:
+          ACTIONS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+          JS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' || steps.filter.outputs.demo == 'true' }}
+          RUST: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+        run: |
+          languages=()
+          if [[ "$ACTIONS" == 'true' ]]; then languages+=('"actions"'); fi
+          if [[ "$JS" == 'true' ]]; then languages+=('"javascript-typescript"'); fi
+          if [[ "$RUST" == 'true' ]]; then languages+=('"rust"'); fi
+          printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
 
   rust:
     needs: changes
@@ -121,6 +154,22 @@ jobs:
     permissions:
       contents: read
 
+  security:
+    needs: changes
+    uses: $/.github/workflows/security.yml
+    with:
+      run-actions: ${{ needs.changes.outputs.actions == 'true' }}
+      run-cargo-deps: ${{ needs.changes.outputs.cargo-deps == 'true' }}
+      run-dependency-review: ${{ needs.changes.outputs.deps == 'true' }}
+      codeql-languages: ${{ needs.changes.outputs.codeql-languages }}
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+      actions: read
+      issues: write
+      checks: write
+
   # Packaging and publishing. Gated on the suites rather than on `done`, which
   # in turn waits for this job, so a broken release process still blocks merge.
   release:
@@ -158,6 +207,7 @@ jobs:
       - docs
       - schemas
       - demo
+      - security
       - release
     if: always()
     runs-on: ubuntu-latest
