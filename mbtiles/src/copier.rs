@@ -185,19 +185,7 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
         let dst_type = if is_empty_db {
-            let mut dt = self.options.dst_type().unwrap_or(src_type);
-            // When copying from a DedupId source, always create standard Hash schema in destination
-            if let Normalized {
-                hash_view,
-                schema: NormalizedSchema::DedupId,
-            } = dt
-            {
-                dt = Normalized {
-                    hash_view,
-                    schema: NormalizedSchema::Hash,
-                };
-            }
-            dt
+            self.new_dst_type(src_type)
         } else {
             self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
         };
@@ -256,7 +244,7 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
-        let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
+        let dst_type = self.new_dst_type(src_info.mbt_type);
         if dst_type == Cache {
             // The inner-join `tiles` view over NOT-NULL blobs cannot represent the
             // NULL "deleted tile" markers a diff file needs.
@@ -339,7 +327,7 @@ impl MbtileCopierInt {
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let algorithm = self.src_algorithm().await?;
-        let dst_type = self.options.dst_type().unwrap_or(src_type);
+        let dst_type = self.new_dst_type(src_type);
         if dst_type == Cache {
             // Patched results would silently drop the source's expires/etag metadata,
             // and the patch pipeline relies on hash columns the cache schema lacks.
@@ -434,6 +422,23 @@ impl MbtileCopierInt {
         }
 
         Ok(conn)
+    }
+
+    /// The type of a new destination file, which is the standard `Hash` schema when it would be `DedupId`
+    fn new_dst_type(&self, src_type: MbtType) -> MbtType {
+        let dst_type = self.options.dst_type().unwrap_or(src_type);
+        if let Normalized {
+            hash_view,
+            schema: NormalizedSchema::DedupId,
+        } = dst_type
+        {
+            Normalized {
+                hash_view,
+                schema: NormalizedSchema::Hash,
+            }
+        } else {
+            dst_type
+        }
     }
 
     /// Validate the integrity of the mbtiles file if requested
@@ -808,8 +813,13 @@ fn get_select_from_apply_patch(
         match to_type {
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
-                // A Cache source/patch file is read via its `tiles` view, like Flat
-                Flat | Cache => {
+                // A Cache or dedup-id source/patch file is read via its `tiles` view, like Flat
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash("tile_data");
                     format!(
                         "
@@ -836,7 +846,12 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType, algorithm: HashAlgorithm) -> String {
             match typ {
-                Flat | Cache => {
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash(&format!("{tbl}.tile_data"));
                     format!("IIF({tbl}.tile_data ISNULL, NULL, {hash})")
                 }
@@ -897,7 +912,15 @@ fn get_select_from_with_diff(
 ) -> String {
     let tile_hash_expr: String = match (dst_type, dif_type) {
         (Flat, _) => String::new(),
-        (_, Flat | Cache) => {
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => {
             let hash = algorithm.sql_hash("difTiles.tile_data");
             format!(", COALESCE({hash}, '') as tile_hash")
         }
@@ -907,7 +930,15 @@ fn get_select_from_with_diff(
     };
 
     let diff_tiles: String = match (dst_type, dif_type) {
-        (_, Flat | Cache) => "diffDb.tiles".to_owned(),
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => "diffDb.tiles".to_owned(),
         (
             _,
             Normalized {
@@ -956,9 +987,14 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
             .to_owned()
     } else {
         match src_type {
-            // A Cache source has no md5 hashes, so like Flat it is read via the
+            // Cache and dedup-id sources store no hashes, so like Flat they are read via the
             // `tiles` view with hashes computed on the fly
-            Flat | Cache => {
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
                 let hash = algorithm.sql_hash("tile_data");
                 format!(
                     "
@@ -1006,6 +1042,7 @@ mod tests {
     use std::assert_matches;
 
     use insta::assert_snapshot;
+    use rstest::rstest;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
@@ -1016,6 +1053,10 @@ mod tests {
     const NORM_CLI: Option<MbtTypeCli> = Some(MbtTypeCli::Normalized);
     const NORM_WITH_VIEW: MbtType = Normalized {
         hash_view: true,
+        schema: NormalizedSchema::Hash,
+    };
+    const NORM_WITHOUT_VIEW: MbtType = Normalized {
+        hash_view: false,
         schema: NormalizedSchema::Hash,
     };
 
@@ -1185,6 +1226,89 @@ mod tests {
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
         verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+    }
+
+    #[rstest]
+    #[case::flat_with_hash("flat_with_hash", FlatWithHash)]
+    #[case::normalized("normalized", NORM_WITH_VIEW)]
+    #[actix_rt::test]
+    async fn copy_from_dedup_id_stores_valid_tile_hashes(
+        #[case] name: &str,
+        #[case] dst_type: MbtType,
+    ) {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles(&format!("src_copy_from_dedup_id_{name}_mem"), script).await;
+        let dst_file = PathBuf::from(format!(
+            "file:copy_from_dedup_id_{name}_mem_db?mode=memory&cache=shared"
+        ));
+
+        let opt = MbtilesCopier {
+            src_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(dst_type),
+            ..Default::default()
+        };
+        let mut dst_conn = opt.run().await.unwrap();
+
+        Mbtiles::new(dst_file)
+            .unwrap()
+            .check_each_tile_hash(&mut dst_conn)
+            .await
+            .unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn diff_and_patch_from_dedup_id_store_valid_tile_hashes() {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, v1_file) =
+            temp_named_mbtiles("v1_diff_and_patch_from_dedup_id_mem", script).await;
+        let script =
+            format!("{script}\nUPDATE tiles_data SET tile_data = X'0102' WHERE tile_data_id = 1;");
+        let (_mbt, _conn, v2_file) =
+            temp_named_mbtiles("v2_diff_and_patch_from_dedup_id_mem", &script).await;
+
+        let diff_file =
+            PathBuf::from("file:diff_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared");
+        let mut diff_conn = MbtilesCopier {
+            src_file: v1_file.clone(),
+            dst_file: diff_file.clone(),
+            diff_with_file: Some((v2_file, None)),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let diff_mbt = Mbtiles::new(&diff_file).unwrap();
+        assert_eq!(
+            diff_mbt.detect_type(&mut diff_conn).await.unwrap(),
+            NORM_WITHOUT_VIEW
+        );
+        diff_mbt.check_each_tile_hash(&mut diff_conn).await.unwrap();
+
+        let patched_file = PathBuf::from(
+            "file:patched_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let mut patched_conn = MbtilesCopier {
+            src_file: v1_file,
+            dst_file: patched_file.clone(),
+            apply_patch: Some(diff_file),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let patched_mbt = Mbtiles::new(patched_file).unwrap();
+        assert_eq!(
+            patched_mbt.detect_type(&mut patched_conn).await.unwrap(),
+            NORM_WITHOUT_VIEW
+        );
+        patched_mbt
+            .check_each_tile_hash(&mut patched_conn)
+            .await
+            .unwrap();
     }
 
     #[actix_rt::test]
