@@ -4,8 +4,8 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
+use martin_core::tiles::{AnySource, BoxedSource};
 use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
@@ -441,14 +441,14 @@ impl PostgresAutoDiscoveryBuilder {
         let tilejson = pg_info.to_tilejson(id.clone());
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        Arc::new(PostgresSource::new(
+        Arc::new(AnySource::Postgres(PostgresSource::new(
             id,
             sql_info,
             tilejson,
             self.pool.clone(),
             tile_info,
             cache.zoom(),
-        ))
+        )))
     }
 
     fn configured_tables(&self) -> HashSet<(String, String)> {

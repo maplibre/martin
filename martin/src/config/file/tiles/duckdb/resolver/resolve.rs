@@ -119,7 +119,6 @@ impl DuckDbConfig {
 
 #[cfg(test)]
 mod tests {
-    use martin_core::tiles::Source;
 
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
@@ -184,7 +183,7 @@ mod tests {
             .expect("resolution succeeds despite warnings");
 
         assert_eq!(sources.len(), 1);
-        assert_eq!(Source::get_id(sources[0].as_ref()), "geoparquet_polygons");
+        assert_eq!(sources[0].get_id(), "geoparquet_polygons");
         assert_eq!(warnings.len(), 1);
     }
 

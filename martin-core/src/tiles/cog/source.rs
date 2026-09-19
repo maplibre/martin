@@ -9,7 +9,6 @@ use async_tiff::ImageFileDirectory;
 use async_tiff::metadata::TiffMetadataReader;
 use async_tiff::metadata::cache::ReadaheadMetadataCache;
 use async_tiff::tags::{Compression, PhotometricInterpretation, PlanarConfiguration};
-use async_trait::async_trait;
 use futures::FutureExt as _;
 use martin_tile_utils::{
     EARTH_CIRCUMFERENCE, Encoding, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
@@ -243,7 +242,6 @@ fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
     None
 }
 
-#[async_trait]
 impl Source for CogSource {
     fn get_id(&self) -> &str {
         &self.id

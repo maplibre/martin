@@ -192,44 +192,14 @@ impl Sink for TileSourceManager {
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
+
     use insta::assert_yaml_snapshot;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, TileCache, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
+
+    use martin_core::tiles::TileCache;
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
     use crate::reload::DeletedSource;
-
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::from_static(&[1, 2, 3]))
-        }
-    }
 
     fn make_manager() -> TileSourceManager {
         let cache = TileCache::new(1024 * 1024, None, None); // 1 MB
@@ -239,10 +209,7 @@ mod tests {
     fn new_source(name: &str) -> NewSource {
         NewSource {
             id: name.to_owned(),
-            source: Ok(Arc::new(TestSource {
-                id: name.to_owned(),
-                tj: tilejson! { tiles: vec![] },
-            })),
+            source: Ok(TestSource::empty(name.to_owned()).boxed()),
             process: ResolvedProcess::default(),
             provenance: None,
         }
@@ -319,10 +286,7 @@ mod tests {
 
     #[test]
     fn from_sources_populates_map() {
-        let src = Arc::new(TestSource {
-            id: "x".to_owned(),
-            tj: tilejson! { tiles: vec![] },
-        }) as BoxedSource;
+        let src = TestSource::empty("x".to_owned()).boxed() as BoxedSource;
         let mgr = TileSourceManager::from_sources(
             None,
             OnInvalid::Abort,
@@ -390,10 +354,7 @@ mod tests {
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            let source: BoxedSource = Arc::new(TestSource {
-                id,
-                tj: tilejson! { tiles: vec![] },
-            });
+            let source: BoxedSource = TestSource::empty(id.clone()).boxed();
             Ok(source.into())
         }
 

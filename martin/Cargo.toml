@@ -251,6 +251,7 @@ walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
 aws-runtime.workspace = true
+martin-core = { workspace = true, features = ["_testing"] }
 backon.workspace = true
 criterion.workspace = true
 indoc.workspace = true

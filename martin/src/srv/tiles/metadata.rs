@@ -212,20 +212,19 @@ pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: Str
 #[cfg(test)]
 pub mod tests {
     use std::collections::BTreeMap;
-    use std::sync::Arc;
 
-    use martin_tile_utils::{Format, TileData};
+    use martin_tile_utils::Format;
     use tilejson::{Bounds, VectorLayer};
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
+    use martin_core::tiles::Source as _;
+    use martin_core::tiles::testing::TestSource;
 
     #[test]
     fn merges_tilejson() {
         let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_owned();
-        let src1 = TestSource {
-            id: "id",
-            tj: tilejson! {
+        let src1 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
                 tiles: vec![],
                 name: "layer1".to_owned(),
                 minzoom: 5,
@@ -237,28 +236,22 @@ pub mod tests {
                         ("a".to_owned(), "x1".to_owned()),
                     ]))
                 ],
-            },
-            data: TileData::default(),
-            format: Format::Mvt,
-        };
+            })
+            .with_format(Format::Mvt);
         let tj = merge_tilejson(
-            &[(
-                Arc::new(src1.clone()) as BoxedSource,
-                ResolvedProcess::default(),
-            )],
+            &[(src1.clone().boxed(), ResolvedProcess::default())],
             url.clone(),
         );
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
-                ..src1.tj.clone()
+                ..src1.get_tilejson().clone()
             },
             tj
         );
 
-        let src2 = TestSource {
-            id: "id",
-            tj: tilejson! {
+        let src2 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
                 tiles: vec![],
                 name: "layer2".to_owned(),
                 minzoom: 7,
@@ -270,18 +263,13 @@ pub mod tests {
                         ("b".to_owned(), "x2".to_owned()),
                     ]))
                 ],
-            },
-            data: TileData::default(),
-            format: Format::Mvt,
-        };
+            })
+            .with_format(Format::Mvt);
 
         let tj = merge_tilejson(
             &[
-                (
-                    Arc::new(src1.clone()) as BoxedSource,
-                    ResolvedProcess::default(),
-                ),
-                (Arc::new(src2) as BoxedSource, ResolvedProcess::default()),
+                (src1.clone().boxed(), ResolvedProcess::default()),
+                (src2.boxed(), ResolvedProcess::default()),
             ],
             url.clone(),
         );

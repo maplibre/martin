@@ -192,56 +192,26 @@ where
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
+
     use insta::assert_yaml_snapshot;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use std::sync::Arc;
-    use tilejson::{TileJSON, tilejson};
+
+    use martin_core::tiles::BoxedSource;
+    use martin_core::tiles::testing::TestSource;
+
+    use tilejson::tilejson;
 
     use super::*;
 
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::from_static(&[1, 2, 3]))
-        }
-    }
-
     async fn make_source(id: String) -> SourceBuildResult<BuiltSource> {
-        let source: BoxedSource = Arc::new(TestSource {
-            id,
-            tj: tilejson! {
+        let source: BoxedSource = TestSource::new(id, &[1, 2, 3][..])
+            .with_tilejson(tilejson! {
                 tilejson: "3.0.0".to_owned(),
                 tiles: vec!["https://maplibre.org".to_owned()],
                 attribution: String::new(),
                 name: "test_json".to_owned(),
                 scheme: "xyz".to_owned(),
-            },
-        });
+            })
+            .boxed();
         Ok(source.into())
     }
 

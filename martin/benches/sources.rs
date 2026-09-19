@@ -1,146 +1,50 @@
+#![recursion_limit = "512"]
+
 use std::hash::{BuildHasher as _, RandomState};
 use std::hint::black_box;
-use std::sync::Arc;
 
 use criterion::async_executor::FuturesExecutor;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use martin::TileSourceManager;
 use martin::config::file::{OnInvalid, ResolvedProcess};
 use martin::srv::{DynTileSource, TileRequestHeaders};
+use martin_core::tiles::testing::{Behaviour, TestSource};
 use martin_core::tiles::{NO_TILE_CACHE, Source as _, Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
-mod sources {
-    use async_trait::async_trait;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::catalog::CatalogSourceEntry;
-    use martin_core::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
-
-    #[derive(Clone, Debug)]
-    pub struct NullSource {
-        tilejson: TileJSON,
+/// A `TileJSON` carrying a tippecanoe-shaped `tilestats` block, as real archives do.
+fn tilestats_tilejson(layers: usize) -> tilejson::TileJSON {
+    let mut tj = tilejson::tilejson! { "https://example.org/".to_owned() };
+    if layers == 0 {
+        return tj;
     }
+    let layers: Vec<serde_json::Value> = (0..layers)
+        .map(|i| {
+            serde_json::json!({
+                "layer": format!("l{i}"),
+                "count": i,
+                "geometry": "Polygon",
+                "attributeCount": 3,
+                "attributes": (0..3).map(|j| serde_json::json!({
+                    "attribute": format!("a{j}"),
+                    "count": 10,
+                    "type": "string",
+                    "values": (0..20).map(|k| format!("v{k}")).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+    tj.other.insert(
+        "tilestats".to_owned(),
+        serde_json::json!({ "layerCount": layers.len(), "layers": layers }),
+    );
+    tj
+}
 
-    impl NullSource {
-        pub fn new() -> Self {
-            Self {
-                tilejson: tilejson! { "https://example.org/".to_owned() },
-            }
-        }
-
-        /// A source whose `TileJSON` carries a tippecanoe-shaped `tilestats` block,
-        /// as real archives do. Serving a tile must not get more expensive with it.
-        pub fn with_tilestats(layers: usize) -> Self {
-            let mut source = Self::new();
-            let layers: Vec<serde_json::Value> = (0..layers)
-                .map(|i| {
-                    serde_json::json!({
-                        "layer": format!("l{i}"),
-                        "count": i,
-                        "geometry": "Polygon",
-                        "attributeCount": 3,
-                        "attributes": (0..3).map(|j| serde_json::json!({
-                            "attribute": format!("a{j}"),
-                            "count": 10,
-                            "type": "string",
-                            "values": (0..20).map(|k| format!("v{k}")).collect::<Vec<_>>(),
-                        })).collect::<Vec<_>>(),
-                    })
-                })
-                .collect();
-            source.tilejson.other.insert(
-                "tilestats".to_owned(),
-                serde_json::json!({ "layerCount": layers.len(), "layers": layers }),
-            );
-            source
-        }
-    }
-
-    #[async_trait]
-    impl Source for NullSource {
-        fn get_id(&self) -> &'static str {
-            "null"
-        }
-
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tilejson
-        }
-
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Png, Encoding::Internal)
-        }
-
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-
-        fn support_url_query(&self) -> bool {
-            false
-        }
-
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::from_static(b"empty"))
-        }
-
-        fn get_catalog_entry(&self) -> CatalogSourceEntry {
-            CatalogSourceEntry::default()
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    pub struct ErrorSource {
-        tilejson: TileJSON,
-    }
-
-    impl ErrorSource {
-        pub fn new() -> Self {
-            Self {
-                tilejson: tilejson! { "https://example.org/".to_owned() },
-            }
-        }
-    }
-
-    #[async_trait]
-    impl Source for ErrorSource {
-        fn get_id(&self) -> &'static str {
-            "error"
-        }
-
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tilejson
-        }
-
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Png, Encoding::Internal)
-        }
-
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-
-        fn support_url_query(&self) -> bool {
-            false
-        }
-
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            let error = std::io::Error::other("some error".to_owned());
-            Err(MartinCoreError::OtherError(Box::new(error)))
-        }
-
-        fn get_catalog_entry(&self) -> CatalogSourceEntry {
-            CatalogSourceEntry::default()
-        }
-    }
+fn null_source(layers: usize) -> TestSource {
+    TestSource::new("null", martin_tile_utils::TileData::from_static(b"empty"))
+        .with_info(TileInfo::new(Format::Png, Encoding::Internal))
+        .with_tilejson(tilestats_tilejson(layers))
 }
 
 async fn process_null_tile(manager: &TileSourceManager) {
@@ -163,10 +67,7 @@ fn bench_null_source(c: &mut Criterion) {
     let mgr = TileSourceManager::from_sources(
         NO_TILE_CACHE,
         OnInvalid::Abort,
-        vec![vec![(
-            Arc::new(sources::NullSource::new()),
-            ResolvedProcess::default(),
-        )]],
+        vec![vec![(null_source(0).boxed(), ResolvedProcess::default())]],
     );
     c.bench_function("get_table_source_tile", |b| {
         b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
@@ -178,18 +79,14 @@ fn bench_null_source(c: &mut Criterion) {
 fn bench_null_source_tilejson_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("tile_by_tilejson_size");
     for layers in [0usize, 30, 330] {
-        let source = if layers == 0 {
-            sources::NullSource::new()
-        } else {
-            sources::NullSource::with_tilestats(layers)
-        };
+        let source = null_source(layers);
         let bytes = serde_json::to_vec(source.get_tilejson())
             .expect("tilejson serializes")
             .len();
         let mgr = TileSourceManager::from_sources(
             NO_TILE_CACHE,
             OnInvalid::Abort,
-            vec![vec![(Arc::new(source), ResolvedProcess::default())]],
+            vec![vec![(source.boxed(), ResolvedProcess::default())]],
         );
         group.bench_function(BenchmarkId::from_parameter(bytes), |b| {
             b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
@@ -209,7 +106,10 @@ fn bench_error_source(c: &mut Criterion) {
         NO_TILE_CACHE,
         OnInvalid::Abort,
         vec![vec![(
-            Arc::new(sources::ErrorSource::new()),
+            TestSource::empty("error")
+                .with_info(TileInfo::new(Format::Png, Encoding::Internal))
+                .with_behaviour(Behaviour::Fail)
+                .boxed(),
             ResolvedProcess::default(),
         )]],
     );

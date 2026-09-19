@@ -36,6 +36,7 @@ default = [
     "unstable-cog",
     "geojson",
 ]
+_testing = ["_tiles"]
 hillshade = ["_neighbourhood", "_raster", "_tiles", "dep:multiversion"]
 geojson = [
     "_tiles",

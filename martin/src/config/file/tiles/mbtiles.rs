@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
+use martin_core::tiles::{AnySource, BoxedSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -72,7 +72,9 @@ impl TileSourceConfiguration for MbtConfig {
         path: PathBuf,
         cache: CachePolicy,
     ) -> SourceBuildResult<BoxedSource> {
-        Ok(Arc::new(MbtSource::new(id, path, cache.zoom()).await?))
+        Ok(Arc::new(AnySource::Mbtiles(
+            MbtSource::new(id, path, cache.zoom()).await?,
+        )))
     }
 
     #[expect(

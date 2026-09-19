@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
@@ -168,7 +167,6 @@ impl PmtilesSource {
         })
     }
 }
-#[async_trait]
 impl Source for PmtilesSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -208,7 +206,7 @@ impl Source for PmtilesSource {
             }
         };
         reloaded
-            .map(|s| Arc::new(s) as BoxedSource)
+            .map(|s| Arc::new(crate::tiles::AnySource::Pmtiles(s)))
             .map_err(MartinCoreError::from)
     }
 

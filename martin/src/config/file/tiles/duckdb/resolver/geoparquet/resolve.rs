@@ -1,5 +1,5 @@
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
+use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use std::sync::Arc;
 use tracing::debug;
@@ -51,7 +51,7 @@ pub async fn resolve_geoparquet_source(
         cache.zoom(),
     );
 
-    Ok(Arc::new(source))
+    Ok(Arc::new(AnySource::DuckDb(source)))
 }
 
 #[cfg(test)]

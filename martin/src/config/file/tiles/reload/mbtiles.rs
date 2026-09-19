@@ -1,4 +1,4 @@
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::AnySource;
 use martin_core::tiles::mbtiles::MbtSource;
 use std::sync::Arc;
 
@@ -57,7 +57,7 @@ impl MbtilesReloader {
         let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
-                Ok(Arc::new(src) as BoxedSource)
+                Ok(Arc::new(AnySource::Mbtiles(src)))
             })
         });
         let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());

@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 
-use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
-#[cfg(feature = "postgres")]
-use crate::tiles::postgres::ActiveQueryRegistry;
 use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
@@ -17,7 +15,6 @@ pub type UrlQuery = HashMap<String, String>;
 /// Core trait for tile sources providing data to Martin
 ///
 /// Implementors can serve tiles from databases, files, or other backends.
-#[async_trait]
 pub trait Source: Send + Sync + Debug {
     /// Unique source identifier used in URLs.
     fn get_id(&self) -> &str;
@@ -50,14 +47,6 @@ pub trait Source: Send + Sync + Debug {
         false
     }
 
-    /// Returnes the cancellation registry for queries
-    ///
-    /// Only works for postgresql sources for now
-    #[cfg(feature = "postgres")]
-    fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        None
-    }
-
     /// Zoom-level bounds for tile caching.
     fn cache_zoom(&self) -> CacheZoomRange;
 
@@ -66,11 +55,11 @@ pub trait Source: Send + Sync + Debug {
     /// # Arguments
     /// * `xyz` - Tile coordinates (x, y, zoom)
     /// * `url_query` - Optional query parameters for dynamic tiles
-    async fn get_tile(
+    fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData>;
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send;
 
     /// Retrieves tile with etag for the given coordinates.
     ///
@@ -80,13 +69,15 @@ pub trait Source: Send + Sync + Debug {
     /// # Arguments
     /// * `xyz` - Tile coordinates (x, y, zoom)
     /// * `url_query` - Optional query parameters for dynamic tiles
-    async fn get_tile_with_etag(
+    fn get_tile_with_etag(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
-        let data = self.get_tile(xyz, url_query).await?;
-        Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+    ) -> impl Future<Output = MartinCoreResult<Tile>> + Send {
+        async move {
+            let data = self.get_tile(xyz, url_query).await?;
+            Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+        }
     }
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
@@ -102,8 +93,8 @@ pub trait Source: Send + Sync + Debug {
     /// implement this method.
     ///
     /// The default implementation asserts.
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        unreachable!()
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<BoxedSource>> + Send {
+        async { unreachable!() }
     }
 
     /// Generates catalog entry for this source.
@@ -125,5 +116,5 @@ pub trait Source: Send + Sync + Debug {
     }
 }
 
-/// Shared tile source trait object for storage in collections.
-pub type BoxedSource = std::sync::Arc<dyn Source>;
+/// A shared handle to any tile source the server can serve.
+pub type BoxedSource = std::sync::Arc<crate::tiles::AnySource>;

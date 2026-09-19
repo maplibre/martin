@@ -434,14 +434,10 @@ impl FsDiscovery {
 #[cfg(feature = "mbtiles")]
 mod tests {
     use std::fs::File;
-    use std::sync::Arc;
 
-    use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
     use crate::TileSourceManager;
@@ -450,35 +446,6 @@ mod tests {
 
     /// Files whose stem starts with this prefix fail to build.
     const BAD_PREFIX: &str = "bad_";
-
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::new())
-        }
-    }
 
     /// Opens every file as a [`TestSource`] except the `bad_` ones, which fail to build.
     fn fake_builder() -> FsSourceBuilder {
@@ -489,10 +456,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(Arc::new(TestSource {
-                    id,
-                    tj: tilejson! { tiles: vec![] },
-                }) as BoxedSource)
+                Ok(TestSource::empty(id).boxed())
             })
         })
     }

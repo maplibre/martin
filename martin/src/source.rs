@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
-use martin_core::tiles::{BoxedSource, Source};
+use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::TileInfo;
 use tracing::{debug, info};
 
@@ -303,7 +303,7 @@ impl TileSources {
 
         // TODO: Use chained-if-let once available
         if match zoom {
-            Some(zoom) if Self::check_zoom(&*src, id, zoom) => true,
+            Some(zoom) if Self::check_zoom(&src, id, zoom) => true,
             None => true,
             _ => false,
         } {
@@ -314,7 +314,7 @@ impl TileSources {
 
     /// Validates zoom level support for a source
     #[must_use]
-    pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
+    pub fn check_zoom(src: &AnySource, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
             let tilejson = src.get_tilejson();
@@ -340,18 +340,19 @@ impl TileSources {
 
 #[cfg(test)]
 mod tests {
-    use tilejson::tilejson;
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
+    use martin_core::tiles::testing::TestSource;
 
     fn sources_with_one_valid() -> TileSources {
-        TileSources::new(vec![vec![Arc::new(TestSource {
-            id: "valid",
-            tj: tilejson! { tiles: vec![] },
-            data: martin_tile_utils::TileData::from_static(&[1, 2, 3]),
-            format: martin_tile_utils::Format::Mvt,
-        })]])
+        TileSources::new(vec![vec![
+            TestSource::new(
+                "valid",
+                martin_tile_utils::TileData::from_static(&[1, 2, 3]),
+            )
+            .with_format(martin_tile_utils::Format::Mvt)
+            .boxed(),
+        ]])
     }
 
     #[test]
