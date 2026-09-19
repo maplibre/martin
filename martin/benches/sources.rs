@@ -7,7 +7,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use martin::TileSourceManager;
 use martin::config::file::{OnInvalid, ResolvedProcess};
 use martin::srv::{DynTileSource, TileRequestHeaders};
-use martin_core::tiles::{NO_TILE_CACHE, Tile, TileCache, TileCacheKey};
+use martin_core::tiles::{NO_TILE_CACHE, Source as _, Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 mod sources {
@@ -28,6 +28,33 @@ mod sources {
             Self {
                 tilejson: tilejson! { "https://example.org/".to_owned() },
             }
+        }
+
+        /// A source whose `TileJSON` carries a tippecanoe-shaped `tilestats` block,
+        /// as real archives do. Serving a tile must not get more expensive with it.
+        pub fn with_tilestats(layers: usize) -> Self {
+            let mut source = Self::new();
+            let layers: Vec<serde_json::Value> = (0..layers)
+                .map(|i| {
+                    serde_json::json!({
+                        "layer": format!("l{i}"),
+                        "count": i,
+                        "geometry": "Polygon",
+                        "attributeCount": 3,
+                        "attributes": (0..3).map(|j| serde_json::json!({
+                            "attribute": format!("a{j}"),
+                            "count": 10,
+                            "type": "string",
+                            "values": (0..20).map(|k| format!("v{k}")).collect::<Vec<_>>(),
+                        })).collect::<Vec<_>>(),
+                    })
+                })
+                .collect();
+            source.tilejson.other.insert(
+                "tilestats".to_owned(),
+                serde_json::json!({ "layerCount": layers.len(), "layers": layers }),
+            );
+            source
         }
     }
 
@@ -146,10 +173,35 @@ fn bench_null_source(c: &mut Criterion) {
     });
 }
 
+/// Guards against the per-tile cost growing with the source's `TileJSON` size,
+/// as it did while the source was deep-cloned for every request (#3323).
+fn bench_null_source_tilejson_size(c: &mut Criterion) {
+    let mut group = c.benchmark_group("tile_by_tilejson_size");
+    for layers in [0usize, 30, 330] {
+        let source = if layers == 0 {
+            sources::NullSource::new()
+        } else {
+            sources::NullSource::with_tilestats(layers)
+        };
+        let bytes = serde_json::to_vec(source.get_tilejson())
+            .expect("tilejson serializes")
+            .len();
+        let mgr = TileSourceManager::from_sources(
+            NO_TILE_CACHE,
+            OnInvalid::Abort,
+            vec![vec![(Arc::new(source), ResolvedProcess::default())]],
+        );
+        group.bench_function(BenchmarkId::from_parameter(bytes), |b| {
+            b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
+        });
+    }
+    group.finish();
+}
+
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = bench_null_source,bench_error_source,bench_tile_cache_key,bench_tile_cache_lookup
+    targets = bench_null_source,bench_null_source_tilejson_size,bench_error_source,bench_tile_cache_key,bench_tile_cache_lookup
 }
 
 fn bench_error_source(c: &mut Criterion) {
