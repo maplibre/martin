@@ -1,8 +1,4 @@
 //! [`AnySource`], the closed set of tile sources the server dispatches on.
-//!
-//! Built-in sources are reached by a `match` rather than a vtable, so their
-//! `get_tile_with_etag` is a direct call instead of an `#[async_trait]` boxed
-//! future.
 
 use std::sync::Arc;
 
