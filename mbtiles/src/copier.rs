@@ -814,7 +814,12 @@ fn get_select_from_apply_patch(
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
                 // A Cache or dedup-id source/patch file is read via its `tiles` view, like Flat
-                Flat | Cache | MbtType::DEDUP_ID => {
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash("tile_data");
                     format!(
                         "
@@ -841,7 +846,12 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType, algorithm: HashAlgorithm) -> String {
             match typ {
-                Flat | Cache | MbtType::DEDUP_ID => {
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash(&format!("{tbl}.tile_data"));
                     format!("IIF({tbl}.tile_data ISNULL, NULL, {hash})")
                 }
@@ -902,7 +912,15 @@ fn get_select_from_with_diff(
 ) -> String {
     let tile_hash_expr: String = match (dst_type, dif_type) {
         (Flat, _) => String::new(),
-        (_, Flat | Cache | MbtType::DEDUP_ID) => {
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => {
             let hash = algorithm.sql_hash("difTiles.tile_data");
             format!(", COALESCE({hash}, '') as tile_hash")
         }
@@ -912,7 +930,15 @@ fn get_select_from_with_diff(
     };
 
     let diff_tiles: String = match (dst_type, dif_type) {
-        (_, Flat | Cache | MbtType::DEDUP_ID) => "diffDb.tiles".to_owned(),
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => "diffDb.tiles".to_owned(),
         (
             _,
             Normalized {
@@ -963,7 +989,12 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
         match src_type {
             // Cache and dedup-id sources store no hashes, so like Flat they are read via the
             // `tiles` view with hashes computed on the fly
-            Flat | Cache | MbtType::DEDUP_ID => {
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
                 let hash = algorithm.sql_hash("tile_data");
                 format!(
                     "
