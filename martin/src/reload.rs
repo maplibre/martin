@@ -192,6 +192,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin_core::CacheZoomRange;
@@ -218,9 +220,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -234,7 +233,7 @@ mod tests {
     }
 
     async fn make_source(id: String) -> SourceBuildResult<BuiltSource> {
-        let source: BoxedSource = Box::new(TestSource {
+        let source: BoxedSource = Arc::new(TestSource {
             id,
             tj: tilejson! {
                 tilejson: "3.0.0".to_owned(),

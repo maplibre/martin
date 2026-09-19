@@ -257,10 +257,6 @@ impl Source for CogSource {
         self.tileinfo
     }
 
-    fn clone_source(&self) -> Box<dyn Source> {
-        Box::new(self.clone())
-    }
-
     /// Whether this [`Source`] benefits from concurrency when being scraped via `martin cp`.
     ///
     /// If this returns `true`, `martin cp` will suggest concurrent scraping.

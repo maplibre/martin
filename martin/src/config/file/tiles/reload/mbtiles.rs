@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
 use crate::TileSourceManager;
-use crate::config::file::TileGrids;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
-use crate::config::file::{CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    CachePolicy, FileConfigEnum, SourceBuildResult, TileGrids, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
@@ -52,13 +55,13 @@ impl MbtilesReloader {
 
         // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
         // `Box::pin(async {..})` erases the future to `BoxFuture`.
-        // `Box::new(src) as BoxedSource` erases the source to `dyn Source`.
+        // `Arc::new(src) as BoxedSource` erases the source to `dyn Source`.
         // This builder captures nothing.
         // We still `Box::new` it because `FsSourceBuilder` is a boxed `dyn Fn` that `PMTiles` needs (see its docs).
         let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
-                Ok(Box::new(src) as BoxedSource)
+                Ok(Arc::new(src) as BoxedSource)
             })
         });
         let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());

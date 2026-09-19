@@ -248,7 +248,7 @@ async fn source_serves_tiles_and_cloned_source_remains_usable() {
     let tile = source.get_tile(XYZ, None).await.expect("source tile");
     assert_eq!(tile.as_ref(), b"tile-data");
 
-    let cloned = source.clone_source();
+    let cloned = source.clone();
     let cloned_tile = cloned
         .get_tile(XYZ, None)
         .await
@@ -400,7 +400,7 @@ async fn concurrent_tile_requests_from_different_coordinates() {
     ];
 
     let results = join_all(tasks.iter().map(|&coord| {
-        let source = source.clone_source();
+        let source = source.clone();
         async move {
             source
                 .get_tile(coord, None)

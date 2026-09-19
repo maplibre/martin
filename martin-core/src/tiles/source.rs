@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo, WEB_MERCATOR_QUAD};
@@ -13,6 +14,9 @@ use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
+
+/// Shared tile source trait object for storage in collections.
+pub type BoxedSource = Arc<dyn Source>;
 
 /// Core trait for tile sources providing data to Martin
 ///
@@ -32,9 +36,6 @@ pub trait Source: Send + Sync + Debug {
     fn tile_grid(&self) -> &TileGrid {
         &WEB_MERCATOR_QUAD
     }
-
-    /// Creates a boxed clone for trait object storage.
-    fn clone_source(&self) -> BoxedSource;
 
     /// A version string for this source, if available. Default: None.
     /// If available, this string is appended to tile URLs as a query parameter,
@@ -132,14 +133,5 @@ pub trait Source: Send + Sync + Debug {
             // FIXME: surface the source's mtime (mbtiles/pmtiles modtime, etc.).
             last_modified_at: None,
         }
-    }
-}
-
-/// Boxed tile source trait object for storage in collections.
-pub type BoxedSource = Box<dyn Source>;
-
-impl Clone for BoxedSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
     }
 }
