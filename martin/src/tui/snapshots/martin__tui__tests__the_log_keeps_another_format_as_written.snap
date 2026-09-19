@@ -5,7 +5,7 @@ expression: terminal.backend().buffer()
 Buffer {
     area: Rect { x: 0, y: 0, width: 110, height: 6 },
     content: [
-        " Martin v1.16.1  http://127.0.0.1:3000/  up 00:00:01  0 requests  0 errors  0.0 req q quit   c clear counters ",
+        " Martin v2.0.0  http://127.0.0.1:3000/  up 00:00:01  0 requests  0 errors  0.0 req q quit   c clear counters ",
         "┌ Log   l shrink ────────────────────────────────────────────────────────────────────────────────────────────┐",
         "│{"timestamp":"2026-09-05T09:41:12.123456Z","level":"INFO","fields":{"message":"Starting Martin","port":3000}│",
         "│    at a line the pretty format would take for a note                                                       │",

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/maplibre/martin/compare/martin-core-v0.11.2...martin-core-v0.12.0) - 2026-09-19
+
+### Added
+
+- serve sources on tile grids other than Web Mercator ([#3261](https://github.com/maplibre/martin/pull/3261))
+- *(rendering)* mark server-side style rendering as stable ([#3354](https://github.com/maplibre/martin/pull/3354))
+- [**breaking**] merge `martin-cp` into `martin` as the `cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327))
+
+### Fixed
+
+- *(postgres)* skip a table PostGIS cannot convert to its tile grid ([#3360](https://github.com/maplibre/martin/pull/3360))
+- oversized tiles in contour ([#3292](https://github.com/maplibre/martin/pull/3292))
+
+### Other
+
+- publish the changelog as its own page ([#3347](https://github.com/maplibre/martin/pull/3347))
+- *(postgres)* cover the TLS verifiers with an in-process handshake ([#3318](https://github.com/maplibre/martin/pull/3318))
+- *(unstable-cog)* cover the requirements a COG has to meet ([#3300](https://github.com/maplibre/martin/pull/3300))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+
 ## [0.11.2](https://github.com/maplibre/martin/compare/martin-core-v0.11.1...martin-core-v0.11.2) - 2026-09-06
 
 ### Added

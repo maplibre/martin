@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/maplibre/martin/compare/mbtiles-v0.19.3...mbtiles-v0.20.0) - 2026-09-19
+
+### Added
+
+- [**breaking**] merge `martin-cp` into `martin` as the `cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327))
+- serve sources on tile grids other than Web Mercator ([#3261](https://github.com/maplibre/martin/pull/3261))
+
+### Other
+
+- publish the changelog as its own page ([#3347](https://github.com/maplibre/martin/pull/3347))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+- *(tile-utils)* cover the Format name and content-type round trips ([#3314](https://github.com/maplibre/martin/pull/3314))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+
 ## [0.19.3](https://github.com/maplibre/martin/compare/mbtiles-v0.19.2...mbtiles-v0.19.3) - 2026-09-06
 
 ### Added
