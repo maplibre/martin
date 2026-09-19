@@ -7,7 +7,7 @@ use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm,
-    MbtError, MbtResult, MbtType, Mbtiles,
+    MbtError, MbtResult, MbtType, Mbtiles, NormalizedSchema,
 };
 
 #[hotpath::measure]
@@ -60,6 +60,20 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let algorithm = base_mbt.get_hash_algorithm(&mut conn).await?;
     let select_from = get_select_from(base_info.mbt_type, patch_type, algorithm);
     let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
+
+    if base_info.mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
+        let create_tile_ids = NormalizedSchema::create_tile_ids_sql(algorithm);
+        let sql = format!(
+            "
+    {create_tile_ids}
+
+    INSERT OR IGNORE INTO tile_ids (tile_hash)
+    SELECT hash
+    FROM ({select_from})
+    WHERE tile_data NOTNULL;"
+        );
+        sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut conn).await?;
+    }
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
     query(AssertSqlSafe(sql)).execute(&mut conn).await?;
@@ -117,8 +131,13 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType, algorithm: HashAlgori
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_owned()
     } else {
         match patch_type {
-            // A Cache patch file is read via its `tiles` view, like Flat
-            Flat | Cache => {
+            // A Cache or dedup-id patch file is read via its `tiles` view, like Flat
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
                 let hash = algorithm.sql_hash("tile_data");
                 format!(
                     "
@@ -160,6 +179,24 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
     {select_from}"
             ),
             None,
+        ),
+        Normalized {
+            schema: NormalizedSchema::DedupId,
+            ..
+        } => (
+            "tiles_shallow".to_owned(),
+            format!(
+                "
+    INSERT OR REPLACE INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT zoom_level, tile_column, tile_row, tile_data_id
+    FROM ({select_from}) JOIN tile_ids ON tile_hash = hash"
+            ),
+            Some(format!(
+                "
+    INSERT OR IGNORE INTO tiles_data (tile_data_id, tile_data)
+    SELECT tile_data_id, tile_data
+    FROM ({select_from}) JOIN tile_ids ON tile_hash = hash"
+            )),
         ),
         Normalized { schema, .. } => {
             let (map, img, id) = (
@@ -226,6 +263,59 @@ mod tests {
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_patch_file_to_dedup_id() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("dedup_id_src_file_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_patch_file_to_dedup_id?mode=memory&cache=shared");
+
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: dst_file.clone(),
+            dst_type: Some(Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            }),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("dedup_id_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true).await.unwrap();
+
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("dedup_id_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
+
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            src_conn
+                .fetch_optional(
+                    "SELECT * FROM tiles_data WHERE tile_data_id NOT IN (SELECT tile_data_id FROM tiles_shallow);"
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            src_conn
+                .fetch_optional("SELECT 1 FROM tiles_data GROUP BY tile_data HAVING COUNT(*) > 1;")
                 .await
                 .unwrap()
                 .is_none()

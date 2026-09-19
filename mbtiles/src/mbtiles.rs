@@ -625,8 +625,12 @@ impl Mbtiles {
         let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let mut tx = conn.begin().await?;
+        if mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
+            let sql = NormalizedSchema::create_tile_ids_sql(algorithm);
+            sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+        }
         let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate, algorithm);
-        if let Some(sql2) = sql2 {
+        for sql2 in sql2 {
             let sql2 = tx.prepare(to_sql_str(sql2)).await?;
             for (_, _, _, tile_data) in batch {
                 sql2.query()
@@ -685,7 +689,7 @@ impl Mbtiles {
         src_type: MbtType,
         on_duplicate: CopyDuplicateMode,
         algorithm: HashAlgorithm,
-    ) -> (String, Option<String>) {
+    ) -> (String, Vec<String>) {
         let on_duplicate = on_duplicate.to_sql();
         let hash4 = algorithm.sql_hash("?4");
         let hash1 = algorithm.sql_hash("?1");
@@ -696,7 +700,7 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO tiles (zoom_level, tile_column, tile_row, tile_data)
     VALUES (?1, ?2, ?3, ?4);"
                 ),
-                None,
+                vec![],
             ),
             MbtType::FlatWithHash => (
                 format!(
@@ -704,19 +708,44 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
     VALUES (?1, ?2, ?3, ?4, {hash4});"
                 ),
-                None,
+                vec![],
             ),
-            MbtType::Normalized { .. } => (
+            MbtType::Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            } => (
                 format!(
                     "
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
     VALUES (?1, ?2, ?3, {hash4});"
                 ),
-                Some(format!(
+                vec![format!(
                     "
     INSERT {on_duplicate} INTO images (tile_id, tile_data)
     VALUES ({hash1}, ?1);"
-                )),
+                )],
+            ),
+            MbtType::Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT ?1, ?2, ?3, tile_data_id FROM tile_ids WHERE tile_hash = {hash4};"
+                ),
+                vec![
+                    format!(
+                        "
+    INSERT OR IGNORE INTO tile_ids (tile_hash)
+    VALUES ({hash1});"
+                    ),
+                    format!(
+                        "
+    INSERT OR IGNORE INTO tiles_data (tile_data_id, tile_data)
+    SELECT tile_data_id, ?1 FROM tile_ids WHERE tile_hash = {hash1};"
+                    ),
+                ],
             ),
             // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
             MbtType::Cache => (
@@ -725,7 +754,7 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_data)
     VALUES (?1, ?2, ?3, ?4);"
                 ),
-                None,
+                vec![],
             ),
         }
     }
