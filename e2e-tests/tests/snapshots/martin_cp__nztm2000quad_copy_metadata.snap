@@ -1,0 +1,25 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: metadata
+---
+agg_tiles_hash = 67F9566D9B335F3EB42CDD294C5A7FF6
+bounds = 172.6287183595,-43.5323403823,174.7610537778,-36.8528850811
+compression = gzip
+description = public.nz_points.geom
+format = pbf
+generator = martin cp v1.16.1
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "city": "text"
+      },
+      "id": "nz_points"
+    }
+  ]
+}
+maxzoom = 2
+minzoom = 0
+name = nz_points
+tileGrid = {"id":"NZTM2000Quad","crs":"EPSG:2193","origin":[-3260586.7284,10438190.1652],"extentAtZoom0":10018754.1714}

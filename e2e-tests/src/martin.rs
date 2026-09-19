@@ -566,6 +566,75 @@ fn terminate(child: &Child) {
     let _ = child;
 }
 
+/// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.
+#[must_use]
+pub fn mlt_layers(bytes: &[u8]) -> Vec<TileLayer> {
+    let mut parser = Parser::default();
+    let mut decoder = Decoder::default();
+    parser
+        .parse_layers(bytes)
+        .expect("not a maplibre tile")
+        .into_iter()
+        .map(|layer| {
+            let Layer::Tag01(layer) = layer else {
+                panic!("a layer is not MVT-compatible");
+            };
+            layer
+                .into_tile(&mut decoder)
+                .expect("a layer is not decodable")
+        })
+        .collect()
+}
+
+/// Vector tile bytes in `mvt dump`'s text form.
+#[must_use]
+pub fn mvt_dump(bytes: &[u8]) -> String {
+    format!("{:?}", MvtReaderRef::new(bytes).expect("not a vector tile"))
+}
+
+/// `MapLibre` tile layers as text: a line per layer, then a line per feature.
+///
+/// The features, and the properties of each, are sorted, because an encoder is free to order them
+/// as it likes and two encodings of the same tile only agree on the set of features.
+#[must_use]
+pub fn mlt_dump(layers: &[TileLayer]) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    for layer in layers {
+        writeln!(
+            out,
+            "layer {} extent {}",
+            layer.name(),
+            layer.extent().get()
+        )
+        .expect("writing to a String cannot fail");
+        let mut rows: Vec<String> = layer
+            .features()
+            .iter()
+            .map(|feature| {
+                let mut props: Vec<String> = layer
+                    .property_names()
+                    .iter()
+                    .zip(feature.properties())
+                    .map(|(name, value)| format!("{name}={value:?}"))
+                    .collect();
+                props.sort();
+                format!(
+                    "  id={:?} geom={:?} props=[{}]",
+                    feature.id(),
+                    feature.geometry(),
+                    props.join(", ")
+                )
+            })
+            .collect();
+        rows.sort();
+        out.push_str(&rows.join("\n"));
+        out.push('\n');
+    }
+    out
+}
+
 pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
     let mut body = Vec::new();
     if raw.is_empty() {
@@ -642,30 +711,13 @@ impl TestResponse {
     /// Decompressed response body decoded as a `MapLibre` tile.
     #[must_use]
     pub fn mlt(&self) -> Vec<TileLayer> {
-        let mut parser = Parser::default();
-        let mut decoder = Decoder::default();
-        parser
-            .parse_layers(&self.body)
-            .expect("response body is not a maplibre tile")
-            .into_iter()
-            .map(|layer| {
-                let Layer::Tag01(layer) = layer else {
-                    panic!("response body has a layer that is not MVT-compatible");
-                };
-                layer
-                    .into_tile(&mut decoder)
-                    .expect("response body has an undecodable layer")
-            })
-            .collect()
+        mlt_layers(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
     #[must_use]
     pub fn mvt_dump(&self) -> String {
-        format!(
-            "{:?}",
-            MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
-        )
+        mvt_dump(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.

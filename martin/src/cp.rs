@@ -19,11 +19,15 @@ use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
 use martin_core::tiles::BoxedSource;
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+use martin_core::tiles::MartinCoreError;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::ActiveQueryRegistry;
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+use martin_core::tiles::postgres::PostgresError::UnsupportedPropertyType;
 use martin_tile_utils::{
-    TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
+    Format, TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
 };
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
@@ -31,6 +35,7 @@ use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
     is_empty_database,
 };
+use strum::IntoEnumIterator as _;
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::task::JoinHandle;
@@ -47,7 +52,10 @@ use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::logging::LogFormat;
 use crate::logging::progress::TileCopyProgress;
-use crate::srv::{DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders, merge_tilejson};
+use crate::srv::{
+    AcceptedFormats, DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders,
+    merge_tilejson,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
@@ -97,6 +105,13 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
+    /// Tile format to request from the source, e.g. `mvt` or `mlt`.
+    ///
+    /// Sources configured to convert, e.g. with `convert_to_mlt`, produce this format.
+    /// A source that cannot produce it fails the copy instead of silently writing its own format.
+    /// Defaults to whatever the source produces.
+    #[arg(long, value_name = "FORMAT")]
+    pub format: Option<String>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
@@ -141,6 +156,7 @@ impl Default for CopyArgs {
             mbt_type: None,
             url_query: None,
             encoding: "gzip".to_owned(),
+            format: None,
             on_duplicate: None,
             concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
@@ -319,6 +335,70 @@ pub enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
+    #[error(
+        "Unable to parse format argument '{format}'. Supported formats: {}",
+        supported_formats()
+    )]
+    UnknownFormat { format: String },
+}
+
+/// The tile bytes to copy, taken from the cheapest path the source offers.
+async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<TileData> {
+    #[cfg(all(feature = "postgres", feature = "mlt"))]
+    if let Some(data) = copy_as_mlt_directly(src, xyz).await? {
+        return Ok(data);
+    }
+    Ok(src.get_tile_content(xyz).await?.data)
+}
+
+/// Warns once per run that a source fell back off the row-per-feature path.
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+static UNENCODABLE_COLUMN: std::sync::Once = std::sync::Once::new();
+
+/// Encodes the source's own features as MLT, instead of taking an MVT tile apart to do it.
+///
+/// `None` means this copy is not one of those: any format other than `--format mlt`, more than
+/// one source, a source with no row-per-feature form (a `PostgreSQL` function, or anything that
+/// is not `PostgreSQL` at all), a source configured not to encode MLT, or a column the row path
+/// cannot encode but `ST_AsMVT` can. Every one of those falls back to the ordinary path and
+/// copies exactly the bytes it did before.
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+async fn copy_as_mlt_directly(
+    src: &DynTileSource<'_>,
+    xyz: TileCoord,
+) -> MartinCpResult<Option<TileData>> {
+    use crate::config::file::MltConversion;
+    use crate::srv::tiles::process::encode_features_as_mlt;
+
+    if src.accepted_format != Some(Format::Mlt) {
+        return Ok(None);
+    }
+    let [(source, process)] = src.sources.as_slice() else {
+        return Ok(None);
+    };
+    let MltConversion::Encode(cfg) = process.mlt else {
+        return Ok(None);
+    };
+    let url_query = src.source_query().map(|q| &q.1);
+    let features = match source.get_tile_features(xyz, url_query).await {
+        Ok(Some(features)) => features,
+        Ok(None) => return Ok(None),
+        Err(MartinCoreError::PostgresError(unsupported @ UnsupportedPropertyType { .. })) => {
+            UNENCODABLE_COLUMN.call_once(|| {
+                warn!(
+                    "Copying {} through MVT instead of encoding MLT from its rows: {unsupported}",
+                    source.get_id()
+                );
+            });
+            return Ok(None);
+        }
+        Err(e) => return Err(TileError::from(e).into()),
+    };
+    Ok(Some(
+        encode_features_as_mlt(features, cfg)
+            .map_err(TileError::from)?
+            .data,
+    ))
 }
 
 /// Given a list of tile ranges, iterate over all tiles in the ranges
@@ -479,7 +559,7 @@ async fn produce_tiles(
                         skipped.fetch_add(1, Ordering::Relaxed);
                         TileData::default()
                     } else {
-                        src.get_tile_content(xyz).await?.data
+                        fetch_tile(src, xyz).await?
                     };
                     if prune_empty_subtrees && data.is_empty() {
                         empty_here
@@ -576,6 +656,12 @@ where
         args.url_query.as_deref().unwrap_or_default(),
         TileRequestHeaders {
             accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            accepted_formats: args
+                .format
+                .as_deref()
+                .map(parse_format)
+                .transpose()?
+                .unwrap_or_default(),
             ..Default::default()
         },
     )?;
@@ -619,13 +705,16 @@ where
 
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
-    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, src.info, &args).await?;
+    let info = TileInfo::new(
+        src.accepted_format.unwrap_or(src.info.format),
+        src.info.encoding,
+    );
+    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, info.format, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
     // Shared with the spawned consumer (updates) and this task (finish / stats).
     let progress = Arc::new(TileCopyProgress::new(total_size));
     info!(
         "Copying {total_size} {info} tiles from the source {source_id} to {out}",
-        info = src.info,
         out = args.output_file.display()
     );
 
@@ -704,11 +793,29 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
     Ok(AcceptEncoding::parse(&req)?)
 }
 
+fn supported_formats() -> String {
+    Format::iter()
+        .map(|format| format.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Requests exactly `format`, so a source that cannot produce it fails the copy.
+fn parse_format(format: &str) -> MartinCpResult<AcceptedFormats> {
+    let format = Format::parse(format).ok_or_else(|| MartinCpError::UnknownFormat {
+        format: format.to_owned(),
+    })?;
+    Ok(AcceptedFormats {
+        preferred: vec![format],
+        allow_any: false,
+    })
+}
+
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
     sources: &[(BoxedSource, ResolvedProcess)],
-    tile_info: TileInfo,
+    format: Format,
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {
     Ok(if is_empty_database(&mut *conn).await? {
@@ -725,7 +832,7 @@ async fn init_schema(
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(
             "format".to_owned(),
-            serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
+            serde_json::Value::String(format.metadata_format_value().to_owned()),
         );
         tj.other.insert(
             "generator".to_owned(),
@@ -767,6 +874,7 @@ impl MartinCpError {
             | Self::NoSources
             | Self::MultipleSources(_)
             | Self::InvalidBoundingBox(..)
+            | Self::UnknownFormat { .. }
             | Self::Args(_)
             | Self::Mbtiles(_)) => format!("{other}"),
         }
@@ -1032,6 +1140,31 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[rstest]
+    #[case("mlt", Format::Mlt)]
+    #[case("mvt", Format::Mvt)]
+    #[case("pbf", Format::Mvt)]
+    #[case("PNG", Format::Png)]
+    fn test_parse_format(#[case] input: &str, #[case] expected: Format) {
+        assert_eq!(
+            parse_format(input).unwrap(),
+            AcceptedFormats {
+                preferred: vec![expected],
+                allow_any: false,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_format_rejects_unknown() {
+        let err = parse_format("geojson").unwrap_err();
+        assert_matches!(err, MartinCpError::UnknownFormat { ref format } if format == "geojson");
+        assert_eq!(
+            err.to_string(),
+            "Unable to parse format argument 'geojson'. Supported formats: gif, jpeg, json, mvt, mlt, png, webp, avif, jxl"
+        );
     }
 
     #[rstest]
