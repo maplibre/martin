@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use futures::future::join_all;
 use martin_core::tiles::BoxedSource;
@@ -216,7 +217,7 @@ pub fn resolve_macro_source(
     tilejson.minzoom = entry.minzoom;
     tilejson.maxzoom = entry.maxzoom;
     tilejson.bounds = entry.bounds;
-    Box::new(DuckDBSource::new(
+    Arc::new(DuckDBSource::new(
         source_id,
         DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_owned()),
         tilejson,
@@ -278,5 +279,5 @@ pub async fn resolve_table_source(
         cache.zoom(),
     );
 
-    Ok(Box::new(source))
+    Ok(Arc::new(source))
 }

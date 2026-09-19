@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
@@ -234,7 +235,7 @@ impl TileSourceConfiguration for PmtConfig {
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
-        Ok(Box::new(source))
+        Ok(Arc::new(source))
     }
 }
 
@@ -249,7 +250,7 @@ impl PmtConfig {
         trace!("Pmtiles source {id} will be read from {}", path.display());
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new_local(dir_cache, id, path, cache.zoom()).await?;
-        Ok(Box::new(source))
+        Ok(Arc::new(source))
     }
 }
 

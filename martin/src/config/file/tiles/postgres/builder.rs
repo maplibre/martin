@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZeroU32;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
@@ -668,7 +669,7 @@ impl PostgresAutoDiscoveryBuilder {
         }
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        Box::new(PostgresSource::new(
+        Arc::new(PostgresSource::new(
             id,
             sql_info,
             tilejson,

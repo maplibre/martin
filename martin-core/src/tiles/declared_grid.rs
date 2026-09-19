@@ -1,5 +1,7 @@
 //! A source served on a tile grid the config declares for it, since stored archives cannot say so themselves.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
@@ -56,10 +58,6 @@ impl Source for DeclaredGridSource {
         &self.grid
     }
 
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
-    }
-
     fn get_version(&self) -> Option<String> {
         self.inner.get_version()
     }
@@ -103,6 +101,6 @@ impl Source for DeclaredGridSource {
 
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
         let inner = self.inner.try_reload().await?;
-        Ok(Box::new(Self::new(inner, self.grid.clone())))
+        Ok(Arc::new(Self::new(inner, self.grid.clone())))
     }
 }

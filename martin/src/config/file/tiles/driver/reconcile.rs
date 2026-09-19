@@ -227,9 +227,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -309,7 +306,7 @@ mod tests {
             id: &str,
             _args: &(),
         ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
-            let source: BoxedSource = Box::new(TestSource::new(id));
+            let source: BoxedSource = Arc::new(TestSource::new(id));
             std::future::ready(Ok(source.into()))
         }
 

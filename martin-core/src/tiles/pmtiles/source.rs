@@ -181,10 +181,6 @@ impl Source for PmtilesSource {
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
     }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
-    }
     fn get_version(&self) -> Option<String> {
         self.tilejson.version.clone()
     }
@@ -212,7 +208,7 @@ impl Source for PmtilesSource {
             }
         };
         reloaded
-            .map(|s| Box::new(s) as BoxedSource)
+            .map(|s| Arc::new(s) as BoxedSource)
             .map_err(MartinCoreError::from)
     }
 

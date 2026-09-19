@@ -821,10 +821,6 @@ mod tests {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
 
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -883,7 +879,7 @@ mod tests {
     #[fixture]
     fn many_sources() -> TileSourceManager {
         test_manager(vec![vec![
-            Box::new(MockSource {
+            Arc::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
                 data: TileData::default(),
@@ -891,7 +887,7 @@ mod tests {
                 fetches: None,
                 empty_if: None,
             }),
-            Box::new(MockSource {
+            Arc::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: TileData::default(),
@@ -899,7 +895,7 @@ mod tests {
                 fetches: None,
                 empty_if: None,
             }),
-            Box::new(MockSource {
+            Arc::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
                 data: TileData::default(),
@@ -907,7 +903,7 @@ mod tests {
                 fetches: None,
                 empty_if: None,
             }),
-            Box::new(MockSource {
+            Arc::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
                 data: TileData::default(),
@@ -920,7 +916,7 @@ mod tests {
 
     #[fixture]
     fn one_source() -> TileSourceManager {
-        test_manager(vec![vec![Box::new(MockSource {
+        test_manager(vec![vec![Arc::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: TileData::default(),
@@ -932,7 +928,7 @@ mod tests {
 
     #[fixture]
     fn source_wo_bounds() -> TileSourceManager {
-        test_manager(vec![vec![Box::new(MockSource {
+        test_manager(vec![vec![Arc::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: TileData::default(),
@@ -1067,7 +1063,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_tile_copy_without_interrupt_writes_metadata() {
-        let state = test_state(vec![vec![Box::new(MockSource {
+        let state = test_state(vec![vec![Arc::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: TileData::default(),
@@ -1106,7 +1102,7 @@ mod tests {
         // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
         // z2: 16 tiles, the 8 below the empty z1 tiles are never fetched, 8 filled.
         let fetches = Arc::new(AtomicU64::new(0));
-        let state = test_state(vec![vec![Box::new(MockSource {
+        let state = test_state(vec![vec![Arc::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: TileData::from_static(&[1]),
@@ -1145,7 +1141,7 @@ mod tests {
     #[tokio::test]
     async fn run_tile_copy_interrupt_skips_metadata_finalization() {
         let fetch_started = Arc::new(AtomicBool::new(false));
-        let state = test_state(vec![vec![Box::new(MockSource {
+        let state = test_state(vec![vec![Arc::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: TileData::default(),
