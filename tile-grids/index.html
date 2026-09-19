@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/pg-connections/">
+        <link rel="canonical" href="https://maplibre.org/martin/tile-grids/">
       
       
-        <link rel="prev" href="../sources-pmtiles/">
+        <link rel="prev" href="../sources-composite/">
       
       
-        <link rel="next" href="../sources-pg-tables/">
+        <link rel="next" href="../postprocessing/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>PostgreSQL Connections - Martin Tile Server Documentation</title>
+        <title>Tile Grids - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#postgresql-connections" class="md-skip">
+        <a href="#tile-grids" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              PostgreSQL Connections
+              Tile Grids
             
           </span>
         </div>
@@ -853,8 +853,6 @@
                 
   
   
-    
-  
   
   
     
@@ -890,11 +888,13 @@
     
       
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -921,7 +921,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1003,8 +1003,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1028,17 +1026,19 @@
     
     
       
+        
+        
+      
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2_3" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="././" class="md-nav__link md-nav__link--active">
-              
+  
+  
+  
+  
+    <a href="../pg-connections/" class="md-nav__link">
+      
   
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>PostgreSQL</title><path d="M23.56 14.723a.5.5 0 0 0-.057-.12q-.21-.395-1.007-.231c-1.654.34-2.294.13-2.526-.02 1.342-2.048 2.445-4.522 3.041-6.83.272-1.05.798-3.523.122-4.73a1.6 1.6 0 0 0-.15-.236C21.693.91 19.8.025 17.51.001c-1.495-.016-2.77.346-3.116.479a10 10 0 0 0-.516-.082 8 8 0 0 0-1.312-.127c-1.182-.019-2.203.264-3.05.84C8.66.79 4.729-.534 2.296 1.19.935 2.153.309 3.873.43 6.304c.041.818.507 3.334 1.243 5.744q.69 2.26 1.433 3.582.83 1.493 1.714 1.79c.448.148 1.133.143 1.858-.729a56 56 0 0 1 1.945-2.206c.435.235.906.362 1.39.377v.004a11 11 0 0 0-.247.305c-.339.43-.41.52-1.5.745-.31.064-1.134.233-1.146.811a.6.6 0 0 0 .091.327c.227.423.922.61 1.015.633 1.335.333 2.505.092 3.372-.679-.017 2.231.077 4.418.345 5.088.221.553.762 1.904 2.47 1.904q.375.001.829-.094c1.782-.382 2.556-1.17 2.855-2.906.15-.87.402-2.875.539-4.101.017-.07.036-.12.057-.136 0 0 .07-.048.427.03l.044.007.254.022.015.001c.847.039 1.911-.142 2.531-.43.644-.3 1.806-1.033 1.595-1.67M2.37 11.876c-.744-2.435-1.178-4.885-1.212-5.571-.109-2.172.417-3.683 1.562-4.493 1.837-1.299 4.84-.54 6.108-.13l-.01.01C6.795 3.734 6.843 7.226 6.85 7.44c0 .082.006.199.016.36.034.586.1 1.68-.074 2.918-.16 1.15.194 2.276.973 3.089q.12.126.252.237c-.347.371-1.1 1.193-1.903 2.158-.568.682-.96.551-1.088.508-.392-.13-.813-.587-1.239-1.322-.48-.839-.963-2.032-1.415-3.512m6.007 5.088a1.6 1.6 0 0 1-.432-.178c.089-.039.237-.09.483-.14 1.284-.265 1.482-.451 1.915-1 .099-.127.211-.27.367-.443a.4.4 0 0 0 .074-.13c.17-.151.272-.11.436-.042.156.065.308.26.37.475.03.102.062.295-.045.445-.904 1.266-2.222 1.25-3.168 1.013m2.094-3.988-.052.14c-.133.357-.257.689-.334 1.004-.667-.002-1.317-.288-1.81-.803-.628-.655-.913-1.566-.783-2.5.183-1.308.116-2.447.08-3.059l-.013-.22c.296-.262 1.666-.996 2.643-.772.446.102.718.406.83.928.585 2.704.078 3.83-.33 4.736a9 9 0 0 0-.23.546m7.364 4.572q-.024.266-.062.596l-.146.438a.4.4 0 0 0-.018.108c-.006.475-.054.649-.115.87-.064.229-.135.488-.18 1.057-.11 1.414-.878 2.227-2.417 2.556-1.515.325-1.784-.496-2.02-1.221a7 7 0 0 0-.078-.227c-.215-.586-.19-1.412-.157-2.555.016-.561-.025-1.901-.33-2.646q.006-.44.019-.892a.4.4 0 0 0-.016-.113 2 2 0 0 0-.044-.208c-.122-.428-.42-.786-.78-.935-.142-.059-.403-.167-.717-.087.067-.276.183-.587.309-.925l.053-.142c.06-.16.134-.325.213-.5.426-.948 1.01-2.246.376-5.178-.237-1.098-1.03-1.634-2.232-1.51-.72.075-1.38.366-1.709.532a6 6 0 0 0-.196.104c.092-1.106.439-3.174 1.736-4.482a4 4 0 0 1 .303-.276.35.35 0 0 0 .145-.064c.752-.57 1.695-.85 2.802-.833q.616.01 1.174.081c1.94.355 3.244 1.447 4.036 2.383.814.962 1.255 1.931 1.431 2.454-1.323-.134-2.223.127-2.68.78-.992 1.418.544 4.172 1.282 5.496.135.242.252.452.289.54.24.583.551.972.778 1.256.07.087.138.171.189.245-.4.116-1.12.383-1.055 1.717-.013.156-.043.447-.084.815-.046.208-.07.46-.1.766m.89-1.621c-.04-.832.27-.919.597-1.01l.135-.041a1 1 0 0 0 .134.103c.57.376 1.583.421 3.007.134-.202.177-.519.4-.953.601-.41.19-1.096.333-1.747.364-.72.034-1.086-.08-1.173-.151m.57-9.271c-.006.35-.054.669-.105 1.001-.055.358-.112.728-.127 1.177-.014.436.04.89.093 1.33.107.887.216 1.8-.207 2.701a4 4 0 0 1-.188-.385 8 8 0 0 0-.325-.617c-.616-1.104-2.057-3.69-1.32-4.744.38-.543 1.342-.566 2.179-.463m.228 7.013-.085-.107-.035-.044c.726-1.2.584-2.387.457-3.439-.052-.432-.1-.84-.088-1.222.013-.407.066-.755.118-1.092.064-.415.13-.844.111-1.35a.6.6 0 0 0 .012-.19c-.046-.486-.6-1.938-1.73-3.253a7.8 7.8 0 0 0-2.688-2.04A9.3 9.3 0 0 1 17.62.746c2.052.046 3.675.814 4.824 2.283a1 1 0 0 1 .067.1c.723 1.356-.276 6.275-2.987 10.54m-8.816-6.116c-.025.18-.31.423-.621.423a1 1 0 0 1-.081-.006.8.8 0 0 1-.506-.315c-.046-.06-.12-.178-.106-.285a.22.22 0 0 1 .093-.149c.118-.089.352-.122.61-.086.316.044.642.193.61.418m7.93-.411c.011.08-.049.2-.153.31a.72.72 0 0 1-.408.223 1 1 0 0 1-.075.005c-.293 0-.541-.234-.56-.371-.024-.177.264-.31.56-.352.298-.042.612.009.636.185"/></svg>
@@ -1053,87 +1053,12 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link md-nav__link--active" for="__nav_5_2_3" id="__nav_5_2_3_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_2_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5_2_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-  PostgreSQL Connections
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-pg-tables/" class="md-nav__link">
-        
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>PostgreSQL</title><path d="M23.56 14.723a.5.5 0 0 0-.057-.12q-.21-.395-1.007-.231c-1.654.34-2.294.13-2.526-.02 1.342-2.048 2.445-4.522 3.041-6.83.272-1.05.798-3.523.122-4.73a1.6 1.6 0 0 0-.15-.236C21.693.91 19.8.025 17.51.001c-1.495-.016-2.77.346-3.116.479a10 10 0 0 0-.516-.082 8 8 0 0 0-1.312-.127c-1.182-.019-2.203.264-3.05.84C8.66.79 4.729-.534 2.296 1.19.935 2.153.309 3.873.43 6.304c.041.818.507 3.334 1.243 5.744q.69 2.26 1.433 3.582.83 1.493 1.714 1.79c.448.148 1.133.143 1.858-.729a56 56 0 0 1 1.945-2.206c.435.235.906.362 1.39.377v.004a11 11 0 0 0-.247.305c-.339.43-.41.52-1.5.745-.31.064-1.134.233-1.146.811a.6.6 0 0 0 .091.327c.227.423.922.61 1.015.633 1.335.333 2.505.092 3.372-.679-.017 2.231.077 4.418.345 5.088.221.553.762 1.904 2.47 1.904q.375.001.829-.094c1.782-.382 2.556-1.17 2.855-2.906.15-.87.402-2.875.539-4.101.017-.07.036-.12.057-.136 0 0 .07-.048.427.03l.044.007.254.022.015.001c.847.039 1.911-.142 2.531-.43.644-.3 1.806-1.033 1.595-1.67M2.37 11.876c-.744-2.435-1.178-4.885-1.212-5.571-.109-2.172.417-3.683 1.562-4.493 1.837-1.299 4.84-.54 6.108-.13l-.01.01C6.795 3.734 6.843 7.226 6.85 7.44c0 .082.006.199.016.36.034.586.1 1.68-.074 2.918-.16 1.15.194 2.276.973 3.089q.12.126.252.237c-.347.371-1.1 1.193-1.903 2.158-.568.682-.96.551-1.088.508-.392-.13-.813-.587-1.239-1.322-.48-.839-.963-2.032-1.415-3.512m6.007 5.088a1.6 1.6 0 0 1-.432-.178c.089-.039.237-.09.483-.14 1.284-.265 1.482-.451 1.915-1 .099-.127.211-.27.367-.443a.4.4 0 0 0 .074-.13c.17-.151.272-.11.436-.042.156.065.308.26.37.475.03.102.062.295-.045.445-.904 1.266-2.222 1.25-3.168 1.013m2.094-3.988-.052.14c-.133.357-.257.689-.334 1.004-.667-.002-1.317-.288-1.81-.803-.628-.655-.913-1.566-.783-2.5.183-1.308.116-2.447.08-3.059l-.013-.22c.296-.262 1.666-.996 2.643-.772.446.102.718.406.83.928.585 2.704.078 3.83-.33 4.736a9 9 0 0 0-.23.546m7.364 4.572q-.024.266-.062.596l-.146.438a.4.4 0 0 0-.018.108c-.006.475-.054.649-.115.87-.064.229-.135.488-.18 1.057-.11 1.414-.878 2.227-2.417 2.556-1.515.325-1.784-.496-2.02-1.221a7 7 0 0 0-.078-.227c-.215-.586-.19-1.412-.157-2.555.016-.561-.025-1.901-.33-2.646q.006-.44.019-.892a.4.4 0 0 0-.016-.113 2 2 0 0 0-.044-.208c-.122-.428-.42-.786-.78-.935-.142-.059-.403-.167-.717-.087.067-.276.183-.587.309-.925l.053-.142c.06-.16.134-.325.213-.5.426-.948 1.01-2.246.376-5.178-.237-1.098-1.03-1.634-2.232-1.51-.72.075-1.38.366-1.709.532a6 6 0 0 0-.196.104c.092-1.106.439-3.174 1.736-4.482a4 4 0 0 1 .303-.276.35.35 0 0 0 .145-.064c.752-.57 1.695-.85 2.802-.833q.616.01 1.174.081c1.94.355 3.244 1.447 4.036 2.383.814.962 1.255 1.931 1.431 2.454-1.323-.134-2.223.127-2.68.78-.992 1.418.544 4.172 1.282 5.496.135.242.252.452.289.54.24.583.551.972.778 1.256.07.087.138.171.189.245-.4.116-1.12.383-1.055 1.717-.013.156-.043.447-.084.815-.046.208-.07.46-.1.766m.89-1.621c-.04-.832.27-.919.597-1.01l.135-.041a1 1 0 0 0 .134.103c.57.376 1.583.421 3.007.134-.202.177-.519.4-.953.601-.41.19-1.096.333-1.747.364-.72.034-1.086-.08-1.173-.151m.57-9.271c-.006.35-.054.669-.105 1.001-.055.358-.112.728-.127 1.177-.014.436.04.89.093 1.33.107.887.216 1.8-.207 2.701a4 4 0 0 1-.188-.385 8 8 0 0 0-.325-.617c-.616-1.104-2.057-3.69-1.32-4.744.38-.543 1.342-.566 2.179-.463m.228 7.013-.085-.107-.035-.044c.726-1.2.584-2.387.457-3.439-.052-.432-.1-.84-.088-1.222.013-.407.066-.755.118-1.092.064-.415.13-.844.111-1.35a.6.6 0 0 0 .012-.19c-.046-.486-.6-1.938-1.73-3.253a7.8 7.8 0 0 0-2.688-2.04A9.3 9.3 0 0 1 17.62.746c2.052.046 3.675.814 4.824 2.283a1 1 0 0 1 .067.1c.723 1.356-.276 6.275-2.987 10.54m-8.816-6.116c-.025.18-.31.423-.621.423a1 1 0 0 1-.081-.006.8.8 0 0 1-.506-.315c-.046-.06-.12-.178-.106-.285a.22.22 0 0 1 .093-.149c.118-.089.352-.122.61-.086.316.044.642.193.61.418m7.93-.411c.011.08-.049.2-.153.31a.72.72 0 0 1-.408.223 1 1 0 0 1-.075.005c-.293 0-.541-.234-.56-.371-.024-.177.264-.31.56-.352.298-.042.612.009.636.185"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  PostgreSQL Table Sources
-
-    
-  </span>
-  
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
   
 
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-pg-functions/" class="md-nav__link">
-        
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>PostgreSQL</title><path d="M23.56 14.723a.5.5 0 0 0-.057-.12q-.21-.395-1.007-.231c-1.654.34-2.294.13-2.526-.02 1.342-2.048 2.445-4.522 3.041-6.83.272-1.05.798-3.523.122-4.73a1.6 1.6 0 0 0-.15-.236C21.693.91 19.8.025 17.51.001c-1.495-.016-2.77.346-3.116.479a10 10 0 0 0-.516-.082 8 8 0 0 0-1.312-.127c-1.182-.019-2.203.264-3.05.84C8.66.79 4.729-.534 2.296 1.19.935 2.153.309 3.873.43 6.304c.041.818.507 3.334 1.243 5.744q.69 2.26 1.433 3.582.83 1.493 1.714 1.79c.448.148 1.133.143 1.858-.729a56 56 0 0 1 1.945-2.206c.435.235.906.362 1.39.377v.004a11 11 0 0 0-.247.305c-.339.43-.41.52-1.5.745-.31.064-1.134.233-1.146.811a.6.6 0 0 0 .091.327c.227.423.922.61 1.015.633 1.335.333 2.505.092 3.372-.679-.017 2.231.077 4.418.345 5.088.221.553.762 1.904 2.47 1.904q.375.001.829-.094c1.782-.382 2.556-1.17 2.855-2.906.15-.87.402-2.875.539-4.101.017-.07.036-.12.057-.136 0 0 .07-.048.427.03l.044.007.254.022.015.001c.847.039 1.911-.142 2.531-.43.644-.3 1.806-1.033 1.595-1.67M2.37 11.876c-.744-2.435-1.178-4.885-1.212-5.571-.109-2.172.417-3.683 1.562-4.493 1.837-1.299 4.84-.54 6.108-.13l-.01.01C6.795 3.734 6.843 7.226 6.85 7.44c0 .082.006.199.016.36.034.586.1 1.68-.074 2.918-.16 1.15.194 2.276.973 3.089q.12.126.252.237c-.347.371-1.1 1.193-1.903 2.158-.568.682-.96.551-1.088.508-.392-.13-.813-.587-1.239-1.322-.48-.839-.963-2.032-1.415-3.512m6.007 5.088a1.6 1.6 0 0 1-.432-.178c.089-.039.237-.09.483-.14 1.284-.265 1.482-.451 1.915-1 .099-.127.211-.27.367-.443a.4.4 0 0 0 .074-.13c.17-.151.272-.11.436-.042.156.065.308.26.37.475.03.102.062.295-.045.445-.904 1.266-2.222 1.25-3.168 1.013m2.094-3.988-.052.14c-.133.357-.257.689-.334 1.004-.667-.002-1.317-.288-1.81-.803-.628-.655-.913-1.566-.783-2.5.183-1.308.116-2.447.08-3.059l-.013-.22c.296-.262 1.666-.996 2.643-.772.446.102.718.406.83.928.585 2.704.078 3.83-.33 4.736a9 9 0 0 0-.23.546m7.364 4.572q-.024.266-.062.596l-.146.438a.4.4 0 0 0-.018.108c-.006.475-.054.649-.115.87-.064.229-.135.488-.18 1.057-.11 1.414-.878 2.227-2.417 2.556-1.515.325-1.784-.496-2.02-1.221a7 7 0 0 0-.078-.227c-.215-.586-.19-1.412-.157-2.555.016-.561-.025-1.901-.33-2.646q.006-.44.019-.892a.4.4 0 0 0-.016-.113 2 2 0 0 0-.044-.208c-.122-.428-.42-.786-.78-.935-.142-.059-.403-.167-.717-.087.067-.276.183-.587.309-.925l.053-.142c.06-.16.134-.325.213-.5.426-.948 1.01-2.246.376-5.178-.237-1.098-1.03-1.634-2.232-1.51-.72.075-1.38.366-1.709.532a6 6 0 0 0-.196.104c.092-1.106.439-3.174 1.736-4.482a4 4 0 0 1 .303-.276.35.35 0 0 0 .145-.064c.752-.57 1.695-.85 2.802-.833q.616.01 1.174.081c1.94.355 3.244 1.447 4.036 2.383.814.962 1.255 1.931 1.431 2.454-1.323-.134-2.223.127-2.68.78-.992 1.418.544 4.172 1.282 5.496.135.242.252.452.289.54.24.583.551.972.778 1.256.07.087.138.171.189.245-.4.116-1.12.383-1.055 1.717-.013.156-.043.447-.084.815-.046.208-.07.46-.1.766m.89-1.621c-.04-.832.27-.919.597-1.01l.135-.041a1 1 0 0 0 .134.103c.57.376 1.583.421 3.007.134-.202.177-.519.4-.953.601-.41.19-1.096.333-1.747.364-.72.034-1.086-.08-1.173-.151m.57-9.271c-.006.35-.054.669-.105 1.001-.055.358-.112.728-.127 1.177-.014.436.04.89.093 1.33.107.887.216 1.8-.207 2.701a4 4 0 0 1-.188-.385 8 8 0 0 0-.325-.617c-.616-1.104-2.057-3.69-1.32-4.744.38-.543 1.342-.566 2.179-.463m.228 7.013-.085-.107-.035-.044c.726-1.2.584-2.387.457-3.439-.052-.432-.1-.84-.088-1.222.013-.407.066-.755.118-1.092.064-.415.13-.844.111-1.35a.6.6 0 0 0 .012-.19c-.046-.486-.6-1.938-1.73-3.253a7.8 7.8 0 0 0-2.688-2.04A9.3 9.3 0 0 1 17.62.746c2.052.046 3.675.814 4.824 2.283a1 1 0 0 1 .067.1c.723 1.356-.276 6.275-2.987 10.54m-8.816-6.116c-.025.18-.31.423-.621.423a1 1 0 0 1-.081-.006.8.8 0 0 1-.506-.315c-.046-.06-.12-.178-.106-.285a.22.22 0 0 1 .093-.149c.118-.089.352-.122.61-.086.316.044.642.193.61.418m7.93-.411c.011.08-.049.2-.153.31a.72.72 0 0 1-.408.223 1 1 0 0 1-.075.005c-.293 0-.541-.234-.56-.371-.024-.177.264-.31.56-.352.298-.042.612.009.636.185"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  PostgreSQL Function Sources
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
       
     </li>
   
@@ -1268,8 +1193,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1291,13 +1218,11 @@
     
       
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
         
           
           <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
@@ -1317,7 +1242,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1360,10 +1285,38 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../tile-grids/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 4v4h4V4zm6 0v4h4V4zm0 6v4h4v-4zm0 6v4h4v-4zm-2 4v-4h-4v4zm-6 0v-4H4v4zm0-6v-4H4v4zm0-6V4H4v4zm2 6h4v-4h-4zM4 2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4c-1.08 0-2-.9-2-2V4a2 2 0 0 1 2-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Tile Grids
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1380,6 +1333,104 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-makes-up-a-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What makes up a grid
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defining-a-tile-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Defining a tile grid
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serving-a-source-on-a-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving a source on a grid
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tables-stored-in-another-crs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tables stored in another CRS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-geographic-grids-floor-plans-and-pcmobile-game-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Non-geographic grids (floor plans and PC/mobile game maps)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-epsg-coordinate-reference-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Non-EPSG coordinate reference systems
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sources-that-only-support-web-mercator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sources that only support Web Mercator
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2043,18 +2094,6 @@
     
       
         
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
       
         
       
@@ -2063,43 +2102,11 @@
     
     
       <li class="md-path__item">
-        <a href="../sources-tiles/" class="md-path__link">
+        <a href="../sources-composite/" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Tile sources
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      <li class="md-path__item">
-        <a href="././" class="md-path__link">
-          
-  
-  <span class="md-ellipsis">
-    PostgreSQL Connections
+    Tile Serving
   </span>
 
         </a>
@@ -2116,7 +2123,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/pg-connections/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/tile-grids.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -2124,22 +2131,243 @@
   
 
 
-<h1 id="postgresql-connections">PostgreSQL Connections</h1>
-<p>Martin supports standard PostgreSQL connection string settings including <code>host</code>, <code>port</code>, <code>user</code>, <code>password</code>, <code>dbname</code>, <code>sslmode</code>, <code>connect_timeout</code>, <code>keepalives</code>, <code>keepalives_idle</code>, etc.
-See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING">PostgreSQL docs</a> for more details.</p>
-<h3 id="ssl-connections">SSL Connections</h3>
-<p>Martin supports PostgreSQL <code>sslmode</code> settings: <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code>.
-See the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a> for mode descriptions.
-Certificates can be provided in the configuration file or via environment variables (same as <code>psql</code>).
-Environment variables apply to all PostgreSQL connections.
-See <a href="../env-vars/">environment vars</a> for details.</p>
-<p>By default, <code>sslmode</code> is <code>prefer</code> - encrypt (don't check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
-This matches <code>psql</code> default behavior.</p>
-<p>If you require guarantees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
-Use the <code>sslmode</code> parameter to specify a different mode:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>postgres://user:password@host/db?sslmode<span class="o">=</span>verify-full
+<h1 id="tile-grids">Tile Grids</h1>
+<p>A tile grid describes how a map is cut into square tiles.
+It tells a client where the tile at <code>z/x/y</code> lies in the world and how big it is.</p>
+<p>By default, Martin uses the Web Mercator grid.
+This is the grid Google Maps, Mapbox and MapLibre use.
+It covers the whole world (minus the poles) with one tile at zoom 0, four at zoom 1, sixteen at zoom 2 and so on.</p>
+<p>Some data is published on a different grid.
+Examples are national grids like New Zealand's NZTM2000, grids centred on a pole, or grids for other planets.
+Such data only keeps its shape and accuracy on its own grid, so Martin can serve a source on that grid instead.
+Clients like <a href="https://github.com/maplibre/maplibre-gl-js/pull/8287">MapLibre GL JS</a> (via <code>addProjection</code> with a <code>tileMatrix</code>) or <a href="https://openlayers.org/en/latest/apidoc/module-ol_tilegrid_TileGrid-TileGrid.html">OpenLayers</a> (via a custom tile grid) can then render it.</p>
+<h2 id="what-makes-up-a-grid">What makes up a grid</h2>
+<p>A grid needs a <strong>coordinate reference system</strong> (CRS).
+A CRS defines what a coordinate such as <code>[x, y]</code> means (which units it is in, where <code>0, 0</code> lies, and how the curved earth was flattened onto the plane).
+Most CRS have a code in the EPSG registry, for example <code>EPSG:4326</code> for plain longitude and latitude and <code>EPSG:3857</code> for Web Mercator.
+The coordinates of a grid are in the units of its CRS, usually metres or degrees.</p>
+<p>Martin follows the "quad" grids of the <a href="https://docs.ogc.org/is/17-083r4/17-083r4.html">OGC Two Dimensional Tile Matrix Set</a> standard.
+"Quad" means every zoom level cuts each tile into four equal squares.
+A grid is defined by:</p>
+<ul>
+<li>the CRS its coordinates are in,</li>
+<li>the top-left corner of the zoom-0 tile,</li>
+<li>the side length of that tile, and</li>
+<li>how many tiles zoom 0 has.</li>
+</ul>
+<p>Columns (<code>x</code>) count from the left edge to the right, rows (<code>y</code>) from the top edge down.</p>
+<p>Two grids are built in:</p>
+<ul>
+<li><code>WebMercatorQuad</code> is <strong>the default</strong> in Martin and in all modern web maps (MapLibre, Google, Mapbox, ...).
+  Because of the underlying math, this should be what you reach for on performant, global maps.</li>
+<li><code>WorldCRS84Quad</code> uses plain longitude and latitude as coordinates.
+  The world is twice as wide as it is tall in degrees, so zoom 0 has two tiles side by side.</li>
+</ul>
+<h2 id="defining-a-tile-grid">Defining a tile grid</h2>
+<p>Grids are named under the top-level <code>tile_grids</code> key.
+PostgreSQL tables and functions, MBTiles files and PMTiles files refer to a grid by name via <code>tile_grid</code>.
+A PostgreSQL connection can set a default <code>tile_grid</code> for all of its sources.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="hll"><span class="nt">tile_grids</span><span class="p">:</span>
+</span></span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="hll"><span class="w">  </span><span class="nt">NZTM2000Quad</span><span class="p">:</span>
+</span></span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="hll"><span class="w">    </span><span class="nt">crs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPSG:2193</span>
+</span></span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="hll"><span class="w">    </span><span class="nt">origin</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-3260586.7284</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">10438190.1652</span><span class="p p-Indicator">]</span>
+</span></span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="hll"><span class="w">    </span><span class="nt">extent_at_zoom0</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10018754.1714</span>
+</span></span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres://postgres@localhost/db</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">nz_roads</span><span class="p">:</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">srid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2193</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="hll"><span class="w">      </span><span class="nt">tile_grid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NZTM2000Quad</span>
+</span></span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">nz_roads_mercator</span><span class="p">:</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">srid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2193</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nt">mbtiles</span><span class="p">:</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="nt">nz_basemap</span><span class="p">:</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/nz_basemap.mbtiles</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="hll"><span class="w">      </span><span class="nt">tile_grid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NZTM2000Quad</span>
+</span></span></code></pre></div>
+<p>We support these settings:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crs</code></td>
+<td>required</td>
+<td>The CRS as <code>AUTHORITY:CODE</code>, for example <code>EPSG:2193</code>, or <code>simple</code> for grids without a location on earth.</td>
+</tr>
+<tr>
+<td><code>origin</code></td>
+<td>required</td>
+<td>Top-left corner <code>[x, y]</code> of the zoom-0 tile, in the units of the CRS.</td>
+</tr>
+<tr>
+<td><code>extent_at_zoom0</code></td>
+<td>required</td>
+<td>Side length of one zoom-0 tile, in the units of the CRS.</td>
+</tr>
+<tr>
+<td><code>matrix_at_zoom0</code></td>
+<td><code>[1, 1]</code></td>
+<td>Number of tile <code>[columns, rows]</code> at zoom 0.</td>
+</tr>
+</tbody>
+</table>
+<p><code>EPSG</code> codes work out of the box.
+Other authorities need a row in the database, see <a href="#non-epsg-coordinate-reference-systems">Non-EPSG coordinate reference systems</a>.
+Grids with <code>crs: simple</code> are covered in <a href="#non-geographic-grids-floor-plans-and-pcmobile-game-maps">Non-geographic grids</a>.</p>
+<p><code>WorldCRS84Quad</code> and most grids for other planets have <code>[2, 1]</code> tiles at zoom 0.
+The OGC UTM quads have <code>[1, 2]</code>.
+A grid that is <code>[2, 2]</code> at zoom 0 is <code>[1, 1]</code> at zoom 1, so define it starting there.</p>
+<div class="admonition tip">
+<p class="admonition-title">Copy the grid from its publisher</p>
+<p>Whoever publishes data on a grid usually also publishes the grid itself, often as a "tile matrix set" JSON document.
+Copy <code>origin</code> and <code>extent_at_zoom0</code> from that document.
+Do not compute them from the region the CRS is meant for, the grid is usually larger or shifted.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Tile matrix set documents list the corner in the axis order of the CRS</p>
+<p>For EPSG:2193 and EPSG:4326 that is northing or latitude first, so the LINZ document gives the NZTM2000Quad corner as <code>[10438190.1652, -3260586.7284]</code>.
+Martin always takes <code>[x, y]</code>, so swap the two values for such a CRS.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Some services count zoom levels differently</p>
+<p>NASA GIBS starts counting its polar grids at a level that already has 2x2 tiles.
+Their "level 0" is zoom 1 in Martin.
+Martin's zoom-0 tile is then the whole 8,388,608 m square with origin <code>[-4194304, 4194304]</code>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">One grid per source</p>
+<p>Serving one table on two grids means two sources, as in the example above.
+A client cannot pick a grid per request.
+A source's URL and its cache entries never change with the grid.</p>
+</div>
+<h2 id="serving-a-source-on-a-grid">Serving a source on a grid</h2>
+<p>For a PostgreSQL table, Martin computes the square each tile covers from the grid and asks PostGIS for the geometry inside it.
+The geometry in the tile is encoded in the grid's CRS.
+If the table already stores its coordinates in that CRS, PostGIS only has to clip.
+If the table uses a different CRS, PostGIS converts the coordinates on every request.</p>
+<p>PostgreSQL functions, MBTiles files and PMTiles files are served as they are.
+Declaring a grid changes the <code>TileJSON</code> and the catalog, never the tile bytes.</p>
+<div class="admonition warning">
+<p class="admonition-title">Functions and archives are not checked</p>
+<p>Martin trusts functions, MBTiles files and PMTiles files to produce tiles on the grid they declare and only advertises that grid.
+If the declared grid does not match the tiles, clients will draw them in the wrong place.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Tiles outside the grid answer 404</p>
+<p>This includes a third column at zoom 0 of a two-wide grid.
+This also holds for Web Mercator, where such tiles used to answer an empty 204.</p>
+</div>
+<p>The <code>TileJSON</code> of a source on a non-default grid has a <code>tileGrid</code> key.
+It uses the same field names as MapLibre GL JS:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">"tileGrid"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NZTM2000Quad"</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"crs"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EPSG:2193"</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"origin"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">-3260586.7284</span><span class="p">,</span><span class="w"> </span><span class="mf">10438190.1652</span><span class="p">],</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"extentAtZoom0"</span><span class="p">:</span><span class="w"> </span><span class="mf">10018754.1714</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our <a href="../pg-ssl-certificates/">PostgreSQL SSL Certificates Recipe</a>.</p>
+<p>The <code>/catalog</code> entry of such a source names the grid in <code>tile_grid</code>.
+Sources on different grids cannot be combined into one composite source.</p>
+<p><code>martin cp</code> copies a source on its own grid.
+Without <code>--bbox</code> it copies the whole grid.
+With <code>--bbox</code>, the bounds are <code>min_x,min_y,max_x,max_y</code> in the units of the grid's CRS, not longitude and latitude.
+The <code>TileJSON</code> written into the archive contains the <code>tileGrid</code> key.
+The archive can then be served back with the same <code>tile_grid</code> declared.</p>
+<h2 id="tables-stored-in-another-crs">Tables stored in another CRS</h2>
+<p>If a table stores its coordinates in a different CRS than its grid, Martin converts each tile square into the table's CRS to find the matching rows.
+A straight edge in one CRS often becomes a curve in another.
+Martin therefore adds extra points along the edges before converting, so the search area covers the whole curved edge.</p>
+<div class="admonition note">
+<p class="admonition-title">Tiles across the antimeridian</p>
+<p>Longitude and latitude, and Web Mercator, cut the world open at 180 degrees.
+A tile that reaches across that line has no single bounding box in such a CRS.
+For a table stored in a geographic CRS or in Web Mercator, Martin searches the whole width of the world at the height of that tile instead, so nothing is missed.
+Such tiles take longer than the tiles around them.
+Tables in other CRS with such a cut are not detected.
+Store the data in the grid's CRS to avoid both.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Polar grids</p>
+<p>A tile that contains a pole cannot be converted this way, because the pole has no single position in most CRS.
+This happens on the zoom-0 tile of a polar grid.
+Martin detects this at startup and warns for every affected table.
+Store polar data in the grid's CRS to avoid the conversion entirely.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title"><code>bounds</code> for other planets</p>
+<p><code>TileJSON</code> requires the <code>bounds</code> of a source as longitude and latitude (WGS84), so Martin converts them.
+If PostGIS cannot convert the table's CRS to longitude and latitude, Martin leaves <code>bounds</code> out and logs why.
+This is the case for CRS of other planets.
+Set <code>bounds</code> in the config if the <code>TileJSON</code> should have them.</p>
+</div>
+<h2 id="non-geographic-grids-floor-plans-and-pcmobile-game-maps">Non-geographic grids (floor plans and PC/mobile game maps)</h2>
+<p>A grid with <code>crs: simple</code> has no location on earth.
+Its units are whatever the data is in, for example pixels of a scanned plan or metres of a game level.
+This is the server side of Leaflet's <code>CRS.Simple</code> and of MapLibre GL JS's <code>simple</code> projection.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">tile_grids</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">FloorPlan</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">crs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">simple</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">origin</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1000</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">extent_at_zoom0</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">rooms</span><span class="p">:</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rooms</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">srid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="nt">tile_grid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FloorPlan</span>
+</span></code></pre></div>
+<p>The table stores its geometry with SRID 0.
+An SRID is the number PostGIS tags a geometry column with to say which CRS it is in, and 0 means "none".
+Nothing is ever converted.
+A table with any other SRID is not served on a simple grid.
+No <code>bounds</code> are computed, since there is no longitude and latitude to express them in.</p>
+<h2 id="non-epsg-coordinate-reference-systems">Non-EPSG coordinate reference systems</h2>
+<p>PostGIS keeps the CRS it knows in its <code>spatial_ref_sys</code> table.
+It ships with every EPSG code.
+Any other CRS has to be inserted as a row first.
+An example are the CRS the International Astronomical Union defines for other planets.</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">spatial_ref_sys</span><span class="w"> </span><span class="p">(</span><span class="n">srid</span><span class="p">,</span><span class="w"> </span><span class="n">auth_name</span><span class="p">,</span><span class="w"> </span><span class="n">auth_srid</span><span class="p">,</span><span class="w"> </span><span class="n">proj4text</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="mi">949900</span><span class="p">,</span><span class="w"> </span><span class="s1">'IAU_2015'</span><span class="p">,</span><span class="w"> </span><span class="mi">49900</span><span class="p">,</span><span class="w"> </span><span class="s1">'+proj=longlat +a=3396190 +b=3376200 +no_defs +type=crs'</span><span class="p">);</span>
+</span></code></pre></div>
+<ul>
+<li><code>srid</code> is the number PostGIS uses internally. Pick any free one.</li>
+<li><code>auth_name</code> and <code>auth_srid</code> form the <code>AUTHORITY:CODE</code> name that a grid refers to.</li>
+<li><code>proj4text</code> is the CRS definition in <a href="https://proj.org/">PROJ</a> syntax.</li>
+</ul>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">tile_grids</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">MarsGeographic</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">crs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IAU_2015:49900</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">origin</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">90</span><span class="p p-Indicator">]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">extent_at_zoom0</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">360</span>
+</span></code></pre></div>
+<h2 id="sources-that-only-support-web-mercator">Sources that only support Web Mercator</h2>
+<p>COG, GeoJSON and DuckDB sources always produce Web Mercator tiles.
+They cannot be declared to be on another grid.</p>
+<ul>
+<li>A COG is read as the Web Mercator pyramid it was written as.</li>
+<li>GeoJSON is tiled in Web Mercator on the way in.</li>
+<li>The DuckDB queries convert to EPSG:3857.</li>
+</ul>
+<p>Martin never converts finished tiles from one grid to another.
+Tiles are either generated on the grid or served as stored.</p>
 
 
   <nav class="md-tags" >
@@ -2148,7 +2376,7 @@ Use the <code>sslmode</code> parameter to specify a different mode:</p>
       
       
       
-        <span class="md-tag">postgresql</span>
+        <span class="md-tag">tile-sources</span>
       
     
       
@@ -2156,13 +2384,6 @@ Use the <code>sslmode</code> parameter to specify a different mode:</p>
       
       
         <span class="md-tag">configuration</span>
-      
-    
-      
-      
-      
-      
-        <span class="md-tag">ssl</span>
       
     
   </nav>
@@ -2207,7 +2428,7 @@ Use the <code>sslmode</code> parameter to specify a different mode:</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../sources-pmtiles/" class="md-footer__link md-footer__link--prev" aria-label="Previous: PMTiles File Sources">
+          <a href="../sources-composite/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Composite Sources">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2217,20 +2438,20 @@ Use the <code>sslmode</code> parameter to specify a different mode:</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                PMTiles File Sources
+                Composite Sources
               </div>
             </div>
           </a>
         
         
           
-          <a href="../sources-pg-tables/" class="md-footer__link md-footer__link--next" aria-label="Next: PostgreSQL Table Sources">
+          <a href="../postprocessing/" class="md-footer__link md-footer__link--next" aria-label="Next: Postprocessing">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                PostgreSQL Table Sources
+                Postprocessing
               </div>
             </div>
             <div class="md-footer__button md-icon">
