@@ -5513,7 +5513,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "1.16.1"
+version = "2.0.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -5591,7 +5591,7 @@ dependencies = [
 
 [[package]]
 name = "martin-config-macros"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5602,7 +5602,7 @@ dependencies = [
 
 [[package]]
 name = "martin-core"
-version = "0.11.2"
+version = "0.12.0"
 dependencies = [
  "actix-web",
  "approx",
@@ -5712,7 +5712,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "approx",
  "brotli 8.0.4",
@@ -5754,7 +5754,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.19.3"
+version = "0.20.0"
 dependencies = [
  "actix-rt",
  "anyhow",
