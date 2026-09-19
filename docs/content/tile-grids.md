@@ -37,26 +37,28 @@ A grid is defined by:
 
 Columns (`x`) count from the left edge to the right, rows (`y`) from the top edge down.
 
-Two grids are built in:
+## Built-in grids
 
-- `WebMercatorQuad` is **the default** in Martin and in all modern web maps (MapLibre, Google, Mapbox, ...).
-  Because of the underlying math, this should be what you reach for on performant, global maps.
-- `WorldCRS84Quad` uses plain longitude and latitude as coordinates.
-  The world is twice as wide as it is tall in degrees, so zoom 0 has two tiles side by side.
+The quad grids of the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html) registry are built in.
+A source refers to one by name, without defining it.
 
-## Defining a tile grid
+| name                      | CRS         | zoom 0 | covers                                                                             |
+|---------------------------|-------------|--------|------------------------------------------------------------------------------------|
+| `WebMercatorQuad`         | `EPSG:3857` | 1 tile | the world minus the poles, **the default** in Martin and in all modern web maps    |
+| `WorldCRS84Quad`          | `EPSG:4326` | 2 by 1 | the world in plain longitude and latitude, also known as `WGS1984Quad`             |
+| `WorldMercatorWGS84Quad`  | `EPSG:3395` | 1 tile | the world on the Mercator projection of the WGS84 ellipsoid                        |
+| `EuropeanETRS89_LAEAQuad` | `EPSG:3035` | 1 tile | Europe, equal-area                                                                 |
+| `NZTM2000Quad`            | `EPSG:2193` | 1 tile | New Zealand, as [LINZ](https://github.com/linz/NZTM2000TileMatrixSet) publishes it |
+| `UPSArcticWGS84Quad`      | `EPSG:5041` | 1 tile | the Arctic, polar stereographic                                                    |
+| `UPSAntarcticWGS84Quad`   | `EPSG:5042` | 1 tile | the Antarctic, polar stereographic                                                 |
 
-Grids are named under the top-level `tile_grids` key.
+`WebMercatorQuad` is what to reach for on performant, global maps.
+`WorldCRS84Quad` is twice as wide as it is tall in degrees, so zoom 0 has two tiles side by side.
+
 PostgreSQL tables and functions, MBTiles files and PMTiles files refer to a grid by name via `tile_grid`.
 A PostgreSQL connection can set a default `tile_grid` for all of its sources.
 
-```yaml hl_lines="1-5 15 26"
-tile_grids:
-  NZTM2000Quad:
-    crs: EPSG:2193
-    origin: [-3260586.7284, 10438190.1652]
-    extent_at_zoom0: 10018754.1714
-
+```yaml hl_lines="9 20"
 postgres:
   connection_string: postgres://postgres@localhost/db
   tables:
@@ -77,6 +79,30 @@ mbtiles:
     nz_basemap:
       path: /data/nz_basemap.mbtiles
       tile_grid: NZTM2000Quad
+```
+
+## Defining a tile grid
+
+Any other grid is named under the top-level `tile_grids` key.
+The name of a built-in grid cannot be used again.
+This is the Dutch national grid as [PDOK](https://www.pdok.nl/) publishes it.
+
+```yaml hl_lines="1-5 15"
+tile_grids:
+  DutchRD:
+    crs: EPSG:28992
+    origin: [-285401.92, 903401.92]
+    extent_at_zoom0: 880803.84
+
+postgres:
+  connection_string: postgres://postgres@localhost/db
+  tables:
+    nl_roads:
+      schema: public
+      table: roads
+      srid: 28992
+      geometry_column: geom
+      tile_grid: DutchRD
 ```
 
 We support these settings:
@@ -109,9 +135,11 @@ A grid that is `[2, 2]` at zoom 0 is `[1, 1]` at zoom 1, so define it starting t
     NASA GIBS starts counting its polar grids at a level that already has 2x2 tiles.
     Their "level 0" is zoom 1 in Martin.
     Martin's zoom-0 tile is then the whole 8,388,608 m square with origin `[-4194304, 4194304]`.
+    The OGC registry starts `UTM31WGS84Quad` at zoom 1 with one column and two rows.
+    That is zoom 0 in Martin with `matrix_at_zoom0: [1, 2]`, which is why this grid is not built in.
 
 !!! note "One grid per source"
-    Serving one table on two grids means two sources, as in the example above.
+    Serving one table on two grids means two sources, as in the New Zealand example above.
     A client cannot pick a grid per request.
     A source's URL and its cache entries never change with the grid.
 
@@ -141,7 +169,7 @@ It uses the same field names as MapLibre GL JS:
   "id": "NZTM2000Quad",
   "crs": "EPSG:2193",
   "origin": [-3260586.7284, 10438190.1652],
-  "extentAtZoom0": 10018754.1714
+  "extentAtZoom0": 10018754.171394626
 }
 ```
 

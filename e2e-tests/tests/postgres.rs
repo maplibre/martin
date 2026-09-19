@@ -1664,10 +1664,6 @@ postgres:
 /// New Zealand on LINZ's `NZTM2000Quad`, world points on a square WGS84 grid, and Mars landing sites on a CRS `PostGIS` only knows from a `spatial_ref_sys` row.
 const TILE_GRIDS_CONFIG: &str = "
 tile_grids:
-  NZTM2000Quad:
-    crs: EPSG:2193
-    origin: [-3260586.7284, 10438190.1652]
-    extent_at_zoom0: 10018754.1714
   WGS84Square:
     crs: EPSG:4326
     origin: [-180, 90]
@@ -1784,7 +1780,7 @@ async fn a_table_on_another_tile_grid_advertises_the_grid_and_serves_its_tiles()
       "name": "nz_points",
       "tileGrid": {
         "crs": "EPSG:2193",
-        "extentAtZoom0": 10018754.1714,
+        "extentAtZoom0": 10018754.171394626,
         "id": "NZTM2000Quad",
         "origin": [
           -3260586.7284,
