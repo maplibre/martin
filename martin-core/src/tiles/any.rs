@@ -1,5 +1,7 @@
 //! [`AnySource`], the closed set of tile sources the server dispatches on.
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
@@ -182,7 +184,9 @@ impl AnySource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        dispatch!(self, |s| s.get_tile(xyz, url_query).await)
+        let tile: Pin<Box<dyn Future<Output = MartinCoreResult<TileData>> + Send + '_>> =
+            dispatch!(self, |s| Box::pin(s.get_tile(xyz, url_query)));
+        tile.await
     }
 
     /// Retrieves tile with etag for the given coordinates.
@@ -191,7 +195,9 @@ impl AnySource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        dispatch!(self, |s| s.get_tile_with_etag(xyz, url_query).await)
+        let tile: Pin<Box<dyn Future<Output = MartinCoreResult<Tile>> + Send + '_>> =
+            dispatch!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query)));
+        tile.await
     }
 
     /// Attempts to create a fresh instance of this source.
