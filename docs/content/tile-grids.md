@@ -131,7 +131,7 @@ Declaring a grid changes the `TileJSON` and the catalog, never the tile bytes.
 
 !!! note "Tiles outside the grid answer 404"
     This includes a third column at zoom 0 of a two-wide grid.
-    This also holds for Web Mercator, where such tiles used to answer an empty 204.
+    This also holds for Web Mercator.
 
 The `TileJSON` of a source on a non-default grid has a `tileGrid` key.
 It uses the same field names as MapLibre GL JS:
