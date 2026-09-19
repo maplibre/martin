@@ -30,8 +30,7 @@ mod sources {
             }
         }
 
-        /// A source whose `TileJSON` carries a tippecanoe-shaped `tilestats` block,
-        /// as real archives do. Serving a tile must not get more expensive with it.
+        /// A source whose `TileJSON` carries a tippecanoe-shaped `tilestats` block
         pub fn with_tilestats(layers: usize) -> Self {
             let mut source = Self::new();
             let layers: Vec<serde_json::Value> = (0..layers)
