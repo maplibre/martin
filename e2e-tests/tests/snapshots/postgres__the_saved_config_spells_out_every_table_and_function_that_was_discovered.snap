@@ -153,15 +153,6 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
-    mars_points:
-      schema: public
-      table: mars_points
-      srid: 949900
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-        site: text
     mat_view:
       schema: public
       table: mat_view

@@ -12,6 +12,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
     function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
+    transform_error,
 };
 use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
@@ -339,6 +340,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Auto-publish remaining tables, sorted for deterministic id resolution.
         if let Some(auto_tables) = &self.auto_tables {
+            let mut probed = HashMap::<(i32, i32), Option<String>>::new();
             let schemas = auto_tables
                 .schemas
                 .clone()
@@ -372,6 +374,12 @@ impl PostgresAutoDiscoveryBuilder {
                         };
                         db_inf.srid = srid;
                         if let Err(reason) = self.check_srid_fits_tile_grid(&db_inf) {
+                            warn!("{reason}, skipping");
+                            continue;
+                        }
+                        if let Some(reason) =
+                            self.tile_grid_transform_error(&mut probed, &db_inf).await?
+                        {
                             warn!("{reason}, skipping");
                             continue;
                         }
@@ -616,6 +624,32 @@ impl PostgresAutoDiscoveryBuilder {
             ));
         }
         Ok(())
+    }
+
+    /// The reason `PostGIS` cannot transform between the CRS of a table and the CRS of its tile grid, if there is one.
+    async fn tile_grid_transform_error(
+        &self,
+        probed: &mut HashMap<(i32, i32), Option<String>>,
+        info: &TableInfo,
+    ) -> PostgresResult<Option<String>> {
+        let grid = self.tile_grid_for(info.tile_grid.as_deref());
+        let srids = (grid.srid(), info.srid);
+        let reason = if let Some(reason) = probed.get(&srids) {
+            reason.clone()
+        } else {
+            let reason = transform_error(&self.pool, srids.0, srids.1).await?;
+            probed.insert(srids, reason.clone());
+            reason
+        };
+        Ok(reason.map(|reason| {
+            format!(
+                "Table {} has SRID={}, which PostGIS cannot convert to {} of the tile grid {} ({reason})",
+                info.format_id(),
+                info.srid,
+                grid.grid().crs(),
+                grid.grid().id()
+            )
+        }))
     }
 
     /// Constructs a [`PostgresSource`] from a resolved source description and its SQL.
