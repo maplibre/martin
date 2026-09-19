@@ -50,7 +50,7 @@ async fn fetch_raw(
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<Tile, Arc<MartinCoreError>> {
-    let src = source.clone_source();
+    let src = Arc::clone(source);
     let compute = || async move { src.get_tile_with_etag(xyz, None).await };
 
     let cacheable = source.cache_zoom().contains(xyz.z());

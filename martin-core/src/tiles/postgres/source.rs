@@ -12,7 +12,7 @@ use crate::tiles::postgres::PostgresError::{
 };
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::postgres::{ActiveQueryRegistry, PostgresPool};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
+use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
@@ -59,10 +59,6 @@ impl Source for PostgresSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn support_url_query(&self) -> bool {

@@ -219,9 +219,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -242,7 +239,7 @@ mod tests {
     fn new_source(name: &str) -> NewSource {
         NewSource {
             id: name.to_owned(),
-            source: Ok(Box::new(TestSource {
+            source: Ok(Arc::new(TestSource {
                 id: name.to_owned(),
                 tj: tilejson! { tiles: vec![] },
             })),
@@ -322,7 +319,7 @@ mod tests {
 
     #[test]
     fn from_sources_populates_map() {
-        let src = Box::new(TestSource {
+        let src = Arc::new(TestSource {
             id: "x".to_owned(),
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
@@ -393,7 +390,7 @@ mod tests {
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            let source: BoxedSource = Box::new(TestSource {
+            let source: BoxedSource = Arc::new(TestSource {
                 id,
                 tj: tilejson! { tiles: vec![] },
             });

@@ -1,5 +1,6 @@
 use std::hash::{BuildHasher as _, RandomState};
 use std::hint::black_box;
+use std::sync::Arc;
 
 use criterion::async_executor::FuturesExecutor;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
@@ -42,10 +43,6 @@ mod sources {
 
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Png, Encoding::Internal)
-        }
-
-        fn clone_source(&self) -> Box<dyn Source> {
-            Box::new(self.clone())
         }
 
         fn cache_zoom(&self) -> CacheZoomRange {
@@ -96,10 +93,6 @@ mod sources {
             TileInfo::new(Format::Png, Encoding::Internal)
         }
 
-        fn clone_source(&self) -> Box<dyn Source> {
-            Box::new(self.clone())
-        }
-
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -144,7 +137,7 @@ fn bench_null_source(c: &mut Criterion) {
         NO_TILE_CACHE,
         OnInvalid::Abort,
         vec![vec![(
-            Box::new(sources::NullSource::new()),
+            Arc::new(sources::NullSource::new()),
             ResolvedProcess::default(),
         )]],
     );
@@ -164,7 +157,7 @@ fn bench_error_source(c: &mut Criterion) {
         NO_TILE_CACHE,
         OnInvalid::Abort,
         vec![vec![(
-            Box::new(sources::ErrorSource::new()),
+            Arc::new(sources::ErrorSource::new()),
             ResolvedProcess::default(),
         )]],
     );

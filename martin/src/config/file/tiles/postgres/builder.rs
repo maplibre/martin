@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::num::NonZeroU32;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
@@ -440,7 +441,7 @@ impl PostgresAutoDiscoveryBuilder {
         let tilejson = pg_info.to_tilejson(id.clone());
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        Box::new(PostgresSource::new(
+        Arc::new(PostgresSource::new(
             id,
             sql_info,
             tilejson,

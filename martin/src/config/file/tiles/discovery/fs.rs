@@ -434,6 +434,7 @@ impl FsDiscovery {
 #[cfg(feature = "mbtiles")]
 mod tests {
     use std::fs::File;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
@@ -467,9 +468,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -491,7 +489,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(Box::new(TestSource {
+                Ok(Arc::new(TestSource {
                     id,
                     tj: tilejson! { tiles: vec![] },
                 }) as BoxedSource)

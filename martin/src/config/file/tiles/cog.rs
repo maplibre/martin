@@ -127,7 +127,7 @@ impl TileSourceConfiguration for CogConfig {
         cache: CachePolicy,
     ) -> SourceBuildResult<BoxedSource> {
         let cog = CogSource::new(id, path, cache.zoom()).await?;
-        Ok(Box::new(cog))
+        Ok(Arc::new(cog))
     }
 
     async fn new_sources_url(
@@ -148,7 +148,7 @@ impl TileSourceConfiguration for CogConfig {
             cache.zoom(),
         )
         .await?;
-        Ok(Box::new(source))
+        Ok(Arc::new(source))
     }
 }
 

@@ -197,6 +197,7 @@ mod tests {
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use std::sync::Arc;
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
@@ -218,9 +219,6 @@ mod tests {
         fn get_tile_info(&self) -> TileInfo {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
         fn cache_zoom(&self) -> CacheZoomRange {
             CacheZoomRange::default()
         }
@@ -234,7 +232,7 @@ mod tests {
     }
 
     async fn make_source(id: String) -> SourceBuildResult<BuiltSource> {
-        let source: BoxedSource = Box::new(TestSource {
+        let source: BoxedSource = Arc::new(TestSource {
             id,
             tj: tilejson! {
                 tilejson: "3.0.0".to_owned(),
