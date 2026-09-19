@@ -255,6 +255,7 @@ backon.workspace = true
 criterion.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
+martin-core = { workspace = true, features = ["_testing"] }
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true

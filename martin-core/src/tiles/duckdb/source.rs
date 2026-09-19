@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use duckdb::{Connection, OptionalExt as _, named_params};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
@@ -42,7 +41,6 @@ impl DuckDBSource {
     }
 }
 
-#[async_trait]
 impl Source for DuckDBSource {
     fn get_id(&self) -> &str {
         &self.id

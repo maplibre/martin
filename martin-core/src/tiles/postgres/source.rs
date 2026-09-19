@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
@@ -50,7 +49,15 @@ impl PostgresSource {
     }
 }
 
-#[async_trait]
+impl PostgresSource {
+    /// The registry tracking this pool's in-flight queries, so a dropped request
+    /// can cancel the statement it started.
+    #[must_use]
+    pub fn active_query_registry(&self) -> ActiveQueryRegistry {
+        self.pool.active_query_registry().clone()
+    }
+}
+
 impl Source for PostgresSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -83,10 +90,6 @@ impl Source for PostgresSource {
 
     fn cache_zoom(&self) -> CacheZoomRange {
         self.cache_zoom
-    }
-
-    fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        Some(self.pool.active_query_registry().clone())
     }
 
     async fn get_tile(

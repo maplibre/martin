@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use backon::{FibonacciBuilder, Retryable as _};
 use derive_debug::Dbg;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
@@ -106,7 +105,6 @@ impl MbtSource {
     }
 }
 
-#[async_trait]
 impl Source for MbtSource {
     fn get_id(&self) -> &str {
         &self.id

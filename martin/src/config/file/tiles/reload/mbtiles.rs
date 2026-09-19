@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::AnySource;
 use martin_core::tiles::mbtiles::MbtSource;
 
 use crate::TileSourceManager;
@@ -55,13 +55,13 @@ impl MbtilesReloader {
 
         // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
         // `Box::pin(async {..})` erases the future to `BoxFuture`.
-        // `Arc::new(src) as BoxedSource` erases the source to `dyn Source`.
+        // `Box::new(src) as BoxedSource` erases the source to `dyn Source`.
         // This builder captures nothing.
         // We still `Box::new` it because `FsSourceBuilder` is a boxed `dyn Fn` that `PMTiles` needs (see its docs).
         let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
-                Ok(Arc::new(src) as BoxedSource)
+                Ok(Arc::new(AnySource::Mbtiles(src)))
             })
         });
         let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());

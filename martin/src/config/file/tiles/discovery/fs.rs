@@ -4,7 +4,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
@@ -307,7 +306,7 @@ impl Discovery for FsDiscovery {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
         let configured = self.configured.get(&args.0);
         let source = match configured.and_then(|cfg| cfg.grid.as_ref()) {
-            Some(grid) => Arc::new(DeclaredGridSource::new(source, grid.clone())),
+            Some(grid) => DeclaredGridSource::new(source, grid.clone()).boxed(),
             None => source,
         };
         BuiltSource::with_file_config(
@@ -447,14 +446,10 @@ impl FsDiscovery {
 #[cfg(feature = "mbtiles")]
 mod tests {
     use std::fs::File;
-    use std::sync::Arc;
 
-    use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
     use crate::TileSourceManager;
@@ -463,35 +458,6 @@ mod tests {
 
     /// Files whose stem starts with this prefix fail to build.
     const BAD_PREFIX: &str = "bad_";
-
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::new())
-        }
-    }
 
     /// Opens every file as a [`TestSource`] except the `bad_` ones, which fail to build.
     fn fake_builder() -> FsSourceBuilder {
@@ -502,10 +468,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(Arc::new(TestSource {
-                    id,
-                    tj: tilejson! { tiles: vec![] },
-                }) as BoxedSource)
+                Ok(TestSource::empty(id).boxed())
             })
         })
     }

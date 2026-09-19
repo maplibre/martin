@@ -781,72 +781,16 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, WEB_MERCATOR_QUAD, WORLD_CRS84_QUAD};
+    use martin_core::tiles::testing::TestSource;
+    use martin_tile_utils::{WEB_MERCATOR_QUAD, WORLD_CRS84_QUAD};
     use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
-    use tilejson::{TileJSON, tilejson};
+    use tilejson::tilejson;
 
     use super::*;
     use crate::TileSourceManager;
     use crate::config::file::{OnInvalid, ResolvedProcess, ServerState};
-
-    #[derive(Debug, Clone)]
-    pub struct MockSource {
-        pub id: &'static str,
-        pub tj: TileJSON,
-        pub data: TileData,
-        // When set, `get_tile` sets this flag then blocks forever (for interrupt tests).
-        pub block_after_fetch: Option<Arc<AtomicBool>>,
-        // Counts `get_tile` calls.
-        pub fetches: Option<Arc<AtomicU64>>,
-        // Tiles this returns empty for.
-        pub empty_if: Option<fn(TileCoord) -> bool>,
-    }
-
-    #[async_trait]
-    impl Source for MockSource {
-        fn get_id(&self) -> &str {
-            self.id
-        }
-
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-
-        fn empty_tile_implies_empty_children(&self) -> bool {
-            true
-        }
-
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            if let Some(flag) = &self.block_after_fetch {
-                flag.store(true, Ordering::Release);
-                std::future::pending::<()>().await;
-            }
-            if let Some(fetches) = &self.fetches {
-                fetches.fetch_add(1, Ordering::Relaxed);
-            }
-            if self.empty_if.is_some_and(|f| f(_xyz)) {
-                return Ok(TileData::new());
-            }
-            Ok(self.data.clone())
-        }
-    }
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
         let sources = sources
@@ -879,63 +823,35 @@ mod tests {
     #[fixture]
     fn many_sources() -> TileSourceManager {
         test_manager(vec![vec![
-            Arc::new(MockSource {
-                id: "test_source",
-                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
-                data: TileData::default(),
-                block_after_fetch: None,
-                fetches: None,
-                empty_if: None,
-            }),
-            Arc::new(MockSource {
-                id: "test_source2",
-                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
-                data: TileData::default(),
-                block_after_fetch: None,
-                fetches: None,
-                empty_if: None,
-            }),
-            Arc::new(MockSource {
-                id: "unrequested_source",
-                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
-                data: TileData::default(),
-                block_after_fetch: None,
-                fetches: None,
-                empty_if: None,
-            }),
-            Arc::new(MockSource {
-                id: "unbounded_source",
-                tj: tilejson! { tiles: vec![] },
-                data: TileData::default(),
-                block_after_fetch: None,
-                fetches: None,
-                empty_if: None,
-            }),
+            TestSource::empty("test_source")
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() })
+                .with_empty_children()
+                .boxed(),
+            TestSource::empty("test_source2")
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() })
+                .with_empty_children()
+                .boxed(),
+            TestSource::empty("unrequested_source")
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() })
+                .with_empty_children()
+                .boxed(),
+            TestSource::empty("unbounded_source")
+                .with_empty_children()
+                .boxed(),
         ]])
     }
 
     #[fixture]
     fn one_source() -> TileSourceManager {
-        test_manager(vec![vec![Arc::new(MockSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
-            data: TileData::default(),
-            block_after_fetch: None,
-            fetches: None,
-            empty_if: None,
-        })]])
+        test_manager(vec![vec![TestSource::empty("test_source")
+            .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() })
+            .with_empty_children()
+            .boxed()]])
     }
 
     #[fixture]
     fn source_wo_bounds() -> TileSourceManager {
-        test_manager(vec![vec![Arc::new(MockSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::default(),
-            block_after_fetch: None,
-            fetches: None,
-            empty_if: None,
-        })]])
+        test_manager(vec![vec![TestSource::empty("test_source").boxed()]])
     }
 
     #[rstest]
@@ -1063,14 +979,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_tile_copy_without_interrupt_writes_metadata() {
-        let state = test_state(vec![vec![Arc::new(MockSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::default(),
-            block_after_fetch: None,
-            fetches: None,
-            empty_if: None,
-        })]]);
+        let state = test_state(vec![vec![TestSource::empty("test_source").boxed()]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("completed.mbtiles");
         let status = "status";
@@ -1102,14 +1011,13 @@ mod tests {
         // z0: 1 tile, filled. z1: 4 tiles, the two at x == 0 are empty.
         // z2: 16 tiles, the 8 below the empty z1 tiles are never fetched, 8 filled.
         let fetches = Arc::new(AtomicU64::new(0));
-        let state = test_state(vec![vec![Arc::new(MockSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1]),
-            block_after_fetch: None,
-            fetches: Some(Arc::clone(&fetches)),
-            empty_if: Some(|xyz| xyz.z() > 0 && xyz.x() < (1u32 << xyz.z()) / 2),
-        })]]);
+        let state = test_state(vec![vec![
+            TestSource::new("test_source", TileData::from_static(&[1]))
+                .counting(Arc::clone(&fetches))
+                .empty_if(|xyz| xyz.z() > 0 && xyz.x() < (1u32 << xyz.z()) / 2)
+                .with_empty_children()
+                .boxed(),
+        ]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("sparse.mbtiles");
         let args = CopyArgs {
@@ -1141,15 +1049,13 @@ mod tests {
     #[tokio::test]
     async fn run_tile_copy_interrupt_skips_metadata_finalization() {
         let fetch_started = Arc::new(AtomicBool::new(false));
-        let state = test_state(vec![vec![Arc::new(MockSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::default(),
-            // nonstop fetching for testing interruption
-            block_after_fetch: Some(Arc::clone(&fetch_started)),
-            fetches: None,
-            empty_if: None,
-        })]]);
+        // nonstop fetching for testing interruption
+        let state = test_state(vec![vec![
+            TestSource::empty("test_source")
+                .with_empty_children()
+                .blocking(Arc::clone(&fetch_started))
+                .boxed(),
+        ]]);
         let output_dir = tempfile::tempdir().unwrap();
         let output_file = output_dir.path().join("interrupted.mbtiles");
         let status = "status";
