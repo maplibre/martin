@@ -45,6 +45,7 @@ impl GeoJsonReloader {
             default_cache,
             &ProcessConfig::default(),
             build,
+            None,
         );
         Self {
             driver: ReloadDriver::new(discovery, tsm),

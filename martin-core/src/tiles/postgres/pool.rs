@@ -224,6 +224,14 @@ impl PostgresPool {
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
+    /// Closes `conn` instead of returning it to the pool.
+    ///
+    /// `PostGIS` keeps projection state per connection, and after one `ST_Transform` fails with
+    /// "could not form projection" later transforms on that connection can fail with "Unknown error (code 4096)".
+    pub fn discard(conn: Object) {
+        drop(Object::take(conn));
+    }
+
     /// ID under which this [`PostgresPool`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {

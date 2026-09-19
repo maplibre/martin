@@ -53,6 +53,7 @@ impl CogReloader {
             default_cache,
             &ProcessConfig::default(),
             build,
+            None,
         );
         let configured_parser_config = cog_config.clone();
         let configured_parser: ObjectStoreParser =

@@ -118,6 +118,40 @@ pub enum ConfigFileError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
+
+    #[cfg(feature = "_tiles")]
+    #[error("Tile grid {0} would redefine the built-in grid of that name, pick another name")]
+    TileGridRedefinesBuiltIn(String),
+
+    #[cfg(feature = "_tiles")]
+    #[error(transparent)]
+    InvalidTileGrid(#[from] martin_tile_utils::TileGridError),
+
+    #[cfg(feature = "_tiles")]
+    #[error(
+        "{what} names a tile grid, but only PostgreSQL, MBTiles and PMTiles sources can be served on one"
+    )]
+    TileGridNotSupported { what: String },
+
+    #[cfg(feature = "_tiles")]
+    #[error("{what} refers to tile grid {grid}, which is not configured. Known grids: {known}")]
+    UnknownTileGrid {
+        what: String,
+        grid: String,
+        known: String,
+    },
+
+    #[cfg(feature = "postgres")]
+    #[error("Tile grid {grid} uses {crs}, whose code is not an integer")]
+    TileGridCrsCodeNotNumeric { grid: String, crs: String },
+
+    #[cfg(feature = "postgres")]
+    #[error("Tile grid {grid} uses {crs}, which has no spatial_ref_sys row in the database")]
+    TileGridCrsNotInDatabase { grid: String, crs: String },
+
+    #[cfg(feature = "postgres")]
+    #[error("Failed to resolve tile grid {1} against the database: {0}")]
+    TileGridResolution(Box<PostgresError>, String),
 }
 
 /// Boxed payload for [`ConfigFileError::YamlParseError`].
@@ -306,6 +340,22 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
+            #[cfg(feature = "_tiles")]
+            Self::TileGridRedefinesBuiltIn(_) => "martin::config::tile_grids::redefines_built_in",
+            #[cfg(feature = "_tiles")]
+            Self::InvalidTileGrid(_) => "martin::config::tile_grids::invalid",
+            #[cfg(feature = "_tiles")]
+            Self::UnknownTileGrid { .. } => "martin::config::tile_grids::unknown",
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => "martin::config::tile_grids::unsupported_kind",
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotNumeric { .. } => "martin::config::tile_grids::crs_code",
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsNotInDatabase { .. } => {
+                "martin::config::tile_grids::crs_not_in_database"
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridResolution(..) => "martin::config::tile_grids::resolution",
         };
         Some(Box::new(code))
     }
@@ -364,6 +414,28 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
+            #[cfg(feature = "_tiles")]
+            Self::TileGridRedefinesBuiltIn(_) | Self::InvalidTileGrid(_) => {
+                "Check the `tile_grids` block: each grid needs a `crs` like `EPSG:2193`, an `origin` `[x, y]` and a positive `extent_at_zoom0`, all in CRS units."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::UnknownTileGrid { .. } => {
+                "A `tile_grid` must name a grid defined under the top-level `tile_grids`, or a built-in one."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => {
+                "COG, GeoJSON and DuckDB sources produce Web Mercator tiles. Remove the `tile_grid` from this source."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotNumeric { .. } => {
+                "Write the CRS as `AUTHORITY:CODE` with an integer code, for example `EPSG:2193` or `IAU_2015:49900`."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsNotInDatabase { .. } => {
+                "PostGIS only knows the coordinate reference systems in its `spatial_ref_sys` table. Insert a row whose `auth_name` and `auth_srid` are the two halves of the CRS identifier, with its `proj4text` or `srtext`, or use an EPSG code."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridResolution(..) => return None,
         };
         Some(Box::new(help))
     }

@@ -1,3 +1,5 @@
+#[cfg(feature = "_tiles")]
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -19,6 +21,8 @@ use tracing::{error, instrument, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "_tiles")]
 use crate::config::file::SourceBuildResult;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGridsConfig;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
@@ -111,6 +115,21 @@ pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
 
+    /// Tile grids sources can be served in, besides the built-in `WebMercatorQuad`
+    ///
+    /// A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+    /// Sources refer to a grid by its name here.
+    /// ```yaml
+    /// tile_grids:
+    ///   NZTM2000Quad:
+    ///     crs: EPSG:2193
+    ///     origin: [-3260586.7284, 10438190.1652]
+    ///     extent_at_zoom0: 10018754.1714
+    /// ```
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tile_grids: TileGridsConfig,
+
     /// Database configuration
     ///
     /// This can also be a list of PG configs, for example:
@@ -162,8 +181,8 @@ pub struct Config {
     /// Aliases may only reference tile sources, not other aliases.
     /// An alias sharing the name of a tile source takes precedence over it.
     #[cfg(feature = "_tiles")]
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    pub aliases: std::collections::BTreeMap<String, Vec<String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub aliases: BTreeMap<String, Vec<String>>,
 
     /// Sprite configuration
     #[cfg(feature = "sprites")]

@@ -64,8 +64,8 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
     });
     #[cfg(feature = "test-pg")]
     {
-        use martin::config::file::ProcessConfig;
         use martin::config::file::reload::postgres::PostgresReloader;
+        use martin::config::file::{ProcessConfig, TileGrids};
 
         for pg in config.postgres.iter().cloned() {
             let mut reloader = PostgresReloader::new(
@@ -74,6 +74,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
                 pg,
                 config.cache.policy(),
                 &ProcessConfig::default(),
+                &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
             );
             let warnings = reloader.init().await.unwrap_or_else(|e| {
                 panic!(

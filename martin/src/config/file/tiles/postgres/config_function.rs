@@ -29,6 +29,13 @@ pub struct FunctionInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"function_zxy_query"))]
     pub function: String,
 
+    /// Tile grid the function's tiles are in \[default: the connection's `tile_grid`\]
+    ///
+    /// The function is trusted to produce tiles in that grid.
+    /// Martin only advertises it in the `TileJSON`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
+
     /// An integer specifying the minimum zoom level
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
     pub minzoom: Option<u8>,

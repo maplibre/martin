@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use martin_tile_utils::{Encoding, TileCoord, TileData, TileInfo};
+use martin_tile_utils::{Encoding, TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
@@ -23,6 +23,7 @@ pub struct PostgresSource {
     tilejson: TileJSON,
     tile_info: TileInfo,
     cache_zoom: CacheZoomRange,
+    tile_grid: TileGrid,
 }
 
 impl PostgresSource {
@@ -35,6 +36,7 @@ impl PostgresSource {
         pool: PostgresPool,
         tile_info: TileInfo,
         cache_zoom: CacheZoomRange,
+        tile_grid: TileGrid,
     ) -> Self {
         Self {
             id,
@@ -43,6 +45,7 @@ impl PostgresSource {
             tilejson,
             tile_info,
             cache_zoom,
+            tile_grid,
         }
     }
 }
@@ -59,6 +62,10 @@ impl Source for PostgresSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
+    }
+
+    fn tile_grid(&self) -> &TileGrid {
+        &self.tile_grid
     }
 
     fn clone_source(&self) -> BoxedSource {

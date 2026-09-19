@@ -156,6 +156,8 @@ impl_empty_collect_unrecognized!(
     u64,
     usize,
     f64,
+    [f64; 2],
+    [u32; 2],
     NonZeroU32,
     NonZeroU64,
     NonZeroI32,
