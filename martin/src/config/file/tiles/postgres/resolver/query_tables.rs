@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
-use martin_core::tiles::postgres::PostgresError::{InvalidFilter, PostgresError};
+use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 use postgis::ewkb;
@@ -508,44 +508,18 @@ async fn transforms_to_wgs84(
     let Some(authority) = non_epsg_authority(pool, srid).await else {
         return Ok(true);
     };
-    let Some(reason) = transform_error(pool, srid, 4326).await? else {
-        return Ok(true);
-    };
-    warn!(
-        "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84 ({reason}). Set bounds in the config to advertise them.",
-        info.format_id()
-    );
-    Ok(false)
-}
-
-/// The reason `PostGIS` cannot transform the SRID `from` into the SRID `to`, if there is one.
-///
-/// The probe transforms an empty geometry, so the answer never waits on a table scan or a bounds timeout.
-/// A failed projection leaves `PostGIS` state behind that breaks later transforms on the same connection,
-/// so that connection is closed instead of being returned to the pool.
-pub async fn transform_error(
-    pool: &PostgresPool,
-    from: i32,
-    to: i32,
-) -> PostgresResult<Option<String>> {
-    if from == to {
-        return Ok(None);
+    match pool.check_transform(srid, 4326).await {
+        Ok(()) => Ok(true),
+        Err(CannotTransform(refusal, ..)) => {
+            warn!(
+                "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84 ({}). Set bounds in the config to advertise them.",
+                info.format_id(),
+                refusal.message()
+            );
+            Ok(false)
+        }
+        Err(e) => Err(e),
     }
-    let cn = pool.get().await?;
-    let probe = cn
-        .query_one(
-            "SELECT ST_Transform(ST_GeomFromText('POINT EMPTY', $1::integer), $2::integer)",
-            &[&from, &to],
-        )
-        .await;
-    let Err(e) = probe else {
-        return Ok(None);
-    };
-    let Some(reason) = e.as_db_error().map(|db| db.message().to_owned()) else {
-        return Err(PostgresError(e, "probing a transform between two SRIDs"));
-    };
-    PostgresPool::discard(cn);
-    Ok(Some(reason))
 }
 
 /// The `AUTHORITY:CODE` of `srid` when `spatial_ref_sys` knows it under an authority other than EPSG.

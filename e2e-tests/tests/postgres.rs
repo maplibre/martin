@@ -161,7 +161,7 @@ fn assert_unindexed_table_warnings(martin: &mut Martin) {
 fn assert_discovery_warnings(martin: &mut Martin) {
     assert_unindexed_table_warnings(martin);
     for warning in [
-        "Table public.mars_points.geom has SRID=949900, which PostGIS cannot convert to EPSG:3857 of the tile grid WebMercatorQuad",
+        "PostGIS cannot convert the table to the CRS of its tile grid, skipping schema=public table=mars_points geometry_column=geom table.srid=949900 tile_grid=WebMercatorQuad tile_grid.crs=EPSG:3857",
         "source.id.new=table_source_multiple_geom.1",
         "source.id.new=table_name_existing_two_schemas.1",
         "source.id.new=view_name_existing_two_schemas.1",

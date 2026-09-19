@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use deadpool_postgres::tokio_postgres::Error as TokioPostgresError;
 use deadpool_postgres::tokio_postgres::config::SslMode;
+use deadpool_postgres::tokio_postgres::error::DbError;
 use deadpool_postgres::{BuildError, PoolError};
 use martin_tile_utils::TileCoord;
 use semver::Version;
@@ -67,6 +68,10 @@ pub enum PostgresError {
     /// `PostgreSQL` database error.
     #[error("Postgres error while {1}: {0}")]
     PostgresError(#[source] TokioPostgresError, &'static str),
+
+    /// `PostGIS` cannot transform one SRID into another.
+    #[error("PostGIS cannot transform SRID {1} into SRID {2}: {0}")]
+    CannotTransform(#[source] Box<DbError>, i32, i32),
 
     /// Cannot build `PostgreSQL` connection pool.
     #[error("Unable to build a Postgres connection pool {1}: {0}")]
@@ -152,6 +157,7 @@ impl crate::Classify for PostgresError {
             | Self::CannotBuildTlsVerifier(_)
             | Self::UnknownSslMode(_)
             | Self::PostgresError(..)
+            | Self::CannotTransform(..)
             | Self::PostgresPoolBuildError(..)
             | Self::BadConnectionString(..)
             | Self::BadPostgisVersion(..)
