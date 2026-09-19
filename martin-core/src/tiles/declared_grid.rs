@@ -1,15 +1,13 @@
 //! A source served on a tile grid the config declares for it, since stored archives cannot say so themselves.
 
+use std::future::Future;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
-#[cfg(feature = "postgres")]
-use crate::tiles::postgres::ActiveQueryRegistry;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
+use crate::tiles::{AnySource, BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// A source whose `z/x/y` addresses are declared to be on `grid`.
 ///
@@ -38,9 +36,20 @@ impl DeclaredGridSource {
             tilejson,
         }
     }
+
+    /// The source the grid was declared for.
+    #[must_use]
+    pub fn inner(&self) -> &BoxedSource {
+        &self.inner
+    }
+
+    /// This source as a shared handle, ready for a registry.
+    #[must_use]
+    pub fn boxed(self) -> BoxedSource {
+        Arc::new(AnySource::DeclaredGrid(self))
+    }
 }
 
-#[async_trait]
 impl Source for DeclaredGridSource {
     fn get_id(&self) -> &str {
         self.inner.get_id()
@@ -74,33 +83,32 @@ impl Source for DeclaredGridSource {
         self.inner.empty_tile_implies_empty_children()
     }
 
-    #[cfg(feature = "postgres")]
-    fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        self.inner.cancel_registry()
-    }
-
     fn cache_zoom(&self) -> CacheZoomRange {
         self.inner.cache_zoom()
     }
 
-    async fn get_tile(
+    /// Boxed because [`AnySource`] holds this wrapper, so an unboxed future here
+    /// would be infinitely sized. Only grid-declared sources pay for it.
+    fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
-        self.inner.get_tile(xyz, url_query).await
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send {
+        Box::pin(async move { self.inner.get_tile(xyz, url_query).await })
     }
 
-    async fn get_tile_with_etag(
+    fn get_tile_with_etag(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
-        self.inner.get_tile_with_etag(xyz, url_query).await
+    ) -> impl Future<Output = MartinCoreResult<Tile>> + Send {
+        Box::pin(async move { self.inner.get_tile_with_etag(xyz, url_query).await })
     }
 
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        let inner = self.inner.try_reload().await?;
-        Ok(Arc::new(Self::new(inner, self.grid.clone())))
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<BoxedSource>> + Send {
+        Box::pin(async move {
+            let inner = self.inner.try_reload().await?;
+            Ok(Self::new(inner, self.grid.clone()).boxed())
+        })
     }
 }

@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 
-use async_trait::async_trait;
 use geo::MapCoords as _;
 use geo_index::rtree::{RTree, RTreeIndex as _};
 use geo_types::{Coord, Geometry};
@@ -128,7 +128,6 @@ impl Debug for GeoJsonSource {
     }
 }
 
-#[async_trait]
 impl Source for GeoJsonSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -153,11 +152,17 @@ impl Source for GeoJsonSource {
         self.cache_zoom
     }
 
-    async fn get_tile(
+    fn get_tile(
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send {
+        std::future::ready(self.tile_now(xyz))
+    }
+}
+
+impl GeoJsonSource {
+    fn tile_now(&self, xyz: TileCoord) -> MartinCoreResult<TileData> {
         let mut rect = Rect::from_xyz(xyz.x(), xyz.y(), xyz.z(), self.extent, self.buffer);
         rect.add_buffer();
 

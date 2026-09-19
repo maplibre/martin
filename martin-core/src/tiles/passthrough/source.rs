@@ -3,7 +3,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use compact_str::CompactString;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use reqwest::StatusCode;
@@ -273,7 +272,6 @@ impl PassthroughSource {
     }
 }
 
-#[async_trait]
 impl Source for PassthroughSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -326,7 +324,7 @@ impl Source for PassthroughSource {
             self.cache_zoom,
         )
         .await
-        .map(|s| Arc::new(s) as BoxedSource)
+        .map(|s| Arc::new(crate::tiles::AnySource::Passthrough(s)))
         .map_err(MartinCoreError::from)
     }
 }

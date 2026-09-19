@@ -120,8 +120,6 @@ impl DuckDbConfig {
 mod tests {
     use std::collections::BTreeMap;
 
-    use martin_core::tiles::Source;
-
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
     use crate::config::file::tiles::duckdb::sources::{
@@ -169,7 +167,7 @@ mod tests {
         assert_eq!(
             sources
                 .iter()
-                .map(|source| Source::get_id(source.as_ref()))
+                .map(|source| source.get_id())
                 .collect::<Vec<_>>(),
             ["polygons", "polygons.1"]
         );
@@ -199,7 +197,7 @@ mod tests {
             .expect("resolution succeeds despite warnings");
 
         assert_eq!(sources.len(), 1);
-        assert_eq!(Source::get_id(sources[0].as_ref()), "geoparquet_polygons");
+        assert_eq!(sources[0].get_id(), "geoparquet_polygons");
         assert_eq!(warnings.len(), 1);
         let TileSourceWarning::SourceError { source_id, error } = &warnings[0] else {
             panic!("expected SourceError, got {:?}", warnings[0]);

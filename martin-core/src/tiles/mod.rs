@@ -49,7 +49,11 @@ pub mod hillshade;
 #[cfg(feature = "_neighbourhood")]
 pub mod neighbourhood;
 
+pub mod any;
 mod source;
+#[cfg(feature = "_testing")]
+pub mod testing;
+pub use any::AnySource;
 pub use source::{BoxedSource, Source, UrlQuery};
 
 mod declared_grid;

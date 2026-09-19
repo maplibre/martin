@@ -516,8 +516,10 @@ impl<'a> DynTileSource<'a> {
             return Ok(tile);
         }
 
-        // One source is the common case.
-        // Using `buffered()` means a `FuturesOrdered` task node per request for no concurrency.
+        // One source is the overwhelmingly common case, and driving it through
+        // `buffered()` costs a `FuturesOrdered` task node per request for no
+        // concurrency. Await it directly instead; with a single tile `merge_tiles`
+        // has nothing to join, so only its empty-tile and `recompress` steps apply.
         let (produced, tile) = if let [(s, pc)] = self.sources.as_slice() {
             let tile = self.get_tile_content_from_one_source(s, pc, xyz).await?;
             let produced = Some(tile.info.encoding);
@@ -1004,13 +1006,12 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 mod tests {
     use actix_http::header::TryIntoHeaderValue as _;
     use actix_web::http::header::QualityItem;
+    use martin_core::tiles::testing::{Behaviour, TestSource};
     use martin_tile_utils::TileData;
     use rstest::rstest;
-    use tilejson::tilejson;
 
     use super::*;
     use crate::config::file::OnInvalid;
-    use crate::srv::tiles::tests::{CompressedTestSource, SourceNeedsReloadTestSource, TestSource};
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
         let sources = sources
@@ -1040,12 +1041,11 @@ mod tests {
         #[case] preferred_enc: Option<PreferredEncoding>,
         #[case] expected_enc: Encoding,
     ) {
-        let mgr = test_manager(vec![vec![Arc::new(TestSource {
-            id: "test_source",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1, 2, 3]),
-            format: Format::Mvt,
-        })]]);
+        let mgr = test_manager(vec![vec![
+            TestSource::new("test_source", TileData::from_static(&[1, 2, 3]))
+                .with_format(Format::Mvt)
+                .boxed(),
+        ]]);
 
         let headers = TileRequestHeaders {
             accept_enc: Some(AcceptEncoding(
@@ -1073,13 +1073,8 @@ mod tests {
         #[case] expected_etag: Option<EntityTag>,
     ) {
         let source_id = "source1";
-        let source1 = TestSource {
-            id: source_id,
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1, 2, 3]),
-            format: Format::Mvt,
-        };
-        let mgr = test_manager(vec![vec![Arc::new(source1)]]);
+        let source1 = TestSource::new(source_id, TileData::from_static(&[1, 2, 3]));
+        let mgr = test_manager(vec![vec![source1.boxed()]]);
 
         let headers = TileRequestHeaders {
             if_none_match,
@@ -1100,22 +1095,9 @@ mod tests {
 
     #[actix_rt::test]
     async fn tile_content() {
-        let non_empty_source = TestSource {
-            id: "non-empty",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1, 2, 3]),
-            format: Format::Mvt,
-        };
-        let empty_source = TestSource {
-            id: "empty",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::default(),
-            format: Format::Mvt,
-        };
-        let mgr = test_manager(vec![vec![
-            Arc::new(non_empty_source),
-            Arc::new(empty_source),
-        ]]);
+        let non_empty_source = TestSource::new("non-empty", TileData::from_static(&[1, 2, 3]));
+        let empty_source = TestSource::empty("empty");
+        let mgr = test_manager(vec![vec![non_empty_source.boxed(), empty_source.boxed()]]);
 
         for (source_id, expected) in &[
             ("non-empty", vec![1_u8, 2, 3]),
@@ -1136,12 +1118,9 @@ mod tests {
 
     #[actix_rt::test]
     async fn source_needs_reload_is_retried() {
-        let source = SourceNeedsReloadTestSource::new(
-            "stale_source",
-            TileData::from_static(&[1, 2, 3]),
-            Format::Mvt,
-        );
-        let mgr = test_manager(vec![vec![Arc::new(source)]]);
+        let source = TestSource::new("stale_source", TileData::from_static(&[1, 2, 3]))
+            .with_behaviour(Behaviour::NeedsReload);
+        let mgr = test_manager(vec![vec![source.boxed()]]);
         let src = DynTileSource::new(
             &mgr,
             "stale_source",
@@ -1201,20 +1180,12 @@ mod tests {
         let raw1: Vec<u8> = vec![1, 2, 3];
         let raw2: Vec<u8> = vec![4, 5, 6];
 
-        let src1 = CompressedTestSource {
-            id: "src1",
-            tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw1, src_enc).into(),
-            encoding: src_enc,
-        };
-        let src2 = CompressedTestSource {
-            id: "src2",
-            tj: tilejson! { tiles: vec![] },
-            data: compress_with(&raw2, src_enc).into(),
-            encoding: src_enc,
-        };
+        let src1 = TestSource::new("src1", compress_with(&raw1, src_enc))
+            .with_info(TileInfo::new(Format::Mvt, src_enc));
+        let src2 = TestSource::new("src2", compress_with(&raw2, src_enc))
+            .with_info(TileInfo::new(Format::Mvt, src_enc));
 
-        let mgr = test_manager(vec![vec![Arc::new(src1), Arc::new(src2)]]);
+        let mgr = test_manager(vec![vec![src1.boxed(), src2.boxed()]]);
 
         let headers = TileRequestHeaders {
             accept_enc: accept.map(|s| AcceptEncoding(vec![s.parse().unwrap()])),
@@ -1260,12 +1231,9 @@ mod tests {
         } else {
             compress_with(raw, encoding)
         };
-        Arc::new(CompressedTestSource {
-            id,
-            tj: tilejson! { tiles: vec![] },
-            data: data.into(),
-            encoding,
-        })
+        TestSource::new(id, TileData::from(data))
+            .with_info(TileInfo::new(Format::Mvt, encoding))
+            .boxed()
     }
 
     fn accept(accept_enc: Option<&str>) -> TileRequestHeaders {
@@ -1609,12 +1577,10 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(i, on)| {
-                let src = TestSource {
-                    id: if i == 0 { "a" } else { "b" },
-                    tj: tilejson! { tiles: vec![] },
-                    data: TileData::from_static(&[1, 2, 3]),
-                    format: Format::Mvt,
-                };
+                let src = TestSource::new(
+                    if i == 0 { "a" } else { "b" },
+                    TileData::from_static(&[1, 2, 3]),
+                );
                 let pc = if *on {
                     ResolvedProcess::default()
                 } else {
@@ -1623,7 +1589,7 @@ mod tests {
                         ..Default::default()
                     }
                 };
-                (Arc::new(src) as BoxedSource, pc)
+                (src.boxed(), pc)
             })
             .collect();
         assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);
@@ -1631,17 +1597,12 @@ mod tests {
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn mlt_disabled_manager() -> TileSourceManager {
-        let src = TestSource {
-            id: "mvt",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1, 2, 3]),
-            format: Format::Mvt,
-        };
+        let src = TestSource::new("mvt", TileData::from_static(&[1, 2, 3]));
         let pc = ResolvedProcess {
             mlt: MltConversion::Disabled,
             ..Default::default()
         };
-        TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(Arc::new(src), pc)]])
+        TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(src.boxed(), pc)]])
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -1678,19 +1639,11 @@ mod tests {
 
     #[actix_rt::test]
     async fn mixed_mvt_mlt_merge_fails() {
-        let mvt_source = TestSource {
-            id: "mvt",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[1, 2, 3]),
-            format: Format::Mvt,
-        };
-        let mlt_source = TestSource {
-            id: "mlt",
-            tj: tilejson! { tiles: vec![] },
-            data: TileData::from_static(&[4, 5, 6]),
-            format: Format::Mlt,
-        };
-        let mgr = test_manager(vec![vec![Arc::new(mvt_source), Arc::new(mlt_source)]]);
+        let mvt_source =
+            TestSource::new("mvt", TileData::from_static(&[1, 2, 3])).with_format(Format::Mvt);
+        let mlt_source =
+            TestSource::new("mlt", TileData::from_static(&[4, 5, 6])).with_format(Format::Mlt);
+        let mgr = test_manager(vec![vec![mvt_source.boxed(), mlt_source.boxed()]]);
 
         let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
         assert!(
@@ -1709,12 +1662,11 @@ mod tests {
             hillshade: Some(ResolvedHillshade::default()),
             ..Default::default()
         };
-        let src = SourceNeedsReloadTestSource::new("terrain", normal_tile, Format::Png);
-        let mgr = TileSourceManager::from_sources(
-            None,
-            OnInvalid::Abort,
-            vec![vec![(Arc::new(src), pc)]],
-        );
+        let src = TestSource::new("terrain", normal_tile)
+            .with_format(Format::Png)
+            .with_behaviour(Behaviour::NeedsReload);
+        let mgr =
+            TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(src.boxed(), pc)]]);
         let dyn_src =
             DynTileSource::new(&mgr, "terrain", None, "", TileRequestHeaders::default()).unwrap();
 

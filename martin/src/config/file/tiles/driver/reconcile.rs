@@ -188,56 +188,14 @@ mod tests {
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
 
-    use async_trait::async_trait;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use martin_core::tiles::BoxedSource;
+    use martin_core::tiles::testing::TestSource;
     use rstest::rstest;
-    use tilejson::{TileJSON, tilejson};
 
     use super::*;
     use crate::config::file::ResolvedProcess;
     use crate::config::file::tiles::discovery::Discovered;
     use crate::config::file::tiles::driver::ApplyOutcome;
-
-    /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    impl TestSource {
-        fn new(id: impl Into<String>) -> Self {
-            Self {
-                id: id.into(),
-                tj: tilejson! { tiles: vec!["https://example.com".to_owned()] },
-            }
-        }
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(TileData::from_static(&[1, 2, 3]))
-        }
-    }
 
     /// Projects a [`ReloadAdvisory`] to the source ids in each bucket, for order-sensitive equality.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -306,7 +264,7 @@ mod tests {
             id: &str,
             _args: &(),
         ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
-            let source: BoxedSource = Arc::new(TestSource::new(id));
+            let source: BoxedSource = TestSource::empty(id).boxed();
             std::future::ready(Ok(source.into()))
         }
 

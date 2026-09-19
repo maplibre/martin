@@ -3,8 +3,8 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::geojson::source::GeoJsonSource;
+use martin_core::tiles::{AnySource, BoxedSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -108,7 +108,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
     ) -> SourceBuildResult<BoxedSource> {
         let geojson_source =
             GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
-        Ok(Arc::new(geojson_source))
+        Ok(Arc::new(AnySource::GeoJson(geojson_source)))
     }
 
     #[expect(

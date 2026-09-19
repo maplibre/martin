@@ -5,9 +5,9 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
+use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
 
@@ -669,7 +669,7 @@ impl PostgresAutoDiscoveryBuilder {
         }
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        Arc::new(PostgresSource::new(
+        Arc::new(AnySource::Postgres(PostgresSource::new(
             id,
             sql_info,
             tilejson,
@@ -677,7 +677,7 @@ impl PostgresAutoDiscoveryBuilder {
             tile_info,
             cache.zoom(),
             grid.grid().clone(),
-        ))
+        )))
     }
 
     fn configured_tables(&self) -> HashSet<(String, String)> {

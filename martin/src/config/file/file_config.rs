@@ -5,8 +5,6 @@ use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
-#[cfg(feature = "_tiles")]
-use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "_tiles")]
@@ -621,7 +619,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
         match result {
             Ok(src) => {
                 let src = match &p.grid {
-                    Some(grid) => Arc::new(DeclaredGridSource::new(src, grid.clone())),
+                    Some(grid) => DeclaredGridSource::new(src, grid.clone()).boxed(),
                     None => src,
                 };
                 p.log_configured();
