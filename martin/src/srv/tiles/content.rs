@@ -516,14 +516,29 @@ impl<'a> DynTileSource<'a> {
             return Ok(tile);
         }
 
-        let tiles: Vec<Tile> = stream::iter(&self.sources)
-            .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
-            .buffered(MAX_CONCURRENT_TILE_FETCHES)
-            .try_collect()
-            .await?;
+        // One source is the overwhelmingly common case, and driving it through
+        // `buffered()` costs a `FuturesOrdered` task node per request for no
+        // concurrency. Await it directly instead; with a single tile `merge_tiles`
+        // has nothing to join, so only its empty-tile and `recompress` steps apply.
+        let (produced, tile) = if let [(s, pc)] = self.sources.as_slice() {
+            let tile = self.get_tile_content_from_one_source(s, pc, xyz).await?;
+            let produced = Some(tile.info.encoding);
+            let tile = if tile.is_empty() {
+                Tile::new_hash_etag(Vec::new(), self.info)
+            } else {
+                self.recompress(tile)?
+            };
+            (produced, tile)
+        } else {
+            let tiles: Vec<Tile> = stream::iter(&self.sources)
+                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
+                .buffered(MAX_CONCURRENT_TILE_FETCHES)
+                .try_collect()
+                .await?;
 
-        let produced = tiles.first().map(|t| t.info.encoding);
-        let tile = self.merge_tiles(tiles)?;
+            let produced = tiles.first().map(|t| t.info.encoding);
+            (produced, self.merge_tiles(tiles)?)
+        };
         // Only a re-encoded tile earns a second entry, otherwise the produced one already is the response.
         if let Some((cache, key)) = served
             && produced != Some(tile.info.encoding)
