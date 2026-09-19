@@ -1,0 +1,24 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: metadata
+---
+agg_tiles_hash = 15656144834BBFD138CBA54CBB646259
+bounds = -180,-90,180,90
+description = An array column, which the row-per-feature MLT path cannot encode
+format = mlt
+generator = martin cp v1.16.1
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "label": "text",
+        "tags": "int4"
+      },
+      "id": "array_props"
+    }
+  ]
+}
+maxzoom = 0
+minzoom = 0
+name = array_props

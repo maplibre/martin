@@ -1130,6 +1130,7 @@ mod tests {
             signature: "public.my_func(integer, integer, integer) -> bytea",
             has_etag_column: false,
             queryless: None,
+            row_query: None,
         }
         "#);
 

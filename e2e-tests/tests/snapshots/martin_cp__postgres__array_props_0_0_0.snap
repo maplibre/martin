@@ -1,0 +1,7 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: mlt_dump(&mlt_layers(&lowest_zoom_tile(&output).await))
+---
+layer array_props extent 4096
+  id=Some(1) geom=POINT(2048 2048) props=[label=Str(Some("one")), tags=Str(Some("{1,2,3}"))]
+  id=Some(2) geom=POINT(2059 2037) props=[label=Str(Some("two")), tags=Str(None)]

@@ -10,8 +10,8 @@ use martin_tile_utils::TileCoord;
 use semver::Version;
 
 use crate::tiles::UrlQuery;
-use crate::tiles::postgres::RedactedConnectionString;
 use crate::tiles::postgres::utils::query_to_json;
+use crate::tiles::postgres::{RedactedConnectionString, TileWkbError};
 
 /// Result type for `PostgreSQL` operations.
 pub type PostgresResult<T> = Result<T, PostgresError>;
@@ -135,6 +135,21 @@ pub enum PostgresError {
         TileCoord,
         Option<UrlQuery>,
     ),
+
+    /// A feature's geometry is not readable tile-space WKB.
+    #[error("Unable to read a tile feature's geometry: {0}")]
+    BadTileGeometry(#[from] TileWkbError),
+
+    /// A column holds a type that cannot become a tile property.
+    #[error(
+        "Column {column} has the PostgreSQL type {pg_type}, which cannot be encoded as a tile property"
+    )]
+    UnsupportedPropertyType {
+        /// Name of the offending column.
+        column: String,
+        /// The `PostgreSQL` type name the column has.
+        pg_type: String,
+    },
 }
 
 impl crate::Classify for PostgresError {
@@ -160,7 +175,9 @@ impl crate::Classify for PostgresError {
             | Self::PostgresqlTooOld { .. }
             | Self::PrepareQueryError { .. }
             | Self::GetTileError(..)
-            | Self::GetTileWithQueryError(..) => Internal,
+            | Self::GetTileWithQueryError(..)
+            | Self::BadTileGeometry(_)
+            | Self::UnsupportedPropertyType { .. } => Internal,
         }
     }
 }

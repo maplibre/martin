@@ -11,6 +11,7 @@ use crate::{binary_command, display_args, workspace_root};
 #[derive(Debug, Default)]
 pub struct MartinCp {
     args: Vec<OsString>,
+    envs: Vec<(String, String)>,
     database_url: Option<String>,
 }
 
@@ -24,6 +25,13 @@ impl MartinCp {
     #[must_use]
     pub fn arg(mut self, arg: impl Into<OsString>) -> Self {
         self.args.push(arg.into());
+        self
+    }
+
+    /// Set an environment variable for the copy.
+    #[must_use]
+    pub fn env(mut self, key: &str, value: &str) -> Self {
+        self.envs.push((key.to_owned(), value.to_owned()));
         self
     }
 
@@ -46,6 +54,9 @@ impl MartinCp {
             .arg("cp")
             .args(&self.args)
             .stdin(Stdio::null());
+        for (key, value) in &self.envs {
+            cmd.env(key, value);
+        }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
         }

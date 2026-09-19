@@ -25,6 +25,9 @@ async fn table_source() {
     antimeridian:
       content_type: application/x-protobuf
       description: public.antimeridian.geom
+    array_props:
+      content_type: application/x-protobuf
+      description: "An array column, which the row-per-feature MLT path cannot encode"
     auto_table:
       content_type: application/x-protobuf
       description: autodetect.auto_table.geom
@@ -115,6 +118,9 @@ async fn table_source() {
     mars_points:
       content_type: application/x-protobuf
       description: public.mars_points.geom
+    measured_shapes:
+      content_type: application/x-protobuf
+      description: "Geometries carrying an M ordinate, in every property type martin serves"
     nz_points:
       content_type: application/x-protobuf
       description: public.nz_points.geom

@@ -6,6 +6,20 @@ pub use contour::trace_contour;
 mod hillshade;
 #[cfg(all(any(feature = "hillshade", feature = "contour"), feature = "_tiles"))]
 mod neighbourhood;
+#[cfg(all(
+    feature = "mlt",
+    feature = "postgres",
+    feature = "mbtiles",
+    feature = "_tiles"
+))]
+mod pg_to_mlt;
+#[cfg(all(
+    feature = "mlt",
+    feature = "postgres",
+    feature = "mbtiles",
+    feature = "_tiles"
+))]
+pub use pg_to_mlt::encode_features_as_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 mod to_mlt;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
