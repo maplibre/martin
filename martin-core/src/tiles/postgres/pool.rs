@@ -14,8 +14,8 @@ use semver::Version;
 use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
-    BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
-    PostgresPoolConnError, PostgresqlTooOld,
+    BadPostgisVersion, BadPostgresVersion, CannotTransform, PostgisTooOld, PostgresError,
+    PostgresPoolBuildError, PostgresPoolConnError, PostgresqlTooOld,
 };
 use crate::tiles::postgres::tls::{
     PgTlsConnector, SslModeOverride, make_connector, parse_conn_str,
@@ -222,6 +222,34 @@ impl PostgresPool {
             .get()
             .await
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
+    }
+
+    /// Checks that `PostGIS` can transform the SRID `from` into the SRID `to`.
+    ///
+    /// The probe transforms an empty geometry, so the answer never waits on a table scan or a bounds timeout.
+    ///
+    /// # Errors
+    ///
+    /// See [`CannotTransform`] for details.
+    pub async fn check_transform(&self, from: i32, to: i32) -> PostgresResult<()> {
+        if from == to {
+            return Ok(());
+        }
+        let conn = self.get().await?;
+        let probe = conn
+            .query_one(
+                "SELECT ST_Transform(ST_GeomFromText('POINT EMPTY', $1::integer), $2::integer)",
+                &[&from, &to],
+            )
+            .await;
+        let Err(e) = probe else {
+            return Ok(());
+        };
+        let Some(refusal) = e.as_db_error().cloned() else {
+            return Err(PostgresError(e, "probing a transform between two SRIDs"));
+        };
+        Self::discard(conn);
+        Err(CannotTransform(Box::new(refusal), from, to))
     }
 
     /// Closes `conn` instead of returning it to the pool.

@@ -161,7 +161,7 @@ fn assert_unindexed_table_warnings(martin: &mut Martin) {
 fn assert_discovery_warnings(martin: &mut Martin) {
     assert_unindexed_table_warnings(martin);
     for warning in [
-        "Not computing the bounds of public.mars_points.geom: SRID 949900 is IAU_2015:49900, not an EPSG system",
+        "PostGIS cannot convert the table to the CRS of its tile grid, skipping schema=public table=mars_points geometry_column=geom table.srid=949900 tile_grid=WebMercatorQuad tile_grid.crs=EPSG:3857",
         "source.id.new=table_source_multiple_geom.1",
         "source.id.new=table_name_existing_two_schemas.1",
         "source.id.new=view_name_existing_two_schemas.1",
@@ -406,6 +406,17 @@ async fn a_curve_column_is_linearized_before_encoding() {
         "curves_untyped_0_0_0",
         tile_dump(&martin, "/curves_untyped/0/0/0").await
     );
+
+    martin.stop().await;
+    assert_discovery_warnings(&mut martin);
+}
+
+#[tokio::test]
+async fn a_table_postgis_cannot_convert_to_its_tile_grid_is_left_out_of_auto_publish() {
+    let mut martin = martin_with_postgres().await;
+
+    assert_eq!(martin.get("/mars_points").await.status(), 404);
+    assert_eq!(martin.get("/points1").await.status(), 200);
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);

@@ -158,9 +158,6 @@ postgres:
       linestring_bounds_vertical:
         content_type: application/x-protobuf
         description: public.linestring_bounds_vertical.geom
-      mars_points:
-        content_type: application/x-protobuf
-        description: public.mars_points.geom
       nz_points:
         content_type: application/x-protobuf
         description: public.nz_points.geom

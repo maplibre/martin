@@ -1,10 +1,11 @@
 use std::cmp::Ordering;
+use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::PostgresError::PostgresError;
+use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
@@ -290,6 +291,10 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Catalog query + config merge + auto-publish + id resolution for tables, inserting a [`SourceSpec::Table`] per id.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one block for configured tables, one for auto-published ones"
+    )]
     async fn discover_tables(
         &self,
         all_schemas: &BTreeSet<String>,
@@ -339,6 +344,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         // Auto-publish remaining tables, sorted for deterministic id resolution.
         if let Some(auto_tables) = &self.auto_tables {
+            let mut checked = HashMap::<(i32, i32), PostgresResult<()>>::new();
             let schemas = auto_tables
                 .schemas
                 .clone()
@@ -373,6 +379,28 @@ impl PostgresAutoDiscoveryBuilder {
                         db_inf.srid = srid;
                         if let Err(reason) = self.check_srid_fits_tile_grid(&db_inf) {
                             warn!("{reason}, skipping");
+                            continue;
+                        }
+                        let grid = self.tile_grid_for(db_inf.tile_grid.as_deref());
+                        let srids = (grid.srid(), db_inf.srid);
+                        if let Entry::Vacant(unchecked) = checked.entry(srids) {
+                            let check = self.pool.check_transform(srids.0, srids.1).await;
+                            if !matches!(check, Ok(()) | Err(CannotTransform(..))) {
+                                return check;
+                            }
+                            unchecked.insert(check);
+                        }
+                        if let Some(Err(error)) = checked.get(&srids) {
+                            warn!(
+                                schema = %db_inf.schema,
+                                table = %db_inf.table,
+                                geometry_column = %db_inf.geometry_column,
+                                table.srid = db_inf.srid,
+                                tile_grid = %grid.grid().id(),
+                                tile_grid.crs = %grid.grid().crs(),
+                                error = %error,
+                                "PostGIS cannot convert the table to the CRS of its tile grid, skipping"
+                            );
                             continue;
                         }
                         update_auto_fields(&id2, &mut db_inf, auto_tables);
