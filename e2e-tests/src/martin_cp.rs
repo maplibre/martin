@@ -41,7 +41,6 @@ impl MartinCp {
         let mut cmd = binary_command("MARTIN_BIN", "martin");
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
-            .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
             .arg("cp")
             .args(&self.args)

@@ -128,7 +128,6 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
 
     for martin in [&mut first, &mut second] {
         martin.stop().await;
-        martin.assert_startup_warnings();
     }
 }
 
@@ -159,5 +158,4 @@ async fn the_catalog_answers_conditional_requests() {
     assert_eq!(stale.body(), first.body());
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }

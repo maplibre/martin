@@ -42,7 +42,6 @@ async fn the_configured_cache_control_is_sent_on_every_content_endpoint() {
     }
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -58,7 +57,6 @@ async fn the_health_endpoint_keeps_its_no_cache_policy() {
     assert_eq!(response.header("cache-control"), Some("no-cache"));
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -80,7 +78,6 @@ pmtiles:
     assert_eq!(response.header("cache-control"), None);
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 async fn martin_with_per_source_overrides() -> (tempfile::TempDir, Martin) {

@@ -1,4 +1,3 @@
-use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -6,7 +5,7 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
-use tracing::{trace, warn};
+use tracing::trace;
 use url::Url;
 
 use crate::config::file::{
@@ -192,58 +191,11 @@ impl std::ops::DerefMut for PmtConfig {
 impl ConfigurationLivecycleHooks for PmtConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         self.object_store.prepare(&mut self.unrecognized, "pmtiles");
-        self.migrate_pmtiles_legacy_env();
         self.object_store.finalize_runtime("pmtiles").await;
         Ok(())
     }
 }
 
-impl PmtConfig {
-    /// Retains PMTiles-only environment migrations while object-store behavior lives in
-    /// [`ObjectStoreConfig`].
-    fn migrate_pmtiles_legacy_env(&mut self) {
-        if let Ok(force_path_style) =
-            env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
-        {
-            let virtual_hosted_style_request = !force_path_style;
-            self.object_store.migrate_aws_value(
-                "Environment variable",
-                "AWS_S3_FORCE_PATH_STYLE",
-                "virtual_hosted_style_request",
-                virtual_hosted_style_request.to_string(),
-                "pmtiles",
-            );
-        }
-
-        // `AWS_NO_CREDENTIALS` was the name in early PMTiles documentation.
-        for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
-            if let Ok(skip_credentials) =
-                env::var(env).map(|v| v == "1" || v.to_lowercase() == "true")
-            {
-                self.object_store.migrate_aws_value(
-                    "Environment variable",
-                    env,
-                    "skip_signature",
-                    skip_credentials.to_string(),
-                    "pmtiles",
-                );
-            }
-        }
-
-        if let Ok(profile) = env::var("AWS_PROFILE") {
-            if self.object_store.profile.is_some() {
-                warn!(
-                    "Environment variable AWS_PROFILE is ignored in favor of the configuration value pmtiles.profile."
-                );
-            } else {
-                warn!(
-                    "Environment variable AWS_PROFILE is deprecated. Please use pmtiles.profile in the configuration file instead."
-                );
-                self.object_store.profile = Some(profile);
-            }
-        }
-    }
-}
 impl TileSourceConfiguration for PmtConfig {
     fn parse_urls() -> bool {
         true

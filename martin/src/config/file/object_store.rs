@@ -187,7 +187,6 @@ impl ObjectStoreConfig {
     pub(crate) fn prepare(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
         self.persist_profile = self.profile.is_some();
         self.partition_options(unrecognized, namespace);
-        self.migrate_deprecated_keys(unrecognized, namespace);
     }
 
     pub(crate) async fn finalize_runtime(&mut self, namespace: &'static str) {
@@ -394,39 +393,6 @@ impl ObjectStoreConfig {
         }
     }
 
-    fn migrate_deprecated_keys(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
-        for key in ["aws_s3_force_path_style", "force_path_style"] {
-            if let Some(Some(force)) = unrecognized.remove(key).map(|v| v.as_bool())
-                && self.migrate_aws_value(
-                    "Configuration option",
-                    &format!("{namespace}.{key}"),
-                    "virtual_hosted_style_request",
-                    (!force).to_string(),
-                    namespace,
-                )
-            {
-                self.persisted_options.insert(
-                    "virtual_hosted_style_request".to_owned(),
-                    serde_json::Value::Bool(!force),
-                );
-            }
-        }
-        for key in ["aws_skip_credentials", "aws_no_credentials"] {
-            if let Some(Some(skip)) = unrecognized.remove(key).map(|v| v.as_bool())
-                && self.migrate_aws_value(
-                    "Configuration option",
-                    &format!("{namespace}.{key}"),
-                    "skip_signature",
-                    skip.to_string(),
-                    namespace,
-                )
-            {
-                self.persisted_options
-                    .insert("skip_signature".to_owned(), serde_json::Value::Bool(skip));
-            }
-        }
-    }
-
     fn import_standard_aws_env(&mut self, namespace: &str) {
         for env_key in [
             "AWS_ACCESS_KEY_ID",
@@ -440,28 +406,6 @@ impl ObjectStoreConfig {
                 self.adopt_aws_value("Environment variable", env_key, bare, value, namespace);
             }
         }
-        if let Ok(profile) = env::var("AWS_PROFILE")
-            && self.profile.is_none()
-        {
-            self.profile = Some(profile);
-        }
-    }
-
-    pub(crate) fn migrate_aws_value(
-        &mut self,
-        kind: &str,
-        key: &str,
-        new_key: &str,
-        value: String,
-        namespace: &str,
-    ) -> bool {
-        let adopted = self.adopt_aws_value(kind, key, new_key, value, namespace);
-        if adopted {
-            warn!(
-                "{kind} {key} is deprecated. Please use {namespace}.{new_key} in the configuration file instead."
-            );
-        }
-        adopted
     }
 
     fn adopt_aws_value(
@@ -511,6 +455,8 @@ impl ObjectStoreConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use rstest::rstest;
     use serde_json::json;
 
@@ -584,19 +530,27 @@ mod tests {
     }
 
     #[test]
-    fn migrated_boolean_options_remain_booleans_when_saved() {
-        let config = prepared([
+    fn legacy_aws_keys_are_unrecognized() {
+        let mut config = ObjectStoreConfig::default();
+        let mut unrecognized = [
             ("aws_s3_force_path_style", json!(true)),
-            ("aws_skip_credentials", json!(false)),
-        ]);
-
-        assert_eq!(
-            serde_json::to_value(config).unwrap(),
-            json!({
-                "skip_signature": false,
-                "virtual_hosted_style_request": false,
-            })
-        );
+            ("force_path_style", json!(true)),
+            ("aws_skip_credentials", json!(true)),
+            ("aws_no_credentials", json!(true)),
+        ]
+        .into_iter()
+        .collect::<UnrecognizedValues>();
+        config.prepare(&mut unrecognized, "pmtiles");
+        assert_eq!(serde_json::to_value(config).unwrap(), json!({}));
+        let unrecognized = unrecognized.keys().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "aws_no_credentials",
+            "aws_s3_force_path_style",
+            "aws_skip_credentials",
+            "force_path_style",
+        }
+        "#);
     }
 }
 

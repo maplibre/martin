@@ -99,7 +99,6 @@ async fn auto_configured_minimal() {
     ");
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -123,7 +122,6 @@ async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
 
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -166,7 +164,6 @@ async fn a_raster_source_serves_its_tilejson() {
 
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -187,7 +184,6 @@ async fn a_raster_source_serves_png_tiles() {
 
     martin.stop().await;
     assert_the_file_name_was_sanitized_into_the_source_id(&mut martin);
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -227,7 +223,6 @@ pmtiles:
     assert_eq!(tile.image_size(), (256, 256));
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 /// A server holding the one fixture the remote tests read, under `name`.
@@ -253,7 +248,6 @@ async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
         insta::assert_snapshot!(log, @"
          INFO Starting Martin v[VERSION]
          INFO Config file is not specified, auto-detecting sources
-         WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.
          INFO resolve: Initializing PMTiles directory cache with maximum size 128 MB
         ERROR resolve:handle_tile_warnings: Tile source resolution warning: Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
         ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
@@ -297,7 +291,6 @@ pmtiles:
     GET /webp2.pmtiles bytes=171-314
     GET /webp2.pmtiles bytes=315-11900
     ");
-    martin.assert_startup_warnings();
 }
 
 /// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
@@ -319,11 +312,8 @@ pmtiles:
     )
 }
 
-/// The two `AWS_*` variables [`Martin::builder`] sets, which an `s3_config` overrides.
+/// The `AWS_REGION` [`Martin::builder`] sets, which an `s3_config` overrides.
 fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
-    martin.assert_log_contains(
-        "Environment variable AWS_SKIP_CREDENTIALS is ignored in favor of the new configuration value pmtiles.skip_signature.",
-    );
     martin.assert_log_contains(
         "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
     );
@@ -503,7 +493,14 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .arg("s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles")
+        .config(
+            "
+pmtiles:
+  skip_signature: true
+  sources:
+    cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
+",
+        )
         .start()
         .await
         .expect("failed to start martin");
@@ -539,10 +536,10 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     pmtiles:
       sources:
         cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
+      skip_signature: true
     ");
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -564,7 +561,6 @@ async fn route_prefix_keeps_root_health() {
     assert_eq!(prefixed.text(), "OK");
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -608,7 +604,6 @@ async fn recursive_paths_publish_nested_files_under_dotted_ids() {
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=2025.rivers");
     martin.assert_log_contains("Removed source source.id=2025.rivers");
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -658,7 +653,6 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains("Updated source source.id=png");
     martin.assert_log_contains("Removed source source.id=png");
     martin.assert_log_contains(r#"ERROR error="Source png does not exist""#);
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -680,7 +674,6 @@ async fn reload_removes_a_source_present_at_startup() {
 
     martin.stop().await;
     martin.assert_log_contains("Removed source source.id=png");
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -703,5 +696,4 @@ async fn a_kind_level_cache_bound_covers_a_configured_file() {
     let scrape = martin.get("/_/metrics").await.text();
     insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
