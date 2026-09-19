@@ -962,7 +962,20 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
             })
             .collect();
 
-        let sql = format!("SELECT * FROM {tbl}");
+        let sql = match tbl.as_str() {
+            "tiles_data" => "
+                SELECT dense_rank() OVER (ORDER BY tile_data) AS tile_data_id, tile_data
+                FROM tiles_data"
+                .to_owned(),
+            "tiles_shallow" => "
+                SELECT zoom_level, tile_column, tile_row, renumbered.tile_data_id
+                FROM tiles_shallow JOIN (
+                    SELECT tile_data_id AS old_id, dense_rank() OVER (ORDER BY tile_data) AS tile_data_id
+                    FROM tiles_data
+                ) AS renumbered ON tiles_shallow.tile_data_id = renumbered.old_id"
+                .to_owned(),
+            _ => format!("SELECT * FROM {tbl}"),
+        };
         let rows = query(AssertSqlSafe(sql)).fetch_all(&mut *conn).await?;
         let mut values = rows
             .iter()

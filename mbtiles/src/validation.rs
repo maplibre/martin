@@ -145,9 +145,9 @@ impl std::fmt::Display for HashAlgorithm {
 /// Describes the naming convention used by a normalized `MBTiles` schema.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
 pub enum NormalizedSchema {
-    /// Standard: `map` + `images` tables, `tile_id` TEXT (md5 hash of `tile_data`)
+    /// `map` + `images` tables, `tile_id` TEXT (hash of `tile_data`)
     Hash,
-    /// Alternative: `tiles_shallow` + `tiles_data` tables, `tile_data_id` INTEGER
+    /// `tiles_shallow` + `tiles_data` tables, `tile_data_id` INTEGER, the schema new files get
     DedupId,
 }
 
@@ -244,7 +244,7 @@ pub enum MbtType {
     /// The mapping table contains a foreign key column linking to the tile data table.
     ///
     /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
-    /// The `schema` argument describes the naming convention (standard `map`/`images` or alternative `tiles_shallow`/`tiles_data`).
+    /// The `schema` argument describes the naming convention (`tiles_shallow`/`tiles_data` or the older `map`/`images`).
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized {

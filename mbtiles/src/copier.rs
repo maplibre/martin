@@ -104,8 +104,8 @@ impl MbtilesCopier {
                 MbtTypeCli::Flat => Flat,
                 MbtTypeCli::FlatWithHash => FlatWithHash,
                 MbtTypeCli::Normalized => Normalized {
-                    hash_view: true,
-                    schema: NormalizedSchema::Hash,
+                    hash_view: false,
+                    schema: NormalizedSchema::DedupId,
                 },
                 MbtTypeCli::Cache => Cache,
             })
@@ -185,7 +185,7 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
         let dst_type = if is_empty_db {
-            self.new_dst_type(src_type)
+            self.options.dst_type().unwrap_or(src_type)
         } else {
             self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
         };
@@ -246,7 +246,7 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
-        let dst_type = self.new_dst_type(src_info.mbt_type);
+        let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
         if dst_type == Cache {
             // The inner-join `tiles` view over NOT-NULL blobs cannot represent the
             // NULL "deleted tile" markers a diff file needs.
@@ -330,7 +330,7 @@ impl MbtileCopierInt {
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let algorithm = self.src_algorithm().await?;
-        let dst_type = self.new_dst_type(src_type);
+        let dst_type = self.options.dst_type().unwrap_or(src_type);
         if dst_type == Cache {
             // Patched results would silently drop the source's expires/etag metadata,
             // and the patch pipeline relies on hash columns the cache schema lacks.
@@ -426,24 +426,6 @@ impl MbtileCopierInt {
         }
 
         Ok(conn)
-    }
-
-    /// The type of a new destination file, where a `DedupId` source gets the standard `Hash` schema unless `DedupId` is asked for
-    fn new_dst_type(&self, src_type: MbtType) -> MbtType {
-        self.options.dst_type().unwrap_or(
-            if let Normalized {
-                schema: NormalizedSchema::DedupId,
-                ..
-            } = src_type
-            {
-                Normalized {
-                    hash_view: false,
-                    schema: NormalizedSchema::Hash,
-                }
-            } else {
-                src_type
-            },
-        )
     }
 
     /// Validate the integrity of the mbtiles file if requested
@@ -1290,7 +1272,7 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let dst =
             PathBuf::from("file:copy_normalized_from_flat_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+        verify_copy_all(src, script, dst, NORM_CLI, DEDUP_ID).await;
     }
 
     #[actix_rt::test]
@@ -1301,7 +1283,7 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+        verify_copy_all(src, script, dst, NORM_CLI, DEDUP_ID).await;
     }
 
     #[rstest]
@@ -1492,6 +1474,7 @@ mod tests {
         let mut diff_conn = MbtilesCopier {
             src_file: v1_file.clone(),
             dst_file: diff_file.clone(),
+            dst_type: Some(NORM_WITHOUT_VIEW),
             diff_with_file: Some((v2_file, None)),
             force: true,
             ..Default::default()
@@ -1512,6 +1495,7 @@ mod tests {
         let mut patched_conn = MbtilesCopier {
             src_file: v1_file,
             dst_file: patched_file.clone(),
+            dst_type: Some(NORM_WITHOUT_VIEW),
             apply_patch: Some(diff_file),
             force: true,
             ..Default::default()

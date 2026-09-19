@@ -53,7 +53,7 @@ async fn copies_the_only_source_when_none_is_named() {
 #[rstest]
 #[case::flat("flat", json!("Flat"))]
 #[case::flat_with_hash("flat-with-hash", json!("FlatWithHash"))]
-#[case::normalized("normalized", json!({"Normalized": {"hash_view": true, "schema": "Hash"}}))]
+#[case::normalized("normalized", json!({"Normalized": {"hash_view": false, "schema": "DedupId"}}))]
 #[tokio::test]
 async fn writes_the_requested_schema(#[case] mbtiles_type: &str, #[case] expected: Value) {
     let dir = temp_dir();
