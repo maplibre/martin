@@ -1,5 +1,6 @@
 //! The [`PassthroughSource`] [`Source`] implementation and its HTTP fetch logic.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -286,10 +287,6 @@ impl Source for PassthroughSource {
         self.tile_info
     }
 
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
-    }
-
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
     }
@@ -329,7 +326,7 @@ impl Source for PassthroughSource {
             self.cache_zoom,
         )
         .await
-        .map(|s| Box::new(s) as BoxedSource)
+        .map(|s| Arc::new(s) as BoxedSource)
         .map_err(MartinCoreError::from)
     }
 }

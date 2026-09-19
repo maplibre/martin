@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::Arc;
 use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
@@ -357,7 +358,7 @@ impl PassthroughSourceConfig {
         )?;
         let cache = self.cache.or(default_cache);
         let source = PassthroughSource::new(id, upstream, transport, cache.zoom()).await?;
-        Ok(Box::new(source))
+        Ok(Arc::new(source))
     }
 }
 

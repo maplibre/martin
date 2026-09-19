@@ -212,6 +212,7 @@ pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: Str
 #[cfg(test)]
 pub mod tests {
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     use martin_tile_utils::{Format, TileData};
     use tilejson::{Bounds, VectorLayer};
@@ -242,7 +243,7 @@ pub mod tests {
         };
         let tj = merge_tilejson(
             &[(
-                Box::new(src1.clone()) as BoxedSource,
+                Arc::new(src1.clone()) as BoxedSource,
                 ResolvedProcess::default(),
             )],
             url.clone(),
@@ -277,10 +278,10 @@ pub mod tests {
         let tj = merge_tilejson(
             &[
                 (
-                    Box::new(src1.clone()) as BoxedSource,
+                    Arc::new(src1.clone()) as BoxedSource,
                     ResolvedProcess::default(),
                 ),
-                (Box::new(src2) as BoxedSource, ResolvedProcess::default()),
+                (Arc::new(src2) as BoxedSource, ResolvedProcess::default()),
             ],
             url.clone(),
         );

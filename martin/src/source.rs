@@ -374,7 +374,7 @@ mod tests {
     use crate::srv::tiles::tests::TestSource;
 
     fn sources_with_one_valid() -> TileSources {
-        TileSources::new(vec![vec![Box::new(TestSource {
+        TileSources::new(vec![vec![Arc::new(TestSource {
             id: "valid",
             tj: tilejson! { tiles: vec![] },
             data: martin_tile_utils::TileData::from_static(&[1, 2, 3]),

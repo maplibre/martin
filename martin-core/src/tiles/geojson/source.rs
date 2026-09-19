@@ -21,7 +21,7 @@ use crate::tiles::geojson::process::{
     PreparedFeature, Preprocessed, add_properties, preprocess_geojson,
 };
 use crate::tiles::geojson::rect::Rect;
-use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `GeoJSON` files
 ///
@@ -140,10 +140,6 @@ impl Source for GeoJsonSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
     fn get_version(&self) -> Option<String> {
         self.tilejson.version.clone()

@@ -516,14 +516,27 @@ impl<'a> DynTileSource<'a> {
             return Ok(tile);
         }
 
-        let tiles: Vec<Tile> = stream::iter(&self.sources)
-            .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
-            .buffered(MAX_CONCURRENT_TILE_FETCHES)
-            .try_collect()
-            .await?;
+        // One source is the common case.
+        // Using `buffered()` means a `FuturesOrdered` task node per request for no concurrency.
+        let (produced, tile) = if let [(s, pc)] = self.sources.as_slice() {
+            let tile = self.get_tile_content_from_one_source(s, pc, xyz).await?;
+            let produced = Some(tile.info.encoding);
+            let tile = if tile.is_empty() {
+                Tile::new_hash_etag(Vec::new(), self.info)
+            } else {
+                self.recompress(tile)?
+            };
+            (produced, tile)
+        } else {
+            let tiles: Vec<Tile> = stream::iter(&self.sources)
+                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
+                .buffered(MAX_CONCURRENT_TILE_FETCHES)
+                .try_collect()
+                .await?;
 
-        let produced = tiles.first().map(|t| t.info.encoding);
-        let tile = self.merge_tiles(tiles)?;
+            let produced = tiles.first().map(|t| t.info.encoding);
+            (produced, self.merge_tiles(tiles)?)
+        };
         // Only a re-encoded tile earns a second entry, otherwise the produced one already is the response.
         if let Some((cache, key)) = served
             && produced != Some(tile.info.encoding)
@@ -623,7 +636,7 @@ impl<'a> DynTileSource<'a> {
         let advisory = ReloadAdvisory {
             updates: vec![NewSource {
                 id: s.get_id().to_owned(),
-                source: Ok(fresh_src.clone_source()),
+                source: Ok(Arc::clone(&fresh_src)),
                 process: pc.clone(),
                 provenance: None,
             }],
@@ -658,7 +671,7 @@ impl<'a> DynTileSource<'a> {
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z());
-        let src = s.clone_source();
+        let src = Arc::clone(s);
         let compute = || async move {
             let t = src
                 .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
@@ -1027,7 +1040,7 @@ mod tests {
         #[case] preferred_enc: Option<PreferredEncoding>,
         #[case] expected_enc: Encoding,
     ) {
-        let mgr = test_manager(vec![vec![Box::new(TestSource {
+        let mgr = test_manager(vec![vec![Arc::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: TileData::from_static(&[1, 2, 3]),
@@ -1066,7 +1079,7 @@ mod tests {
             data: TileData::from_static(&[1, 2, 3]),
             format: Format::Mvt,
         };
-        let mgr = test_manager(vec![vec![Box::new(source1)]]);
+        let mgr = test_manager(vec![vec![Arc::new(source1)]]);
 
         let headers = TileRequestHeaders {
             if_none_match,
@@ -1100,8 +1113,8 @@ mod tests {
             format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![
-            Box::new(non_empty_source),
-            Box::new(empty_source),
+            Arc::new(non_empty_source),
+            Arc::new(empty_source),
         ]]);
 
         for (source_id, expected) in &[
@@ -1128,7 +1141,7 @@ mod tests {
             TileData::from_static(&[1, 2, 3]),
             Format::Mvt,
         );
-        let mgr = test_manager(vec![vec![Box::new(source)]]);
+        let mgr = test_manager(vec![vec![Arc::new(source)]]);
         let src = DynTileSource::new(
             &mgr,
             "stale_source",
@@ -1201,7 +1214,7 @@ mod tests {
             encoding: src_enc,
         };
 
-        let mgr = test_manager(vec![vec![Box::new(src1), Box::new(src2)]]);
+        let mgr = test_manager(vec![vec![Arc::new(src1), Arc::new(src2)]]);
 
         let headers = TileRequestHeaders {
             accept_enc: accept.map(|s| AcceptEncoding(vec![s.parse().unwrap()])),
@@ -1247,7 +1260,7 @@ mod tests {
         } else {
             compress_with(raw, encoding)
         };
-        Box::new(CompressedTestSource {
+        Arc::new(CompressedTestSource {
             id,
             tj: tilejson! { tiles: vec![] },
             data: data.into(),
@@ -1610,7 +1623,7 @@ mod tests {
                         ..Default::default()
                     }
                 };
-                (Box::new(src) as BoxedSource, pc)
+                (Arc::new(src) as BoxedSource, pc)
             })
             .collect();
         assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);
@@ -1628,7 +1641,7 @@ mod tests {
             mlt: MltConversion::Disabled,
             ..Default::default()
         };
-        TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(Box::new(src), pc)]])
+        TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(Arc::new(src), pc)]])
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -1677,7 +1690,7 @@ mod tests {
             data: TileData::from_static(&[4, 5, 6]),
             format: Format::Mlt,
         };
-        let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
+        let mgr = test_manager(vec![vec![Arc::new(mvt_source), Arc::new(mlt_source)]]);
 
         let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
         assert!(
@@ -1700,7 +1713,7 @@ mod tests {
         let mgr = TileSourceManager::from_sources(
             None,
             OnInvalid::Abort,
-            vec![vec![(Box::new(src), pc)]],
+            vec![vec![(Arc::new(src), pc)]],
         );
         let dyn_src =
             DynTileSource::new(&mgr, "terrain", None, "", TileRequestHeaders::default()).unwrap();
