@@ -92,7 +92,6 @@ async fn without_a_tile_cache_the_body_says_so() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -113,5 +112,4 @@ async fn the_route_is_absent_unless_enabled() {
     assert_eq!(martin.delete("/cache/pmt").await.status(), 404);
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }

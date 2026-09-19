@@ -82,7 +82,6 @@ fonts:
     styles.warning
     warning
     ");
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -118,7 +117,6 @@ pmtiles:
         unrecognized_keys(&mut martin),
         ["pmtiles.warning", "warning"]
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -140,7 +138,6 @@ cog:
         keys == ["cog"] || keys == ["cog.warning"],
         "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -167,7 +164,6 @@ pmtiles:
         Vec::<String>::new(),
         "`connect_timeout` names the same object store option set, so its scalar value is accepted"
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -199,7 +195,6 @@ pmtiles:
         unrecognized_keys(&mut martin),
         ["pmtiles.warning", "warning"]
     );
-    martin.assert_startup_warnings();
 }
 
 #[cfg(feature = "test-pg")]

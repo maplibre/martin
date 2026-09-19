@@ -45,8 +45,7 @@ PGPORT := '5411'
 export DATABASE_URL := ('postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
 export CARGO_TERM_COLOR := 'always'
 
-# Set AWS variables for testing pmtiles from S3
-export AWS_SKIP_CREDENTIALS := '1'
+# Set the AWS region for testing pmtiles from S3
 export AWS_REGION := 'eu-central-1'
 
 @_default:

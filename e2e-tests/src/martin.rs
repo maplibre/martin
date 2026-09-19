@@ -126,9 +126,7 @@ impl MartinBuilder {
         cmd.current_dir(workspace_root())
             // The environment the justfile runs the tests under.
             .env_remove("DATABASE_URL")
-            .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
-            .env("AWS_SKIP_CREDENTIALS", "1")
             .env("AWS_REGION", "eu-central-1")
             .arg("--listen-addresses")
             .arg("127.0.0.1:0")
@@ -514,12 +512,6 @@ impl Martin {
             "log does not contain {needle:?}; log:\n{}",
             self.raw_log()
         );
-    }
-
-    /// Assert the `AWS_SKIP_CREDENTIALS` deprecation warning a martin start that resolves pmtiles
-    /// configuration emits, because [`MartinBuilder::start`] sets that variable.
-    pub fn assert_startup_warnings(&mut self) {
-        self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
     }
 
     fn raw_log(&self) -> String {

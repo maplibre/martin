@@ -361,7 +361,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -379,7 +379,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -513,7 +513,6 @@ jobs:
       PGPORT: 34837
       # AWS variables for S3 access
       AWS_REGION: eu-central-1
-      AWS_SKIP_CREDENTIALS: 1
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -651,7 +650,6 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-          AWS_SKIP_CREDENTIALS: 1
       - name: Release binary tests postgis:13-3.0-alpine sslmode=disable
         run: &release-config-tests |
           export MARTIN_BIN=target_releases/martin
@@ -682,7 +680,6 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-          AWS_SKIP_CREDENTIALS: 1
       - name: Debian package tests postgis:13-3.0-alpine sslmode=disable
         if: inputs.run-release-builds
         run: &debian-config-tests |

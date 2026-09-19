@@ -86,7 +86,6 @@ async fn every_discovered_source_and_resource_is_spelled_out() {
     martin.assert_log_contains(
         "Ignoring duplicate font: already configured from another path font.name=Overpass Mono Regular",
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -100,5 +99,4 @@ async fn every_documented_setting_survives_the_round_trip() {
     martin.assert_log_contains(
         "Ignoring duplicate font: already configured from another path font.name=Overpass Mono Regular",
     );
-    martin.assert_startup_warnings();
 }

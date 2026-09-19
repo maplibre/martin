@@ -397,7 +397,6 @@ async fn reload_adds_and_updates_a_source() {
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=world_cities");
     martin.assert_log_contains("Updated source source.id=world_cities");
-    martin.assert_startup_warnings();
 }
 
 #[cfg(not(windows))]
@@ -428,7 +427,6 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     martin.assert_log_contains("Added source source.id=world_cities");
     martin.assert_log_contains("Removed source source.id=world_cities");
     martin.assert_log_contains(r#"ERROR error="Source world_cities does not exist""#);
-    martin.assert_startup_warnings();
 }
 
 #[cfg(not(windows))]

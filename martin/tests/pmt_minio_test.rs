@@ -135,8 +135,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
 
     // A 1s polling cadence keeps the wait_for budgets comfortably above propagation
     // latency. Credentials and region are spelled out explicitly so they cannot be
-    // overridden by ambient `AWS_*` environment variables (notably `AWS_SKIP_CREDENTIALS`,
-    // which `just` injects in some test profiles).
+    // overridden by ambient `AWS_*` environment variables.
     let yaml = formatdoc! {"
         pmtiles:
           reload_interval: 1s
