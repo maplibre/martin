@@ -3,7 +3,7 @@ source: e2e-tests/tests/martin_cp.rs
 expression: summary
 ---
 {
-  "avg_tile_size": 99.3333333333,
+  "avg_tile_size": 9.0,
   "bbox": [
     -180.0,
     -85.0511287798,
@@ -12,52 +12,57 @@ expression: summary
   ],
   "file_path": "[TMP]",
   "file_size": 0,
-  "max_tile_size": 126,
+  "max_tile_size": 9,
   "max_zoom": 2,
-  "mbt_type": "Flat",
-  "min_tile_size": 74,
+  "mbt_type": {
+    "Normalized": {
+      "hash_view": true,
+      "schema": "Hash"
+    }
+  },
+  "min_tile_size": 9,
   "min_zoom": 0,
   "page_count": 0,
   "page_size": 0,
-  "tile_count": 9,
+  "tile_count": 6,
   "zoom_info": [
     {
-      "avg_tile_size": 126.0,
+      "avg_tile_size": 9.0,
       "bbox": [
         -180.0,
         -85.0511287798,
         180.0,
         85.0511287798
       ],
-      "max_tile_size": 126,
-      "min_tile_size": 126,
+      "max_tile_size": 9,
+      "min_tile_size": 9,
       "tile_count": 1,
       "zoom": 0
     },
     {
-      "avg_tile_size": 96.0,
+      "avg_tile_size": 9.0,
       "bbox": [
         -180.0,
         -85.0511287798,
         180.0,
         85.0511287798
       ],
-      "max_tile_size": 106,
-      "min_tile_size": 74,
+      "max_tile_size": 9,
+      "min_tile_size": 9,
       "tile_count": 4,
       "zoom": 1
     },
     {
-      "avg_tile_size": 96.0,
+      "avg_tile_size": 9.0,
       "bbox": [
+        -180.0,
+        -85.0511287798,
         -90.0,
-        -66.5132604431,
-        90.0,
-        66.5132604431
+        -66.5132604431
       ],
-      "max_tile_size": 106,
-      "min_tile_size": 74,
-      "tile_count": 4,
+      "max_tile_size": 9,
+      "min_tile_size": 9,
+      "tile_count": 1,
       "zoom": 2
     }
   ]

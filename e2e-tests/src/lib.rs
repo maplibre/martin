@@ -26,11 +26,13 @@ use tokio::process::Command;
 pub use crate::cassette::Cassette;
 pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
-pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
+pub use crate::martin::{
+    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump,
+};
 pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{
-    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, open_read_only,
-    open_read_write, patch_tiles, summary, summary_filters, tiles,
+    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing,
+    open_read_only, open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
 pub use crate::pmtiles::vector_pmtiles;
 pub use crate::statics::StaticFiles;

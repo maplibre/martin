@@ -5,7 +5,9 @@ use std::num::NonZeroU32;
 
 use futures::pin_mut;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
-use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
+use martin_core::tiles::postgres::{
+    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
+};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -110,6 +112,17 @@ pub async fn query_available_tables(
     Ok(res)
 }
 
+/// The id and property snippets on their own indented line, or nothing at all when there are none.
+///
+/// Emitting the indent only alongside the columns keeps a table without either out of a
+/// whitespace-only line, which `pre-commit` would strip out of the inline snapshots below.
+fn indented_columns(id_field: &str, properties: &str) -> String {
+    if id_field.is_empty() && properties.is_empty() {
+        return String::new();
+    }
+    format!("\n    {id_field}{properties}")
+}
+
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
 /// Assumes to not be the first column in a SELECT statement.
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
@@ -125,7 +138,26 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+/// The same snippet, with a `::text` cast for the types a tile property cannot hold.
+///
+/// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
+/// row-per-feature query's properties identical to the ones the MVT blob carries.
+fn escape_with_alias_as_property(
+    mapping: &HashMap<String, String>,
+    field: &str,
+    pg_type: &str,
+) -> String {
+    if is_typed_property(pg_type) {
+        return escape_with_alias(mapping, field);
+    }
+    let column = mapping.get(field).map_or(field, |v| v.as_str());
+    format!(
+        ", {}::text AS {}",
+        escape_identifier(column),
+        escape_identifier(field),
+    )
+}
+
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
@@ -185,61 +217,176 @@ pub async fn table_to_query(
         }
     }
 
-    let properties = if let Some(props) = &info.properties {
-        props
-            .keys()
-            .map(|column| escape_with_alias(&info.prop_mapping, column))
-            .collect::<String>()
-    } else {
-        String::new()
+    let sql = table_query_sql(&id, &info, &pool, max_feature_count, grid).await?;
+    let row_query = PostgresRowQuery {
+        sql_query: sql.row_query(),
+        has_id_column: info.id_column.is_some(),
+        layer_name: info.layer_id.as_deref().unwrap_or(&id).to_owned(),
+        extent: sql.extent,
     };
 
-    let (id_name, id_field) = if let Some(id_column) = &info.id_column {
-        (
-            format!(", {}", escape_literal(id_column)),
-            escape_with_alias(&info.prop_mapping, id_column),
+    Ok((
+        id,
+        PostgresSqlInfo::new(
+            sql.mvt_query(),
+            false,
+            // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
+            true,
+            info.format_id(),
+            false,
         )
-    } else {
-        (String::new(), String::new())
-    };
+        .with_row_query(row_query),
+        info,
+    ))
+}
 
-    let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
-    let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
-    let margin = f64::from(buffer) / f64::from(extent);
-    let geometry_column = escape_identifier(&info.geometry_column);
-    // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
-    let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
-        format!("ST_CurveToLine({geometry_column}::geometry)")
-    } else {
-        format!("{geometry_column}::geometry")
-    };
-    let table_wrap = if grid.is_web_mercator() || srid == grid.srid() {
+/// Build the fragments of a table query, asking the database what only it can answer.
+async fn table_query_sql(
+    id: &str,
+    info: &TableInfo,
+    pool: &PostgresPool,
+    max_feature_count: Option<usize>,
+    grid: &PgTileGrid,
+) -> PostgresResult<TableQuerySql> {
+    let table_wrap = if grid.is_web_mercator() || info.srid == grid.srid() {
         None
     } else {
-        wrap_width(&pool, srid).await
+        wrap_width(pool, info.srid).await
     };
-    let GridSql {
-        geometry,
-        envelope,
-        bbox_search,
-    } = grid_sql(
+    TableQuerySql::new(
+        id,
+        info,
+        max_feature_count,
         grid,
-        srid,
-        &geometry,
-        buffer,
-        margin,
         pool.supports_tile_margin(),
         table_wrap,
-    );
+    )
+}
 
-    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-    let filter = row_filter(&info, "AND")?;
-    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
-    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
-    let query = format!(
-        r"
+/// The SQL fragments every shape of a table tile query is assembled from.
+struct TableQuerySql {
+    layer_id: String,
+    id_name: String,
+    id_field: String,
+    properties: String,
+    row_properties: String,
+    geometry: String,
+    envelope: String,
+    bbox_search: String,
+    geometry_column: String,
+    schema: String,
+    table: String,
+    filter: String,
+    limit_clause: String,
+    extent: u32,
+    buffer: u32,
+    clip_geom: bool,
+}
+
+impl TableQuerySql {
+    fn new(
+        id: &str,
+        info: &TableInfo,
+        max_feature_count: Option<usize>,
+        grid: &PgTileGrid,
+        supports_tile_margin: bool,
+        table_wrap: Option<f64>,
+    ) -> PostgresResult<Self> {
+        let properties = if let Some(props) = &info.properties {
+            props
+                .keys()
+                .map(|column| escape_with_alias(&info.prop_mapping, column))
+                .collect::<String>()
+        } else {
+            String::new()
+        };
+        let row_properties = if let Some(props) = &info.properties {
+            props
+                .iter()
+                .map(|(column, pg_type)| {
+                    escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
+                })
+                .collect::<String>()
+        } else {
+            String::new()
+        };
+
+        let (id_name, id_field) = if let Some(id_column) = &info.id_column {
+            (
+                format!(", {}", escape_literal(id_column)),
+                escape_with_alias(&info.prop_mapping, id_column),
+            )
+        } else {
+            (String::new(), String::new())
+        };
+
+        let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
+        let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+        let margin = f64::from(buffer) / f64::from(extent);
+        let geometry_column = escape_identifier(&info.geometry_column);
+        // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
+        let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
+            format!("ST_CurveToLine({geometry_column}::geometry)")
+        } else {
+            format!("{geometry_column}::geometry")
+        };
+        let GridSql {
+            geometry,
+            envelope,
+            bbox_search,
+        } = grid_sql(
+            grid,
+            info.srid,
+            &geometry,
+            buffer,
+            margin,
+            supports_tile_margin,
+            table_wrap,
+        );
+
+        Ok(Self {
+            layer_id: escape_literal(info.layer_id.as_deref().unwrap_or(id)),
+            id_name,
+            id_field,
+            properties,
+            row_properties,
+            geometry,
+            envelope,
+            bbox_search,
+            geometry_column,
+            schema: escape_identifier(&info.schema),
+            table: escape_identifier(&info.table),
+            filter: row_filter(info, "AND")?,
+            limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
+            extent,
+            buffer,
+            clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+        })
+    }
+
+    /// The whole tile as a single MVT blob, encoded by `PostGIS`.
+    fn mvt_query(&self) -> String {
+        let Self {
+            layer_id,
+            id_name,
+            id_field,
+            properties,
+            geometry,
+            envelope,
+            bbox_search,
+            geometry_column,
+            schema,
+            table,
+            filter,
+            limit_clause,
+            extent,
+            buffer,
+            clip_geom,
+            row_properties: _,
+        } = self;
+        let columns = indented_columns(id_field, properties);
+        format!(
+            r"
 SELECT
   ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
@@ -248,8 +395,7 @@ FROM (
         {geometry},
         {envelope},
         {extent}, {buffer}, {clip_geom}
-    ) AS geom
-    {id_field}{properties}
+    ) AS geom{columns}
   FROM
     {schema}.{table}
   WHERE
@@ -257,22 +403,60 @@ FROM (
   {limit_clause}
 ) AS tile;
 "
-    )
-    .trim()
-    .to_owned();
+        )
+        .trim()
+        .to_owned()
+    }
 
-    Ok((
-        id,
-        PostgresSqlInfo::new(
-            query,
-            false,
-            // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
-            true,
-            info.format_id(),
-            false,
-        ),
-        info,
-    ))
+    /// One row per feature, the geometry as WKB in tile coordinates.
+    ///
+    /// Features whose geometry falls outside the tile are dropped, as `ST_AsMVT` does implicitly.
+    /// The drop happens outside the `LIMIT`, so `max_feature_count` counts the same rows as in [`Self::mvt_query`].
+    /// The geometry is aliased out of the way of the table's own columns, one of which may be
+    /// called `geom`, which would make the outer `IS NOT NULL` an ambiguous column reference.
+    fn row_query(&self) -> String {
+        let Self {
+            id_field,
+            row_properties,
+            geometry,
+            envelope,
+            bbox_search,
+            geometry_column,
+            schema,
+            table,
+            filter,
+            limit_clause,
+            extent,
+            buffer,
+            clip_geom,
+            ..
+        } = self;
+        let columns = indented_columns(id_field, row_properties);
+        format!(
+            r#"
+SELECT
+  *
+FROM (
+  SELECT
+    ST_AsBinary(
+      ST_AsMVTGeom(
+          {geometry},
+          {envelope},
+          {extent}, {buffer}, {clip_geom}
+      )
+    ) AS "__martin_geom"{columns}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && {bbox_search}{filter}
+  {limit_clause}
+) AS tile
+WHERE "__martin_geom" IS NOT NULL;
+"#
+        )
+        .trim()
+        .to_owned()
+    }
 }
 
 /// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.
@@ -736,6 +920,216 @@ mod tests {
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
         insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
         insta::assert_snapshot!(sql.bbox_search, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
+    }
+
+    fn table_info() -> TableInfo {
+        TableInfo {
+            schema: "public".to_owned(),
+            table: "table_source".to_owned(),
+            srid: 4326,
+            geometry_column: "geom".to_owned(),
+            geometry_type: Some("POINT".to_owned()),
+            ..Default::default()
+        }
+    }
+
+    fn query_sql(info: &TableInfo, grid: &PgTileGrid) -> TableQuerySql {
+        TableQuerySql::new("table_source.geom", info, Some(1000), grid, true, None).unwrap()
+    }
+
+    #[test]
+    fn a_plain_table_is_served_one_row_per_feature() {
+        let sql = query_sql(&table_info(), &PgTileGrid::web_mercator());
+        insta::assert_snapshot!(sql.row_query(), @r#"
+        SELECT
+          *
+        FROM (
+          SELECT
+            ST_AsBinary(
+              ST_AsMVTGeom(
+                  ST_Transform("geom"::geometry, 3857),
+                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                  4096, 64, true
+              )
+            ) AS "__martin_geom"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)
+          LIMIT 1000
+        ) AS tile
+        WHERE "__martin_geom" IS NOT NULL;
+        "#);
+    }
+
+    #[test]
+    fn an_id_column_and_properties_are_selected_alongside_the_geometry() {
+        let mut info = table_info();
+        info.id_column = Some("gid".to_owned());
+        info.properties = Some(BTreeMap::from([
+            ("name".to_owned(), "text".to_owned()),
+            ("population".to_owned(), "int4".to_owned()),
+        ]));
+        info.prop_mapping = HashMap::from([("population".to_owned(), "pop".to_owned())]);
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        SELECT
+          *
+        FROM (
+          SELECT
+            ST_AsBinary(
+              ST_AsMVTGeom(
+                  ST_Transform("geom"::geometry, 3857),
+                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                  4096, 64, true
+              )
+            ) AS "__martin_geom"
+            , "gid", "name", "pop" AS "population"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)
+          LIMIT 1000
+        ) AS tile
+        WHERE "__martin_geom" IS NOT NULL;
+        "#);
+    }
+
+    #[test]
+    fn another_grid_transforms_and_searches_like_the_blob_query_does() {
+        insta::assert_snapshot!(query_sql(&table_info(), &nztm2000quad()).row_query(), @r#"
+        SELECT
+          *
+        FROM (
+          SELECT
+            ST_AsBinary(
+              ST_AsMVTGeom(
+                  ST_Transform("geom"::geometry, 2193),
+                  ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)),
+                  4096, 64, true
+              )
+            ) AS "__martin_geom"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 4326)
+          LIMIT 1000
+        ) AS tile
+        WHERE "__martin_geom" IS NOT NULL;
+        "#);
+    }
+
+    #[test]
+    fn a_curve_typed_column_is_linearized() {
+        let mut info = table_info();
+        info.geometry_type = Some("CURVEPOLYGON".to_owned());
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        SELECT
+          *
+        FROM (
+          SELECT
+            ST_AsBinary(
+              ST_AsMVTGeom(
+                  ST_Transform(ST_CurveToLine("geom"::geometry), 3857),
+                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                  4096, 64, true
+              )
+            ) AS "__martin_geom"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)
+          LIMIT 1000
+        ) AS tile
+        WHERE "__martin_geom" IS NOT NULL;
+        "#);
+    }
+
+    #[test]
+    fn a_cql2_filter_narrows_the_rows() {
+        let mut info = table_info();
+        info.filter = Some("population > 1000".to_owned());
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        SELECT
+          *
+        FROM (
+          SELECT
+            ST_AsBinary(
+              ST_AsMVTGeom(
+                  ST_Transform("geom"::geometry, 3857),
+                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                  4096, 64, true
+              )
+            ) AS "__martin_geom"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer) AND (population > 1000)
+          LIMIT 1000
+        ) AS tile
+        WHERE "__martin_geom" IS NOT NULL;
+        "#);
+    }
+
+    /// `ST_AsMVT` writes a column it has no tile type for as text, so the row query casts it.
+    #[test]
+    fn a_column_without_a_tile_type_is_read_as_text() {
+        let mut info = table_info();
+        info.properties = Some(BTreeMap::from([
+            ("created".to_owned(), "timestamptz".to_owned()),
+            ("name".to_owned(), "text".to_owned()),
+            ("price".to_owned(), "numeric".to_owned()),
+        ]));
+        info.prop_mapping = HashMap::from([("price".to_owned(), "cost".to_owned())]);
+        let sql = query_sql(&info, &PgTileGrid::web_mercator());
+        insta::assert_snapshot!(
+            sql.row_properties,
+            @r#", "created"::text AS "created", "name", "cost"::text AS "price""#
+        );
+        insta::assert_snapshot!(sql.properties, @r#", "created", "name", "cost" AS "price""#);
+    }
+
+    /// The blob query keeps being the SQL martin generated before the row query existed, byte for byte.
+    #[test]
+    fn the_blob_query_is_unchanged() {
+        let mut info = table_info();
+        info.id_column = Some("gid".to_owned());
+        info.properties = Some(BTreeMap::from([("name".to_owned(), "text".to_owned())]));
+        info.filter = Some("population > 1000".to_owned());
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).mvt_query(), @r#"
+        SELECT
+          ST_AsMVT(tile, 'table_source.geom', 4096, 'geom', 'gid')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            ) AS geom
+            , "gid", "name"
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer) AND (population > 1000)
+          LIMIT 1000
+        ) AS tile;
+        "#);
+        insta::assert_snapshot!(query_sql(&table_info(), &PgTileGrid::web_mercator()).mvt_query(), @r#"
+        SELECT
+          ST_AsMVT(tile, 'table_source.geom', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            ) AS geom
+          FROM
+            "public"."table_source"
+          WHERE
+            "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)
+          LIMIT 1000
+        ) AS tile;
+        "#);
     }
 
     #[test]

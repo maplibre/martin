@@ -706,7 +706,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// The query the sources read their own parameters from, `None` when they ignore it.
-    fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
+    pub(crate) fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
         self.query.as_ref().filter(|_| self.use_url_query)
     }
 

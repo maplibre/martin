@@ -23,7 +23,7 @@ use crate::tiles::passthrough::PassthroughSource;
 #[cfg(feature = "pmtiles")]
 use crate::tiles::pmtiles::PmtilesSource;
 #[cfg(feature = "postgres")]
-use crate::tiles::postgres::{ActiveQueryRegistry, PostgresSource};
+use crate::tiles::postgres::{ActiveQueryRegistry, PostgresSource, PostgresTileFeatures};
 #[cfg(feature = "_testing")]
 use crate::tiles::testing::TestSource;
 use crate::tiles::{MartinCoreResult, Source as _, Tile, UrlQuery};
@@ -187,6 +187,22 @@ impl AnySource {
         let tile: Pin<Box<dyn Future<Output = MartinCoreResult<TileData>> + Send + '_>> =
             dispatch!(self, |s| Box::pin(s.get_tile(xyz, url_query)));
         tile.await
+    }
+
+    /// Retrieves the features of a tile instead of its serialized bytes.
+    ///
+    /// `None` means this source cannot hand out features, and the caller has to fall back to
+    /// [`get_tile`](Self::get_tile).
+    #[cfg(feature = "postgres")]
+    pub async fn get_tile_features(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
+        let features: Pin<
+            Box<dyn Future<Output = MartinCoreResult<Option<PostgresTileFeatures>>> + Send + '_>,
+        > = dispatch!(self, |s| Box::pin(s.get_tile_features(xyz, url_query)));
+        features.await
     }
 
     /// Retrieves tile with etag for the given coordinates.

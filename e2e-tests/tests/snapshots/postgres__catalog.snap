@@ -19,6 +19,10 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.antimeridian.geom"
   },
+  "array_props": {
+    "content_type": "application/x-protobuf",
+    "description": "An array column, which the row-per-feature MLT path cannot encode"
+  },
   "auto_table": {
     "content_type": "application/x-protobuf",
     "description": "autodetect.auto_table.geom"
@@ -142,6 +146,10 @@ expression: "catalog.json()[\"tiles\"]"
   "mat_view": {
     "content_type": "application/x-protobuf",
     "description": "materialized view comment"
+  },
+  "measured_shapes": {
+    "content_type": "application/x-protobuf",
+    "description": "Geometries carrying an M ordinate, in every property type martin serves"
   },
   "nz_points": {
     "content_type": "application/x-protobuf",

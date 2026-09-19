@@ -7,6 +7,8 @@ use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
+#[cfg(feature = "postgres")]
+use crate::tiles::postgres::PostgresTileFeatures;
 use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
@@ -65,6 +67,22 @@ pub trait Source: Send + Sync + Debug {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> impl Future<Output = MartinCoreResult<TileData>> + Send;
+
+    /// Retrieves the features of a tile instead of its serialized bytes.
+    ///
+    /// `None` means this source cannot hand out features, which is the default and what every
+    /// source other than a `PostgreSQL` table answers. A caller that wants a tile format the
+    /// source does not produce itself can encode these instead of taking an MVT tile apart again;
+    /// it must fall back to [`get_tile`](Self::get_tile) when this returns `None`.
+    #[cfg(feature = "postgres")]
+    fn get_tile_features(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> impl Future<Output = MartinCoreResult<Option<PostgresTileFeatures>>> + Send {
+        let _ = (xyz, url_query);
+        async { Ok(None) }
+    }
 
     /// Retrieves tile with etag for the given coordinates.
     ///
