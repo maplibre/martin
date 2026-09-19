@@ -202,14 +202,6 @@ impl PmtConfig {
     /// Retains PMTiles-only environment migrations while object-store behavior lives in
     /// [`ObjectStoreConfig`].
     fn migrate_pmtiles_legacy_env(&mut self) {
-        if self.unrecognized.contains_key("dir_cache_size_mb") {
-            warn!(
-                "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
-                 Use `cache.size_mb` in the root of the config file, \
-                 or `pmtiles.directory_cache.size_mb` to override the PMTiles directory cache size"
-            );
-        }
-
         if let Ok(force_path_style) =
             env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
         {
