@@ -113,9 +113,6 @@ pub async fn query_available_tables(
 }
 
 /// The id and property snippets on their own indented line, or nothing at all when there are none.
-///
-/// Emitting the indent only alongside the columns keeps a table without either out of a
-/// whitespace-only line, which `pre-commit` would strip out of the inline snapshots below.
 fn indented_columns(id_field: &str, properties: &str) -> String {
     if id_field.is_empty() && properties.is_empty() {
         return String::new();
@@ -369,38 +366,17 @@ impl TableQuerySql {
         let Self {
             layer_id,
             id_name,
-            id_field,
-            properties,
-            geometry,
-            envelope,
-            bbox_search,
-            geometry_column,
-            schema,
-            table,
-            filter,
-            limit_clause,
             extent,
-            buffer,
-            clip_geom,
-            row_properties: _,
+            properties,
+            ..
         } = self;
-        let columns = indented_columns(id_field, properties);
+        let features = self.feature_select(&self.tile_geometry(), "geom", properties);
         format!(
             r"
 SELECT
   ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
 FROM (
-  SELECT
-    ST_AsMVTGeom(
-        {geometry},
-        {envelope},
-        {extent}, {buffer}, {clip_geom}
-    ) AS geom{columns}
-  FROM
-    {schema}.{table}
-  WHERE
-    {geometry_column} && {bbox_search}{filter}
-  {limit_clause}
+{features}
 ) AS tile;
 "
         )
@@ -415,47 +391,64 @@ FROM (
     /// The geometry is aliased out of the way of the table's own columns, one of which may be
     /// called `geom`, which would make the outer `IS NOT NULL` an ambiguous column reference.
     fn row_query(&self) -> String {
-        let Self {
-            id_field,
-            row_properties,
-            geometry,
-            envelope,
-            bbox_search,
-            geometry_column,
-            schema,
-            table,
-            filter,
-            limit_clause,
-            extent,
-            buffer,
-            clip_geom,
-            ..
-        } = self;
-        let columns = indented_columns(id_field, row_properties);
+        let geometry = format!("ST_AsBinary({})", self.tile_geometry());
+        let features = self.feature_select(&geometry, r#""__martin_geom""#, &self.row_properties);
         format!(
             r#"
 SELECT
   *
 FROM (
-  SELECT
-    ST_AsBinary(
-      ST_AsMVTGeom(
-          {geometry},
-          {envelope},
-          {extent}, {buffer}, {clip_geom}
-      )
-    ) AS "__martin_geom"{columns}
-  FROM
-    {schema}.{table}
-  WHERE
-    {geometry_column} && {bbox_search}{filter}
-  {limit_clause}
+{features}
 ) AS tile
 WHERE "__martin_geom" IS NOT NULL;
 "#
         )
         .trim()
         .to_owned()
+    }
+
+    /// The rows both tile queries are built from: every feature the tile covers, its geometry
+    /// as `geometry` aliased to `alias`, followed by `properties`.
+    fn feature_select(&self, geometry: &str, alias: &str, properties: &str) -> String {
+        let Self {
+            id_field,
+            bbox_search,
+            geometry_column,
+            schema,
+            table,
+            filter,
+            limit_clause,
+            ..
+        } = self;
+        let columns = indented_columns(id_field, properties);
+        format!(
+            "  SELECT
+    {geometry} AS {alias}{columns}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && {bbox_search}{filter}
+  {limit_clause}"
+        )
+    }
+
+    /// `ST_AsMVTGeom` over the table's geometry column, in the tile's coordinate space.
+    fn tile_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            ..
+        } = self;
+        format!(
+            "ST_AsMVTGeom(
+        {geometry},
+        {envelope},
+        {extent}, {buffer}, {clip_geom}
+    )"
+        )
     }
 }
 
@@ -945,13 +938,11 @@ mod tests {
           *
         FROM (
           SELECT
-            ST_AsBinary(
-              ST_AsMVTGeom(
-                  ST_Transform("geom"::geometry, 3857),
-                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-                  4096, 64, true
-              )
-            ) AS "__martin_geom"
+            ST_AsBinary(ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            )) AS "__martin_geom"
           FROM
             "public"."table_source"
           WHERE
@@ -976,13 +967,11 @@ mod tests {
           *
         FROM (
           SELECT
-            ST_AsBinary(
-              ST_AsMVTGeom(
-                  ST_Transform("geom"::geometry, 3857),
-                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-                  4096, 64, true
-              )
-            ) AS "__martin_geom"
+            ST_AsBinary(ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            )) AS "__martin_geom"
             , "gid", "name", "pop" AS "population"
           FROM
             "public"."table_source"
@@ -1001,13 +990,11 @@ mod tests {
           *
         FROM (
           SELECT
-            ST_AsBinary(
-              ST_AsMVTGeom(
-                  ST_Transform("geom"::geometry, 2193),
-                  ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)),
-                  4096, 64, true
-              )
-            ) AS "__martin_geom"
+            ST_AsBinary(ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 2193),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)),
+                4096, 64, true
+            )) AS "__martin_geom"
           FROM
             "public"."table_source"
           WHERE
@@ -1027,13 +1014,11 @@ mod tests {
           *
         FROM (
           SELECT
-            ST_AsBinary(
-              ST_AsMVTGeom(
-                  ST_Transform(ST_CurveToLine("geom"::geometry), 3857),
-                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-                  4096, 64, true
-              )
-            ) AS "__martin_geom"
+            ST_AsBinary(ST_AsMVTGeom(
+                ST_Transform(ST_CurveToLine("geom"::geometry), 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            )) AS "__martin_geom"
           FROM
             "public"."table_source"
           WHERE
@@ -1053,13 +1038,11 @@ mod tests {
           *
         FROM (
           SELECT
-            ST_AsBinary(
-              ST_AsMVTGeom(
-                  ST_Transform("geom"::geometry, 3857),
-                  ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-                  4096, 64, true
-              )
-            ) AS "__martin_geom"
+            ST_AsBinary(ST_AsMVTGeom(
+                ST_Transform("geom"::geometry, 3857),
+                ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+                4096, 64, true
+            )) AS "__martin_geom"
           FROM
             "public"."table_source"
           WHERE

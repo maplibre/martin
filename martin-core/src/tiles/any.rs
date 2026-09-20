@@ -189,20 +189,47 @@ impl AnySource {
         tile.await
     }
 
+    /// The `PostgreSQL` source this one serves, through any declared grid around it.
+    #[cfg(feature = "postgres")]
+    fn postgres_source(&self) -> Option<&PostgresSource> {
+        let mut source = self;
+        loop {
+            match source {
+                Self::Postgres(s) => return Some(s),
+                Self::DeclaredGrid(s) => source = s.inner(),
+                #[cfg(feature = "pmtiles")]
+                Self::Pmtiles(_) => return None,
+                #[cfg(feature = "mbtiles")]
+                Self::Mbtiles(_) => return None,
+                #[cfg(feature = "passthrough")]
+                Self::Passthrough(_) => return None,
+                #[cfg(feature = "geojson")]
+                Self::GeoJson(_) => return None,
+                #[cfg(feature = "unstable-cog")]
+                Self::Cog(_) => return None,
+                #[cfg(feature = "unstable-duckdb")]
+                Self::DuckDb(_) => return None,
+                #[cfg(feature = "_testing")]
+                Self::Test(_) => return None,
+            }
+        }
+    }
+
     /// Retrieves the features of a tile instead of its serialized bytes.
     ///
     /// `None` means this source cannot hand out features, and the caller has to fall back to
-    /// [`get_tile`](Self::get_tile).
+    /// [`get_tile`](Self::get_tile). Only Postgres can, and with a closed set that is a match
+    /// arm rather than a method every other source has to refuse.
     #[cfg(feature = "postgres")]
     pub async fn get_tile_features(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
-        let features: Pin<
-            Box<dyn Future<Output = MartinCoreResult<Option<PostgresTileFeatures>>> + Send + '_>,
-        > = dispatch!(self, |s| Box::pin(s.get_tile_features(xyz, url_query)));
-        features.await
+        match self.postgres_source() {
+            Some(source) => source.get_tile_features(xyz, url_query).await,
+            None => Ok(None),
+        }
     }
 
     /// Retrieves tile with etag for the given coordinates.

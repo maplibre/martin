@@ -384,8 +384,11 @@ mod tests {
         hex.as_bytes()
             .chunks(2)
             .map(|pair| {
-                u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16)
-                    .expect("fixture is valid hex")
+                u8::from_str_radix(
+                    std::str::from_utf8(pair).expect("fixture is valid utf-8"),
+                    16,
+                )
+                .expect("fixture is valid hex")
             })
             .collect()
     }

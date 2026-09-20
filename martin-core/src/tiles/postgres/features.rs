@@ -29,6 +29,20 @@ pub enum PostgresPropValue {
     Text(Option<String>),
 }
 
+impl PostgresPropValue {
+    /// Whether the column held `NULL` for this feature.
+    #[must_use]
+    pub const fn is_null(&self) -> bool {
+        match self {
+            Self::Bool(v) => v.is_none(),
+            Self::Int(v) => v.is_none(),
+            Self::Float(v) => v.is_none(),
+            Self::Double(v) => v.is_none(),
+            Self::Text(v) => v.is_none(),
+        }
+    }
+}
+
 /// One feature of a tile, in tile coordinate space.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PostgresFeature {
@@ -51,25 +65,42 @@ pub struct PostgresTileFeatures {
     pub features: Vec<PostgresFeature>,
 }
 
-/// Whether a column of this `PostgreSQL` type reaches a tile as a typed property.
+/// A `PostgreSQL` column type that reaches a tile as a typed property.
 ///
-/// `ST_AsMVT` writes every other type through the type's text output function, so a query that
-/// wants the same properties has to cast those columns to `text` itself.
+/// These are the types `ST_AsMVT` encodes as MVT properties; it writes every other type through
+/// the type's text output function, so a query that wants the same properties has to cast those
+/// columns to `text` itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PropType {
+    Bool,
+    Int16,
+    Int32,
+    Int64,
+    Float,
+    Double,
+    Text,
+}
+
+impl PropType {
+    /// The type a column of this `PostgreSQL` type holds, or `None` for one that needs a cast.
+    fn of(pg_type: &str) -> Option<Self> {
+        Some(match pg_type {
+            "bool" => Self::Bool,
+            "int2" => Self::Int16,
+            "int4" => Self::Int32,
+            "int8" => Self::Int64,
+            "float4" => Self::Float,
+            "float8" => Self::Double,
+            "text" | "varchar" | "bpchar" | "name" => Self::Text,
+            _ => return None,
+        })
+    }
+}
+
+/// Whether a column of this `PostgreSQL` type reaches a tile as a typed property.
 #[must_use]
 pub fn is_typed_property(pg_type: &str) -> bool {
-    matches!(
-        pg_type,
-        "bool"
-            | "int2"
-            | "int4"
-            | "int8"
-            | "float4"
-            | "float8"
-            | "text"
-            | "varchar"
-            | "bpchar"
-            | "name"
-    )
+    PropType::of(pg_type).is_some()
 }
 
 /// Decodes the rows of one tile query into features.
@@ -101,7 +132,7 @@ pub(crate) fn features_from_rows(
             let column = &row.columns()[idx];
             properties.push((
                 CompactString::new(column.name()),
-                property_value(row, idx, column.name(), column.type_().name())?,
+                property_value(row, idx, "reading a tile property")?,
             ));
         }
         features.push(PostgresFeature {
@@ -119,57 +150,47 @@ pub(crate) fn features_from_rows(
 /// so a `NULL` or negative value leaves the feature without one.
 fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
-    let value = match column.type_().name() {
-        "int2" => row
-            .try_get::<_, Option<i16>>(1)
-            .map(|v| v.map(i64::from))
-            .map_err(|e| PgError(e, "reading a tile feature's id")),
-        "int4" => row
-            .try_get::<_, Option<i32>>(1)
-            .map(|v| v.map(i64::from))
-            .map_err(|e| PgError(e, "reading a tile feature's id")),
-        "int8" => row
-            .try_get::<_, Option<i64>>(1)
-            .map_err(|e| PgError(e, "reading a tile feature's id")),
-        other => Err(UnsupportedPropertyType {
+    let value = property_value(row, 1, "reading a tile feature's id")?;
+    let PostgresPropValue::Int(value) = value else {
+        return Err(UnsupportedPropertyType {
             column: column.name().to_owned(),
-            pg_type: other.to_owned(),
-        }),
-    }?;
+            pg_type: column.type_().name().to_owned(),
+        });
+    };
     Ok(value.and_then(|v| u64::try_from(v).ok()))
 }
 
-/// One property value, typed by what the column's runtime type says it holds.
+/// One column's value, typed by what the column's runtime type says it holds.
+///
+/// `context` names what is being read, for the error a failed read carries.
 fn property_value(
     row: &Row,
     idx: usize,
-    name: &str,
-    pg_type: &str,
+    context: &'static str,
 ) -> PostgresResult<PostgresPropValue> {
-    let read = |e| PgError(e, "reading a tile property");
-    Ok(match pg_type {
-        "bool" => PostgresPropValue::Bool(row.try_get(idx).map_err(read)?),
-        "int2" => PostgresPropValue::Int(
+    let column = &row.columns()[idx];
+    let read = |e| PgError(e, context);
+    let Some(prop_type) = PropType::of(column.type_().name()) else {
+        return Err(UnsupportedPropertyType {
+            column: column.name().to_owned(),
+            pg_type: column.type_().name().to_owned(),
+        });
+    };
+    Ok(match prop_type {
+        PropType::Bool => PostgresPropValue::Bool(row.try_get(idx).map_err(read)?),
+        PropType::Int16 => PostgresPropValue::Int(
             row.try_get::<_, Option<i16>>(idx)
                 .map_err(read)?
                 .map(i64::from),
         ),
-        "int4" => PostgresPropValue::Int(
+        PropType::Int32 => PostgresPropValue::Int(
             row.try_get::<_, Option<i32>>(idx)
                 .map_err(read)?
                 .map(i64::from),
         ),
-        "int8" => PostgresPropValue::Int(row.try_get(idx).map_err(read)?),
-        "float4" => PostgresPropValue::Float(row.try_get(idx).map_err(read)?),
-        "float8" => PostgresPropValue::Double(row.try_get(idx).map_err(read)?),
-        "text" | "varchar" | "bpchar" | "name" => {
-            PostgresPropValue::Text(row.try_get(idx).map_err(read)?)
-        }
-        other => {
-            return Err(UnsupportedPropertyType {
-                column: name.to_owned(),
-                pg_type: other.to_owned(),
-            });
-        }
+        PropType::Int64 => PostgresPropValue::Int(row.try_get(idx).map_err(read)?),
+        PropType::Float => PostgresPropValue::Float(row.try_get(idx).map_err(read)?),
+        PropType::Double => PostgresPropValue::Double(row.try_get(idx).map_err(read)?),
+        PropType::Text => PostgresPropValue::Text(row.try_get(idx).map_err(read)?),
     })
 }

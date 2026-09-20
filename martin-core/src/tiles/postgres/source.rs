@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use compact_str::CompactString;
 use deadpool_postgres::Object;
-use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
+use deadpool_postgres::tokio_postgres::types::{Json, ToSql, Type};
 use deadpool_postgres::tokio_postgres::{Row, Statement};
 use martin_tile_utils::{Encoding, TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
@@ -11,6 +13,7 @@ use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
 use crate::tiles::postgres::features::features_from_rows;
+use crate::tiles::postgres::pool::ActiveQueryGuard;
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::postgres::{
     ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures,
@@ -60,6 +63,30 @@ impl PostgresSource {
     pub fn active_query_registry(&self) -> ActiveQueryRegistry {
         self.pool.active_query_registry().clone()
     }
+
+    /// The features of a tile instead of its serialized bytes.
+    ///
+    /// `None` means this source has no row-per-feature form, which is every source but a table.
+    /// A caller that wants a tile format `PostGIS` does not produce itself can encode these
+    /// instead of taking an `ST_AsMVT` tile apart again.
+    pub async fn get_tile_features(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
+        let info = self.sql_for(url_query);
+        let Some(row_query) = &info.row_query else {
+            return Ok(None);
+        };
+        let rows = self
+            .query_feature_rows(info, row_query, xyz, url_query)
+            .await?;
+        Ok(Some(PostgresTileFeatures {
+            layer_name: row_query.layer_name.clone(),
+            extent: row_query.extent,
+            features: features_from_rows(&rows, row_query.has_id_column)?,
+        }))
+    }
 }
 
 impl Source for PostgresSource {
@@ -107,25 +134,6 @@ impl Source for PostgresSource {
             .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
             .map(TileData::from)
             .unwrap_or_default())
-    }
-
-    async fn get_tile_features(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
-        let info = self.sql_for(url_query);
-        let Some(row_query) = &info.row_query else {
-            return Ok(None);
-        };
-        let rows = self
-            .query_feature_rows(info, row_query, xyz, url_query)
-            .await?;
-        Ok(Some(PostgresTileFeatures {
-            layer_name: row_query.layer_name.clone(),
-            extent: row_query.extent,
-            features: features_from_rows(&rows, row_query.has_id_column)?,
-        }))
     }
 
     async fn get_tile_with_etag(
@@ -191,77 +199,15 @@ impl PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Option<Row>> {
-        let conn = self.pool.get().await?;
-
-        let cancel_token = conn.cancel_token();
-
-        // Auto-clean up if task completes or is interrupted
-        let _query_guard = self.pool.active_query_registry().register(cancel_token);
-
         let info = self.sql_for(url_query);
-        let sql = &info.sql_query;
-        let prep_query = self.prepare_tile_query(&conn, info, sql).await?;
-
-        let tile = if info.use_url_query {
-            let json = query_to_json(url_query);
-            debug!("SQL: {sql} [{xyz}, {json:?}]");
-            let params: &[&(dyn ToSql + Sync)] = &[
-                &i16::from(xyz.z()),
-                &i64::from(xyz.x()),
-                &i64::from(xyz.y()),
-                &json,
-            ];
-            conn.query_opt(&prep_query, params).await
-        } else {
-            debug!("SQL: {sql} [{xyz}]");
-            conn.query_opt(
-                &prep_query,
-                &[
-                    &i16::from(xyz.z()),
-                    &i64::from(xyz.x()),
-                    &i64::from(xyz.y()),
-                ],
-            )
-            .await
-        };
-
-        Ok(tile.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
-    }
-
-    /// Prepares one of this source's tile queries, which all take `z/x/y` and an optional query string.
-    async fn prepare_tile_query(
-        &self,
-        conn: &Object,
-        info: &PostgresSqlInfo,
-        sql: &str,
-    ) -> Result<Statement, PostgresError> {
-        let param_types: &[Type] = if info.use_url_query {
-            &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
-        } else {
-            &[Type::INT2, Type::INT8, Type::INT8]
-        };
-        conn.prepare_typed_cached(sql, param_types)
-            .await
-            .map_err(|e| PrepareQueryError {
-                source: e,
-                source_id: self.id.clone(),
-                signature: info.signature.clone(),
-                query: sql.to_owned(),
-            })
-    }
-
-    fn run_error(
-        &self,
-        e: deadpool_postgres::tokio_postgres::Error,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-        use_url_query: bool,
-    ) -> PostgresError {
-        if use_url_query {
-            GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
-        } else {
-            GetTileError(e, self.id.clone(), xyz)
-        }
+        let query = self
+            .tile_query(info, &info.sql_query, xyz, url_query)
+            .await?;
+        let row = query
+            .conn
+            .query_opt(&query.statement, &query.params())
+            .await;
+        Ok(row.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
     }
 
     /// Runs the row-per-feature query, returning one row per feature of the tile.
@@ -283,40 +229,101 @@ impl PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Vec<Row>> {
+        let query = self
+            .tile_query(info, &row_query.sql_query, xyz, url_query)
+            .await?;
+        let rows = query.conn.query(&query.statement, &query.params()).await;
+        Ok(rows.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
+    }
+
+    /// Prepares one of this source's tile queries and binds `xyz` and the query string to it.
+    ///
+    /// All of them take `z/x/y` and an optional query string, and differ only in what they
+    /// return, so every caller runs the statement itself.
+    async fn tile_query(
+        &self,
+        info: &PostgresSqlInfo,
+        sql: &str,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<TileQuery> {
         let conn = self.pool.get().await?;
+        let guard = self
+            .pool
+            .active_query_registry()
+            .register(conn.cancel_token());
 
-        let cancel_token = conn.cancel_token();
+        let param_types: &[Type] = if info.use_url_query {
+            &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
+        } else {
+            &[Type::INT2, Type::INT8, Type::INT8]
+        };
+        let statement = conn
+            .prepare_typed_cached(sql, param_types)
+            .await
+            .map_err(|e| PrepareQueryError {
+                source: e,
+                source_id: self.id.clone(),
+                signature: info.signature.clone(),
+                query: sql.to_owned(),
+            })?;
 
-        // Auto-clean up if task completes or is interrupted
-        let _query_guard = self.pool.active_query_registry().register(cancel_token);
-
-        let sql = &row_query.sql_query;
-        let prep_query = self.prepare_tile_query(&conn, info, sql).await?;
-
-        let rows = if info.use_url_query {
+        let url_query = if info.use_url_query {
             let json = query_to_json(url_query);
             debug!("SQL: {sql} [{xyz}, {json:?}]");
-            let params: &[&(dyn ToSql + Sync)] = &[
-                &i16::from(xyz.z()),
-                &i64::from(xyz.x()),
-                &i64::from(xyz.y()),
-                &json,
-            ];
-            conn.query(&prep_query, params).await
+            Some(json)
         } else {
             debug!("SQL: {sql} [{xyz}]");
-            conn.query(
-                &prep_query,
-                &[
-                    &i16::from(xyz.z()),
-                    &i64::from(xyz.x()),
-                    &i64::from(xyz.y()),
-                ],
-            )
-            .await
+            None
         };
 
-        Ok(rows.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
+        Ok(TileQuery {
+            conn,
+            _cancel_guard: guard,
+            statement,
+            z: i16::from(xyz.z()),
+            x: i64::from(xyz.x()),
+            y: i64::from(xyz.y()),
+            url_query,
+        })
+    }
+
+    fn run_error(
+        &self,
+        e: deadpool_postgres::tokio_postgres::Error,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+        use_url_query: bool,
+    ) -> PostgresError {
+        if use_url_query {
+            GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
+        } else {
+            GetTileError(e, self.id.clone(), xyz)
+        }
+    }
+}
+
+/// A prepared tile query with its parameters bound, ready to run on `conn`.
+///
+/// It holds the registry guard, so the statement stays cancellable for exactly as long as the
+/// query lives.
+struct TileQuery {
+    conn: Object,
+    _cancel_guard: ActiveQueryGuard,
+    statement: Statement,
+    z: i16,
+    x: i64,
+    y: i64,
+    url_query: Option<Json<HashMap<String, serde_json::Value>>>,
+}
+
+impl TileQuery {
+    fn params(&self) -> Vec<&(dyn ToSql + Sync)> {
+        let mut params: Vec<&(dyn ToSql + Sync)> = vec![&self.z, &self.x, &self.y];
+        if let Some(url_query) = &self.url_query {
+            params.push(url_query);
+        }
+        params
     }
 }
 

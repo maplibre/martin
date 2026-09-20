@@ -1,6 +1,6 @@
 //! Encode `PostgreSQL` rows straight into MLT, without the MVT tile in between.
 //!
-//! This is the other half of [`Source::get_tile_features`](martin_core::tiles::Source::get_tile_features):
+//! This is the other half of [`AnySource::get_tile_features`](martin_core::tiles::AnySource::get_tile_features):
 //! `martin-core` hands up decoded features, and everything `mlt-core` touches lives here, so that
 //! the core crate never has to depend on it.
 
@@ -20,9 +20,8 @@ use crate::srv::tiles::process::ProcessError;
 
 /// Encodes one tile's worth of `PostgreSQL` features as a single-layer MLT tile.
 ///
-/// A tile without features encodes to nothing at all, the same empty tile the MVT round-trip
-/// produces, so `martin cp` keeps pruning the subtrees below it.
-pub fn encode_features_as_mlt(
+/// A tile without features encodes to an empty tile.
+pub(crate) fn encode_features_as_mlt(
     features: PostgresTileFeatures,
     cfg: EncoderConfig,
 ) -> Result<Tile, ProcessError> {
@@ -80,11 +79,8 @@ pub fn encode_features_as_mlt(
 
 /// The MLT type of every property column, or `None` for a column to leave out of the layer.
 ///
-/// A column that is `NULL` for every feature of the tile is dropped, and an integer column is
-/// unsigned unless the tile holds a negative value for it. Both are what the MVT round-trip
-/// arrives at: `ST_AsMVT` writes no tag at all for a `NULL`, so a column nothing fills never
-/// reaches the reader, and it writes a non-negative integer as `uint` and a negative one as
-/// `sint`, which a reader widens to a signed column only once it has seen a negative value.
+/// Matches what the MVT round-trip arrives at: an all-`NULL` column is dropped, and an integer
+/// column is unsigned unless the tile holds a negative value for it.
 fn column_kinds(features: &[PostgresFeature]) -> Vec<Option<PropKind>> {
     let Some(first) = features.first() else {
         return Vec::new();
@@ -94,7 +90,7 @@ fn column_kinds(features: &[PostgresFeature]) -> Vec<Option<PropKind>> {
             let mut values = features
                 .iter()
                 .filter_map(|f| f.properties.get(idx).map(|(_, value)| value))
-                .filter(|value| !is_null(value))
+                .filter(|value| !value.is_null())
                 .peekable();
             let first = *values.peek()?;
             Some(match first {
@@ -114,16 +110,6 @@ fn column_kinds(features: &[PostgresFeature]) -> Vec<Option<PropKind>> {
         .collect()
 }
 
-fn is_null(value: &PostgresPropValue) -> bool {
-    match value {
-        PostgresPropValue::Bool(v) => v.is_none(),
-        PostgresPropValue::Int(v) => v.is_none(),
-        PostgresPropValue::Float(v) => v.is_none(),
-        PostgresPropValue::Double(v) => v.is_none(),
-        PostgresPropValue::Text(v) => v.is_none(),
-    }
-}
-
 /// One value in the column type [`column_kinds`] settled on, `NULL` included.
 fn to_prop_value(kind: PropKind, value: PostgresPropValue) -> PropValue {
     match value {
@@ -138,20 +124,10 @@ fn to_prop_value(kind: PropKind, value: PostgresPropValue) -> PropValue {
     }
 }
 
-/// Converts a tile-space geometry into the only geometry form `mlt-core` accepts.
+/// Converts a tile-space geometry into the `geo_types::Geometry<i32>` `mlt-core` accepts.
 ///
-/// **The M ordinate dies here.** `ST_AsMVTGeom` keeps the measure `PostGIS` stored on a vertex,
-/// and [`TileVertex::m`] carries it intact all the way from the WKB reader to this function, but
-/// `mlt-core` 0.13 takes only a `geo_types::Geometry<i32>`, whose coordinates are X and Y and
-/// nothing else: nothing in `mlt-core` handles an M ordinate, and its `unstable-v2` feature gates
-/// only the wire version, the float dictionary and ALP rather than a measured geometry. So every
-/// measure is dropped right here, in one place, and this is the single function to change once
-/// `mlt-core` offers a geometry input that can carry one.
-///
-/// A multi-geometry of exactly one part also collapses to its singular form, because MVT's
-/// geometry encoding cannot tell the two apart and the round-trip this path replaces therefore
-/// produces the singular form. Keeping the two paths' output identical is worth more than
-/// preserving a distinction MVT already lost.
+/// [`TileVertex::m`] is dropped, and a single-part multi-geometry collapses to its singular form
+/// the way MVT encodes it.
 fn to_encodable_geometry(geometry: TileGeometry) -> Geometry<i32> {
     match geometry {
         TileGeometry::Point(vertex) => Geometry::Point(Point(to_coord(vertex))),
@@ -315,8 +291,7 @@ mod tests {
                 Coord { x: 0, y: 0 },
                 Coord { x: 1, y: 2 },
                 Coord { x: 3, y: 4 },
-            ])),
-            "mlt-core has no M-capable geometry input yet; this assertion is what breaks when it does"
+            ]))
         );
     }
 

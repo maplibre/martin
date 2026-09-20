@@ -57,6 +57,9 @@ use crate::srv::{
     merge_tilejson,
 };
 
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+mod pg_to_mlt;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
@@ -350,24 +353,20 @@ async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<T
     Ok(src.get_tile_content(xyz).await?.data)
 }
 
-/// Warns once per run that a source fell back off the row-per-feature path.
+/// Latches the once-per-run warning that a source fell back off the row-per-feature path.
 #[cfg(all(feature = "postgres", feature = "mlt"))]
-static UNENCODABLE_COLUMN: std::sync::Once = std::sync::Once::new();
+static UNENCODABLE_COLUMN_WARNED: std::sync::Once = std::sync::Once::new();
 
 /// Encodes the source's own features as MLT, instead of taking an MVT tile apart to do it.
 ///
-/// `None` means this copy is not one of those: any format other than `--format mlt`, more than
-/// one source, a source with no row-per-feature form (a `PostgreSQL` function, or anything that
-/// is not `PostgreSQL` at all), a source configured not to encode MLT, or a column the row path
-/// cannot encode but `ST_AsMVT` can. Every one of those falls back to the ordinary path and
-/// copies exactly the bytes it did before.
+/// `None` when this copy is not eligible, leaving the caller on the ordinary path.
 #[cfg(all(feature = "postgres", feature = "mlt"))]
 async fn copy_as_mlt_directly(
     src: &DynTileSource<'_>,
     xyz: TileCoord,
 ) -> MartinCpResult<Option<TileData>> {
     use crate::config::file::MltConversion;
-    use crate::srv::tiles::process::encode_features_as_mlt;
+    use crate::cp::pg_to_mlt::encode_features_as_mlt;
 
     if src.accepted_format != Some(Format::Mlt) {
         return Ok(None);
@@ -383,7 +382,7 @@ async fn copy_as_mlt_directly(
         Ok(Some(features)) => features,
         Ok(None) => return Ok(None),
         Err(MartinCoreError::PostgresError(unsupported @ UnsupportedPropertyType { .. })) => {
-            UNENCODABLE_COLUMN.call_once(|| {
+            UNENCODABLE_COLUMN_WARNED.call_once(|| {
                 warn!(
                     "Copying {} through MVT instead of encoding MLT from its rows: {unsupported}",
                     source.get_id()
