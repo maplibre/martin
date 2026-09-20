@@ -31,7 +31,7 @@ It will also verify that the `metadata` table/view exists, and that it has the e
 ## Per-tile validation
 
 If the `.mbtiles` file uses [flat_with_hash](mbtiles-schema.md#flat-with-hash)
-or [normalized](mbtiles-schema.md#normalized) schema, the `validate` command will verify that the hash of
+or [hash-based normalized](mbtiles-schema.md#hash-based-normalized-schema) schema, the `validate` command will verify that the hash of
 the `tile_data` column matches the  `tile_hash` or `tile_id` columns (depending on the schema).
 The hash is computed with the file's [hash algorithm](#hash-algorithm).
 
@@ -42,7 +42,8 @@ We also define a new [flat-with-hash](mbtiles-schema.md#flat-with-hash) schema t
 same table, allowing per-tile validation without the multiple table layout.
 
 Per-tile validation is not available for the `flat` schema and will be skipped.
-For the [dedup-id normalized](mbtiles-schema.md#alternative-normalized-schema-dedup-id) schema variant, foreign key integrity is validated instead - every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
+For the [normalized](mbtiles-schema.md#normalized) schema (`tiles_shallow` + `tiles_data`), foreign key integrity is validated instead.
+Every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
 
 ## Aggregate Content Validation
 

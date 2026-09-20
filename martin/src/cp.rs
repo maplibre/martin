@@ -716,8 +716,8 @@ async fn init_schema(
             MbtTypeCli::Flat => MbtType::Flat,
             MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
             MbtTypeCli::Normalized => MbtType::Normalized {
-                hash_view: true,
-                schema: mbtiles::NormalizedSchema::Hash,
+                hash_view: false,
+                schema: mbtiles::NormalizedSchema::DedupId,
             },
             MbtTypeCli::Cache => MbtType::Cache,
         };
