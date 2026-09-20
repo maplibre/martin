@@ -51,22 +51,24 @@ async fn copies_the_only_source_when_none_is_named() {
 }
 
 #[rstest]
-#[case::flat("flat", json!("Flat"))]
-#[case::flat_with_hash("flat-with-hash", json!("FlatWithHash"))]
-#[case::normalized("normalized", json!({"Normalized": {"hash_view": false, "schema": "DedupId"}}))]
+#[case::flat(Some("flat"), json!("Flat"))]
+#[case::flat_with_hash(Some("flat-with-hash"), json!("FlatWithHash"))]
+#[case::normalized(Some("normalized"), json!({"Normalized": {"hash_view": false, "schema": "DedupId"}}))]
+#[case::default(None, json!({"Normalized": {"hash_view": false, "schema": "DedupId"}}))]
 #[tokio::test]
-async fn writes_the_requested_schema(#[case] mbtiles_type: &str, #[case] expected: Value) {
+async fn writes_the_requested_schema(#[case] mbtiles_type: Option<&str>, #[case] expected: Value) {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let output = dir.path().join("out.mbtiles");
 
-    MartinCp::new()
+    let mut cp = MartinCp::new()
         .arg(&source)
         .arg("--output-file")
-        .arg(&output)
-        .arg("--mbtiles-type")
-        .arg(mbtiles_type)
-        .arg("--min-zoom")
+        .arg(&output);
+    if let Some(mbtiles_type) = mbtiles_type {
+        cp = cp.arg("--mbtiles-type").arg(mbtiles_type);
+    }
+    cp.arg("--min-zoom")
         .arg("0")
         .arg("--max-zoom")
         .arg("1")

@@ -1267,6 +1267,14 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn copy_dedup_id_tables() {
+        let src = PathBuf::from("file:src_dedup_id_tables_mem_db?mode=memory&cache=shared");
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let dst = PathBuf::from("file:copy_dedup_id_tables_mem_db?mode=memory&cache=shared");
+        verify_copy_all(src, script, dst, None, DEDUP_ID).await;
+    }
+
+    #[actix_rt::test]
     async fn copy_normalized_from_flat_tables() {
         let src = PathBuf::from("file:src_norm_from_flat_tables_mem_db?mode=memory&cache=shared");
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
