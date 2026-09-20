@@ -331,7 +331,8 @@ impl Mbtiles {
     /// Validate the integrity of the mbtiles file by:
     /// - sqlite internal integrity check
     /// - tiles' table has the expected column, row, zoom, and data values
-    /// - each tile has the correct hash stored
+    /// - each tile has the correct hash stored, for schemas that store one
+    /// - each `map` or `tiles_shallow` row refers to an existing `images` or `tiles_data` row
     ///
     /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
     #[hotpath::measure]
@@ -944,9 +945,13 @@ LIMIT 1;"
                             computed: row.get(1),
                         });
                     }
+                    info!(mbtiles.file = %self, "All tile hashes are valid");
+                } else {
+                    info!(
+                        mbtiles.file = %self,
+                        "All tile references are valid, this normalized file stores no per-tile hashes"
+                    );
                 }
-
-                info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
             MbtType::Cache => {
