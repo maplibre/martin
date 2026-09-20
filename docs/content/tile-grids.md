@@ -39,7 +39,7 @@ Columns (`x`) count from the left edge to the right, rows (`y`) from the top edg
 
 ## Built-in grids
 
-The quad grids of the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html) registry are built in.
+These grids from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html) registry are built in.
 A source refers to one by name, without defining it.
 
 | name                      | CRS         | zoom 0 | covers                                                                             |
