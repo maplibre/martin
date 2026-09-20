@@ -1618,16 +1618,16 @@ Unstable sources such as duckdb or cog are not included.</p>
 </span><span id="__span-0-551"><a id="__codelineno-0-551" name="__codelineno-0-551" href="#__codelineno-0-551"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </span><span id="__span-0-552"><a id="__codelineno-0-552" name="__codelineno-0-552" href="#__codelineno-0-552"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
 </span><span id="__span-0-553"><a id="__codelineno-0-553" name="__codelineno-0-553" href="#__codelineno-0-553"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-0-554"><a id="__codelineno-0-554" name="__codelineno-0-554" href="#__codelineno-0-554"></a><span class="c1"># Tile grids sources can be served in, besides the built-in `WebMercatorQuad`</span>
+</span><span id="__span-0-554"><a id="__codelineno-0-554" name="__codelineno-0-554" href="#__codelineno-0-554"></a><span class="c1"># Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`</span>
 </span><span id="__span-0-555"><a id="__codelineno-0-555" name="__codelineno-0-555" href="#__codelineno-0-555"></a><span class="c1">#</span>
 </span><span id="__span-0-556"><a id="__codelineno-0-556" name="__codelineno-0-556" href="#__codelineno-0-556"></a><span class="c1"># A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.</span>
 </span><span id="__span-0-557"><a id="__codelineno-0-557" name="__codelineno-0-557" href="#__codelineno-0-557"></a><span class="c1"># Sources refer to a grid by its name here.</span>
 </span><span id="__span-0-558"><a id="__codelineno-0-558" name="__codelineno-0-558" href="#__codelineno-0-558"></a><span class="c1"># ```yaml</span>
 </span><span id="__span-0-559"><a id="__codelineno-0-559" name="__codelineno-0-559" href="#__codelineno-0-559"></a><span class="c1"># tile_grids:</span>
-</span><span id="__span-0-560"><a id="__codelineno-0-560" name="__codelineno-0-560" href="#__codelineno-0-560"></a><span class="c1">#   NZTM2000Quad:</span>
-</span><span id="__span-0-561"><a id="__codelineno-0-561" name="__codelineno-0-561" href="#__codelineno-0-561"></a><span class="c1">#     crs: EPSG:2193</span>
-</span><span id="__span-0-562"><a id="__codelineno-0-562" name="__codelineno-0-562" href="#__codelineno-0-562"></a><span class="c1">#     origin: [-3260586.7284, 10438190.1652]</span>
-</span><span id="__span-0-563"><a id="__codelineno-0-563" name="__codelineno-0-563" href="#__codelineno-0-563"></a><span class="c1">#     extent_at_zoom0: 10018754.1714</span>
+</span><span id="__span-0-560"><a id="__codelineno-0-560" name="__codelineno-0-560" href="#__codelineno-0-560"></a><span class="c1">#   DutchRD:</span>
+</span><span id="__span-0-561"><a id="__codelineno-0-561" name="__codelineno-0-561" href="#__codelineno-0-561"></a><span class="c1">#     crs: EPSG:28992</span>
+</span><span id="__span-0-562"><a id="__codelineno-0-562" name="__codelineno-0-562" href="#__codelineno-0-562"></a><span class="c1">#     origin: [-285401.92, 903401.92]</span>
+</span><span id="__span-0-563"><a id="__codelineno-0-563" name="__codelineno-0-563" href="#__codelineno-0-563"></a><span class="c1">#     extent_at_zoom0: 880803.84</span>
 </span><span id="__span-0-564"><a id="__codelineno-0-564" name="__codelineno-0-564" href="#__codelineno-0-564"></a><span class="c1"># ```</span>
 </span><span id="__span-0-565"><a id="__codelineno-0-565" name="__codelineno-0-565" href="#__codelineno-0-565"></a><span class="nt">tile_grids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 </span><span id="__span-0-566"><a id="__codelineno-0-566" name="__codelineno-0-566" href="#__codelineno-0-566"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
