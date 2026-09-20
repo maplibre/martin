@@ -227,6 +227,11 @@ pub enum MbtError {
     #[cfg(feature = "transcode")]
     #[error("Transcoding error: {0}")]
     TranscodeError(String),
+
+    #[error(
+        "Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first"
+    )]
+    CannotTranscodeNormalizedToDedupId,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

@@ -185,6 +185,25 @@ impl NormalizedSchema {
         }
     }
 
+    /// SQL creating `temp.tile_ids`, the hash to id map of the `tiles_data` blobs that a writer keeps while its connection lives
+    pub(crate) fn create_tile_ids_sql(algorithm: HashAlgorithm) -> String {
+        let hash = algorithm.sql_hash("tile_data");
+        format!(
+            "
+    CREATE TEMP TABLE IF NOT EXISTS tile_ids (tile_data_id INTEGER PRIMARY KEY, tile_hash UNIQUE);
+
+    INSERT OR IGNORE INTO tile_ids (tile_data_id, tile_hash)
+    SELECT tile_data_id, {hash}
+    FROM tiles_data
+    WHERE NOT EXISTS (SELECT 1 FROM tile_ids);
+
+    -- A blob stored twice keeps only its first id above, so the highest id in use is added
+    -- for new ids to continue after it
+    INSERT OR IGNORE INTO tile_ids (tile_data_id)
+    SELECT tile_data_id FROM tiles_data ORDER BY tile_data_id DESC LIMIT 1;"
+        )
+    }
+
     /// Build a `SELECT zoom_level, tile_column, tile_row, tile_data, <id> AS <alias>`
     /// subquery joining the map and images tables for the given database prefix.
     /// Use `join_type` to control `JOIN` vs `LEFT JOIN`.

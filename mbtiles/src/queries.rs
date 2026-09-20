@@ -6,8 +6,9 @@ use tracing::debug;
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
 use crate::{
-    MbtType, create_cache_tables, create_flat_tables, create_flat_with_hash_tables,
-    create_normalized_tables, create_tiles_with_hash_view,
+    MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables,
+    create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
+    create_tiles_with_hash_view,
 };
 
 /// Returns true if the database is empty (no tables/indexes/...)
@@ -91,13 +92,20 @@ where
     match mbt_type {
         MbtType::Flat => create_flat_tables(&mut *conn, strict).await,
         MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn, strict).await,
-        MbtType::Normalized { hash_view, .. } => {
+        MbtType::Normalized {
+            hash_view,
+            schema: NormalizedSchema::Hash,
+        } => {
             create_normalized_tables(&mut *conn, strict).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
             Ok(())
         }
+        MbtType::Normalized {
+            schema: NormalizedSchema::DedupId,
+            ..
+        } => create_dedup_id_normalized_tables(&mut *conn, strict).await,
         MbtType::Cache => create_cache_tables(&mut *conn, strict).await,
     }
 }
