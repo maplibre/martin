@@ -42,7 +42,8 @@ We also define a new [flat-with-hash](mbtiles-schema.md#flat-with-hash) schema t
 same table, allowing per-tile validation without the multiple table layout.
 
 Per-tile validation is not available for the `flat` schema and will be skipped.
-For the [normalized](mbtiles-schema.md#normalized) schema, foreign key integrity is validated instead - every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
+For the [normalized](mbtiles-schema.md#normalized) schema (`tiles_shallow` + `tiles_data`), foreign key integrity is validated instead.
+Every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
 
 ## Aggregate Content Validation
 
