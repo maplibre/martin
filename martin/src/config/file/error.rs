@@ -120,7 +120,9 @@ pub enum ConfigFileError {
     RendererPoolSpawnFailed(#[source] std::io::Error),
 
     #[cfg(feature = "_tiles")]
-    #[error("Tile grid {0} would redefine the built-in grid of that name, pick another name")]
+    #[error(
+        "Tile grid {0} is built in, refer to it by name without defining it, or pick another name"
+    )]
     TileGridRedefinesBuiltIn(String),
 
     #[cfg(feature = "_tiles")]
@@ -415,7 +417,11 @@ impl Diagnostic for ConfigFileError {
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
             #[cfg(feature = "_tiles")]
-            Self::TileGridRedefinesBuiltIn(_) | Self::InvalidTileGrid(_) => {
+            Self::TileGridRedefinesBuiltIn(_) => {
+                "A `tile_grid` can name a built-in grid without an entry under `tile_grids`. Rename the entry if it is a different grid."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::InvalidTileGrid(_) => {
                 "Check the `tile_grids` block: each grid needs a `crs` like `EPSG:2193`, an `origin` `[x, y]` and a positive `extent_at_zoom0`, all in CRS units."
             }
             #[cfg(feature = "_tiles")]

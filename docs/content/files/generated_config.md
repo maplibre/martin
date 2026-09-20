@@ -562,16 +562,16 @@ styles:
   paths: []
   # A map of source IDs to file paths or config objects
   sources: {}
-# Tile grids sources can be served in, besides the built-in `WebMercatorQuad`
+# Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
 #
 # A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
 # Sources refer to a grid by its name here.
 # ```yaml
 # tile_grids:
-#   NZTM2000Quad:
-#     crs: EPSG:2193
-#     origin: [-3260586.7284, 10438190.1652]
-#     extent_at_zoom0: 10018754.1714
+#   DutchRD:
+#     crs: EPSG:28992
+#     origin: [-285401.92, 903401.92]
+#     extent_at_zoom0: 880803.84
 # ```
 tile_grids: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)

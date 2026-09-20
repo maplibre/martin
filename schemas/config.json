@@ -1902,7 +1902,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/TileGridConfig"
       },
-      "description": "Tile grids sources can be served in, besides the built-in `WebMercatorQuad`\n\nA grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.\nSources refer to a grid by its name here.\n```yaml\ntile_grids:\n  NZTM2000Quad:\n    crs: EPSG:2193\n    origin: [-3260586.7284, 10438190.1652]\n    extent_at_zoom0: 10018754.1714\n```",
+      "description": "Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`\n\nA grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.\nSources refer to a grid by its name here.\n```yaml\ntile_grids:\n  DutchRD:\n    crs: EPSG:28992\n    origin: [-285401.92, 903401.92]\n    extent_at_zoom0: 880803.84\n```",
       "type": "object"
     },
     "tilejson_url_version_param": {

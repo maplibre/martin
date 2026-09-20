@@ -2,9 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use martin_tile_utils::{
-    TileGrid, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID,
-};
+use martin_tile_utils::{BUILT_IN_GRIDS, TileGrid, WGS1984_QUAD_ID, WORLD_CRS84_QUAD};
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::file_config::declared_tile_grid;
@@ -53,22 +51,24 @@ pub struct TileGridConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-/// Every grid a source can be served in, the built-in [`WEB_MERCATOR_QUAD`] and [`WORLD_CRS84_QUAD`] plus the configured ones.
+/// Every grid a source can be served in, the [`BUILT_IN_GRIDS`] plus the configured ones.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TileGrids(HashMap<String, TileGrid>);
 
 impl Default for TileGrids {
-    /// Just the built-in grids.
+    /// Just the built-in grids, [`WORLD_CRS84_QUAD`] also under its registry name [`WGS1984_QUAD_ID`].
     fn default() -> Self {
-        Self(HashMap::from([
-            (WEB_MERCATOR_QUAD_ID.to_owned(), WEB_MERCATOR_QUAD),
-            (WORLD_CRS84_QUAD_ID.to_owned(), WORLD_CRS84_QUAD),
-        ]))
+        let mut grids: HashMap<_, _> = BUILT_IN_GRIDS
+            .into_iter()
+            .map(|grid| (grid.id().to_owned(), grid))
+            .collect();
+        grids.insert(WGS1984_QUAD_ID.to_owned(), WORLD_CRS84_QUAD);
+        Self(grids)
     }
 }
 
 impl TileGrids {
-    /// Validates the configured grids and adds the built-in [`WEB_MERCATOR_QUAD`].
+    /// Validates the configured grids and adds the [`BUILT_IN_GRIDS`].
     pub fn resolve(config: &TileGridsConfig) -> ConfigFileResult<Self> {
         let mut grids = Self::default();
         for (name, cfg) in config {
@@ -122,16 +122,19 @@ impl TileGrids {
 
 #[cfg(test)]
 mod tests {
+    use martin_tile_utils::WEB_MERCATOR_QUAD_ID;
+    use rstest::rstest;
+
     use super::*;
     use crate::config::file::UnrecognizedKeys;
 
-    fn nztm() -> TileGridsConfig {
+    fn dutch_rd() -> TileGridsConfig {
         serde_saphyr::from_str(
             "
-NZTM2000Quad:
-  crs: EPSG:2193
-  origin: [-3260586.7284, 10438190.1652]
-  extent_at_zoom0: 10018754.1714
+DutchRD:
+  crs: EPSG:28992
+  origin: [-285401.92, 903401.92]
+  extent_at_zoom0: 880803.84
 ",
         )
         .unwrap()
@@ -141,13 +144,23 @@ NZTM2000Quad:
     fn the_built_in_grids_are_always_there() {
         let grids = TileGrids::resolve(&TileGridsConfig::new()).unwrap();
         assert!(grids.get(WEB_MERCATOR_QUAD_ID).unwrap().is_web_mercator());
+        assert_eq!(grids.get("NZTM2000Quad").unwrap().crs(), "EPSG:2193");
         assert_eq!(
-            grids.get(WORLD_CRS84_QUAD_ID).unwrap().matrix_at_zoom0(),
-            [2, 1]
+            grids.get(WGS1984_QUAD_ID).unwrap(),
+            grids.get("WorldCRS84Quad").unwrap()
         );
         assert_eq!(
             grids.names(),
-            vec![WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD_ID]
+            vec![
+                "EuropeanETRS89_LAEAQuad",
+                "NZTM2000Quad",
+                "UPSAntarcticWGS84Quad",
+                "UPSArcticWGS84Quad",
+                "WGS1984Quad",
+                "WebMercatorQuad",
+                "WorldCRS84Quad",
+                "WorldMercatorWGS84Quad",
+            ]
         );
         assert_eq!(grids, TileGrids::default());
     }
@@ -173,39 +186,58 @@ MarsGeographic:
 
     #[test]
     fn configured_grids_resolve_by_name() {
-        let grids = TileGrids::resolve(&nztm()).unwrap();
-        let grid = grids.get("NZTM2000Quad").unwrap();
-        assert_eq!(grid.crs(), "EPSG:2193");
+        let grids = TileGrids::resolve(&dutch_rd()).unwrap();
+        let grid = grids.get("DutchRD").unwrap();
+        assert_eq!(grid.crs(), "EPSG:28992");
         assert_eq!(
             grid.origin().map(f64::to_bits),
-            [-3_260_586.728_4_f64, 10_438_190.165_2_f64].map(f64::to_bits)
+            [-285_401.92_f64, 903_401.92_f64].map(f64::to_bits)
         );
         assert_eq!(
             grids.names(),
-            vec!["NZTM2000Quad", WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD_ID]
+            vec![
+                "DutchRD",
+                "EuropeanETRS89_LAEAQuad",
+                "NZTM2000Quad",
+                "UPSAntarcticWGS84Quad",
+                "UPSArcticWGS84Quad",
+                "WGS1984Quad",
+                "WebMercatorQuad",
+                "WorldCRS84Quad",
+                "WorldMercatorWGS84Quad",
+            ]
         );
         assert!(grids.get("nope").is_none());
     }
 
-    #[test]
-    fn the_built_in_name_cannot_be_redefined() {
-        let mut config = nztm();
-        let grid = config.remove("NZTM2000Quad").unwrap();
-        config.insert(WEB_MERCATOR_QUAD_ID.to_owned(), grid);
+    #[rstest]
+    #[case(WEB_MERCATOR_QUAD_ID)]
+    #[case("NZTM2000Quad")]
+    #[case(WGS1984_QUAD_ID)]
+    fn a_built_in_name_cannot_be_defined_again(#[case] name: &str) {
+        let mut config = dutch_rd();
+        let grid = config.remove("DutchRD").unwrap();
+        config.insert(name.to_owned(), grid);
         let err = TileGrids::resolve(&config).unwrap_err();
         assert!(
-            matches!(err, ConfigFileError::TileGridRedefinesBuiltIn(name) if name == WEB_MERCATOR_QUAD_ID)
+            matches!(&err, ConfigFileError::TileGridRedefinesBuiltIn(built_in) if built_in == name)
+        );
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "Tile grid {name} is built in, refer to it by name without defining it, or pick another name"
+            )
         );
     }
 
     #[test]
     fn a_bad_grid_is_rejected_with_its_name() {
-        let mut config = nztm();
-        config.get_mut("NZTM2000Quad").unwrap().extent_at_zoom0 = 0.0;
+        let mut config = dutch_rd();
+        config.get_mut("DutchRD").unwrap().extent_at_zoom0 = 0.0;
         let err = TileGrids::resolve(&config).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "tile grid NZTM2000Quad: extent_at_zoom0 must be a positive finite number, got 0"
+            "tile grid DutchRD: extent_at_zoom0 must be a positive finite number, got 0"
         );
     }
 

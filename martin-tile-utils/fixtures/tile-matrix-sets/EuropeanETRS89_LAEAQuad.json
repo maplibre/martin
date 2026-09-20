@@ -1,0 +1,169 @@
+{
+  "crs": "http://www.opengis.net/def/crs/EPSG/0/3035",
+  "id": "EuropeanETRS89_LAEAQuad",
+  "orderedAxes": ["Y", "X"],
+  "tileMatrices": [
+    {
+      "cellSize": 17578.125,
+      "id": "0",
+      "matrixHeight": 1,
+      "matrixWidth": 1,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 62779017.8571428,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 8789.0625,
+      "id": "1",
+      "matrixHeight": 2,
+      "matrixWidth": 2,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 31389508.9285714,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 4394.53125,
+      "id": "2",
+      "matrixHeight": 4,
+      "matrixWidth": 4,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 15694754.4642857,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 2197.265625,
+      "id": "3",
+      "matrixHeight": 8,
+      "matrixWidth": 8,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 7847377.23214285,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1098.6328125,
+      "id": "4",
+      "matrixHeight": 16,
+      "matrixWidth": 16,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 3923688.61607142,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 549.31640625,
+      "id": "5",
+      "matrixHeight": 32,
+      "matrixWidth": 32,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 1961844.30803571,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 274.658203125,
+      "id": "6",
+      "matrixHeight": 64,
+      "matrixWidth": 64,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 980922.154017857,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 137.3291015625,
+      "id": "7",
+      "matrixHeight": 128,
+      "matrixWidth": 128,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 490461.077008928,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 68.6645507812,
+      "id": "8",
+      "matrixHeight": 256,
+      "matrixWidth": 256,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 245230.538504464,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 34.3322753906,
+      "id": "9",
+      "matrixHeight": 512,
+      "matrixWidth": 512,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 122615.269252232,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 17.1661376953,
+      "id": "10",
+      "matrixHeight": 1024,
+      "matrixWidth": 1024,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 61307.634626116,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 8.5830688477,
+      "id": "11",
+      "matrixHeight": 2048,
+      "matrixWidth": 2048,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 30653.817313058,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 4.2915344238,
+      "id": "12",
+      "matrixHeight": 4096,
+      "matrixWidth": 4096,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 15326.908656529,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 2.1457672119,
+      "id": "13",
+      "matrixHeight": 8192,
+      "matrixWidth": 8192,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 7663.45432826451,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1.072883606,
+      "id": "14",
+      "matrixHeight": 16384,
+      "matrixWidth": 16384,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 3831.72716413225,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.536441803,
+      "id": "15",
+      "matrixHeight": 32768,
+      "matrixWidth": 32768,
+      "pointOfOrigin": [5500000.0, 2000000.0],
+      "scaleDenominator": 1915.86358206612,
+      "tileHeight": 256,
+      "tileWidth": 256
+    }
+  ],
+  "title": "Lambert Azimuthal Equal Area ETRS89 for Europe",
+  "uri": "http://www.opengis.net/def/tilematrixset/OGC/1.0/EuropeanETRS89_LAEAQuad"
+}

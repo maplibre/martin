@@ -356,11 +356,6 @@ async fn copies_a_source_on_another_tile_grid() {
     fs::write(
         &config,
         "
-tile_grids:
-  NZTM2000Quad:
-    crs: EPSG:2193
-    origin: [-3260586.7284, 10438190.1652]
-    extent_at_zoom0: 10018754.1714
 postgres:
   connection_string: ${DATABASE_URL}
   pool_size: 1
@@ -398,6 +393,6 @@ postgres:
     let summary = summary(&output).run_json().await;
     insta::assert_json_snapshot!("nztm2000quad_copy_summary", summary, {".file_size" => "[size]", ".file_path" => "[path]"});
     let metadata = metadata(&output).await;
-    insta::assert_snapshot!(metadata["tileGrid"], @r#"{"id":"NZTM2000Quad","crs":"EPSG:2193","origin":[-3260586.7284,10438190.1652],"extentAtZoom0":10018754.1714}"#);
+    insta::assert_snapshot!(metadata["tileGrid"], @r#"{"id":"NZTM2000Quad","crs":"EPSG:2193","origin":[-3260586.7284,10438190.1652],"extentAtZoom0":10018754.171394626}"#);
     validate(&output).await;
 }

@@ -1,0 +1,259 @@
+{
+  "crs": "http://www.opengis.net/def/crs/EPSG/0/5042",
+  "id": "UPSAntarcticWGS84Quad",
+  "orderedAxes": ["E", "N"],
+  "tileMatrices": [
+    {
+      "cellSize": 128443.4324,
+      "id": "0",
+      "matrixHeight": 1,
+      "matrixWidth": 1,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 458726544.4,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 64221.71621,
+      "id": "1",
+      "matrixHeight": 2,
+      "matrixWidth": 2,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 229363272.2,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 32110.85811,
+      "id": "2",
+      "matrixHeight": 4,
+      "matrixWidth": 4,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 114681636.1,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 16055.42905,
+      "id": "3",
+      "matrixHeight": 8,
+      "matrixWidth": 8,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 57340818.05,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 8027.714526,
+      "id": "4",
+      "matrixHeight": 16,
+      "matrixWidth": 16,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 28670409.02,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 4013.857263,
+      "id": "5",
+      "matrixHeight": 32,
+      "matrixWidth": 32,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 14335204.51,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 2006.928632,
+      "id": "6",
+      "matrixHeight": 64,
+      "matrixWidth": 64,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 7167602.256,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1003.464316,
+      "id": "7",
+      "matrixHeight": 128,
+      "matrixWidth": 128,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 3583801.128,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 501.7321579,
+      "id": "8",
+      "matrixHeight": 256,
+      "matrixWidth": 256,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 1791900.564,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 250.866079,
+      "id": "9",
+      "matrixHeight": 512,
+      "matrixWidth": 512,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 895950.282,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 125.4330395,
+      "id": "10",
+      "matrixHeight": 1024,
+      "matrixWidth": 1024,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 447975.141,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 62.71651974,
+      "id": "11",
+      "matrixHeight": 2048,
+      "matrixWidth": 2048,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 223987.5705,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 31.35825987,
+      "id": "12",
+      "matrixHeight": 4096,
+      "matrixWidth": 4096,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 111993.7852,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 15.67912993,
+      "id": "13",
+      "matrixHeight": 8192,
+      "matrixWidth": 8192,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 55996.89262,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 7.839564967,
+      "id": "14",
+      "matrixHeight": 16384,
+      "matrixWidth": 16384,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 27998.44631,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 3.919782484,
+      "id": "15",
+      "matrixHeight": 32768,
+      "matrixWidth": 32768,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 13999.22316,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1.959891242,
+      "id": "16",
+      "matrixHeight": 65536,
+      "matrixWidth": 65536,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 6999.611578,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.979945621,
+      "id": "17",
+      "matrixHeight": 131072,
+      "matrixWidth": 131072,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 3499.805789,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.48997281,
+      "id": "18",
+      "matrixHeight": 262144,
+      "matrixWidth": 262144,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 1749.902894,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.244986405,
+      "id": "19",
+      "matrixHeight": 524288,
+      "matrixWidth": 524288,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 874.9514472,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.122493203,
+      "id": "20",
+      "matrixHeight": 1048576,
+      "matrixWidth": 1048576,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 437.4757236,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.061246601,
+      "id": "21",
+      "matrixHeight": 2097152,
+      "matrixWidth": 2097152,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 218.7378618,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.030623301,
+      "id": "22",
+      "matrixHeight": 4194304,
+      "matrixWidth": 4194304,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 109.3689309,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.01531165,
+      "id": "23",
+      "matrixHeight": 8388608,
+      "matrixWidth": 8388608,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 54.68446545,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.007655825,
+      "id": "24",
+      "matrixHeight": 16777216,
+      "matrixWidth": 16777216,
+      "pointOfOrigin": [-14440759.350252, 18440759.350252],
+      "scaleDenominator": 27.34223273,
+      "tileHeight": 256,
+      "tileWidth": 256
+    }
+  ],
+  "title": "Universal Polar Stereographic WGS 84 Quad for Antarctic",
+  "uri": "http://www.opengis.net/def/tilematrixset/OGC/1.0/UPSAntarcticWGS84Quad"
+}
