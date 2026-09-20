@@ -6,7 +6,7 @@ agg_tiles_hash = 15656144834BBFD138CBA54CBB646259
 bounds = -180,-90,180,90
 description = An array column, which the row-per-feature MLT path cannot encode
 format = mlt
-generator = martin cp v1.16.1
+generator = martin cp v0.0.0
 hash_algorithm = md5
 json = {
   "vector_layers": [

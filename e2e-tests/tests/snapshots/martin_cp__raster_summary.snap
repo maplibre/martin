@@ -16,8 +16,8 @@ expression: summary
   "max_zoom": 2,
   "mbt_type": {
     "Normalized": {
-      "hash_view": true,
-      "schema": "Hash"
+      "hash_view": false,
+      "schema": "DedupId"
     }
   },
   "min_tile_size": 9,

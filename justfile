@@ -645,6 +645,11 @@ test-duckdb: fetch (cargo-install 'cargo-nextest')
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     cargo nextest run --package martin-e2e-tests --features test-duckdb --test duckdb
 
+# Run the tests for the experimental MLT v2 wire format
+test-mlt-v2: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run -p martin --features unstable-mlt-v2 --lib
+    cargo build --package martin --features unstable-mlt-v2
+
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
 [linux]
 test-rendering *args: fetch (cargo-install 'cargo-nextest')

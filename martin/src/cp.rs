@@ -25,7 +25,7 @@ use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::ActiveQueryRegistry;
 #[cfg(all(feature = "postgres", feature = "mlt"))]
-use martin_core::tiles::postgres::PostgresError::UnsupportedPropertyType;
+use martin_core::tiles::postgres::PostgresError::{BadTileGeometry, UnsupportedPropertyType};
 use martin_tile_utils::{
     Format, TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
 };
@@ -35,7 +35,6 @@ use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
     is_empty_database,
 };
-use strum::IntoEnumIterator as _;
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::task::JoinHandle;
@@ -108,12 +107,13 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Tile format to request from the source, e.g. `mvt` or `mlt`.
+    /// Tile format to request from the source.
     ///
-    /// If a source has `convert_to_{mlt,mvt}` set, produce this format otherwise error.
+    /// A vector source converts between MVT and MLT unless `convert_to_{mlt,mvt}` turns
+    /// that off, and a source that can neither produce nor convert to this format fails the copy.
     /// Defaults to what the source produces.
-    #[arg(long, value_name = "FORMAT")]
-    pub format: Option<String>,
+    #[arg(long, value_name = "FORMAT", value_enum)]
+    pub format: Option<CopyFormat>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
@@ -147,6 +147,44 @@ pub struct CopyArgs {
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
+}
+
+/// Vector tile format `martin cp` requests from the source.
+///
+/// MLT v1 and v2 are the same `Format::Mlt` on the wire envelope, differing only in the
+/// layer tag and the codecs behind it, so the version is an encoder setting rather than a
+/// format of its own.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum CopyFormat {
+    /// Mapbox Vector Tile.
+    #[value(alias = "pbf")]
+    Mvt,
+    /// `MapLibre` Tile, v1 wire format.
+    #[value(name = "mltv1", aliases = ["mlt1"])]
+    MltV1,
+    /// `MapLibre` Tile, v2 wire format.
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[value(name = "mltv2", alias = "mlt2")]
+    MltV2,
+}
+
+impl CopyFormat {
+    /// Requests exactly this format, so a source that cannot produce it fails the copy.
+    fn accepted(self) -> AcceptedFormats {
+        AcceptedFormats {
+            preferred: vec![match self {
+                Self::Mvt => Format::Mvt,
+                #[cfg(feature = "unstable-mlt-v2")]
+                Self::MltV1 | Self::MltV2 => Format::Mlt,
+                #[cfg(not(feature = "unstable-mlt-v2"))]
+                Self::MltV1 => Format::Mlt,
+            }],
+            allow_any: false,
+        }
+    }
 }
 
 impl Default for CopyArgs {
@@ -337,11 +375,6 @@ pub enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
-    #[error(
-        "Unable to parse format argument '{format}'. Supported formats: {}",
-        supported_formats()
-    )]
-    UnknownFormat { format: String },
 }
 
 /// The tile bytes to copy, taken from the cheapest path the source offers.
@@ -355,7 +388,7 @@ async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<T
 
 /// Latches the once-per-run warning that a source fell back off the row-per-feature path.
 #[cfg(all(feature = "postgres", feature = "mlt"))]
-static UNENCODABLE_COLUMN_WARNED: std::sync::Once = std::sync::Once::new();
+static UNENCODABLE_FEATURE_WARNED: std::sync::Once = std::sync::Once::new();
 
 /// Encodes the source's own features as MLT, instead of taking an MVT tile apart to do it.
 ///
@@ -381,10 +414,12 @@ async fn copy_as_mlt_directly(
     let features = match source.get_tile_features(xyz, url_query).await {
         Ok(Some(features)) => features,
         Ok(None) => return Ok(None),
-        Err(MartinCoreError::PostgresError(unsupported @ UnsupportedPropertyType { .. })) => {
-            UNENCODABLE_COLUMN_WARNED.call_once(|| {
+        Err(MartinCoreError::PostgresError(
+            reason @ (UnsupportedPropertyType { .. } | BadTileGeometry(_)),
+        )) => {
+            UNENCODABLE_FEATURE_WARNED.call_once(|| {
                 warn!(
-                    "Copying {} through MVT instead of encoding MLT from its rows: {unsupported}",
+                    "Copying {} through MVT instead of encoding MLT from its rows: {reason}",
                     source.get_id()
                 );
             });
@@ -647,22 +682,25 @@ where
         );
     }
     let source_id = check_sources(&args, &state)?;
-    let src = DynTileSource::new(
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(unused_mut, reason = "only the wire-version override needs it mutable")
+    )]
+    let mut src = DynTileSource::new(
         &state.tile_manager,
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         TileRequestHeaders {
             accept_enc: Some(parse_encoding(args.encoding.as_str())?),
-            accepted_formats: args
-                .format
-                .as_deref()
-                .map(parse_format)
-                .transpose()?
-                .unwrap_or_default(),
+            accepted_formats: args.format.map(CopyFormat::accepted).unwrap_or_default(),
             ..Default::default()
         },
     )?;
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let Some(format) = args.format {
+        pin_mlt_wire_version(&mut src, format);
+    }
 
     // Track in-flight postgres queries so ctrl+c can abort them.
     #[cfg(feature = "postgres")]
@@ -791,22 +829,23 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
     Ok(AcceptEncoding::parse(&req)?)
 }
 
-fn supported_formats() -> String {
-    Format::iter()
-        .map(|format| format.to_string())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
+/// Pins the MLT wire version every source encodes to, so `--format mltv2` is not silently v1.
+#[cfg(feature = "unstable-mlt-v2")]
+fn pin_mlt_wire_version(src: &mut DynTileSource<'_>, format: CopyFormat) {
+    use mlt_core::encoder::WireVersion;
 
-/// Requests exactly `format`, so a source that cannot produce it fails the copy.
-fn parse_format(format: &str) -> MartinCpResult<AcceptedFormats> {
-    let format = Format::parse(format).ok_or_else(|| MartinCpError::UnknownFormat {
-        format: format.to_owned(),
-    })?;
-    Ok(AcceptedFormats {
-        preferred: vec![format],
-        allow_any: false,
-    })
+    use crate::config::file::MltConversion;
+
+    let wire = match format {
+        CopyFormat::Mvt => return,
+        CopyFormat::MltV1 => WireVersion::V01,
+        CopyFormat::MltV2 => WireVersion::V02,
+    };
+    for (_, process) in &mut src.sources {
+        if let MltConversion::Encode(cfg) = &mut process.mlt {
+            *cfg = cfg.with_wire_version(wire);
+        }
+    }
 }
 
 async fn init_schema(
@@ -872,7 +911,6 @@ impl MartinCpError {
             | Self::NoSources
             | Self::MultipleSources(_)
             | Self::InvalidBoundingBox(..)
-            | Self::UnknownFormat { .. }
             | Self::Args(_)
             | Self::Mbtiles(_)) => format!("{other}"),
         }
@@ -1053,27 +1091,84 @@ mod tests {
     }
 
     #[rstest]
-    #[case("mlt", Format::Mlt)]
-    #[case("mvt", Format::Mvt)]
-    #[case("pbf", Format::Mvt)]
-    #[case("PNG", Format::Png)]
-    fn test_parse_format(#[case] input: &str, #[case] expected: Format) {
+    #[case("mvt", CopyFormat::Mvt)]
+    #[case("pbf", CopyFormat::Mvt)]
+    #[case("mlt", CopyFormat::MltV1)]
+    #[case("mlt1", CopyFormat::MltV1)]
+    #[case("mltv1", CopyFormat::MltV1)]
+    #[cfg_attr(feature = "unstable-mlt-v2", case("mlt2", CopyFormat::MltV2))]
+    #[cfg_attr(feature = "unstable-mlt-v2", case("mltv2", CopyFormat::MltV2))]
+    fn test_parse_format(#[case] input: &str, #[case] expected: CopyFormat) {
+        use clap::Parser as _;
+
+        #[derive(clap::Parser)]
+        struct Cli {
+            #[arg(long, value_enum)]
+            format: CopyFormat,
+        }
+
+        assert_eq!(Cli::parse_from(["cp", "--format", input]).format, expected);
+    }
+
+    #[rstest]
+    #[case("png")]
+    #[case("jpeg")]
+    #[case("geojson")]
+    #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mlt2"))]
+    #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mltv2"))]
+    fn parse_format_rejects_non_vector(#[case] input: &str) {
+        use clap::Parser as _;
+
+        #[derive(clap::Parser)]
+        struct Cli {
+            #[arg(long, value_enum)]
+            format: CopyFormat,
+        }
+
+        assert!(Cli::try_parse_from(["cp", "--format", input]).is_err());
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[rstest]
+    #[case(CopyFormat::MltV1, mlt_core::encoder::WireVersion::V01)]
+    #[case(CopyFormat::MltV2, mlt_core::encoder::WireVersion::V02)]
+    fn pins_the_wire_version_on_every_source(
+        #[case] format: CopyFormat,
+        #[case] expected: mlt_core::encoder::WireVersion,
+    ) {
+        use crate::config::file::MltConversion;
+
+        let state = test_state(vec![vec![TestSource::empty("test_source").boxed()]]);
+        let mut src = DynTileSource::new(
+            &state.tile_manager,
+            "test_source",
+            None,
+            "",
+            TileRequestHeaders::default(),
+        )
+        .unwrap();
+
+        pin_mlt_wire_version(&mut src, format);
+
+        for (_, process) in &src.sources {
+            let MltConversion::Encode(cfg) = process.mlt else {
+                panic!("the test source stopped encoding MLT");
+            };
+            assert_eq!(cfg.wire_version(), expected);
+        }
+    }
+
+    #[rstest]
+    #[case(CopyFormat::Mvt, Format::Mvt)]
+    #[case(CopyFormat::MltV1, Format::Mlt)]
+    #[cfg_attr(feature = "unstable-mlt-v2", case(CopyFormat::MltV2, Format::Mlt))]
+    fn test_accepted_format(#[case] input: CopyFormat, #[case] expected: Format) {
         assert_eq!(
-            parse_format(input).unwrap(),
+            input.accepted(),
             AcceptedFormats {
                 preferred: vec![expected],
                 allow_any: false,
             }
-        );
-    }
-
-    #[test]
-    fn parse_format_rejects_unknown() {
-        let err = parse_format("geojson").unwrap_err();
-        assert_matches!(err, MartinCpError::UnknownFormat { ref format } if format == "geojson");
-        assert_eq!(
-            err.to_string(),
-            "Unable to parse format argument 'geojson'. Supported formats: gif, jpeg, json, mvt, mlt, png, webp, avif, jxl"
         );
     }
 

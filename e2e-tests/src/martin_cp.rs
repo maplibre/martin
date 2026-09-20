@@ -44,8 +44,28 @@ impl MartinCp {
         self
     }
 
+    /// Run the copy, require it to fail, and return what it logged.
+    pub async fn run_expecting_failure(self) -> String {
+        let (status, log, described) = self.execute().await;
+        assert!(
+            !status.success(),
+            "`martin cp {described}` unexpectedly succeeded; log:\n{log}"
+        );
+        log
+    }
+
     /// Run the copy, require it to succeed, and return what it logged.
     pub async fn run(self) -> String {
+        let (status, log, described) = self.execute().await;
+        assert!(
+            status.success(),
+            "`martin cp {described}` failed with {status}; log:\n{log}"
+        );
+        log
+    }
+
+    /// Run the copy and hand back its exit status, its log and the arguments it was given.
+    async fn execute(self) -> (std::process::ExitStatus, String, String) {
         let mut cmd = binary_command("MARTIN_BIN", "martin");
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
@@ -66,11 +86,6 @@ impl MartinCp {
             .unwrap_or_else(|e| panic!("failed to run `martin cp {described}`: {e}"));
         let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
         log.push_str(&String::from_utf8_lossy(&output.stderr));
-        assert!(
-            output.status.success(),
-            "`martin cp {described}` failed with {}; log:\n{log}",
-            output.status
-        );
-        log
+        (output.status, log, described)
     }
 }

@@ -29,9 +29,13 @@ Options:
           [default: gzip]
 
       --format <FORMAT>
-          Tile format to request from the source, e.g. mvt or mlt.
+          Tile format to request from the source.
 
-          If a source has `convert_to_{mlt,mvt}` set, produce this format otherwise error. Defaults to what the source produces.
+          A vector source converts between `mvt` and `mlt` unless `convert_to_{mlt,mvt}` turns that off, and a source that can neither produce nor convert to this format fails the copy. Defaults to what the source produces.
+
+          Possible values:
+          - mvt:   Mapbox Vector Tile
+          - mltv1: MapLibre Tile, v1 wire format
 
       --on-duplicate <ON_DUPLICATE>
           Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists

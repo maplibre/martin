@@ -24,6 +24,63 @@ fn snapshot_filters() -> Vec<(&'static str, &'static str)> {
     vec![(r"(-?\d+\.\d{10})\d+", "$1"), (r"(?m)[ \t]+$", "")]
 }
 
+#[rstest]
+#[case("png", "invalid value 'png'")]
+#[case("jpeg", "invalid value 'jpeg'")]
+#[case("mltv2", "invalid value 'mltv2'")]
+#[case("mlt2", "invalid value 'mlt2'")]
+#[tokio::test]
+async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected: &str) {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--format")
+        .arg(format)
+        .arg("--min-zoom")
+        .arg("0")
+        .arg("--max-zoom")
+        .arg("0")
+        .run_expecting_failure()
+        .await;
+    assert!(log.contains(expected), "`--format {format}` said:\n{log}");
+}
+
+#[rstest]
+#[case("mlt")]
+#[case("mlt1")]
+#[case("mltv1")]
+#[tokio::test]
+async fn copies_as_mlt_under_every_v1_spelling(#[case] format: &str) {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--format")
+        .arg(format)
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--min-zoom")
+        .arg("0")
+        .arg("--max-zoom")
+        .arg("0")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(
+        metadata.contains("mlt"),
+        "`--format {format}` wrote {metadata}"
+    );
+}
+
 #[tokio::test]
 async fn copies_the_only_source_when_none_is_named() {
     let dir = temp_dir();
@@ -462,6 +519,8 @@ postgres:
             .env("RUST_LOG", "martin=warn")
             .arg("--config")
             .arg(&config)
+            .arg("--set-meta")
+            .arg(GENERATOR)
             .arg("--source")
             .arg("array_props")
             .arg("--format")
@@ -491,6 +550,73 @@ postgres:
         insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("array_props_metadata", metadata);
         });
+    }
+
+    /// The config for an unclipped table, whose tile coordinates leave the `i32` tile space at
+    /// the zoom the test copies.
+    const UNCLIPPED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      clip_geom: false
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        gid: int4
+";
+
+    /// `clip_geom: false` lets `ST_AsMVTGeom` hand out coordinates wider than an `i32`, which the
+    /// row path cannot read. Copying must fall back to the MVT round-trip rather than abort,
+    /// since `ST_AsMVT` encodes those tiles.
+    #[tokio::test]
+    async fn copies_a_table_with_unreadable_tile_geometry_through_mvt() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, UNCLIPPED).expect("failed to write the config");
+        let output = dir.path().join("unclipped.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin=warn")
+            .arg("--config")
+            .arg(&config)
+            .arg("--set-meta")
+            .arg(GENERATOR)
+            .arg("--source")
+            .arg("table_source")
+            .arg("--format")
+            .arg("mlt")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("23")
+            .arg("--max-zoom")
+            .arg("23")
+            .arg("--bbox=30.0,10.0,30.00001,10.00001")
+            .run()
+            .await;
+        assert!(
+            log.contains("Copying table_source through MVT"),
+            "the copy did not report falling back off the row-per-feature path:\n{log}"
+        );
+
+        assert!(
+            !mlt_layers(&lowest_zoom_tile(&output).await).is_empty(),
+            "the copy wrote no MLT layers"
+        );
+        validate(&output).await;
     }
 
     /// A function source hands out an MVT blob and has no row form, so `--format mlt` keeps
