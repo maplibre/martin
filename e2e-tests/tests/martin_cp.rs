@@ -16,10 +16,12 @@ async fn validate(path: &Path) {
     MbtilesCli::new("validate").arg(path).run().await;
 }
 
-/// Insta filters that round every float to ten digits: martin computes the bounds and the center
-/// by trigonometry, so their last digits differ between machines.
-fn float_filters() -> Vec<(&'static str, &'static str)> {
-    vec![(r"(-?\d+\.\d{10})\d+", "$1")]
+/// Insta filters that round every float to ten digits and drop trailing whitespace: martin
+/// computes the bounds and the center by trigonometry, so their last digits differ between
+/// machines, and the repository strips trailing whitespace from every committed file, so a
+/// snapshot that recorded it could never match again.
+fn snapshot_filters() -> Vec<(&'static str, &'static str)> {
+    vec![(r"(-?\d+\.\d{10})\d+", "$1"), (r"(?m)[ \t]+$", "")]
 }
 
 #[tokio::test]
@@ -50,7 +52,7 @@ async fn copies_the_only_source_when_none_is_named() {
         insta::assert_json_snapshot!("only_source_summary", summary);
     });
     insta::assert_snapshot!("only_source_tiles", tile_listing(&output).await);
-    insta::with_settings!({filters => float_filters()}, {
+    insta::with_settings!({filters => snapshot_filters()}, {
         insta::assert_snapshot!("only_source_metadata", metadata);
     });
     validate(&output).await;
@@ -122,7 +124,7 @@ async fn copies_a_raster_source() {
         insta::assert_json_snapshot!("raster_summary", summary);
     });
     insta::assert_snapshot!("raster_tiles", tile_listing(&output).await);
-    insta::with_settings!({filters => float_filters()}, {
+    insta::with_settings!({filters => snapshot_filters()}, {
         insta::assert_snapshot!("raster_metadata", metadata);
     });
     validate(&output).await;
@@ -167,7 +169,7 @@ mod postgres {
         summary, summary_filters, temp_dir, tile_listing, tiles,
     };
 
-    use crate::{GENERATOR, float_filters, validate};
+    use crate::{GENERATOR, snapshot_filters, validate};
 
     /// The arguments shared by every copy from the test database.
     fn copy(output: &Path) -> MartinCp {
@@ -220,7 +222,7 @@ mod postgres {
         insta::with_settings!({filters => summary_filters()}, {
             insta::assert_json_snapshot!("table_source_summary", summary);
         });
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("table_source_metadata", metadata);
         });
 
@@ -259,7 +261,7 @@ mod postgres {
         insta::with_settings!({filters => summary_filters()}, {
             insta::assert_json_snapshot!("function_source_summary", summary);
         });
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("function_source_metadata", metadata);
         });
         assert!(
@@ -298,7 +300,7 @@ mod postgres {
             .await;
 
         let metadata = metadata_listing(&output).await;
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("composite_metadata", metadata);
         });
         insta::assert_snapshot!("composite_0_0_0", lowest_zoom_dump(&output).await);
@@ -486,7 +488,7 @@ postgres:
             "array_props_0_0_0",
             mlt_dump(&mlt_layers(&lowest_zoom_tile(&output).await))
         );
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("array_props_metadata", metadata);
         });
     }
@@ -526,7 +528,7 @@ postgres:
             "function_source_mlt_0_0_0",
             mlt_dump(&mlt_layers(&lowest_zoom_tile(&output).await))
         );
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("function_source_mlt_metadata", metadata);
         });
     }
@@ -555,7 +557,7 @@ postgres:
             .skip_while(|line| !line.starts_with("    table_source:"))
             .take_while(|line| line.starts_with("    table_source:") || line.starts_with("      "))
             .collect();
-        insta::with_settings!({filters => float_filters()}, {
+        insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!(described.trim_end(), @r"
             table_source:
               schema: public
@@ -624,7 +626,7 @@ postgres:
         insta::assert_json_snapshot!("nztm2000quad_copy_summary", summary);
     });
     insta::assert_snapshot!("nztm2000quad_copy_tiles", tile_listing(&output).await);
-    insta::with_settings!({filters => float_filters()}, {
+    insta::with_settings!({filters => snapshot_filters()}, {
         insta::assert_snapshot!("nztm2000quad_copy_metadata", metadata);
     });
     validate(&output).await;
