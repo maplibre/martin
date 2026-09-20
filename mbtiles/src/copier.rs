@@ -203,12 +203,13 @@ impl MbtileCopierInt {
                 .await?;
         }
 
+        let map_algorithm = self.map_algorithm(src_type, algorithm).await?;
         self.copy_with_rusqlite(
             &mut conn,
             on_duplicate,
             src_type,
             dst_type,
-            algorithm,
+            map_algorithm,
             &get_select_from(src_type, dst_type, algorithm),
         )
         .await?;
@@ -275,7 +276,7 @@ impl MbtileCopierInt {
             CopyDuplicateMode::Override,
             src_info.mbt_type,
             dst_type,
-            algorithm,
+            self.map_algorithm(src_info.mbt_type, algorithm).await?,
             &get_select_from_with_diff(dif_info.mbt_type, dst_type, patch_type, algorithm),
         )
         .await?;
@@ -366,7 +367,7 @@ impl MbtileCopierInt {
             CopyDuplicateMode::Override,
             src_type,
             dst_type,
-            algorithm,
+            self.map_algorithm(src_type, algorithm).await?,
             &get_select_from_apply_patch(src_type, &dif_info, dst_type, algorithm),
         )
         .await?;
@@ -479,12 +480,19 @@ impl MbtileCopierInt {
         on_duplicate: CopyDuplicateMode,
         src_type: MbtType,
         dst_type: MbtType,
-        algorithm: HashAlgorithm,
+        map_algorithm: HashAlgorithm,
         select_from: &str,
     ) -> Result<(), MbtError> {
         if self.options.copy.copy_tiles() {
             action_with_rusqlite(conn, |c| {
-                self.copy_tiles(c, src_type, dst_type, on_duplicate, algorithm, select_from)
+                self.copy_tiles(
+                    c,
+                    src_type,
+                    dst_type,
+                    on_duplicate,
+                    map_algorithm,
+                    select_from,
+                )
             })
             .await?;
         } else {
@@ -558,7 +566,7 @@ impl MbtileCopierInt {
         src_type: MbtType,
         dst_type: MbtType,
         on_duplicate: CopyDuplicateMode,
-        algorithm: HashAlgorithm,
+        map_algorithm: HashAlgorithm,
         select_from: &str,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
@@ -586,7 +594,7 @@ impl MbtileCopierInt {
                 schema: NormalizedSchema::DedupId,
                 ..
             } => {
-                let create_tile_ids = NormalizedSchema::create_tile_ids_sql(algorithm);
+                let create_tile_ids = NormalizedSchema::create_tile_ids_sql(map_algorithm);
                 format!(
                     "
     {create_tile_ids}
@@ -754,6 +762,32 @@ impl MbtileCopierInt {
         let algorithm = self.dst_algorithm(&mut conn).await?;
         conn.close().await?;
         Ok(algorithm)
+    }
+
+    /// The algorithm the `tile_hash` column read from the source is in, the source's own when it stores hashes, else the `algorithm` they are computed with.
+    async fn map_algorithm(
+        &self,
+        src_type: MbtType,
+        algorithm: HashAlgorithm,
+    ) -> MbtResult<HashAlgorithm> {
+        match src_type {
+            FlatWithHash
+            | Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            } => {
+                let mut conn = self.src_mbt.open_readonly().await?;
+                let stored = self.src_mbt.get_hash_algorithm(&mut conn).await?;
+                conn.close().await?;
+                Ok(stored)
+            }
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => Ok(algorithm),
+        }
     }
 
     /// Returns WHERE condition SQL depending on the override and destination type
@@ -1390,6 +1424,56 @@ mod tests {
                 .await
                 .unwrap()
                 .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn copy_to_existing_dedup_id_under_another_hash_algorithm_stores_each_blob_once() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, flat_file) = temp_named_mbtiles(
+            "flat_copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db",
+            script,
+        )
+        .await;
+        let with_hash_file = PathBuf::from(
+            "file:with_hash_copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db?mode=memory&cache=shared",
+        );
+        let _with_hash_conn = MbtilesCopier {
+            src_file: flat_file.clone(),
+            dst_file: with_hash_file.clone(),
+            dst_type: Some(FlatWithHash),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let dst_file = PathBuf::from(
+            "file:copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db?mode=memory&cache=shared",
+        );
+        let _dst_conn = MbtilesCopier {
+            src_file: flat_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(DEDUP_ID),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let mut dst_conn = MbtilesCopier {
+            src_file: with_hash_file,
+            dst_file,
+            hash_algorithm: Some(HashAlgorithm::Xxh3),
+            on_duplicate: Some(CopyDuplicateMode::Override),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert_eq!(
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles_data;").await,
+            4
         );
     }
 
