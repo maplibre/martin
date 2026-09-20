@@ -107,9 +107,8 @@ pub struct CopyArgs {
     pub encoding: String,
     /// Tile format to request from the source, e.g. `mvt` or `mlt`.
     ///
-    /// Sources configured to convert, e.g. with `convert_to_mlt`, produce this format.
-    /// A source that cannot produce it fails the copy instead of silently writing its own format.
-    /// Defaults to whatever the source produces.
+    /// If a source has `convert_to_{mlt,mvt}` set, produce this format otherwise error.
+    /// Defaults to what the source produces.
     #[arg(long, value_name = "FORMAT")]
     pub format: Option<String>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
