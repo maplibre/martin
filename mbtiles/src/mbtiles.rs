@@ -487,8 +487,9 @@ impl Mbtiles {
     /// at the given coordinates. The hash behavior depends on the schema type:
     ///
     /// - [`MbtType::Flat`]: Hash is always `None` (no hash column exists)
-    /// - [`MbtType::FlatWithHash`]: Returns the stored MD5 hash
-    /// - [`MbtType::Normalized`]: Returns the `tile_id` (MD5 hash) from the images table
+    /// - [`MbtType::FlatWithHash`]: Returns the stored hash
+    /// - [`MbtType::Normalized`] with [`NormalizedSchema::Hash`]: Returns the `tile_id` from the `images` table
+    /// - [`MbtType::Normalized`] with [`NormalizedSchema::DedupId`]: Hash is always `None` (`tiles_data` stores none)
     ///
     /// # Returns
     ///
