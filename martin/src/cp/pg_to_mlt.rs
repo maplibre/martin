@@ -1,8 +1,4 @@
 //! Encode `PostgreSQL` rows straight into MLT, without the MVT tile in between.
-//!
-//! This is the other half of [`AnySource::get_tile_features`](martin_core::tiles::AnySource::get_tile_features):
-//! `martin-core` hands up decoded features, and everything `mlt-core` touches lives here, so that
-//! the core crate never has to depend on it.
 
 use martin_core::tiles::Tile;
 use martin_core::tiles::postgres::{
