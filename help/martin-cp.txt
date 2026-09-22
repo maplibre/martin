@@ -43,6 +43,8 @@ Options:
 
           If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
 
+          For a source on a tile grid other than Web Mercator the bounds are min_x,min_y,max_x,max_y in the grid's CRS units, and the whole grid is copied if omitted.
+
           [default: -180,-85.05112877980659,180,85.0511287798066]
 
       --min-zoom <MIN_ZOOM>
@@ -73,8 +75,8 @@ Options:
           - warn:  Log warning messages, abort if the error is critical
           - abort: Log warnings as errors, abort startup
 
-      --tui
-          Show a live dashboard of the server in this terminal instead of the log stream
+      --no-tui
+          Print the log stream instead of the live dashboard an interactive terminal gets by default
 
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]

@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/installation/">
+        <link rel="canonical" href="https://maplibre.org/martin/migration-guide/">
       
       
-        <link rel="prev" href="../quick-start-qgis/">
+        <link rel="prev" href="../architecture/">
       
       
-        <link rel="next" href="../run/">
+        <link rel="next" href="../changelog/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Installation - Martin Tile Server Documentation</title>
+        <title>Migration Guide - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#prerequisites" class="md-skip">
+        <a href="#migration-guide" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Migration Guide
             
           </span>
         </div>
@@ -324,11 +324,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="././" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
         
   
   Installation
@@ -506,9 +504,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../migration-guide/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="././" class="md-tabs__link">
         
   
   Migration Guide
@@ -688,36 +688,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg>
-  
-  <span class="md-ellipsis">
-    
-  
-  Installation
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -734,175 +708,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Prerequisites
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#docker" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Docker
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#from-binary-distributions-manually" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        From Binary Distributions Manually
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#from-package" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        From package
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="From package">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#homebrew" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Homebrew
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debian-packages-x86_64-manually" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Debian packages (x86_64) manually
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#arch-linux" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Arch Linux
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#nix" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Nix
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#building-from-source" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Building from source
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Building from source">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#optional-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Optional features
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#platform-specific-build-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Platform-Specific Build Notes
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Platform-Specific Build Notes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#windows" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Windows
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1219,10 +1024,38 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../migration-guide/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.887 6.887 0 0 0 0 9.8c2.73 2.7 7.15 2.7 9.88 0 1.36-1.35 2.04-2.92 2.04-4.9h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0 1 12.65 0L21 3zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Migration Guide
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1239,6 +1072,165 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-1x-to-20" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From 1.x to 2.0
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="From 1.x to 2.0">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#martin-cp-is-now-martin-cp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>martin-cp</code> is now <code>martin cp</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-terminal-dashboard-is-on-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The terminal dashboard is on by default
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-web-ui-is-served-to-localhost-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The web UI is served to localhost by default
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#postgresql-settings-come-from-the-command-line-or-the-configuration-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PostgreSQL settings come from the command line or the configuration file
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-values-in-the-configuration-file-use-var-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Default values in the configuration file use <code>${VAR:-default}</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-sizes-have-one-spelling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cache sizes have one spelling
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#object-storage-options-use-their-object_store-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Object storage options use their <code>object_store</code> names
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plain-http-sources-must-opt-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Plain <code>http://</code> sources must opt in
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Normalized MBTiles files use <code>tiles_shallow</code> and <code>tiles_data</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rendering-is-not-part-of-the-default-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rendering is not part of the default build
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-users-of-the-crates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        For users of the crates
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1292,7 +1284,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/installation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/migration-guide.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1300,116 +1292,201 @@
   
 
 
-  <h1 id="__skip">Installation</h1>
-
-<h3 id="prerequisites">Prerequisites</h3>
-<p>If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. PostGIS v3.1+ is recommended.</p>
-<h3 id="docker">Docker</h3>
-<p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration
-file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by
-passing a PostgreSQL connection string or the .mbtiles/.pmtiles files or URLs to .pmtiles.
-A configuration file can read a variable passed into the container, for example <code>connection_string: ${DATABASE_URL}</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://user:password@host:port/db<span class="w">  </span><span class="c1"># secret!</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">           </span>-e<span class="w"> </span>DATABASE_URL<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">           </span>-v<span class="w"> </span>/path/to/config/dir:/config<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">           </span>ghcr.io/maplibre/martin:1.16.1<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">           </span>--config<span class="w"> </span>/config/config.yaml
+<h1 id="migration-guide">Migration Guide</h1>
+<p>Use this guide to update an existing Martin setup after a major release. See the <a href="../changelog/">changelog</a> for other changes.</p>
+<h2 id="from-1x-to-20">From 1.x to 2.0</h2>
+<p>Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.</p>
+<p>Review <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
+<h3 id="martin-cp-is-now-martin-cp"><code>martin-cp</code> is now <code>martin cp</code></h3>
+<p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands. The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary. The <code>mbtiles</code> binary is unchanged.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>martin-cp<span class="w"> </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span>--source<span class="w"> </span>my_source<span class="w"> </span>postgres://postgres@localhost/db
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>martin<span class="w"> </span>cp<span class="w"> </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span>--source<span class="w"> </span>my_source<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
+<p>See <a href="../martin-cp/">Generating Tiles in Bulk</a>.</p>
+<h3 id="the-terminal-dashboard-is-on-by-default">The terminal dashboard is on by default</h3>
+<p>Remove <code>--tui</code>. Martin now shows the dashboard when stdout is a terminal. Use <code>--no-tui</code> for the log stream instead. When stdout is not a terminal, as in a service or pipe, Martin keeps the plain log automatically.</p>
+<p>The dashboard's log pane follows <code>RUST_LOG_FORMAT</code> and defaults to <code>pretty</code>.</p>
+<p>See <a href="../run-with-cli/#terminal-dashboard">Terminal dashboard</a>.</p>
+<h3 id="the-web-ui-is-served-to-localhost-by-default">The web UI is served to localhost by default</h3>
+<p><code>--webui</code> now defaults to <code>enable</code> instead of <code>disable</code>. Loopback clients get the web UI at <code>/</code>. Other clients get the same text response as with <code>disable</code>. Set <code>--webui disable</code> or <code>web_ui: disable</code> to restore the 1.x behavior. <code>--webui enable-for-all</code> is unchanged.</p>
 <div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The default image is lean and does <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
-If you need it, use the batteries-included <code>-full</code> image variant instead, tagged <code>:latest-full</code> or <code>:&lt;version&gt;-full</code>.
-It is larger because it bundles the <code>maplibre_native</code> runtime libraries.</p>
+<p class="admonition-title">Reverse proxies and containers</p>
+<p>Martin checks the TCP peer address, ignoring forwarded headers. A proxy connecting over loopback exposes the web UI to its clients unless you set <code>--webui disable</code>. With Docker bridge networking, connections from the host are not loopback. Use <code>--webui enable-for-all</code> to expose the UI as described in <a href="../run-with-docker/">Running with Docker</a>.</p>
 </div>
-<h3 id="from-binary-distributions-manually">From Binary Distributions Manually</h3>
-<p>You can download martin from <a href="https://github.com/maplibre/martin/releases">GitHub releases page</a>.</p>
+<h3 id="postgresql-settings-come-from-the-command-line-or-the-configuration-file">PostgreSQL settings come from the command line or the configuration file</h3>
+<p>Replace these environment variables with command-line options or configuration keys.</p>
 <table>
 <thead>
 <tr>
-<th>Platform</th>
-<th>x64</th>
-<th>ARM-64</th>
+<th>1.x environment variable</th>
+<th>2.0 command line</th>
+<th>2.0 configuration file</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Linux</td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz">.tar.gz</a> (gnu, full)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb">.deb</a></td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz">.tar.gz</a> (gnu, full)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td>
+<td><code>DATABASE_URL</code></td>
+<td>the connection string as a positional argument</td>
+<td><code>postgres.connection_string</code></td>
 </tr>
 <tr>
-<td>macOS</td>
-<td></td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz">.tar.gz</a></td>
+<td><code>DEFAULT_SRID</code></td>
+<td><code>--default-srid</code></td>
+<td><code>postgres.default_srid</code></td>
 </tr>
 <tr>
-<td>Windows</td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip">.zip</a></td>
-<td></td>
+<td><code>PGSSLCERT</code></td>
+<td><code>--ssl-cert</code></td>
+<td><code>postgres.ssl_cert</code></td>
+</tr>
+<tr>
+<td><code>PGSSLKEY</code></td>
+<td><code>--ssl-key</code></td>
+<td><code>postgres.ssl_key</code></td>
+</tr>
+<tr>
+<td><code>PGSSLROOTCERT</code></td>
+<td><code>--ca-root-file</code></td>
+<td><code>postgres.ssl_root_cert</code></td>
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The standard binaries do <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
-The <code>-full</code> Linux-gnu tarballs do.
-They add the <code>rendering</code> feature and its bundled native libraries.</p>
-</div>
-<p>Rust users can install pre-built martin binary
-with <a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a> and <code>cargo</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>cargo-binstall
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>cargo<span class="w"> </span>binstall<span class="w"> </span>martin
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>martin<span class="w"> </span>--help
+<p>Martin ignores the old variables. Starting with only <code>DATABASE_URL</code> exported fails with <code>No tile sources found</code>. Without replacement settings, auto-discovered tables with SRID 0 are skipped with a warning, and client certificates previously supplied through <code>PGSSLCERT</code> are not sent.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@localhost/db
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>martin
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># 2.0</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>martin<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
-<h3 id="from-package">From package</h3>
-<p>To install with apt source and others, we need your help
-to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for various platforms</a>.</p>
-<h4 id="homebrew">Homebrew</h4>
-<p>If you are using <a href="https://brew.sh/">Homebrew</a> you can install martin using</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brew<span class="w"> </span>install<span class="w"> </span>martin
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>martin<span class="w"> </span>--help
+<p>To keep using an environment variable, reference it in the configuration file. See <a href="../config-file/">Configuration</a> for the substitution syntax.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL}</span>
 </span></code></pre></div>
-<h4 id="debian-packages-x86_64-manually">Debian packages (x86_64) manually</h4>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>dpkg<span class="w"> </span>-i<span class="w"> </span>./debian-x86_64.deb
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>martin<span class="w"> </span>--help
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>rm<span class="w"> </span>./debian-x86_64.deb
+<p>With Docker, pass the connection string after the image name or pass the variable to a mounted configuration file.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@postgres.example.org/db<span class="w"> </span>ghcr.io/maplibre/martin
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>postgres://postgres@postgres.example.org/db
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 2.0, keeping the variable</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span>DATABASE_URL<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/config.yaml:/config.yaml"</span><span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>--config<span class="w"> </span>/config.yaml
 </span></code></pre></div>
-<h4 id="arch-linux">Arch Linux</h4>
-<p>The <a href="https://aur.archlinux.org/packages/martin">AUR</a> carries <code>martin</code>, maintained by the community.
-With an AUR helper such as <code>yay</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>yay<span class="w"> </span>-S<span class="w"> </span>martin
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>martin<span class="w"> </span>--help
+<p>See <a href="../env-vars/">Environment Variables</a> and <a href="../pg-connections/#ssl-connections">SSL Connections</a>.</p>
+<h3 id="default-values-in-the-configuration-file-use-var-default">Default values in the configuration file use <code>${VAR:-default}</code></h3>
+<p>Replace <code>${VAR:default}</code> with <code>${VAR:-default}</code>. The old syntax fails at startup with a substitution error.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:postgres://postgres@localhost/db}</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:-postgres://postgres@localhost/db}</span>
 </span></code></pre></div>
-<h4 id="nix">Nix</h4>
-<p><a href="https://search.nixos.org/packages?query=martin">nixpkgs</a> carries <code>martin</code>, usually a release or two behind.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nix-shell<span class="w"> </span>-p<span class="w"> </span>martin<span class="w"> </span>--run<span class="w"> </span><span class="s1">'martin --help'</span>
+<h3 id="cache-sizes-have-one-spelling">Cache sizes have one spelling</h3>
+<p>Replace the old cache keys below. Martin reports them as unrecognized and ignores their values, so a cache can fall back to its default size. Most migrated silently in 1.x unless both spellings were set. <code>pmtiles.dir_cache_size_mb</code> was already ignored with a deprecation warning.</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cache_size_mb</code></td>
+<td><code>cache.size_mb</code></td>
+</tr>
+<tr>
+<td><code>tile_cache_size_mb</code></td>
+<td><code>cache.tile_size_mb</code></td>
+</tr>
+<tr>
+<td><code>fonts.cache_size_mb</code></td>
+<td><code>fonts.cache.size_mb</code></td>
+</tr>
+<tr>
+<td><code>sprites.cache_size_mb</code></td>
+<td><code>sprites.cache.size_mb</code></td>
+</tr>
+<tr>
+<td><code>pmtiles.directory_cache_size_mb</code></td>
+<td><code>pmtiles.directory_cache.size_mb</code></td>
+</tr>
+<tr>
+<td><code>pmtiles.dir_cache_size_mb</code></td>
+<td><code>pmtiles.directory_cache.size_mb</code></td>
+</tr>
+</tbody>
+</table>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">directory_cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># 2.0</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">directory_cache</span><span class="p">:</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 </span></code></pre></div>
-<h3 id="building-from-source">Building from source</h3>
-<p>If you <a href="https://www.rust-lang.org/tools/install">install Rust</a>, you can build martin from source with Cargo:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>martin<span class="w"> </span>--help
+<p>See the <code>cache</code> section of the <a href="../config-file/#full-configuration">full configuration</a>.</p>
+<h3 id="object-storage-options-use-their-object_store-names">Object storage options use their <code>object_store</code> names</h3>
+<p>Replace these legacy settings with configuration keys directly under <code>pmtiles</code> or <code>cog</code>. Old environment variables are ignored silently. Old configuration keys are reported as unrecognized.</p>
+<table>
+<thead>
+<tr>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AWS_S3_FORCE_PATH_STYLE=1</code>, <code>aws_s3_force_path_style: true</code>, <code>force_path_style: true</code></td>
+<td><code>virtual_hosted_style_request: false</code> (the meaning is inverted)</td>
+</tr>
+<tr>
+<td><code>AWS_SKIP_CREDENTIALS=1</code>, <code>AWS_NO_CREDENTIALS=1</code>, <code>aws_skip_credentials: true</code>, <code>aws_no_credentials: true</code></td>
+<td><code>skip_signature: true</code></td>
+</tr>
+<tr>
+<td><code>AWS_PROFILE=name</code></td>
+<td><code>profile: name</code></td>
+</tr>
+</tbody>
+</table>
+<p>The standard <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> and <code>AWS_REGION</code> variables still work.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">skip_signature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://public-bucket/tiles.pmtiles</span>
 </span></code></pre></div>
-<h4 id="optional-features">Optional features</h4>
-<p>Features prefixed with <code>unstable-</code> are <strong>not included</strong> in default builds, Homebrew, Debian packages, or the Docker image.
-To experiment with them, build Martin from source with the feature enabled:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="o">=</span>unstable-duckdb
+<p>A public bucket previously accessed with <code>AWS_SKIP_CREDENTIALS=1</code> can now fail during instance credential lookup outside AWS. The error does not name the removed variable. Set <code>skip_signature: true</code> for unsigned requests. This requires a configuration file, including when replacing a command such as <code>martin s3://public-bucket/tiles.pmtiles</code>.</p>
+<p>See <a href="../sources-pmtiles/#remote-files-and-prefixes">Remote files and prefixes</a>.</p>
+<h3 id="plain-http-sources-must-opt-in">Plain <code>http://</code> sources must opt in</h3>
+<p>Set <code>allow_http: true</code> in the configuration file for PMTiles or COG sources using <code>http://</code>. It now defaults to <code>false</code>, so plain HTTP sources are refused at startup with an error naming the option. HTTPS URLs are unaffected.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://tiles.internal/tiles.pmtiles</span>
 </span></code></pre></div>
-<p>The currently available unstable features are <code>unstable-cog</code> for <a href="../sources-cog-files/">COG sources</a>
-and <code>unstable-duckdb</code> for <a href="../sources-duckdb/">DuckDB / GeoParquet sources</a>.</p>
-<p>Server-side style <a href="../sources-styles/rendering/">rendering</a> is also left out of the default feature set.
-To include it (Linux only), add the <code>rendering</code> feature.
-You will need its build dependencies first (<code>just install-dependencies</code>).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="w"> </span>rendering
-</span></code></pre></div>
-<h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
-<h5 id="windows">Windows</h5>
-<p>When building from source on Windows, please note the following feature limitations:</p>
+<p>The bare command <code>martin http://tiles.internal/tiles.pmtiles</code> needs a configuration file to enable <code>allow_http</code>.</p>
+<p>See <a href="../sources-pmtiles/#https">HTTP(S)</a>.</p>
+<h3 id="normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">Normalized MBTiles files use <code>tiles_shallow</code> and <code>tiles_data</code></h3>
+<p>New files created with <code>mbtiles copy --dst-type normalized</code> or <code>martin cp --mbtiles-type normalized</code> use <code>tiles_shallow</code> and <code>tiles_data</code>, the layout <a href="https://github.com/onthegomap/planetiler">Planetiler</a> writes. This is also the <code>martin cp</code> default. Both layouts expose the standard <code>tiles</code> view, so readers using that view keep working.</p>
+<p>Existing <code>map</code> and <code>images</code> files remain readable. Copying one to a new file without <code>--dst-type</code> preserves its schema. The CLI no longer offers that layout when converting from another schema.</p>
+<p>New normalized files have no per-tile hashes or <code>tiles_with_hash</code> view. <code>mbtiles validate</code> checks tile references instead. <code>agg_tiles_hash</code> still covers the content. Choose <code>flat-with-hash</code> if you need per-tile hashes.</p>
+<p>See <a href="../mbtiles-schema/#normalized">MBTiles Schemas</a>.</p>
+<h3 id="rendering-is-not-part-of-the-default-build">Rendering is not part of the default build</h3>
+<p>For server-side style rendering on Linux, use the <code>-full</code> Docker image (<code>:latest-full</code> or <code>:&lt;version&gt;-full</code>), a <code>-full</code> Linux-gnu tarball, or <code>cargo install martin --features rendering</code>. The default builds no longer include rendering.</p>
+<p>Rendering is stable as of 2.0. The configuration is unchanged. Set <code>styles.rendering: true</code> to enable it, or keep your existing rendering options.</p>
+<p>See <a href="../sources-styles/rendering/">Server-side raster tile rendering</a> and <a href="../installation/">Installation</a>.</p>
+<h3 id="for-users-of-the-crates">For users of the crates</h3>
 <ul>
-<li><strong><code>rendering</code></strong>: This feature is <strong>not available on Windows</strong>. It requires <code>maplibre_native</code> which currently only supports MacOS and Linux. For updates, see <a href="https://github.com/maplibre/maplibre-native-rs"><code>maplibre/maplibre-native-rs</code></a>.</li>
+<li>In <code>martin-tile-utils</code>, <code>TileCoord</code> fields are private. Construct coordinates with <code>TileCoord::new_checked</code> or <code>TileCoord::new_unchecked</code> and read them with <code>z()</code>, <code>x()</code> and <code>y()</code>.</li>
+<li><code>TileData</code> is now <code>bytes::Bytes</code> instead of <code>Vec&lt;u8&gt;</code>, including data returned by <code>mbtiles::Mbtiles::stream_tiles</code>.</li>
+<li>In <code>martin-core</code>, <code>Source</code> is no longer dyn compatible. <code>clone_source</code> and <code>cancel_registry</code> were removed. Sources use the closed <code>AnySource</code> enum, and <code>BoxedSource</code> is now <code>Arc&lt;AnySource&gt;</code>.</li>
+<li><code>CatalogSourceEntry</code> gained <code>tile_grid</code>, <code>PostgresSource::new</code> requires the source's <code>TileGrid</code>, and <code>CogError::TooManyImages</code> was removed.</li>
+<li><code>mbtiles::Mbtiles::insert_tiles</code> now requires tile data to implement <code>Sync</code>. The copier writes the normalized layout described above.</li>
 </ul>
+<p>See the <a href="https://github.com/maplibre/martin/blob/main/martin-core/CHANGELOG.md">martin-core</a> and <a href="https://github.com/maplibre/martin/blob/main/mbtiles/CHANGELOG.md">mbtiles</a> changelogs for crate releases.</p>
 
 
   <nav class="md-tags" >
@@ -1418,7 +1495,7 @@ You will need its build dependencies first (<code>just install-dependencies</cod
       
       
       
-        <span class="md-tag">getting-started</span>
+        <span class="md-tag">configuration</span>
       
     
       
@@ -1470,7 +1547,7 @@ You will need its build dependencies first (<code>just install-dependencies</cod
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../quick-start-qgis/" class="md-footer__link md-footer__link--prev" aria-label="Previous: View with QGIS">
+          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1480,20 +1557,20 @@ You will need its build dependencies first (<code>just install-dependencies</cod
                 Previous
               </span>
               <div class="md-ellipsis">
-                View with QGIS
+                Architecture
               </div>
             </div>
           </a>
         
         
           
-          <a href="../run/" class="md-footer__link md-footer__link--next" aria-label="Next: Usage">
+          <a href="../changelog/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Usage
+                Changelog
               </div>
             </div>
             <div class="md-footer__button md-icon">
