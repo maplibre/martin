@@ -4,8 +4,10 @@ use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 use mlt_core::PropValue;
 
+use mlt_core::geo_types::Geometry;
+
 use crate::tiles::postgres::PostgresError::{PostgresError as PgError, UnsupportedPropertyType};
-use crate::tiles::postgres::{PostgresResult, TileGeometry, parse_tile_wkb};
+use crate::tiles::postgres::{PostgresResult, parse_tile_wkb};
 
 /// One feature of a tile, in tile coordinate space.
 #[derive(Debug, Clone, PartialEq)]
@@ -13,7 +15,9 @@ pub struct PostgresFeature {
     /// The feature id, when the source has an id column that held a non-negative value.
     pub id: Option<u64>,
     /// The geometry, already clipped and projected into tile space by `ST_AsMVTGeom`.
-    pub geometry: TileGeometry,
+    pub geometry: Geometry<i32>,
+    /// One M ordinate per vertex of [`Self::geometry`], when the source geometry is measured.
+    pub m_values: Option<Vec<f64>>,
     /// The property columns, in the order the query selected them.
     pub properties: Vec<(CompactString, PropValue)>,
 }
@@ -77,7 +81,7 @@ pub(crate) fn features_from_rows(
         let Some(wkb) = wkb else {
             continue;
         };
-        let geometry = parse_tile_wkb(wkb)?;
+        let (geometry, m_values) = parse_tile_wkb(wkb)?;
         let id = if has_id_column {
             feature_id(row)?
         } else {
@@ -94,6 +98,7 @@ pub(crate) fn features_from_rows(
         features.push(PostgresFeature {
             id,
             geometry,
+            m_values,
             properties,
         });
     }

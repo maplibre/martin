@@ -19,6 +19,6 @@ mod source;
 pub use source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo};
 
 mod tile_wkb;
-pub use tile_wkb::{TileGeometry, TileVertex, TileWkbError, parse_tile_wkb};
+pub use tile_wkb::{TileWkbError, parse_tile_wkb};
 
 pub(crate) mod utils;

@@ -62,6 +62,7 @@ contour = [
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:geo-traits",
     "dep:humantime",
     "dep:mlt-core",
     "dep:postgres",
@@ -77,6 +78,7 @@ postgres = [
     "tokio/sync",
     "tokio/time",
     "compact_str/sqlx-postgres",
+    "dep:wkb",
     "_tiles",
 ]
 unstable-cog = [
@@ -152,6 +154,7 @@ flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
+geo-traits = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
 hotpath.workspace = true
@@ -192,6 +195,7 @@ tracing.workspace = true
 url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+wkb = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 zune-core = { workspace = true, optional = true }
 zune-jpegxl = { workspace = true, optional = true }
