@@ -1,9 +1,4 @@
-//! Tile features read one row per feature, instead of as a single MVT blob.
-//!
-//! `ST_AsMVT` serializes a whole tile inside `PostgreSQL`, which a consumer that wants any other
-//! tile format has to take apart again. The types here are the other shape of the same data: the
-//! rows of a [`PostgresRowQuery`](crate::tiles::postgres::PostgresRowQuery), decoded but not yet
-//! serialized into any tile format.
+//! Tile features read one row per feature
 
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
@@ -11,10 +6,7 @@ use deadpool_postgres::tokio_postgres::Row;
 use crate::tiles::postgres::PostgresError::{PostgresError as PgError, UnsupportedPropertyType};
 use crate::tiles::postgres::{PostgresResult, TileGeometry, parse_tile_wkb};
 
-/// One property value of one feature, or the `NULL` the column held for it.
-///
-/// The variants are the `PostgreSQL` types `ST_AsMVT` encodes as MVT properties; every other
-/// column type is rejected rather than stringified.
+/// One property value of one feature or `NULL`
 #[derive(Debug, Clone, PartialEq)]
 pub enum PostgresPropValue {
     /// A `bool` column.
@@ -66,10 +58,6 @@ pub struct PostgresTileFeatures {
 }
 
 /// A `PostgreSQL` column type that reaches a tile as a typed property.
-///
-/// These are the types `ST_AsMVT` encodes as MVT properties; it writes every other type through
-/// the type's text output function, so a query that wants the same properties has to cast those
-/// columns to `text` itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PropType {
     Bool,
@@ -104,10 +92,6 @@ pub fn is_typed_property(pg_type: &str) -> bool {
 }
 
 /// Decodes the rows of one tile query into features.
-///
-/// The first column is the geometry, followed by the id column when `has_id_column`, followed by
-/// the property columns. Rows whose geometry is `NULL` are dropped, which is what `ST_AsMVT` does
-/// with a feature `ST_AsMVTGeom` placed outside the tile.
 pub(crate) fn features_from_rows(
     rows: &[Row],
     has_id_column: bool,
@@ -145,9 +129,6 @@ pub(crate) fn features_from_rows(
 }
 
 /// The feature id in the row's second column, following `ST_AsMVT`.
-///
-/// `PostGIS` only accepts an integer id column and only emits ids it can express as a `uint64`,
-/// so a `NULL` or negative value leaves the feature without one.
 fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
     let value = property_value(row, 1, "reading a tile feature's id")?;
@@ -161,8 +142,6 @@ fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
-///
-/// `context` names what is being read, for the error a failed read carries.
 fn property_value(
     row: &Row,
     idx: usize,
