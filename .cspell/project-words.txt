@@ -30,6 +30,7 @@ demotiles
 dflt
 dpkg
 duckdb
+enableforall
 enmod
 epsg
 ETRS
