@@ -856,7 +856,7 @@ mod tests {
     async fn finalize_no_sources() {
         insta::assert_snapshot!(
             render_finalize_failure("keep_alive: 75\n").await,
-            @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+            @"No tile sources found. Set sources by giving a database connection string on command line or a config file."
         );
     }
 }
