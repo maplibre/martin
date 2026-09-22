@@ -28,6 +28,13 @@ impl MartinCp {
         self
     }
 
+    /// Set an environment variable for the copy.
+    #[must_use]
+    pub fn env(mut self, key: &str, value: &str) -> Self {
+        self.envs.push((key.to_owned(), value.to_owned()));
+        self
+    }
+
     /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
