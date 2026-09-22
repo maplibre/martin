@@ -55,7 +55,7 @@ Replace these environment variables with command-line options or configuration k
 | `PGSSLKEY`                 | `--ssl-key`                                      | `postgres.ssl_key`             |
 | `PGSSLROOTCERT`            | `--ca-root-file`                                 | `postgres.ssl_root_cert`       |
 
-Martin ignores the old variables. Starting with only `DATABASE_URL` exported fails with `No tile sources found`. Without replacement settings, auto-discovered tables with SRID 0 are skipped with a warning, and client certificates previously supplied through `PGSSLCERT` are not sent.
+Martin ignores the old variables. Starting with only `DATABASE_URL` exported fails with `No tile sources found`. On grids with a coordinate reference system, auto-discovered tables with SRID 0 are skipped with a warning unless you set `default_srid`. Simple grids use SRID 0 and need no fallback. Client certificates previously supplied through `PGSSLCERT` are not sent unless you configure them explicitly.
 
 ```bash
 # 1.x
@@ -184,7 +184,7 @@ See [Server-side raster tile rendering](sources-styles/rendering.md) and [Instal
 
 - In `martin-tile-utils`, `TileCoord` fields are private. Construct coordinates with `TileCoord::new_checked` or `TileCoord::new_unchecked` and read them with `z()`, `x()` and `y()`.
 - `TileData` is now `bytes::Bytes` instead of `Vec<u8>`, including data returned by `mbtiles::Mbtiles::stream_tiles`.
-- In `martin-core`, `Source` is no longer dyn compatible. `clone_source` and `cancel_registry` were removed. Sources use the closed `AnySource` enum, and `BoxedSource` is now `Arc<AnySource>`.
+- In `martin-core`, `Source` is no longer dyn compatible. Its `clone_source` and `cancel_registry` methods were removed. Sources use the closed `AnySource` enum, and `BoxedSource` is now `Arc<AnySource>`. With the `postgres` feature, call `cancel_registry()` on `AnySource` or `BoxedSource`.
 - `CatalogSourceEntry` gained `tile_grid`, `PostgresSource::new` requires the source's `TileGrid`, and `CogError::TooManyImages` was removed.
 - `mbtiles::Mbtiles::insert_tiles` now requires tile data to implement `Sync`. The copier writes the normalized layout described above.
 
