@@ -1610,6 +1610,21 @@ async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
 }
 
 #[tokio::test]
+async fn an_exported_database_url_alone_is_not_a_source() {
+    let error = Martin::builder()
+        .env("DATABASE_URL", "postgres://ignored@127.0.0.1:1/db")
+        .env("RUST_LOG", "martin=error")
+        .start()
+        .await
+        .expect_err("martin must not pick a database up from its environment");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"ERROR No tile sources found. Set sources by giving a database connection string on command line or a config file.");
+}
+
+#[tokio::test]
 async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()
