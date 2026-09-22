@@ -163,7 +163,7 @@ pub enum CopyFormat {
     #[value(alias = "pbf")]
     Mvt,
     /// `MapLibre` Tile, v1 wire format.
-    #[value(name = "mltv1", aliases = ["mlt1"])]
+    #[value(name = "mltv1", aliases = ["mlt", "mlt1"])]
     MltV1,
     /// `MapLibre` Tile, v2 wire format.
     #[cfg(feature = "unstable-mlt-v2")]
