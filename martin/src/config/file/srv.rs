@@ -112,10 +112,13 @@ pub struct SrvConfig {
     /// Endpoints with an explicit policy, such as the health check, keep their own header.
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
-    /// Enable or disable Martin web UI. \[default: disable\]
+    /// Control Martin web UI. \[default: enable\]
     ///
-    /// At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
-    /// This may be undesirable in a production environment
+    /// - `disable` turns the web UI off.
+    /// - `enable` serves the web UI only to connections from localhost.
+    /// - `enable-for-all` serves the web UI to all connections.
+    ///
+    /// Serving the web UI to all connections may be undesirable in production.
     #[cfg(all(feature = "webui", not(docsrs)))]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
