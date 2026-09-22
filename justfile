@@ -74,7 +74,7 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: fetch start prepare-mbtiles
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson {{quote(DATABASE_URL)}}
 
 # Build martin with hotpath profiling support
 build-hotpath: fetch
@@ -82,7 +82,7 @@ build-hotpath: fetch
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath prepare-mbtiles
-    exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
+    exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles {{quote(DATABASE_URL)}}
 
 # Run the hotpath benchmark end-to-end: start the profiled server, wait for it, drive HTTP load, shut it down. Used by the hotpath-profile CI workflow.
 bench-hotpath:
@@ -395,7 +395,7 @@ debug-page *args: start
     {{just}} run {{args}}
 
 # Build and run martin docker image
-docker-run *args:
+docker-run *args=quote(DATABASE_URL):
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.16.1 {{args}}
 
 # Build and run martin documentation
@@ -580,11 +580,11 @@ restart:
     {{just}} start
 
 # Start Martin server
-run *args='--webui enable-for-all': fetch
+run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch
     cargo run -p martin -- {{args}}
 
 # Start release-compiled Martin server and a test database
-run-release *args='--webui enable-for-all': fetch start
+run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch start
     cargo run -p martin --release -- {{args}}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`

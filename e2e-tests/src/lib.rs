@@ -61,6 +61,19 @@ pub fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// The client certificate flags for the test database, taken from the `PGSSL*` variables in the harness's environment.
+fn pg_ssl_args() -> Vec<OsString> {
+    [
+        ("PGSSLROOTCERT", "--ca-root-file"),
+        ("PGSSLCERT", "--ssl-cert"),
+        ("PGSSLKEY", "--ssl-key"),
+    ]
+    .into_iter()
+    .filter_map(|(var, flag)| env::var_os(var).map(|path| [OsString::from(flag), path]))
+    .flatten()
+    .collect()
+}
+
 /// A workspace binary, run from its debug build unless `env_var` names another one.
 ///
 /// `env_var` may hold a program plus leading arguments (e.g. a `docker run ...` invocation).

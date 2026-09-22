@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[cfg(feature = "postgres")]
-use tracing::warn;
-
 use super::Config;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::config::primitives::env::Env;
@@ -13,48 +10,6 @@ pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config>
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, &env.as_property_map(), file_name)
-}
-
-/// Postgres env vars Martin still reads implicitly, but will stop in the future
-#[cfg(feature = "postgres")]
-const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
-    (
-        "DATABASE_URL",
-        r#"martin "$DATABASE_URL""#,
-        "postgres.connection_string: ${DATABASE_URL}",
-    ),
-    (
-        "DEFAULT_SRID",
-        r#"--default-srid "$DEFAULT_SRID""#,
-        "postgres.default_srid: ${DEFAULT_SRID}",
-    ),
-    (
-        "PGSSLCERT",
-        r#"--ssl-cert "$PGSSLCERT""#,
-        "postgres.ssl_cert: ${PGSSLCERT}",
-    ),
-    (
-        "PGSSLKEY",
-        r#"--ssl-key "$PGSSLKEY""#,
-        "postgres.ssl_key: ${PGSSLKEY}",
-    ),
-    (
-        "PGSSLROOTCERT",
-        r#"--ca-root-file "$PGSSLROOTCERT""#,
-        "postgres.ssl_root_cert: ${PGSSLROOTCERT}",
-    ),
-];
-
-/// Warn once at startup about legacy Postgres env vars Martin still reads implicitly.
-#[cfg(feature = "postgres")]
-pub fn warn_legacy_env_vars(env: &impl Env) {
-    for (name, cli, config_key) in LEGACY_ENV_VARS {
-        if env.var_os(name).is_some() {
-            warn!(
-                "Environment variable {name} is deprecated; use `{config_key}` in your configuration file (or `{cli}` on the command line) instead. See https://maplibre.org/martin/env-vars/"
-            );
-        }
-    }
 }
 
 pub fn parse_config(

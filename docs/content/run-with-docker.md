@@ -19,8 +19,8 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:1.16.1 \
+  postgres://postgres@postgres.example.org/db
 ```
 
 ### Exposing Local Files
@@ -57,8 +57,8 @@ You would not need to export ports with `-p` because the container is already us
 ```bash
 docker run \
   --net=host \
-  -e DATABASE_URL=postgres://postgres@localhost/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:1.16.1 \
+  postgres://postgres@localhost/db
 ```
 
 ### Accessing Local PostgreSQL on macOS
@@ -68,8 +68,8 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:1.16.1 \
+  postgres://postgres@host.docker.internal/db
 ```
 
 ### Accessing Local PostgreSQL on Windows
@@ -79,6 +79,6 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:1.16.1 \
+  postgres://postgres@docker.for.win.localhost/db
 ```

@@ -36,7 +36,7 @@ class Martin < Formula
 
   def caveats; <<~EOS
     Martin requires a database connection string.
-    It can be passed as a command-line argument or as a DATABASE_URL environment variable.
+    It can be passed as a command-line argument or set in a configuration file.
       martin postgres://postgres@localhost/db
   EOS
   end
