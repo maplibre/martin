@@ -30,7 +30,7 @@ pub enum ConfigFileError {
     ConfigWriteError(#[source] std::io::Error, PathBuf),
 
     #[error(
-        "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+        "No tile sources found. Set sources by giving a database connection string on command line or a config file."
     )]
     NoSources,
     #[error("Source path is not a file: {0}")]
@@ -365,7 +365,7 @@ impl Diagnostic for ConfigFileError {
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let help: &'static str = match self {
             Self::NoSources => {
-                "Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config."
+                "Provide tile sources as connection arguments (e.g. `martin postgres://...`), or in a config file passed with --config."
             }
             Self::CorsNoOriginsConfigured => {
                 "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block."
@@ -542,9 +542,9 @@ mod tests {
     fn no_sources() {
         let err = ConfigFileError::NoSources;
         insta::assert_snapshot!(describe(&err), @"
-        message: No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file.
+        message: No tile sources found. Set sources by giving a database connection string on command line or a config file.
         code: martin::config::no_sources
-        help: Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config.
+        help: Provide tile sources as connection arguments (e.g. `martin postgres://...`), or in a config file passed with --config.
         url: https://maplibre.org/martin/config-file/
         labels: none
         source_code: none

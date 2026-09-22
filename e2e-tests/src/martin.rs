@@ -23,7 +23,7 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 
-use crate::{binary_command, workspace_root};
+use crate::{binary_command, pg_ssl_args, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -52,7 +52,6 @@ const ALLOWED_LOG_LINES: &[&str] = &[
     "Unable to deserialize SQL comment on public.points2 as tilejson",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
-    "Environment variable DATABASE_URL is deprecated",
     "aborting query. Use --auto-bounds=calc",
 ];
 
@@ -108,7 +107,7 @@ impl MartinBuilder {
         self
     }
 
-    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at.
+    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
         let url = env::var("DATABASE_URL")
@@ -140,6 +139,10 @@ impl MartinBuilder {
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
+            if !self.args.iter().any(|arg| arg == "--config") {
+                cmd.arg(url);
+            }
+            cmd.args(pg_ssl_args());
         }
 
         let mut child = cmd.spawn().map_err(StartError::Spawn)?;

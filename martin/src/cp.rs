@@ -246,11 +246,7 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         pg: copy_args.pg,
     };
 
-    args.merge_into_config(
-        &mut config,
-        #[cfg(feature = "postgres")]
-        &env,
-    )?;
+    args.merge_into_config(&mut config)?;
     config.finalize().await?;
     config.warn_unrecognized_keys();
 

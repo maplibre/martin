@@ -4,7 +4,7 @@ use std::env;
 use std::ffi::OsString;
 use std::process::Stdio;
 
-use crate::{binary_command, display_args, workspace_root};
+use crate::{binary_command, display_args, pg_ssl_args, workspace_root};
 
 /// One run of `martin cp`, which reaches a database only through
 /// [`MartinCp::with_postgres`].
@@ -28,14 +28,7 @@ impl MartinCp {
         self
     }
 
-    /// Set an environment variable for the copy.
-    #[must_use]
-    pub fn env(mut self, key: &str, value: &str) -> Self {
-        self.envs.push((key.to_owned(), value.to_owned()));
-        self
-    }
-
-    /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at.
+    /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
         let url = env::var("DATABASE_URL")
@@ -78,6 +71,10 @@ impl MartinCp {
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
+            if !self.args.iter().any(|arg| arg == "--config") {
+                cmd.arg(url);
+            }
+            cmd.args(pg_ssl_args());
         }
         let described = display_args(&self.args);
         let output = cmd
