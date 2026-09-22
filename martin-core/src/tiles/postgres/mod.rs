@@ -13,7 +13,7 @@ mod retry_timeout;
 pub use retry_timeout::RetryTimeout;
 
 mod features;
-pub use features::{PostgresFeature, PostgresPropValue, PostgresTileFeatures, is_typed_property};
+pub use features::{PostgresFeature, PostgresTileFeatures, is_typed_property};
 
 mod source;
 pub use source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo};

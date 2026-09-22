@@ -2,38 +2,10 @@
 
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
+use mlt_core::PropValue;
 
 use crate::tiles::postgres::PostgresError::{PostgresError as PgError, UnsupportedPropertyType};
 use crate::tiles::postgres::{PostgresResult, TileGeometry, parse_tile_wkb};
-
-/// One property value of one feature or `NULL`
-#[derive(Debug, Clone, PartialEq)]
-pub enum PostgresPropValue {
-    /// A `bool` column.
-    Bool(Option<bool>),
-    /// An `int2`, `int4` or `int8` column.
-    Int(Option<i64>),
-    /// A `float4` column.
-    Float(Option<f32>),
-    /// A `float8` column.
-    Double(Option<f64>),
-    /// A `text`, `varchar`, `bpchar` or `name` column.
-    Text(Option<String>),
-}
-
-impl PostgresPropValue {
-    /// Whether the column held `NULL` for this feature.
-    #[must_use]
-    pub const fn is_null(&self) -> bool {
-        match self {
-            Self::Bool(v) => v.is_none(),
-            Self::Int(v) => v.is_none(),
-            Self::Float(v) => v.is_none(),
-            Self::Double(v) => v.is_none(),
-            Self::Text(v) => v.is_none(),
-        }
-    }
-}
 
 /// One feature of a tile, in tile coordinate space.
 #[derive(Debug, Clone, PartialEq)]
@@ -43,7 +15,7 @@ pub struct PostgresFeature {
     /// The geometry, already clipped and projected into tile space by `ST_AsMVTGeom`.
     pub geometry: TileGeometry,
     /// The property columns, in the order the query selected them.
-    pub properties: Vec<(CompactString, PostgresPropValue)>,
+    pub properties: Vec<(CompactString, PropValue)>,
 }
 
 /// Everything one tile's worth of rows makes up: a single layer of features.
@@ -132,7 +104,7 @@ pub(crate) fn features_from_rows(
 fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
     let value = property_value(row, 1, "reading a tile feature's id")?;
-    let PostgresPropValue::Int(value) = value else {
+    let PropValue::I64(value) = value else {
         return Err(UnsupportedPropertyType {
             column: column.name().to_owned(),
             pg_type: column.type_().name().to_owned(),
@@ -142,11 +114,7 @@ fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
-fn property_value(
-    row: &Row,
-    idx: usize,
-    context: &'static str,
-) -> PostgresResult<PostgresPropValue> {
+fn property_value(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PropValue> {
     let column = &row.columns()[idx];
     let read = |e| PgError(e, context);
     let Some(prop_type) = PropType::of(column.type_().name()) else {
@@ -156,20 +124,20 @@ fn property_value(
         });
     };
     Ok(match prop_type {
-        PropType::Bool => PostgresPropValue::Bool(row.try_get(idx).map_err(read)?),
-        PropType::Int16 => PostgresPropValue::Int(
+        PropType::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
+        PropType::Int16 => PropValue::I64(
             row.try_get::<_, Option<i16>>(idx)
                 .map_err(read)?
                 .map(i64::from),
         ),
-        PropType::Int32 => PostgresPropValue::Int(
+        PropType::Int32 => PropValue::I64(
             row.try_get::<_, Option<i32>>(idx)
                 .map_err(read)?
                 .map(i64::from),
         ),
-        PropType::Int64 => PostgresPropValue::Int(row.try_get(idx).map_err(read)?),
-        PropType::Float => PostgresPropValue::Float(row.try_get(idx).map_err(read)?),
-        PropType::Double => PostgresPropValue::Double(row.try_get(idx).map_err(read)?),
-        PropType::Text => PostgresPropValue::Text(row.try_get(idx).map_err(read)?),
+        PropType::Int64 => PropValue::I64(row.try_get(idx).map_err(read)?),
+        PropType::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
+        PropType::Double => PropValue::F64(row.try_get(idx).map_err(read)?),
+        PropType::Text => PropValue::Str(row.try_get(idx).map_err(read)?),
     })
 }

@@ -63,6 +63,7 @@ metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:humantime",
+    "dep:mlt-core",
     "dep:postgres",
     "dep:regex",
     "dep:rustls",

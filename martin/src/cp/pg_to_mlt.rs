@@ -2,7 +2,7 @@
 
 use martin_core::tiles::Tile;
 use martin_core::tiles::postgres::{
-    PostgresFeature, PostgresPropValue, PostgresTileFeatures, TileGeometry, TileVertex,
+    PostgresFeature, PostgresTileFeatures, TileGeometry, TileVertex,
 };
 use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
 use mlt_core::encoder::EncoderConfig;
@@ -88,36 +88,25 @@ fn column_kinds(features: &[PostgresFeature]) -> Vec<Option<PropKind>> {
                 .filter_map(|f| f.properties.get(idx).map(|(_, value)| value))
                 .filter(|value| !value.is_null())
                 .peekable();
-            let first = *values.peek()?;
-            Some(match first {
-                PostgresPropValue::Bool(_) => PropKind::Bool,
-                PostgresPropValue::Float(_) => PropKind::F32,
-                PostgresPropValue::Double(_) => PropKind::F64,
-                PostgresPropValue::Text(_) => PropKind::Str,
-                PostgresPropValue::Int(_) => {
-                    if values.any(|v| matches!(v, PostgresPropValue::Int(Some(i)) if *i < 0)) {
-                        PropKind::I64
-                    } else {
-                        PropKind::U64
-                    }
-                }
-            })
+            let kind = values.peek()?.kind();
+            if kind == PropKind::I64
+                && !values.any(|v| matches!(v, PropValue::I64(Some(i)) if *i < 0))
+            {
+                return Some(PropKind::U64);
+            }
+            Some(kind)
         })
         .collect()
 }
 
 /// One value in the column type [`column_kinds`] settled on, `NULL` included.
-fn to_prop_value(kind: PropKind, value: PostgresPropValue) -> PropValue {
-    match value {
-        PostgresPropValue::Bool(v) => PropValue::Bool(v),
-        PostgresPropValue::Float(v) => PropValue::F32(v),
-        PostgresPropValue::Double(v) => PropValue::F64(v),
-        PostgresPropValue::Text(v) => PropValue::Str(v),
-        PostgresPropValue::Int(v) if kind == PropKind::U64 => {
-            PropValue::U64(v.and_then(|i| u64::try_from(i).ok()))
-        }
-        PostgresPropValue::Int(v) => PropValue::I64(v),
+fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
+    if kind == PropKind::U64
+        && let PropValue::I64(v) = value
+    {
+        return PropValue::U64(v.and_then(|i| u64::try_from(i).ok()));
     }
+    value
 }
 
 /// Converts a tile-space geometry into the `geo_types::Geometry<i32>` `mlt-core` accepts.
@@ -181,7 +170,7 @@ mod tests {
         TileVertex { x, y, m }
     }
 
-    fn feature(properties: Vec<(&str, PostgresPropValue)>) -> PostgresFeature {
+    fn feature(properties: Vec<(&str, PropValue)>) -> PostgresFeature {
         PostgresFeature {
             id: None,
             geometry: TileGeometry::Point(vertex(1, 2, None)),
@@ -217,14 +206,14 @@ mod tests {
     }
 
     #[rstest]
-    #[case::boolean(PostgresPropValue::Bool(Some(true)), PropKind::Bool)]
-    #[case::float(PostgresPropValue::Float(Some(1.5)), PropKind::F32)]
-    #[case::double(PostgresPropValue::Double(Some(1.5)), PropKind::F64)]
-    #[case::text(PostgresPropValue::Text(Some("x".to_owned())), PropKind::Str)]
-    #[case::non_negative_integer(PostgresPropValue::Int(Some(7)), PropKind::U64)]
-    #[case::negative_integer(PostgresPropValue::Int(Some(-7)), PropKind::I64)]
+    #[case::boolean(PropValue::Bool(Some(true)), PropKind::Bool)]
+    #[case::float(PropValue::F32(Some(1.5)), PropKind::F32)]
+    #[case::double(PropValue::F64(Some(1.5)), PropKind::F64)]
+    #[case::text(PropValue::Str(Some("x".to_owned())), PropKind::Str)]
+    #[case::non_negative_integer(PropValue::I64(Some(7)), PropKind::U64)]
+    #[case::negative_integer(PropValue::I64(Some(-7)), PropKind::I64)]
     fn a_column_takes_the_type_of_the_values_in_it(
-        #[case] value: PostgresPropValue,
+        #[case] value: PropValue,
         #[case] expected: PropKind,
     ) {
         let features = vec![feature(vec![("p", value)])];
@@ -234,9 +223,9 @@ mod tests {
     #[test]
     fn one_negative_value_makes_the_whole_integer_column_signed() {
         let features = vec![
-            feature(vec![("p", PostgresPropValue::Int(Some(7)))]),
-            feature(vec![("p", PostgresPropValue::Int(None))]),
-            feature(vec![("p", PostgresPropValue::Int(Some(-1)))]),
+            feature(vec![("p", PropValue::I64(Some(7)))]),
+            feature(vec![("p", PropValue::I64(None))]),
+            feature(vec![("p", PropValue::I64(Some(-1)))]),
         ];
         assert_eq!(column_kinds(&features), vec![Some(PropKind::I64)]);
     }
@@ -245,12 +234,12 @@ mod tests {
     fn a_column_that_is_null_everywhere_is_left_out() {
         let features = vec![
             feature(vec![
-                ("empty", PostgresPropValue::Int(None)),
-                ("filled", PostgresPropValue::Text(Some("a".to_owned()))),
+                ("empty", PropValue::I64(None)),
+                ("filled", PropValue::Str(Some("a".to_owned()))),
             ]),
             feature(vec![
-                ("empty", PostgresPropValue::Int(None)),
-                ("filled", PostgresPropValue::Text(None)),
+                ("empty", PropValue::I64(None)),
+                ("filled", PropValue::Str(None)),
             ]),
         ];
         assert_eq!(column_kinds(&features), vec![None, Some(PropKind::Str)]);
@@ -364,8 +353,8 @@ mod tests {
             id: Some(42),
             geometry: TileGeometry::Point(vertex(10, 20, Some(1.0))),
             properties: vec![
-                ("n".into(), PostgresPropValue::Int(Some(-5))),
-                ("s".into(), PostgresPropValue::Text(Some("hi".to_owned()))),
+                ("n".into(), PropValue::I64(Some(-5))),
+                ("s".into(), PropValue::Str(Some("hi".to_owned()))),
             ],
         }];
         let encoded = encode_features_as_mlt(tile(features), EncoderConfig::default())
