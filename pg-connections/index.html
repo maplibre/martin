@@ -2142,9 +2142,8 @@ See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBP
 <h3 id="ssl-connections">SSL Connections</h3>
 <p>Martin supports PostgreSQL <code>sslmode</code> settings: <code>disable</code>, <code>prefer</code>, <code>require</code>, <code>verify-ca</code> and <code>verify-full</code>.
 See the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a> for mode descriptions.
-Certificates can be provided in the configuration file or via environment variables (same as <code>psql</code>).
-Environment variables apply to all PostgreSQL connections.
-See <a href="../env-vars/">environment vars</a> for details.</p>
+Certificates can be provided in the <a href="../config-file/">configuration file</a> or on the command line with <code>--ssl-cert</code>, <code>--ssl-key</code> and <code>--ca-root-file</code>.
+The command line flags apply to all PostgreSQL connections.</p>
 <p>By default, <code>sslmode</code> is <code>prefer</code> - encrypt (don't check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
 This matches <code>psql</code> default behavior.</p>
 <p>If you require guarantees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.

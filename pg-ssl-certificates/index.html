@@ -2225,45 +2225,38 @@ The previous step may set them to not readable by the current user.</p>
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">pg_stat_ssl</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pg_backend_pid</span><span class="p">();</span>
 </span></code></pre></div>
 <h2 id="martin-configuration">Martin Configuration</h2>
-<p>Martin can be configured using environment variables, <a href="../run-with-cli/">the CLI</a>, or the <a href="../config-file/">configuration file</a>.
+<p>Martin can be configured using <a href="../run-with-cli/">the CLI</a> or the <a href="../config-file/">configuration file</a>.
 Which of them you choose is up to you.
 You do not need to configure things twice.</p>
 <details>
-<summary>Environment Variables (click to expand)</summary>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLROOTCERT</span><span class="o">=</span>./ca-cert.pem
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span><span class="s2">"postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>martin
-</span></code></pre></div>
-</details>
-<details>
 <summary>Configuration File (click to expand)</summary>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">ssl_root_cert</span><span class="p">:</span><span class="w"> </span><span class="s">'./ca-cert.pem'</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="s">'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">ssl_root_cert</span><span class="p">:</span><span class="w"> </span><span class="s">'./ca-cert.pem'</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="s">'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'</span>
 </span></code></pre></div>
 </details>
 <details>
 <summary>Command Line (click to expand)</summary>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>martin<span class="w"> </span>--ca-root-file<span class="w"> </span>./ca-cert.pem<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">      </span><span class="s2">"postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>martin<span class="w"> </span>--ca-root-file<span class="w"> </span>./ca-cert.pem<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">      </span><span class="s2">"postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"</span>
 </span></code></pre></div>
 </details>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>You can get more context via the following commands:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLMODE</span><span class="o">=</span>verify-full
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLROOTCERT</span><span class="o">=</span>./ca-cert.pem
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># Verbose psql</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>postgres<span class="w"> </span>-d<span class="w"> </span>postgres<span class="w"> </span>-v
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="c1"># Debug Martin</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="nv">RUST_LOG</span><span class="o">=</span>debug<span class="w"> </span><span class="nv">RUST_LOG_FORMAT</span><span class="o">=</span>pretty<span class="w"> </span>martin<span class="w"> </span>postgres://...
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLMODE</span><span class="o">=</span>verify-full
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLROOTCERT</span><span class="o">=</span>./ca-cert.pem
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Verbose psql</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>postgres<span class="w"> </span>-d<span class="w"> </span>postgres<span class="w"> </span>-v
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># Debug Martin</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="nv">RUST_LOG</span><span class="o">=</span>debug<span class="w"> </span><span class="nv">RUST_LOG_FORMAT</span><span class="o">=</span>pretty<span class="w"> </span>martin<span class="w"> </span>--ca-root-file<span class="w"> </span>./ca-cert.pem<span class="w"> </span>postgres://...
 </span></code></pre></div>
 <p>These are the errors that can occur:</p>
 <details>
 <summary>Certificate verification failed (click to expand)</summary>
 <ul>
 <li>Check server certificate is signed by the CA</li>
-<li>Verify CA certificate path in <code>PGSSLROOTCERT</code></li>
+<li>Verify the CA certificate path given as <code>--ca-root-file</code> or <code>ssl_root_cert</code></li>
 <li>Ensure certificate files are readable</li>
 </ul>
 </details>

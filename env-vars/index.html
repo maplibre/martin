@@ -1550,10 +1550,10 @@
 
 
 <h1 id="environment-variables">Environment Variables</h1>
-<p>You can configure Martin using environment variables, but only if the configuration file is not used.
-The configuration file itself can use environment variables if needed.
-See <a href="../config-file/">configuration section</a> on how to use environment variables with config files.
-See also <a href="../pg-connections/#ssl-connections">SSL configuration</a> section below.</p>
+<p>Martin takes its configuration from <a href="../run-with-cli/">command line parameters</a> and the <a href="../config-file/">configuration file</a>.
+A configuration file can read any environment variable you name in it, for example <code>connection_string: ${DATABASE_URL}</code>.
+See the <a href="../config-file/">configuration section</a> for the substitution syntax.
+Martin itself reacts to the following variables.</p>
 <table>
 <thead>
 <tr>
@@ -1572,48 +1572,6 @@ See also <a href="../pg-connections/#ssl-connections">SSL configuration</a> sect
 </tr>
 </tbody>
 </table>
-<div class="admonition warning">
-<p class="admonition-title">Deprecated environment variables</p>
-<p>Reading <strong>below environment variables is deprecated</strong> and <strong>will be removed</strong> in a <strong>future</strong> (semver major) <strong>release</strong>.
-See <a href="https://github.com/maplibre/martin/issues/1052">#1052</a> for further context why this was done.
-Use the appropriate CLI flags or our yaml interpolation (<code>key: ${ENV_VAR}</code>) support that replaces them.</p>
-<table>
-<thead>
-<tr>
-<th>Environment var <br/> Config File key</th>
-<th>Example</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td>
-<td><code>postgres://</code><br/><code>postgres@localhost/db</code></td>
-<td>Postgres database connection</td>
-</tr>
-<tr>
-<td><code>DEFAULT_SRID</code> <br/> <code>default_srid</code></td>
-<td><code>4326</code></td>
-<td>If a PostgreSQL table has a geometry column with SRID=0, use this value instead</td>
-</tr>
-<tr>
-<td><code>PGSSLCERT</code> <br/> <code>ssl_cert</code></td>
-<td><code>./postgresql.crt</code></td>
-<td>A file with a client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT">docs</a></td>
-</tr>
-<tr>
-<td><code>PGSSLKEY</code> <br/> <code>ssl_key</code></td>
-<td><code>./postgresql.key</code></td>
-<td>A file with the key for the client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY">docs</a></td>
-</tr>
-<tr>
-<td><code>PGSSLROOTCERT</code> <br/> <code>ssl_root_cert</code></td>
-<td><code>./root.crt</code></td>
-<td>A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT">docs</a></td>
-</tr>
-</tbody>
-</table>
-</div>
 
 
   <nav class="md-tags" >
