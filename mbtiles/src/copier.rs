@@ -169,7 +169,14 @@ impl MbtileCopierInt {
         let mut conn = self.src_mbt.open_readonly().await?;
         let src_type = self.src_mbt.detect_type(&mut conn).await?;
         let algorithm = self.dst_algorithm(&mut conn).await?;
+        let stored_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
         conn.close().await?;
+        // Stored hashes are only forwarded when the destination keeps their algorithm
+        let hash_src_type = if algorithm == stored_algorithm {
+            src_type
+        } else {
+            Flat
+        };
 
         conn = self.dst_mbt.open_or_new().await?;
         let is_empty_db = is_empty_database(&mut conn).await?;
@@ -203,14 +210,14 @@ impl MbtileCopierInt {
                 .await?;
         }
 
-        let map_algorithm = self.map_algorithm(src_type, algorithm).await?;
+        let map_algorithm = self.map_algorithm(hash_src_type, algorithm).await?;
         self.copy_with_rusqlite(
             &mut conn,
             on_duplicate,
             src_type,
             dst_type,
             map_algorithm,
-            &get_select_from(src_type, dst_type, algorithm),
+            &get_select_from(hash_src_type, dst_type, algorithm),
         )
         .await?;
 
@@ -534,7 +541,9 @@ impl MbtileCopierInt {
         } else {
             sql = format!(
                 "
-    INSERT {on_dupl} INTO metadata SELECT name, value FROM sourceDb.metadata"
+    INSERT {on_dupl} INTO metadata
+        SELECT name, value FROM sourceDb.metadata
+        WHERE name != '{HASH_ALGORITHM}'"
             );
             debug!("Copying metadata with {sql}");
         }

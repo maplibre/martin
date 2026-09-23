@@ -15,8 +15,9 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    CacheEntryMeta, CopyType, MbtError, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier,
-    PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema, invert_y_value,
+    CacheEntryMeta, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli, Mbtiles,
+    MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema,
+    invert_y_value,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -621,6 +622,31 @@ async fn copy_cache_to_cache_preserves_meta() {
             .unwrap()
             .is_some()
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn copy_with_another_hash_algorithm_rehashes_stored_hashes() -> MbtResult<()> {
+    let (src_mbt, _src_cn) = new_file!(
+        copy_with_another_hash_algorithm_rehashes_stored_hashes,
+        FlatWithHash,
+        METADATA_V1,
+        TILES_V1,
+        "src"
+    );
+    let (dst_mbt, mut dst_cn) = open!(
+        copy_with_another_hash_algorithm_rehashes_stored_hashes,
+        "dst"
+    );
+    copy! {
+        path(&src_mbt),
+        path(&dst_mbt),
+        hash_algorithm => Some(HashAlgorithm::Xxh3),
+    };
+    dst_mbt.open_and_validate(Off, Verify).await?;
+    let dmp = dump(&mut dst_cn).await?;
+    assert_dump!(&dmp, "xxh3");
+    Ok(())
 }
 
 /// A cache file works as the "new state" side of a diff, read via its `tiles` view.
