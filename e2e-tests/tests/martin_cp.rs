@@ -27,8 +27,8 @@ fn snapshot_filters() -> Vec<(&'static str, &'static str)> {
 #[rstest]
 #[case("png", "invalid value 'png'")]
 #[case("jpeg", "invalid value 'jpeg'")]
-#[case("mltv2", "invalid value 'mltv2'")]
-#[case("mlt2", "invalid value 'mlt2'")]
+#[cfg_attr(not(feature = "test-mlt-v2"), case("mltv2", "invalid value 'mltv2'"))]
+#[cfg_attr(not(feature = "test-mlt-v2"), case("mlt2", "invalid value 'mlt2'"))]
 #[tokio::test]
 async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected: &str) {
     let dir = temp_dir();
@@ -604,7 +604,7 @@ postgres:
         );
     }
 
-    /// Tests that need a `martin` built with `unstable-mlt-v2`; `just test-mlt-v2` runs them.
+    /// Tests that need a `martin` built with `unstable-mlt-v2`.
     #[cfg(feature = "test-mlt-v2")]
     mod mlt_v2 {
         use martin_e2e_tests::{mlt_dump, mlt_dump_ignoring_ring_start};
