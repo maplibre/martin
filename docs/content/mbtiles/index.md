@@ -23,3 +23,13 @@ Example for `mbtiles validate --help`:
 ```text
 --8<-- "help/mbtiles-validate.txt"
 ```
+
+## Temporary files
+
+SQLite writes its temporary files to `/var/tmp`, `/usr/tmp` or `/tmp`, whichever exists first.
+A small partition there makes `mbtiles copy` and `mbtiles validate` on a large file fail with `database or disk is full` while the destination disk has room.
+Point `SQLITE_TMPDIR` at a directory with enough space.
+
+```bash
+SQLITE_TMPDIR=/data/tmp mbtiles copy src.mbtiles dst.mbtiles
+```
