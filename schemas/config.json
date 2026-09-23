@@ -1919,7 +1919,7 @@
           "type": "null"
         }
       ],
-      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment",
+      "description": "Control access to Martin's web UI. \\[default: enable\\]\n\n- `enable` allows only connections from localhost.\n- `enableforall` allows all connections.\n- `disable` turns the web UI off.\n\nUse `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.",
       "examples": ["disable"]
     },
     "worker_processes": {

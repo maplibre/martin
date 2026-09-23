@@ -592,10 +592,13 @@ tile_grids: {}
 # `TileJSON` will be:
 # `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`
 tilejson_url_version_param: version
-# Enable or disable Martin web UI. [default: disable]
+# Control access to Martin's web UI. [default: enable]
 #
-# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
-# This may be undesirable in a production environment
+# - `enable` allows only connections from localhost.
+# - `enableforall` allows all connections.
+# - `disable` turns the web UI off.
+#
+# Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.
 web_ui: disable
 # Number of web server workers
 worker_processes: 8
