@@ -1353,7 +1353,7 @@
 </tr>
 </tbody>
 </table>
-<p>Martin ignores the old variables. Starting with only <code>DATABASE_URL</code> exported fails with <code>No tile sources found</code>. Without replacement settings, auto-discovered tables with SRID 0 are skipped with a warning, and client certificates previously supplied through <code>PGSSLCERT</code> are not sent.</p>
+<p>Martin ignores the old variables. Starting with only <code>DATABASE_URL</code> exported fails with <code>No tile sources found</code>. On grids with a coordinate reference system, auto-discovered tables with SRID 0 are skipped with a warning unless you set <code>default_srid</code>. Simple grids use SRID 0 and need no fallback. Client certificates previously supplied through <code>PGSSLCERT</code> are not sent unless you configure them explicitly.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># 1.x</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@localhost/db
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>martin
@@ -1482,7 +1482,7 @@
 <ul>
 <li>In <code>martin-tile-utils</code>, <code>TileCoord</code> fields are private. Construct coordinates with <code>TileCoord::new_checked</code> or <code>TileCoord::new_unchecked</code> and read them with <code>z()</code>, <code>x()</code> and <code>y()</code>.</li>
 <li><code>TileData</code> is now <code>bytes::Bytes</code> instead of <code>Vec&lt;u8&gt;</code>, including data returned by <code>mbtiles::Mbtiles::stream_tiles</code>.</li>
-<li>In <code>martin-core</code>, <code>Source</code> is no longer dyn compatible. <code>clone_source</code> and <code>cancel_registry</code> were removed. Sources use the closed <code>AnySource</code> enum, and <code>BoxedSource</code> is now <code>Arc&lt;AnySource&gt;</code>.</li>
+<li>In <code>martin-core</code>, <code>Source</code> is no longer dyn compatible. Its <code>clone_source</code> and <code>cancel_registry</code> methods were removed. Sources use the closed <code>AnySource</code> enum, and <code>BoxedSource</code> is now <code>Arc&lt;AnySource&gt;</code>. With the <code>postgres</code> feature, call <code>cancel_registry()</code> on <code>AnySource</code> or <code>BoxedSource</code>.</li>
 <li><code>CatalogSourceEntry</code> gained <code>tile_grid</code>, <code>PostgresSource::new</code> requires the source's <code>TileGrid</code>, and <code>CogError::TooManyImages</code> was removed.</li>
 <li><code>mbtiles::Mbtiles::insert_tiles</code> now requires tile data to implement <code>Sync</code>. The copier writes the normalized layout described above.</li>
 </ul>
