@@ -17,7 +17,10 @@ Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the
 
 ### `martin-cp` is now `martin cp`
 
-Replace `martin-cp` with `martin cp` in scripts and commands. The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate `martin-cp` binary. The `mbtiles` binary is unchanged.
+Replace `martin-cp` with `martin cp` in scripts and commands.
+The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate `martin-cp` binary.
+The `mbtiles` binary keeps its name and loses its hidden `--verbose` flag, which did nothing.
+Use `RUST_LOG` to control logging.
 
 ```bash
 # 1.x
