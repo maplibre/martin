@@ -29,13 +29,20 @@ tags:
 
     We welcome contributions to help stabilize this feature!
 
-Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files and from the tables and macros of `.duckdb` database files via [DuckDB](https://duckdb.org/).
-Instead of incurring the overhead of serving them directly, we serve them as vector tiles.
+Martin serves vector tiles from [GeoParquet](https://geoparquet.org/) files and from tables and macros in [DuckDB](https://duckdb.org/) database files.
 
-`martin data.parquet` serves a GeoParquet file and `martin tiles.duckdb` publishes the tables of a database file, both with the default settings.
-Every other option lives in the [configuration file](config-file/index.md).
-Create one and start Martin with `martin --config config.yaml`.
-Once a DuckDB configuration exists, `martin --config config.yaml --save-config resolved-config.yaml` writes a copy with the resolved per-source defaults.
+Pass a local file to use the default settings:
+
+- `martin data.parquet` serves a GeoParquet file.
+- `martin tiles.duckdb` publishes the database's geometry tables and `(z, x, y)` tile macros.
+
+To customize DuckDB sources or use remote GeoParquet, use a [configuration file](config-file/index.md) and run `martin --config config.yaml`.
+
+Add `--save-config resolved-config.yaml` to any of these commands to save the configuration with resolved per-source defaults:
+
+```bash
+martin --config config.yaml --save-config resolved-config.yaml
+```
 
 ## Run Martin with configuration file
 
