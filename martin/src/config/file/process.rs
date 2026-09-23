@@ -327,7 +327,6 @@ pub struct MltEncoderConfig {
     /// Allow FSST string compression.
     pub allow_fsst: Option<bool>,
     /// Allow `FastPFOR` integer compression.
-    #[serde(alias = "allow_fpf")]
     pub allow_fastpfor: Option<bool>,
     /// Allow string grouping into shared dictionaries.
     pub allow_shared_dict: Option<bool>,

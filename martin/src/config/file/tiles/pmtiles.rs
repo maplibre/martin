@@ -399,7 +399,7 @@ mod tests {
     async fn profile_finalization_loads_credentials_and_preserves_explicit_options() {
         let (_dir, files) = profile_files();
         let mut profile: PmtConfig = serde_saphyr::from_str(indoc! {"
-            aws_profile: staging
+            profile: staging
             region: eu-west-2
             skip_signature: false
         "})

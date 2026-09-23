@@ -13,7 +13,7 @@ Use this guide to update an existing Martin setup after a major release. See the
 
 Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.
 
-Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
+Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [cache keys](#cache-sizes-have-one-spelling), [configuration key spellings](#configuration-keys-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
 
 ### `martin-cp` is now `martin cp`
 
@@ -146,6 +146,41 @@ pmtiles:
 A public bucket previously accessed with `AWS_SKIP_CREDENTIALS=1` can now fail during instance credential lookup outside AWS. The error does not name the removed variable. Set `skip_signature: true` for unsigned requests. This requires a configuration file, including when replacing a command such as `martin s3://public-bucket/tiles.pmtiles`.
 
 See [Remote files and prefixes](sources-pmtiles.md#remote-files-and-prefixes).
+
+### Configuration keys have one spelling
+
+Replace these undocumented alternate spellings with the documented ones. Martin reports the old keys as unrecognized and ignores their values. The old values fail at startup with an unknown variant error. None of them warned in 1.x. A bare `web_ui: true` was already rejected. Only the quoted form parsed.
+
+| 1.x                                                                        | 2.0                                                |
+| -------------------------------------------------------------------------- | -------------------------------------------------- |
+| `postgres.auto_publish.from_schema`, also under `tables` and `functions`   | `from_schemas`                                     |
+| `postgres.auto_publish.tables.id_format`, also under `functions`           | `source_id_format`                                 |
+| `postgres.auto_publish.tables.id_column`                                   | `id_columns`                                       |
+| the same three keys under `duckdb.auto_publish`                            | `from_schemas`, `source_id_format`, `id_columns`   |
+| `convert_to_mlt.allow_fpf`                                                 | `convert_to_mlt.allow_fastpfor`                    |
+| `pmtiles.aws_profile`, `cog.aws_profile`                                   | `profile`                                          |
+| `on_invalid: warning`, `warnings`, `continue`, `ignore`                    | `on_invalid: warn`                                 |
+| `web_ui: "true"`, `web_ui: "false"`                                        | `web_ui: enable`, `web_ui: disable`                |
+| `preferred_encoding: br`                                                   | `preferred_encoding: brotli`                       |
+
+```yaml
+# 1.x
+on_invalid: continue
+postgres:
+  auto_publish:
+    from_schema: public
+    tables:
+      id_column: gid
+# 2.0
+on_invalid: warn
+postgres:
+  auto_publish:
+    from_schemas: public
+    tables:
+      id_columns: gid
+```
+
+See the [full configuration](config-file/index.md#full-configuration).
 
 ### Plain `http://` sources must opt in
 

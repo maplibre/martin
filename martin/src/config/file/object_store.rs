@@ -41,11 +41,7 @@ const AWS_CREDENTIAL_DISCOVERY_KEYS: &[AmazonS3ConfigKey] = &[
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObjectStoreConfig {
     /// AWS SDK profile used for S3 credentials and region resolution.
-    #[serde(
-        default,
-        alias = "aws_profile",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub profile: Option<String>,
 

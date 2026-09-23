@@ -95,12 +95,11 @@ mod tests {
         insta::assert_snapshot!(render_failure("on_invalid: maybe\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
-          │ warnings, abort
+          × unknown variant `maybe`, expected one of warn, abort
            ╭─[config.yaml:1:13]
          1 │ on_invalid: maybe
            ·             ──┬──
-           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ·               ╰── unknown variant `maybe`, expected one of warn, abort
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -198,6 +197,39 @@ mod tests {
         {
             "cache_size_mb",
             "tile_cache_size_mb",
+        }
+        "#);
+    }
+
+    #[cfg(all(feature = "postgres", feature = "pmtiles", feature = "mlt"))]
+    #[test]
+    fn undocumented_key_aliases_are_unrecognized() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config = parse_yaml(indoc::indoc! {"
+            convert_to_mlt:
+              allow_fpf: true
+            pmtiles:
+              aws_profile: default
+            postgres:
+              auto_publish:
+                from_schema: public
+                tables:
+                  id_format: '{table}'
+                  id_column: gid
+                functions:
+                  from_schema: public
+        "});
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "convert_to_mlt.allow_fpf",
+            "pmtiles.aws_profile",
+            "postgres.auto_publish.from_schema",
+            "postgres.auto_publish.functions.from_schema",
+            "postgres.auto_publish.tables.id_column",
+            "postgres.auto_publish.tables.id_format",
         }
         "#);
     }

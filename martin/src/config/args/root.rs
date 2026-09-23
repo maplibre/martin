@@ -394,16 +394,11 @@ mod tests {
     #[test]
     fn cli_encoding_arguments() {
         let config1 = parse(&["martin", "--preferred-encoding", "brotli"]);
-        let config2 = parse(&["martin", "--preferred-encoding", "br"]);
         let config3 = parse(&["martin", "--preferred-encoding", "gzip"]);
         let config4 = parse(&["martin"]);
 
         assert_eq!(
             config1.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Brotli)
-        );
-        assert_eq!(
-            config2.unwrap().0.srv.preferred_encoding,
             Some(PreferredEncoding::Brotli)
         );
         assert_eq!(

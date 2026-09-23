@@ -77,11 +77,9 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
     /// Disable Web UI interface
-    #[serde(alias = "false")]
     Disable,
     /// Enable Web UI interface on connections from the localhost
     #[default]
-    #[serde(alias = "true")]
     Enable,
     /// Enable Web UI interface on all connections
     #[serde(alias = "enable-for-all")]
@@ -93,8 +91,6 @@ pub enum WebUiMode {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
-    #[serde(alias = "br")]
-    #[clap(alias("br"))]
     Brotli,
     Gzip,
 }

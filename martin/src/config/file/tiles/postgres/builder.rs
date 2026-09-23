@@ -163,7 +163,7 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
     }
 }
 
-/// Combine `from_schema` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
+/// Combine `from_schemas` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
 macro_rules! get_auto_schemas {
     ($config:expr, $typ:ident) => {
         if let Object(v) = &$config.auto_publish {
@@ -957,13 +957,13 @@ mod tests {
     }
 
     #[test]
-    fn auto_publish_merges_from_schemas_with_id_format() {
+    fn auto_publish_merges_from_schemas_with_source_id_format() {
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
                 tables:
                     from_schemas: osm
-                    id_format: 'foo_{schema}.{table}_bar'"});
+                    source_id_format: 'foo_{schema}.{table}_bar'"});
         assert_yaml_snapshot!(cfg,
         {
             ".auto_table.schemas" => insta::sorted_redaction()

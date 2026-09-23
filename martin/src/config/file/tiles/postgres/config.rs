@@ -216,7 +216,6 @@ impl Default for PostgresConfig {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
-    #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     /// Here we enable both tables and functions auto discovery.
@@ -248,12 +247,10 @@ pub struct PostgresCfgPublish {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
-    #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
-    #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
         schemars(example = &"table.{schema}.{table}.{column}")
@@ -264,7 +261,6 @@ pub struct PostgresCfgPublishTables {
     /// that table.
     /// If a list of strings is given, the first found column will be treated as a
     /// feature ID.
-    #[serde(alias = "id_column")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub id_columns: OptOneMany<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
@@ -298,12 +294,10 @@ pub struct PostgresCfgPublishTables {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
-    #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     /// Optionally set how source ID should be generated based on the function's
     /// name and schema
-    #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
         schemars(example = &"{schema}.{function}")

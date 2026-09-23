@@ -277,22 +277,6 @@ mod tests {
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
-                preferred_encoding: br
-            "})
-            .unwrap(),
-            SrvConfig {
-                keep_alive: Some(75),
-                listen_addresses: Some("0.0.0.0:3000".to_owned()),
-                worker_processes: Some(8),
-                preferred_encoding: Some(PreferredEncoding::Brotli),
-                ..Default::default()
-            }
-        );
-        assert_eq!(
-            serde_saphyr::from_str::<SrvConfig>(indoc! {"
-                keep_alive: 75
-                listen_addresses: '0.0.0.0:3000'
-                worker_processes: 8
                 preferred_encoding: brotli
             "})
             .unwrap(),
