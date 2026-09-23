@@ -637,7 +637,11 @@ postgres:
         use mlt_core::geo_types::Geometry;
         use mlt_core::{MValue, PropValue, TileLayer};
 
-        use super::{copy_array_props, copy_dimensioned};
+        use std::fs;
+
+        use martin_e2e_tests::{MartinCp, mlt_layers, temp_dir, tiles};
+
+        use super::{MEASURED, copy_array_props, copy_dimensioned};
 
         fn geometries(layers: &[TileLayer]) -> BTreeMap<Option<u64>, Geometry<i32>> {
             layers[0]
@@ -692,6 +696,49 @@ postgres:
                 layer.property_names()
             );
             insta::assert_snapshot!("array_props_mltv2_0_0_0", mlt_dump(&v2));
+        }
+
+        /// `PostGIS` drops the M ordinates of a geometry it clips, so a polygon keeps them in the
+        /// tile it lies wholly inside, and loses them in the neighbours that cut it at their border.
+        #[tokio::test]
+        async fn a_clipped_polygon_loses_its_m_ordinates() {
+            let dir = temp_dir();
+            let config = dir.path().join("config.yaml");
+            fs::write(&config, MEASURED).expect("failed to write the config");
+            let output = dir.path().join("clipped.mbtiles");
+            MartinCp::new()
+                .with_postgres()
+                .arg("--config")
+                .arg(&config)
+                .arg("--source")
+                .arg("measured_shapes")
+                .arg("--format")
+                .arg("mltv2")
+                .arg("--encoding")
+                .arg("identity")
+                .arg("--output-file")
+                .arg(&output)
+                .arg("--min-zoom")
+                .arg("3")
+                .arg("--max-zoom")
+                .arg("3")
+                .arg("--bbox=-1,-1,5,5")
+                .run()
+                .await;
+
+            let mut measured = Vec::new();
+            for (_, _, _, data) in tiles(&output).await {
+                for layer in mlt_layers(&data) {
+                    for feature in layer.features().iter().filter(|f| f.id() == Some(3)) {
+                        let MValue::F64(m) = &feature.m_values()[0] else {
+                            panic!("the m column is not f64: {:?}", feature.m_values());
+                        };
+                        measured.push(m.is_some());
+                    }
+                }
+            }
+            measured.sort_unstable();
+            assert_eq!(measured, [false, false, false, true]);
         }
     }
 

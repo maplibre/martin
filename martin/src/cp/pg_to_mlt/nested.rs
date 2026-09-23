@@ -58,7 +58,10 @@ impl Documents {
                     Some(NestedKind::Leaf(kind)) => {
                         Some(Column::Scalar(builder.add_property(name, kind)?, kind))
                     }
-                    Some(kind) => Some(Column::Nested(builder.add_nested(name, kind.clone())?, kind)),
+                    Some(kind) => Some(Column::Nested(
+                        builder.add_nested(name, kind.clone())?,
+                        kind,
+                    )),
                 })
             })
             .collect()
@@ -72,7 +75,11 @@ pub(super) enum Column {
 }
 
 impl Column {
-    pub(super) fn set(&self, feature: &mut TileFeatureBuilder<'_>, document: Value) -> MltResult<()> {
+    pub(super) fn set(
+        &self,
+        feature: &mut TileFeatureBuilder<'_>,
+        document: Value,
+    ) -> MltResult<()> {
         match self {
             Self::Scalar(key, kind) => feature.property(*key, leaf(*kind, document))?,
             Self::Nested(key, kind) => feature.nested(*key, value(document, kind))?,

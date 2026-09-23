@@ -27,7 +27,7 @@ async fn table_source() {
       description: public.antimeridian.geom
     array_props:
       content_type: application/x-protobuf
-      description: "An array column, which the row-per-feature MLT path cannot encode"
+      description: "Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key"
     auto_table:
       content_type: application/x-protobuf
       description: autodetect.auto_table.geom

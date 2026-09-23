@@ -43,7 +43,7 @@ pub(crate) fn encode_features_as_mlt(
         return Ok(Tile::new_hash_etag(TileData::new(), info));
     }
 
-    let mut builder = TileLayer::builder(layer_name, extent).map_err(mlt_error)?;
+    let mut builder = TileLayer::builder(layer_name, extent).map_err(|e| mlt_error(&e))?;
     #[cfg(feature = "unstable-mlt-v2")]
     let measure_key = add_measure_column(&mut builder, &features, cfg)?;
     let mut columns = Columns::default();
@@ -90,9 +90,9 @@ pub(crate) fn encode_features_as_mlt(
         .zip(&kinds)
         .map(|(name, kind)| builder.add_property(name.as_str(), *kind))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(mlt_error)?;
+        .map_err(|e| mlt_error(&e))?;
     #[cfg(feature = "unstable-mlt-v2")]
-    let document_columns = documents.declare(&mut builder).map_err(mlt_error)?;
+    let document_columns = documents.declare(&mut builder).map_err(|e| mlt_error(&e))?;
 
     for row in rows {
         let mut feature = builder.feature(row.geometry);
@@ -101,27 +101,29 @@ pub(crate) fn encode_features_as_mlt(
         if let Some(key) = measure_key {
             feature
                 .m_value(key, MValue::F64(row.measures))
-                .map_err(mlt_error)?;
+                .map_err(|e| mlt_error(&e))?;
         }
         for (idx, value) in row.values {
             feature
                 .property(keys[idx], to_prop_value(kinds[idx], value))
-                .map_err(mlt_error)?;
+                .map_err(|e| mlt_error(&e))?;
         }
         #[cfg(feature = "unstable-mlt-v2")]
         for (idx, document) in row.docs {
             if let Some(column) = &document_columns[idx] {
-                column.set(&mut feature, document).map_err(mlt_error)?;
+                column
+                    .set(&mut feature, document)
+                    .map_err(|e| mlt_error(&e))?;
             }
         }
-        feature.finish().map_err(mlt_error)?;
+        feature.finish().map_err(|e| mlt_error(&e))?;
     }
 
-    let bytes = builder.finish().encode(cfg).map_err(mlt_error)?;
+    let bytes = builder.finish().encode(cfg).map_err(|e| mlt_error(&e))?;
     Ok(Tile::new_hash_etag(bytes, info))
 }
 
-fn mlt_error(e: mlt_core::MltError) -> ProcessError {
+fn mlt_error(e: &mlt_core::MltError) -> ProcessError {
     ProcessError::MltEncoding(e.to_string())
 }
 
@@ -173,7 +175,7 @@ fn add_measure_column(
     builder
         .add_m_value(MEASURE_COLUMN, PropKind::F64)
         .map(Some)
-        .map_err(mlt_error)
+        .map_err(|e| mlt_error(&e))
 }
 
 /// One feature's M ordinates in the order MLT stores its vertices.
@@ -327,7 +329,10 @@ fn st_asmvt_number(number: &Number) -> PropValue {
         reason = "saturates the way `strtol` does"
     )]
     let integer = double.trunc() as i64;
-    #[expect(clippy::cast_precision_loss, reason = "compared the way `ST_AsMVT` does")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "compared the way `ST_AsMVT` does"
+    )]
     let distance = (double - integer as f64).abs();
     if distance > f64::from(f32::EPSILON) {
         PropValue::F64(Some(double))
@@ -471,7 +476,10 @@ mod tests {
     #[test]
     fn columns_come_in_the_order_their_first_value_does() {
         let features = vec![
-            feature(vec![("a", value(PropValue::I64(None))), ("b", value(str("x")))]),
+            feature(vec![
+                ("a", value(PropValue::I64(None))),
+                ("b", value(str("x"))),
+            ]),
             feature(vec![("a", value(str("y"))), ("b", value(str("z")))]),
         ];
         let layer = encode(features, EncoderConfig::default());
@@ -519,7 +527,10 @@ mod tests {
             "o": {"k": 1},
             "arr": [1, 2],
         });
-        let layer = encode(vec![feature(vec![("doc", doc(document))])], EncoderConfig::default());
+        let layer = encode(
+            vec![feature(vec![("doc", doc(document))])],
+            EncoderConfig::default(),
+        );
         assert_eq!(
             properties(&layer),
             [vec![
@@ -706,10 +717,13 @@ mod tests {
             ];
             let layer = encode(features, v2());
             assert!(layer.nested_names().is_empty());
-            assert_eq!(properties(&layer), [
-                vec![("doc".to_owned(), str("3"))],
-                vec![("doc".to_owned(), str("x"))],
-            ]);
+            assert_eq!(
+                properties(&layer),
+                [
+                    vec![("doc".to_owned(), str("3"))],
+                    vec![("doc".to_owned(), str("x"))],
+                ]
+            );
         }
 
         #[test]
