@@ -168,15 +168,8 @@ impl MbtileCopierInt {
     async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
         let src_type = self.src_mbt.detect_type(&mut conn).await?;
-        let algorithm = self.dst_algorithm(&mut conn).await?;
-        let stored_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
+        let src_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
         conn.close().await?;
-        // Stored hashes are only forwarded when the destination keeps their algorithm
-        let hash_src_type = if algorithm == stored_algorithm {
-            src_type
-        } else {
-            Flat
-        };
 
         conn = self.dst_mbt.open_or_new().await?;
         let is_empty_db = is_empty_database(&mut conn).await?;
@@ -188,6 +181,26 @@ impl MbtileCopierInt {
         } else {
             return Err(MbtError::DestinationFileExists(self.options.dst_file));
         };
+
+        // A new file takes the requested algorithm or the source's, an existing file keeps its own
+        let algorithm = if is_empty_db {
+            self.options.hash_algorithm.unwrap_or(src_algorithm)
+        } else {
+            let destination = self.dst_mbt.get_hash_algorithm(&mut conn).await?;
+            if let Some(requested) = self.options.hash_algorithm
+                && requested != destination
+            {
+                return Err(MbtError::HashAlgorithmMismatch {
+                    requested,
+                    destination,
+                    filepath: self.options.dst_file,
+                });
+            }
+            destination
+        };
+        // Stored hashes are only forwarded when the destination keeps their algorithm
+        let rehash = algorithm != src_algorithm;
+        let hash_src_type = if rehash { Flat } else { src_type };
 
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
@@ -218,6 +231,7 @@ impl MbtileCopierInt {
             dst_type,
             map_algorithm,
             &get_select_from(hash_src_type, dst_type, algorithm),
+            rehash,
         )
         .await?;
 
@@ -285,6 +299,7 @@ impl MbtileCopierInt {
             dst_type,
             self.map_algorithm(src_info.mbt_type, algorithm).await?,
             &get_select_from_with_diff(dif_info.mbt_type, dst_type, patch_type, algorithm),
+            false,
         )
         .await?;
 
@@ -376,6 +391,7 @@ impl MbtileCopierInt {
             dst_type,
             self.map_algorithm(src_type, algorithm).await?,
             &get_select_from_apply_patch(src_type, &dif_info, dst_type, algorithm),
+            false,
         )
         .await?;
 
@@ -463,6 +479,10 @@ impl MbtileCopierInt {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call per copy path, a parameter struct would be built once each"
+    )]
     async fn copy_with_rusqlite(
         &self,
         conn: &mut SqliteConnection,
@@ -471,6 +491,7 @@ impl MbtileCopierInt {
         dst_type: MbtType,
         map_algorithm: HashAlgorithm,
         select_from: &str,
+        rehash: bool,
     ) -> Result<(), MbtError> {
         if self.options.copy.copy_tiles() {
             action_with_rusqlite(conn, |c| {
@@ -489,7 +510,7 @@ impl MbtileCopierInt {
         }
 
         if self.options.copy.copy_metadata() {
-            action_with_rusqlite(conn, |c| self.copy_metadata(c, on_duplicate)).await
+            action_with_rusqlite(conn, |c| self.copy_metadata(c, on_duplicate, rehash)).await
         } else {
             debug!("Skipping copying metadata");
             Ok(())
@@ -500,6 +521,7 @@ impl MbtileCopierInt {
         &self,
         rusqlite_conn: &Connection,
         on_duplicate: CopyDuplicateMode,
+        rehash: bool,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
         let sql;
@@ -539,11 +561,17 @@ impl MbtileCopierInt {
             );
             debug!("Copying metadata, and applying the diff file with {sql}");
         } else {
+            // The source's aggregate hash is meaningless under another algorithm
+            let skipped = if rehash {
+                format!("'{HASH_ALGORITHM}', '{AGG_TILES_HASH}'")
+            } else {
+                format!("'{HASH_ALGORITHM}'")
+            };
             sql = format!(
                 "
     INSERT {on_dupl} INTO metadata
         SELECT name, value FROM sourceDb.metadata
-        WHERE name != '{HASH_ALGORITHM}'"
+        WHERE name NOT IN ({skipped})"
             );
             debug!("Copying metadata with {sql}");
         }
@@ -739,18 +767,13 @@ impl MbtileCopierInt {
         Ok(())
     }
 
-    /// The algorithm the destination is hashed with, from the option or else the source file it is copied from.
-    async fn dst_algorithm(&self, src_conn: &mut SqliteConnection) -> MbtResult<HashAlgorithm> {
-        match self.options.hash_algorithm {
-            Some(algorithm) => Ok(algorithm),
-            None => self.src_mbt.get_hash_algorithm(src_conn).await,
-        }
-    }
-
-    /// [`Self::dst_algorithm`] on a connection of its own.
+    /// The algorithm a diff or patch is hashed with, from the option or else the source file.
     async fn src_algorithm(&self) -> MbtResult<HashAlgorithm> {
         let mut conn = self.src_mbt.open_readonly().await?;
-        let algorithm = self.dst_algorithm(&mut conn).await?;
+        let algorithm = match self.options.hash_algorithm {
+            Some(algorithm) => algorithm,
+            None => self.src_mbt.get_hash_algorithm(&mut conn).await?,
+        };
         conn.close().await?;
         Ok(algorithm)
     }
@@ -1427,15 +1450,12 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_dedup_id_under_another_hash_algorithm_stores_each_blob_once() {
+    async fn copy_with_hash_into_existing_dedup_id_stores_each_blob_once() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (_mbt, _conn, flat_file) = temp_named_mbtiles(
-            "flat_copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db",
-            script,
-        )
-        .await;
+        let (_mbt, _conn, flat_file) =
+            temp_named_mbtiles("flat_copy_with_hash_into_existing_dedup_id_mem_db", script).await;
         let with_hash_file = PathBuf::from(
-            "file:with_hash_copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db?mode=memory&cache=shared",
+            "file:with_hash_copy_with_hash_into_existing_dedup_id_mem_db?mode=memory&cache=shared",
         );
         let _with_hash_conn = MbtilesCopier {
             src_file: flat_file.clone(),
@@ -1447,7 +1467,7 @@ mod tests {
         .await
         .unwrap();
         let dst_file = PathBuf::from(
-            "file:copy_to_existing_dedup_id_under_another_hash_algorithm_mem_db?mode=memory&cache=shared",
+            "file:copy_with_hash_into_existing_dedup_id_mem_db?mode=memory&cache=shared",
         );
         let _dst_conn = MbtilesCopier {
             src_file: flat_file,
@@ -1462,7 +1482,6 @@ mod tests {
         let mut dst_conn = MbtilesCopier {
             src_file: with_hash_file,
             dst_file,
-            hash_algorithm: Some(HashAlgorithm::Xxh3),
             on_duplicate: Some(CopyDuplicateMode::Override),
             ..Default::default()
         }

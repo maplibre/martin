@@ -15,9 +15,9 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    CacheEntryMeta, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema,
-    invert_y_value,
+    CacheEntryMeta, CopyDuplicateMode, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli,
+    Mbtiles, MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch,
+    init_mbtiles_schema, invert_y_value,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -646,6 +646,52 @@ async fn copy_with_another_hash_algorithm_rehashes_stored_hashes() -> MbtResult<
     dst_mbt.open_and_validate(Off, Verify).await?;
     let dmp = dump(&mut dst_cn).await?;
     assert_dump!(&dmp, "xxh3");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn copy_into_an_existing_file_rehashes_to_its_algorithm() -> MbtResult<()> {
+    let (v1_mbt, _v1_cn) = new_file!(
+        copy_into_an_existing_file_rehashes_to_its_algorithm,
+        FlatWithHash,
+        METADATA_V1,
+        TILES_V1,
+        "v1"
+    );
+    let (v2_mbt, _v2_cn) = new_file!(
+        copy_into_an_existing_file_rehashes_to_its_algorithm,
+        FlatWithHash,
+        METADATA_V2,
+        TILES_V2,
+        "v2"
+    );
+    let (dst_mbt, mut dst_cn) = open!(copy_into_an_existing_file_rehashes_to_its_algorithm, "dst");
+    copy! {
+        path(&v1_mbt),
+        path(&dst_mbt),
+        hash_algorithm => Some(HashAlgorithm::Xxh3),
+    };
+    copy! {
+        path(&v2_mbt),
+        path(&dst_mbt),
+        on_duplicate => Some(CopyDuplicateMode::Override),
+    };
+    dst_mbt.open_and_validate(Off, Verify).await?;
+    let dmp = dump(&mut dst_cn).await?;
+    assert_dump!(&dmp, "xxh3");
+
+    let err = MbtilesCopier {
+        src_file: path(&v2_mbt),
+        dst_file: path(&dst_mbt),
+        hash_algorithm: Some(HashAlgorithm::Md5),
+        on_duplicate: Some(CopyDuplicateMode::Override),
+        ..Default::default()
+    }
+    .run()
+    .await
+    .unwrap_err();
+    assert_matches!(err, MbtError::HashAlgorithmMismatch { .. });
     Ok(())
 }
 
