@@ -941,7 +941,7 @@ fn get_select_from_apply_patch(
                     let hash = algorithm.sql_hash(&format!("{tbl}.tile_data"));
                     format!("IIF({tbl}.tile_data ISNULL, NULL, {hash})")
                 }
-                FlatWithHash | Normalized { .. } => format!("{tbl}.tile_hash"),
+                FlatWithHash | Normalized { .. } => format!("upper({tbl}.tile_hash)"),
             }
         }
 
@@ -1011,7 +1011,7 @@ fn get_select_from_with_diff(
             format!(", COALESCE({hash}, '') as tile_hash")
         }
         (_, FlatWithHash | Normalized { .. }) => {
-            ", COALESCE(difTiles.tile_hash, '') as tile_hash".to_owned()
+            ", COALESCE(upper(difTiles.tile_hash), '') as tile_hash".to_owned()
         }
     };
 
@@ -1090,7 +1090,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
                 )
             }
             FlatWithHash => "
-        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(tile_hash) AS tile_hash
         FROM sourceDb.tiles_with_hash
         WHERE TRUE"
                 .to_owned(),
@@ -1102,7 +1102,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
                 );
                 format!(
                     "
-        SELECT zoom_level, tile_column, tile_row, tile_data, {map}.{id} AS tile_hash
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper({map}.{id}) AS tile_hash
         FROM sourceDb.{map} JOIN sourceDb.{img}
           ON sourceDb.{map}.{id} = sourceDb.{img}.{id}
         WHERE TRUE"
