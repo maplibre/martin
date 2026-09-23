@@ -1298,7 +1298,10 @@
 <p>Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.</p>
 <p>Review <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
 <h3 id="martin-cp-is-now-martin-cp"><code>martin-cp</code> is now <code>martin cp</code></h3>
-<p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands. The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary. The <code>mbtiles</code> binary is unchanged.</p>
+<p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands.
+The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary.
+The <code>mbtiles</code> binary keeps its name and loses its hidden <code>--verbose</code> flag, which did nothing.
+Use <code>RUST_LOG</code> to control logging.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># 1.x</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>martin-cp<span class="w"> </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span>--source<span class="w"> </span>my_source<span class="w"> </span>postgres://postgres@localhost/db
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># 2.0</span>
