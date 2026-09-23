@@ -37,6 +37,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       # for writing attestations
       id-token: write
@@ -200,6 +201,7 @@ jobs:
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write

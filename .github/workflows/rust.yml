@@ -39,6 +39,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     needs:
       - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     strategy:
@@ -69,6 +70,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -86,6 +88,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -103,6 +106,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -120,6 +124,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,6 +142,7 @@ jobs:
     needs:
       - lint-rust
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -153,6 +159,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,6 +187,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images (${{ matrix.variant }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu, build-aarch64-unknown-linux-gnu-full, build-x86_64-unknown-linux-gnu-full ]
     if: |
       !cancelled()
@@ -483,6 +491,7 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-musl ]
@@ -500,6 +509,7 @@ jobs:
   test-windows:
     name: Test on windows-latest
     runs-on: windows-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-pc-windows-msvc ]
@@ -550,6 +560,7 @@ jobs:
   test-svc-pg:
     name: Test against PostGIS variants
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
@@ -703,6 +714,7 @@ jobs:
     # which is all the testcontainers crate needs.
     name: Unit test against MinIO (S3-compatible)
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
@@ -722,6 +734,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     # A from-scratch package and build of the whole workspace. What it guards
     # is the release itself, so on pull requests it only runs for the one
     # release-plz opens; pushes and releases always run it.
@@ -740,6 +753,7 @@ jobs:
   coverage:
     name: Merge and upload code coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - unit-test-rust
       - test-cog
