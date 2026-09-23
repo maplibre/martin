@@ -63,6 +63,7 @@ postgres:
       - 1.0
       geometry_type: POINT
       properties:
+        doc: jsonb
         feat_id: int4
         label: text
         tags: int4

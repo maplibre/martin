@@ -3,8 +3,8 @@
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 use mlt_core::PropValue;
-
 use mlt_core::geo_types::Geometry;
+use serde_json::Value;
 
 use crate::tiles::postgres::PostgresError::{PostgresError as PgError, UnsupportedPropertyType};
 use crate::tiles::postgres::{PostgresResult, parse_tile_wkb};
@@ -19,7 +19,22 @@ pub struct PostgresFeature {
     /// One M ordinate per vertex of [`Self::geometry`], when the source geometry is measured.
     pub m_values: Option<Vec<f64>>,
     /// The property columns, in the order the query selected them.
-    pub properties: Vec<(CompactString, PropValue)>,
+    pub properties: Vec<(CompactString, PostgresProperty)>,
+}
+
+/// One property column's value for one feature.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PostgresProperty {
+    /// A value of a type a tile column holds.
+    Value(PropValue),
+    /// A `jsonb` document, whose shape the tile format decides how to keep.
+    Json(Option<Value>),
+}
+
+impl From<PropValue> for PostgresProperty {
+    fn from(value: PropValue) -> Self {
+        Self::Value(value)
+    }
 }
 
 /// Everything one tile's worth of rows makes up: a single layer of features.
@@ -43,6 +58,7 @@ enum PropType {
     Float,
     Double,
     Text,
+    Json,
 }
 
 impl PropType {
@@ -56,6 +72,7 @@ impl PropType {
             "float4" => Self::Float,
             "float8" => Self::Double,
             "text" | "varchar" | "bpchar" | "name" => Self::Text,
+            "jsonb" => Self::Json,
             _ => return None,
         })
     }
@@ -92,7 +109,7 @@ pub(crate) fn features_from_rows(
             let column = &row.columns()[idx];
             properties.push((
                 CompactString::new(column.name()),
-                property_value(row, idx, "reading a tile property")?,
+                property(row, idx, "reading a tile property")?,
             ));
         }
         features.push(PostgresFeature {
@@ -108,8 +125,8 @@ pub(crate) fn features_from_rows(
 /// The feature id in the row's second column, following `ST_AsMVT`.
 fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
-    let value = property_value(row, 1, "reading a tile feature's id")?;
-    let PropValue::I64(value) = value else {
+    let value = property(row, 1, "reading a tile feature's id")?;
+    let PostgresProperty::Value(PropValue::I64(value)) = value else {
         return Err(UnsupportedPropertyType {
             column: column.name().to_owned(),
             pg_type: column.type_().name().to_owned(),
@@ -119,7 +136,7 @@ fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
-fn property_value(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PropValue> {
+fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
     let column = &row.columns()[idx];
     let read = |e| PgError(e, context);
     let Some(prop_type) = PropType::of(column.type_().name()) else {
@@ -128,7 +145,8 @@ fn property_value(row: &Row, idx: usize, context: &'static str) -> PostgresResul
             pg_type: column.type_().name().to_owned(),
         });
     };
-    Ok(match prop_type {
+    Ok(PostgresProperty::Value(match prop_type {
+        PropType::Json => return Ok(PostgresProperty::Json(row.try_get(idx).map_err(read)?)),
         PropType::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
         PropType::Int16 => PropValue::I64(
             row.try_get::<_, Option<i16>>(idx)
@@ -144,5 +162,5 @@ fn property_value(row: &Row, idx: usize, context: &'static str) -> PostgresResul
         PropType::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
         PropType::Double => PropValue::F64(row.try_get(idx).map_err(read)?),
         PropType::Text => PropValue::Str(row.try_get(idx).map_err(read)?),
-    })
+    }))
 }

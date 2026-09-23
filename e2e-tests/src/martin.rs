@@ -616,11 +616,12 @@ pub fn mlt_dump(layers: &[TileLayer]) -> String {
                     .collect();
                 props.sort();
                 format!(
-                    "  id={:?} geom={:?} props=[{}]{}",
+                    "  id={:?} geom={:?} props=[{}]{}{}",
                     feature.id(),
                     feature.geometry(),
                     props.join(", "),
-                    vertex_values(layer, feature)
+                    vertex_values(layer, feature),
+                    nested_values(layer, feature)
                 )
             })
             .collect();
@@ -643,6 +644,25 @@ fn vertex_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
         .map(|(name, value)| format!("{name}={value:?}"))
         .collect();
     format!(" vertex=[{}]", values.join(", "))
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn nested_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.nested_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .nested_names()
+        .iter()
+        .zip(feature.nested())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" nested=[{}]", values.join(", "))
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn nested_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
 }
 
 #[cfg(not(feature = "test-mlt-v2"))]

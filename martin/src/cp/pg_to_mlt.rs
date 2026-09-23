@@ -1,23 +1,34 @@
 //! Encode `PostgreSQL` rows straight into MLT, without the MVT tile in between.
 
+#[cfg(feature = "unstable-mlt-v2")]
+mod nested;
+
+use std::collections::HashMap;
+
 use martin_core::tiles::Tile;
-use martin_core::tiles::postgres::{PostgresFeature, PostgresTileFeatures};
+#[cfg(feature = "unstable-mlt-v2")]
+use martin_core::tiles::postgres::PostgresFeature;
+use martin_core::tiles::postgres::{PostgresProperty, PostgresTileFeatures};
 use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
 use mlt_core::encoder::EncoderConfig;
 #[cfg(feature = "unstable-mlt-v2")]
 use mlt_core::encoder::WireVersion;
+use mlt_core::geo_types::Geometry;
 #[cfg(feature = "unstable-mlt-v2")]
-use mlt_core::geo_types::{Geometry, LineString, Polygon};
+use mlt_core::geo_types::{LineString, Polygon};
 #[cfg(feature = "unstable-mlt-v2")]
 use mlt_core::{MValue, MValueKey, TileLayerBuilder};
 use mlt_core::{PropKind, PropValue, TileLayer};
+use serde_json::{Number, Value};
 
 use crate::srv::tiles::process::ProcessError;
 
 /// Encodes one tile's worth of `PostgreSQL` features as a single-layer MLT tile.
 ///
 /// A tile without features encodes to an empty tile. M ordinates reach the layer's m-value
-/// column, which only the v2 wire format has, so a v1 tile leaves them out.
+/// column and `jsonb` documents a nested column each, which only the v2 wire format has, so a
+/// v1 tile leaves the M ordinates out and spreads each document's top-level keys over property
+/// columns, as `ST_AsMVT` does.
 pub(crate) fn encode_features_as_mlt(
     features: PostgresTileFeatures,
     cfg: EncoderConfig,
@@ -28,66 +39,114 @@ pub(crate) fn encode_features_as_mlt(
         extent,
         features,
     } = features;
-    let Some(first) = features.first() else {
+    if features.is_empty() {
         return Ok(Tile::new_hash_etag(TileData::new(), info));
-    };
-
-    let kinds = column_kinds(&features);
-    let names: Vec<_> = first
-        .properties
-        .iter()
-        .map(|(name, _)| name.clone())
-        .collect();
-    let mut builder = TileLayer::builder(layer_name, extent)
-        .map_err(|e| ProcessError::MltEncoding(e.to_string()))?;
-    let mut keys = Vec::with_capacity(kinds.len());
-    for (name, kind) in names.iter().zip(&kinds) {
-        keys.push(match kind {
-            Some(kind) => Some(
-                builder
-                    .add_property(name.as_str(), *kind)
-                    .map_err(|e| ProcessError::MltEncoding(e.to_string()))?,
-            ),
-            None => None,
-        });
     }
+
+    let mut builder = TileLayer::builder(layer_name, extent).map_err(mlt_error)?;
     #[cfg(feature = "unstable-mlt-v2")]
     let measure_key = add_measure_column(&mut builder, &features, cfg)?;
+    let mut columns = Columns::default();
+    #[cfg(feature = "unstable-mlt-v2")]
+    let mut documents = nested::Documents::default();
+    let rows: Vec<_> = features
+        .into_iter()
+        .map(|feature| {
+            let mut values = Vec::new();
+            #[cfg(feature = "unstable-mlt-v2")]
+            let mut docs = Vec::new();
+            for (name, property) in feature.properties {
+                match property {
+                    PostgresProperty::Value(value) => columns.push(&name, value, &mut values),
+                    #[cfg(feature = "unstable-mlt-v2")]
+                    PostgresProperty::Json(document) if is_v2(cfg) => {
+                        documents.push(&name, document, &mut docs);
+                    }
+                    PostgresProperty::Json(document) => {
+                        for (key, value) in st_asmvt_properties(document) {
+                            columns.push(&key, value, &mut values);
+                        }
+                    }
+                }
+            }
+            #[cfg(feature = "unstable-mlt-v2")]
+            let measures = stored_measures(&feature.geometry, feature.m_values);
+            Row {
+                id: feature.id,
+                geometry: feature.geometry,
+                #[cfg(feature = "unstable-mlt-v2")]
+                measures,
+                values,
+                #[cfg(feature = "unstable-mlt-v2")]
+                docs,
+            }
+        })
+        .collect();
 
-    for feature in features {
-        #[cfg(feature = "unstable-mlt-v2")]
-        let measures = stored_measures(&feature.geometry, feature.m_values);
-        let mut row = builder.feature(feature.geometry);
-        row.id(feature.id);
+    let kinds = columns.kinds();
+    let keys = columns
+        .names
+        .iter()
+        .zip(&kinds)
+        .map(|(name, kind)| builder.add_property(name.as_str(), *kind))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(mlt_error)?;
+    #[cfg(feature = "unstable-mlt-v2")]
+    let document_columns = documents.declare(&mut builder).map_err(mlt_error)?;
+
+    for row in rows {
+        let mut feature = builder.feature(row.geometry);
+        feature.id(row.id);
         #[cfg(feature = "unstable-mlt-v2")]
         if let Some(key) = measure_key {
-            row.m_value(key, MValue::F64(measures))
-                .map_err(|e| ProcessError::MltEncoding(e.to_string()))?;
+            feature
+                .m_value(key, MValue::F64(row.measures))
+                .map_err(mlt_error)?;
         }
-        for ((_, value), (key, kind)) in feature.properties.into_iter().zip(keys.iter().zip(&kinds))
-        {
-            let (Some(key), Some(kind)) = (key, kind) else {
-                continue;
-            };
-            row.property(*key, to_prop_value(*kind, value))
-                .map_err(|e| ProcessError::MltEncoding(e.to_string()))?;
+        for (idx, value) in row.values {
+            feature
+                .property(keys[idx], to_prop_value(kinds[idx], value))
+                .map_err(mlt_error)?;
         }
-        row.finish()
-            .map_err(|e| ProcessError::MltEncoding(e.to_string()))?;
+        #[cfg(feature = "unstable-mlt-v2")]
+        for (idx, document) in row.docs {
+            if let Some(column) = &document_columns[idx] {
+                column.set(&mut feature, document).map_err(mlt_error)?;
+            }
+        }
+        feature.finish().map_err(mlt_error)?;
     }
 
-    let bytes = builder
-        .finish()
-        .encode(cfg)
-        .map_err(|e| ProcessError::MltEncoding(e.to_string()))?;
+    let bytes = builder.finish().encode(cfg).map_err(mlt_error)?;
     Ok(Tile::new_hash_etag(bytes, info))
+}
+
+fn mlt_error(e: mlt_core::MltError) -> ProcessError {
+    ProcessError::MltEncoding(e.to_string())
+}
+
+/// One feature, its properties sorted into the layer's columns.
+struct Row {
+    id: Option<u64>,
+    geometry: Geometry<i32>,
+    #[cfg(feature = "unstable-mlt-v2")]
+    measures: Option<Vec<f64>>,
+    values: Vec<(usize, PropValue)>,
+    #[cfg(feature = "unstable-mlt-v2")]
+    docs: Vec<(usize, Value)>,
+}
+
+/// Whether tiles encoded with `cfg` use the v2 wire format.
+#[cfg(feature = "unstable-mlt-v2")]
+fn is_v2(cfg: EncoderConfig) -> bool {
+    cfg.wire_version() != WireVersion::V01
 }
 
 /// Whether tiles encoded with `cfg` have an m-value column to keep M ordinates in, which only
 /// the v2 wire format has.
 #[cfg(feature = "unstable-mlt-v2")]
 pub(crate) fn keeps_measures(cfg: EncoderConfig) -> bool {
-    cfg.wire_version() != WireVersion::V01
+    is_v2(cfg)
 }
 
 /// Whether tiles encoded with `cfg` have an m-value column to keep M ordinates in, which only
@@ -114,7 +173,7 @@ fn add_measure_column(
     builder
         .add_m_value(MEASURE_COLUMN, PropKind::F64)
         .map(Some)
-        .map_err(|e| ProcessError::MltEncoding(e.to_string()))
+        .map_err(mlt_error)
 }
 
 /// One feature's M ordinates in the order MLT stores its vertices.
@@ -161,47 +220,129 @@ fn strip_closing_measures<'a>(
     stored
 }
 
-/// The MLT type of every property column, or `None` for a column to leave out of the layer.
+/// The layer's property columns, named and typed as the MVT round trip names and types them.
 ///
-/// Matches what the MVT round-trip arrives at: an all-`NULL` column is dropped, and an integer
-/// column is unsigned unless the tile holds a negative value for it.
-fn column_kinds(features: &[PostgresFeature]) -> Vec<Option<PropKind>> {
-    let Some(first) = features.first() else {
-        return Vec::new();
-    };
-    (0..first.properties.len())
-        .map(|idx| {
-            let mut values = features
-                .iter()
-                .filter_map(|f| f.properties.get(idx).map(|(_, value)| value))
-                .filter(|value| !value.is_null())
-                .peekable();
-            let kind = values.peek()?.kind();
-            if kind == PropKind::I64
-                && !values.any(|v| matches!(v, PropValue::I64(Some(i)) if *i < 0))
-            {
-                return Some(PropKind::U64);
-            }
-            Some(kind)
-        })
-        .collect()
+/// A column comes into being with its first non-`NULL` value, since `ST_AsMVT` writes no tag
+/// for a `NULL`, so a column that is `NULL` for every feature is left out. Its type is one that
+/// holds every value it was given, and an integer column is unsigned unless one of them is
+/// negative.
+#[derive(Default)]
+struct Columns {
+    names: Vec<String>,
+    index: HashMap<String, usize>,
+    kinds: Vec<PropKind>,
+    signed: Vec<bool>,
 }
 
-/// One value in the column type [`column_kinds`] settled on, `NULL` included.
-fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
-    if kind == PropKind::U64
-        && let PropValue::I64(v) = value
-    {
-        return PropValue::U64(v.and_then(|i| u64::try_from(i).ok()));
+impl Columns {
+    /// Files one feature's `value` for the column `name` into `values`.
+    fn push(&mut self, name: &str, value: PropValue, values: &mut Vec<(usize, PropValue)>) {
+        if value.is_null() {
+            return;
+        }
+        let kind = value.kind();
+        let idx = if let Some(&idx) = self.index.get(name) {
+            self.kinds[idx] = widen(self.kinds[idx], kind);
+            idx
+        } else {
+            let idx = self.names.len();
+            self.names.push(name.to_owned());
+            self.index.insert(name.to_owned(), idx);
+            self.kinds.push(kind);
+            self.signed.push(false);
+            idx
+        };
+        if matches!(value, PropValue::I64(Some(i)) if i < 0) {
+            self.signed[idx] = true;
+        }
+        values.push((idx, value));
     }
-    value
+
+    fn kinds(&self) -> Vec<PropKind> {
+        self.kinds
+            .iter()
+            .zip(&self.signed)
+            .map(|(&kind, &signed)| {
+                if kind == PropKind::I64 && !signed {
+                    PropKind::U64
+                } else {
+                    kind
+                }
+            })
+            .collect()
+    }
+}
+
+/// The type a column holding values of both types takes.
+fn widen(a: PropKind, b: PropKind) -> PropKind {
+    match (a, b) {
+        _ if a == b => a,
+        (PropKind::F32, PropKind::F64) | (PropKind::F64, PropKind::F32) => PropKind::F64,
+        _ => PropKind::Str,
+    }
+}
+
+/// One value in the column type [`Columns`] settled on.
+fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
+    match (kind, value) {
+        (PropKind::U64, PropValue::I64(v)) => PropValue::U64(v.and_then(|i| u64::try_from(i).ok())),
+        (PropKind::F64, PropValue::F32(v)) => PropValue::F64(v.map(f64::from)),
+        (PropKind::Str, PropValue::Bool(v)) => PropValue::Str(v.map(|v| v.to_string())),
+        (PropKind::Str, PropValue::I64(v)) => PropValue::Str(v.map(|v| v.to_string())),
+        (PropKind::Str, PropValue::F32(v)) => PropValue::Str(v.map(|v| v.to_string())),
+        (PropKind::Str, PropValue::F64(v)) => PropValue::Str(v.map(|v| v.to_string())),
+        (_, value) => value,
+    }
+}
+
+/// The properties `ST_AsMVT` makes of a `jsonb` document: one for each top-level key holding a
+/// string, a boolean or a number, and none for a document that is not an object.
+fn st_asmvt_properties(document: Option<Value>) -> impl Iterator<Item = (String, PropValue)> {
+    let object = match document {
+        Some(Value::Object(object)) => object,
+        _ => serde_json::Map::new(),
+    };
+    object.into_iter().filter_map(|(key, value)| {
+        let value = match value {
+            Value::String(s) => PropValue::Str(Some(s)),
+            Value::Bool(b) => PropValue::Bool(Some(b)),
+            Value::Number(n) => st_asmvt_number(&n),
+            Value::Null | Value::Array(_) | Value::Object(_) => return None,
+        };
+        Some((key, value))
+    })
+}
+
+/// A `jsonb` number as `ST_AsMVT` writes it: an integer when it lies within `f32::EPSILON` of
+/// its integer part, a double otherwise.
+fn st_asmvt_number(number: &Number) -> PropValue {
+    if let Some(integer) = number.as_i64() {
+        return PropValue::I64(Some(integer));
+    }
+    let Some(double) = number.as_f64() else {
+        return PropValue::Str(Some(number.to_string()));
+    };
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "saturates the way `strtol` does"
+    )]
+    let integer = double.trunc() as i64;
+    #[expect(clippy::cast_precision_loss, reason = "compared the way `ST_AsMVT` does")]
+    let distance = (double - integer as f64).abs();
+    if distance > f64::from(f32::EPSILON) {
+        PropValue::F64(Some(double))
+    } else {
+        PropValue::I64(Some(integer))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mlt_core::geo_types::{Coord, Geometry, Point};
+    use martin_core::tiles::postgres::PostgresFeature;
+    use mlt_core::geo_types::{Coord, Point};
     use mlt_core::{Decoder, Parser};
     use rstest::rstest;
+    use serde_json::json;
 
     use super::*;
 
@@ -209,7 +350,7 @@ mod tests {
         Geometry::Point(Point(Coord { x, y }))
     }
 
-    fn feature(properties: Vec<(&str, PropValue)>) -> PostgresFeature {
+    fn feature(properties: Vec<(&str, PostgresProperty)>) -> PostgresFeature {
         PostgresFeature {
             id: None,
             geometry: point(1, 2),
@@ -246,54 +387,95 @@ mod tests {
             .collect()
     }
 
+    fn encode(features: Vec<PostgresFeature>, cfg: EncoderConfig) -> TileLayer {
+        let encoded = encode_features_as_mlt(tile(features), cfg).expect("encoding the tile");
+        let [layer] = decode(&encoded.data).try_into().expect("one layer");
+        layer
+    }
+
+    /// Every feature's properties by column name, leaving out the `NULL`s.
+    fn properties(layer: &TileLayer) -> Vec<Vec<(String, PropValue)>> {
+        layer
+            .features()
+            .iter()
+            .map(|feature| {
+                layer
+                    .property_names()
+                    .iter()
+                    .cloned()
+                    .zip(feature.properties().iter().cloned())
+                    .filter(|(_, value)| !value.is_null())
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn value(value: PropValue) -> PostgresProperty {
+        PostgresProperty::Value(value)
+    }
+
+    fn doc(document: Value) -> PostgresProperty {
+        PostgresProperty::Json(Some(document))
+    }
+
+    fn str(s: &str) -> PropValue {
+        PropValue::Str(Some(s.to_owned()))
+    }
+
     #[rstest]
     #[case::boolean(PropValue::Bool(Some(true)), PropKind::Bool)]
     #[case::float(PropValue::F32(Some(1.5)), PropKind::F32)]
     #[case::double(PropValue::F64(Some(1.5)), PropKind::F64)]
-    #[case::text(PropValue::Str(Some("x".to_owned())), PropKind::Str)]
+    #[case::text(str("x"), PropKind::Str)]
     #[case::non_negative_integer(PropValue::I64(Some(7)), PropKind::U64)]
     #[case::negative_integer(PropValue::I64(Some(-7)), PropKind::I64)]
     fn a_column_takes_the_type_of_the_values_in_it(
-        #[case] value: PropValue,
+        #[case] v: PropValue,
         #[case] expected: PropKind,
     ) {
-        let features = vec![feature(vec![("p", value)])];
-        assert_eq!(column_kinds(&features), vec![Some(expected)]);
+        let mut columns = Columns::default();
+        columns.push("p", v, &mut Vec::new());
+        assert_eq!(columns.kinds(), [expected]);
     }
 
     #[test]
     fn one_negative_value_makes_the_whole_integer_column_signed() {
-        let features = vec![
-            feature(vec![("p", PropValue::I64(Some(7)))]),
-            feature(vec![("p", PropValue::I64(None))]),
-            feature(vec![("p", PropValue::I64(Some(-1)))]),
-        ];
-        assert_eq!(column_kinds(&features), vec![Some(PropKind::I64)]);
+        let mut columns = Columns::default();
+        for v in [Some(7), None, Some(-1)] {
+            columns.push("p", PropValue::I64(v), &mut Vec::new());
+        }
+        assert_eq!(columns.kinds(), [PropKind::I64]);
     }
 
     #[test]
     fn a_column_that_is_null_everywhere_is_left_out() {
         let features = vec![
             feature(vec![
-                ("empty", PropValue::I64(None)),
-                ("filled", PropValue::Str(Some("a".to_owned()))),
+                ("empty", value(PropValue::I64(None))),
+                ("filled", value(str("a"))),
             ]),
             feature(vec![
-                ("empty", PropValue::I64(None)),
-                ("filled", PropValue::Str(None)),
+                ("empty", value(PropValue::I64(None))),
+                ("filled", value(PropValue::Str(None))),
             ]),
         ];
-        assert_eq!(column_kinds(&features), vec![None, Some(PropKind::Str)]);
-
-        let encoded = encode_features_as_mlt(tile(features), EncoderConfig::default())
-            .expect("encoding a two-column tile");
-        let [layer] = decode(&encoded.data).try_into().expect("one layer");
+        let layer = encode(features, EncoderConfig::default());
         assert_eq!(layer.property_names(), ["filled"]);
         assert_eq!(
             layer.features()[1].properties(),
             [PropValue::Str(None)],
             "a NULL must stay a NULL rather than become a default"
         );
+    }
+
+    #[test]
+    fn columns_come_in_the_order_their_first_value_does() {
+        let features = vec![
+            feature(vec![("a", value(PropValue::I64(None))), ("b", value(str("x")))]),
+            feature(vec![("a", value(str("y"))), ("b", value(str("z")))]),
+        ];
+        let layer = encode(features, EncoderConfig::default());
+        assert_eq!(layer.property_names(), ["b", "a"]);
     }
 
     #[test]
@@ -311,13 +493,11 @@ mod tests {
             geometry: point(10, 20),
             m_values: Some(vec![1.0]),
             properties: vec![
-                ("n".into(), PropValue::I64(Some(-5))),
-                ("s".into(), PropValue::Str(Some("hi".to_owned()))),
+                ("n".into(), value(PropValue::I64(Some(-5)))),
+                ("s".into(), value(str("hi"))),
             ],
         }];
-        let encoded = encode_features_as_mlt(tile(features), EncoderConfig::default())
-            .expect("encoding one feature");
-        let [layer] = decode(&encoded.data).try_into().expect("one layer");
+        let layer = encode(features, EncoderConfig::default());
         assert_eq!(layer.name(), "layer");
         assert_eq!(layer.extent().get(), 4096);
         assert_eq!(layer.property_names(), ["n", "s"]);
@@ -326,13 +506,225 @@ mod tests {
         };
         assert_eq!(feature.id(), Some(42));
         assert_eq!(feature.geometry(), &point(10, 20));
+        assert_eq!(feature.properties(), [PropValue::I32(Some(-5)), str("hi")]);
+    }
+
+    #[test]
+    fn a_v1_document_spreads_its_top_level_scalars_over_columns() {
+        let document = json!({
+            "s": "x",
+            "b": true,
+            "i": 3,
+            "n": null,
+            "o": {"k": 1},
+            "arr": [1, 2],
+        });
+        let layer = encode(vec![feature(vec![("doc", doc(document))])], EncoderConfig::default());
         assert_eq!(
-            feature.properties(),
+            properties(&layer),
+            [vec![
+                ("s".to_owned(), str("x")),
+                ("b".to_owned(), PropValue::Bool(Some(true))),
+                ("i".to_owned(), PropValue::U32(Some(3))),
+            ]]
+        );
+    }
+
+    #[rstest]
+    #[case::integer(json!(3), PropValue::I64(Some(3)))]
+    #[case::negative(json!(-4), PropValue::I64(Some(-4)))]
+    #[case::whole_double(json!(2.0), PropValue::I64(Some(2)))]
+    #[case::within_float_epsilon(json!(1.000_000_01), PropValue::I64(Some(1)))]
+    #[case::fraction(json!(1.5), PropValue::F64(Some(1.5)))]
+    #[case::past_i64(json!(12_345_678_901_234_567_890_u64), PropValue::F64(Some(1.234_567_890_123_456_8e19)))]
+    #[case::huge(json!(1e20), PropValue::F64(Some(1e20)))]
+    fn a_v1_document_number_is_typed_as_st_asmvt_types_it(
+        #[case] number: Value,
+        #[case] expected: PropValue,
+    ) {
+        let Value::Number(number) = number else {
+            panic!("not a number");
+        };
+        assert_eq!(st_asmvt_number(&number), expected);
+    }
+
+    #[rstest]
+    #[case::array(json!([{"x": 1}]))]
+    #[case::scalar(json!("scalar"))]
+    #[case::null(Value::Null)]
+    fn a_v1_document_that_is_no_object_has_no_properties(#[case] document: Value) {
+        assert_eq!(st_asmvt_properties(Some(document)).count(), 0);
+    }
+
+    #[test]
+    fn a_v1_document_key_shares_the_column_of_the_same_name() {
+        let features = vec![
+            feature(vec![
+                ("a", value(PropValue::I64(Some(5)))),
+                ("doc", doc(json!({"a": "dup"}))),
+            ]),
+            feature(vec![
+                ("a", value(PropValue::I64(Some(6)))),
+                ("doc", doc(json!({}))),
+            ]),
+        ];
+        let layer = encode(features, EncoderConfig::default());
+        assert_eq!(
+            properties(&layer),
             [
-                PropValue::I32(Some(-5)),
-                PropValue::Str(Some("hi".to_owned()))
+                vec![("a".to_owned(), str("dup"))],
+                vec![("a".to_owned(), str("6"))],
+            ],
+            "the later value wins, and a column holding text and integers holds text"
+        );
+    }
+
+    #[test]
+    fn a_v1_key_holding_integers_and_doubles_holds_text_like_the_mvt_round_trip() {
+        let features = vec![
+            feature(vec![("doc", doc(json!({"f": 1.5})))]),
+            feature(vec![("doc", doc(json!({"f": 2})))]),
+        ];
+        let layer = encode(features, EncoderConfig::default());
+        assert_eq!(
+            properties(&layer),
+            [
+                vec![("f".to_owned(), str("1.5"))],
+                vec![("f".to_owned(), str("2"))],
             ]
         );
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    mod documents {
+        use mlt_core::encoder::WireVersion;
+        use mlt_core::{NestedKind, NestedValue};
+
+        use super::*;
+
+        fn v2() -> EncoderConfig {
+            EncoderConfig::default().with_wire_version(WireVersion::V02)
+        }
+
+        fn leaf(value: PropValue) -> NestedValue {
+            NestedValue::Leaf(value)
+        }
+
+        #[test]
+        fn a_v2_document_is_kept_whole_in_a_nested_column() {
+            let document = json!({
+                "s": "x",
+                "n": null,
+                "o": {"k": 1, "deeper": {"flag": true}},
+                "arr": [1.5, 2],
+            });
+            let layer = encode(vec![feature(vec![("doc", doc(document))])], v2());
+            assert!(layer.property_names().is_empty());
+            assert_eq!(layer.nested_names(), ["doc"]);
+            assert_eq!(
+                layer.nested_kinds(),
+                [NestedKind::map([
+                    ("arr", NestedKind::list(NestedKind::Leaf(PropKind::F64))),
+                    (
+                        "o",
+                        NestedKind::map([
+                            (
+                                "deeper",
+                                NestedKind::map([("flag", NestedKind::Leaf(PropKind::Bool))])
+                            ),
+                            ("k", NestedKind::Leaf(PropKind::I64)),
+                        ])
+                    ),
+                    ("s", NestedKind::Leaf(PropKind::Str)),
+                ])]
+            );
+            assert_eq!(
+                layer.features()[0].nested(),
+                [NestedValue::map([
+                    (
+                        "arr",
+                        NestedValue::list([
+                            leaf(PropValue::F64(Some(1.5))),
+                            leaf(PropValue::F64(Some(2.0)))
+                        ])
+                    ),
+                    (
+                        "o",
+                        NestedValue::map([
+                            (
+                                "deeper",
+                                NestedValue::map([("flag", leaf(PropValue::Bool(Some(true))))])
+                            ),
+                            ("k", leaf(PropValue::I64(Some(1)))),
+                        ])
+                    ),
+                    ("s", leaf(str("x"))),
+                ])]
+            );
+        }
+
+        #[test]
+        fn values_that_share_no_shape_are_kept_as_json_text() {
+            let features = vec![
+                feature(vec![("doc", doc(json!({"v": {"k": 1}})))]),
+                feature(vec![("doc", doc(json!({"v": 7})))]),
+            ];
+            let layer = encode(features, v2());
+            assert_eq!(
+                layer.nested_kinds(),
+                [NestedKind::map([("v", NestedKind::Leaf(PropKind::Str))])]
+            );
+            assert_eq!(
+                layer
+                    .features()
+                    .iter()
+                    .map(|f| f.nested()[0].clone())
+                    .collect::<Vec<_>>(),
+                [
+                    NestedValue::map([("v", leaf(str(r#"{"k":1}"#)))]),
+                    NestedValue::map([("v", leaf(str("7")))]),
+                ]
+            );
+        }
+
+        #[test]
+        fn a_column_of_empty_or_null_documents_is_left_out() {
+            let features = vec![
+                feature(vec![("empty", doc(json!({"a": {}, "b": null})))]),
+                feature(vec![("empty", PostgresProperty::Json(None))]),
+            ];
+            let layer = encode(features, v2());
+            assert!(layer.nested_names().is_empty());
+            assert!(layer.property_names().is_empty());
+        }
+
+        #[test]
+        fn a_column_of_scalar_documents_is_an_ordinary_property() {
+            let features = vec![
+                feature(vec![("doc", doc(json!(3)))]),
+                feature(vec![("doc", doc(json!("x")))]),
+            ];
+            let layer = encode(features, v2());
+            assert!(layer.nested_names().is_empty());
+            assert_eq!(properties(&layer), [
+                vec![("doc".to_owned(), str("3"))],
+                vec![("doc".to_owned(), str("x"))],
+            ]);
+        }
+
+        #[test]
+        fn a_level_too_deep_for_the_wire_is_kept_as_json_text() {
+            let document = json!({"1": {"2": {"3": {"4": {"5": {"6": {"7": {"8": {"9": 1}}}}}}}}});
+            let layer = encode(vec![feature(vec![("doc", doc(document))])], v2());
+            let mut kind = &layer.nested_kinds()[0];
+            let mut depth = 1;
+            while let NestedKind::Map(fields) = kind {
+                kind = fields.values().next().expect("a field");
+                depth += 1;
+            }
+            assert_eq!(depth, 8);
+            assert_eq!(kind, &NestedKind::Leaf(PropKind::Str));
+        }
     }
 
     #[cfg(feature = "unstable-mlt-v2")]
@@ -469,7 +861,7 @@ mod tests {
                 Geometry::LineString(coords(&[(0, 0), (1, 1)])),
                 Some(vec![1.0, 2.0]),
             );
-            feature.properties = vec![("m".into(), PropValue::I64(Some(1)))];
+            feature.properties = vec![("m".into(), value(PropValue::I64(Some(1))))];
             encode_features_as_mlt(tile(vec![feature]), v2())
                 .expect_err("the m-value column cannot share a name with a property");
         }

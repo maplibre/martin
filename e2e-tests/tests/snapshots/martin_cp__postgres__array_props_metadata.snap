@@ -2,9 +2,9 @@
 source: e2e-tests/tests/martin_cp.rs
 expression: metadata
 ---
-agg_tiles_hash = 15656144834BBFD138CBA54CBB646259
+agg_tiles_hash = 4B34F56C264D8F4035628AA0A9CE001B
 bounds = -180,-90,180,90
-description = An array column, which the row-per-feature MLT path cannot encode
+description = Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key
 format = mlt
 generator = martin cp v0.0.0
 hash_algorithm = md5
@@ -12,6 +12,7 @@ json = {
   "vector_layers": [
     {
       "fields": {
+        "doc": "jsonb",
         "label": "text",
         "tags": "int4"
       },

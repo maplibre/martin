@@ -138,7 +138,8 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 /// The same snippet, with a `::text` cast for the types a tile property cannot hold.
 ///
 /// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
-/// row-per-feature query's properties identical to the ones the MVT blob carries.
+/// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
+/// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
 fn escape_with_alias_as_property(
     mapping: &HashMap<String, String>,
     field: &str,
@@ -254,11 +255,52 @@ async fn table_query_sql(
     TableQuerySql::new(
         id,
         info,
+        &property_types(pool, info).await,
         max_feature_count,
         grid,
         pool.supports_tile_margin(),
         table_wrap,
     )
+}
+
+/// The type each property reaches the row query in, by property name.
+///
+/// This is the column's own type, which the label the configuration gives it need not spell
+/// the way the catalog does. When the database cannot tell, the map is empty and the labels
+/// decide.
+async fn property_types(pool: &PostgresPool, info: &TableInfo) -> HashMap<String, String> {
+    let columns: String = info
+        .properties
+        .iter()
+        .flatten()
+        .map(|(field, _)| escape_with_alias(&info.prop_mapping, field))
+        .collect();
+    let Some(columns) = columns.strip_prefix(", ") else {
+        return HashMap::new();
+    };
+    let sql = format!(
+        "SELECT {columns} FROM {}.{}",
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table)
+    );
+    let statement = match pool.get().await {
+        Ok(client) => client.prepare(&sql).await.map_err(|e| e.to_string()),
+        Err(e) => Err(e.to_string()),
+    };
+    match statement {
+        Ok(statement) => statement
+            .columns()
+            .iter()
+            .map(|column| (column.name().to_owned(), column.type_().name().to_owned()))
+            .collect(),
+        Err(e) => {
+            debug!(
+                "Typing the properties of {} by their configured labels, as the database did not say: {e}",
+                info.format_id()
+            );
+            HashMap::new()
+        }
+    }
 }
 
 /// The SQL fragments every shape of a table tile query is assembled from.
@@ -285,6 +327,7 @@ impl TableQuerySql {
     fn new(
         id: &str,
         info: &TableInfo,
+        property_types: &HashMap<String, String>,
         max_feature_count: Option<usize>,
         grid: &PgTileGrid,
         supports_tile_margin: bool,
@@ -296,7 +339,8 @@ impl TableQuerySql {
             .map(|(column, _)| escape_with_alias(&info.prop_mapping, column))
             .collect();
         let row_properties: String = props
-            .map(|(column, pg_type)| {
+            .map(|(column, label)| {
+                let pg_type = property_types.get(column).unwrap_or(label);
                 escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
             })
             .collect();
@@ -967,7 +1011,24 @@ mod tests {
     }
 
     fn query_sql(info: &TableInfo, grid: &PgTileGrid) -> TableQuerySql {
-        TableQuerySql::new("table_source.geom", info, Some(1000), grid, true, None).unwrap()
+        typed_query_sql(info, &HashMap::new(), grid)
+    }
+
+    fn typed_query_sql(
+        info: &TableInfo,
+        property_types: &HashMap<String, String>,
+        grid: &PgTileGrid,
+    ) -> TableQuerySql {
+        TableQuerySql::new(
+            "table_source.geom",
+            info,
+            property_types,
+            Some(1000),
+            grid,
+            true,
+            None,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1122,6 +1183,27 @@ mod tests {
             @r#", "created"::text AS "created", "name", "cost"::text AS "price""#
         );
         insta::assert_snapshot!(sql.properties, @r#", "created", "name", "cost" AS "price""#);
+    }
+
+    #[test]
+    fn the_type_of_the_column_decides_the_cast_not_its_label() {
+        let mut info = table_info();
+        info.properties = Some(BTreeMap::from([
+            ("doc".to_owned(), "jsonb".to_owned()),
+            ("population".to_owned(), "integer".to_owned()),
+            ("tags".to_owned(), "int4".to_owned()),
+            ("unknown".to_owned(), "int4".to_owned()),
+        ]));
+        let property_types = HashMap::from([
+            ("doc".to_owned(), "jsonb".to_owned()),
+            ("population".to_owned(), "int4".to_owned()),
+            ("tags".to_owned(), "_int4".to_owned()),
+        ]);
+        let sql = typed_query_sql(&info, &property_types, &PgTileGrid::web_mercator());
+        insta::assert_snapshot!(
+            sql.row_properties,
+            @r#", "doc", "population", "tags"::text AS "tags", "unknown""#
+        );
     }
 
     /// The blob query keeps being the SQL martin generated before the row query existed, byte for byte.

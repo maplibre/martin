@@ -423,13 +423,44 @@ postgres:
         never_set: int4
 ";
 
+    /// The same config, labelling each property with a name `PostgreSQL` has for its type other
+    /// than the one its catalog uses.
+    const MEASURED_LABELLED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    measured_shapes:
+      schema: public
+      table: measured_shapes
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        big: bigint
+        small: smallint
+        signed: integer
+        flag: boolean
+        single: real
+        double: double precision
+        label: text
+        code: character varying
+        never_set: integer
+";
+
     /// `--format mlt` builds the tile from the table's rows instead of from an MVT tile, and the
-    /// two describe the same features. The M ordinate the geometries carry is dropped either way.
+    /// two describe the same features, whatever the config calls the property types. The M
+    /// ordinate the geometries carry is dropped either way.
+    #[rstest::rstest]
+    #[case::catalog_labels(MEASURED)]
+    #[case::other_labels(MEASURED_LABELLED)]
     #[tokio::test]
-    async fn copies_a_table_as_mlt_without_the_mvt_round_trip() {
+    async fn copies_a_table_as_mlt_without_the_mvt_round_trip(#[case] config_yaml: &str) {
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
-        fs::write(&config, MEASURED).expect("failed to write the config");
+        fs::write(&config, config_yaml).expect("failed to write the config");
         let output = dir.path().join("measured.mbtiles");
 
         let log = MartinCp::new()
@@ -464,7 +495,7 @@ postgres:
 
         let mut martin = Martin::builder()
             .with_postgres()
-            .config(MEASURED)
+            .config(config_yaml)
             .start()
             .await
             .expect("failed to start martin");
@@ -606,7 +637,7 @@ postgres:
         use mlt_core::geo_types::Geometry;
         use mlt_core::{MValue, PropValue, TileLayer};
 
-        use super::copy_dimensioned;
+        use super::{copy_array_props, copy_dimensioned};
 
         fn geometries(layers: &[TileLayer]) -> BTreeMap<Option<u64>, Geometry<i32>> {
             layers[0]
@@ -647,9 +678,24 @@ postgres:
             insta::assert_snapshot!("dimensioned_shapes_mltv2_0_0_0", mlt_dump(&v2));
             assert_eq!(geometries(&v2), geometries(&copy_dimensioned("mlt").await));
         }
+
+        /// A v2 tile keeps each `jsonb` document whole, nested values included, in a nested
+        /// column named after the `jsonb` one.
+        #[tokio::test]
+        async fn keeps_jsonb_documents_whole_in_a_nested_column() {
+            let (_, v2, _) = copy_array_props("mltv2").await;
+            let layer = &v2[0];
+            assert_eq!(layer.nested_names(), ["doc"]);
+            assert!(
+                !layer.property_names().contains(&"rank".to_owned()),
+                "a v2 tile spread the document over properties: {:?}",
+                layer.property_names()
+            );
+            insta::assert_snapshot!("array_props_mltv2_0_0_0", mlt_dump(&v2));
+        }
     }
 
-    /// The config for the array-column table, whose `int4[]` the row path cannot encode.
+    /// The config for the table whose array and `jsonb` columns `ST_AsMVT` has no tile type for.
     const ARRAYS: &str = "
 postgres:
   connection_string: ${DATABASE_URL}
@@ -666,12 +712,11 @@ postgres:
       properties:
         tags: int4
         label: text
+        doc: jsonb
 ";
 
-    /// An array column reaches the decoder as `_int4`, which it cannot encode. Copying must fall
-    /// back to the MVT round-trip rather than abort, since `ST_AsMVT` handles the column fine.
-    #[tokio::test]
-    async fn copies_a_table_with_an_unencodable_column_through_mvt() {
+    /// Copies `array_props` at zoom 0 in `format`, and returns the log and the tile's layers.
+    async fn copy_array_props(format: &str) -> (String, Vec<TileLayer>, String) {
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
         fs::write(&config, ARRAYS).expect("failed to write the config");
@@ -679,7 +724,7 @@ postgres:
 
         let log = MartinCp::new()
             .with_postgres()
-            .env("RUST_LOG", "martin=warn")
+            .env("RUST_LOG", "martin=warn,martin_core::tiles::postgres=debug")
             .arg("--config")
             .arg(&config)
             .arg("--set-meta")
@@ -687,7 +732,7 @@ postgres:
             .arg("--source")
             .arg("array_props")
             .arg("--format")
-            .arg("mlt")
+            .arg(format)
             .arg("--encoding")
             .arg("identity")
             .arg("--output-file")
@@ -701,15 +746,42 @@ postgres:
             .run()
             .await;
         assert!(
-            log.contains("Copying array_props through MVT"),
-            "the copy did not report falling back off the row-per-feature path:\n{log}"
+            log.contains("ST_AsBinary("),
+            "the copy did not run the row-per-feature query:\n{log}"
         );
+        assert!(
+            !log.contains("ST_AsMVT(tile") && !log.contains("through MVT"),
+            "the copy fell back off the row-per-feature path:\n{log}"
+        );
+        let layers = mlt_layers(&lowest_zoom_tile(&output).await);
+        (log, layers, metadata_listing(&output).await)
+    }
 
-        let metadata = metadata_listing(&output).await;
-        insta::assert_snapshot!(
-            "array_props_0_0_0",
-            mlt_dump(&mlt_layers(&lowest_zoom_tile(&output).await))
-        );
+    /// An array column is cast to the text `ST_AsMVT` writes it as, and a `jsonb` column spreads
+    /// its top-level scalars over properties as `ST_AsMVT` spreads them, so the row path serves
+    /// both without falling back to the MVT round-trip, and serves what that round-trip does.
+    #[tokio::test]
+    async fn copies_array_and_jsonb_columns_as_the_mvt_round_trip_does() {
+        let (_, direct, metadata) = copy_array_props("mlt").await;
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(ARRAYS)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/array_props/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        insta::assert_snapshot!("array_props_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
         insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("array_props_metadata", metadata);
         });
