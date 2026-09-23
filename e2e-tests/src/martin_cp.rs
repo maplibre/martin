@@ -11,6 +11,7 @@ use crate::{binary_command, display_args, pg_ssl_args, workspace_root};
 #[derive(Debug, Default)]
 pub struct MartinCp {
     args: Vec<OsString>,
+    envs: Vec<(String, String)>,
     database_url: Option<String>,
 }
 
@@ -27,6 +28,13 @@ impl MartinCp {
         self
     }
 
+    /// Set an environment variable for the copy.
+    #[must_use]
+    pub fn env(mut self, key: &str, value: &str) -> Self {
+        self.envs.push((key.to_owned(), value.to_owned()));
+        self
+    }
+
     /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
@@ -36,8 +44,28 @@ impl MartinCp {
         self
     }
 
+    /// Run the copy, require it to fail, and return what it logged.
+    pub async fn run_expecting_failure(self) -> String {
+        let (status, log, described) = self.execute().await;
+        assert!(
+            !status.success(),
+            "`martin cp {described}` unexpectedly succeeded; log:\n{log}"
+        );
+        log
+    }
+
     /// Run the copy, require it to succeed, and return what it logged.
     pub async fn run(self) -> String {
+        let (status, log, described) = self.execute().await;
+        assert!(
+            status.success(),
+            "`martin cp {described}` failed with {status}; log:\n{log}"
+        );
+        log
+    }
+
+    /// Run the copy and hand back its exit status, its log and the arguments it was given.
+    async fn execute(self) -> (std::process::ExitStatus, String, String) {
         let mut cmd = binary_command("MARTIN_BIN", "martin");
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
@@ -45,6 +73,9 @@ impl MartinCp {
             .arg("cp")
             .args(&self.args)
             .stdin(Stdio::null());
+        for (key, value) in &self.envs {
+            cmd.env(key, value);
+        }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
             if !self.args.iter().any(|arg| arg == "--config") {
@@ -59,11 +90,6 @@ impl MartinCp {
             .unwrap_or_else(|e| panic!("failed to run `martin cp {described}`: {e}"));
         let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
         log.push_str(&String::from_utf8_lossy(&output.stderr));
-        assert!(
-            output.status.success(),
-            "`martin cp {described}` failed with {}; log:\n{log}",
-            output.status
-        );
-        log
+        (output.status, log, described)
     }
 }

@@ -213,6 +213,39 @@ pub async fn tiles(path: impl AsRef<Path>) -> Vec<Tile> {
         .collect()
 }
 
+/// Every tile in the file as `z/x/y` with its size, one per line, ordered by zoom, column and row.
+///
+/// The row is the TMS row the file stores, not the XYZ one an HTTP request names.
+pub async fn tile_listing(path: impl AsRef<Path>) -> String {
+    tiles(path)
+        .await
+        .iter()
+        .map(|(z, x, y, data)| format!("{z}/{x}/{y} {} bytes", data.len()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Every row of the `metadata` table as `name = value` lines, with the `json` row's own document
+/// expanded so that a snapshot of it is readable and its keys are sorted.
+pub async fn metadata_listing(path: impl AsRef<Path>) -> String {
+    metadata(path)
+        .await
+        .into_iter()
+        .map(|(name, value)| {
+            let value = if name == "json" {
+                let mut json: serde_json::Value =
+                    serde_json::from_str(&value).expect("the `json` metadata row is not json");
+                json.sort_all_objects();
+                serde_json::to_string_pretty(&json).expect("a parsed document re-serializes")
+            } else {
+                value
+            };
+            format!("{name} = {value}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Every row of a patch file's `tiles` table, ordered by zoom, column and row,
 /// with the deletions it records left as `NULL` tiles.
 pub async fn patch_tiles(path: impl AsRef<Path>) -> Vec<PatchTile> {

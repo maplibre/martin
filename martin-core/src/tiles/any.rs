@@ -23,7 +23,7 @@ use crate::tiles::passthrough::PassthroughSource;
 #[cfg(feature = "pmtiles")]
 use crate::tiles::pmtiles::PmtilesSource;
 #[cfg(feature = "postgres")]
-use crate::tiles::postgres::{ActiveQueryRegistry, PostgresSource};
+use crate::tiles::postgres::{ActiveQueryRegistry, PostgresSource, PostgresTileFeatures};
 #[cfg(feature = "_testing")]
 use crate::tiles::testing::TestSource;
 use crate::tiles::{MartinCoreResult, Source as _, Tile, UrlQuery};
@@ -187,6 +187,53 @@ impl AnySource {
         let tile: Pin<Box<dyn Future<Output = MartinCoreResult<TileData>> + Send + '_>> =
             dispatch!(self, |s| Box::pin(s.get_tile(xyz, url_query)));
         tile.await
+    }
+
+    /// The `PostgreSQL` source this one serves, through any declared grid around it.
+    #[cfg(feature = "postgres")]
+    fn postgres_source(&self) -> Option<&PostgresSource> {
+        let mut source = self;
+        loop {
+            match source {
+                Self::Postgres(s) => return Some(s),
+                Self::DeclaredGrid(s) => source = s.inner(),
+                #[cfg(feature = "pmtiles")]
+                Self::Pmtiles(_) => return None,
+                #[cfg(feature = "mbtiles")]
+                Self::Mbtiles(_) => return None,
+                #[cfg(feature = "passthrough")]
+                Self::Passthrough(_) => return None,
+                #[cfg(feature = "geojson")]
+                Self::GeoJson(_) => return None,
+                #[cfg(feature = "unstable-cog")]
+                Self::Cog(_) => return None,
+                #[cfg(feature = "unstable-duckdb")]
+                Self::DuckDb(_) => return None,
+                #[cfg(feature = "_testing")]
+                Self::Test(_) => return None,
+            }
+        }
+    }
+
+    /// Retrieves the features of a tile instead of its serialized bytes.
+    ///
+    /// `None` means this source cannot hand out features, and the caller has to fall back to
+    /// [`get_tile`](Self::get_tile).
+    #[cfg(feature = "postgres")]
+    pub async fn get_tile_features(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+        keep_measures: bool,
+    ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
+        match self.postgres_source() {
+            Some(source) => {
+                source
+                    .get_tile_features(xyz, url_query, keep_measures)
+                    .await
+            }
+            None => Ok(None),
+        }
     }
 
     /// Retrieves tile with etag for the given coordinates.

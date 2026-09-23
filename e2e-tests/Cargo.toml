@@ -11,6 +11,7 @@ rust-version.workspace = true
 [features]
 test-cog = []
 test-duckdb = []
+test-mlt-v2 = ["mlt-core/unstable-v2"]
 test-pg = []
 test-rendering = []
 

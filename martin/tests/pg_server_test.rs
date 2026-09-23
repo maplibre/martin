@@ -71,6 +71,9 @@ postgres:
       antimeridian:
         content_type: application/x-protobuf
         description: public.antimeridian.geom
+      array_props:
+        content_type: application/x-protobuf
+        description: "Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key"
       auto_table:
         content_type: application/x-protobuf
         description: autodetect.auto_table.geom
@@ -83,6 +86,9 @@ postgres:
       curves_untyped:
         content_type: application/x-protobuf
         description: public.curves_untyped.geom
+      dimensioned_shapes:
+        content_type: application/x-protobuf
+        description: "Every geometry type, in XY, XYZ, XYM and XYZM"
       empty_bounds:
         content_type: application/x-protobuf
         description: public.empty_bounds.geom
@@ -158,6 +164,9 @@ postgres:
       linestring_bounds_vertical:
         content_type: application/x-protobuf
         description: public.linestring_bounds_vertical.geom
+      measured_shapes:
+        content_type: application/x-protobuf
+        description: "Geometries carrying an M ordinate, in every property type martin serves"
       nz_points:
         content_type: application/x-protobuf
         description: public.nz_points.geom

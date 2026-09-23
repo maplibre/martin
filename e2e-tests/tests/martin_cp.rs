@@ -3,7 +3,10 @@
 use std::fs;
 use std::path::Path;
 
-use martin_e2e_tests::{MartinCp, MbtilesCli, mbtiles_fixture, metadata, summary, temp_dir};
+use martin_e2e_tests::{
+    MartinCp, MbtilesCli, mbtiles_fixture, metadata_listing, summary, summary_filters, temp_dir,
+    tile_listing,
+};
 use rstest::rstest;
 use serde_json::{Value, json};
 
@@ -11,6 +14,71 @@ const GENERATOR: &str = "generator=martin cp v0.0.0";
 
 async fn validate(path: &Path) {
     MbtilesCli::new("validate").arg(path).run().await;
+}
+
+/// Insta filters that round every float to ten digits and drop trailing whitespace: martin
+/// computes the bounds and the center by trigonometry, so their last digits differ between
+/// machines, and the repository strips trailing whitespace from every committed file, so a
+/// snapshot that recorded it could never match again.
+fn snapshot_filters() -> Vec<(&'static str, &'static str)> {
+    vec![(r"(-?\d+\.\d{10})\d+", "$1"), (r"(?m)[ \t]+$", "")]
+}
+
+#[rstest]
+#[case("png", "invalid value 'png'")]
+#[case("jpeg", "invalid value 'jpeg'")]
+#[cfg_attr(not(feature = "test-mlt-v2"), case("mltv2", "invalid value 'mltv2'"))]
+#[cfg_attr(not(feature = "test-mlt-v2"), case("mlt2", "invalid value 'mlt2'"))]
+#[tokio::test]
+async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected: &str) {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--format")
+        .arg(format)
+        .arg("--min-zoom")
+        .arg("0")
+        .arg("--max-zoom")
+        .arg("0")
+        .run_expecting_failure()
+        .await;
+    assert!(log.contains(expected), "`--format {format}` said:\n{log}");
+}
+
+#[rstest]
+#[case("mlt")]
+#[case("mlt1")]
+#[case("mltv1")]
+#[tokio::test]
+async fn copies_as_mlt_under_every_v1_spelling(#[case] format: &str) {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--format")
+        .arg(format)
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--min-zoom")
+        .arg("0")
+        .arg("--max-zoom")
+        .arg("0")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(
+        metadata.contains("mlt"),
+        "`--format {format}` wrote {metadata}"
+    );
 }
 
 #[tokio::test]
@@ -36,17 +104,14 @@ async fn copies_the_only_source_when_none_is_named() {
         .await;
 
     let summary = summary(&output).run_json().await;
-    assert_eq!(summary["tile_count"], 8);
-    assert_eq!(summary["min_zoom"], 0);
-    assert_eq!(summary["max_zoom"], 6);
-
-    let metadata = metadata(&output).await;
-    assert_eq!(
-        metadata["name"], "Major cities from Natural Earth data",
-        "the copy did not carry over the source metadata: {metadata:?}"
-    );
-    assert_eq!(metadata["generator"], "martin cp v0.0.0");
-    assert_eq!(metadata["format"], "pbf");
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({filters => summary_filters()}, {
+        insta::assert_json_snapshot!("only_source_summary", summary);
+    });
+    insta::assert_snapshot!("only_source_tiles", tile_listing(&output).await);
+    insta::with_settings!({filters => snapshot_filters()}, {
+        insta::assert_snapshot!("only_source_metadata", metadata);
+    });
     validate(&output).await;
 }
 
@@ -75,7 +140,13 @@ async fn writes_the_requested_schema(#[case] mbtiles_type: Option<&str>, #[case]
         .run()
         .await;
 
-    assert_eq!(summary(&output).run_json().await["mbt_type"], expected);
+    let summary = summary(&output).run_json().await;
+    assert_eq!(summary["mbt_type"], expected);
+    assert_eq!(summary["tile_count"], 2);
+    insta::assert_snapshot!(tile_listing(&output).await, @r"
+    0/0/0 1107 bytes
+    1/0/0 20 bytes
+    ");
     validate(&output).await;
 }
 
@@ -104,12 +175,15 @@ async fn copies_a_raster_source() {
         .run()
         .await;
 
-    assert_eq!(summary(&output).run_json().await["tile_count"], 6);
-
-    let metadata = metadata(&output).await;
-    assert_eq!(metadata["format"], "png");
-    assert_eq!(metadata["name"], "normalized");
-    assert_eq!(metadata["center"], "0,0,0");
+    let summary = summary(&output).run_json().await;
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({filters => summary_filters()}, {
+        insta::assert_json_snapshot!("raster_summary", summary);
+    });
+    insta::assert_snapshot!("raster_tiles", tile_listing(&output).await);
+    insta::with_settings!({filters => snapshot_filters()}, {
+        insta::assert_snapshot!("raster_metadata", metadata);
+    });
     validate(&output).await;
 }
 
@@ -134,25 +208,27 @@ async fn saves_the_resolved_config() {
         .await;
 
     let saved = fs::read_to_string(&config).expect("failed to read the saved config");
-    assert_eq!(
-        saved.trim_end(),
-        format!(
-            "mbtiles:\n  sources:\n    world_cities: {}",
-            source.display()
-        )
-    );
+    let saved = saved.replace(&source.display().to_string(), "[SOURCE]");
+    insta::assert_snapshot!(saved.trim_end(), @"
+    mbtiles:
+      sources:
+        world_cities: [SOURCE]
+    ");
 }
 
 #[cfg(feature = "test-pg")]
 mod postgres {
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::Path;
 
-    use martin_e2e_tests::{GZIP_MAGIC, MartinCp, gunzip, metadata, summary, temp_dir, tiles};
-    use mlt_core::fast_mvt::MvtReaderRef;
-    use serde_json::json;
+    use martin_e2e_tests::{
+        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
+        summary, summary_filters, temp_dir, tile_listing, tiles,
+    };
+    use mlt_core::TileLayer;
 
-    use crate::{GENERATOR, validate};
+    use crate::{GENERATOR, snapshot_filters, validate};
 
     /// The arguments shared by every copy from the test database.
     fn copy(output: &Path) -> MartinCp {
@@ -177,15 +253,9 @@ mod postgres {
         data
     }
 
-    fn layer_names(tile: &[u8]) -> Vec<String> {
-        MvtReaderRef::new(tile)
-            .expect("a tile is not a vector tile")
-            .to_tile()
-            .expect("a tile is not a decodable vector tile")
-            .layers
-            .into_iter()
-            .map(|layer| layer.name)
-            .collect()
+    /// The copy's lowest tile as text, whether or not the copy gzipped it.
+    async fn lowest_zoom_dump(path: &Path) -> String {
+        mvt_dump(&gunzip(&lowest_zoom_tile(path).await))
     }
 
     #[tokio::test]
@@ -207,18 +277,19 @@ mod postgres {
             .await;
 
         let summary = summary(&output).run_json().await;
-        assert_eq!(summary["mbt_type"], json!("Flat"));
-        assert_eq!(summary["tile_count"], 127);
-        assert_eq!(summary["max_zoom"], 6);
+        let metadata = metadata_listing(&output).await;
+        insta::with_settings!({filters => summary_filters()}, {
+            insta::assert_json_snapshot!("table_source_summary", summary);
+        });
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!("table_source_metadata", metadata);
+        });
 
-        let metadata = metadata(&output).await;
-        assert_eq!(metadata["format"], "pbf");
-        assert_eq!(metadata["compression"], "gzip");
-        assert_eq!(metadata["generator"], "martin cp v0.0.0");
-
-        let tile = lowest_zoom_tile(&output).await;
-        assert!(tile.starts_with(&GZIP_MAGIC), "the tile is not gzipped");
-        assert_eq!(layer_names(&gunzip(&tile)), ["table_source"]);
+        assert!(
+            lowest_zoom_tile(&output).await.starts_with(&GZIP_MAGIC),
+            "the tile is not gzipped"
+        );
+        insta::assert_snapshot!("table_source_0_0_0", lowest_zoom_dump(&output).await);
         validate(&output).await;
     }
 
@@ -244,21 +315,24 @@ mod postgres {
             .run()
             .await;
 
-        assert_eq!(
-            summary(&output).run_json().await["mbt_type"],
-            json!("FlatWithHash")
-        );
-
-        let metadata = metadata(&output).await;
-        assert_eq!(metadata["name"], "function_zxy_query_test");
+        let summary = summary(&output).run_json().await;
+        let metadata = metadata_listing(&output).await;
+        insta::with_settings!({filters => summary_filters()}, {
+            insta::assert_json_snapshot!("function_source_summary", summary);
+        });
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!("function_source_metadata", metadata);
+        });
         assert!(
-            !metadata.contains_key("compression"),
-            "`--encoding identity` recorded a compression: {metadata:?}"
+            !metadata.contains("compression ="),
+            "`--encoding identity` recorded a compression:\n{metadata}"
         );
 
-        let tile = lowest_zoom_tile(&output).await;
-        assert!(!tile.starts_with(&GZIP_MAGIC), "the tile is gzipped");
-        assert_eq!(layer_names(&tile), ["public.function_zxy_query_test"]);
+        assert!(
+            !lowest_zoom_tile(&output).await.starts_with(&GZIP_MAGIC),
+            "the tile is gzipped"
+        );
+        insta::assert_snapshot!("function_source_0_0_0", lowest_zoom_dump(&output).await);
         validate(&output).await;
     }
 
@@ -284,12 +358,11 @@ mod postgres {
             .run()
             .await;
 
-        assert_eq!(metadata(&output).await["name"], "composite");
-        let tile = gunzip(&lowest_zoom_tile(&output).await);
-        assert_eq!(
-            layer_names(&tile),
-            ["table_source", "public.function_zxy_query_test"]
-        );
+        let metadata = metadata_listing(&output).await;
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!("composite_metadata", metadata);
+        });
+        insta::assert_snapshot!("composite_0_0_0", lowest_zoom_dump(&output).await);
         validate(&output).await;
     }
 
@@ -321,6 +394,551 @@ mod postgres {
         }
 
         assert_eq!(tiles(&bounded).await, tiles(&unbounded).await);
+        insta::assert_snapshot!("source_bounds_tiles", tile_listing(&unbounded).await);
+    }
+
+    /// The config the MLT test below drives: one table, with every property type martin serves.
+    const MEASURED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    measured_shapes:
+      schema: public
+      table: measured_shapes
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        big: int8
+        small: int2
+        signed: int4
+        flag: bool
+        single: float4
+        double: float8
+        label: text
+        code: varchar
+        never_set: int4
+";
+
+    /// The same config, labelling each property with a name `PostgreSQL` has for its type other
+    /// than the one its catalog uses.
+    const MEASURED_LABELLED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    measured_shapes:
+      schema: public
+      table: measured_shapes
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        big: bigint
+        small: smallint
+        signed: integer
+        flag: boolean
+        single: real
+        double: double precision
+        label: text
+        code: character varying
+        never_set: integer
+";
+
+    /// `--format mlt` builds the tile from the table's rows instead of from an MVT tile, and the
+    /// two describe the same features, whatever the config calls the property types. The M
+    /// ordinate the geometries carry is dropped either way.
+    #[rstest::rstest]
+    #[case::catalog_labels(MEASURED)]
+    #[case::other_labels(MEASURED_LABELLED)]
+    #[tokio::test]
+    async fn copies_a_table_as_mlt_without_the_mvt_round_trip(#[case] config_yaml: &str) {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, config_yaml).expect("failed to write the config");
+        let output = dir.path().join("measured.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin_core::tiles::postgres=debug")
+            .arg("--config")
+            .arg(&config)
+            .arg("--source")
+            .arg("measured_shapes")
+            .arg("--format")
+            .arg("mlt")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        assert!(
+            log.contains("ST_AsBinary("),
+            "the copy did not run the row-per-feature query:\n{log}"
+        );
+        assert!(
+            !log.contains("ST_AsMVT(tile"),
+            "the copy still built an MVT tile:\n{log}"
+        );
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(config_yaml)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/measured_shapes/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        let direct = mlt_layers(&lowest_zoom_tile(&output).await);
+        assert!(
+            !direct[0].property_names().contains(&"never_set".to_owned()),
+            "a column that is NULL for every feature must not become a layer column: {:?}",
+            direct[0].property_names()
+        );
+        insta::assert_snapshot!("measured_shapes_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
+    }
+
+    /// The config for the table holding every geometry type in every `PostGIS` dimension.
+    const DIMENSIONED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    dimensioned_shapes:
+      schema: public
+      table: dimensioned_shapes
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        dims: text
+        kind: text
+";
+
+    /// Copies `dimensioned_shapes` at zoom 0 in `format` and returns the tile's layers.
+    async fn copy_dimensioned(format: &str) -> Vec<TileLayer> {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, DIMENSIONED).expect("failed to write the config");
+        let output = dir.path().join("dimensioned.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin=warn,martin_core::tiles::postgres=debug")
+            .arg("--config")
+            .arg(&config)
+            .arg("--source")
+            .arg("dimensioned_shapes")
+            .arg("--format")
+            .arg(format)
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        assert!(
+            log.contains("ST_AsBinary("),
+            "the copy did not run the row-per-feature query:\n{log}"
+        );
+        assert!(
+            !log.contains("through MVT"),
+            "the copy fell back off the row-per-feature path:\n{log}"
+        );
+        mlt_layers(&lowest_zoom_tile(&output).await)
+    }
+
+    /// Z, M and ZM geometries of every type take the row path like their XY twins, land on the
+    /// same tile coordinates, and match what the MVT round-trip serves. A v1 tile has nowhere to
+    /// keep Z or M, so it holds x and y alone.
+    #[tokio::test]
+    async fn copies_every_geometry_type_in_every_dimension_as_mlt() {
+        let direct = copy_dimensioned("mlt").await;
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(DIMENSIONED)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/dimensioned_shapes/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        let layer = &direct[0];
+        let kind = layer
+            .property_names()
+            .iter()
+            .position(|name| name == "kind")
+            .expect("the layer has no kind column");
+        let mut geometries = BTreeMap::<String, BTreeSet<String>>::new();
+        for feature in layer.features() {
+            geometries
+                .entry(format!("{:?}", feature.properties()[kind]))
+                .or_default()
+                .insert(format!("{:?}", feature.geometry()));
+        }
+        assert_eq!(
+            geometries.len(),
+            7,
+            "a geometry type is missing: {geometries:#?}"
+        );
+        assert!(
+            geometries.values().all(|shapes| shapes.len() == 1),
+            "a Z or M ordinate moved a geometry: {geometries:#?}"
+        );
+        assert_eq!(layer.features().len(), 28);
+
+        insta::assert_snapshot!("dimensioned_shapes_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
+    }
+
+    /// Tests that need a `martin` built with `unstable-mlt-v2`.
+    #[cfg(feature = "test-mlt-v2")]
+    mod mlt_v2 {
+        use std::collections::BTreeMap;
+
+        use martin_e2e_tests::{mlt_dump, rings_from_smallest_vertex};
+        use mlt_core::geo_types::Geometry;
+        use mlt_core::{MValue, PropValue, TileLayer};
+
+        use std::fs;
+
+        use martin_e2e_tests::{MartinCp, mlt_layers, temp_dir, tiles};
+
+        use super::{MEASURED, copy_array_props, copy_dimensioned};
+
+        fn geometries(layers: &[TileLayer]) -> BTreeMap<Option<u64>, Geometry<i32>> {
+            layers[0]
+                .features()
+                .iter()
+                .map(|f| (f.id(), rings_from_smallest_vertex(f.geometry())))
+                .collect()
+        }
+
+        /// A v2 tile keeps the M ordinates of every geometry type in the `m` vertex column,
+        /// polygons included, while Z is dropped and x and y stay those of the v1 tile.
+        #[tokio::test]
+        async fn copies_the_m_ordinates_of_every_geometry_type() {
+            let v2 = copy_dimensioned("mltv2").await;
+            let layer = &v2[0];
+            assert_eq!(layer.m_value_names(), ["m"]);
+            let dims = layer
+                .property_names()
+                .iter()
+                .position(|name| name == "dims")
+                .expect("the layer has no dims column");
+            for feature in layer.features() {
+                let measured = matches!(
+                    &feature.properties()[dims],
+                    PropValue::Str(Some(d)) if d.ends_with('m')
+                );
+                let MValue::F64(m) = &feature.m_values()[0] else {
+                    panic!("the m column is not f64: {:?}", feature.m_values());
+                };
+                assert_eq!(
+                    m.as_ref().map(Vec::len),
+                    measured.then(|| feature.vertex_count()),
+                    "feature {:?} has the wrong M ordinates: {m:?}",
+                    feature.id()
+                );
+            }
+
+            insta::assert_snapshot!("dimensioned_shapes_mltv2_0_0_0", mlt_dump(&v2));
+            assert_eq!(geometries(&v2), geometries(&copy_dimensioned("mlt").await));
+        }
+
+        /// A v2 tile keeps each `jsonb` document whole, nested values included, in a nested
+        /// column named after the `jsonb` one.
+        #[tokio::test]
+        async fn keeps_jsonb_documents_whole_in_a_nested_column() {
+            let (_, v2, _) = copy_array_props("mltv2").await;
+            let layer = &v2[0];
+            assert_eq!(layer.nested_names(), ["doc"]);
+            assert!(
+                !layer.property_names().contains(&"rank".to_owned()),
+                "a v2 tile spread the document over properties: {:?}",
+                layer.property_names()
+            );
+            insta::assert_snapshot!("array_props_mltv2_0_0_0", mlt_dump(&v2));
+        }
+
+        /// `PostGIS` drops the M ordinates of a geometry it clips, so a polygon keeps them in the
+        /// tile it lies wholly inside, and loses them in the neighbours that cut it at their border.
+        #[tokio::test]
+        async fn a_clipped_polygon_loses_its_m_ordinates() {
+            let dir = temp_dir();
+            let config = dir.path().join("config.yaml");
+            fs::write(&config, MEASURED).expect("failed to write the config");
+            let output = dir.path().join("clipped.mbtiles");
+            MartinCp::new()
+                .with_postgres()
+                .arg("--config")
+                .arg(&config)
+                .arg("--source")
+                .arg("measured_shapes")
+                .arg("--format")
+                .arg("mltv2")
+                .arg("--encoding")
+                .arg("identity")
+                .arg("--output-file")
+                .arg(&output)
+                .arg("--min-zoom")
+                .arg("3")
+                .arg("--max-zoom")
+                .arg("3")
+                .arg("--bbox=-1,-1,5,5")
+                .run()
+                .await;
+
+            let mut measured = Vec::new();
+            for (_, _, _, data) in tiles(&output).await {
+                for layer in mlt_layers(&data) {
+                    for feature in layer.features().iter().filter(|f| f.id() == Some(3)) {
+                        let MValue::F64(m) = &feature.m_values()[0] else {
+                            panic!("the m column is not f64: {:?}", feature.m_values());
+                        };
+                        measured.push(m.is_some());
+                    }
+                }
+            }
+            measured.sort_unstable();
+            assert_eq!(measured, [false, false, false, true]);
+        }
+    }
+
+    /// The config for the table whose array and `jsonb` columns `ST_AsMVT` has no tile type for.
+    const ARRAYS: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    array_props:
+      schema: public
+      table: array_props
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        tags: int4
+        label: text
+        doc: jsonb
+";
+
+    /// Copies `array_props` at zoom 0 in `format`, and returns the log and the tile's layers.
+    async fn copy_array_props(format: &str) -> (String, Vec<TileLayer>, String) {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, ARRAYS).expect("failed to write the config");
+        let output = dir.path().join("arrays.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin=warn,martin_core::tiles::postgres=debug")
+            .arg("--config")
+            .arg(&config)
+            .arg("--set-meta")
+            .arg(GENERATOR)
+            .arg("--source")
+            .arg("array_props")
+            .arg("--format")
+            .arg(format)
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        assert!(
+            log.contains("ST_AsBinary("),
+            "the copy did not run the row-per-feature query:\n{log}"
+        );
+        assert!(
+            !log.contains("ST_AsMVT(tile") && !log.contains("through MVT"),
+            "the copy fell back off the row-per-feature path:\n{log}"
+        );
+        let layers = mlt_layers(&lowest_zoom_tile(&output).await);
+        (log, layers, metadata_listing(&output).await)
+    }
+
+    /// An array column is cast to the text `ST_AsMVT` writes it as, and a `jsonb` column spreads
+    /// its top-level scalars over properties as `ST_AsMVT` spreads them, so the row path serves
+    /// both without falling back to the MVT round-trip, and serves what that round-trip does.
+    #[tokio::test]
+    async fn copies_array_and_jsonb_columns_as_the_mvt_round_trip_does() {
+        let (_, direct, metadata) = copy_array_props("mlt").await;
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(ARRAYS)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/array_props/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        insta::assert_snapshot!("array_props_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!("array_props_metadata", metadata);
+        });
+    }
+
+    /// The config for an unclipped table, whose tile coordinates leave the `i32` tile space at
+    /// the zoom the test copies.
+    const UNCLIPPED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      minzoom: 0
+      maxzoom: 30
+      clip_geom: false
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        gid: int4
+";
+
+    /// `clip_geom: false` lets `ST_AsMVTGeom` hand out coordinates wider than an `i32`, which the
+    /// row path cannot read. Copying must fall back to the MVT round-trip rather than abort,
+    /// since `ST_AsMVT` encodes those tiles.
+    #[tokio::test]
+    async fn copies_a_table_with_unreadable_tile_geometry_through_mvt() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, UNCLIPPED).expect("failed to write the config");
+        let output = dir.path().join("unclipped.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin=warn")
+            .arg("--config")
+            .arg(&config)
+            .arg("--set-meta")
+            .arg(GENERATOR)
+            .arg("--source")
+            .arg("table_source")
+            .arg("--format")
+            .arg("mlt")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("23")
+            .arg("--max-zoom")
+            .arg("23")
+            .arg("--bbox=30.0,10.0,30.00001,10.00001")
+            .run()
+            .await;
+        assert!(
+            log.contains("Copying table_source through MVT"),
+            "the copy did not report falling back off the row-per-feature path:\n{log}"
+        );
+
+        assert!(
+            !mlt_layers(&lowest_zoom_tile(&output).await).is_empty(),
+            "the copy wrote no MLT layers"
+        );
+        validate(&output).await;
+    }
+
+    /// A function source hands out an MVT blob and has no row form, so `--format mlt` keeps
+    /// converting that blob rather than taking the direct path.
+    #[tokio::test]
+    async fn copies_a_function_source_as_mlt_through_mvt() {
+        let dir = temp_dir();
+        let output = dir.path().join("out.mbtiles");
+
+        let log = copy(&output)
+            .env("RUST_LOG", "martin_core::tiles::postgres=debug")
+            .arg("--source")
+            .arg("function_zxy_query_test")
+            .arg("--url-query")
+            .arg("foo=bar&token=martin")
+            .arg("--format")
+            .arg("mlt")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        assert!(
+            !log.contains("ST_AsBinary("),
+            "a function source has no row-per-feature query to run:\n{log}"
+        );
+
+        let metadata = metadata_listing(&output).await;
+        insta::assert_snapshot!(
+            "function_source_mlt_0_0_0",
+            mlt_dump(&mlt_layers(&lowest_zoom_tile(&output).await))
+        );
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!("function_source_mlt_metadata", metadata);
+        });
     }
 
     #[tokio::test]
@@ -342,10 +960,28 @@ mod postgres {
             .await;
 
         let saved = fs::read_to_string(&config).expect("failed to read the saved config");
-        assert!(
-            saved.contains("    table_source:\n      schema: public\n      table: table_source\n"),
-            "the saved config does not describe the copied table:\n{saved}"
-        );
+        let described: String = saved
+            .split_inclusive('\n')
+            .skip_while(|line| !line.starts_with("    table_source:"))
+            .take_while(|line| line.starts_with("    table_source:") || line.starts_with("      "))
+            .collect();
+        insta::with_settings!({filters => snapshot_filters()}, {
+            insta::assert_snapshot!(described.trim_end(), @r"
+            table_source:
+              schema: public
+              table: table_source
+              srid: 4326
+              geometry_column: geom
+              bounds:
+              - -2.0
+              - -1.0
+              - 142.8413150986
+              - 45.0
+              geometry_type: GEOMETRY
+              properties:
+                gid: int4
+            ");
+        });
     }
 }
 
@@ -393,8 +1029,13 @@ postgres:
         .await;
 
     let summary = summary(&output).run_json().await;
-    insta::assert_json_snapshot!("nztm2000quad_copy_summary", summary, {".file_size" => "[size]", ".file_path" => "[path]"});
-    let metadata = metadata(&output).await;
-    insta::assert_snapshot!(metadata["tileGrid"], @r#"{"id":"NZTM2000Quad","crs":"EPSG:2193","origin":[-3260586.7284,10438190.1652],"extentAtZoom0":10018754.171394626}"#);
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({filters => summary_filters()}, {
+        insta::assert_json_snapshot!("nztm2000quad_copy_summary", summary);
+    });
+    insta::assert_snapshot!("nztm2000quad_copy_tiles", tile_listing(&output).await);
+    insta::with_settings!({filters => snapshot_filters()}, {
+        insta::assert_snapshot!("nztm2000quad_copy_metadata", metadata);
+    });
     validate(&output).await;
 }
