@@ -22,7 +22,6 @@ tags:
     It is unstable due to the limitations of our current implementation:
 
     - DuckDB sources are not included in default binaries, Homebrew, or the Docker image
-    - There is no CLI shorthand for `.parquet` or `.duckdb` files
     - Local GeoParquet must be a single file; directories and globs are rejected
     - Hot reload is not implemented
     - MLT postprocessing is not supported
@@ -33,9 +32,9 @@ tags:
 Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files and from the tables and macros of `.duckdb` database files via [DuckDB](https://duckdb.org/).
 Instead of incurring the overhead of serving them directly, we serve them as vector tiles.
 
-DuckDB sources are only available via the [configuration file](config-file/index.md).
-There is no CLI shorthand.
-Create a configuration file and start Martin with `martin --config config.yaml`.
+`martin data.parquet` serves a GeoParquet file and `martin tiles.duckdb` publishes the tables of a database file, both with the default settings.
+Every other option lives in the [configuration file](config-file/index.md).
+Create one and start Martin with `martin --config config.yaml`.
 Once a DuckDB configuration exists, `martin --config config.yaml --save-config resolved-config.yaml` writes a copy with the resolved per-source defaults.
 
 ## Run Martin with configuration file
