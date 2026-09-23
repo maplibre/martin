@@ -1944,6 +1944,7 @@ postgres:
     WARN Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping

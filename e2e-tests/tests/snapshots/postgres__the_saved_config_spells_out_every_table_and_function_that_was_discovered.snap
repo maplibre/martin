@@ -120,6 +120,21 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    dimensioned_shapes:
+      schema: public
+      table: dimensioned_shapes
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 150.0
+      - 20.0
+      geometry_type: GEOMETRY
+      properties:
+        dims: text
+        feat_id: int4
+        kind: text
     empty_bounds:
       schema: public
       table: empty_bounds

@@ -86,6 +86,9 @@ postgres:
       curves_untyped:
         content_type: application/x-protobuf
         description: public.curves_untyped.geom
+      dimensioned_shapes:
+        content_type: application/x-protobuf
+        description: "Every geometry type, in XY, XYZ, XYM and XYZM"
       empty_bounds:
         content_type: application/x-protobuf
         description: public.empty_bounds.geom

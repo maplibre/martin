@@ -218,6 +218,7 @@ async fn saves_the_resolved_config() {
 
 #[cfg(feature = "test-pg")]
 mod postgres {
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::Path;
 
@@ -483,6 +484,109 @@ postgres:
             direct[0].property_names()
         );
         insta::assert_snapshot!("measured_shapes_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
+    }
+
+    /// The config for the table holding every geometry type in every `PostGIS` dimension.
+    const DIMENSIONED: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    dimensioned_shapes:
+      schema: public
+      table: dimensioned_shapes
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        dims: text
+        kind: text
+";
+
+    /// Z, M and ZM geometries of every type take the row path like their XY twins, land on the
+    /// same tile coordinates, and match what the MVT round-trip serves.
+    #[tokio::test]
+    async fn copies_every_geometry_type_in_every_dimension_as_mlt() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, DIMENSIONED).expect("failed to write the config");
+        let output = dir.path().join("dimensioned.mbtiles");
+
+        let log = MartinCp::new()
+            .with_postgres()
+            .env("RUST_LOG", "martin=warn,martin_core::tiles::postgres=debug")
+            .arg("--config")
+            .arg(&config)
+            .arg("--source")
+            .arg("dimensioned_shapes")
+            .arg("--format")
+            .arg("mlt")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        assert!(
+            log.contains("ST_AsBinary("),
+            "the copy did not run the row-per-feature query:\n{log}"
+        );
+        assert!(
+            !log.contains("through MVT"),
+            "the copy fell back off the row-per-feature path:\n{log}"
+        );
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(DIMENSIONED)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/dimensioned_shapes/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        let direct = mlt_layers(&lowest_zoom_tile(&output).await);
+        let layer = &direct[0];
+        let kind = layer
+            .property_names()
+            .iter()
+            .position(|name| name == "kind")
+            .expect("the layer has no kind column");
+        let mut geometries = BTreeMap::<String, BTreeSet<String>>::new();
+        for feature in layer.features() {
+            geometries
+                .entry(format!("{:?}", feature.properties()[kind]))
+                .or_default()
+                .insert(format!("{:?}", feature.geometry()));
+        }
+        assert_eq!(
+            geometries.len(),
+            7,
+            "a geometry type is missing: {geometries:#?}"
+        );
+        assert!(
+            geometries.values().all(|shapes| shapes.len() == 1),
+            "a Z or M ordinate moved a geometry: {geometries:#?}"
+        );
+        assert_eq!(layer.features().len(), 28);
+
+        insta::assert_snapshot!("dimensioned_shapes_0_0_0", mlt_dump(&direct));
         assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
     }
 
