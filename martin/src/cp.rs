@@ -19,11 +19,15 @@ use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
 use martin_core::tiles::BoxedSource;
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+use martin_core::tiles::MartinCoreError;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::ActiveQueryRegistry;
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+use martin_core::tiles::postgres::PostgresError::{BadTileGeometry, UnsupportedPropertyType};
 use martin_tile_utils::{
-    TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
+    Format, TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
 };
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
@@ -47,7 +51,10 @@ use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::logging::LogFormat;
 use crate::logging::progress::TileCopyProgress;
-use crate::srv::{DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders, merge_tilejson};
+use crate::srv::{
+    AcceptedFormats, DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders,
+    merge_tilejson,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
@@ -97,6 +104,13 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
+    /// Tile format to request from the source.
+    ///
+    /// A vector source converts between MVT and MLT unless `convert_to_{mlt,mvt}` turns
+    /// that off, and a source that can neither produce nor convert to this format fails the copy.
+    /// Defaults to what the source produces.
+    #[arg(long, value_name = "FORMAT", value_enum)]
+    pub format: Option<CopyFormat>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
@@ -132,6 +146,42 @@ pub struct CopyArgs {
     pub set_meta: Vec<(String, String)>,
 }
 
+/// Vector tile format `martin cp` requests from the source.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize,
+)]
+pub enum CopyFormat {
+    /// Mapbox Vector Tile.
+    #[value(alias = "pbf")]
+    #[serde(rename = "mvt")]
+    Mvt,
+    /// `MapLibre` Tile, v1 wire format.
+    #[value(name = "mlt1", aliases = ["mlt", "mltv1"])]
+    #[serde(rename = "mlt1")]
+    MltV1,
+    /// `MapLibre` Tile, v2 wire format.
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[value(name = "mlt2", alias = "mltv2")]
+    #[serde(rename = "mlt2")]
+    MltV2,
+}
+
+impl CopyFormat {
+    /// Requests exactly this format, so a source that cannot produce it fails the copy.
+    fn accepted(self) -> AcceptedFormats {
+        AcceptedFormats {
+            preferred: vec![match self {
+                Self::Mvt => Format::Mvt,
+                #[cfg(feature = "unstable-mlt-v2")]
+                Self::MltV1 | Self::MltV2 => Format::Mlt,
+                #[cfg(not(feature = "unstable-mlt-v2"))]
+                Self::MltV1 => Format::Mlt,
+            }],
+            allow_any: false,
+        }
+    }
+}
+
 impl Default for CopyArgs {
     fn default() -> Self {
         Self {
@@ -141,6 +191,7 @@ impl Default for CopyArgs {
             mbt_type: None,
             url_query: None,
             encoding: "gzip".to_owned(),
+            format: None,
             on_duplicate: None,
             concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
@@ -317,6 +368,67 @@ pub enum MartinCpError {
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
+/// The tile bytes to copy, taken from the cheapest path the source offers.
+async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<TileData> {
+    #[cfg(all(feature = "postgres", feature = "mlt"))]
+    if let Some(data) = copy_as_mlt_directly(src, xyz).await? {
+        return Ok(data);
+    }
+    Ok(src.get_tile_content(xyz).await?.data)
+}
+
+/// Latches the once-per-run warning that a source fell back off the row-per-feature path.
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+static UNENCODABLE_FEATURE_WARNED: std::sync::Once = std::sync::Once::new();
+
+/// Encodes the source's own features as MLT, instead of taking an MVT tile apart to do it.
+///
+/// `None` when this copy is not eligible, leaving the caller on the ordinary path.
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+async fn copy_as_mlt_directly(
+    src: &DynTileSource<'_>,
+    xyz: TileCoord,
+) -> MartinCpResult<Option<TileData>> {
+    use martin_core::tiles::postgres::{encode_features_as_mlt, keeps_measures};
+
+    use crate::config::file::MltConversion;
+
+    if src.accepted_format != Some(Format::Mlt) {
+        return Ok(None);
+    }
+    let [(source, process)] = src.sources.as_slice() else {
+        return Ok(None);
+    };
+    let MltConversion::Encode(cfg) = process.mlt else {
+        return Ok(None);
+    };
+    let url_query = src.source_query().map(|q| &q.1);
+    let features = match source
+        .get_tile_features(xyz, url_query, keeps_measures(cfg))
+        .await
+    {
+        Ok(Some(features)) => features,
+        Ok(None) => return Ok(None),
+        Err(MartinCoreError::PostgresError(
+            reason @ (UnsupportedPropertyType { .. } | BadTileGeometry(_)),
+        )) => {
+            UNENCODABLE_FEATURE_WARNED.call_once(|| {
+                warn!(
+                    "Copying {} through MVT instead of encoding MLT from its rows: {reason}",
+                    source.get_id()
+                );
+            });
+            return Ok(None);
+        }
+        Err(e) => return Err(TileError::from(e).into()),
+    };
+    Ok(Some(
+        encode_features_as_mlt(features, cfg)
+            .map_err(|e| TileError::from(MartinCoreError::from(e)))?
+            .data,
+    ))
+}
+
 /// Given a list of tile ranges, iterate over all tiles in the ranges
 fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     tiles.into_iter().flat_map(|t| {
@@ -475,7 +587,7 @@ async fn produce_tiles(
                         skipped.fetch_add(1, Ordering::Relaxed);
                         TileData::default()
                     } else {
-                        src.get_tile_content(xyz).await?.data
+                        fetch_tile(src, xyz).await?
                     };
                     if prune_empty_subtrees && data.is_empty() {
                         empty_here
@@ -565,16 +677,25 @@ where
         );
     }
     let source_id = check_sources(&args, &state)?;
-    let src = DynTileSource::new(
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(unused_mut, reason = "only the wire-version override needs it mutable")
+    )]
+    let mut src = DynTileSource::new(
         &state.tile_manager,
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         TileRequestHeaders {
             accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            accepted_formats: args.format.map(CopyFormat::accepted).unwrap_or_default(),
             ..Default::default()
         },
     )?;
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let Some(format) = args.format {
+        pin_mlt_wire_version(&mut src, format);
+    }
 
     // Track in-flight postgres queries so ctrl+c can abort them.
     #[cfg(feature = "postgres")]
@@ -615,13 +736,16 @@ where
 
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
-    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, src.info, &args).await?;
+    let info = TileInfo::new(
+        src.accepted_format.unwrap_or(src.info.format),
+        src.info.encoding,
+    );
+    let mbt_type = init_schema(&mbt, &mut conn, &src.sources, info.format, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
     // Shared with the spawned consumer (updates) and this task (finish / stats).
     let progress = Arc::new(TileCopyProgress::new(total_size));
     info!(
         "Copying {total_size} {info} tiles from the source {source_id} to {out}",
-        info = src.info,
         out = args.output_file.display()
     );
 
@@ -700,11 +824,30 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
     Ok(AcceptEncoding::parse(&req)?)
 }
 
+/// Pins the MLT wire version every source encodes to, so `--format mltv2` is not silently v1.
+#[cfg(feature = "unstable-mlt-v2")]
+fn pin_mlt_wire_version(src: &mut DynTileSource<'_>, format: CopyFormat) {
+    use mlt_core::encoder::WireVersion;
+
+    use crate::config::file::MltConversion;
+
+    let wire = match format {
+        CopyFormat::Mvt => return,
+        CopyFormat::MltV1 => WireVersion::V01,
+        CopyFormat::MltV2 => WireVersion::V02,
+    };
+    for (_, process) in &mut src.sources {
+        if let MltConversion::Encode(cfg) = &mut process.mlt {
+            *cfg = cfg.with_wire_version(wire);
+        }
+    }
+}
+
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
     sources: &[(BoxedSource, ResolvedProcess)],
-    tile_info: TileInfo,
+    format: Format,
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {
     Ok(if is_empty_database(&mut *conn).await? {
@@ -721,7 +864,7 @@ async fn init_schema(
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(
             "format".to_owned(),
-            serde_json::Value::String(tile_info.format.metadata_format_value().to_owned()),
+            serde_json::Value::String(format.metadata_format_value().to_owned()),
         );
         tj.other.insert(
             "generator".to_owned(),

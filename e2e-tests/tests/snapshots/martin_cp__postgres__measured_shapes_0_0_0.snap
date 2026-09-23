@@ -1,0 +1,11 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: mlt_dump(&direct)
+---
+layer measured_shapes extent 4096
+  id=Some(1) geom=POINT(2048 2048) props=[big=U64(Some(9000000000)), code=Str(Some("v1")), double=F64(Some(2.25)), flag=Bool(Some(true)), label=Str(Some("one")), signed=I32(Some(-7)), single=F32(Some(1.5)), small=I32(Some(3))]
+  id=Some(2) geom=LINESTRING(2059 2037,2082 2014) props=[big=U64(None), code=Str(None), double=F64(None), flag=Bool(Some(false)), label=Str(None), signed=I32(Some(5)), single=F32(None), small=I32(None)]
+  id=Some(3) geom=POLYGON((2048 2048,2048 2002,2094 2002,2094 2048,2048 2048)) props=[big=U64(Some(1)), code=Str(Some("v3")), double=F64(Some(-0.25)), flag=Bool(None), label=Str(Some("three")), signed=I32(Some(0)), single=F32(Some(-0.5)), small=I32(Some(-3))]
+  id=Some(4) geom=MULTIPOINT(2105 1991,2116 1980) props=[big=U64(Some(2)), code=Str(Some("")), double=F64(Some(0.0)), flag=Bool(Some(true)), label=Str(Some("")), signed=I32(Some(2)), single=F32(Some(0.0)), small=I32(Some(2))]
+  id=Some(5) geom=POINT(2128 1968) props=[big=U64(Some(3)), code=Str(Some("v5")), double=F64(Some(3.5)), flag=Bool(Some(false)), label=Str(Some("five")), signed=I32(Some(3)), single=F32(Some(3.5)), small=I32(Some(3))]
+  id=Some(6) geom=POLYGON((2139 1957,2139 1945,2150 1945,2150 1957,2139 1957)) props=[big=U64(Some(4)), code=Str(Some("v6")), double=F64(Some(4.5)), flag=Bool(Some(true)), label=Str(Some("six")), signed=I32(Some(4)), single=F32(Some(4.5)), small=I32(Some(4))]

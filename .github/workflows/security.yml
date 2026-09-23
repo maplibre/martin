@@ -53,6 +53,7 @@ jobs:
   zizmor:
     if: inputs.run-actions
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       security-events: write
       contents: read
@@ -66,6 +67,7 @@ jobs:
   audit:
     if: inputs.run-cargo-deps
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       issues: write
@@ -100,6 +102,7 @@ jobs:
           # RUSTSEC-2026-0258 = h2 unbounded empty DATA frames dos; remaining leg is h2@0.3.27 pinned by actix-http (still on h2 "0.3" even at 3.13.3), no patched 0.3.x release exists
   dependency-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     if: github.event_name == 'pull_request' && inputs.run-dependency-review
@@ -122,6 +125,7 @@ jobs:
     name: CodeQL (${{ matrix.language }})
     if: inputs.codeql-languages != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       # required for all workflows
       security-events: write

@@ -3,31 +3,31 @@ source: e2e-tests/tests/martin_cp.rs
 expression: summary
 ---
 {
-  "avg_tile_size": 99.33333333333331,
+  "avg_tile_size": 99.3333333333,
   "bbox": [
     -180.0,
-    -85.0511287798066,
+    -85.0511287798,
     180.0,
-    85.0511287798066
+    85.0511287798
   ],
-  "file_path": "[path]",
-  "file_size": "[size]",
+  "file_path": "[TMP]",
+  "file_size": 0,
   "max_tile_size": 126,
   "max_zoom": 2,
   "mbt_type": "Flat",
   "min_tile_size": 74,
   "min_zoom": 0,
-  "page_count": 11,
-  "page_size": 512,
+  "page_count": 0,
+  "page_size": 0,
   "tile_count": 9,
   "zoom_info": [
     {
       "avg_tile_size": 126.0,
       "bbox": [
         -180.0,
-        -85.0511287798066,
+        -85.0511287798,
         180.0,
-        85.0511287798066
+        85.0511287798
       ],
       "max_tile_size": 126,
       "min_tile_size": 126,
@@ -38,9 +38,9 @@ expression: summary
       "avg_tile_size": 96.0,
       "bbox": [
         -180.0,
-        -85.0511287798066,
+        -85.0511287798,
         180.0,
-        85.0511287798066
+        85.0511287798
       ],
       "max_tile_size": 106,
       "min_tile_size": 74,
@@ -51,9 +51,9 @@ expression: summary
       "avg_tile_size": 96.0,
       "bbox": [
         -90.0,
-        -66.51326044311186,
+        -66.5132604431,
         90.0,
-        66.51326044311186
+        66.5132604431
       ],
       "max_tile_size": 106,
       "min_tile_size": 74,

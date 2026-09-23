@@ -1,0 +1,116 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: summary
+---
+{
+  "avg_tile_size": 197.6850393700,
+  "bbox": [
+    -180.0,
+    -85.0511287798,
+    180.0,
+    85.0511287798
+  ],
+  "file_path": "[TMP]",
+  "file_size": 0,
+  "max_tile_size": 727,
+  "max_zoom": 6,
+  "mbt_type": "Flat",
+  "min_tile_size": 75,
+  "min_zoom": 0,
+  "page_count": 0,
+  "page_size": 0,
+  "tile_count": 127,
+  "zoom_info": [
+    {
+      "avg_tile_size": 643.0,
+      "bbox": [
+        -180.0,
+        -85.0511287798,
+        180.0,
+        85.0511287798
+      ],
+      "max_tile_size": 643,
+      "min_tile_size": 643,
+      "tile_count": 1,
+      "zoom": 0
+    },
+    {
+      "avg_tile_size": 439.75,
+      "bbox": [
+        -180.0,
+        -85.0511287798,
+        180.0,
+        85.0511287798
+      ],
+      "max_tile_size": 705,
+      "min_tile_size": 338,
+      "tile_count": 4,
+      "zoom": 1
+    },
+    {
+      "avg_tile_size": 356.2,
+      "bbox": [
+        -90.0,
+        -66.5132604431,
+        180.0,
+        66.5132604431
+      ],
+      "max_tile_size": 690,
+      "min_tile_size": 123,
+      "tile_count": 5,
+      "zoom": 2
+    },
+    {
+      "avg_tile_size": 245.875,
+      "bbox": [
+        -45.0,
+        -40.9798980696,
+        180.0,
+        66.5132604431
+      ],
+      "max_tile_size": 727,
+      "min_tile_size": 75,
+      "tile_count": 8,
+      "zoom": 3
+    },
+    {
+      "avg_tile_size": 225.0769230769,
+      "bbox": [
+        -22.5,
+        -21.9430455334,
+        157.5000000000,
+        55.7765730186
+      ],
+      "max_tile_size": 684,
+      "min_tile_size": 75,
+      "tile_count": 13,
+      "zoom": 4
+    },
+    {
+      "avg_tile_size": 195.1851851851,
+      "bbox": [
+        -11.25,
+        -11.1784018737,
+        146.25,
+        48.9224992637
+      ],
+      "max_tile_size": 659,
+      "min_tile_size": 75,
+      "tile_count": 27,
+      "zoom": 5
+    },
+    {
+      "avg_tile_size": 155.9420289855,
+      "bbox": [
+        -5.625,
+        -5.6159858191,
+        146.25,
+        45.0890355648
+      ],
+      "max_tile_size": 633,
+      "min_tile_size": 75,
+      "tile_count": 69,
+      "zoom": 6
+    }
+  ]
+}

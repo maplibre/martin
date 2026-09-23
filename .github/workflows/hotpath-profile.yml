@@ -23,6 +23,7 @@ jobs:
   profile:
     if: contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     env:
       PGDATABASE: test
       PGHOST: localhost

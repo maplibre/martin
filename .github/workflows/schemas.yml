@@ -21,6 +21,7 @@ jobs:
     # and commits them on every PR push - so this job only needs to read the
     # committed files, no Rust toolchain required.
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

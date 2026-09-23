@@ -5,7 +5,9 @@ use std::num::NonZeroU32;
 
 use futures::pin_mut;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
-use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
+use martin_core::tiles::postgres::{
+    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
+};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -110,6 +112,14 @@ pub async fn query_available_tables(
     Ok(res)
 }
 
+/// The id and property snippets on their own indented line, or nothing at all when there are none.
+fn indented_columns(id_field: &str, properties: &str) -> String {
+    if id_field.is_empty() && properties.is_empty() {
+        return String::new();
+    }
+    format!("\n    {id_field}{properties}")
+}
+
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
 /// Assumes to not be the first column in a SELECT statement.
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
@@ -125,7 +135,27 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+/// The same snippet, with a `::text` cast for the types a tile property cannot hold.
+///
+/// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
+/// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
+/// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
+fn escape_with_alias_as_property(
+    mapping: &HashMap<String, String>,
+    field: &str,
+    pg_type: &str,
+) -> String {
+    if is_typed_property(pg_type) {
+        return escape_with_alias(mapping, field);
+    }
+    let column = mapping.get(field).map_or(field, |v| v.as_str());
+    format!(
+        ", {}::text AS {}",
+        escape_identifier(column),
+        escape_identifier(field),
+    )
+}
+
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
@@ -185,94 +215,325 @@ pub async fn table_to_query(
         }
     }
 
-    let properties = if let Some(props) = &info.properties {
-        props
-            .keys()
-            .map(|column| escape_with_alias(&info.prop_mapping, column))
-            .collect::<String>()
-    } else {
-        String::new()
+    let sql = table_query_sql(&id, &info, &pool, max_feature_count, grid).await?;
+    let row_query = PostgresRowQuery {
+        sql_query: sql.row_query(false),
+        measured_sql_query: sql.row_query(true),
+        has_id_column: info.id_column.is_some(),
+        layer_name: info.layer_id.as_deref().unwrap_or(&id).to_owned(),
+        extent: sql.extent,
     };
-
-    let (id_name, id_field) = if let Some(id_column) = &info.id_column {
-        (
-            format!(", {}", escape_literal(id_column)),
-            escape_with_alias(&info.prop_mapping, id_column),
-        )
-    } else {
-        (String::new(), String::new())
-    };
-
-    let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
-    let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
-    let margin = f64::from(buffer) / f64::from(extent);
-    let geometry_column = escape_identifier(&info.geometry_column);
-    // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
-    let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
-        format!("ST_CurveToLine({geometry_column}::geometry)")
-    } else {
-        format!("{geometry_column}::geometry")
-    };
-    let table_wrap = if grid.is_web_mercator() || srid == grid.srid() {
-        None
-    } else {
-        wrap_width(&pool, srid).await
-    };
-    let GridSql {
-        geometry,
-        envelope,
-        bbox_search,
-    } = grid_sql(
-        grid,
-        srid,
-        &geometry,
-        buffer,
-        margin,
-        pool.supports_tile_margin(),
-        table_wrap,
-    );
-
-    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-    let filter = row_filter(&info, "AND")?;
-    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
-    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
-    let query = format!(
-        r"
-SELECT
-  ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
-FROM (
-  SELECT
-    ST_AsMVTGeom(
-        {geometry},
-        {envelope},
-        {extent}, {buffer}, {clip_geom}
-    ) AS geom
-    {id_field}{properties}
-  FROM
-    {schema}.{table}
-  WHERE
-    {geometry_column} && {bbox_search}{filter}
-  {limit_clause}
-) AS tile;
-"
-    )
-    .trim()
-    .to_owned();
 
     Ok((
         id,
         PostgresSqlInfo::new(
-            query,
+            sql.mvt_query(),
             false,
             // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
             true,
             info.format_id(),
             false,
-        ),
+        )
+        .with_row_query(row_query),
         info,
     ))
+}
+
+/// Build the fragments of a table query, asking the database what only it can answer.
+async fn table_query_sql(
+    id: &str,
+    info: &TableInfo,
+    pool: &PostgresPool,
+    max_feature_count: Option<usize>,
+    grid: &PgTileGrid,
+) -> PostgresResult<TableQuerySql> {
+    let table_wrap = if grid.is_web_mercator() || info.srid == grid.srid() {
+        None
+    } else {
+        wrap_width(pool, info.srid).await
+    };
+    TableQuerySql::new(
+        id,
+        info,
+        &property_types(pool, info).await,
+        max_feature_count,
+        grid,
+        pool.supports_tile_margin(),
+        table_wrap,
+    )
+}
+
+/// The type each property reaches the row query in, by property name.
+///
+/// This is the column's own type, which the label the configuration gives it need not spell
+/// the way the catalog does. When the database cannot tell, the map is empty and the labels
+/// decide.
+async fn property_types(pool: &PostgresPool, info: &TableInfo) -> HashMap<String, String> {
+    let columns: String = info
+        .properties
+        .iter()
+        .flatten()
+        .map(|(field, _)| escape_with_alias(&info.prop_mapping, field))
+        .collect();
+    let Some(columns) = columns.strip_prefix(", ") else {
+        return HashMap::new();
+    };
+    let sql = format!(
+        "SELECT {columns} FROM {}.{}",
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table)
+    );
+    let statement = match pool.get().await {
+        Ok(client) => client.prepare(&sql).await.map_err(|e| e.to_string()),
+        Err(e) => Err(e.to_string()),
+    };
+    match statement {
+        Ok(statement) => statement
+            .columns()
+            .iter()
+            .map(|column| (column.name().to_owned(), column.type_().name().to_owned()))
+            .collect(),
+        Err(e) => {
+            debug!(
+                "Typing the properties of {} by their configured labels, as the database did not say: {e}",
+                info.format_id()
+            );
+            HashMap::new()
+        }
+    }
+}
+
+/// The SQL fragments every shape of a table tile query is assembled from.
+struct TableQuerySql {
+    layer_id: String,
+    id_name: String,
+    id_field: String,
+    properties: String,
+    row_properties: String,
+    geometry: String,
+    envelope: String,
+    bbox_search: String,
+    geometry_column: String,
+    schema: String,
+    table: String,
+    filter: String,
+    limit_clause: String,
+    extent: u32,
+    buffer: u32,
+    clip_geom: bool,
+}
+
+impl TableQuerySql {
+    fn new(
+        id: &str,
+        info: &TableInfo,
+        property_types: &HashMap<String, String>,
+        max_feature_count: Option<usize>,
+        grid: &PgTileGrid,
+        supports_tile_margin: bool,
+        table_wrap: Option<f64>,
+    ) -> PostgresResult<Self> {
+        let props = info.properties.iter().flatten();
+        let properties: String = props
+            .clone()
+            .map(|(column, _)| escape_with_alias(&info.prop_mapping, column))
+            .collect();
+        let row_properties: String = props
+            .map(|(column, label)| {
+                let pg_type = property_types.get(column).unwrap_or(label);
+                escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
+            })
+            .collect();
+
+        let (id_name, id_field) = if let Some(id_column) = &info.id_column {
+            (
+                format!(", {}", escape_literal(id_column)),
+                escape_with_alias(&info.prop_mapping, id_column),
+            )
+        } else {
+            (String::new(), String::new())
+        };
+
+        let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
+        let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+        let margin = f64::from(buffer) / f64::from(extent);
+        let geometry_column = escape_identifier(&info.geometry_column);
+        // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
+        let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
+            format!("ST_CurveToLine({geometry_column}::geometry)")
+        } else {
+            format!("{geometry_column}::geometry")
+        };
+        let GridSql {
+            geometry,
+            envelope,
+            bbox_search,
+        } = grid_sql(
+            grid,
+            info.srid,
+            &geometry,
+            buffer,
+            margin,
+            supports_tile_margin,
+            table_wrap,
+        );
+
+        Ok(Self {
+            layer_id: escape_literal(info.layer_id.as_deref().unwrap_or(id)),
+            id_name,
+            id_field,
+            properties,
+            row_properties,
+            geometry,
+            envelope,
+            bbox_search,
+            geometry_column,
+            schema: escape_identifier(&info.schema),
+            table: escape_identifier(&info.table),
+            filter: row_filter(info, "AND")?,
+            limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
+            extent,
+            buffer,
+            clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+        })
+    }
+
+    /// The whole tile as a single MVT blob, encoded by `PostGIS`.
+    fn mvt_query(&self) -> String {
+        let Self {
+            layer_id,
+            id_name,
+            extent,
+            properties,
+            ..
+        } = self;
+        let features = self.feature_select(&self.tile_geometry(), "geom", properties);
+        format!(
+            r"
+SELECT
+  ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
+FROM (
+{features}
+) AS tile;
+"
+        )
+        .trim()
+        .to_owned()
+    }
+
+    /// One row per feature, the geometry as WKB in tile coordinates.
+    ///
+    /// Features whose geometry falls outside the tile are dropped, as `ST_AsMVT` does implicitly.
+    /// The drop happens outside the `LIMIT`, so `max_feature_count` counts the same rows as in [`Self::mvt_query`].
+    /// The geometry is aliased out of the way of the table's own columns, one of which may be
+    /// called `geom`, which would make the outer `IS NOT NULL` an ambiguous column reference.
+    ///
+    /// `keep_measures` keeps the M ordinates of polygons, see [`Self::measured_row_geometry`].
+    fn row_query(&self, keep_measures: bool) -> String {
+        let geometry = if keep_measures {
+            self.measured_row_geometry()
+        } else {
+            format!("ST_AsBinary({})", self.tile_geometry())
+        };
+        let features = self.feature_select(&geometry, r#""__martin_geom""#, &self.row_properties);
+        format!(
+            r#"
+SELECT
+  *
+FROM (
+{features}
+) AS tile
+WHERE "__martin_geom" IS NOT NULL;
+"#
+        )
+        .trim()
+        .to_owned()
+    }
+
+    /// The rows both tile queries are built from: every feature the tile covers, its geometry
+    /// as `geometry` aliased to `alias`, followed by `properties`.
+    fn feature_select(&self, geometry: &str, alias: &str, properties: &str) -> String {
+        let Self {
+            id_field,
+            bbox_search,
+            geometry_column,
+            schema,
+            table,
+            filter,
+            limit_clause,
+            ..
+        } = self;
+        let columns = indented_columns(id_field, properties);
+        format!(
+            "  SELECT
+    {geometry} AS {alias}{columns}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && {bbox_search}{filter}
+  {limit_clause}"
+        )
+    }
+
+    /// The measured row query's geometry as WKB in tile coordinates: `ST_AsMVTGeom`, except for a
+    /// polygon carrying M ordinates, which `ST_AsMVTGeom` strips while making it valid.
+    ///
+    /// Such a polygon is scaled into tile space, clipped, snapped to the integer grid and oriented
+    /// the way `ST_AsMVTGeom` orients its polygons, and is dropped when nothing of it is left.
+    /// Its rings may start at another vertex than `ST_AsMVTGeom` would start them at.
+    fn measured_row_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            geometry_column,
+            ..
+        } = self;
+        let scaled = format!(
+            "ST_TransScale(
+          ST_CollectionExtract({geometry}, 3),
+          -ST_XMin(e), -ST_YMax(e),
+          {extent} / (ST_XMax(e) - ST_XMin(e)), -{extent} / (ST_YMax(e) - ST_YMin(e))
+        )"
+        );
+        let clipped = if *clip_geom {
+            let far = u64::from(*extent) + u64::from(*buffer);
+            format!("ST_ClipByBox2D({scaled}, ST_MakeEnvelope(-{buffer}, -{buffer}, {far}, {far}))")
+        } else {
+            scaled
+        };
+        format!(
+            "CASE WHEN ST_HasM({geometry_column}::geometry) AND ST_Dimension({geometry_column}::geometry) = 2 THEN (
+      SELECT CASE WHEN ST_IsEmpty(measured) THEN NULL ELSE ST_AsBinary(measured) END
+      FROM (
+        SELECT ST_ForcePolygonCCW(ST_SnapToGrid({clipped}, 1)) AS measured
+        FROM (SELECT {envelope} AS e) AS tile_envelope
+      ) AS measured_tile
+    ) ELSE ST_AsBinary({}) END",
+            self.tile_geometry()
+        )
+    }
+
+    /// `ST_AsMVTGeom` over the table's geometry column, in the tile's coordinate space.
+    fn tile_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            ..
+        } = self;
+        format!(
+            "ST_AsMVTGeom(
+        {geometry},
+        {envelope},
+        {extent}, {buffer}, {clip_geom}
+    )"
+        )
+    }
 }
 
 /// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.

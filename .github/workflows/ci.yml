@@ -23,6 +23,7 @@ jobs:
   changes:
     name: Decide which suites this change can affect
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       pull-requests: read
@@ -211,6 +212,7 @@ jobs:
       - release
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions: {}
     steps:
       - name: Result of the needed steps

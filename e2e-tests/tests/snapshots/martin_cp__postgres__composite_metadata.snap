@@ -1,0 +1,24 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: metadata
+---
+agg_tiles_hash = 6CA5727D48B63B432C7CC703B16FA164
+bounds = -2,-1,142.8413150986,45
+compression = gzip
+description = public.function_zxy_query_test
+format = pbf
+generator = martin cp v0.0.0
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "gid": "int4"
+      },
+      "id": "table_source"
+    }
+  ]
+}
+maxzoom = 0
+minzoom = 0
+name = composite

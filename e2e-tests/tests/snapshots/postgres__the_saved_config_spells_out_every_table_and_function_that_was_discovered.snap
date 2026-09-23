@@ -51,6 +51,22 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    array_props:
+      schema: public
+      table: array_props
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        doc: jsonb
+        feat_id: int4
+        label: text
+        tags: int4
     auto_table:
       schema: autodetect
       table: auto_table
@@ -105,6 +121,21 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    dimensioned_shapes:
+      schema: public
+      table: dimensioned_shapes
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 150.0
+      - 20.0
+      geometry_type: GEOMETRY
+      properties:
+        dims: text
+        feat_id: int4
+        kind: text
     empty_bounds:
       schema: public
       table: empty_bounds
@@ -166,6 +197,28 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         id: int4
+    measured_shapes:
+      schema: public
+      table: measured_shapes
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 9.0
+      - 9.0
+      geometry_type: GEOMETRYM
+      properties:
+        big: int8
+        code: varchar
+        double: float8
+        feat_id: int4
+        flag: bool
+        label: text
+        never_set: int4
+        signed: int4
+        single: float4
+        small: int2
     nz_points:
       schema: public
       table: nz_points
