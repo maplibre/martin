@@ -36,6 +36,7 @@ struct FontRequest {
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
+    method = "HEAD",
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
