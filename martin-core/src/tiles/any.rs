@@ -225,9 +225,14 @@ impl AnySource {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
+        keep_measures: bool,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
         match self.postgres_source() {
-            Some(source) => source.get_tile_features(xyz, url_query).await,
+            Some(source) => {
+                source
+                    .get_tile_features(xyz, url_query, keep_measures)
+                    .await
+            }
             None => Ok(None),
         }
     }

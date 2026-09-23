@@ -83,6 +83,20 @@ pub(crate) fn encode_features_as_mlt(
     Ok(Tile::new_hash_etag(bytes, info))
 }
 
+/// Whether tiles encoded with `cfg` have an m-value column to keep M ordinates in, which only
+/// the v2 wire format has.
+#[cfg(feature = "unstable-mlt-v2")]
+pub(crate) fn keeps_measures(cfg: EncoderConfig) -> bool {
+    cfg.wire_version() != WireVersion::V01
+}
+
+/// Whether tiles encoded with `cfg` have an m-value column to keep M ordinates in, which only
+/// the v2 wire format has.
+#[cfg(not(feature = "unstable-mlt-v2"))]
+pub(crate) fn keeps_measures(_cfg: EncoderConfig) -> bool {
+    false
+}
+
 /// The name the `PostGIS` M ordinate takes as the layer's vertex-scoped column.
 #[cfg(feature = "unstable-mlt-v2")]
 const MEASURE_COLUMN: &str = "m";
@@ -94,9 +108,7 @@ fn add_measure_column(
     features: &[PostgresFeature],
     cfg: EncoderConfig,
 ) -> Result<Option<MValueKey>, ProcessError> {
-    if cfg.wire_version() == WireVersion::V01
-        || features.iter().all(|feature| feature.m_values.is_none())
-    {
+    if !keeps_measures(cfg) || features.iter().all(|feature| feature.m_values.is_none()) {
         return Ok(None);
     }
     builder

@@ -223,9 +223,11 @@ mod postgres {
     use std::path::Path;
 
     use martin_e2e_tests::{
-        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-        summary, summary_filters, temp_dir, tile_listing, tiles,
+        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump,
+        mlt_dump_ignoring_ring_start, mlt_layers, mvt_dump, rings_from_smallest_vertex, summary,
+        summary_filters, temp_dir, tile_listing, tiles,
     };
+    use mlt_core::TileLayer;
 
     use crate::{GENERATOR, snapshot_filters, validate};
 
@@ -506,10 +508,8 @@ postgres:
         kind: text
 ";
 
-    /// Z, M and ZM geometries of every type take the row path like their XY twins, land on the
-    /// same tile coordinates, and match what the MVT round-trip serves.
-    #[tokio::test]
-    async fn copies_every_geometry_type_in_every_dimension_as_mlt() {
+    /// Copies `dimensioned_shapes` at zoom 0 in `format` and returns the tile's layers.
+    async fn copy_dimensioned(format: &str) -> Vec<TileLayer> {
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
         fs::write(&config, DIMENSIONED).expect("failed to write the config");
@@ -523,7 +523,7 @@ postgres:
             .arg("--source")
             .arg("dimensioned_shapes")
             .arg("--format")
-            .arg("mlt")
+            .arg(format)
             .arg("--encoding")
             .arg("identity")
             .arg("--output-file")
@@ -544,6 +544,15 @@ postgres:
             !log.contains("through MVT"),
             "the copy fell back off the row-per-feature path:\n{log}"
         );
+        mlt_layers(&lowest_zoom_tile(&output).await)
+    }
+
+    /// Z, M and ZM geometries of every type take the row path like their XY twins, land on the
+    /// same tile coordinates, and match what the MVT round-trip serves. A v1 tile has nowhere to
+    /// keep Z or M, so it holds x and y alone.
+    #[tokio::test]
+    async fn copies_every_geometry_type_in_every_dimension_as_mlt() {
+        let direct = copy_dimensioned("mlt").await;
 
         let mut martin = Martin::builder()
             .with_postgres()
@@ -561,7 +570,6 @@ postgres:
         let round_trip = response.mlt();
         martin.stop().await;
 
-        let direct = mlt_layers(&lowest_zoom_tile(&output).await);
         let layer = &direct[0];
         let kind = layer
             .property_names()
@@ -573,7 +581,10 @@ postgres:
             geometries
                 .entry(format!("{:?}", feature.properties()[kind]))
                 .or_default()
-                .insert(format!("{:?}", feature.geometry()));
+                .insert(format!(
+                    "{:?}",
+                    rings_from_smallest_vertex(feature.geometry())
+                ));
         }
         assert_eq!(
             geometries.len(),
@@ -587,7 +598,59 @@ postgres:
         assert_eq!(layer.features().len(), 28);
 
         insta::assert_snapshot!("dimensioned_shapes_0_0_0", mlt_dump(&direct));
-        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
+        assert_eq!(
+            mlt_dump_ignoring_ring_start(&direct),
+            mlt_dump_ignoring_ring_start(&round_trip)
+        );
+    }
+
+    /// Tests that need a `martin` built with `unstable-mlt-v2`; `just test-mlt-v2` runs them.
+    #[cfg(feature = "test-mlt-v2")]
+    mod mlt_v2 {
+        use martin_e2e_tests::{mlt_dump, mlt_dump_ignoring_ring_start};
+        use mlt_core::MValue;
+
+        use super::copy_dimensioned;
+
+        /// A v2 tile keeps the M ordinates of every geometry type in the `m` vertex column,
+        /// polygons included, while Z is dropped and x and y stay those of the v1 tile.
+        #[tokio::test]
+        async fn copies_the_m_ordinates_of_every_geometry_type() {
+            let v2 = copy_dimensioned("mltv2").await;
+            let layer = &v2[0];
+            assert_eq!(layer.m_value_names(), ["m"]);
+            let dims = layer
+                .property_names()
+                .iter()
+                .position(|name| name == "dims")
+                .expect("the layer has no dims column");
+            for feature in layer.features() {
+                let measured = matches!(
+                    &feature.properties()[dims],
+                    mlt_core::PropValue::Str(Some(d)) if d.ends_with('m')
+                );
+                let MValue::F64(m) = &feature.m_values()[0] else {
+                    panic!("the m column is not f64: {:?}", feature.m_values());
+                };
+                assert_eq!(
+                    m.as_ref().map(Vec::len),
+                    measured.then(|| feature.vertex_count()),
+                    "feature {:?} has the wrong M ordinates: {m:?}",
+                    feature.id()
+                );
+            }
+
+            insta::assert_snapshot!("dimensioned_shapes_mltv2_0_0_0", mlt_dump(&v2));
+            let without_m = mlt_dump_ignoring_ring_start(&v2)
+                .lines()
+                .map(|line| line.split(" vertex=").next().unwrap_or(line))
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert_eq!(
+                without_m + "\n",
+                mlt_dump_ignoring_ring_start(&copy_dimensioned("mlt").await)
+            );
+        }
     }
 
     /// The config for the array-column table, whose `int4[]` the row path cannot encode.

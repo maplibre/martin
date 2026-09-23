@@ -69,17 +69,21 @@ impl PostgresSource {
     /// `None` means this source has no row-per-feature form, which is every source but a table.
     /// A caller that wants a tile format `PostGIS` does not produce itself can encode these
     /// instead of taking an `ST_AsMVT` tile apart again.
+    ///
+    /// `keep_measures` asks for the M ordinates of polygons too, which `ST_AsMVTGeom` strips, at
+    /// the cost of a slower query. A caller whose format has nowhere to put them leaves it off.
     pub async fn get_tile_features(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
+        keep_measures: bool,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
         let info = self.sql_for(url_query);
         let Some(row_query) = &info.row_query else {
             return Ok(None);
         };
         let rows = self
-            .query_feature_rows(info, row_query, xyz, url_query)
+            .query_feature_rows(info, row_query, xyz, url_query, keep_measures)
             .await?;
         Ok(Some(PostgresTileFeatures {
             layer_name: row_query.layer_name.clone(),
@@ -228,10 +232,14 @@ impl PostgresSource {
         row_query: &PostgresRowQuery,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
+        keep_measures: bool,
     ) -> MartinCoreResult<Vec<Row>> {
-        let query = self
-            .tile_query(info, &row_query.sql_query, xyz, url_query)
-            .await?;
+        let sql = if keep_measures {
+            &row_query.measured_sql_query
+        } else {
+            &row_query.sql_query
+        };
+        let query = self.tile_query(info, sql, xyz, url_query).await?;
         let rows = query.conn.query(&query.statement, &query.params()).await;
         Ok(rows.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
     }
@@ -356,6 +364,8 @@ pub struct PostgresSqlInfo {
 pub struct PostgresRowQuery {
     /// SQL taking `$1/$2/$3` as `z/x/y` and returning one row per feature, the geometry first.
     pub sql_query: String,
+    /// [`Self::sql_query`], but keeping the M ordinates of polygons, which `ST_AsMVTGeom` strips.
+    pub measured_sql_query: String,
     /// Whether the second column is the feature id.
     pub has_id_column: bool,
     /// The name of the layer the features make up.

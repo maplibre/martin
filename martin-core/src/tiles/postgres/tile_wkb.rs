@@ -1,7 +1,7 @@
 //! Reader for `PostGIS` WKB/EWKB geometries that already live in MVT tile coordinate space.
 //!
-//! `ST_AsMVTGeom` returns geometry in tile space but keeps any M ordinate, while `ST_AsMVT`
-//! discards it. Serving MLT directly from `PostgreSQL` therefore skips `ST_AsMVT` and reads the
+//! `ST_AsMVTGeom` returns geometry in tile space but keeps the M ordinate of points and lines,
+//! while `ST_AsMVT` discards it. Serving MLT directly from `PostgreSQL` therefore skips `ST_AsMVT` and reads the
 //! output of `ST_AsBinary(ST_AsMVTGeom(...))` here instead.
 
 use geo_traits::{

@@ -216,7 +216,8 @@ pub async fn table_to_query(
 
     let sql = table_query_sql(&id, &info, &pool, max_feature_count, grid).await?;
     let row_query = PostgresRowQuery {
-        sql_query: sql.row_query(),
+        sql_query: sql.row_query(false),
+        measured_sql_query: sql.row_query(true),
         has_id_column: info.id_column.is_some(),
         layer_name: info.layer_id.as_deref().unwrap_or(&id).to_owned(),
         extent: sql.extent,
@@ -390,8 +391,14 @@ FROM (
     /// The drop happens outside the `LIMIT`, so `max_feature_count` counts the same rows as in [`Self::mvt_query`].
     /// The geometry is aliased out of the way of the table's own columns, one of which may be
     /// called `geom`, which would make the outer `IS NOT NULL` an ambiguous column reference.
-    fn row_query(&self) -> String {
-        let geometry = format!("ST_AsBinary({})", self.tile_geometry());
+    ///
+    /// `keep_measures` keeps the M ordinates of polygons, see [`Self::measured_row_geometry`].
+    fn row_query(&self, keep_measures: bool) -> String {
+        let geometry = if keep_measures {
+            self.measured_row_geometry()
+        } else {
+            format!("ST_AsBinary({})", self.tile_geometry())
+        };
         let features = self.feature_select(&geometry, r#""__martin_geom""#, &self.row_properties);
         format!(
             r#"
@@ -429,6 +436,47 @@ WHERE "__martin_geom" IS NOT NULL;
   WHERE
     {geometry_column} && {bbox_search}{filter}
   {limit_clause}"
+        )
+    }
+
+    /// The measured row query's geometry as WKB in tile coordinates: `ST_AsMVTGeom`, except for a
+    /// polygon carrying M ordinates, which `ST_AsMVTGeom` strips while making it valid.
+    ///
+    /// Such a polygon is scaled into tile space, clipped, snapped to the integer grid and oriented
+    /// the way `ST_AsMVTGeom` orients its polygons, and is dropped when nothing of it is left.
+    /// Its rings may start at another vertex than `ST_AsMVTGeom` would start them at.
+    fn measured_row_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            geometry_column,
+            ..
+        } = self;
+        let scaled = format!(
+            "ST_TransScale(
+          ST_CollectionExtract({geometry}, 3),
+          -ST_XMin(e), -ST_YMax(e),
+          {extent} / (ST_XMax(e) - ST_XMin(e)), -{extent} / (ST_YMax(e) - ST_YMin(e))
+        )"
+        );
+        let clipped = if *clip_geom {
+            let far = u64::from(*extent) + u64::from(*buffer);
+            format!("ST_ClipByBox2D({scaled}, ST_MakeEnvelope(-{buffer}, -{buffer}, {far}, {far}))")
+        } else {
+            scaled
+        };
+        format!(
+            "CASE WHEN ST_HasM({geometry_column}::geometry) AND ST_Dimension({geometry_column}::geometry) = 2 THEN (
+      SELECT CASE WHEN ST_IsEmpty(measured) THEN NULL ELSE ST_AsBinary(measured) END
+      FROM (
+        SELECT ST_ForcePolygonCCW(ST_SnapToGrid({clipped}, 1)) AS measured
+        FROM (SELECT {envelope} AS e) AS tile_envelope
+      ) AS measured_tile
+    ) ELSE ST_AsBinary({}) END",
+            self.tile_geometry()
         )
     }
 
@@ -933,7 +981,7 @@ mod tests {
     #[test]
     fn a_plain_table_is_served_one_row_per_feature() {
         let sql = query_sql(&table_info(), &PgTileGrid::web_mercator());
-        insta::assert_snapshot!(sql.row_query(), @r#"
+        insta::assert_snapshot!(sql.row_query(false), @r#"
         SELECT
           *
         FROM (
@@ -953,6 +1001,19 @@ mod tests {
         "#);
     }
 
+    #[rstest::rstest]
+    #[case::clipped(true)]
+    #[case::unclipped(false)]
+    fn the_measured_query_keeps_polygon_m_ordinates_out_of_st_asmvtgeom(#[case] clip_geom: bool) {
+        let mut info = table_info();
+        info.clip_geom = Some(clip_geom);
+        let sql = query_sql(&info, &PgTileGrid::web_mercator());
+        insta::assert_snapshot!(
+            format!("measured_row_query_clip_{clip_geom}"),
+            sql.row_query(true)
+        );
+    }
+
     #[test]
     fn an_id_column_and_properties_are_selected_alongside_the_geometry() {
         let mut info = table_info();
@@ -962,7 +1023,7 @@ mod tests {
             ("population".to_owned(), "int4".to_owned()),
         ]));
         info.prop_mapping = HashMap::from([("population".to_owned(), "pop".to_owned())]);
-        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(false), @r#"
         SELECT
           *
         FROM (
@@ -985,7 +1046,7 @@ mod tests {
 
     #[test]
     fn another_grid_transforms_and_searches_like_the_blob_query_does() {
-        insta::assert_snapshot!(query_sql(&table_info(), &nztm2000quad()).row_query(), @r#"
+        insta::assert_snapshot!(query_sql(&table_info(), &nztm2000quad()).row_query(false), @r#"
         SELECT
           *
         FROM (
@@ -1009,7 +1070,7 @@ mod tests {
     fn a_curve_typed_column_is_linearized() {
         let mut info = table_info();
         info.geometry_type = Some("CURVEPOLYGON".to_owned());
-        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(false), @r#"
         SELECT
           *
         FROM (
@@ -1033,7 +1094,7 @@ mod tests {
     fn a_cql2_filter_narrows_the_rows() {
         let mut info = table_info();
         info.filter = Some("population > 1000".to_owned());
-        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(), @r#"
+        insta::assert_snapshot!(query_sql(&info, &PgTileGrid::web_mercator()).row_query(false), @r#"
         SELECT
           *
         FROM (

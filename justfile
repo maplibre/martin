@@ -232,6 +232,12 @@ bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --no-default-features --features unstable-cog
     {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
 
+# Bless the MLT v2 wire format tests, including the end-to-end ones
+bless-mlt-v2: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} -p martin --features unstable-mlt-v2 --lib
+    cargo build --package martin --features unstable-mlt-v2
+    {{insta_test}} --package martin-e2e-tests --features test-pg,test-mlt-v2 --test martin_cp -E 'test(/mlt_v2::/)'
+
 # Bless the DuckDB/GeoParquet tests, including the end-to-end ones
 bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
@@ -646,9 +652,10 @@ test-duckdb: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the tests for the experimental MLT v2 wire format
-test-mlt-v2: fetch (cargo-install 'cargo-nextest')
+test-mlt-v2: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run -p martin --features unstable-mlt-v2 --lib
     cargo build --package martin --features unstable-mlt-v2
+    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test martin_cp -E 'test(/mlt_v2::/)'
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
 [linux]

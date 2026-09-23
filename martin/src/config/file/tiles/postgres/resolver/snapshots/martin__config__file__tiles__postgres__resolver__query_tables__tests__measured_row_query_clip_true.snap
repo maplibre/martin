@@ -1,0 +1,30 @@
+---
+source: martin/src/config/file/tiles/postgres/resolver/query_tables.rs
+expression: sql.row_query(true)
+---
+SELECT
+  *
+FROM (
+  SELECT
+    CASE WHEN ST_HasM("geom"::geometry) AND ST_Dimension("geom"::geometry) = 2 THEN (
+      SELECT CASE WHEN ST_IsEmpty(measured) THEN NULL ELSE ST_AsBinary(measured) END
+      FROM (
+        SELECT ST_ForcePolygonCCW(ST_SnapToGrid(ST_ClipByBox2D(ST_TransScale(
+          ST_CollectionExtract(ST_Transform("geom"::geometry, 3857), 3),
+          -ST_XMin(e), -ST_YMax(e),
+          4096 / (ST_XMax(e) - ST_XMin(e)), -4096 / (ST_YMax(e) - ST_YMin(e))
+        ), ST_MakeEnvelope(-64, -64, 4160, 4160)), 1)) AS measured
+        FROM (SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer) AS e) AS tile_envelope
+      ) AS measured_tile
+    ) ELSE ST_AsBinary(ST_AsMVTGeom(
+        ST_Transform("geom"::geometry, 3857),
+        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
+        4096, 64, true
+    )) END AS "__martin_geom"
+  FROM
+    "public"."table_source"
+  WHERE
+    "geom" && ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)
+  LIMIT 1000
+) AS tile
+WHERE "__martin_geom" IS NOT NULL;

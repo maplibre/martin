@@ -395,7 +395,7 @@ async fn copy_as_mlt_directly(
     xyz: TileCoord,
 ) -> MartinCpResult<Option<TileData>> {
     use crate::config::file::MltConversion;
-    use crate::cp::pg_to_mlt::encode_features_as_mlt;
+    use crate::cp::pg_to_mlt::{encode_features_as_mlt, keeps_measures};
 
     if src.accepted_format != Some(Format::Mlt) {
         return Ok(None);
@@ -407,7 +407,10 @@ async fn copy_as_mlt_directly(
         return Ok(None);
     };
     let url_query = src.source_query().map(|q| &q.1);
-    let features = match source.get_tile_features(xyz, url_query).await {
+    let features = match source
+        .get_tile_features(xyz, url_query, keeps_measures(cfg))
+        .await
+    {
         Ok(Some(features)) => features,
         Ok(None) => return Ok(None),
         Err(MartinCoreError::PostgresError(

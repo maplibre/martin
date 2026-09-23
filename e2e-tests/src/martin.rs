@@ -13,8 +13,8 @@ use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue,
 use image::{ColorType, ImageFormat, ImageReader};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
-use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, Layer, Parser, TileLayer};
+use mlt_core::geo_types::{Coord, Geometry, LineString, MultiPolygon, Polygon};
+use mlt_core::{Decoder, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
 use tempfile::TempDir;
@@ -571,10 +571,9 @@ pub fn mlt_layers(bytes: &[u8]) -> Vec<TileLayer> {
         .expect("not a maplibre tile")
         .into_iter()
         .map(|layer| {
-            let Layer::Tag01(layer) = layer else {
-                panic!("a layer is not MVT-compatible");
-            };
             layer
+                .into_layer01()
+                .expect("a layer is of an unknown kind")
                 .into_tile(&mut decoder)
                 .expect("a layer is not decodable")
         })
@@ -590,9 +589,21 @@ pub fn mvt_dump(bytes: &[u8]) -> String {
 /// `MapLibre` tile layers as text: a line per layer, then a line per feature.
 ///
 /// The features, and the properties of each, are sorted, because an encoder is free to order them
-/// as it likes and two encodings of the same tile only agree on the set of features.
+/// as it likes and two encodings of the same tile only agree on the set of features. A layer with
+/// vertex-scoped columns lists each feature's values for them after its properties.
 #[must_use]
 pub fn mlt_dump(layers: &[TileLayer]) -> String {
+    dump_layers(layers, Clone::clone)
+}
+
+/// [`mlt_dump`] with every polygon ring started at its smallest vertex, for comparing tiles whose
+/// encoders agree on each ring but not on where it starts.
+#[must_use]
+pub fn mlt_dump_ignoring_ring_start(layers: &[TileLayer]) -> String {
+    dump_layers(layers, rings_from_smallest_vertex)
+}
+
+fn dump_layers(layers: &[TileLayer], geometry: impl Fn(&Geometry<i32>) -> Geometry<i32>) -> String {
     use std::fmt::Write as _;
 
     let mut out = String::new();
@@ -616,10 +627,11 @@ pub fn mlt_dump(layers: &[TileLayer]) -> String {
                     .collect();
                 props.sort();
                 format!(
-                    "  id={:?} geom={:?} props=[{}]",
+                    "  id={:?} geom={:?} props=[{}]{}",
                     feature.id(),
-                    feature.geometry(),
-                    props.join(", ")
+                    geometry(feature.geometry()),
+                    props.join(", "),
+                    vertex_values(layer, feature)
                 )
             })
             .collect();
@@ -628,6 +640,71 @@ pub fn mlt_dump(layers: &[TileLayer]) -> String {
         out.push('\n');
     }
     out
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn vertex_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.m_value_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .m_value_names()
+        .iter()
+        .zip(feature.m_values())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" vertex=[{}]", values.join(", "))
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn vertex_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
+}
+
+/// `geometry` with every polygon ring started at its smallest vertex.
+#[must_use]
+pub fn rings_from_smallest_vertex(geometry: &Geometry<i32>) -> Geometry<i32> {
+    let polygon = |polygon: &Polygon<i32>| {
+        Polygon::new(
+            ring_from_smallest_vertex(polygon.exterior()),
+            polygon
+                .interiors()
+                .iter()
+                .map(ring_from_smallest_vertex)
+                .collect(),
+        )
+    };
+    match geometry {
+        Geometry::Polygon(p) => Geometry::Polygon(polygon(p)),
+        Geometry::MultiPolygon(mp) => {
+            Geometry::MultiPolygon(MultiPolygon(mp.iter().map(polygon).collect()))
+        }
+        other @ (Geometry::Point(_)
+        | Geometry::Line(_)
+        | Geometry::LineString(_)
+        | Geometry::MultiPoint(_)
+        | Geometry::MultiLineString(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)) => other.clone(),
+    }
+}
+
+fn ring_from_smallest_vertex(ring: &LineString<i32>) -> LineString<i32> {
+    let open = match ring.0.as_slice() {
+        [head @ .., last] if ring.0.first() == Some(last) => head,
+        all => all,
+    };
+    let Some(start) = (0..open.len()).min_by_key(|&i| (open[i].x, open[i].y)) else {
+        return ring.clone();
+    };
+    let mut coords: Vec<Coord<i32>> = open[start..]
+        .iter()
+        .chain(&open[..start])
+        .copied()
+        .collect();
+    coords.push(open[start]);
+    LineString(coords)
 }
 
 pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
