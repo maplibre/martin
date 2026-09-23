@@ -213,7 +213,7 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
@@ -655,7 +655,7 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
 
 # Run Rust unit tests
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features martin/unstable-mlt-v2 {{args}}
+    cargo nextest run --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')

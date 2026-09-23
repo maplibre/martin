@@ -290,24 +290,16 @@ impl TableQuerySql {
         supports_tile_margin: bool,
         table_wrap: Option<f64>,
     ) -> PostgresResult<Self> {
-        let properties = if let Some(props) = &info.properties {
-            props
-                .keys()
-                .map(|column| escape_with_alias(&info.prop_mapping, column))
-                .collect::<String>()
-        } else {
-            String::new()
-        };
-        let row_properties = if let Some(props) = &info.properties {
-            props
-                .iter()
-                .map(|(column, pg_type)| {
-                    escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
-                })
-                .collect::<String>()
-        } else {
-            String::new()
-        };
+        let props = info.properties.iter().flatten();
+        let properties: String = props
+            .clone()
+            .map(|(column, _)| escape_with_alias(&info.prop_mapping, column))
+            .collect();
+        let row_properties: String = props
+            .map(|(column, pg_type)| {
+                escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
+            })
+            .collect();
 
         let (id_name, id_field) = if let Some(id_column) = &info.id_column {
             (

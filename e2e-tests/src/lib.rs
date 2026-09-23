@@ -27,8 +27,8 @@ pub use crate::cassette::Cassette;
 pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
 pub use crate::martin::{
-    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_dump_ignoring_ring_start,
-    mlt_layers, mvt_dump, rings_from_smallest_vertex,
+    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump,
+    rings_from_smallest_vertex,
 };
 pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{

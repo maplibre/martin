@@ -200,7 +200,7 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
 #[cfg(test)]
 mod tests {
     use mlt_core::geo_types::{Coord, Geometry, Point};
-    use mlt_core::{Decoder, Layer, Parser};
+    use mlt_core::{Decoder, Parser};
     use rstest::rstest;
 
     use super::*;
@@ -237,14 +237,11 @@ mod tests {
             .expect("the encoded tile does not parse")
             .into_iter()
             .map(|layer| {
-                let layer = match layer {
-                    Layer::Tag01(layer) => layer,
-                    #[cfg(feature = "unstable-mlt-v2")]
-                    Layer::Tag02(layer) => layer,
-                    Layer::Unknown(unknown) => panic!("unknown layer tag {}", unknown.tag()),
-                    _ => panic!("an unhandled layer variant"),
-                };
-                layer.into_tile(&mut decoder).expect("undecodable layer")
+                layer
+                    .into_layer01()
+                    .expect("unknown layer tag")
+                    .into_tile(&mut decoder)
+                    .expect("undecodable layer")
             })
             .collect()
     }

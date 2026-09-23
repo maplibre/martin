@@ -593,17 +593,6 @@ pub fn mvt_dump(bytes: &[u8]) -> String {
 /// vertex-scoped columns lists each feature's values for them after its properties.
 #[must_use]
 pub fn mlt_dump(layers: &[TileLayer]) -> String {
-    dump_layers(layers, Clone::clone)
-}
-
-/// [`mlt_dump`] with every polygon ring started at its smallest vertex, for comparing tiles whose
-/// encoders agree on each ring but not on where it starts.
-#[must_use]
-pub fn mlt_dump_ignoring_ring_start(layers: &[TileLayer]) -> String {
-    dump_layers(layers, rings_from_smallest_vertex)
-}
-
-fn dump_layers(layers: &[TileLayer], geometry: impl Fn(&Geometry<i32>) -> Geometry<i32>) -> String {
     use std::fmt::Write as _;
 
     let mut out = String::new();
@@ -629,7 +618,7 @@ fn dump_layers(layers: &[TileLayer], geometry: impl Fn(&Geometry<i32>) -> Geomet
                 format!(
                     "  id={:?} geom={:?} props=[{}]{}",
                     feature.id(),
-                    geometry(feature.geometry()),
+                    feature.geometry(),
                     props.join(", "),
                     vertex_values(layer, feature)
                 )

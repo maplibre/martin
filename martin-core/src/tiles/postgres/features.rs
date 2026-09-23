@@ -14,7 +14,7 @@ use crate::tiles::postgres::{PostgresResult, parse_tile_wkb};
 pub struct PostgresFeature {
     /// The feature id, when the source has an id column that held a non-negative value.
     pub id: Option<u64>,
-    /// The geometry, already clipped and projected into tile space by `ST_AsMVTGeom`.
+    /// The geometry, already clipped and projected into tile space.
     pub geometry: Geometry<i32>,
     /// One M ordinate per vertex of [`Self::geometry`], when the source geometry is measured.
     pub m_values: Option<Vec<f64>>,

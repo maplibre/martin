@@ -218,8 +218,7 @@ impl AnySource {
     /// Retrieves the features of a tile instead of its serialized bytes.
     ///
     /// `None` means this source cannot hand out features, and the caller has to fall back to
-    /// [`get_tile`](Self::get_tile). Only Postgres can, and with a closed set that is a match
-    /// arm rather than a method every other source has to refuse.
+    /// [`get_tile`](Self::get_tile).
     #[cfg(feature = "postgres")]
     pub async fn get_tile_features(
         &self,

@@ -150,24 +150,22 @@ pub struct CopyArgs {
 }
 
 /// Vector tile format `martin cp` requests from the source.
-///
-/// MLT v1 and v2 are the same `Format::Mlt` on the wire envelope, differing only in the
-/// layer tag and the codecs behind it, so the version is an encoder setting rather than a
-/// format of its own.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize,
 )]
-#[serde(rename_all = "lowercase")]
 pub enum CopyFormat {
     /// Mapbox Vector Tile.
     #[value(alias = "pbf")]
+    #[serde(rename = "mvt")]
     Mvt,
     /// `MapLibre` Tile, v1 wire format.
     #[value(name = "mlt1", aliases = ["mlt", "mltv1"])]
+    #[serde(rename = "mlt1")]
     MltV1,
     /// `MapLibre` Tile, v2 wire format.
     #[cfg(feature = "unstable-mlt-v2")]
     #[value(name = "mlt2", alias = "mltv2")]
+    #[serde(rename = "mlt2")]
     MltV2,
 }
 
@@ -1089,6 +1087,18 @@ mod tests {
         }
     }
 
+    fn parse_format(input: &str) -> Result<CopyFormat, clap::Error> {
+        use clap::Parser as _;
+
+        #[derive(clap::Parser)]
+        struct Cli {
+            #[arg(long, value_enum)]
+            format: CopyFormat,
+        }
+
+        Cli::try_parse_from(["cp", "--format", input]).map(|cli| cli.format)
+    }
+
     #[rstest]
     #[case("mvt", CopyFormat::Mvt)]
     #[case("pbf", CopyFormat::Mvt)]
@@ -1098,15 +1108,7 @@ mod tests {
     #[cfg_attr(feature = "unstable-mlt-v2", case("mlt2", CopyFormat::MltV2))]
     #[cfg_attr(feature = "unstable-mlt-v2", case("mltv2", CopyFormat::MltV2))]
     fn test_parse_format(#[case] input: &str, #[case] expected: CopyFormat) {
-        use clap::Parser as _;
-
-        #[derive(clap::Parser)]
-        struct Cli {
-            #[arg(long, value_enum)]
-            format: CopyFormat,
-        }
-
-        assert_eq!(Cli::parse_from(["cp", "--format", input]).format, expected);
+        assert_eq!(parse_format(input).unwrap(), expected);
     }
 
     #[rstest]
@@ -1115,16 +1117,8 @@ mod tests {
     #[case("geojson")]
     #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mlt2"))]
     #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mltv2"))]
-    fn parse_format_rejects_non_vector(#[case] input: &str) {
-        use clap::Parser as _;
-
-        #[derive(clap::Parser)]
-        struct Cli {
-            #[arg(long, value_enum)]
-            format: CopyFormat,
-        }
-
-        assert!(Cli::try_parse_from(["cp", "--format", input]).is_err());
+    fn parse_format_rejects_formats_it_cannot_write(#[case] input: &str) {
+        parse_format(input).unwrap_err();
     }
 
     #[cfg(feature = "unstable-mlt-v2")]
