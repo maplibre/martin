@@ -155,6 +155,10 @@ pub enum PostgresError {
         /// The `PostgreSQL` type name the column has.
         pg_type: String,
     },
+
+    /// Tile features cannot be encoded as an MLT tile.
+    #[error("MLT encoding failed: {0}")]
+    MltEncoding(#[source] Box<mlt_core::MltError>),
 }
 
 impl crate::Classify for PostgresError {
@@ -183,7 +187,8 @@ impl crate::Classify for PostgresError {
             | Self::GetTileError(..)
             | Self::GetTileWithQueryError(..)
             | Self::BadTileGeometry(_)
-            | Self::UnsupportedPropertyType { .. } => Internal,
+            | Self::UnsupportedPropertyType { .. }
+            | Self::MltEncoding(_) => Internal,
         }
     }
 }

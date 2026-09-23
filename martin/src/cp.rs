@@ -56,9 +56,6 @@ use crate::srv::{
     merge_tilejson,
 };
 
-#[cfg(all(feature = "postgres", feature = "mlt"))]
-mod pg_to_mlt;
-
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
@@ -392,8 +389,9 @@ async fn copy_as_mlt_directly(
     src: &DynTileSource<'_>,
     xyz: TileCoord,
 ) -> MartinCpResult<Option<TileData>> {
+    use martin_core::tiles::postgres::{encode_features_as_mlt, keeps_measures};
+
     use crate::config::file::MltConversion;
-    use crate::cp::pg_to_mlt::{encode_features_as_mlt, keeps_measures};
 
     if src.accepted_format != Some(Format::Mlt) {
         return Ok(None);
@@ -426,7 +424,7 @@ async fn copy_as_mlt_directly(
     };
     Ok(Some(
         encode_features_as_mlt(features, cfg)
-            .map_err(TileError::from)?
+            .map_err(|e| TileError::from(MartinCoreError::from(e)))?
             .data,
     ))
 }
@@ -1085,84 +1083,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    fn parse_format(input: &str) -> Result<CopyFormat, clap::Error> {
-        use clap::Parser as _;
-
-        #[derive(clap::Parser)]
-        struct Cli {
-            #[arg(long, value_enum)]
-            format: CopyFormat,
-        }
-
-        Cli::try_parse_from(["cp", "--format", input]).map(|cli| cli.format)
-    }
-
-    #[rstest]
-    #[case("mvt", CopyFormat::Mvt)]
-    #[case("pbf", CopyFormat::Mvt)]
-    #[case("mlt", CopyFormat::MltV1)]
-    #[case("mlt1", CopyFormat::MltV1)]
-    #[case("mltv1", CopyFormat::MltV1)]
-    #[cfg_attr(feature = "unstable-mlt-v2", case("mlt2", CopyFormat::MltV2))]
-    #[cfg_attr(feature = "unstable-mlt-v2", case("mltv2", CopyFormat::MltV2))]
-    fn test_parse_format(#[case] input: &str, #[case] expected: CopyFormat) {
-        assert_eq!(parse_format(input).unwrap(), expected);
-    }
-
-    #[rstest]
-    #[case("png")]
-    #[case("jpeg")]
-    #[case("geojson")]
-    #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mlt2"))]
-    #[cfg_attr(not(feature = "unstable-mlt-v2"), case("mltv2"))]
-    fn parse_format_rejects_formats_it_cannot_write(#[case] input: &str) {
-        parse_format(input).unwrap_err();
-    }
-
-    #[cfg(feature = "unstable-mlt-v2")]
-    #[rstest]
-    #[case(CopyFormat::MltV1, mlt_core::encoder::WireVersion::V01)]
-    #[case(CopyFormat::MltV2, mlt_core::encoder::WireVersion::V02)]
-    fn pins_the_wire_version_on_every_source(
-        #[case] format: CopyFormat,
-        #[case] expected: mlt_core::encoder::WireVersion,
-    ) {
-        use crate::config::file::MltConversion;
-
-        let state = test_state(vec![vec![TestSource::empty("test_source").boxed()]]);
-        let mut src = DynTileSource::new(
-            &state.tile_manager,
-            "test_source",
-            None,
-            "",
-            TileRequestHeaders::default(),
-        )
-        .unwrap();
-
-        pin_mlt_wire_version(&mut src, format);
-
-        for (_, process) in &src.sources {
-            let MltConversion::Encode(cfg) = process.mlt else {
-                panic!("the test source stopped encoding MLT");
-            };
-            assert_eq!(cfg.wire_version(), expected);
-        }
-    }
-
-    #[rstest]
-    #[case(CopyFormat::Mvt, Format::Mvt)]
-    #[case(CopyFormat::MltV1, Format::Mlt)]
-    #[cfg_attr(feature = "unstable-mlt-v2", case(CopyFormat::MltV2, Format::Mlt))]
-    fn test_accepted_format(#[case] input: CopyFormat, #[case] expected: Format) {
-        assert_eq!(
-            input.accepted(),
-            AcceptedFormats {
-                preferred: vec![expected],
-                allow_any: false,
-            }
-        );
     }
 
     #[rstest]

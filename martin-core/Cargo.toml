@@ -81,6 +81,7 @@ postgres = [
     "dep:wkb",
     "_tiles",
 ]
+unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 unstable-cog = [
     "dep:async-tiff",
     "dep:futures",
