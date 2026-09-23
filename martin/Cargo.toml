@@ -254,6 +254,7 @@ walkdir = { workspace = true, optional = true }
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
+flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 martin-core = { workspace = true, features = ["_testing"] }

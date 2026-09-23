@@ -382,13 +382,17 @@ async fn an_alias_serves_the_sources_it_combines() {
 
 #[tokio::test]
 async fn an_alias_may_shadow_the_source_it_extends() {
-    let (_dir, martin) = martin_with_tile_alias("cities: [cities, more_cities]").await;
+    let (_dir, martin) =
+        martin_with_tile_alias("basemap: [cities, more_cities]\n  cities: [cities, more_cities]")
+            .await;
     let mut martin = martin.expect("failed to start martin");
 
     let shadowed = martin.get("/cities/0/0/0").await;
     assert_eq!(shadowed.status(), 200);
-    let explicit = martin.get("/cities,more_cities/0/0/0").await;
-    assert_eq!(shadowed.body(), explicit.body());
+    let unshadowed = martin.get("/basemap/0/0/0").await;
+    assert_eq!(shadowed.body(), unshadowed.body());
+    let single = martin.get("/more_cities/0/0/0").await;
+    assert_ne!(shadowed.body(), single.body());
 
     martin.stop().await;
     martin.assert_log_contains(
