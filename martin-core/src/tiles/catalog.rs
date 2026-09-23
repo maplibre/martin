@@ -20,12 +20,10 @@ use serde_with;
 /// use martin_core::tiles::catalog::{TileCatalog, CatalogSourceEntry};
 ///
 /// let mut catalog = TileCatalog::new();
-/// let entry = CatalogSourceEntry {
-///     content_type: "application/x-protobuf".to_string(),
-///     content_encoding: Some("gzip".to_string()),
-///     name: Some("My Tiles".to_string()),
-///     ..Default::default()
-/// };
+/// let mut entry = CatalogSourceEntry::default();
+/// entry.content_type = "application/x-protobuf".to_string();
+/// entry.content_encoding = Some("gzip".to_string());
+/// entry.name = Some("My Tiles".to_string());
 /// catalog.insert("my_source".to_string(), entry);
 /// ```
 pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
@@ -40,6 +38,7 @@ pub type TileCatalog = BTreeMap<String, CatalogSourceEntry>;
     feature = "unstable-schemas",
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
+#[non_exhaustive]
 pub struct CatalogSourceEntry {
     /// MIME type for the tile data (e.g., "application/x-protobuf", "image/png")
     pub content_type: String,
