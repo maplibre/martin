@@ -1675,7 +1675,8 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
     alt DuckDB Sources
         Discovery-&gt;&gt;Discovery: Read duckdb.sources from config
         Discovery-&gt;&gt;Discovery: Introspect GeoParquet metadata
-        Discovery-&gt;&gt;Sources: Register GeoParquet sources
+        Discovery-&gt;&gt;Discovery: Discover database tables &amp; macros
+        Discovery-&gt;&gt;Sources: Register DuckDB sources
     end
 
     Sources--&gt;&gt;Server: Source catalog
@@ -1946,11 +1947,10 @@ Martin loads the whole file once, reprojects and indexes it in memory, then clip
 <p>Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed <code>.geojson</code>/<code>.json</code> files.</p>
 </div>
 <div class="tabbed-block">
-<p>Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles.
-Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.</p>
+<p>Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles. Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.</p>
 <pre class="mermaid"><code>graph TB
     subgraph Load["Load time (once per source)"]
-        File[".parquet file or HTTP URL"]
+        File["GeoParquet file or remote URL"]
         Pool["DuckDBPool&lt;br/&gt;in-memory + spatial"]
         Describe["DESCRIBE read_parquet"]
         CRS["ST_CRS / configured SRID"]
@@ -1966,7 +1966,7 @@ Martin uses DuckDB to read the parquet file, clip geometry to the requested tile
     File --&gt; Pool --&gt; Describe --&gt; CRS --&gt; Bounds
     Pool -.-&gt;|pooled connection| SQL
     XYZ --&gt; SQL --&gt; MVT</code></pre>
-<p><strong>Load time</strong> (<code>DuckDBSource</code> in <code>martin-core/src/tiles/duckdb/</code>, resolver in <code>martin/src/config/file/tiles/duckdb/</code>):</p>
+<p><strong>GeoParquet load time</strong> (<code>DuckDBSource</code> in <code>martin-core/src/tiles/duckdb/</code>, resolver in <code>martin/src/config/file/tiles/duckdb/</code>):</p>
 <ol>
 <li>Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the <code>spatial</code> extension; remote <code>http(s)</code> URLs also load <code>httpfs</code>.</li>
 <li>Columns are discovered with <code>DESCRIBE SELECT * FROM read_parquet(...)</code>. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.</li>
@@ -1974,21 +1974,23 @@ Martin uses DuckDB to read the parquet file, clip geometry to the requested tile
 <li>TileJSON bounds are computed according to <code>auto_bounds</code> (<code>quick</code>, <code>calc</code>, or <code>skip</code>).</li>
 <li>An MVT SQL query is built once and executed per tile with <code>z</code>, <code>x</code>, <code>y</code> parameters.</li>
 </ol>
-<p><strong>Per request</strong> (<code>DuckDBSource::get_tile</code>):</p>
+<p><strong>GeoParquet requests</strong> (<code>DuckDBSource::get_tile</code>):</p>
 <ol>
 <li>A connection is taken from the pool and the tile query runs on a blocking thread.</li>
 <li>Geometry is stamped with the source CRS, transformed to Web Mercator (<code>EPSG:3857</code>), filtered to the tile envelope (expanded by <code>buffer</code>), clipped with <code>ST_AsMVTGeom</code>, and encoded with <code>ST_AsMVT</code>.</li>
 <li>Non-geometry columns become MVT feature properties. <code>id_column</code>, if set, becomes the MVT feature id.</li>
 <li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
 </ol>
-<p><strong>Configuration</strong> (<code>DuckDbConfig</code>, config-file only; requires <code>--features=unstable-duckdb</code>):</p>
+<p><strong>Database files</strong> are opened read-only. Each <code>database</code> entry creates one connection pool shared by its table and macro sources. Geometry tables use the same MVT generation path as GeoParquet; <code>(z, x, y)</code> table macros return ready-made tiles.</p>
+<p><strong>Configuration</strong> (<code>DuckDbConfig</code>; requires <code>--features=unstable-duckdb</code>):</p>
+<p><code>martin data.parquet</code> and <code>martin tiles.duckdb</code> use the default settings. The database command publishes geometry tables and <code>(z, x, y)</code> tile macros. Use a <a href="../config-file/">configuration file</a> for remote GeoParquet or custom settings:</p>
 <ul>
-<li><code>pool_size</code> (default <code>4</code>) - DuckDB connection pool size per source.</li>
+<li><code>pool_size</code> (default <code>4</code>) - connection pool size per GeoParquet source or database entry.</li>
 <li><code>auto_bounds</code> (default <code>quick</code>) - how TileJSON bounds are computed.</li>
 <li>Per-source <code>geoparquet</code> path or URL, plus optional <code>layer_id</code>, <code>geometry_column</code>, <code>srid</code>, <code>extent</code>, <code>buffer</code>, and <code>clip_geom</code>.</li>
+<li><code>database</code> file path, with optional <code>auto_publish</code>, <code>tables</code>, and <code>macros</code> to control which sources are published. See <a href="../sources-duckdb/#database-sources">DuckDB database sources</a>.</li>
 </ul>
-<p>DuckDB sources do not currently hot-reload.
-Database file entries (<code>database:</code>) parse in the config but are skipped at resolve time.</p>
+<p>DuckDB sources do not currently hot-reload.</p>
 </div>
 </div>
 </div>

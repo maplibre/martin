@@ -1584,15 +1584,11 @@
 
 
 <h1 id="usage">Usage</h1>
-<p>Martin requires at least one PostgreSQL <a href="../pg-connections/">connection string</a> or a <a href="../sources-files/">tile source file</a>
-as a command-line argument.
-Sources can also be listed in a <a href="../config-file/">configuration file</a>.
-<a href="../sources-duckdb/">DuckDB / GeoParquet sources</a> are configured in a <a href="../config-file/">configuration file</a> instead, and require Martin to be built with <code>--features=unstable-duckdb</code>.</p>
+<p>Martin requires at least one PostgreSQL <a href="../pg-connections/">connection string</a> or a <a href="../sources-files/">tile source file</a> as a command-line argument. Sources can also be listed in a <a href="../config-file/">configuration file</a>.</p>
+<p><a href="../sources-duckdb/">DuckDB / GeoParquet sources</a> require Martin to be built with <code>--features=unstable-duckdb</code>. Pass a local file with <code>martin data.parquet</code> or <code>martin tiles.duckdb</code> to use the default settings. Use a configuration file for remote GeoParquet or custom DuckDB settings.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
-<p>Martin provides <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint for
-each <a href="https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns">geospatial-enabled</a> table in your
-database.</p>
+<p>Martin provides a <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint for each <a href="https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns">geospatial-enabled</a> table in your database.</p>
 
 
 

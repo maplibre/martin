@@ -1991,6 +1991,11 @@ Example for <code>mbtiles validate --help</code>:</p>
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>  -h, --help
 </span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>          Print help (see a summary with '-h')
 </span></code></pre></div>
+<h2 id="temporary-files">Temporary files</h2>
+<p>If <code>mbtiles copy</code> or <code>mbtiles validate</code> fails with <code>database or disk is full</code> on a large archive, SQLite's temporary files may have filled a different partition. On Unix-like systems, set <code>SQLITE_TMPDIR</code> to an existing directory with write and execute permissions and enough free space:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">SQLITE_TMPDIR</span><span class="o">=</span>/data/tmp<span class="w"> </span>mbtiles<span class="w"> </span>copy<span class="w"> </span>src.mbtiles<span class="w"> </span>dst.mbtiles
+</span></code></pre></div>
+<p>By default, SQLite checks <code>SQLITE_TMPDIR</code>, <code>TMPDIR</code>, <code>/var/tmp</code>, <code>/usr/tmp</code>, <code>/tmp</code>, then the current directory, using the first accessible directory. See <a href="https://www.sqlite.org/tempfiles.html#temporary_file_storage_locations">SQLite's temporary file locations</a>.</p>
 
 
   <nav class="md-tags" >
