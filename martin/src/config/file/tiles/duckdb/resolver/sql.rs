@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::num::NonZeroU32;
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
@@ -66,15 +67,12 @@ pub fn build_mvt_sql(
     ));
     let where_clause = filters.join("\n    AND ");
 
-    let properties = introspection
-        .property_columns
-        .iter()
-        .map(|(column, mvt_type)| {
-            let escaped = escape_identifier(column);
-            format!(", {escaped}::{mvt_type} AS {escaped}")
-        })
-        .collect::<Vec<_>>()
-        .concat();
+    let mut properties = String::new();
+    for (column, mvt_type) in &introspection.property_columns {
+        let escaped = escape_identifier(column);
+        write!(properties, ", {escaped}::{mvt_type} AS {escaped}")
+            .expect("writing to a String should not fail");
+    }
 
     let (id_name, id_field) = if let Some(id_column) = &layer.id_column {
         (
