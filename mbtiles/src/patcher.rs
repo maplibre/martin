@@ -149,13 +149,18 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType, algorithm: HashAlgori
             | Normalized {
                 hash_view: true, ..
             } => "
-        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(tile_hash) AS hash
         FROM patchDb.tiles_with_hash"
                 .to_owned(),
             Normalized {
                 schema,
                 hash_view: false,
-            } => schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN"),
+            } => format!(
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(hash) AS hash
+        FROM ({})",
+                schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN")
+            ),
         }
     }
 }
@@ -315,6 +320,58 @@ mod tests {
         );
         assert!(
             src_conn
+                .fetch_optional("SELECT 1 FROM tiles_data GROUP BY tile_data HAVING COUNT(*) > 1;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_lowercase_hash_patch_adds_no_blobs() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("lowercase_patch_src_mem", script).await;
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (_mbt, _conn, modified_file) =
+            temp_named_mbtiles("lowercase_patch_modified_mem", script).await;
+
+        let dst_file =
+            PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs?mode=memory&cache=shared");
+        let mut dst_conn = MbtilesCopier {
+            src_file: modified_file.clone(),
+            dst_file: dst_file.clone(),
+            dst_type: Some(Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            }),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let patch_file = PathBuf::from(
+            "file:apply_lowercase_hash_patch_adds_no_blobs_patch?mode=memory&cache=shared",
+        );
+        let mut patch_conn = MbtilesCopier {
+            src_file,
+            dst_file: patch_file.clone(),
+            diff_with_file: Some((modified_file, None)),
+            dst_type: Some(FlatWithHash),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        patch_conn
+            .execute("UPDATE tiles_with_hash SET tile_hash = lower(tile_hash)")
+            .await
+            .unwrap();
+
+        apply_patch(dst_file, patch_file, true).await.unwrap();
+
+        assert!(
+            dst_conn
                 .fetch_optional("SELECT 1 FROM tiles_data GROUP BY tile_data HAVING COUNT(*) > 1;")
                 .await
                 .unwrap()
