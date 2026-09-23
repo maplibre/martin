@@ -163,6 +163,8 @@ Replace these undocumented alternate spellings with the documented ones. Martin 
 | `web_ui: "true"`, `web_ui: "false"`                                        | `web_ui: enable`, `web_ui: disable`                |
 | `preferred_encoding: br`                                                   | `preferred_encoding: brotli`                       |
 
+The command line loses `--preferred-encoding br` as well. Use `--preferred-encoding brotli`.
+
 ```yaml
 # 1.x
 on_invalid: continue
