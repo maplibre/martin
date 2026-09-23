@@ -1692,13 +1692,16 @@ Unstable sources such as duckdb or cog are not included.</p>
 </span><span id="__span-0-581"><a id="__codelineno-0-581" name="__codelineno-0-581" href="#__codelineno-0-581"></a><span class="c1"># `TileJSON` will be:</span>
 </span><span id="__span-0-582"><a id="__codelineno-0-582" name="__codelineno-0-582" href="#__codelineno-0-582"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
 </span><span id="__span-0-583"><a id="__codelineno-0-583" name="__codelineno-0-583" href="#__codelineno-0-583"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
-</span><span id="__span-0-584"><a id="__codelineno-0-584" name="__codelineno-0-584" href="#__codelineno-0-584"></a><span class="c1"># Enable or disable Martin web UI. [default: disable]</span>
+</span><span id="__span-0-584"><a id="__codelineno-0-584" name="__codelineno-0-584" href="#__codelineno-0-584"></a><span class="c1"># Control access to Martin's web UI. [default: enable]</span>
 </span><span id="__span-0-585"><a id="__codelineno-0-585" name="__codelineno-0-585" href="#__codelineno-0-585"></a><span class="c1">#</span>
-</span><span id="__span-0-586"><a id="__codelineno-0-586" name="__codelineno-0-586" href="#__codelineno-0-586"></a><span class="c1"># At the moment, only allows `enable-for-all`, which enables the web UI for all connections.</span>
-</span><span id="__span-0-587"><a id="__codelineno-0-587" name="__codelineno-0-587" href="#__codelineno-0-587"></a><span class="c1"># This may be undesirable in a production environment</span>
-</span><span id="__span-0-588"><a id="__codelineno-0-588" name="__codelineno-0-588" href="#__codelineno-0-588"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
-</span><span id="__span-0-589"><a id="__codelineno-0-589" name="__codelineno-0-589" href="#__codelineno-0-589"></a><span class="c1"># Number of web server workers</span>
-</span><span id="__span-0-590"><a id="__codelineno-0-590" name="__codelineno-0-590" href="#__codelineno-0-590"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-0-586"><a id="__codelineno-0-586" name="__codelineno-0-586" href="#__codelineno-0-586"></a><span class="c1"># - `enable` allows only connections from localhost.</span>
+</span><span id="__span-0-587"><a id="__codelineno-0-587" name="__codelineno-0-587" href="#__codelineno-0-587"></a><span class="c1"># - `enableforall` allows all connections.</span>
+</span><span id="__span-0-588"><a id="__codelineno-0-588" name="__codelineno-0-588" href="#__codelineno-0-588"></a><span class="c1"># - `disable` turns the web UI off.</span>
+</span><span id="__span-0-589"><a id="__codelineno-0-589" name="__codelineno-0-589" href="#__codelineno-0-589"></a><span class="c1">#</span>
+</span><span id="__span-0-590"><a id="__codelineno-0-590" name="__codelineno-0-590" href="#__codelineno-0-590"></a><span class="c1"># Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.</span>
+</span><span id="__span-0-591"><a id="__codelineno-0-591" name="__codelineno-0-591" href="#__codelineno-0-591"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
+</span><span id="__span-0-592"><a id="__codelineno-0-592" name="__codelineno-0-592" href="#__codelineno-0-592"></a><span class="c1"># Number of web server workers</span>
+</span><span id="__span-0-593"><a id="__codelineno-0-593" name="__codelineno-0-593" href="#__codelineno-0-593"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 
 
