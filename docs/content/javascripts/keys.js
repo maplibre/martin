@@ -2,7 +2,10 @@ document.addEventListener('keydown', (event) => {
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
     return;
   }
-  if (event.target.closest('input, textarea, select, [contenteditable]')) {
+  if (
+    event.target instanceof Element &&
+    event.target.closest('input, textarea, select, [contenteditable]')
+  ) {
     return;
   }
   if (document.querySelector('[data-md-toggle=search]:checked')) {
