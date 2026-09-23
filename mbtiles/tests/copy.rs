@@ -695,6 +695,36 @@ async fn copy_into_an_existing_file_rehashes_to_its_algorithm() -> MbtResult<()>
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn copy_lowercase_hashes_into_existing_file_adds_no_blobs() -> MbtResult<()> {
+    let (src_mbt, mut src_cn) = new_file!(
+        copy_lowercase_hashes_into_existing_file_adds_no_blobs,
+        FlatWithHash,
+        METADATA_V1,
+        TILES_V1,
+        "src"
+    );
+    src_cn
+        .execute("UPDATE tiles_with_hash SET tile_hash = lower(tile_hash)")
+        .await?;
+    let (dst_mbt, mut dst_cn) = new_file!(
+        copy_lowercase_hashes_into_existing_file_adds_no_blobs,
+        Normalized,
+        METADATA_V1,
+        TILES_V1,
+        "dst"
+    );
+    copy! {
+        path(&src_mbt),
+        path(&dst_mbt),
+        on_duplicate => Some(CopyDuplicateMode::Override),
+    };
+    let dmp = dump(&mut dst_cn).await?;
+    assert_dump!(&dmp, "norm");
+    Ok(())
+}
+
 /// A cache file works as the "new state" side of a diff, read via its `tiles` view.
 #[rstest]
 #[trace]

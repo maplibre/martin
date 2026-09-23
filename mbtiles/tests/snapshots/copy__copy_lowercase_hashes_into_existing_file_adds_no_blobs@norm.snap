@@ -1,0 +1,48 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+- type: table
+  tbl_name: metadata
+  sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
+  values:
+    - "(  \"agg_tiles_hash\", \"9ED9178D7025276336C783C2B54D6258\"  )"
+    - "(  \"hash_algorithm\", \"md5\"  )"
+    - "(  \"md-edit\", \"value - v1\"  )"
+    - "(  \"md-remove\", \"value - remove\"  )"
+    - "(  \"md-same\", \"value - same\"  )"
+- type: table
+  tbl_name: tiles_data
+  sql: "CREATE TABLE tiles_data (\n    tile_data_id INTEGER PRIMARY KEY,\n    tile_data BLOB\n)"
+  values:
+    - "(  1, blob()  )"
+    - "(  2, blob(1-keep-1-rm)  )"
+    - "(  3, blob(edit-v1)  )"
+    - "(  4, blob(non-empty)  )"
+    - "(  5, blob(remove)  )"
+    - "(  6, blob(root)  )"
+    - "(  7, blob(same)  )"
+- type: table
+  tbl_name: tiles_shallow
+  sql: "CREATE TABLE tiles_shallow (\n    zoom_level INTEGER,\n    tile_column INTEGER,\n    tile_row INTEGER,\n    tile_data_id INTEGER,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n) WITHOUT ROWID"
+  values:
+    - "(  3, 6, 7, 6  )"
+    - "(  5, 0, 0, 7  )"
+    - "(  5, 0, 1, 1  )"
+    - "(  5, 1, 1, 3  )"
+    - "(  5, 1, 2, 1  )"
+    - "(  5, 1, 3, 4  )"
+    - "(  5, 2, 2, 5  )"
+    - "(  5, 2, 3, 1  )"
+    - "(  6, 0, 3, 7  )"
+    - "(  6, 0, 5, 2  )"
+    - "(  6, 1, 4, 3  )"
+    - "(  6, 2, 6, 2  )"
+- type: index
+  tbl_name: metadata
+  sql: ~
+  values: ~
+- type: view
+  tbl_name: tiles
+  sql: "CREATE VIEW tiles AS\nSELECT\n    tiles_shallow.zoom_level,\n    tiles_shallow.tile_column,\n    tiles_shallow.tile_row,\n    tiles_data.tile_data\nFROM tiles_shallow\nINNER JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id"
+  values: ~
