@@ -5537,6 +5537,7 @@ dependencies = [
  "dashmap",
  "duckdb",
  "enum-display",
+ "flate2",
  "futures",
  "geojson 1.0.0",
  "hotpath 0.26.0",
