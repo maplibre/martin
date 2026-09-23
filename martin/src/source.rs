@@ -146,11 +146,11 @@ impl TileSources {
             };
             let (src, pc) = member.value();
             let info = pc.advertised_tile_info(src.get_tile_info());
-            let entry = CatalogSourceEntry {
-                content_type: info.format.content_type().to_owned(),
-                content_encoding: info.encoding.compression().map(str::to_owned),
-                ..CatalogSourceEntry::default()
-            };
+            let mut entry = CatalogSourceEntry::default();
+            info.format
+                .content_type()
+                .clone_into(&mut entry.content_type);
+            entry.content_encoding = info.encoding.compression().map(str::to_owned);
             catalog.insert(alias.key().clone(), entry);
         }
         catalog
