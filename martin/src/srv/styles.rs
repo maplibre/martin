@@ -35,6 +35,7 @@ struct StyleRequest {
 #[route(
     "/style/{style_id}",
     method = "GET",
+    method = "HEAD",
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
