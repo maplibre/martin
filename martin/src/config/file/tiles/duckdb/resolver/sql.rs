@@ -73,7 +73,8 @@ pub fn build_mvt_sql(
             let escaped = escape_identifier(column);
             format!(", {escaped}::{mvt_type} AS {escaped}")
         })
-        .collect::<String>();
+        .collect::<Vec<_>>()
+        .concat();
 
     let (id_name, id_field) = if let Some(id_column) = &layer.id_column {
         (

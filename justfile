@@ -330,7 +330,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:

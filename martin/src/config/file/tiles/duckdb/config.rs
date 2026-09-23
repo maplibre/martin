@@ -89,7 +89,7 @@ impl DuckDbConfig {
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    async fn finalize(&mut self) -> ConfigFileResult<()> {
+    fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
             threads: self.threads,
@@ -97,12 +97,16 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             auto_bounds: self.auto_bounds,
         };
 
-        for source in &mut self.sources {
-            source.finalize()?;
-            source.apply_defaults(defaults);
-        }
+        let finalized = self
+            .sources
+            .iter_mut()
+            .try_for_each(|source| -> ConfigFileResult<()> {
+                source.finalize()?;
+                source.apply_defaults(defaults);
+                Ok(())
+            });
 
-        Ok(())
+        std::future::ready(finalized)
     }
 }
 
