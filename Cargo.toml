@@ -143,7 +143,7 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.8" }
 mbtiles = { path = "./mbtiles", version = "0.19.3" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.14.4", default-features = false }
+mlt-core = { version = "0.14.5", default-features = false }
 moka = { version = "0.12", default-features = false }
 multiversion = "0.9"
 notify = "8.2.0"
