@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::sync::Arc;
 
 use futures::future::join_all;
 use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};

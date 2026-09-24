@@ -30,6 +30,10 @@ use crate::tiles::{BoxedSource, MartinCoreResult, Source as _, Tile, UrlQuery};
 
 /// Every tile source the server can serve.
 #[derive(Debug)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "always behind an Arc, and a declared grid always wraps a backend"
+)]
 pub enum AnySource {
     /// A backend served on the grid it reports itself.
     Backend(BackendSource),

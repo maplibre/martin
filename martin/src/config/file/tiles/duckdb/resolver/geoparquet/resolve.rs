@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
 use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{Encoding, Format, TileInfo};
