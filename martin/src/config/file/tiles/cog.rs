@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::cog::CogSource;
-use martin_core::tiles::{AnySource, BoxedSource};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
 use url::Url;
@@ -119,9 +119,9 @@ impl TileSourceConfiguration for CogConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         let cog = CogSource::new(id, path, cache.zoom()).await?;
-        Ok(Arc::new(AnySource::Cog(cog)))
+        Ok(BackendSource::Cog(cog))
     }
 
     async fn new_sources_url(
@@ -129,7 +129,7 @@ impl TileSourceConfiguration for CogConfig {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         let (store, path) = self
             .object_store
             .parse_url_opts(&url)
@@ -142,7 +142,7 @@ impl TileSourceConfiguration for CogConfig {
             cache.zoom(),
         )
         .await?;
-        Ok(Arc::new(AnySource::Cog(source)))
+        Ok(BackendSource::Cog(source))
     }
 }
 

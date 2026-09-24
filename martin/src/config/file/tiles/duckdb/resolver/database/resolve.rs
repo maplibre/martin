@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
-use martin_core::tiles::{AnySource, BoxedSource};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use tilejson::tilejson;
 use tracing::{debug, info};
@@ -217,14 +217,15 @@ pub fn resolve_macro_source(
     tilejson.minzoom = entry.minzoom;
     tilejson.maxzoom = entry.maxzoom;
     tilejson.bounds = entry.bounds;
-    Arc::new(AnySource::DuckDb(DuckDBSource::new(
+    BackendSource::DuckDb(DuckDBSource::new(
         source_id,
         DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_owned()),
         tilejson,
         pool,
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),
         cache.zoom(),
-    )))
+    ))
+    .boxed()
 }
 
 /// Introspects one table of a database file and builds a tile-ready `DuckDBSource` for it.
@@ -279,5 +280,5 @@ pub async fn resolve_table_source(
         cache.zoom(),
     );
 
-    Ok(Arc::new(AnySource::DuckDb(source)))
+    Ok(BackendSource::DuckDb(source).boxed())
 }

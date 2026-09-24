@@ -14,7 +14,7 @@ use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
-use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// Where a [`PmtilesSource`] reads from.
 #[derive(Clone)]
@@ -187,7 +187,7 @@ impl Source for PmtilesSource {
         true
     }
 
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
+    async fn try_reload(&self) -> MartinCoreResult<Self> {
         let cache = self.pmt_cache.fork();
         let id = self.id.clone();
         let reloaded = match &self.location {
@@ -205,9 +205,7 @@ impl Source for PmtilesSource {
                 .await
             }
         };
-        reloaded
-            .map(|s| Arc::new(crate::tiles::AnySource::Pmtiles(s)))
-            .map_err(MartinCoreError::from)
+        reloaded.map_err(MartinCoreError::from)
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {
