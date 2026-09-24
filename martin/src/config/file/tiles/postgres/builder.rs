@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZeroU32;
-use std::sync::Arc;
 
 use itertools::Itertools as _;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};

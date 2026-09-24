@@ -465,7 +465,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(TestSource::empty(id).boxed())
+                Ok(TestSource::empty(id).into())
             })
         })
     }

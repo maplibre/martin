@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::Arc;
 use std::time::Duration;
 
 use martin_core::tiles::passthrough::{PassthroughSource, TemplateMeta, Transport, Upstream};

@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use martin_core::tiles::BackendSource;
 use martin_core::tiles::mbtiles::MbtSource;

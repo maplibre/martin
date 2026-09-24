@@ -12,7 +12,7 @@ use futures::stream::{self, StreamExt as _};
 pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::{BackendSource, BoxedSource};
+use martin_core::tiles::BackendSource;
 #[cfg(feature = "_tiles")]
 use martin_tile_utils::TileGrid;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
