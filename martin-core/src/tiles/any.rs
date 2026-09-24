@@ -1,7 +1,5 @@
 //! [`AnySource`], the closed set of tile sources the server dispatches on.
 
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
@@ -73,23 +71,23 @@ pub enum BackendSource {
 /// Runs `$body` against whichever backend `$self` holds.
 macro_rules! dispatch_backend {
     ($self:expr, |$s:ident| $body:expr) => {
-        match $self {
+        match *$self {
             #[cfg(feature = "pmtiles")]
-            BackendSource::Pmtiles($s) => $body,
+            BackendSource::Pmtiles(ref $s) => $body,
             #[cfg(feature = "mbtiles")]
-            BackendSource::Mbtiles($s) => $body,
+            BackendSource::Mbtiles(ref $s) => $body,
             #[cfg(feature = "postgres")]
-            BackendSource::Postgres($s) => $body,
+            BackendSource::Postgres(ref $s) => $body,
             #[cfg(feature = "passthrough")]
-            BackendSource::Passthrough($s) => $body,
+            BackendSource::Passthrough(ref $s) => $body,
             #[cfg(feature = "geojson")]
-            BackendSource::GeoJson($s) => $body,
+            BackendSource::GeoJson(ref $s) => $body,
             #[cfg(feature = "unstable-cog")]
-            BackendSource::Cog($s) => $body,
+            BackendSource::Cog(ref $s) => $body,
             #[cfg(feature = "unstable-duckdb")]
-            BackendSource::DuckDb($s) => $body,
+            BackendSource::DuckDb(ref $s) => $body,
             #[cfg(feature = "_testing")]
-            BackendSource::Test($s) => $body,
+            BackendSource::Test(ref $s) => $body,
         }
     };
 }
@@ -128,6 +126,19 @@ impl_from_backend! {
     #[cfg(feature = "_testing")] Test(TestSource),
 }
 
+#[cfg_attr(
+    not(any(
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "postgres",
+        feature = "passthrough",
+        feature = "geojson",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "_testing",
+    )),
+    expect(unused_variables, reason = "no backend to dispatch to")
+)]
 impl BackendSource {
     /// This source as a shared handle, ready for a registry.
     #[must_use]
@@ -224,9 +235,7 @@ impl BackendSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let tile: Pin<Box<dyn Future<Output = MartinCoreResult<TileData>> + Send + '_>> =
-            dispatch_backend!(self, |s| Box::pin(s.get_tile(xyz, url_query)));
-        tile.await
+        dispatch_backend!(self, |s| Box::pin(s.get_tile(xyz, url_query)).await)
     }
 
     /// Retrieves tile with etag for the given coordinates.
@@ -235,9 +244,8 @@ impl BackendSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        let tile: Pin<Box<dyn Future<Output = MartinCoreResult<Tile>> + Send + '_>> =
-            dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query)));
-        tile.await
+        dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query))
+            .await)
     }
 
     /// Attempts to create a fresh instance of this source.
