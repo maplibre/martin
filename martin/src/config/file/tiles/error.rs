@@ -8,8 +8,6 @@
 use std::io;
 use std::path::PathBuf;
 
-#[cfg(feature = "unstable-duckdb")]
-use crate::config::file::tiles::duckdb::resolver::DuckDbSourceError;
 #[cfg(feature = "unstable-cog")]
 use martin_core::tiles::cog::CogError;
 #[cfg(feature = "geojson")]
@@ -24,6 +22,8 @@ use martin_core::tiles::pmtiles::PmtilesError;
 use martin_core::tiles::postgres::PostgresError;
 
 use crate::config::file::ConfigFileError;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::tiles::duckdb::resolver::DuckDbSourceError;
 
 /// A convenience [`Result`] for the tile source build seam.
 pub type SourceBuildResult<T> = Result<T, SourceBuildError>;

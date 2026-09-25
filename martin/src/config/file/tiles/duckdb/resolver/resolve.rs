@@ -1,14 +1,17 @@
+use std::collections::HashMap;
+
 use futures::future::{BoxFuture, join_all, ready};
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::info;
 
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::resolver::database::resolve_database_entry;
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
-use crate::config::file::{CachePolicy, ResolutionResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
 /// One resolved `DuckDB` source: a live source, or a per-source warning.
@@ -16,6 +19,12 @@ type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>
 
 /// Every source one config entry resolves to.
 type ResolvedEntry = BoxFuture<'static, Vec<Result<BoxedSource, TileSourceWarning>>>;
+
+pub type DuckDbResolution = SourceBuildResult<(
+    Vec<BoxedSource>,
+    Vec<TileSourceWarning>,
+    HashMap<String, ProcessConfig>,
+)>;
 
 fn resolve_geoparquet_entry(
     entry: &GeoParquetEntry,
@@ -98,21 +107,31 @@ fn resolve_source_entry(
 impl DuckDbConfig {
     /// Resolve configured `DuckDB` sources into live tile sources.
     pub async fn resolve(
-        &mut self,
+        &self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-    ) -> ResolutionResult {
+    ) -> DuckDbResolution {
         let default_cache = self.cache.or(default_cache);
         let pending = self
             .sources
             .iter()
             .map(|source| resolve_source_entry(source, &id_resolver, default_cache))
             .collect::<Vec<_>>();
-        Ok(join_all(pending)
-            .await
-            .into_iter()
-            .flatten()
-            .partition_result())
+        let resolved = join_all(pending).await;
+        let process = self
+            .sources
+            .iter()
+            .zip(&resolved)
+            .flat_map(|(source, results)| {
+                let process = source.process_config();
+                results
+                    .iter()
+                    .flatten()
+                    .map(move |src| (src.get_id().to_owned(), process.clone()))
+            })
+            .collect();
+        let (sources, warnings) = resolved.into_iter().flatten().partition_result();
+        Ok((sources, warnings, process))
     }
 }
 
@@ -158,7 +177,7 @@ mod tests {
         };
         cfg.finalize().await.expect("finalize");
 
-        let (sources, warnings) = cfg
+        let (sources, warnings, _) = cfg
             .resolve(IdResolver::default(), CachePolicy::default())
             .await
             .expect("resolution succeeds");
@@ -191,7 +210,7 @@ mod tests {
         };
         cfg.finalize().await.expect("finalize");
 
-        let (sources, warnings) = cfg
+        let (sources, warnings, _) = cfg
             .resolve(IdResolver::default(), CachePolicy::default())
             .await
             .expect("resolution succeeds despite warnings");

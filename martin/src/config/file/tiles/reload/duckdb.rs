@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
-use std::future::Future;
+use std::future::{Future, ready};
+use std::io;
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
@@ -10,7 +11,9 @@ use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::tiles::duckdb::resolver::DuckDbSourceError;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
-use crate::config::file::{CachePolicy, ResolvedProcess, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    CachePolicy, ResolvedProcess, SourceBuildError, SourceBuildResult, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
 
 pub struct DuckDbReloader {
@@ -28,15 +31,11 @@ impl DuckDbReloader {
     ) -> Self {
         let default_cache = config.cache.or(default_cache);
 
-        let source_type = ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            convert_to_mlt: config.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            convert_to_mvt: config.convert_to_mvt.clone(),
-            ..ProcessConfig::default()
-        };
-        let kind_process =
-            ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default());
+        let kind_process = ProcessConfig::layered(
+            global_process,
+            &config.process_config(),
+            &ProcessConfig::default(),
+        );
 
         let mut local_entries: Vec<(String, GeoParquetEntry)> = Vec::new();
         for source in &config.sources {
@@ -63,7 +62,7 @@ impl DuckDbReloader {
         reason = "interface symmetry with other reloaders"
     )]
     pub fn init(&mut self) -> impl Future<Output = SourceBuildResult<Vec<TileSourceWarning>>> {
-        std::future::ready(Ok(Vec::new()))
+        ready(Ok(Vec::new()))
     }
 
     pub fn start(self) -> notify::Result<()> {
@@ -124,20 +123,20 @@ impl Discovery for DuckDbLocalDiscovery {
     fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<Self::Args>>> + Send {
         let mut sources = BTreeMap::new();
         for (id, entry) in &self.entries {
-            let version = if let Some(GeoParquetLocation::Local(path)) = &entry.location {
-                let mtime = path
-                    .metadata()
-                    .ok()
-                    .and_then(|m| m.modified().ok())
-                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_nanos());
-                Version::Tracked(mtime)
-            } else {
-                Version::Opaque
+            let Some(GeoParquetLocation::Local(path)) = &entry.location else {
+                unreachable!("DuckDbLocalDiscovery only holds local GeoParquet entries")
             };
-            sources.insert(id.clone(), (version, entry.clone()));
+            let modified = match path.metadata().and_then(|m| m.modified()) {
+                Ok(modified) => modified,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return ready(Err(SourceBuildError::Io(error))),
+            };
+            let mtime = modified
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos());
+            sources.insert(id.clone(), (Version::Tracked(mtime), entry.clone()));
         }
-        std::future::ready(Ok(Discovered::new(sources)))
+        ready(Ok(Discovered::new(sources)))
     }
 
     async fn build(&self, id: &str, entry: &Self::Args) -> SourceBuildResult<BuiltSource> {
@@ -170,13 +169,7 @@ impl Discovery for DuckDbLocalDiscovery {
         let source =
             resolve_geoparquet_source(id.to_owned(), entry, pool, self.default_cache).await?;
 
-        let per_source = ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            convert_to_mlt: entry.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            convert_to_mvt: entry.convert_to_mvt.clone(),
-            ..ProcessConfig::default()
-        };
+        let per_source = entry.process_config();
         let resolved_process = if per_source == ProcessConfig::default() {
             None
         } else {

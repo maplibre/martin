@@ -6,7 +6,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, MartinBuilder};
+use martin_e2e_tests::{Martin, MartinBuilder, WatchedDir, fixture, mlt_dump};
 use rstest::rstest;
 use tempfile::TempDir;
 
@@ -246,6 +246,10 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "two inline snapshots of every column"
+)]
 async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest() {
     let dir = temp_dir();
     let mut martin = martin_with_config(&dir, MIXED_TYPES)
@@ -773,4 +777,313 @@ async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
     assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
 
     martin.stop().await;
+}
+
+const MLT_ACCEPT: &str = "application/vnd.maplibre-tile";
+const NOT_ACCEPTABLE_ERROR: &str = r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#;
+
+#[tokio::test]
+async fn an_mlt_accept_header_converts_the_tile_and_a_plain_request_stays_mvt() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, POLYGONS).await;
+
+    let mvt = martin.get("/polygons/1/0/0").await;
+    assert_eq!(mvt.header("content-type"), Some("application/x-protobuf"));
+
+    let mlt = martin
+        .get_with_headers("/polygons/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert_eq!(mlt.status(), 200);
+    insta::assert_snapshot!(mlt.headers_snapshot(), @r#"
+    content-length: 114
+    content-type: application/vnd.maplibre-tile
+    etag: "onJtfkQNRX7OcBJtdeL9MQ+mlt"
+    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+    let mvt_etag = mvt.header("etag").expect("the mvt response has no etag");
+    assert_eq!(
+        mlt.header("etag"),
+        Some(format!("{}+mlt\"", mvt_etag.trim_end_matches('"')).as_str())
+    );
+    insta::assert_snapshot!(mlt_dump(&mlt.mlt()), @r#"
+    layer polygons extent 4096
+      id=None geom=POLYGON((3186 3631,2958 3631,2958 3380,3186 3380,3186 3631)) props=[id=U32(Some(2)), name=Str(Some("inside_west"))]
+      id=None geom=POLYGON((3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)) props=[id=U32(Some(1)), name=Str(Some("boundary_span"))]
+    "#);
+
+    martin.stop().await;
+}
+
+const GEOPARQUET_DISABLED_PER_SOURCE: &str = "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+      convert_to_mlt: disabled
+";
+
+const GEOPARQUET_DISABLED_FOR_DUCKDB: &str = "\
+duckdb:
+  convert_to_mlt: disabled
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+";
+
+const GEOPARQUET_DISABLED_GLOBALLY: &str = "\
+convert_to_mlt: disabled
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+";
+
+const DATABASE_TABLE_DISABLED_ON_THE_ENTRY: &str = "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      convert_to_mlt: disabled
+      tables:
+        polygons:
+          schema: main
+          table: polygons
+          geometry_column: geom
+          srid: 4326
+";
+
+const DATABASE_TABLE_DISABLED_FOR_DUCKDB: &str = "\
+duckdb:
+  convert_to_mlt: disabled
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      tables:
+        polygons:
+          schema: main
+          table: polygons
+          geometry_column: geom
+          srid: 4326
+";
+
+const DATABASE_TABLE_DISABLED_GLOBALLY: &str = "\
+convert_to_mlt: disabled
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      tables:
+        polygons:
+          schema: main
+          table: polygons
+          geometry_column: geom
+          srid: 4326
+";
+
+#[rstest]
+#[case::geoparquet_per_source(GEOPARQUET_DISABLED_PER_SOURCE)]
+#[case::geoparquet_for_duckdb(GEOPARQUET_DISABLED_FOR_DUCKDB)]
+#[case::geoparquet_globally(GEOPARQUET_DISABLED_GLOBALLY)]
+#[case::database_table_on_the_entry(DATABASE_TABLE_DISABLED_ON_THE_ENTRY)]
+#[case::database_table_for_duckdb(DATABASE_TABLE_DISABLED_FOR_DUCKDB)]
+#[case::database_table_globally(DATABASE_TABLE_DISABLED_GLOBALLY)]
+#[tokio::test]
+async fn a_disabled_conversion_answers_an_mlt_only_request_with_not_acceptable(
+    #[case] config: &str,
+) {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, config).await;
+
+    let mlt = martin
+        .get_with_headers("/polygons/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert_eq!(mlt.status(), 406, "{:?}", mlt.header("content-type"));
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains(NOT_ACCEPTABLE_ERROR);
+}
+
+const PER_SOURCE_REENABLES_WHAT_DUCKDB_DISABLES: &str = "\
+duckdb:
+  convert_to_mlt: disabled
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+      convert_to_mlt: auto
+";
+
+#[tokio::test]
+async fn a_per_source_conversion_overrides_the_duckdb_level_one() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, PER_SOURCE_REENABLES_WHAT_DUCKDB_DISABLES).await;
+
+    let mlt = martin
+        .get_with_headers("/polygons/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert_eq!(mlt.status(), 200);
+    assert_eq!(mlt.header("content-type"), Some(MLT_ACCEPT));
+
+    martin.stop().await;
+}
+
+const TESSELLATED_AND_PLAIN: &str = "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: tessellated
+      geometry_column: geom
+      srid: 4326
+      convert_to_mlt:
+        tessellate: true
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: plain
+      geometry_column: geom
+      srid: 4326
+";
+
+#[tokio::test]
+async fn per_source_encoder_settings_reach_the_mlt_encoder() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(&dir, TESSELLATED_AND_PLAIN).await;
+
+    let tessellated = martin
+        .get_with_headers("/tessellated/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    let plain = martin
+        .get_with_headers("/plain/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert!(
+        tessellated.body().len() > plain.body().len(),
+        "the tessellated tile ({}B) must carry more than the plain one ({}B)",
+        tessellated.body().len(),
+        plain.body().len()
+    );
+    assert_eq!(
+        tessellated.mlt()[0].features().len(),
+        plain.mlt()[0].features().len()
+    );
+
+    martin.stop().await;
+}
+
+fn watched_polygons_config(watched: &WatchedDir, duckdb_level: &str, per_source: &str) -> String {
+    format!(
+        "\
+duckdb:{duckdb_level}
+  sources:
+    - geoparquet: {}
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326{per_source}
+",
+        watched.dir().join("polygons.parquet").display()
+    )
+}
+
+async fn start_watching_polygons(watched: &WatchedDir, dir: &TempDir, config: &str) -> Martin {
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    start_with_config(dir, config).await
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn reload_rebuilds_a_replaced_geoparquet_file() {
+    let watched = WatchedDir::new();
+    let dir = temp_dir();
+    let config = watched_polygons_config(&watched, "", "");
+    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+
+    let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
+    insta::assert_json_snapshot!(fields, @r#"
+    {
+      "id": "INTEGER",
+      "name": "VARCHAR"
+    }
+    "#);
+
+    watched.install(
+        fixture("duckdb/geoparquet_mixed_types.parquet"),
+        "polygons.parquet",
+    );
+    martin
+        .wait_for_log("Updated source source.id=polygons")
+        .await;
+
+    let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
+    assert!(fields.get("population").is_some(), "{fields}");
+    let mlt = martin
+        .get_with_headers("/polygons/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert_eq!(mlt.status(), 200);
+    assert!(
+        mlt.mlt()[0]
+            .property_names()
+            .iter()
+            .any(|name| name == "population"),
+        "the reloaded mlt tile must carry the new columns"
+    );
+
+    martin.stop().await;
+    martin.assert_log_contains("Ignoring 5 columns of");
+}
+
+#[rstest]
+#[case::per_source("", "\n      convert_to_mlt: disabled")]
+#[case::for_duckdb("\n  convert_to_mlt: disabled", "")]
+#[tokio::test]
+async fn reload_keeps_the_disabled_conversion(
+    #[case] duckdb_level: &str,
+    #[case] per_source: &str,
+) {
+    let watched = WatchedDir::new();
+    let dir = temp_dir();
+    let config = watched_polygons_config(&watched, duckdb_level, per_source);
+    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+
+    watched.touch("polygons.parquet");
+    martin
+        .wait_for_log("Updated source source.id=polygons")
+        .await;
+
+    let mlt = martin
+        .get_with_headers("/polygons/1/0/0", &[("accept", MLT_ACCEPT)])
+        .await;
+    assert_eq!(mlt.status(), 406, "{:?}", mlt.header("content-type"));
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains(NOT_ACCEPTABLE_ERROR);
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn reload_removes_a_deleted_geoparquet_file_and_restores_it_when_it_returns() {
+    let watched = WatchedDir::new();
+    let dir = temp_dir();
+    let config = watched_polygons_config(&watched, "", "");
+    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+
+    watched.remove("polygons.parquet");
+    martin.wait_for_source_removed("polygons").await;
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 404);
+
+    watched.install(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    martin.wait_for_source("polygons").await;
+    assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains("Removed source source.id=polygons");
+    martin.assert_log_contains(r#"ERROR error="Source polygons does not exist""#);
 }

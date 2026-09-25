@@ -3,12 +3,13 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::{DuckDbSourceSettings, MvtLayerOptions};
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, SourceLocation, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 /// Characters that make a path segment a `DuckDB` glob rather than a file name.
 ///
@@ -108,9 +109,6 @@ pub struct GeoParquetEntry {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default)]
-    pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Unknown keys preserved for diagnostics.
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -118,6 +116,19 @@ pub struct GeoParquetEntry {
 }
 
 impl GeoParquetEntry {
+    #[cfg_attr(
+        not(feature = "mlt"),
+        expect(clippy::unused_self, reason = "only mlt has DuckDB process settings")
+    )]
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            ..ProcessConfig::default()
+        }
+    }
+
     pub fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.layer_id.as_deref() == Some("") {
             self.layer_id = None;

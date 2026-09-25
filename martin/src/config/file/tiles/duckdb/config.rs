@@ -3,6 +3,9 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
@@ -10,8 +13,6 @@ use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 const DEFAULT_POOL_SIZE: usize = 4;
 
@@ -58,9 +59,6 @@ pub struct DuckDbConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default)]
-    pub convert_to_mvt: Option<MvtProcessConfig>,
 
     /// Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.
     /// Overrides the top-level `cache` bounds.
@@ -85,8 +83,6 @@ impl Default for DuckDbConfig {
             sources: Vec::new(),
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            convert_to_mvt: None,
             cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -98,6 +94,19 @@ impl DuckDbConfig {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
+    }
+
+    #[cfg_attr(
+        not(feature = "mlt"),
+        expect(clippy::unused_self, reason = "only mlt has DuckDB process settings")
+    )]
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            ..ProcessConfig::default()
+        }
     }
 }
 
@@ -142,6 +151,14 @@ impl DuckDbSourceEntry {
         match self {
             Self::Database(v) => v.settings.apply_defaults(defaults),
             Self::GeoParquet(v) => v.settings.apply_defaults(defaults),
+        }
+    }
+
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        match self {
+            Self::Database(v) => v.process_config(),
+            Self::GeoParquet(v) => v.process_config(),
         }
     }
 }
@@ -242,6 +259,7 @@ sources:
                         ),
                         tables: None,
                         macros: None,
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {},
                         ),
@@ -282,12 +300,14 @@ sources:
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {},
                         ),
                     },
                 ),
             ],
+            convert_to_mlt: None,
             cache: CachePolicy {
                 zoom: CacheZoomRange {
                     minzoom: None,
@@ -373,6 +393,7 @@ sources:
                         auto_publish: NoValue,
                         tables: None,
                         macros: None,
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {
                                 "geoparquet": String("/data/buildings.parquet"),
@@ -381,6 +402,7 @@ sources:
                     },
                 ),
             ],
+            convert_to_mlt: None,
             cache: CachePolicy {
                 zoom: CacheZoomRange {
                     minzoom: None,
