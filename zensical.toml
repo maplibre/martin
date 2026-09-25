@@ -143,7 +143,7 @@ nav = [
 # The path provided should be relative to the "docs_dir".
 #
 # Read more: https://zensical.org/docs/customization/#additional-javascript
-#extra_javascript = ["javascripts/extra.js"]
+extra_javascript = ["javascripts/keys.js"]
 
 # ----------------------------------------------------------------------------
 # Section for configuring theme options
