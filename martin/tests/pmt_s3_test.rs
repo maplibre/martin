@@ -15,9 +15,9 @@ use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use serde_json::Value;
-use testcontainers_modules::rustfs::RustFS;
 use testcontainers_modules::testcontainers::ContainerAsync;
-use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
+use testcontainers_modules::testcontainers::Image;
+use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand, WaitFor};
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 use url::Url;
 
@@ -32,8 +32,42 @@ const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles"
 const STAMEN_FIXTURE: &[u8] =
     include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
-async fn start_s3() -> (ContainerAsync<RustFS>, String) {
-    let container = RustFS::default()
+/// rustfs/rustfs writes its startup JSON logs to /logs/rustfs.log, not to stdout.
+/// The entrypoint script prints "Starting: /usr/bin/rustfs <dir>" to stdout just before
+/// exec-ing the binary. We wait for that line, then give the HTTP server 3 s to bind.
+#[derive(Clone, Debug)]
+struct RustFsImage;
+
+impl Image for RustFsImage {
+    fn name(&self) -> &str {
+        "rustfs/rustfs"
+    }
+    fn tag(&self) -> &str {
+        "1.0.0"
+    }
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![
+            WaitFor::message_on_stdout("Starting: /usr/bin/rustfs"),
+            WaitFor::seconds(3),
+        ]
+    }
+    fn env_vars(
+        &self,
+    ) -> impl IntoIterator<Item = (impl Into<std::borrow::Cow<'_, str>>, impl Into<std::borrow::Cow<'_, str>>)>
+    {
+        [
+            ("RUSTFS_ADDRESS", ":9000"),
+            ("RUSTFS_ACCESS_KEY", "rustfsadmin"),
+            ("RUSTFS_SECRET_KEY", "rustfsadmin"),
+        ]
+    }
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
+        ["/data"]
+    }
+}
+
+async fn start_s3() -> (ContainerAsync<RustFsImage>, String) {
+    let container = RustFsImage
         .start()
         .await
         .expect("RustFS container failed to start (is Docker running?)");
