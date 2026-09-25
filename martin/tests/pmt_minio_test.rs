@@ -17,7 +17,6 @@ use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use serde_json::Value;
 use testcontainers_modules::minio::MinIO;
 use testcontainers_modules::testcontainers::ContainerAsync;
-use testcontainers_modules::testcontainers::ImageExt as _;
 use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 use url::Url;
@@ -35,7 +34,6 @@ const STAMEN_FIXTURE: &[u8] =
 
 async fn start_minio() -> (ContainerAsync<MinIO>, String) {
     let minio = MinIO::default()
-        .with_name("quay.io/minio/minio")
         .start()
         .await
         .expect("MinIO container failed to start (is Docker running?)");
