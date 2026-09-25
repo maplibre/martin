@@ -3,6 +3,12 @@ keyboard$.subscribe((key) => {
   if (key.mode !== 'global' || key.meta) {
     return;
   }
+  // Workaround for the theme opening search on `/` without claiming it, which opens Firefox's
+  // Quick Find over the dialog. Remove once the theme claims the key itself.
+  if (key.type === '/') {
+    key.claim();
+    return;
+  }
   const direction = { ArrowLeft: 'prev', ArrowRight: 'next' }[key.type];
   if (!direction) {
     return;
