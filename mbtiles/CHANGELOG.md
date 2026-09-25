@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/maplibre/martin/compare/mbtiles-v0.19.3...mbtiles-v0.20.0) - 2026-09-25
+
+### Added
+
+- *(mbtiles)* [**breaking**] drop the hidden --verbose flag ([#3377](https://github.com/maplibre/martin/pull/3377))
+- *(mbtiles)* [**breaking**] make dedup-id the default normalized schema ([#3367](https://github.com/maplibre/martin/pull/3367))
+- *(mbtiles)* write the dedup-id normalized schema ([#3366](https://github.com/maplibre/martin/pull/3366))
+- [**breaking**] merge `martin-cp` into `martin` as the `cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327))
+- *(tile-grids)* build in the OGC registry's quad grids ([#3365](https://github.com/maplibre/martin/pull/3365))
+- serve sources on tile grids other than Web Mercator ([#3261](https://github.com/maplibre/martin/pull/3261))
+
+### Fixed
+
+- *(mbtiles)* copy forwarded tile hashes in upper case ([#3379](https://github.com/maplibre/martin/pull/3379))
+- *(mbtiles)* recompute hashes when --hash-algorithm differs from the source ([#3383](https://github.com/maplibre/martin/pull/3383))
+- *(mbtiles)* compute tile hashes when copying from a dedup-id file ([#3364](https://github.com/maplibre/martin/pull/3364))
+
+### Other
+
+- publish the changelog as its own page ([#3347](https://github.com/maplibre/martin/pull/3347))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+- *(tile-utils)* cover the Format name and content-type round trips ([#3314](https://github.com/maplibre/martin/pull/3314))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+
 ## [0.19.3](https://github.com/maplibre/martin/compare/mbtiles-v0.19.2...mbtiles-v0.19.3) - 2026-09-06
 
 ### Added
