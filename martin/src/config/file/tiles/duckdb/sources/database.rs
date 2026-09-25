@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::auto_publish::{MacroDiscovery, TableDiscovery};
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbCfgPublish, DuckDbSourceSettings, MvtLayerOptions,
@@ -39,12 +42,28 @@ pub struct DuckDbDatabaseEntry {
     /// Table macros of this database to publish, keyed by source id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub macros: Option<BTreeMap<String, DuckDbMacroEntry>>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl DuckDbDatabaseEntry {
+    #[cfg_attr(
+        not(feature = "mlt"),
+        expect(clippy::unused_self, reason = "only mlt has DuckDB process settings")
+    )]
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            ..ProcessConfig::default()
+        }
+    }
+
     pub fn finalize(&mut self) -> ConfigFileResult<()> {
         let canonical = self
             .database

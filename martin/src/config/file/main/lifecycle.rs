@@ -55,13 +55,6 @@ use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "passthrough",
-    feature = "unstable-cog",
-    feature = "geojson"
-))]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ResolvedProcess;
@@ -77,6 +70,13 @@ use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigF
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
+
+#[cfg(feature = "_tiles")]
+type ResolvedTileSources = (
+    Vec<Vec<BoxedSource>>,
+    Vec<TileSourceWarning>,
+    HashMap<String, ProcessConfig>,
+);
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
@@ -229,7 +229,14 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         #[cfg(feature = "_tiles")]
-        let (tile_sources, warnings) = self
+        #[cfg_attr(
+            not(feature = "unstable-duckdb"),
+            expect(
+                unused_variables,
+                reason = "only duckdb reports per-source process layers"
+            )
+        )]
+        let (tile_sources, warnings, duckdb_process) = self
             .resolve_tile_sources(
                 idr,
                 #[cfg(feature = "pmtiles")]
@@ -244,7 +251,15 @@ impl Config {
 
         #[cfg(feature = "_tiles")]
         let tile_sources_with_process = {
-            let process_map = self.resolved_process_map()?;
+            #[cfg_attr(
+                not(feature = "unstable-duckdb"),
+                expect(unused_mut, reason = "duckdb inserts per-source process entries")
+            )]
+            let mut process_map = self.resolved_process_map()?;
+
+            #[cfg(feature = "unstable-duckdb")]
+            self.populate_duckdb_process_map(duckdb_process, &mut process_map)?;
+
             tile_sources
                 .into_iter()
                 .map(|group| {
@@ -416,9 +431,14 @@ impl Config {
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+    ) -> StartupResult<ResolvedTileSources> {
         #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
         let tile_grids = TileGrids::resolve(&self.tile_grids)?;
+        #[cfg_attr(
+            not(feature = "unstable-duckdb"),
+            expect(unused_mut, reason = "duckdb reports per-source process layers here")
+        )]
+        let mut duckdb_process = HashMap::new();
         #[cfg_attr(
             not(any(
                 feature = "pmtiles",
@@ -483,7 +503,12 @@ impl Config {
         #[cfg(feature = "unstable-duckdb")]
         if !self.duckdb.is_empty() {
             let val = self.duckdb.resolve(idr.clone(), self.cache.policy());
-            sources_and_warnings.push(Box::pin(val));
+            let process = &mut duckdb_process;
+            sources_and_warnings.push(Box::pin(async move {
+                let (sources, warnings, per_source) = val.await?;
+                *process = per_source;
+                Ok((sources, warnings))
+            }));
         }
 
         #[cfg(feature = "geojson")]
@@ -500,6 +525,7 @@ impl Config {
         Ok((
             all_tile_sources,
             all_tile_warnings.into_iter().flatten().collect(),
+            duckdb_process,
         ))
     }
 
@@ -509,6 +535,7 @@ impl Config {
         feature = "mbtiles",
         feature = "passthrough",
         feature = "unstable-cog",
+        feature = "unstable-duckdb",
         feature = "geojson"
     ))]
     fn global_process_config(&self) -> ProcessConfig {
@@ -686,6 +713,23 @@ impl Config {
                     FileConfigSrc::Path(_) => ProcessConfig::default(),
                 })?;
             }
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    fn populate_duckdb_process_map(
+        &self,
+        per_source: HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
+    ) -> StartupResult<()> {
+        let global = self.global_process_config();
+        let source_type = self.duckdb.process_config();
+        for (id, per_source) in per_source {
+            let resolved = ProcessConfig::layered(&global, &source_type, &per_source)
+                .resolve()
+                .map_err(|e| e.for_source(id.clone()))?;
+            map.insert(id, resolved);
         }
         Ok(())
     }

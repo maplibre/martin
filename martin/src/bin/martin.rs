@@ -17,6 +17,7 @@ use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
+    feature = "unstable-duckdb",
     feature = "geojson",
     feature = "pmtiles",
     feature = "postgres"
@@ -72,6 +73,7 @@ async fn start(
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
+        feature = "unstable-duckdb",
         feature = "geojson",
         feature = "pmtiles",
         feature = "postgres"
@@ -91,6 +93,7 @@ async fn start(
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
+        feature = "unstable-duckdb",
         feature = "geojson",
         feature = "pmtiles",
         feature = "postgres"

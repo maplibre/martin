@@ -167,7 +167,7 @@ hotpath = [
 hotpath-alloc = ["hotpath/hotpath-alloc"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
-test-duckdb = ["unstable-duckdb"]
+test-duckdb = ["unstable-duckdb", "mlt"]
 test-s3 = ["pmtiles"]
 
 [dependencies]
