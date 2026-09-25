@@ -1,4 +1,4 @@
-#![cfg(feature = "test-minio")]
+#![cfg(feature = "test-s3")]
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -15,7 +15,7 @@ use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use serde_json::Value;
-use testcontainers_modules::minio::MinIO;
+use testcontainers_modules::rustfs::RustFS;
 use testcontainers_modules::testcontainers::ContainerAsync;
 use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
@@ -32,31 +32,31 @@ const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles"
 const STAMEN_FIXTURE: &[u8] =
     include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
-async fn start_minio() -> (ContainerAsync<MinIO>, String) {
-    let minio = MinIO::default()
+async fn start_s3() -> (ContainerAsync<RustFS>, String) {
+    let container = RustFS::default()
         .start()
         .await
-        .expect("MinIO container failed to start (is Docker running?)");
-    // MinIO maps subdirectories of `/data` to buckets, so creating the directory is
-    // sufficient to provision the bucket without an `mc` client or signed PUT.
-    minio
+        .expect("RustFS container failed to start (is Docker running?)");
+    // RustFS maps subdirectories of `/data` to buckets, so creating the directory is
+    // sufficient to provision the bucket without a signed PUT.
+    container
         .exec(
             ExecCommand::new(["mkdir", &format!("/data/{BUCKET}")])
                 .with_cmd_ready_condition(CmdWaitFor::exit()),
         )
         .await
         .unwrap();
-    let host = minio.get_host().await.unwrap();
-    let port = minio.get_host_port_ipv4(9000).await.unwrap();
+    let host = container.get_host().await.unwrap();
+    let port = container.get_host_port_ipv4(9000).await.unwrap();
     let endpoint = format!("http://{host}:{port}");
-    (minio, endpoint)
+    (container, endpoint)
 }
 
 fn s3_options(endpoint: &str) -> HashMap<String, String> {
     let mut o = HashMap::new();
     o.insert("aws_endpoint".into(), endpoint.to_owned());
-    o.insert("aws_access_key_id".into(), "minioadmin".into());
-    o.insert("aws_secret_access_key".into(), "minioadmin".into());
+    o.insert("aws_access_key_id".into(), "rustfsadmin".into());
+    o.insert("aws_secret_access_key".into(), "rustfsadmin".into());
     o.insert("aws_region".into(), "us-east-1".into());
     o.insert("allow_http".into(), "true".into());
     o.insert("virtual_hosted_style_request".into(), "false".into());
@@ -71,7 +71,7 @@ async fn upload(
     store
         .put(&ObjPath::from(key), PutPayload::from_static(bytes))
         .await
-        .expect("upload should succeed against MinIO")
+        .expect("upload should succeed against RustFS")
 }
 
 async fn catalog_tiles(
@@ -121,8 +121,8 @@ async fn wait_for_catalog<F>(
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn pmt_minio_polls_catalog_via_public_api() {
-    let (_minio, endpoint) = start_minio().await;
+async fn pmt_s3_polls_catalog_via_public_api() {
+    let (_container, endpoint) = start_s3().await;
     let options = s3_options(&endpoint);
 
     // Seed the bucket so the first polling tick (fired immediately on startup) has a
@@ -138,8 +138,8 @@ async fn pmt_minio_polls_catalog_via_public_api() {
         pmtiles:
           reload_interval: 1s
           aws_endpoint: {endpoint}
-          aws_access_key_id: minioadmin
-          aws_secret_access_key: minioadmin
+          aws_access_key_id: rustfsadmin
+          aws_secret_access_key: rustfsadmin
           aws_region: us-east-1
           skip_signature: false
           allow_http: true
@@ -205,7 +205,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
 
     // A successful tile fetch through the public API verifies end-to-end wiring across
     // the polling reloader, `TileSourceManager`, the actix router, and `PmtilesSource`
-    // backed by MinIO via `object_store`.
+    // backed by RustFS via `object_store`.
     let tile_resp = call_service(&app, TestRequest::get().uri("/alpha/0/0/0").to_request()).await;
     let status = tile_resp.status().as_u16();
     let body = read_body(tile_resp).await;
@@ -242,8 +242,8 @@ async fn pmt_minio_polls_catalog_via_public_api() {
 /// for that source.
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
-    let (_minio, endpoint) = start_minio().await;
+async fn pmt_s3_in_place_blob_overwrite_updates_existing_source() {
+    let (_container, endpoint) = start_s3().await;
     let options = s3_options(&endpoint);
 
     let s3_url: Url = format!("s3://{BUCKET}/").parse().unwrap();
@@ -254,8 +254,8 @@ async fn pmt_minio_in_place_blob_overwrite_updates_existing_source() {
         pmtiles:
           reload_interval: 1s
           aws_endpoint: {endpoint}
-          aws_access_key_id: minioadmin
-          aws_secret_access_key: minioadmin
+          aws_access_key_id: rustfsadmin
+          aws_secret_access_key: rustfsadmin
           aws_region: us-east-1
           skip_signature: false
           allow_http: true
