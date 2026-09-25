@@ -1,23 +1,15 @@
-document.addEventListener('keydown', (event) => {
-  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+// keyboard$ is the theme's key stream, the same one behind its `p` and `n` paging.
+keyboard$.subscribe((key) => {
+  if (key.mode !== 'global' || key.meta) {
     return;
   }
-  if (
-    event.target instanceof Element &&
-    event.target.closest('input, textarea, select, [contenteditable]')
-  ) {
-    return;
-  }
-  if (document.querySelector('[data-md-toggle=search]:checked')) {
-    return;
-  }
-  const direction = { ArrowLeft: 'prev', ArrowRight: 'next' }[event.key];
+  const direction = { ArrowLeft: 'prev', ArrowRight: 'next' }[key.type];
   if (!direction) {
     return;
   }
   const link = document.querySelector(`.md-footer__link--${direction}`);
   if (link) {
-    event.preventDefault();
+    key.claim();
     link.click();
   }
 });
