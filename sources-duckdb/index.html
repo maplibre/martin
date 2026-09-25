@@ -2165,8 +2165,7 @@ Its behavior may change in patch releases.</p>
 <ul>
 <li>DuckDB sources are not included in default binaries, Homebrew, or the Docker image</li>
 <li>Local GeoParquet must be a single file; directories and globs are rejected</li>
-<li>Hot reload is not implemented</li>
-<li>MLT postprocessing is not supported</li>
+<li>Hot reload only watches local GeoParquet files. Changes to <code>database</code> files and remote GeoParquet need a restart.</li>
 <li>The published configuration schema does not yet include DuckDB sources</li>
 </ul>
 <p>We welcome contributions to help stabilize this feature!</p>
