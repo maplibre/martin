@@ -53,8 +53,12 @@ impl Image for RustFsImage {
     }
     fn env_vars(
         &self,
-    ) -> impl IntoIterator<Item = (impl Into<std::borrow::Cow<'_, str>>, impl Into<std::borrow::Cow<'_, str>>)>
-    {
+    ) -> impl IntoIterator<
+        Item = (
+            impl Into<std::borrow::Cow<'_, str>>,
+            impl Into<std::borrow::Cow<'_, str>>,
+        ),
+    > {
         [
             ("RUSTFS_ADDRESS", ":9000"),
             ("RUSTFS_ACCESS_KEY", "rustfsadmin"),
