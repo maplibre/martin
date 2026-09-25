@@ -12,7 +12,7 @@ use futures::stream::{self, StreamExt as _};
 pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::{BoxedSource, DeclaredGridSource};
+use martin_core::tiles::BackendSource;
 #[cfg(feature = "_tiles")]
 use martin_tile_utils::TileGrid;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
@@ -76,7 +76,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     #[must_use]
     fn cache(&self) -> CachePolicy;
 
-    /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
+    /// Asynchronously creates a new `BackendSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
     /// `cache` contains per-source zoom bounds, already merged with defaults.
@@ -85,9 +85,9 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send;
 
-    /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
+    /// Asynchronously creates a new `BackendSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
     /// `cache` contains per-source zoom bounds, already merged with defaults.
@@ -96,7 +96,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
@@ -618,10 +618,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     for (p, result) in opened {
         match result {
             Ok(src) => {
-                let src = match &p.grid {
-                    Some(grid) => DeclaredGridSource::new(src, grid.clone()).boxed(),
-                    None => src,
-                };
+                let src = src.boxed_on(p.grid.as_ref());
                 p.log_configured();
                 if !p.from_sources
                     && let Target::File { path, .. } = &p.target
@@ -670,7 +667,10 @@ struct Planned {
 
 #[cfg(feature = "_tiles")]
 impl Planned {
-    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> SourceBuildResult<BoxedSource> {
+    async fn open<T: TileSourceConfiguration>(
+        &self,
+        custom: &T,
+    ) -> SourceBuildResult<BackendSource> {
         match &self.target {
             Target::Url { url, .. } => {
                 custom

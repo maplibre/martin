@@ -224,7 +224,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
         alt DuckDB Sources
             Discovery->>Discovery: Read duckdb.sources from config
             Discovery->>Discovery: Introspect GeoParquet metadata
-            Discovery->>Sources: Register GeoParquet sources
+            Discovery->>Discovery: Discover database tables & macros
+            Discovery->>Sources: Register DuckDB sources
         end
 
         Sources-->>Server: Source catalog
@@ -493,13 +494,12 @@ Read it when you're curious **why** certain choices were made.
 
 === "DuckDB / GeoParquet Integration"
 
-    Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles.
-    Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.
+    Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles. Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.
 
     ```mermaid
     graph TB
         subgraph Load["Load time (once per source)"]
-            File[".parquet file or HTTP URL"]
+            File["GeoParquet file or remote URL"]
             Pool["DuckDBPool<br/>in-memory + spatial"]
             Describe["DESCRIBE read_parquet"]
             CRS["ST_CRS / configured SRID"]
@@ -517,7 +517,7 @@ Read it when you're curious **why** certain choices were made.
         XYZ --> SQL --> MVT
     ```
 
-    **Load time** (`DuckDBSource` in `martin-core/src/tiles/duckdb/`, resolver in `martin/src/config/file/tiles/duckdb/`):
+    **GeoParquet load time** (`DuckDBSource` in `martin-core/src/tiles/duckdb/`, resolver in `martin/src/config/file/tiles/duckdb/`):
 
     1. Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the `spatial` extension; remote `http(s)` URLs also load `httpfs`.
     2. Columns are discovered with `DESCRIBE SELECT * FROM read_parquet(...)`. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.
@@ -525,21 +525,25 @@ Read it when you're curious **why** certain choices were made.
     4. TileJSON bounds are computed according to `auto_bounds` (`quick`, `calc`, or `skip`).
     5. An MVT SQL query is built once and executed per tile with `z`, `x`, `y` parameters.
 
-    **Per request** (`DuckDBSource::get_tile`):
+    **GeoParquet requests** (`DuckDBSource::get_tile`):
 
     1. A connection is taken from the pool and the tile query runs on a blocking thread.
     2. Geometry is stamped with the source CRS, transformed to Web Mercator (`EPSG:3857`), filtered to the tile envelope (expanded by `buffer`), clipped with `ST_AsMVTGeom`, and encoded with `ST_AsMVT`.
     3. Non-geometry columns become MVT feature properties. `id_column`, if set, becomes the MVT feature id.
     4. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
 
-    **Configuration** (`DuckDbConfig`, config-file only; requires `--features=unstable-duckdb`):
+    **Database files** are opened read-only. Each `database` entry creates one connection pool shared by its table and macro sources. Geometry tables use the same MVT generation path as GeoParquet; `(z, x, y)` table macros return ready-made tiles.
 
-    - `pool_size` (default `4`) - DuckDB connection pool size per source.
+    **Configuration** (`DuckDbConfig`; requires `--features=unstable-duckdb`):
+
+    `martin data.parquet` and `martin tiles.duckdb` use the default settings. The database command publishes geometry tables and `(z, x, y)` tile macros. Use a [configuration file](config-file/index.md) for remote GeoParquet or custom settings:
+
+    - `pool_size` (default `4`) - connection pool size per GeoParquet source or database entry.
     - `auto_bounds` (default `quick`) - how TileJSON bounds are computed.
     - Per-source `geoparquet` path or URL, plus optional `layer_id`, `geometry_column`, `srid`, `extent`, `buffer`, and `clip_geom`.
+    - `database` file path, with optional `auto_publish`, `tables`, and `macros` to control which sources are published. See [DuckDB database sources](sources-duckdb.md#database-sources).
 
     DuckDB sources do not currently hot-reload.
-    Database file entries (`database:`) parse in the config but are skipped at resolve time.
 
 == Runtime Source Reloading
 

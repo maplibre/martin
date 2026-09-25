@@ -65,6 +65,23 @@ You should also consider
     When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin cp` copies zoom by zoom and never fetches the tiles below an empty tile.
     This means that even sparse sources can usually be fairly performant.
 
+## MLT from PostgreSQL tables
+
+With `--format mlt`, `martin cp` encodes a PostgreSQL table source's tiles straight from its rows instead of converting the MVT tile PostGIS builds.
+The tiles describe the same features as that conversion would:
+
+- A column type a tile property cannot hold, such as an array, a `numeric` or a timestamp, is written as its text, as `ST_AsMVT` writes it.
+- A `jsonb` column is spread over one property per top-level key that holds a string, a boolean or a number, as `ST_AsMVT` spreads it. Nested objects, arrays and `null`s are left out.
+
+Function sources, and tiles the row query cannot encode, go through the MVT conversion instead, and `martin cp` logs a warning when that happens.
+
+A `martin` built with the `unstable-mlt-v2` feature also accepts `--format mlt2`, which keeps what the v1 wire format has no place for:
+
+- A `jsonb` document is kept whole, nested values included, in a nested column named after the `jsonb` column.
+- The M ordinates of measured geometries are kept in a vertex column named `m`.
+  PostGIS drops the M ordinates of every geometry it clips at the tile border, so with the default `clip_geom: true` only the features that lie wholly inside the tile and its buffer keep them.
+  Set `clip_geom: false` on the table to keep them everywhere.
+
 ## Arguments
 
 Use `martin cp --help` to see a list of available options:

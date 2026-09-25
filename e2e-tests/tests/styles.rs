@@ -78,6 +78,16 @@ async fn a_style_is_served_as_json() {
     "#);
     assert_eq!(response.json(), fixture_json("styles/maplibre_demo.json"));
 
+    let head = martin.head("/style/maplibre_demo").await;
+    assert_eq!(head.status(), 200);
+    insta::assert_snapshot!(head.headers_snapshot(), @"
+    content-encoding: br
+    content-type: application/json
+    transfer-encoding: chunked
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    ");
+    assert!(head.body().is_empty());
+
     martin.stop().await;
 }
 

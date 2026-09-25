@@ -708,11 +708,11 @@ jobs:
         if: inputs.run-release-builds
         run: sudo dpkg -P martin
 
-  unit-test-svc-minio:
-    # Exercises the PmtilesReloader's S3-prefix polling against a MinIO testcontainer
+  unit-test-svc-s3:
+    # Exercises the PmtilesReloader's S3-prefix polling against a RustFS testcontainer
     # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
     # which is all the testcontainers crate needs.
-    name: Unit test against MinIO (S3-compatible)
+    name: Unit test against RustFS (S3-compatible)
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -724,9 +724,9 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest', coverage: true }
       - name: Unit Tests
-        run: just test-minio
+        run: just test-s3
       - uses: $/.github/actions/upload-coverage
-        with: { suite: minio }
+        with: { suite: s3 }
 
 
   test-publish:
@@ -760,7 +760,7 @@ jobs:
       - test-duckdb
       - test-rendering
       - test-svc-pg
-      - unit-test-svc-minio
+      - unit-test-svc-s3
     permissions:
       contents: read
       code-quality: write

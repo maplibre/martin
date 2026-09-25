@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
-use martin_core::tiles::{BoxedSource, DeclaredGridSource};
+use martin_core::tiles::BackendSource;
 use martin_tile_utils::TileGrid;
 use tokio::fs::{self, DirEntry};
 
@@ -22,7 +22,7 @@ use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::FileKind;
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
-type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
+type BuildFuture = BoxFuture<'static, SourceBuildResult<BackendSource>>;
 
 /// Opens one discovered file as a source.
 ///
@@ -305,10 +305,7 @@ impl Discovery for FsDiscovery {
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
         let configured = self.configured.get(&args.0);
-        let source = match configured.and_then(|cfg| cfg.grid.as_ref()) {
-            Some(grid) => DeclaredGridSource::new(source, grid.clone()).boxed(),
-            None => source,
-        };
+        let source = source.boxed_on(configured.and_then(|cfg| cfg.grid.as_ref()));
         BuiltSource::with_file_config(
             source,
             id,
@@ -468,7 +465,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(TestSource::empty(id).boxed())
+                Ok(TestSource::empty(id).into())
             })
         })
     }

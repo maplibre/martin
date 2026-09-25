@@ -45,7 +45,7 @@ pub(crate) async fn discover_tables(
         })
         .await?
         .map_err(|source| {
-            DuckDbSourceError::introspection_query(source, label, "discover", query.to_owned())
+            DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned())
         })?;
 
     let mut relations: BTreeMap<(String, String), BTreeMap<String, String>> = BTreeMap::new();
@@ -129,7 +129,7 @@ pub(crate) async fn discover_macros(
         })
         .await?
         .map_err(|source| {
-            DuckDbSourceError::introspection_query(source, label, "discover", query.to_owned())
+            DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned())
         })?;
 
     Ok(macros

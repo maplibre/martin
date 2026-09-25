@@ -140,7 +140,7 @@ impl TestSource {
     /// This source as a shared handle, ready for a registry.
     #[must_use]
     pub fn boxed(self) -> BoxedSource {
-        Arc::new(crate::tiles::AnySource::Test(self))
+        crate::tiles::BackendSource::Test(self).boxed()
     }
 }
 
@@ -198,9 +198,9 @@ impl Source for TestSource {
         Ok(self.data.clone())
     }
 
-    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<BoxedSource>> + Send {
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<Self>> + Send {
         let mut reloaded = self.clone();
         reloaded.reloads += 1;
-        std::future::ready(Ok(reloaded.boxed()))
+        std::future::ready(Ok(reloaded))
     }
 }

@@ -1,6 +1,5 @@
 //! The [`PassthroughSource`] [`Source`] implementation and its HTTP fetch logic.
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use compact_str::CompactString;
@@ -16,7 +15,7 @@ use crate::tiles::passthrough::PassthroughError;
 use crate::tiles::passthrough::url::{
     UrlTemplate, derive_format, is_template, select_url, substitute,
 };
-use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
 #[derive(Clone, Debug)]
@@ -316,7 +315,7 @@ impl Source for PassthroughSource {
         Ok(tile)
     }
 
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
+    async fn try_reload(&self) -> MartinCoreResult<Self> {
         Self::new(
             self.id.clone(),
             self.upstream.clone(),
@@ -324,7 +323,6 @@ impl Source for PassthroughSource {
             self.cache_zoom,
         )
         .await
-        .map(|s| Arc::new(crate::tiles::AnySource::Passthrough(s)))
         .map_err(MartinCoreError::from)
     }
 }

@@ -74,7 +74,7 @@ pub enum DuckDbSourceError {
 
 impl DuckDbSourceError {
     pub(crate) fn introspection_query(
-        source: DuckdbError,
+        source: &DuckdbError,
         source_label: String,
         signature: &'static str,
         query: String,

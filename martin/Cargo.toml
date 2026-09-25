@@ -150,6 +150,7 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 mlt = ["dep:mlt-core", "_process"]
+unstable-mlt-v2 = ["mlt", "_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _process = []
 _catalog = []
@@ -167,7 +168,7 @@ hotpath-alloc = ["hotpath/hotpath-alloc"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 test-duckdb = ["unstable-duckdb"]
-test-minio = ["pmtiles"]
+test-s3 = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -253,6 +254,7 @@ walkdir = { workspace = true, optional = true }
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
+flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 martin-core = { workspace = true, features = ["_testing"] }
