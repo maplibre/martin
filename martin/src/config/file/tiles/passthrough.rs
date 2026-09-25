@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::Arc;
 use std::time::Duration;
 
 use martin_core::tiles::passthrough::{PassthroughSource, TemplateMeta, Transport, Upstream};
-use martin_core::tiles::{AnySource, BoxedSource};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::Format;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -358,7 +357,7 @@ impl PassthroughSourceConfig {
         )?;
         let cache = self.cache.or(default_cache);
         let source = PassthroughSource::new(id, upstream, transport, cache.zoom()).await?;
-        Ok(Arc::new(AnySource::Passthrough(source)))
+        Ok(BackendSource::Passthrough(source).boxed())
     }
 }
 

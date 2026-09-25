@@ -311,7 +311,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath_tui,unstable-schemas,test-duckdb,test-minio,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -629,8 +629,8 @@ test-pg: fetch start (cargo-install 'cargo-nextest')
     {{just}} test-e2e-pg
 
 # Run MinIO/S3-requiring tests only (Docker required)
-test-minio: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features test-minio --no-default-features --test pmt_minio_test
+test-s3: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run --features test-s3 --no-default-features --test pmt_s3_test
 
 # Run COG/GeoTIFF tests only, including the end-to-end ones
 test-cog: fetch (cargo-install 'cargo-nextest')

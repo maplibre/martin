@@ -1,9 +1,8 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
-use martin_core::tiles::{AnySource, BoxedSource};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
 use tracing::trace;
@@ -211,7 +210,7 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
@@ -224,7 +223,7 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         if url.scheme() == "file"
             && let Ok(path) = url.to_file_path()
         {
@@ -235,7 +234,7 @@ impl TileSourceConfiguration for PmtConfig {
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
-        Ok(Arc::new(AnySource::Pmtiles(source)))
+        Ok(BackendSource::Pmtiles(source))
     }
 }
 
@@ -246,11 +245,11 @@ impl PmtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         trace!("Pmtiles source {id} will be read from {}", path.display());
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new_local(dir_cache, id, path, cache.zoom()).await?;
-        Ok(Arc::new(AnySource::Pmtiles(source)))
+        Ok(BackendSource::Pmtiles(source))
     }
 }
 

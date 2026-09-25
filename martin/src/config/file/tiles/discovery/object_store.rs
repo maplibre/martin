@@ -55,9 +55,15 @@ impl ObjectStoreSourceBuilder {
     ) -> SourceBuildResult<BuiltSource> {
         match self {
             #[cfg(feature = "pmtiles")]
-            Self::Pmtiles(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
+            Self::Pmtiles(config) => config
+                .new_sources_url(id, url, cache)
+                .await
+                .map(|s| s.boxed().into()),
             #[cfg(feature = "unstable-cog")]
-            Self::Cog(config) => config.new_sources_url(id, url, cache).await.map(Into::into),
+            Self::Cog(config) => config
+                .new_sources_url(id, url, cache)
+                .await
+                .map(|s| s.boxed().into()),
         }
     }
 }
