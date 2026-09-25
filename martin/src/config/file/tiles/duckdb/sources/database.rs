@@ -11,6 +11,8 @@ use crate::config::file::tiles::duckdb::sources::{
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 use crate::config::primitives::OptBoolObj;
 
 #[serde_with::skip_serializing_none]
@@ -39,6 +41,12 @@ pub struct DuckDbDatabaseEntry {
     /// Table macros of this database to publish, keyed by source id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub macros: Option<BTreeMap<String, DuckDbMacroEntry>>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,

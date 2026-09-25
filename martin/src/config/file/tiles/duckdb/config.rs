@@ -10,6 +10,8 @@ use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
     UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 const DEFAULT_POOL_SIZE: usize = 4;
 
@@ -53,6 +55,13 @@ pub struct DuckDbConfig {
     /// Ordered source definitions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<DuckDbSourceEntry>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
     /// Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.
     /// Overrides the top-level `cache` bounds.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
@@ -74,6 +83,10 @@ impl Default for DuckDbConfig {
             memory_limit_mb: None,
             auto_bounds: BoundsCalcType::default(),
             sources: Vec::new(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
             cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }

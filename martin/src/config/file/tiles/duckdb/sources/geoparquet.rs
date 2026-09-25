@@ -7,6 +7,8 @@ use crate::config::file::tiles::duckdb::sources::{DuckDbSourceSettings, MvtLayer
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, SourceLocation, UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 /// Characters that make a path segment a `DuckDB` glob rather than a file name.
 ///
@@ -103,6 +105,12 @@ pub struct GeoParquetEntry {
     pub layer: MvtLayerOptions,
     #[serde(flatten)]
     pub settings: DuckDbSourceSettings,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Unknown keys preserved for diagnostics.
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
