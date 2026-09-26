@@ -38,6 +38,9 @@ pub struct PostgresArgs {
     /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
+    /// Try sorting features by their feature ID in ascending order.
+    #[arg(long)]
+    pub try_id_sort: Option<bool>,
     /// A file with a client SSL certificate.
     #[arg(long)]
     pub ssl_cert: Option<std::path::PathBuf>,
@@ -65,6 +68,7 @@ impl PostgresArgs {
                 tile_grid: None,
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
+                try_id_sort: self.try_id_sort,
                 pool_size: self.pool_size,
                 cache: CachePolicy::default(),
                 retry_timeout: self.pg_retry_timeout,
@@ -92,6 +96,7 @@ impl PostgresArgs {
             pg_retry_timeout,
             auto_bounds,
             max_feature_count,
+            try_id_sort,
             ca_root_file,
             ssl_cert,
             ssl_key,
