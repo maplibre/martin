@@ -1,0 +1,27 @@
+{
+  "font-faces": {
+    "Base Font": "https://fonts.example/base.ttf"
+  },
+  "glyphs": "/font/{fontstack}/{range}",
+  "layers": [
+    {
+      "id": "base-layer",
+      "source": "canonical",
+      "source-layer": "roads",
+      "type": "line"
+    }
+  ],
+  "metadata": { "from": "base" },
+  "name": "Composite base",
+  "sources": {
+    "canonical": {
+      "type": "vector",
+      "url": "/shared_source"
+    }
+  },
+  "sprite": "/sprite/src1",
+  "state": {
+    "base-visible": { "default": true }
+  },
+  "version": 8
+}
