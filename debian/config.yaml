@@ -19,6 +19,7 @@ cache:
 #   default_srid: 4326
 #   pool_size: 20
 #   max_feature_count: 1000
+#   try_id_sort: true
 #   auto_bounds: skip
 
 # pmtiles:
