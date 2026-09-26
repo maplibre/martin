@@ -174,6 +174,7 @@ pub async fn table_to_query(
     pool: PostgresPool,
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
+    try_id_sort: Option<bool>,
     grid: &PgTileGrid,
 ) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
     let srid = info.srid;
@@ -225,7 +226,7 @@ pub async fn table_to_query(
         }
     }
 
-    let sql = table_query_sql(&id, &info, &pool, max_feature_count, grid).await?;
+    let sql = table_query_sql(&id, &info, &pool, max_feature_count, try_id_sort, grid).await?;
     let row_query = PostgresRowQuery {
         sql_query: sql.row_query(false),
         measured_sql_query: sql.row_query(true),
@@ -255,6 +256,7 @@ async fn table_query_sql(
     info: &TableInfo,
     pool: &PostgresPool,
     max_feature_count: Option<usize>,
+    try_id_sort: Option<bool>,
     grid: &PgTileGrid,
 ) -> PostgresResult<TableQuerySql> {
     let table_wrap = if grid.is_web_mercator() || info.srid == grid.srid() {
@@ -262,7 +264,7 @@ async fn table_query_sql(
     } else {
         wrap_width(pool, info.srid).await
     };
-    TableQuerySql::new(id, info, max_feature_count, grid, table_wrap)
+    TableQuerySql::new(id, info, max_feature_count, try_id_sort, grid, table_wrap)
 }
 
 /// The SQL fragments every shape of a table tile query is assembled from.
@@ -280,6 +282,7 @@ struct TableQuerySql {
     table: String,
     filter: String,
     limit_clause: String,
+    order_clause: String,
     extent: u32,
     buffer: u32,
     clip_geom: bool,
@@ -290,6 +293,7 @@ impl TableQuerySql {
         id: &str,
         info: &TableInfo,
         max_feature_count: Option<usize>,
+        try_id_sort: Option<bool>,
         grid: &PgTileGrid,
         table_wrap: Option<f64>,
     ) -> PostgresResult<Self> {
@@ -310,13 +314,14 @@ impl TableQuerySql {
             })
             .collect();
 
-        let (id_name, id_field) = if let Some(id_column) = &info.id_column {
+        let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
+                escape_literal(id_column),
                 format!(", {}", escape_literal(id_column)),
                 escape_with_alias(&info.discovered.prop_mapping, id_column),
             )
         } else {
-            (String::new(), String::new())
+            (String::new(), String::new(), String::new())
         };
 
         let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
@@ -349,6 +354,7 @@ impl TableQuerySql {
             table: escape_identifier(&info.table),
             filter: row_filter(info, "AND")?,
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
+            order_clause: try_id_sort.map_or(String::new(), |v| if v && !escaped_id_column.is_empty() { format!("ORDER BY {} ASC NULLS LAST", escaped_id_column) } else { String::new() }),
             extent,
             buffer,
             clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
@@ -418,6 +424,7 @@ WHERE "__martin_geom" IS NOT NULL;
             table,
             filter,
             limit_clause,
+            order_clause,
             ..
         } = self;
         let columns = indented_columns(id_field, properties);
@@ -428,7 +435,8 @@ WHERE "__martin_geom" IS NOT NULL;
     {schema}.{table}
   WHERE
     {geometry_column} && {bbox_search}{filter}
-  {limit_clause}"
+  {limit_clause}
+  {order_clause}"
         )
     }
 
