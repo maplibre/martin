@@ -45,6 +45,8 @@ pub struct PostgresAutoDiscoveryBuilder {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
+    /// Try sorting features by their feature ID in ascending order.
+    try_id_sort: Option<bool>,
     /// The grids this connection's sources may be served in, by name, each paired with its `PostGIS` SRID
     tile_grids: HashMap<String, PgTileGrid>,
     /// The grid for sources that do not name one
@@ -246,6 +248,7 @@ impl PostgresAutoDiscoveryBuilder {
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
+            try_id_sort: config.try_id_sort,
             tile_grids,
             default_tile_grid,
             id_resolver,
@@ -517,6 +520,7 @@ impl PostgresAutoDiscoveryBuilder {
                     self.pool.clone(),
                     self.auto_bounds,
                     self.max_feature_count,
+                    self.try_id_sort,
                     grid,
                 )
                 .await?;
