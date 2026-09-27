@@ -255,7 +255,7 @@ async fn a_tile_is_served_gzipped_with_an_etag() {
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 143
+    content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
@@ -358,7 +358,7 @@ async fn reload_adds_updates_and_removes_a_source() {
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 143
+    content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

@@ -114,7 +114,7 @@ derive-debug = "0.1.2"
 duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
-flate2 = "1"
+flate2 = { version = "1", features = ["zlib-rs"] }
 flume = "0.12"
 fnv = "1"
 futures = "0.3"
