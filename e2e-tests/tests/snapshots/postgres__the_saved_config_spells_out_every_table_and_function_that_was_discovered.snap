@@ -136,6 +136,21 @@ postgres:
         dims: text
         feat_id: int4
         kind: text
+    domain_props:
+      schema: public
+      table: domain_props
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        feat_id: int4
+        floors: small_count
+        visitors: positive_count
     empty_bounds:
       schema: public
       table: empty_bounds

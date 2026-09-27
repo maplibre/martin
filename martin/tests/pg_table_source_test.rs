@@ -43,6 +43,9 @@ async fn table_source() {
     dimensioned_shapes:
       content_type: application/x-protobuf
       description: "Every geometry type, in XY, XYZ, XYM and XYZM"
+    domain_props:
+      content_type: application/x-protobuf
+      description: "A domain column and a domain over a domain, which a query returns as the integer under them"
     empty_bounds:
       content_type: application/x-protobuf
       description: public.empty_bounds.geom

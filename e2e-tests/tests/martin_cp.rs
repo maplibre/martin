@@ -641,7 +641,7 @@ postgres:
 
         use martin_e2e_tests::{MartinCp, mlt_layers, temp_dir, tiles};
 
-        use super::{MEASURED, copy_array_props, copy_dimensioned};
+        use super::{ARRAYS, MEASURED, copy_dimensioned, copy_props};
 
         fn geometries(layers: &[TileLayer]) -> BTreeMap<Option<u64>, Geometry<i32>> {
             layers[0]
@@ -687,7 +687,7 @@ postgres:
         /// column named after the `jsonb` one.
         #[tokio::test]
         async fn keeps_jsonb_documents_whole_in_a_nested_column() {
-            let (_, v2, _) = copy_array_props("mltv2").await;
+            let (_, v2, _) = copy_props(ARRAYS, "array_props", "mltv2").await;
             let layer = &v2[0];
             assert_eq!(layer.nested_names(), ["doc"]);
             assert!(
@@ -762,12 +762,17 @@ postgres:
         doc: jsonb
 ";
 
-    /// Copies `array_props` at zoom 0 in `format`, and returns the log and the tile's layers.
-    async fn copy_array_props(format: &str) -> (String, Vec<TileLayer>, String) {
+    /// Copies `source` from `config_yaml` at zoom 0 in `format`, and returns the log, the tile's
+    /// layers and the metadata.
+    async fn copy_props(
+        config_yaml: &str,
+        source: &str,
+        format: &str,
+    ) -> (String, Vec<TileLayer>, String) {
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
-        fs::write(&config, ARRAYS).expect("failed to write the config");
-        let output = dir.path().join("arrays.mbtiles");
+        fs::write(&config, config_yaml).expect("failed to write the config");
+        let output = dir.path().join("props.mbtiles");
 
         let log = MartinCp::new()
             .with_postgres()
@@ -777,7 +782,7 @@ postgres:
             .arg("--set-meta")
             .arg(GENERATOR)
             .arg("--source")
-            .arg("array_props")
+            .arg(source)
             .arg("--format")
             .arg(format)
             .arg("--encoding")
@@ -809,7 +814,7 @@ postgres:
     /// both without falling back to the MVT round-trip, and serves what that round-trip does.
     #[tokio::test]
     async fn copies_array_and_jsonb_columns_as_the_mvt_round_trip_does() {
-        let (_, direct, metadata) = copy_array_props("mlt").await;
+        let (_, direct, metadata) = copy_props(ARRAYS, "array_props", "mlt").await;
 
         let mut martin = Martin::builder()
             .with_postgres()
@@ -832,6 +837,52 @@ postgres:
         insta::with_settings!({filters => snapshot_filters()}, {
             insta::assert_snapshot!("array_props_metadata", metadata);
         });
+    }
+
+    /// The config for the table whose columns are a domain and a domain over a domain.
+    const DOMAINS: &str = "
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 2
+  auto_publish: false
+  tables:
+    domain_props:
+      schema: public
+      table: domain_props
+      srid: 4326
+      geometry_column: geom
+      id_column: feat_id
+      bounds: [-180.0, -90.0, 180.0, 90.0]
+      properties:
+        visitors: positive_count
+        floors: small_count
+";
+
+    /// A domain column is typed by the integer under it, however many domains deep, so the row
+    /// path keeps it an integer without falling back to the MVT round-trip, and serves what that
+    /// round-trip does.
+    #[tokio::test]
+    async fn copies_domain_columns_as_the_mvt_round_trip_does() {
+        let (_, direct, _) = copy_props(DOMAINS, "domain_props", "mlt").await;
+
+        let mut martin = Martin::builder()
+            .with_postgres()
+            .config(DOMAINS)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let response = martin
+            .get_with_headers(
+                "/domain_props/0/0/0",
+                &[("Accept", "application/vnd.maplibre-tile")],
+            )
+            .await;
+        assert_eq!(response.status(), 200);
+        let round_trip = response.mlt();
+        martin.stop().await;
+
+        insta::assert_snapshot!("domain_props_0_0_0", mlt_dump(&direct));
+        assert_eq!(mlt_dump(&direct), mlt_dump(&round_trip));
     }
 
     /// The config for an unclipped table, whose tile coordinates leave the `i32` tile space at
