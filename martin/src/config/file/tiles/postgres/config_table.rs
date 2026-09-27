@@ -133,6 +133,11 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prop_mapping: HashMap<String, String>,
 
+    /// The type a query returns each table column as, by column name
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub column_types: HashMap<String, String>,
+
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -219,6 +224,7 @@ impl TableInfo {
             // These values are not serialized, so copy auto-detected values from the database
             geometry_index: self.geometry_index,
             relkind: self.relkind,
+            column_types: self.column_types.clone(),
             tilejson: self.tilejson.clone(),
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
