@@ -95,6 +95,19 @@ postgres:
       properties:
         big_feat_id: int8
         id: int4
+    constrained_geometry:
+      schema: public
+      table: constrained_geometry
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        gid: int4
     curves:
       schema: public
       table: curves

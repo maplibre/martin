@@ -80,6 +80,9 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      constrained_geometry:
+        content_type: application/x-protobuf
+        description: An untyped geometry column whose SRID and type come from CHECK constraints
       curves:
         content_type: application/x-protobuf
         description: public.curves.geom
