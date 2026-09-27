@@ -149,7 +149,7 @@ duckdb:
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 146
+    content-length: 138
     content-type: application/x-protobuf
     etag: "onJtfkQNRX7OcBJtdeL9MQ"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
