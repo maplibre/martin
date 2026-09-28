@@ -480,8 +480,8 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
     GET /pmtilestest/world_cities.pmtiles bytes=0-16383
-    GET /pmtilestest/world_cities.pmtiles bytes=16384-17147
-    GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
+    GET /pmtilestest/world_cities.pmtiles bytes=16384-17166
+    GET /pmtilestest/world_cities.pmtiles bytes=18294-18444
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
 }

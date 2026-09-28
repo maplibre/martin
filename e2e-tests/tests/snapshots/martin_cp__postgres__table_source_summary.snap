@@ -3,7 +3,7 @@ source: e2e-tests/tests/martin_cp.rs
 expression: summary
 ---
 {
-  "avg_tile_size": 197.6850393700,
+  "avg_tile_size": 198.3228346456,
   "bbox": [
     -180.0,
     -85.0511287798,
@@ -12,77 +12,77 @@ expression: summary
   ],
   "file_path": "[TMP]",
   "file_size": 0,
-  "max_tile_size": 727,
+  "max_tile_size": 757,
   "max_zoom": 6,
   "mbt_type": "Flat",
-  "min_tile_size": 75,
+  "min_tile_size": 72,
   "min_zoom": 0,
   "page_count": 0,
   "page_size": 0,
   "tile_count": 127,
   "zoom_info": [
     {
-      "avg_tile_size": 643.0,
+      "avg_tile_size": 678.0,
       "bbox": [
         -180.0,
         -85.0511287798,
         180.0,
         85.0511287798
       ],
-      "max_tile_size": 643,
-      "min_tile_size": 643,
+      "max_tile_size": 678,
+      "min_tile_size": 678,
       "tile_count": 1,
       "zoom": 0
     },
     {
-      "avg_tile_size": 439.75,
+      "avg_tile_size": 460.5,
       "bbox": [
         -180.0,
         -85.0511287798,
         180.0,
         85.0511287798
       ],
-      "max_tile_size": 705,
-      "min_tile_size": 338,
+      "max_tile_size": 747,
+      "min_tile_size": 352,
       "tile_count": 4,
       "zoom": 1
     },
     {
-      "avg_tile_size": 356.2,
+      "avg_tile_size": 367.6,
       "bbox": [
         -90.0,
         -66.5132604431,
         180.0,
         66.5132604431
       ],
-      "max_tile_size": 690,
-      "min_tile_size": 123,
+      "max_tile_size": 724,
+      "min_tile_size": 130,
       "tile_count": 5,
       "zoom": 2
     },
     {
-      "avg_tile_size": 245.875,
+      "avg_tile_size": 249.75,
       "bbox": [
         -45.0,
         -40.9798980696,
         180.0,
         66.5132604431
       ],
-      "max_tile_size": 727,
-      "min_tile_size": 75,
+      "max_tile_size": 757,
+      "min_tile_size": 72,
       "tile_count": 8,
       "zoom": 3
     },
     {
-      "avg_tile_size": 225.0769230769,
+      "avg_tile_size": 228.3076923076,
       "bbox": [
         -22.5,
         -21.9430455334,
         157.5000000000,
         55.7765730186
       ],
-      "max_tile_size": 684,
-      "min_tile_size": 75,
+      "max_tile_size": 712,
+      "min_tile_size": 72,
       "tile_count": 13,
       "zoom": 4
     },
@@ -94,21 +94,21 @@ expression: summary
         146.25,
         48.9224992637
       ],
-      "max_tile_size": 659,
-      "min_tile_size": 75,
+      "max_tile_size": 678,
+      "min_tile_size": 72,
       "tile_count": 27,
       "zoom": 5
     },
     {
-      "avg_tile_size": 155.9420289855,
+      "avg_tile_size": 153.5217391304,
       "bbox": [
         -5.625,
         -5.6159858191,
         146.25,
         45.0890355648
       ],
-      "max_tile_size": 633,
-      "min_tile_size": 75,
+      "max_tile_size": 643,
+      "min_tile_size": 72,
       "tile_count": 69,
       "zoom": 6
     }

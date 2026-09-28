@@ -729,9 +729,9 @@ async fn the_shape_of_a_tile_response() {
 
     let tile = martin.get("/usda_naip_128_none_z2/18/42712/97343").await;
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
-    content-length: 5132
+    content-length: 5031
     content-type: image/png
-    etag: "stlGnHweWV6g4Lm4HSG0QA"
+    etag: "HzR-km-Kc313WfVG2_0Kew"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
