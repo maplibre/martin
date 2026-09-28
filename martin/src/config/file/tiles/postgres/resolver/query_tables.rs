@@ -539,9 +539,10 @@ struct GridSql {
 
 /// Builds the grid-dependent parts of a table query.
 ///
-/// For the default Web Mercator grid this is the SQL martin has always generated.
+/// The envelope and the search box are scalar subqueries, so a generic plan computes them once per tile instead of once per row.
+/// For the default Web Mercator grid the expressions inside them are the ones martin has always generated.
+/// Every grid skips the geometry transform when the table already stores the grid's CRS.
 /// Any other grid passes its zoom-0 square to `ST_TileEnvelope` as the `bounds` argument.
-/// It skips the geometry transform when the table already stores the grid's CRS.
 /// It densifies the envelope before transforming it into the table's CRS, so that edges which curve in that CRS still cover the tile.
 /// `table_wrap` is the width of the world in the table's CRS when that CRS cuts the world open at the antimeridian, see [`wrap_width`].
 fn grid_sql(
@@ -578,10 +579,15 @@ fn grid_sql(
         } else {
             format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
         };
+        let geometry = if table_srid == 3857 {
+            geometry.to_owned()
+        } else {
+            format!("ST_Transform({geometry}, 3857)")
+        };
         return GridSql {
-            geometry: format!("ST_Transform({geometry}, 3857)"),
-            envelope: format!("ST_TileEnvelope({TILE})"),
-            bbox_search,
+            geometry,
+            envelope: format!("(SELECT ST_TileEnvelope({TILE}))"),
+            bbox_search: format!("(SELECT {bbox_search})"),
         };
     }
 
@@ -612,7 +618,7 @@ fn grid_sql(
     };
     // a transformed envelope is only as good as its vertices: eight per side keeps curved edges covered
     let bbox_search = if table_srid == grid_srid {
-        search
+        format!("(SELECT {search})")
     } else {
         let transformed = format!(
             "ST_Transform(ST_Segmentize({search}, {extent_at_zoom0} / 2^$1::integer / 8), {table_srid})"
@@ -627,12 +633,12 @@ fn grid_sql(
                     "(SELECT CASE WHEN ST_XMax(search) - ST_XMin(search) > {half} THEN ST_MakeEnvelope(-{half}, ST_YMin(search), {half}, ST_YMax(search), {table_srid}) ELSE search END FROM (SELECT {transformed} AS search) AS s)"
                 )
             }
-            None => transformed,
+            None => format!("(SELECT {transformed})"),
         }
     };
     GridSql {
         geometry,
-        envelope,
+        envelope: format!("(SELECT {envelope})"),
         bbox_search,
     }
 }
@@ -831,35 +837,40 @@ mod tests {
         )
     }
 
-    /// The default grid keeps producing the SQL martin generated before grids existed, byte for byte.
     #[rstest]
     #[case::mercator_table_with_margin(3857, 64, true,
-        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)")]
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)",
+        r#"ST_CurveToLine("geom"::geometry)"#)]
     #[case::mercator_table_old_postgis(
         3857,
         64,
         false,
-        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 3857)"
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 3857)",
+        r#"ST_CurveToLine("geom"::geometry)"#
     )]
     #[case::wgs84_table(4326, 64, true,
-        r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)")]
+        r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#)]
     #[case::other_table(
         25832,
         64,
         true,
-        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 25832)"
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 25832)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
     )]
     #[case::no_buffer(
         4326,
         0,
         true,
-        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326)"
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
     )]
-    fn web_mercator_sql_is_unchanged(
+    fn web_mercator_sql_for_each_table_crs(
         #[case] table_srid: i32,
         #[case] buffer: u32,
         #[case] supports_tile_margin: bool,
         #[case] bbox_search: &str,
+        #[case] geometry: &str,
     ) {
         let sql = grid_sql(
             &PgTileGrid::web_mercator(),
@@ -870,15 +881,12 @@ mod tests {
             supports_tile_margin,
             None,
         );
-        assert_eq!(
-            sql.geometry,
-            r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
-        );
+        assert_eq!(sql.geometry, geometry);
         assert_eq!(
             sql.envelope,
-            "ST_TileEnvelope($1::integer, $2::integer, $3::integer)"
+            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer))"
         );
-        assert_eq!(sql.bbox_search, bbox_search);
+        assert_eq!(sql.bbox_search, format!("(SELECT {bbox_search})"));
     }
 
     #[test]
@@ -893,8 +901,8 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193))");
-        insta::assert_snapshot!(sql.bbox_search, @"ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer)");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer))");
     }
 
     #[test]
@@ -909,7 +917,7 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_Transform(ST_CurveToLine("geom"::geometry), 2193)"#);
-        insta::assert_snapshot!(sql.bbox_search, @"ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 27700)");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 27700))");
     }
 
     /// `NZTM2000Quad` reaches across 180 degrees, where longitude and latitude cut the world open.
@@ -933,8 +941,8 @@ mod tests {
     fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
         let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
         let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, true, None);
-        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326))");
-        insta::assert_snapshot!(sql.bbox_search, @"ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer)");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer))");
     }
 
     #[test]
@@ -956,8 +964,8 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
-        insta::assert_snapshot!(sql.bbox_search, @"ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
     }
 
     #[test]
@@ -971,6 +979,6 @@ mod tests {
             true,
             None,
         );
-        insta::assert_snapshot!(sql.bbox_search, @"ST_Transform(ST_Segmentize(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), 10018754.1714 / 2^$1::integer / 8), 4326)");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Transform(ST_Segmentize(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), 10018754.1714 / 2^$1::integer / 8), 4326))");
     }
 }
