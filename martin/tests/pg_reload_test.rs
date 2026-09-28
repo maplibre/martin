@@ -27,7 +27,7 @@ const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
 async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
     let container = Postgres::default()
         .with_name("postgis/postgis")
-        .with_tag("11-3.0") // purposely very old and stable
+        .with_tag("12-3.5") // purposely very old and stable
         .start()
         .await
         .expect("PostGIS container failed to start (is Docker running?)");

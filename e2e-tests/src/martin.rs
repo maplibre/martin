@@ -46,9 +46,6 @@ fn ready_timeout() -> Duration {
 }
 
 const ALLOWED_LOG_LINES: &[&str] = &[
-    "Margin parameter in ST_TileEnvelope is not supported",
-    "PostgreSQL is older than the recommended minimum 12.0.0",
-    "In the used version, some geometry may be hidden on some zoom levels.",
     "Unable to deserialize SQL comment on public.points2 as tilejson",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",

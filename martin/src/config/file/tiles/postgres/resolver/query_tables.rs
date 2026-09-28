@@ -262,14 +262,7 @@ async fn table_query_sql(
     } else {
         wrap_width(pool, info.srid).await
     };
-    TableQuerySql::new(
-        id,
-        info,
-        max_feature_count,
-        grid,
-        pool.supports_tile_margin(),
-        table_wrap,
-    )
+    TableQuerySql::new(id, info, max_feature_count, grid, table_wrap)
 }
 
 /// The SQL fragments every shape of a table tile query is assembled from.
@@ -298,7 +291,6 @@ impl TableQuerySql {
         info: &TableInfo,
         max_feature_count: Option<usize>,
         grid: &PgTileGrid,
-        supports_tile_margin: bool,
         table_wrap: Option<f64>,
     ) -> PostgresResult<Self> {
         let props = info.properties.iter().flatten();
@@ -341,15 +333,7 @@ impl TableQuerySql {
             geometry,
             envelope,
             bbox_search,
-        } = grid_sql(
-            grid,
-            info.srid,
-            &geometry,
-            buffer,
-            margin,
-            supports_tile_margin,
-            table_wrap,
-        );
+        } = grid_sql(grid, info.srid, &geometry, buffer, margin, table_wrap);
 
         Ok(Self {
             layer_id: escape_literal(info.layer_id.as_deref().unwrap_or(id)),
@@ -563,7 +547,6 @@ fn grid_sql(
     geometry: &str,
     buffer: u32,
     margin: f64,
-    supports_tile_margin: bool,
     table_wrap: Option<f64>,
 ) -> GridSql {
     const TILE: &str = "$1::integer, $2::integer, $3::integer";
@@ -582,7 +565,7 @@ fn grid_sql(
         // will result in a westernmost edge (minus margin) of -182.
         let bbox_search = if buffer == 0 {
             format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
-        } else if supports_tile_margin && table_srid == 3857 {
+        } else if table_srid == 3857 {
             format!("ST_Transform(ST_TileEnvelope({TILE}, margin => {margin}), {table_srid})")
         } else if table_srid == 4326 {
             format!(
@@ -850,37 +833,27 @@ mod tests {
     }
 
     #[rstest]
-    #[case::mercator_table_with_margin(3857, 64, true,
+    #[case::mercator_table_with_margin(3857, 64,
         r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)",
         r#"ST_CurveToLine("geom"::geometry)"#)]
-    #[case::mercator_table_old_postgis(
-        3857,
-        64,
-        false,
-        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 3857)",
-        r#"ST_CurveToLine("geom"::geometry)"#
-    )]
-    #[case::wgs84_table(4326, 64, true,
+    #[case::wgs84_table(4326, 64,
         r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)",
         r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#)]
     #[case::other_table(
         25832,
         64,
-        true,
         r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 25832)",
         r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
     )]
     #[case::no_buffer(
         4326,
         0,
-        true,
         r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326)",
         r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
     )]
     fn web_mercator_sql_for_each_table_crs(
         #[case] table_srid: i32,
         #[case] buffer: u32,
-        #[case] supports_tile_margin: bool,
         #[case] bbox_search: &str,
         #[case] geometry: &str,
     ) {
@@ -890,7 +863,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             buffer,
             MARGIN,
-            supports_tile_margin,
             None,
         );
         assert_eq!(sql.geometry, geometry);
@@ -909,7 +881,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             64,
             MARGIN,
-            true,
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
@@ -925,7 +896,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             64,
             MARGIN,
-            true,
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_Transform(ST_CurveToLine("geom"::geometry), 2193)"#);
@@ -943,7 +913,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             64,
             MARGIN,
-            true,
             Some(360.0),
         );
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT CASE WHEN ST_XMax(search) - ST_XMin(search) > 180 THEN ST_MakeEnvelope(-180, ST_YMin(search), 180, ST_YMax(search), 4326) ELSE search END FROM (SELECT ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 4326) AS search) AS s)");
@@ -952,7 +921,7 @@ mod tests {
     #[test]
     fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
         let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
-        let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, true, None);
+        let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, None);
         insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)))");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer))");
     }
@@ -972,7 +941,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             0,
             0.0,
-            true,
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
@@ -988,7 +956,6 @@ mod tests {
             "ST_CurveToLine(\"geom\"::geometry)",
             0,
             0.0,
-            true,
             None,
         );
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Transform(ST_Segmentize(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), 10018754.1714 / 2^$1::integer / 8), 4326))");
