@@ -7,7 +7,9 @@ use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
-use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    MAX_CONCURRENT_SOURCE_INITS, SourceBuildError, SourceBuildResult, TileSourceWarning,
+};
 use crate::reload::ReloadAdvisory;
 
 /// What the catalog already holds for a driver's sources when it starts.
@@ -58,12 +60,23 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
     /// A discovery or apply error leaves the baseline unset and is returned.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovered = self.discovery.discover().await?;
-        let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
-        let outcome = self.sink.apply_changes(advisory).await?;
+        let mut failed = BTreeSet::new();
+        // Published a chunk at a time, so a request for an early source does not wait for all of them.
+        let ids: Vec<&String> = discovered.sources.keys().collect();
+        for chunk in ids.chunks(MAX_CONCURRENT_SOURCE_INITS) {
+            let next = chunk
+                .iter()
+                .map(|&id| (id.clone(), discovered.sources[id].clone()))
+                .collect();
+            let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &next).await;
+            failed.extend(self.sink.apply_changes(advisory).await?.failed);
+            // Lets the tasks queued on this worker run, since building never waits on anything.
+            tokio::task::yield_now().await;
+        }
         self.baseline = Some(Self::commit_applied(
             &BTreeMap::new(),
             &discovered.sources,
-            &outcome.failed,
+            &failed,
         ));
         let mut warnings = self.discovery.construction_warnings();
         warnings.extend(discovered.warnings);

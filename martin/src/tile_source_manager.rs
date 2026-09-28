@@ -79,12 +79,15 @@ impl TileSourceManager {
         self.loaded.send_replace(true);
     }
 
-    /// Waits for the sources to load when `source_ids` does not resolve yet.
+    /// Waits until `source_ids` resolve or the sources have loaded.
     pub async fn wait_for_sources(&self, source_ids: &str) {
-        if *self.loaded.borrow() || self.tile_sources().get_sources(source_ids, None).is_ok() {
+        let resolves = || self.tile_sources().get_sources(source_ids, None).is_ok();
+        if *self.loaded.borrow() || resolves() {
             return;
         }
-        self.wait_until_loaded().await;
+        let mut loaded = self.loaded.subscribe();
+        // The manager holds the sender, so the channel cannot close while this waits.
+        let _ = loaded.wait_for(|loaded| *loaded || resolves()).await;
     }
 
     /// Waits for the sources to load.
@@ -224,6 +227,9 @@ impl Sink for TileSourceManager {
             cache.run_pending_tasks().await;
         }
 
+        // 5. Wake the requests waiting for sources that may exist now
+        self.loaded.send_modify(|_| {});
+
         Ok(ApplyOutcome { failed })
     }
 }
@@ -344,6 +350,29 @@ mod tests {
         waiting
             .await
             .expect("a missing source stops waiting once the sources have loaded");
+    }
+
+    #[tokio::test]
+    async fn a_request_for_a_source_proceeds_once_the_source_is_published() {
+        let mgr = make_manager();
+        mgr.start_loading();
+        let waiting = tokio::spawn({
+            let mgr = mgr.clone();
+            async move { mgr.wait_for_sources("src_b").await }
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !waiting.is_finished(),
+            "a missing source waits while the sources load"
+        );
+        let advisory = ReloadAdvisory {
+            additions: vec![new_source("src_b")],
+            ..Default::default()
+        };
+        mgr.apply_changes(advisory).await.unwrap();
+        waiting
+            .await
+            .expect("a source published during the load ends the wait");
     }
 
     #[test]
