@@ -306,7 +306,8 @@ impl PostgresAutoDiscoveryBuilder {
             return Ok(());
         }
         let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
-        let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
+        let mut db_tables_info =
+            query_available_tables(&self.pool, self.source_schemas(), restrict_to_tables).await?;
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -685,6 +686,21 @@ impl PostgresAutoDiscoveryBuilder {
             .values()
             .map(|t| (t.schema.to_lowercase(), t.table.to_lowercase()))
             .collect()
+    }
+
+    /// The lowercased schemas a table source can come from, or `None` if auto-publishing reads every schema.
+    fn source_schemas(&self) -> Option<Vec<String>> {
+        let auto_schemas = match &self.auto_tables {
+            Some(auto_tables) => auto_tables.schemas.as_ref()?.iter().collect(),
+            None => Vec::new(),
+        };
+        Some(
+            auto_schemas
+                .into_iter()
+                .chain(self.tables.values().map(|t| &t.schema))
+                .map(|schema| schema.to_lowercase())
+                .collect(),
+        )
     }
 }
 

@@ -261,11 +261,4 @@ postgres:
     postgres.auto_publish.tables.warning
     postgres.auto_publish.warning
     ");
-    for unindexed in [
-        "Table public.mat_view has no spatial index on column geom",
-        "Table public.table_source has no spatial index on column geom",
-        "Table public.table_source_geog has no spatial index on column geog",
-    ] {
-        martin.assert_log_contains(unindexed);
-    }
 }

@@ -28,15 +28,20 @@ const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
 ///
+/// Only the lowercased `schemas` are read, or every schema if it is `None`.
 /// The reported tables are filtered by the `restrict_to_tables` parameter.
 pub async fn query_available_tables(
     pool: &PostgresPool,
+    schemas: Option<Vec<String>>,
     restrict_to_tables: Option<HashSet<(String, String)>>,
 ) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
-        .query(include_str!("scripts/query_available_tables.sql"), &[])
+        .query(
+            include_str!("scripts/query_available_tables.sql"),
+            &[&schemas],
+        )
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 

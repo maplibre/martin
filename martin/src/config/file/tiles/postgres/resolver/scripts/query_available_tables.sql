@@ -24,7 +24,7 @@ domains AS (
 
 --
 geo_columns AS (
-    -- every geometry and geography column the user can read, as the geometry_columns and geography_columns views list them
+    -- every geometry and geography column the user can read in the schemas $1 lists lowercased (all when NULL), as the geometry_columns and geography_columns views list them
     SELECT
         cls.oid AS relid,
         ns.nspname AS schema, -- noqa: RF04
@@ -76,6 +76,7 @@ geo_columns AS (
         AND cls.relkind IN ('r', 'v', 'm', 'f', 'p')
         AND NOT (tp.typname = 'geometry' AND cls.relname = 'raster_columns')
         AND NOT pg_is_other_temp_schema(cls.relnamespace)
+        AND ($1::text[] IS NULL OR lower(ns.nspname) = any($1::text[]))
         AND has_table_privilege(cls.oid, 'SELECT')
 )
 
