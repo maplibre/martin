@@ -248,7 +248,10 @@ impl PmtConfig {
     ) -> SourceBuildResult<BackendSource> {
         trace!("Pmtiles source {id} will be read from {}", path.display());
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new_local(dir_cache, id, path, cache.zoom()).await?;
+        // Opening parses the archive's metadata, so it runs on a worker and archives open in parallel.
+        let source = tokio::spawn(PmtilesSource::new_local(dir_cache, id, path, cache.zoom()))
+            .await
+            .expect("opening a PMTiles archive panicked")?;
         Ok(BackendSource::Pmtiles(source))
     }
 }
