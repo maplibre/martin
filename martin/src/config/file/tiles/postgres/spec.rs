@@ -41,9 +41,9 @@ impl SourceSpec {
                 info.filter.hash(&mut hasher);
                 info.geometry_type.hash(&mut hasher);
                 info.properties.hash(&mut hasher);
-                hash_tilejson(info.tilejson.as_ref(), &mut hasher);
+                hash_tilejson(info.discovered.tilejson.as_ref(), &mut hasher);
 
-                let mut prop_mapping: Vec<_> = info.prop_mapping.iter().collect();
+                let mut prop_mapping: Vec<_> = info.discovered.prop_mapping.iter().collect();
                 prop_mapping.sort();
                 prop_mapping.hash(&mut hasher);
             }
@@ -85,6 +85,7 @@ mod tests {
 
     use super::*;
     use crate::config::file::CachePolicy;
+    use crate::config::file::postgres::DiscoveredTable;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use crate::config::primitives::AutoOption;
 
@@ -119,7 +120,10 @@ mod tests {
             clip_geom: Some(true),
             geometry_type: Some("LINESTRING".to_owned()),
             properties: Some(BTreeMap::from([("name".to_owned(), "text".to_owned())])),
-            tilejson: Some(serde_json::json!({ "attribution": "abc" })),
+            discovered: DiscoveredTable {
+                tilejson: Some(serde_json::json!({ "attribution": "abc" })),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
@@ -154,11 +158,12 @@ mod tests {
         t.properties = Some(BTreeMap::from([("kind".to_owned(), "text".to_owned())]));
     })]
     #[case::prop_mapping(|t: &mut TableInfo|{
-        t.prop_mapping
+        t.discovered
+            .prop_mapping
             .insert("name".to_owned(), "name_col".to_owned());
     })]
     #[case::tilejson(|t: &mut TableInfo|{
-        t.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
+        t.discovered.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
     })]
     fn flipping_an_included_field_changes_fingerprint(#[case] mutate: TableMutator) {
         let mut info = full_table();
@@ -172,8 +177,8 @@ mod tests {
 
     #[rstest]
     #[case::bounds(|t: &mut TableInfo|t.bounds = Some(Bounds::new(-1.0, -2.0, 3.0, 4.0)))]
-    #[case::relkind(|t: &mut TableInfo|t.relkind = Some('m'))]
-    #[case::geometry_index(|t: &mut TableInfo|t.geometry_index = Some(false))]
+    #[case::relkind(|t: &mut TableInfo|t.discovered.relkind = Some('m'))]
+    #[case::geometry_index(|t: &mut TableInfo|t.discovered.geometry_index = Some(false))]
     #[case::cache(|t: &mut TableInfo|t.cache = Some(CachePolicy::disabled()))]
     #[case::unrecognized(|t: &mut TableInfo|{
         t.unrecognized.insert(
