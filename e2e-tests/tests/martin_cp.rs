@@ -1066,6 +1066,8 @@ postgres:
         .with_postgres()
         .arg("--config")
         .arg(&config)
+        .arg("--set-meta")
+        .arg(GENERATOR)
         .arg("--source")
         .arg("nz_points")
         .arg("--output-file")

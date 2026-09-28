@@ -292,6 +292,13 @@ pub fn new_server(
     cors_config.validate()?;
     cors_config.log_current_configuration();
 
+    // only build a span for each request when the log filter keeps it
+    let request_spans = tracing::enabled!(
+        kind: tracing::metadata::Kind::SPAN,
+        target: "tracing_actix_web::root_span_builder",
+        tracing::Level::INFO
+    );
+
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
 
@@ -329,10 +336,13 @@ pub fn new_server(
             middleware::from_fn(crate::tui::observe),
         ));
 
-        app.wrap(TracingLogger::default())
-            .wrap(cache_control_middleware(cache_control.clone()))
-            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| router(c, &config))
+        app.wrap(middleware::Condition::new(
+            request_spans,
+            TracingLogger::default(),
+        ))
+        .wrap(cache_control_middleware(cache_control.clone()))
+        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
