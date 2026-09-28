@@ -82,7 +82,8 @@ geo_columns AS (
         AND NOT (tp.typname = 'geometry' AND cls.relname = 'raster_columns')
         AND NOT pg_is_other_temp_schema(cls.relnamespace)
         AND ($1::text[] IS NULL OR lower(ns.nspname) = any($1::text[]))
-        AND has_table_privilege(cls.oid, 'SELECT')
+        -- pg optimiser does not push this down otherwise
+        AND CASE WHEN cls.relkind IN ('r', 'v', 'm', 'f', 'p') THEN has_table_privilege(cls.oid, 'SELECT') END
 )
 
 SELECT
