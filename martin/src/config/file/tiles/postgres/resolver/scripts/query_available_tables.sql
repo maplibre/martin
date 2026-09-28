@@ -23,130 +23,60 @@ domains AS (
 ),
 
 --
-columns AS (
-    -- list of table columns
+geo_columns AS (
+    -- every geometry and geography column the user can read, as the geometry_columns and geography_columns views list them
     SELECT
-        ns.nspname AS table_schema,
-        cls.relname AS table_name,
-        attr.attname AS column_name,
-        trim(LEADING '_' FROM tp.typname) AS type_name,
-        -- the type a query returns the column as, which for a domain is the type at the bottom of it
+        cls.oid AS relid,
+        ns.nspname AS schema, -- noqa: RF04
+        cls.relname AS name, -- noqa: RF04
+        attr.attname AS geom,
+        attr.attnum,
+        cls.relkind,
         CASE
-            WHEN tp.typtype = 'd'
-                THEN (
-                    SELECT domains.base_name
-                    FROM domains
-                    WHERE domains.domain_oid = tp.oid AND domains.base_typtype != 'd'
-                )
-            ELSE tp.typname
-        END AS query_type_name
-    FROM pg_attribute AS attr
+            WHEN tp.typname = 'geography' THEN postgis_typmod_srid(attr.atttypmod)
+            ELSE coalesce(
+                nullif(postgis_typmod_srid(attr.atttypmod), 0),
+                (
+                    SELECT (regexp_match(pg_get_constraintdef(con.oid), 'srid\(\w+\)\s*=\s*(\d+)', 'i'))[1]::integer
+                    FROM pg_catalog.pg_constraint AS con
+                    WHERE
+                        con.conrelid = cls.oid
+                        AND attr.attnum = any(con.conkey)
+                        AND pg_get_constraintdef(con.oid) ~* 'srid\(\w+\)\s*=\s*\d+'
+                    ORDER BY con.oid
+                    LIMIT 1
+                ),
+                0
+            )
+        END AS srid,
+        CASE
+            WHEN tp.typname = 'geography' THEN postgis_typmod_type(attr.atttypmod)
+            ELSE replace(replace(coalesce(
+                nullif(upper(postgis_typmod_type(attr.atttypmod)), 'GEOMETRY'),
+                (
+                    SELECT (regexp_match(pg_get_constraintdef(con.oid), 'geometrytype\(\w+\)\s*=\s*''(\w+)''', 'i'))[1]
+                    FROM pg_catalog.pg_constraint AS con
+                    WHERE
+                        con.conrelid = cls.oid
+                        AND attr.attnum = any(con.conkey)
+                        AND pg_get_constraintdef(con.oid) ~* 'geometrytype\(\w+\)\s*=\s*''\w+'''
+                    ORDER BY con.oid
+                    LIMIT 1
+                ),
+                'GEOMETRY'
+            ), 'ZM', ''), 'Z', '')
+        END AS type -- noqa: RF04
+    FROM pg_catalog.pg_attribute AS attr
     INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
     INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
     WHERE
-        NOT attr.attisdropped
-        AND attr.attnum > 0
-),
-
---
-spatially_indexed_columns AS (
-    -- list of columns with spatial indexes
-    SELECT
-        ns.nspname AS table_schema,
-        cls.relname AS table_name,
-        attr.attname AS column_name
-    FROM pg_attribute AS attr
-    INNER JOIN pg_class AS cls ON attr.attrelid = cls.oid
-    INNER JOIN pg_namespace AS ns ON cls.relnamespace = ns.oid
-    INNER JOIN pg_index AS ix
-        ON
-            cls.oid = ix.indrelid
-            AND ix.indnkeyatts = 1 -- consider single column indices only
-            AND attr.attnum = ix.indkey[0]
-    INNER JOIN pg_opclass AS op
-        ON
-            op.oid = ix.indclass[0]
-            AND op.opcname IN (
-                'gist_geometry_ops_2d', 'spgist_geometry_ops_2d',
-                'brin_geometry_inclusion_ops_2d',
-                'gist_geography_ops'
-            )
-    GROUP BY 1, 2, 3
-),
-
---
-annotated_geometry_columns AS (
-    -- list of geometry columns with additional metadata
-    SELECT
-        geometry_columns.f_table_schema AS schema, -- noqa: RF04
-        geometry_columns.f_table_name AS name, -- noqa: RF04
-        geometry_columns.f_geometry_column AS geom,
-        geometry_columns.srid,
-        geometry_columns.type,
-        -- 'geometry' AS column_type
-        cls.relkind,
-        bool_or(sic.column_name IS NOT null) AS geom_idx
-    FROM geometry_columns
-    INNER JOIN pg_catalog.pg_namespace AS ns
-        ON geometry_columns.f_table_schema = ns.nspname
-    INNER JOIN pg_catalog.pg_class AS cls
-        ON
-            ns.oid = cls.relnamespace
-            AND geometry_columns.f_table_name = cls.relname
-    LEFT JOIN spatially_indexed_columns AS sic
-        ON
-            geometry_columns.f_table_schema = sic.table_schema
-            AND geometry_columns.f_table_name = sic.table_name
-            AND geometry_columns.f_geometry_column = sic.column_name
-    GROUP BY 1, 2, 3, 4, 5, 6
-),
-
---
-annotated_geography_columns AS (
-    -- list of geography columns with additional metadata
-    SELECT
-        geography_columns.f_table_schema AS schema, -- noqa: RF04
-        geography_columns.f_table_name AS name, -- noqa: RF04
-        geography_columns.f_geography_column AS geom,
-        geography_columns.srid,
-        geography_columns.type,
-        -- 'geography' AS column_type
-        cls.relkind,
-        bool_or(sic.column_name IS NOT null) AS geom_idx
-    FROM geography_columns
-    INNER JOIN pg_catalog.pg_namespace AS ns
-        ON geography_columns.f_table_schema = ns.nspname
-    INNER JOIN pg_catalog.pg_class AS cls
-        ON
-            ns.oid = cls.relnamespace
-            AND geography_columns.f_table_name = cls.relname
-    LEFT JOIN spatially_indexed_columns AS sic
-        ON
-            geography_columns.f_table_schema = sic.table_schema
-            AND geography_columns.f_table_name = sic.table_name
-            AND geography_columns.f_geography_column = sic.column_name
-    GROUP BY 1, 2, 3, 4, 5, 6
-),
-
---
-annotated_geo_columns AS (
-    SELECT * FROM annotated_geometry_columns
-    UNION
-    SELECT * FROM annotated_geography_columns
-),
-
---
-descriptions AS (
-    -- comments on table/views
-    SELECT
-        pg_namespace.nspname AS schema_name,
-        cls.relname AS table_name,
-        pg_description.description
-    FROM pg_class AS cls
-    INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
-    LEFT JOIN pg_description ON cls.oid = pg_description.objoid AND pg_description.objsubid = 0
-    WHERE cls.relkind IN ('r', 'v', 'm') -- table, view or materialised view
+        tp.typname IN ('geometry', 'geography')
+        AND NOT attr.attisdropped
+        AND cls.relkind IN ('r', 'v', 'm', 'f', 'p')
+        AND NOT (tp.typname = 'geometry' AND cls.relname = 'raster_columns')
+        AND NOT pg_is_other_temp_schema(cls.relnamespace)
+        AND has_table_privilege(cls.oid, 'SELECT')
 )
 
 SELECT
@@ -156,31 +86,62 @@ SELECT
     gc.srid,
     gc.type,
     gc.relkind,
-    gc.geom_idx,
-    dc.description,
-    coalesce(
-        jsonb_object_agg(columns.column_name, columns.type_name)
-        FILTER (
-            WHERE columns.column_name IS NOT null
-            AND columns.type_name != 'geometry'
-            AND columns.type_name != 'geography'
-        ),
-        '{}'::jsonb
-    ) AS properties,
-    coalesce(
-        jsonb_object_agg(columns.column_name, columns.query_type_name)
-        FILTER (WHERE columns.column_name IS NOT null),
-        '{}'::jsonb
-    ) AS column_types
-FROM annotated_geo_columns AS gc
-LEFT JOIN columns
-    ON
-        gc.schema = columns.table_schema
-        AND gc.name = columns.table_name
-        AND gc.geom != columns.column_name
-LEFT JOIN descriptions AS dc
-    ON
-        gc.schema = dc.schema_name
-        AND gc.name = dc.table_name
-GROUP BY -- noqa: AM06
-    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.relkind, gc.geom_idx, dc.description;
+    cols.properties,
+    cols.column_types,
+    exists(
+        -- a single-column spatial index on the geo column
+        SELECT 1
+        FROM pg_catalog.pg_index AS ix
+        INNER JOIN pg_catalog.pg_opclass AS op ON ix.indclass[0] = op.oid
+        WHERE
+            ix.indrelid = gc.relid
+            AND ix.indnkeyatts = 1
+            AND ix.indkey[0] = gc.attnum
+            AND op.opcname IN (
+                'gist_geometry_ops_2d', 'spgist_geometry_ops_2d',
+                'brin_geometry_inclusion_ops_2d',
+                'gist_geography_ops'
+            )
+    ) AS geom_idx,
+    (
+        -- the comment on a table, view or materialized view
+        SELECT d.description
+        FROM pg_catalog.pg_description AS d
+        WHERE
+            d.objoid = gc.relid
+            AND d.classoid = 'pg_catalog.pg_class'::regclass
+            AND d.objsubid = 0
+            AND gc.relkind IN ('r', 'v', 'm')
+    ) AS description
+FROM geo_columns AS gc
+CROSS JOIN LATERAL (
+    -- the table's other columns, by the type they are declared as and the type a query returns them as
+    SELECT
+        coalesce(
+            jsonb_object_agg(attr.attname, trim(LEADING '_' FROM tp.typname))
+            FILTER (WHERE trim(LEADING '_' FROM tp.typname) NOT IN ('geometry', 'geography')),
+            '{}'::jsonb
+        ) AS properties,
+        coalesce(
+            jsonb_object_agg(
+                attr.attname,
+                CASE
+                    WHEN tp.typtype = 'd'
+                        THEN (
+                            SELECT domains.base_name
+                            FROM domains
+                            WHERE domains.domain_oid = tp.oid AND domains.base_typtype != 'd'
+                        )
+                    ELSE tp.typname
+                END
+            ),
+            '{}'::jsonb
+        ) AS column_types
+    FROM pg_catalog.pg_attribute AS attr
+    INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
+    WHERE
+        attr.attrelid = gc.relid
+        AND attr.attnum > 0
+        AND NOT attr.attisdropped
+        AND attr.attname != gc.geom
+) AS cols;
