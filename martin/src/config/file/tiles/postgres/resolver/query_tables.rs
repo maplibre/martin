@@ -876,8 +876,6 @@ mod tests {
         )
     }
 
-    /// The default grid keeps the expressions martin generated before grids existed, byte for byte, inside its scalar subqueries.
-    /// Only a table stored in another CRS gets its geometry transformed.
     #[rstest]
     #[case::mercator_table_with_margin(3857, 64, true,
         r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)",
