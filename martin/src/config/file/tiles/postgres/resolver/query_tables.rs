@@ -35,16 +35,15 @@ pub async fn query_available_tables(
     schemas: Option<Vec<String>>,
     restrict_to_tables: Option<HashSet<(String, String)>>,
 ) -> PostgresResult<SqlTableInfoMapMapMap> {
-    let conn = pool.get().await?;
-    let rows = conn
+    let rows = pool
+        .get()
+        .await?
         .query(
             include_str!("scripts/query_available_tables.sql"),
             &[&schemas],
         )
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
-    // Held until PostGIS is checked, so the connection that loaded it goes back to the pool first.
-    pool.check_postgis(&conn).await?;
 
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {

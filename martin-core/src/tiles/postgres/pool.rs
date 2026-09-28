@@ -251,14 +251,19 @@ impl PostgresPool {
         &self.active_query_registry
     }
 
-    /// Waits for the `PostGIS` check [`Self::new`] started, and checks again on `conn` if that one failed.
+    /// Waits for the `PostGIS` check [`Self::new`] started, and checks again if that one failed.
     ///
     /// # Errors
     ///
     /// When `PostGIS` is missing or older than the minimum.
-    pub async fn check_postgis(&self, conn: &Object) -> PostgresResult<()> {
+    pub async fn check_postgis(&self) -> PostgresResult<()> {
+        if self.postgis_checked.initialized() {
+            return Ok(());
+        }
+        // Held until PostGIS is checked, so the connection that loaded it goes back to the pool first.
+        let conn = self.get().await?;
         self.postgis_checked
-            .get_or_try_init(|| check_postgis_on(conn, &self.id))
+            .get_or_try_init(|| check_postgis_on(&conn, &self.id))
             .await
             .copied()
     }

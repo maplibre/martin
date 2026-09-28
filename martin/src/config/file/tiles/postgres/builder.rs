@@ -287,6 +287,7 @@ impl PostgresAutoDiscoveryBuilder {
             .await?;
         self.discover_functions(&all_schemas, &mut specs, &mut warnings)
             .await?;
+        self.pool.check_postgis().await?;
         Ok((specs, warnings))
     }
 

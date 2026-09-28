@@ -47,13 +47,12 @@ impl Variant {
 /// # Panics
 /// Panics if the built-in query returns unexpected results.
 pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<SqlFuncInfoMapMap> {
-    let conn = pool.get().await?;
-    let rows = conn
+    let rows = pool
+        .get()
+        .await?
         .query(include_str!("scripts/query_available_function.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available functions"))?;
-    // Held until PostGIS is checked, so the connection that loaded it goes back to the pool first.
-    pool.check_postgis(&conn).await?;
 
     let mut by_name = BTreeMap::<(String, String), Vec<Variant>>::new();
     for row in &rows {
