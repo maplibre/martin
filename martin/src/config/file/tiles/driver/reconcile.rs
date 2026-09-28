@@ -7,7 +7,9 @@ use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
-use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    MAX_CONCURRENT_SOURCE_INITS, SourceBuildError, SourceBuildResult, TileSourceWarning,
+};
 use crate::reload::ReloadAdvisory;
 
 /// What the catalog already holds for a driver's sources when it starts.
@@ -51,19 +53,30 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         &self.discovery
     }
 
-    /// Loads everything discovered into the sink and records it as the baseline, so the catalog
-    /// is populated by exactly one observation before serving starts.
+    /// Loads everything discovered into the sink a chunk at a time and records it as the baseline,
+    /// so the catalog is populated by exactly one observation.
     ///
     /// Construction and discovery warnings are returned for the caller's `on_invalid` policy.
     /// A discovery or apply error leaves the baseline unset and is returned.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovered = self.discovery.discover().await?;
-        let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
-        let outcome = self.sink.apply_changes(advisory).await?;
+        let mut failed = BTreeSet::new();
+        // Published a chunk at a time, so a request for an early source does not wait for all of them.
+        let ids: Vec<&String> = discovered.sources.keys().collect();
+        for chunk in ids.chunks(MAX_CONCURRENT_SOURCE_INITS) {
+            let next = chunk
+                .iter()
+                .map(|&id| (id.clone(), discovered.sources[id].clone()))
+                .collect();
+            let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &next).await;
+            failed.extend(self.sink.apply_changes(advisory).await?.failed);
+            // Lets the tasks queued on this worker run, since building never waits on anything.
+            tokio::task::yield_now().await;
+        }
         self.baseline = Some(Self::commit_applied(
             &BTreeMap::new(),
             &discovered.sources,
-            &outcome.failed,
+            &failed,
         ));
         let mut warnings = self.discovery.construction_warnings();
         warnings.extend(discovered.warnings);
@@ -622,6 +635,46 @@ mod tests {
         assert_eq!(
             *recorded.lock().unwrap(),
             vec![advisory(&["a", "b"], &[], &[]), advisory(&["b"], &[], &[])]
+        );
+    }
+
+    #[tokio::test]
+    async fn init_applies_in_chunks_and_retries_skipped_builds_from_each() {
+        let source_ids: Vec<String> = (0..=MAX_CONCURRENT_SOURCE_INITS)
+            .map(|i| format!("s{i:02}"))
+            .collect();
+        let entries: Vec<(&str, Version)> = source_ids
+            .iter()
+            .map(|id| (id.as_str(), Version::Tracked(1)))
+            .collect();
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&entries)), Ok(snapshot(&entries))]);
+        let (first_chunk, second_chunk) = source_ids.split_at(MAX_CONCURRENT_SOURCE_INITS);
+        let skipped = [first_chunk[0].as_str(), second_chunk[0].as_str()];
+        let sink = SpySink::with_state(&[], &skipped);
+        let recorded = sink.recorded();
+        let mut driver = ReloadDriver::new(discovery, sink);
+
+        driver.init().await.expect("init");
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: first_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: second_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                advisory(&skipped, &[], &[]),
+            ]
         );
     }
 
