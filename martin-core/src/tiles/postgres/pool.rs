@@ -24,7 +24,7 @@ use crate::tiles::postgres::tls::{
 };
 use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 
-/// `ST_TileEnvelope` takes a margin since `PostGIS` 3.1, and `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
+/// `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
 /// See <https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788>
 const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
 /// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
