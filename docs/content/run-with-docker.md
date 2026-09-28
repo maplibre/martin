@@ -19,7 +19,7 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   postgres://postgres@postgres.example.org/db
 ```
 
@@ -31,7 +31,7 @@ You can expose local files to the Docker container using the `-v` flag.
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   /files
 ```
 
@@ -41,7 +41,7 @@ You can also pass any [CLI flags](run-with-cli.md) after the image name, for exa
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   --webui enable-for-all \
   /files
 ```
@@ -57,7 +57,7 @@ You would not need to export ports with `-p` because the container is already us
 ```bash
 docker run \
   --net=host \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   postgres://postgres@localhost/db
 ```
 
@@ -68,7 +68,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   postgres://postgres@host.docker.internal/db
 ```
 
@@ -79,6 +79,6 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0 \
   postgres://postgres@docker.for.win.localhost/db
 ```
