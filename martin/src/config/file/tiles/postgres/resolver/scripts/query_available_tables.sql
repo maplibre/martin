@@ -33,9 +33,9 @@ geo_columns AS (
         attr.attnum,
         cls.relkind,
         CASE
-            WHEN tp.typname = 'geography' THEN postgis_typmod_srid(attr.atttypmod)
+            WHEN tp.typname = 'geography' THEN typmod.srid
             ELSE coalesce(
-                nullif(postgis_typmod_srid(attr.atttypmod), 0),
+                nullif(typmod.srid, 0),
                 (
                     SELECT (regexp_match(pg_get_constraintdef(con.oid), 'srid\(\w+\)\s*=\s*(\d+)', 'i'))[1]::integer
                     FROM pg_catalog.pg_constraint AS con
@@ -50,9 +50,9 @@ geo_columns AS (
             )
         END AS srid,
         CASE
-            WHEN tp.typname = 'geography' THEN postgis_typmod_type(attr.atttypmod)
+            WHEN tp.typname = 'geography' THEN typmod.type
             ELSE replace(replace(coalesce(
-                nullif(upper(postgis_typmod_type(attr.atttypmod)), 'GEOMETRY'),
+                nullif(upper(typmod.type), 'GEOMETRY'),
                 (
                     SELECT (regexp_match(pg_get_constraintdef(con.oid), 'geometrytype\(\w+\)\s*=\s*''(\w+)''', 'i'))[1]
                     FROM pg_catalog.pg_constraint AS con
@@ -70,6 +70,27 @@ geo_columns AS (
     INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
     INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
+    CROSS JOIN
+        LATERAL ( -- noqa: ST05
+            -- postgis_typmod_srid() and postgis_typmod_type() read from the typmod bits (TYPMOD_GET_* in liblwgeom), so discovery does not load PostGIS
+            SELECT
+                CASE
+                    WHEN attr.atttypmod < 0 THEN 0
+                    -- (typmod & 0x0FFFFF00) - (typmod & 0x10000000) >> 8
+                    ELSE ((attr.atttypmod & 268435200) - (attr.atttypmod & 268435456)) >> 8
+                END AS srid,
+                CASE
+                    WHEN attr.atttypmod < 0 OR attr.atttypmod & 252 = 0 THEN 'Geometry'
+                    -- (typmod & 0xFC) >> 2, in lwtype_name() order
+                    ELSE (ARRAY[
+                        'Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon',
+                        'GeometryCollection', 'CircularString', 'CompoundCurve', 'CurvePolygon', 'MultiCurve',
+                        'MultiSurface', 'PolyhedralSurface', 'Triangle', 'Tin'
+                    ])[(attr.atttypmod & 252) >> 2]
+                END
+                || CASE WHEN attr.atttypmod >= 0 AND attr.atttypmod & 2 != 0 THEN 'Z' ELSE '' END
+                || CASE WHEN attr.atttypmod >= 0 AND attr.atttypmod & 1 != 0 THEN 'M' ELSE '' END AS type -- noqa: RF04
+        ) AS typmod
     WHERE
         -- by type id, so the planner keeps the columns of every other type out of the join with pg_type
         attr.atttypid = any(array(

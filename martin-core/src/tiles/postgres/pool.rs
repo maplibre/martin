@@ -8,7 +8,9 @@ use std::time::{Duration, Instant};
 
 use deadpool_postgres::tokio_postgres::error::SqlState;
 use deadpool_postgres::tokio_postgres::{CancelToken, NoTls};
-use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, PoolError, RecyclingMethod};
+use deadpool_postgres::{
+    Manager, ManagerConfig, Object, Pool, PoolError, QueueMode, RecyclingMethod, Timeouts,
+};
 use postgres::config::SslMode;
 use semver::Version;
 use tracing::{info, warn};
@@ -46,11 +48,8 @@ const RETRY_WARN_EVERY: Duration = Duration::from_secs(10);
 pub struct PostgresPool {
     id: String,
     pool: Pool,
-    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
-    ///
-    /// `true` if running postgis >= 3.1
-    /// This being `false` indicates that tiles may be cut off at the edges.
-    supports_tile_margin: bool,
+    /// Whether `ST_TileEnvelope` supports the margin parameter, known once `PostGIS` has been checked.
+    supports_tile_margin: Arc<tokio::sync::OnceCell<bool>>,
     active_query_registry: ActiveQueryRegistry,
 }
 
@@ -77,28 +76,31 @@ impl PostgresPool {
 
         let pool = Pool::builder(mgr)
             .max_size(pool_size)
+            // The connection idle the longest serves next, which after startup is the one that loaded PostGIS.
+            .queue_mode(QueueMode::Fifo)
             .build()
             .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
-        let mut res = Self {
+        let res = Self {
             id: id.clone(),
             pool,
-            supports_tile_margin: false,
+            supports_tile_margin: Arc::default(),
             active_query_registry: ActiveQueryRegistry::new(tls),
         };
-        let conn = res.first_connection(retry_timeout).await?;
+        // A second connection opens alongside the first, so discovery can run on it while the first loads PostGIS.
+        let no_wait = Timeouts {
+            wait: Some(Duration::ZERO),
+            ..Timeouts::default()
+        };
+        let (conn, _) = tokio::join!(
+            res.first_connection(retry_timeout),
+            res.pool.timeout_get(&no_wait)
+        );
+        let conn = conn?;
         let pg_ver = get_postgres_version(&conn).await?;
         if pg_ver < MINIMUM_POSTGRES_VERSION {
             return Err(PostgresqlTooOld {
                 current: pg_ver,
                 minimum: MINIMUM_POSTGRES_VERSION,
-            });
-        }
-
-        let postgis_ver = get_postgis_version(&conn).await?;
-        if postgis_ver < MINIMUM_POSTGIS_VERSION {
-            return Err(PostgisTooOld {
-                current: postgis_ver,
-                minimum: MINIMUM_POSTGIS_VERSION,
             });
         }
 
@@ -110,20 +112,13 @@ impl PostgresPool {
                 "PostgreSQL is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
             );
         }
-        res.supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
-        if !res.supports_tile_margin {
-            warn!(
-                postgis.version = %postgis_ver,
-                "PostGIS is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
-            );
-        }
-        if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
-            warn!(
-                postgis.version = %postgis_ver,
-                "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If you encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
-            );
-        }
-        info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
+        // A database process takes milliseconds to load PostGIS, so the first connection loads it in the background.
+        let supports_tile_margin = Arc::clone(&res.supports_tile_margin);
+        tokio::spawn(async move {
+            let _ = supports_tile_margin
+                .get_or_try_init(|| async move { check_postgis(&conn, &id, &pg_ver).await })
+                .await;
+        });
         Ok(res)
     }
 
@@ -272,13 +267,22 @@ impl PostgresPool {
         &self.active_query_registry
     }
 
-    /// Indicates if `ST_TileEnvelope` supports the margin parameter.
+    /// Whether `ST_TileEnvelope` supports the margin parameter, which needs `PostGIS` 3.1.
     ///
-    /// `true` if running postgis >= `3.1`
-    /// This being false indicates that tiles may be cut off at the edges.
-    #[must_use]
-    pub const fn supports_tile_margin(&self) -> bool {
+    /// Waits for the `PostGIS` check [`Self::new`] started.
+    ///
+    /// # Errors
+    ///
+    /// When `PostGIS` is missing or older than the minimum.
+    pub async fn supports_tile_margin(&self) -> PostgresResult<bool> {
         self.supports_tile_margin
+            .get_or_try_init(|| async {
+                let conn = self.get().await?;
+                let pg_ver = get_postgres_version(&conn).await?;
+                check_postgis(&conn, &self.id, &pg_ver).await
+            })
+            .await
+            .copied()
     }
 }
 
@@ -340,6 +344,32 @@ async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
         .map_err(|e| PostgresError(e, "querying postgres version"))?;
 
     parse_postgres_version(version_num).ok_or(BadPostgresVersion { version_num })
+}
+
+/// Checks the `PostGIS` version and returns whether `ST_TileEnvelope` supports the margin parameter.
+async fn check_postgis(conn: &Object, id: &str, pg_ver: &Version) -> PostgresResult<bool> {
+    let postgis_ver = get_postgis_version(conn).await?;
+    if postgis_ver < MINIMUM_POSTGIS_VERSION {
+        return Err(PostgisTooOld {
+            current: postgis_ver,
+            minimum: MINIMUM_POSTGIS_VERSION,
+        });
+    }
+    let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
+    if !supports_tile_margin {
+        warn!(
+            postgis.version = %postgis_ver,
+            "PostGIS is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
+        );
+    }
+    if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
+        warn!(
+            postgis.version = %postgis_ver,
+            "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If you encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
+        );
+    }
+    info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
+    Ok(supports_tile_margin)
 }
 
 /// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)

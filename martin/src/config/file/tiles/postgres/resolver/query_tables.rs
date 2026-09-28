@@ -35,15 +35,16 @@ pub async fn query_available_tables(
     schemas: Option<Vec<String>>,
     restrict_to_tables: Option<HashSet<(String, String)>>,
 ) -> PostgresResult<SqlTableInfoMapMapMap> {
-    let rows = pool
-        .get()
-        .await?
+    let conn = pool.get().await?;
+    let rows = conn
         .query(
             include_str!("scripts/query_available_tables.sql"),
             &[&schemas],
         )
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
+    // Held until PostGIS is checked, so the connection that loaded it goes back to the pool first.
+    pool.supports_tile_margin().await?;
 
     let mut res = SqlTableInfoMapMapMap::new();
     for row in &rows {
@@ -264,7 +265,7 @@ async fn table_query_sql(
         info,
         max_feature_count,
         grid,
-        pool.supports_tile_margin(),
+        pool.supports_tile_margin().await?,
         table_wrap,
     )
 }
