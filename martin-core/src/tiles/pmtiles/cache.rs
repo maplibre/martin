@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -17,7 +18,7 @@ pub const NO_PMT_CACHE: OptPmtCache = None;
 ///
 /// For access to the cache, use the [`PmtCacheInstance`] struct instead, as this way the cache can have a consistent view into how large it is.
 #[derive(Clone, Debug)]
-pub struct PmtCache(Cache<PmtCacheKey, pmtiles::Directory>);
+pub struct PmtCache(Cache<PmtCacheKey, Arc<pmtiles::Directory>>);
 
 impl PmtCache {
     /// Creates a new `PMTiles` directory cache instance
@@ -29,10 +30,12 @@ impl PmtCache {
     ) -> Self {
         let mut builder = Cache::builder()
             .name("pmtiles_directory_cache")
-            .weigher(|_key: &PmtCacheKey, value: &pmtiles::Directory| -> u32 {
-                value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                    + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
-            })
+            .weigher(
+                |_key: &PmtCacheKey, value: &Arc<pmtiles::Directory>| -> u32 {
+                    value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                        + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
+                },
+            )
             .max_capacity(max_size_bytes);
         if let Some(ttl) = expiry {
             builder = builder.time_to_live(ttl);
@@ -127,7 +130,7 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
             .cache
             .0
             .entry(key)
-            .or_try_insert_with(fetcher)
+            .or_try_insert_with(async { fetcher.await.map(Arc::new) })
             .await
             .map_err(|e| {
                 pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
