@@ -164,7 +164,7 @@ fn per_source_process(
 fn log_published(id: &str, spec: &SourceSpec) {
     match spec {
         SourceSpec::Table(info) => {
-            let kind = match info.relkind {
+            let kind = match info.discovered.relkind {
                 Some('v') => "view",
                 Some('m') => "materialized view",
                 _ => "table",

@@ -17,7 +17,7 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PgTileGrid, PostgresInfo as _, TableInfo};
+use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -80,25 +80,28 @@ pub async fn query_available_tables(
             schema,
             table,
             geometry_column: row.get("geom"),
-            geometry_index: row.get("geom_idx"),
-            relkind: row
-                .get::<_, Option<i8>>("relkind")
-                .and_then(|r| u8::try_from(r).ok().map(char::from)),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(
                 serde_json::from_value(row.get("properties"))
                     .expect("properties column should be a valid JSON object with string values"),
             ),
-            column_types: serde_json::from_value(row.get("column_types"))
-                .expect("column_types column should be a valid JSON object with string values"),
-            tilejson,
+            discovered: DiscoveredTable {
+                geometry_index: row.get("geom_idx"),
+                relkind: row
+                    .get::<_, Option<i8>>("relkind")
+                    .and_then(|r| u8::try_from(r).ok().map(char::from)),
+                column_types: serde_json::from_value(row.get("column_types"))
+                    .expect("column_types column should be a valid JSON object with string values"),
+                tilejson,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
         // Warn for missing geometry indices.
         // Ignore views since those can't have indices and will generally refer to table columns.
-        if info.geometry_index == Some(false) && info.relkind != Some('v') {
+        if info.discovered.geometry_index == Some(false) && info.discovered.relkind != Some('v') {
             warn!(
                 "Table {}.{} has no spatial index on column {}",
                 info.schema, info.table, info.geometry_column
@@ -301,20 +304,24 @@ impl TableQuerySql {
         let props = info.properties.iter().flatten();
         let properties: String = props
             .clone()
-            .map(|(column, _)| escape_with_alias(&info.prop_mapping, column))
+            .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
         let row_properties: String = props
             .map(|(column, label)| {
-                let table_column = info.prop_mapping.get(column).unwrap_or(column);
-                let pg_type = info.column_types.get(table_column).unwrap_or(label);
-                escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
+                let table_column = info.discovered.prop_mapping.get(column).unwrap_or(column);
+                let pg_type = info
+                    .discovered
+                    .column_types
+                    .get(table_column)
+                    .unwrap_or(label);
+                escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
             })
             .collect();
 
         let (id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
                 format!(", {}", escape_literal(id_column)),
-                escape_with_alias(&info.prop_mapping, id_column),
+                escape_with_alias(&info.discovered.prop_mapping, id_column),
             )
         } else {
             (String::new(), String::new())
