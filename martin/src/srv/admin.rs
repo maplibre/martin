@@ -95,6 +95,7 @@ pub async fn get_catalog(
 ) -> impl Responder {
     #[cfg(feature = "_tiles")]
     let catalog = {
+        tile_manager.wait_until_loaded().await;
         let mut catalog = catalog.as_ref().clone();
         catalog.tiles = tile_manager.tile_sources().get_catalog();
         catalog

@@ -2,7 +2,7 @@
 source: e2e-tests/tests/martin_cp.rs
 expression: metadata
 ---
-agg_tiles_hash = 7323D1D8A07A7176998822DB65E08567
+agg_tiles_hash = 9486E45F195B292E55664CD917CC9CAD
 bounds = -2,-1,142.8413150986,45
 compression = gzip
 foo = {"bar":"foo"}
