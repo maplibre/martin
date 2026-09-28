@@ -115,7 +115,11 @@ impl DebouncedWarning {
     )
 )]
 #[route("/health", method = "GET", method = "HEAD")]
-pub async fn get_health() -> impl Responder {
+pub async fn get_health(
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    tile_manager.wait_until_loaded().await;
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")

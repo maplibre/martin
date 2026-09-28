@@ -1,5 +1,6 @@
 #[cfg(feature = "postgres")]
 use futures::future::try_join_all;
+use tokio::task::JoinHandle;
 
 use crate::StartupResult;
 use crate::config::file::Config;
@@ -173,6 +174,22 @@ impl TileReloaders {
             pmtiles,
             #[cfg(feature = "postgres")]
             postgres,
+        })
+    }
+
+    /// Loads every source on a task of its own and then starts the reload loops.
+    /// Requests for a source that is not published yet wait until the load is done.
+    pub fn load(
+        config: Config,
+        catalog: TileSourceManager,
+        resolver: IdResolver,
+    ) -> JoinHandle<StartupResult<()>> {
+        catalog.start_loading();
+        tokio::spawn(async move {
+            let reloaders = Self::init(&config, &catalog, &resolver).await;
+            catalog.finish_loading();
+            reloaders?.start();
+            Ok(())
         })
     }
 

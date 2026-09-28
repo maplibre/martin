@@ -104,6 +104,7 @@ pub async fn get_tile(
         if_none_match: req.get_header::<IfNoneMatch>(),
         preferred_enc: srv_config.preferred_encoding,
     };
+    manager.wait_for_sources(&path.source_ids).await;
     let src = DynTileSource::new(
         &manager,
         &path.source_ids,
