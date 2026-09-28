@@ -40,6 +40,10 @@ use tracing::{error, info};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the startup steps in the order they run"
+)]
 async fn start(
     args: Args,
     #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
@@ -78,7 +82,12 @@ async fn start(
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    let reloaders = TileReloaders::init(&config, &sources.tile_manager, &resolver).await?;
+    let reloaders = if save_config.is_some() {
+        // The saved config lists every source, so they load before it is written.
+        Some(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?)
+    } else {
+        None
+    };
 
     if let Some(file_name) = save_config {
         config.save_to_file(
@@ -90,6 +99,7 @@ async fn start(
         info!("Use --save-config to save or print Martin configuration.");
     }
 
+    // Otherwise the sources load while the server starts.
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
@@ -98,7 +108,17 @@ async fn start(
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    reloaders.start();
+    let loading = match reloaders {
+        Some(reloaders) => {
+            reloaders.start();
+            None
+        }
+        None => Some(TileReloaders::load(
+            config.clone(),
+            sources.tile_manager.clone(),
+            resolver.clone(),
+        )),
+    };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
@@ -115,6 +135,17 @@ async fn start(
         format!("http://{listen_addresses}/")
     };
 
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    let Some(server) = serve_while_loading(server, loading).await? else {
+        return Ok(());
+    };
     #[cfg(all(feature = "webui", not(docsrs)))]
     match web_ui_mode {
         WebUiMode::EnableForAll => info!("Martin server is now active at {base_url}"),
@@ -149,6 +180,38 @@ async fn start(
     }
 
     Ok(server.await?)
+}
+
+/// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "unstable-duckdb",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+async fn serve_while_loading<S, E>(
+    mut server: S,
+    loading: Option<tokio::task::JoinHandle<StartupResult<()>>>,
+) -> StartupResult<Option<S>>
+where
+    S: Future<Output = Result<(), E>> + Unpin,
+    martin::StartupError: From<E>,
+{
+    let Some(loading) = loading else {
+        return Ok(Some(server));
+    };
+    tokio::select! {
+        result = &mut server => {
+            result?;
+            Ok(None)
+        }
+        loaded = loading => {
+            loaded.expect("loading the sources panicked")?;
+            Ok(Some(server))
+        }
+    }
 }
 
 #[tokio::main]
