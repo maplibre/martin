@@ -53,8 +53,8 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         &self.discovery
     }
 
-    /// Loads everything discovered into the sink and records it as the baseline, so the catalog
-    /// is populated by exactly one observation before serving starts.
+    /// Loads everything discovered into the sink a chunk at a time and records it as the baseline,
+    /// so the catalog is populated by exactly one observation.
     ///
     /// Construction and discovery warnings are returned for the caller's `on_invalid` policy.
     /// A discovery or apply error leaves the baseline unset and is returned.
@@ -635,6 +635,46 @@ mod tests {
         assert_eq!(
             *recorded.lock().unwrap(),
             vec![advisory(&["a", "b"], &[], &[]), advisory(&["b"], &[], &[])]
+        );
+    }
+
+    #[tokio::test]
+    async fn init_applies_in_chunks_and_retries_skipped_builds_from_each() {
+        let source_ids: Vec<String> = (0..=MAX_CONCURRENT_SOURCE_INITS)
+            .map(|i| format!("s{i:02}"))
+            .collect();
+        let entries: Vec<(&str, Version)> = source_ids
+            .iter()
+            .map(|id| (id.as_str(), Version::Tracked(1)))
+            .collect();
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&entries)), Ok(snapshot(&entries))]);
+        let (first_chunk, second_chunk) = source_ids.split_at(MAX_CONCURRENT_SOURCE_INITS);
+        let skipped = [first_chunk[0].as_str(), second_chunk[0].as_str()];
+        let sink = SpySink::with_state(&[], &skipped);
+        let recorded = sink.recorded();
+        let mut driver = ReloadDriver::new(discovery, sink);
+
+        driver.init().await.expect("init");
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: first_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: second_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                advisory(&skipped, &[], &[]),
+            ]
         );
     }
 
