@@ -186,9 +186,9 @@ impl TileReloaders {
     ) -> JoinHandle<StartupResult<()>> {
         catalog.start_loading();
         tokio::spawn(async move {
-            let reloaders = Self::init(&config, &catalog, &resolver).await;
+            let reloaders = Self::init(&config, &catalog, &resolver).await?;
             catalog.finish_loading();
-            reloaders?.start();
+            reloaders.start();
             Ok(())
         })
     }
