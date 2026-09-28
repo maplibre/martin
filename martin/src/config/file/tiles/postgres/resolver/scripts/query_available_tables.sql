@@ -71,7 +71,12 @@ geo_columns AS (
     INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
     WHERE
-        tp.typname IN ('geometry', 'geography')
+        -- by type id, so the planner keeps the columns of every other type out of the join with pg_type
+        attr.atttypid = any(array(
+            SELECT geo.oid
+            FROM pg_catalog.pg_type AS geo
+            WHERE geo.typname IN ('geometry', 'geography')
+        ))
         AND NOT attr.attisdropped
         AND cls.relkind IN ('r', 'v', 'm', 'f', 'p')
         AND NOT (tp.typname = 'geometry' AND cls.relname = 'raster_columns')
