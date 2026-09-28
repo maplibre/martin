@@ -24,18 +24,11 @@ use crate::tiles::postgres::tls::{
 };
 use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 
-/// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
-/// See <https://postgis.net/docs/ST_TileEnvelope.html>
-const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 0, 0);
+/// `ST_TileEnvelope` takes a margin since `PostGIS` 3.1, and `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
+/// See <https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788>
+const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
 /// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const MINIMUM_POSTGRES_VERSION: Version = Version::new(11, 0, 0);
-/// After this [`PostGIS`](https://postgis.net/) version we can use margin parameter in `ST_TileEnvelope`
-const ST_TILE_ENVELOPE_POSTGIS_VERSION: Version = Version::new(3, 1, 0);
-/// Before this [`PostGIS`](https://postgis.net/) version, some geometry was missing in some cases.
-/// One example is lines not drawing at zoom level 0, but every other level for very long lines.
-const MISSING_GEOM_FIXED_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
-/// Minimum version of postgres required for [`RECOMMENDED_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
+const MINIMUM_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 /// Pause between two attempts at the first connection.
 const RETRY_INTERVAL: Duration = Duration::from_millis(500);
 /// How long the first connection may take before Martin says it is still retrying.
@@ -48,8 +41,8 @@ const RETRY_WARN_EVERY: Duration = Duration::from_secs(10);
 pub struct PostgresPool {
     id: String,
     pool: Pool,
-    /// Whether `ST_TileEnvelope` supports the margin parameter, known once `PostGIS` has been checked.
-    supports_tile_margin: Arc<tokio::sync::OnceCell<bool>>,
+    /// Set once `PostGIS` has been checked, which [`Self::new`] starts on the first connection.
+    postgis_checked: Arc<tokio::sync::OnceCell<()>>,
     active_query_registry: ActiveQueryRegistry,
 }
 
@@ -83,7 +76,7 @@ impl PostgresPool {
         let res = Self {
             id: id.clone(),
             pool,
-            supports_tile_margin: Arc::default(),
+            postgis_checked: Arc::default(),
             active_query_registry: ActiveQueryRegistry::new(tls),
         };
         // A second connection opens alongside the first, so discovery can run on it while the first loads PostGIS.
@@ -103,20 +96,11 @@ impl PostgresPool {
                 minimum: MINIMUM_POSTGRES_VERSION,
             });
         }
-
-        // In the warning cases below, we could technically run.
-        // This is not ideal for reasons explained in the warnings
-        if pg_ver < RECOMMENDED_POSTGRES_VERSION {
-            warn!(
-                postgres.version = %pg_ver,
-                "PostgreSQL is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
-            );
-        }
         // A database process takes milliseconds to load PostGIS, so the first connection loads it in the background.
-        let supports_tile_margin = Arc::clone(&res.supports_tile_margin);
+        let postgis_checked = Arc::clone(&res.postgis_checked);
         tokio::spawn(async move {
-            let _ = supports_tile_margin
-                .get_or_try_init(|| async move { check_postgis(&conn, &id, &pg_ver).await })
+            let _ = postgis_checked
+                .get_or_try_init(|| async move { check_postgis_on(&conn, &id).await })
                 .await;
         });
         Ok(res)
@@ -267,20 +251,14 @@ impl PostgresPool {
         &self.active_query_registry
     }
 
-    /// Whether `ST_TileEnvelope` supports the margin parameter, which needs `PostGIS` 3.1.
-    ///
-    /// Waits for the `PostGIS` check [`Self::new`] started.
+    /// Waits for the `PostGIS` check [`Self::new`] started, and checks again on `conn` if that one failed.
     ///
     /// # Errors
     ///
     /// When `PostGIS` is missing or older than the minimum.
-    pub async fn supports_tile_margin(&self) -> PostgresResult<bool> {
-        self.supports_tile_margin
-            .get_or_try_init(|| async {
-                let conn = self.get().await?;
-                let pg_ver = get_postgres_version(&conn).await?;
-                check_postgis(&conn, &self.id, &pg_ver).await
-            })
+    pub async fn check_postgis(&self, conn: &Object) -> PostgresResult<()> {
+        self.postgis_checked
+            .get_or_try_init(|| check_postgis_on(conn, &self.id))
             .await
             .copied()
     }
@@ -346,8 +324,9 @@ async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
     parse_postgres_version(version_num).ok_or(BadPostgresVersion { version_num })
 }
 
-/// Checks the `PostGIS` version and returns whether `ST_TileEnvelope` supports the margin parameter.
-async fn check_postgis(conn: &Object, id: &str, pg_ver: &Version) -> PostgresResult<bool> {
+/// Checks that `PostGIS` is new enough, which loads it into the connection's database process.
+async fn check_postgis_on(conn: &Object, id: &str) -> PostgresResult<()> {
+    let pg_ver = get_postgres_version(conn).await?;
     let postgis_ver = get_postgis_version(conn).await?;
     if postgis_ver < MINIMUM_POSTGIS_VERSION {
         return Err(PostgisTooOld {
@@ -355,21 +334,8 @@ async fn check_postgis(conn: &Object, id: &str, pg_ver: &Version) -> PostgresRes
             minimum: MINIMUM_POSTGIS_VERSION,
         });
     }
-    let supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
-    if !supports_tile_margin {
-        warn!(
-            postgis.version = %postgis_ver,
-            "PostGIS is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
-        );
-    }
-    if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
-        warn!(
-            postgis.version = %postgis_ver,
-            "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If you encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
-        );
-    }
     info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
-    Ok(supports_tile_margin)
+    Ok(())
 }
 
 /// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)
@@ -524,7 +490,7 @@ mod tests {
 
     use super::*;
 
-    async fn start_postgres_11_with_posgis_3_container()
+    async fn start_postgres_12_with_postgis_3_5_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -532,7 +498,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("11-3.0") // purposely very old and stable
+                .with_tag("12-3.5") // purposely very old and stable
                 .start()
                 .await
         })
@@ -548,7 +514,7 @@ mod tests {
 
     #[tokio::test]
     async fn parse_version() {
-        let node = start_postgres_11_with_posgis_3_container().await;
+        let node = start_postgres_12_with_postgis_3_5_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())
@@ -575,16 +541,16 @@ mod tests {
         let pg_version = get_postgres_version(&conn)
             .await
             .expect("postgres version can be retrieved");
-        assert_eq!(pg_version.major, 11);
-        assert!(pg_version.minor >= 10); // we don't want to break this testcase just because postgis updates that image
+        assert_eq!(pg_version.major, 12);
+        assert!(pg_version.minor >= 22); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
 
         let postgis_version = get_postgis_version(&conn)
             .await
             .expect("postgis version can be retrieved");
         assert_eq!(postgis_version.major, 3);
-        assert_eq!(postgis_version.minor, 0);
-        assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
+        assert_eq!(postgis_version.minor, 5);
+        assert!(postgis_version.patch >= 2); // we don't want to break this testcase just because postgis updates that image
     }
 
     struct TlsCerts {
@@ -638,7 +604,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("11-3.0")
+                .with_tag("12-3.5")
                 .with_copy_to(
                     "/certs/server.crt".to_owned(),
                     certs.server_cert_pem.clone().into_bytes(),

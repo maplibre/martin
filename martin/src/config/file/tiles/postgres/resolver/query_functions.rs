@@ -53,7 +53,7 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
         .await
         .map_err(|e| PostgresError(e, "querying available functions"))?;
     // Held until PostGIS is checked, so the connection that loaded it goes back to the pool first.
-    pool.supports_tile_margin().await?;
+    pool.check_postgis(&conn).await?;
 
     let mut by_name = BTreeMap::<(String, String), Vec<Variant>>::new();
     for row in &rows {

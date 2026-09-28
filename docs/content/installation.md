@@ -7,7 +7,7 @@ tags:
 
 ### Prerequisites
 
-If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. PostGIS v3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
 ### Docker
 
