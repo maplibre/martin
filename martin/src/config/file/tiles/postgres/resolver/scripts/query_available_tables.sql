@@ -1,4 +1,27 @@
-WITH
+WITH RECURSIVE
+--
+domains AS (
+    -- each domain with every type below it, down to the first one that is not a domain
+    SELECT
+        dom.oid AS domain_oid,
+        base.oid AS base_oid,
+        base.typname AS base_name,
+        base.typtype AS base_typtype
+    FROM pg_catalog.pg_type AS dom
+    INNER JOIN pg_catalog.pg_type AS base ON dom.typbasetype = base.oid
+    WHERE dom.typtype = 'd'
+    UNION ALL
+    SELECT
+        domains.domain_oid,
+        base.oid AS base_oid,
+        base.typname AS base_name,
+        base.typtype AS base_typtype
+    FROM domains
+    INNER JOIN pg_catalog.pg_type AS dom ON domains.base_oid = dom.oid
+    INNER JOIN pg_catalog.pg_type AS base ON dom.typbasetype = base.oid
+    WHERE domains.base_typtype = 'd'
+),
+
 --
 columns AS (
     -- list of table columns
@@ -6,7 +29,17 @@ columns AS (
         ns.nspname AS table_schema,
         cls.relname AS table_name,
         attr.attname AS column_name,
-        trim(LEADING '_' FROM tp.typname) AS type_name
+        trim(LEADING '_' FROM tp.typname) AS type_name,
+        -- the type a query returns the column as, which for a domain is the type at the bottom of it
+        CASE
+            WHEN tp.typtype = 'd'
+                THEN (
+                    SELECT domains.base_name
+                    FROM domains
+                    WHERE domains.domain_oid = tp.oid AND domains.base_typtype != 'd'
+                )
+            ELSE tp.typname
+        END AS query_type_name
     FROM pg_attribute AS attr
     INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
     INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
@@ -133,7 +166,12 @@ SELECT
             AND columns.type_name != 'geography'
         ),
         '{}'::jsonb
-    ) AS properties
+    ) AS properties,
+    coalesce(
+        jsonb_object_agg(columns.column_name, columns.query_type_name)
+        FILTER (WHERE columns.column_name IS NOT null),
+        '{}'::jsonb
+    ) AS column_types
 FROM annotated_geo_columns AS gc
 LEFT JOIN columns
     ON

@@ -85,6 +85,8 @@ pub async fn query_available_tables(
                 serde_json::from_value(row.get("properties"))
                     .expect("properties column should be a valid JSON object with string values"),
             ),
+            column_types: serde_json::from_value(row.get("column_types"))
+                .expect("column_types column should be a valid JSON object with string values"),
             tilejson,
             ..Default::default()
         };
@@ -255,52 +257,11 @@ async fn table_query_sql(
     TableQuerySql::new(
         id,
         info,
-        &property_types(pool, info).await,
         max_feature_count,
         grid,
         pool.supports_tile_margin(),
         table_wrap,
     )
-}
-
-/// The type each property reaches the row query in, by property name.
-///
-/// This is the column's own type, which the label the configuration gives it need not spell
-/// the way the catalog does. When the database cannot tell, the map is empty and the labels
-/// decide.
-async fn property_types(pool: &PostgresPool, info: &TableInfo) -> HashMap<String, String> {
-    let columns: String = info
-        .properties
-        .iter()
-        .flatten()
-        .map(|(field, _)| escape_with_alias(&info.prop_mapping, field))
-        .collect();
-    let Some(columns) = columns.strip_prefix(", ") else {
-        return HashMap::new();
-    };
-    let sql = format!(
-        "SELECT {columns} FROM {}.{}",
-        escape_identifier(&info.schema),
-        escape_identifier(&info.table)
-    );
-    let statement = match pool.get().await {
-        Ok(client) => client.prepare(&sql).await.map_err(|e| e.to_string()),
-        Err(e) => Err(e.to_string()),
-    };
-    match statement {
-        Ok(statement) => statement
-            .columns()
-            .iter()
-            .map(|column| (column.name().to_owned(), column.type_().name().to_owned()))
-            .collect(),
-        Err(e) => {
-            debug!(
-                "Typing the properties of {} by their configured labels, as the database did not say: {e}",
-                info.format_id()
-            );
-            HashMap::new()
-        }
-    }
 }
 
 /// The SQL fragments every shape of a table tile query is assembled from.
@@ -327,7 +288,6 @@ impl TableQuerySql {
     fn new(
         id: &str,
         info: &TableInfo,
-        property_types: &HashMap<String, String>,
         max_feature_count: Option<usize>,
         grid: &PgTileGrid,
         supports_tile_margin: bool,
@@ -340,7 +300,8 @@ impl TableQuerySql {
             .collect();
         let row_properties: String = props
             .map(|(column, label)| {
-                let pg_type = property_types.get(column).unwrap_or(label);
+                let table_column = info.prop_mapping.get(column).unwrap_or(column);
+                let pg_type = info.column_types.get(table_column).unwrap_or(label);
                 escape_with_alias_as_property(&info.prop_mapping, column, pg_type)
             })
             .collect();
