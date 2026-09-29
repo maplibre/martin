@@ -10,7 +10,7 @@ use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
 use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
 use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
 use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
-use crate::config::file::tiles::duckdb::resolver::sql::build_mvt_sql;
+use crate::config::file::tiles::duckdb::resolver::sql::{build_mvt_sql, parse_cql2_filter};
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
 
@@ -40,6 +40,7 @@ pub async fn resolve_geoparquet_source(
     pool: DuckDBPool,
     cache: CachePolicy,
 ) -> DuckDbSourceResult<BoxedSource> {
+    let filter_sql = parse_cql2_filter(entry.layer.filter.as_deref())?;
     let (from_expr, source_label) = geoparquet_from_expr(entry);
     let mut introspection = introspect(&pool, &from_expr, &source_label, &entry.layer).await?;
     introspection.covering = query_covering(
@@ -64,11 +65,18 @@ pub async fn resolve_geoparquet_source(
         &introspection.geometry_column,
         introspection.srid.get(),
         auto_bounds,
+        filter_sql.as_deref(),
     )
     .await?;
 
     let layer_id = entry.layer_id.as_deref().unwrap_or(&source_id);
-    let sql_query = build_mvt_sql(&introspection, &entry.layer, layer_id, &from_expr);
+    let sql_query = build_mvt_sql(
+        &introspection,
+        &entry.layer,
+        layer_id,
+        &from_expr,
+        filter_sql.as_deref(),
+    );
     let tilejson = build_tilejson(
         &introspection,
         &entry.layer,
@@ -157,7 +165,7 @@ mod tests {
         let profile_path = escape_sql_string(&profile.to_string_lossy());
         let entry = fixture_entry();
         let (from_expr, _) = geoparquet_from_expr(&entry);
-        let sql = build_mvt_sql(introspection, &entry.layer, "covering", &from_expr);
+        let sql = build_mvt_sql(introspection, &entry.layer, "covering", &from_expr, None);
 
         let tile = pool
             .generate_tile(move |conn| {

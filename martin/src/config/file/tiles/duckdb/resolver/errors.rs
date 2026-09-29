@@ -19,6 +19,10 @@ pub enum BoundsError {
 /// Errors raised while resolving `DuckDB` relations into tile sources.
 #[derive(thiserror::Error, Debug)]
 pub enum DuckDbSourceError {
+    /// The configured filter is not valid CQL2
+    #[error("Filter '{0}' is not valid CQL2: {1}")]
+    InvalidFilter(String, String),
+
     /// No geometry column was found in the relation.
     #[error("Source has no geometry column")]
     NoGeometryColumn,

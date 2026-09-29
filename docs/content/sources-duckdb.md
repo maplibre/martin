@@ -105,6 +105,7 @@ Each GeoParquet source supports:
 - **`extent`** - side length of the MVT tile coordinate grid each tile is encoded into (defaults to `4096`, the value [MapLibre](https://maplibre.org/) assumes). Must be non-zero.
 - **`buffer`** - clip margin kept around each tile edge, in tile units (defaults to `64`). Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
 - **`clip_geom`** - controls if geometries should be clipped or encoded as is (defaults to `true`).
+- **`filter`** - optional [CQL2](sources-pg-tables.md#filtering-rows) expression to filter served rows and computed bounds.
 
 Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override the top-level values for that source.
 
@@ -173,6 +174,7 @@ duckdb:
           extent: 4096
           buffer: 64
           clip_geom: true
+          filter: highway = 'motorway'
       macros:
         # Source id
         roads_at_zoom:
@@ -214,6 +216,21 @@ FROM (
 ```
 
 Macros are served as-is: Martin does not compute their bounds or `vector_layers`.
+
+## Filtering rows
+
+GeoParquet sources and DuckDB database tables can be filtered with a `filter` option written in CQL2 (OGC Common Query Language), using the comparison, logical, text, temporal and spatial operators of [its text encoding](https://docs.ogc.org/is/21-065r2/21-065r2.html).
+
+Martin translates the filter to SQL when it starts and adds it to the query, so a filter that does not parse stops Martin at startup. The filter also restricts the computed bounds of the source.
+
+```yaml
+duckdb:
+  sources:
+    - geoparquet: /data/buildings.parquet
+      filter: height > 20 AND type = 'residential'
+```
+
+See [Filtering rows](sources-pg-tables.md#filtering-rows) for supported CQL2 expressions and examples.
 
 ## About GeoParquet
 

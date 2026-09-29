@@ -6,7 +6,7 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, MartinBuilder, WatchedDir, fixture, mlt_dump};
+use martin_e2e_tests::{Martin, MartinBuilder, StartError, WatchedDir, fixture, mlt_dump};
 use rstest::rstest;
 use tempfile::TempDir;
 
@@ -1204,4 +1204,157 @@ duckdb:
     martin.stop().await;
     martin.assert_log_contains("Removed source source.id=polygons");
     martin.assert_log_contains(r#"ERROR error="Source polygons does not exist""#);
+}
+
+#[tokio::test]
+async fn a_cql2_filter_limits_the_rows_a_geoparquet_source_serves_and_its_bounds() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(
+        &dir,
+        "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+      minzoom: 0
+      maxzoom: 14
+      filter: id = 1
+",
+    )
+    .await;
+
+    let response = martin.get("/polygons").await;
+    assert_eq!(response.status(), 200);
+    let tilejson = martin.redacted_json(&response);
+    // Unfiltered bounds were [-50.0, 20.0, 5.0, 30.0]. With id = 1 (boundary_span polygon), bounds are [-5.0, 20.0, 5.0, 30.0].
+    assert_eq!(
+        tilejson["bounds"],
+        serde_json::json!([-5.0, 20.0, 5.0, 30.0])
+    );
+
+    let tile = martin.get("/polygons/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: polygons
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)[OUTER]
+        properties:
+          id = 1 (int)
+          name = "boundary_span"
+    "#);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_cql2_filter_limits_the_rows_a_database_table_serves_and_its_bounds() {
+    let dir = temp_dir();
+    let mut martin = start_with_config(
+        &dir,
+        "\
+duckdb:
+  sources:
+    - database: tests/fixtures/duckdb/database.duckdb
+      tables:
+        places_points:
+          schema: places
+          table: points
+          geometry_column: geom
+          id_column: gid
+          srid: 4326
+          filter: gid = 1
+",
+    )
+    .await;
+
+    let response = martin.get("/places_points").await;
+    assert_eq!(response.status(), 200);
+    let tilejson = martin.redacted_json(&response);
+    // Point gid = 1 is 'west' at (-45.0, 25.0). Single point bounds are expanded by 1 degree.
+    assert_eq!(
+        tilejson["bounds"],
+        serde_json::json!([-46.0, 24.0, -44.0, 26.0])
+    );
+
+    let tile = martin.get("/places_points/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: places_points
+      version: 2
+      extent: 4096
+      feature: 0
+        id: 1
+        geometry: POINT(3072,3508)
+        properties:
+          label = "west"
+    "#);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_duckdb_filter_that_is_not_cql2_stops_martin_at_startup() {
+    let dir = temp_dir();
+    let error = martin_with_config(
+        &dir,
+        "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+      filter: id <=
+",
+    )
+    .env("RUST_LOG", "martin=error")
+    .start()
+    .await
+    .expect_err("martin must not start with an invalid cql2 filter");
+
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("Filter 'id <=' is not valid CQL2:"),
+        "expected invalid cql2 log, got: {log}"
+    );
+}
+
+#[tokio::test]
+async fn an_empty_duckdb_filter_stops_martin_at_startup() {
+    let dir = temp_dir();
+    let error = martin_with_config(
+        &dir,
+        "\
+duckdb:
+  sources:
+    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+      layer_id: polygons
+      geometry_column: geom
+      srid: 4326
+      filter: ''
+",
+    )
+    .env("RUST_LOG", "martin=error")
+    .start()
+    .await
+    .expect_err("martin must not start with an empty filter");
+
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("Filter '' is not valid CQL2:"),
+        "expected invalid cql2 log, got: {log}"
+    );
 }

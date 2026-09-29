@@ -54,12 +54,15 @@ async fn calc_bounds(
     geom_col: &str,
     srid: i32,
     mode: BoundsCalcMode,
+    filter_sql: Option<&str>,
 ) -> BoundsResult<Option<Bounds>> {
     let escaped_geom_col = escape_identifier(geom_col);
     let source_crs = epsg_crs(srid);
     let target_crs = epsg_crs(4326);
 
-    if mode == BoundsCalcMode::Estimate {
+    // Filtered sources bypass the estimate path and measure their matching rows directly,
+    // mirroring PostgreSQL behavior.
+    if mode == BoundsCalcMode::Estimate && filter_sql.is_none() {
         // ST_Extent_Approx reads each geometry's cached bounding box instead of computing the
         // full extent, but still scans the relation. Any failure (missing cached boxes, an
         // unavailable function, or a query error) falls back to the exact calculation rather
@@ -123,12 +126,13 @@ WHERE out_box IS NOT NULL;"
         }
     }
 
+    let filter_clause = filter_sql.map_or(String::new(), |f| format!(" WHERE ({f})"));
     let query = format!(
         r"WITH real_bounds AS (
     SELECT
         ST_Extent(ST_Extent_Agg({escaped_geom_col}::GEOMETRY)) AS ext,
         ST_Extent(ST_Extent_Agg(ST_Buffer({escaped_geom_col}::GEOMETRY, 1))) AS buffered_ext
-    FROM {from_sql}
+    FROM {from_sql}{filter_clause}
 )
 SELECT
     ST_XMin(box) AS xmin,
@@ -158,11 +162,21 @@ pub async fn bounds_with_auto(
     geom_col: &str,
     srid: i32,
     auto_bounds: BoundsCalcType,
+    filter_sql: Option<&str>,
 ) -> BoundsResult<Option<Bounds>> {
     match auto_bounds {
         BoundsCalcType::Skip => Ok(None),
         BoundsCalcType::Calc => {
-            calc_bounds(pool, from_sql, label, geom_col, srid, BoundsCalcMode::Exact).await
+            calc_bounds(
+                pool,
+                from_sql,
+                label,
+                geom_col,
+                srid,
+                BoundsCalcMode::Exact,
+                filter_sql,
+            )
+            .await
         }
         BoundsCalcType::Quick => {
             if let Ok(bounds) = timeout(
@@ -173,7 +187,12 @@ pub async fn bounds_with_auto(
                     label,
                     geom_col,
                     srid,
-                    BoundsCalcMode::Estimate,
+                    if filter_sql.is_some() {
+                        BoundsCalcMode::Exact
+                    } else {
+                        BoundsCalcMode::Estimate
+                    },
+                    filter_sql,
                 ),
             )
             .await
@@ -214,6 +233,7 @@ mod tests {
             "geom",
             4326,
             BoundsCalcType::Calc,
+            None,
         )
         .await
         .expect("calculate bounds");
@@ -226,6 +246,7 @@ mod tests {
             "geom",
             4326,
             BoundsCalcType::Quick,
+            None,
         )
         .await
         .expect("approx bounds");
@@ -238,6 +259,7 @@ mod tests {
             "geom",
             4326,
             BoundsCalcType::Skip,
+            None,
         )
         .await
         .expect("skip bounds");
@@ -271,10 +293,77 @@ mod tests {
             "geom",
             4326,
             BoundsCalcType::Calc,
+            None,
         )
         .await
         .expect("parquet bounds");
 
         assert_eq!(bounds, Some(Bounds::new(-50.0, 20.0, 5.0, 30.0)));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn bounds_with_auto_over_read_parquet_with_filter() {
+        use std::path::PathBuf;
+
+        use martin_core::tiles::duckdb::DuckDBPool;
+
+        let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
+        let pool = DuckDBPool::new_local_geoparquet(
+            "bounds-parquet-filter".to_owned(),
+            path.clone(),
+            1,
+            None,
+            None,
+        )
+        .expect("local GeoParquet pool");
+        let from_expr = format!(
+            "read_parquet('{}')",
+            path.to_str().expect("utf-8 parquet path")
+        );
+
+        // Filter matching only the first polygon ([-5, 20, 5, 30])
+        let bounds = bounds_with_auto(
+            &pool,
+            &from_expr,
+            "geoparquet_polygons.parquet",
+            "geom",
+            4326,
+            BoundsCalcType::Calc,
+            Some("id = 1"),
+        )
+        .await
+        .expect("filtered parquet bounds");
+
+        assert_eq!(bounds, Some(Bounds::new(-5.0, 20.0, 5.0, 30.0)));
+
+        // Quick bounds should also compute exact bounds when filtered
+        let quick_bounds = bounds_with_auto(
+            &pool,
+            &from_expr,
+            "geoparquet_polygons.parquet",
+            "geom",
+            4326,
+            BoundsCalcType::Quick,
+            Some("id = 1"),
+        )
+        .await
+        .expect("quick filtered parquet bounds");
+
+        assert_eq!(quick_bounds, Some(Bounds::new(-5.0, 20.0, 5.0, 30.0)));
+
+        // Filter matching no rows returns None
+        let empty_bounds = bounds_with_auto(
+            &pool,
+            &from_expr,
+            "geoparquet_polygons.parquet",
+            "geom",
+            4326,
+            BoundsCalcType::Calc,
+            Some("id = 999"),
+        )
+        .await
+        .expect("empty filtered parquet bounds");
+
+        assert_eq!(empty_bounds, None);
     }
 }

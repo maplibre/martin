@@ -293,6 +293,7 @@ sources:
                                 64,
                             ),
                             clip_geom: None,
+                            filter: None,
                         },
                         settings: DuckDbSourceSettings {
                             pool_size: None,

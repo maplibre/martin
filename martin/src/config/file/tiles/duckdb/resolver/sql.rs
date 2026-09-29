@@ -4,6 +4,7 @@ use std::num::NonZeroU32;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use tracing::debug;
 
+use crate::config::file::tiles::duckdb::resolver::errors::{DuckDbSourceError, DuckDbSourceResult};
 use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
 use crate::config::file::tiles::duckdb::sources::MvtLayerOptions;
 use crate::config::file::tiles::duckdb::sql_utils::{
@@ -31,12 +32,25 @@ const TILE_ENVELOPE: &str = "ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEG
 /// edges, so those sources keep scanning every row group instead.
 const AXIS_MONOTONE_SRIDS: [i32; 2] = [3857, 4326];
 
+/// The configured CQL2 `filter` translated to a SQL expression string, or `None`.
+pub fn parse_cql2_filter(filter: Option<&str>) -> DuckDbSourceResult<Option<String>> {
+    use cql2::ToSqlAst as _;
+    let Some(filter) = filter else {
+        return Ok(None);
+    };
+    let invalid = |reason: String| DuckDbSourceError::InvalidFilter(filter.to_owned(), reason);
+    let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
+    let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
+    Ok(Some(sql))
+}
+
 #[must_use]
 pub fn build_mvt_sql(
     introspection: &LayerIntrospection,
     layer: &MvtLayerOptions,
     layer_id: &str,
     from_expr: &str,
+    filter_sql: Option<&str>,
 ) -> String {
     let extent = layer.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
     let buffer = layer.buffer.unwrap_or(DEFAULT_BUFFER);
@@ -65,6 +79,9 @@ pub fn build_mvt_sql(
     filters.push(format!(
         "ST_Intersects({transformed_geometry}, {buffered_envelope})"
     ));
+    if let Some(filter_sql) = filter_sql {
+        filters.push(format!("({filter_sql})"));
+    }
     let where_clause = filters.join("\n    AND ");
 
     let mut properties = String::new();
@@ -198,6 +215,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -224,6 +242,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -254,6 +273,7 @@ mod tests {
             &layer,
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -280,6 +300,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -310,6 +331,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -340,11 +362,61 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         assert!(
             !sql.contains("bbox"),
             "unexpected covering predicate: {sql}"
+        );
+    }
+
+    #[test]
+    fn build_mvt_sql_includes_cql2_filter() {
+        let filter = parse_cql2_filter(Some("id <= 10 AND name = 'abc'"))
+            .expect("valid CQL2")
+            .expect("filter is present");
+        let sql = build_mvt_sql(
+            &introspection_with_srid(4326),
+            &MvtLayerOptions::default(),
+            "buildings",
+            &from_expr(),
+            Some(&filter),
+        );
+
+        assert!(
+            sql.contains("WHERE ST_Intersects("),
+            "expected spatial filter: {sql}"
+        );
+        assert!(
+            sql.contains("AND (id <= 10 AND name = 'abc')"),
+            "expected cql2 filter in WHERE clause: {sql}"
+        );
+        // Ensure Parquet scan is directly in the FROM without CTE or extra subquery wrapper
+        assert!(
+            sql.contains("FROM read_parquet('/data/points.parquet')"),
+            "Parquet scan must be directly queried: {sql}"
+        );
+        assert!(!sql.contains("WITH "), "must not introduce CTE: {sql}");
+    }
+
+    #[test]
+    fn parse_cql2_filter_cases() {
+        assert_eq!(parse_cql2_filter(None).unwrap(), None);
+
+        let parsed = parse_cql2_filter(Some("id > 5")).unwrap();
+        assert_eq!(parsed.as_deref(), Some("id > 5"));
+
+        let err = parse_cql2_filter(Some("id <=")).unwrap_err();
+        assert!(
+            matches!(err, DuckDbSourceError::InvalidFilter(ref f, _) if f == "id <="),
+            "unexpected error: {err}"
+        );
+
+        let empty_err = parse_cql2_filter(Some("")).unwrap_err();
+        assert!(
+            matches!(empty_err, DuckDbSourceError::InvalidFilter(ref f, _) if f.is_empty()),
+            "empty string must fail CQL2 parsing: {empty_err}"
         );
     }
 }
