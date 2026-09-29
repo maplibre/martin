@@ -217,8 +217,6 @@ FROM (
 
 Macros are served as-is: Martin does not compute their bounds or `vector_layers`.
 
-
-
 ## About GeoParquet
 
 [GeoParquet](https://geoparquet.org/) is a [Parquet](https://parquet.apache.org/) file with geospatial metadata.
