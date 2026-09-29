@@ -384,7 +384,22 @@ mod tests {
             Some(&filter),
         );
 
-        insta::assert_snapshot!(sql);
+        insta::assert_snapshot!(sql, @r#"
+
+        SELECT ST_AsMVT(tile, 'buildings', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_Extent(ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEGER)),
+                4096::BIGINT, 64::BIGINT, true
+            ) AS geom
+            , "category"::VARCHAR AS "category", "name"::VARCHAR AS "name"
+          FROM read_parquet('/data/points.parquet')
+          WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Expand(ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEGER), ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, $z::INTEGER)))
+            AND (id <= 10 AND name = 'abc')
+        ) AS tile;
+        "#);
     }
 
     #[test]
