@@ -396,7 +396,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.16.1 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0 {{args}}
 
 # Build and run martin documentation
 docs:

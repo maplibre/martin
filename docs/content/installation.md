@@ -22,7 +22,7 @@ export DATABASE_URL=postgres://user:password@host:port/db  # secret!
 docker run -p 3000:3000 \
            -e DATABASE_URL \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.16.1 \
+           ghcr.io/maplibre/martin:2.0.0 \
            --config /config/config.yaml
 ```
 
