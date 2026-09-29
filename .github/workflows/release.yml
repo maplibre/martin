@@ -213,7 +213,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true, tools: 'just,cargo-sort' }
+        with: { rendering: true }
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
@@ -262,6 +262,7 @@ jobs:
           done
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
+        continue-on-error: true
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
@@ -276,12 +277,12 @@ jobs:
           release-plz update --package martin
           mapfile -t bumped < <(git diff --name-only)
           # what pre-commit.ci and the autofix.yml jobs push, in the order they push it
-          uvx pre-commit run --all-files || true
+          uvx pre-commit run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
           just fmt-toml
           npm --prefix demo/frontend install --package-lock-only --no-fund
           npm --prefix martin/martin-ui install --package-lock-only --no-fund
           just gen-schemas
-          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || true
+          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
           git status --short
