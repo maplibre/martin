@@ -367,7 +367,12 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
     let raw = entry.path();
 
     let Ok(path) = raw.canonicalize() else {
-        tracing::warn!(path = ?raw, "failed to canonicalize path");
+        // A file listed a moment ago can be gone by the time it is resolved, and the event for
+        // its removal brings the next scan.
+        match raw.symlink_metadata() {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            _ => tracing::warn!(path = ?raw, "failed to canonicalize path"),
+        }
         return None;
     };
 
