@@ -580,7 +580,7 @@ jobs:
     services:
       # These must match the versions of postgres used in the docker-compose.yml
       pg12-alpine:
-        image: postgis/postgis:12-3.5-alpine
+        image: postgis/postgis:17-3.5-alpine
         ports:
           - 5432/tcp
         env: &postgis-env
