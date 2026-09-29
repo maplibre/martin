@@ -7,7 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0) - 2026-09-29
+## [2.0.0-beta.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0-beta.0) - 2026-09-29
+
+> [!NOTE]
+> This is the first beta of Martin 2.0.
+> Please try it against your setup and [report](https://github.com/maplibre/martin/issues) anything that breaks.
+
+> [!IMPORTANT]
+> Martin 2.0 removes options that 1.x deprecated, changes several defaults and raises the minimum PostGIS version.
+> Read the [migration guide](https://maplibre.org/martin/migration-guide/) before upgrading.
+
+### Breaking changes
+
+> [!WARNING]
+> Some removed settings are ignored silently rather than rejected.
+> A leftover `DATABASE_URL`, `DEFAULT_SRID`, `PGSSL*` or `AWS_*` environment variable no longer has any effect, and an old cache key only gets the unrecognized-key warning while the cache falls back to its default size.
+> Check your environment and configuration even if Martin starts without errors.
+
+- `martin-cp` is now the `martin cp` subcommand, and no separate binary ships ([#3327](https://github.com/maplibre/martin/pull/3327)). See [migration](https://maplibre.org/martin/migration-guide/#martin-cp-is-now-martin-cp).
+- The terminal dashboard is on by default when stdout is a terminal. `--tui` is gone, and `--no-tui` keeps the log stream ([#3329](https://github.com/maplibre/martin/pull/3329)). See [migration](https://maplibre.org/martin/migration-guide/#the-terminal-dashboard-is-on-by-default).
+- `--webui` defaults to `enable`, which serves the web UI to loopback clients only ([#3328](https://github.com/maplibre/martin/pull/3328)). See [migration](https://maplibre.org/martin/migration-guide/#the-web-ui-is-served-to-localhost-by-default).
+- Martin no longer reads `DATABASE_URL`, `DEFAULT_SRID`, `PGSSLCERT`, `PGSSLKEY` or `PGSSLROOTCERT`. Pass them on the command line or in the configuration file ([#3371](https://github.com/maplibre/martin/pull/3371)). See [migration](https://maplibre.org/martin/migration-guide/#postgresql-settings-come-from-the-command-line-or-the-configuration-file).
+- PostgreSQL sources need PostGIS 3.5 or newer ([#3400](https://github.com/maplibre/martin/pull/3400)).
+- `${VAR:default}` substitution is gone. Use `${VAR:-default}` ([#3351](https://github.com/maplibre/martin/pull/3351)).
+- The deprecated cache keys `cache_size_mb`, `tile_cache_size_mb`, `directory_cache_size_mb` and `pmtiles.dir_cache_size_mb` are no longer migrated ([#3353](https://github.com/maplibre/martin/pull/3353)). See [migration](https://maplibre.org/martin/migration-guide/#cache-sizes-have-one-spelling).
+- The legacy `AWS_*` environment variables and object storage keys are no longer read ([#3363](https://github.com/maplibre/martin/pull/3363)). See [migration](https://maplibre.org/martin/migration-guide/#object-storage-options-use-their-object_store-names).
+- `allow_http` defaults to `false` for PMTiles and COG, so `http://` sources must opt in ([#3352](https://github.com/maplibre/martin/pull/3352)). See [migration](https://maplibre.org/martin/migration-guide/#plain-http-sources-must-opt-in).
+- New normalized MBTiles files use `tiles_shallow` and `tiles_data` ([#3367](https://github.com/maplibre/martin/pull/3367)). See [migration](https://maplibre.org/martin/migration-guide/#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data).
+- Rendering is not part of the default build. Use the `-full` Docker image or tarball ([#2945](https://github.com/maplibre/martin/pull/2945)). See [migration](https://maplibre.org/martin/migration-guide/#rendering-is-not-part-of-the-default-build).
+- The `martin-core`, `martin-tile-utils` and `mbtiles` crates change their public APIs. See [migration](https://maplibre.org/martin/migration-guide/#for-users-of-the-crates).
+
+### Tile grids other than Web Mercator
+
+A PostgreSQL table or function, an MBTiles file or a PMTiles file can now be served on a tile grid other than Web Mercator, such as a national grid or a polar one.
+Name the grid with `tile_grid` on the source, or on a PostgreSQL connection to cover all of its sources.
+Seven grids from the OGC Two Dimensional Tile Matrix Set registry are built in, and others can be defined in the configuration.
+
+```yaml
+postgres:
+  tables:
+    nz_roads:
+      schema: public
+      table: roads
+      srid: 2193
+      geometry_column: geom
+      tile_grid: NZTM2000Quad
+```
+
+PostGIS does the projection, URLs stay the same, and Web Mercator sources serve what they did before.
+
+> [!TIP]
+> Built-in grids such as `NZTM2000Quad` need no `tile_grids` block, just the name in `tile_grid`.
+
+See the [documentation](https://maplibre.org/martin/tile-grids/).
+Done in [#3261](https://github.com/maplibre/martin/pull/3261) and [#3365](https://github.com/maplibre/martin/pull/3365).
+
+### Server-side rendering is stable
+
+Server-side style rendering no longer carries the experimental label or its startup warning.
+
+> [!NOTE]
+> The default Docker image, the Linux-gnu tarballs and `cargo install` no longer include rendering.
+> Use the `-full` Docker image (`:latest-full`, `:<version>-full`), a `-full` Linux-gnu tarball or `cargo install martin --features rendering`.
+
+Done in [#3354](https://github.com/maplibre/martin/pull/3354) and [#2945](https://github.com/maplibre/martin/pull/2945).
+
+### Faster startup
+
+Martin now accepts connections while its sources load.
+A request for a source that is still loading waits for it, and `/health` and `/catalog` answer once the load is done, so readiness probes still mean ready.
+PostgreSQL discovery also does less work per table and overlaps with loading PostGIS.
+Done in [#3398](https://github.com/maplibre/martin/pull/3398), [#3399](https://github.com/maplibre/martin/pull/3399), [#3400](https://github.com/maplibre/martin/pull/3400), [#3389](https://github.com/maplibre/martin/pull/3389), [#3394](https://github.com/maplibre/martin/pull/3394), [#3396](https://github.com/maplibre/martin/pull/3396) and [#3397](https://github.com/maplibre/martin/pull/3397).
+
+### Unstable sources
+
+> [!CAUTION]
+> These sources are behind `unstable-*` Cargo features and may change in any release.
+
+- *(unstable-duckdb)* serve `.duckdb` database files and GeoParquet, pass either as a positional argument, and hot reload local files ([#3346](https://github.com/maplibre/martin/pull/3346), [#3345](https://github.com/maplibre/martin/pull/3345), [#3388](https://github.com/maplibre/martin/pull/3388)).
+- *(unstable-cog)* discover and poll remote COG prefixes, and reload replaced remote objects ([#3344](https://github.com/maplibre/martin/pull/3344), [#3268](https://github.com/maplibre/martin/pull/3268)).
 
 ### Added
 
