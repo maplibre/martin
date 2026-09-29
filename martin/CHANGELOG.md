@@ -57,7 +57,7 @@ postgres:
 PostGIS does the projection, URLs stay the same, and Web Mercator sources serve what they did before.
 
 > [!TIP]
-> Built-in grids such as `NZTM2000Quad` need no `tile_grids` block, just the name in `tile_grid`.
+> There are built-in grids such as `NZTM2000Quad` that need no `tile_grids` block. You can just name them via `tile_grid`.
 
 See the [documentation](https://maplibre.org/martin/tile-grids/).
 Done in [#3261](https://github.com/maplibre/martin/pull/3261) and [#3365](https://github.com/maplibre/martin/pull/3365).
