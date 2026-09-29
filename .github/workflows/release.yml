@@ -132,6 +132,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          RELEASE_IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           set -euo pipefail
           if ! compgen -G "target/files/*" > /dev/null; then
@@ -139,7 +140,8 @@ jobs:
             exit 1
           fi
           gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
+          if [[ "$RELEASE_IS_PRERELEASE" == true ]]; then latest=false; else latest=true; fi
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest="$latest"
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
         env:
@@ -249,16 +251,16 @@ jobs:
         run: |
           set -euo pipefail
           for tag in $(jq -r '.[].tag' <<< "$RELEASES"); do
-            if ! gh release view "$tag" --json isDraft --jq '.isDraft' | grep -qx true; then
+            state=$(gh release view "$tag" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' || true)
+            if [[ "$state" != "true "* ]]; then
               echo "$tag has no draft release to publish, skipping"
               continue
             fi
             if [[ "$tag" == martin-v* ]]; then
-              gh release upload "$tag" target/files/*
-              gh release edit "$tag" --verify-tag --draft=false --latest
-            else
-              gh release edit "$tag" --verify-tag --draft=false --latest=false
+              gh release upload "$tag" target/files/* --clobber
             fi
+            if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
+            gh release edit "$tag" --verify-tag --draft=false --latest="$latest"
           done
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
