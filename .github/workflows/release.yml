@@ -261,6 +261,35 @@ jobs:
             fi
           done
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Install uv
+        continue-on-error: true
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
+      # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Generate the files that follow martin's next version
+        id: generate
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # release-plz is on the PATH from the release step
+          release-plz update --package martin
+          mapfile -t bumped < <(git diff --name-only)
+          # what pre-commit.ci and the autofix.yml jobs push, in the order they push it
+          uvx pre-commit run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
+          just fmt-toml
+          npm --prefix demo/frontend install --package-lock-only --no-fund
+          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+          just gen-schemas
+          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          # release-pr bumps these itself
+          if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
+          git status --short
+      - if: ${{ steps.generate.outcome == 'failure' }}
+        name: Hand release-pr a clean tree
+        run: git reset --hard && git clean -fd
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
         uses: release-plz/action@8e61445f0b34e7c6d985255f2f1f05a36eb350dc # v0.5.137
         with: { command: release-pr }
