@@ -384,35 +384,31 @@ mod tests {
             Some(&filter),
         );
 
-        assert!(
-            sql.contains("WHERE ST_Intersects("),
-            "expected spatial filter: {sql}"
-        );
-        assert!(
-            sql.contains("AND (id <= 10 AND name = 'abc')"),
-            "expected cql2 filter in WHERE clause: {sql}"
-        );
-        // Ensure Parquet scan is directly in the FROM without CTE or extra subquery wrapper
-        assert!(
-            sql.contains("FROM read_parquet('/data/points.parquet')"),
-            "Parquet scan must be directly queried: {sql}"
-        );
-        assert!(!sql.contains("WITH "), "must not introduce CTE: {sql}");
+        insta::assert_snapshot!(sql);
     }
 
     #[test]
-    fn parse_cql2_filter_cases() {
+    fn parse_cql2_filter_returns_none_when_omitted() {
         assert_eq!(parse_cql2_filter(None).unwrap(), None);
+    }
 
+    #[test]
+    fn parse_cql2_filter_translates_valid_expression() {
         let parsed = parse_cql2_filter(Some("id > 5")).unwrap();
         assert_eq!(parsed.as_deref(), Some("id > 5"));
+    }
 
+    #[test]
+    fn parse_cql2_filter_rejects_malformed_expression() {
         let err = parse_cql2_filter(Some("id <=")).unwrap_err();
         assert!(
             matches!(err, DuckDbSourceError::InvalidFilter(ref f, _) if f == "id <="),
             "unexpected error: {err}"
         );
+    }
 
+    #[test]
+    fn parse_cql2_filter_rejects_empty_string() {
         let empty_err = parse_cql2_filter(Some("")).unwrap_err();
         assert!(
             matches!(empty_err, DuckDbSourceError::InvalidFilter(ref f, _) if f.is_empty()),

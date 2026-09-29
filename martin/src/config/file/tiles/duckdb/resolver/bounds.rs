@@ -60,8 +60,6 @@ async fn calc_bounds(
     let source_crs = epsg_crs(srid);
     let target_crs = epsg_crs(4326);
 
-    // Filtered sources bypass the estimate path and measure their matching rows directly,
-    // mirroring PostgreSQL behavior.
     if mode == BoundsCalcMode::Estimate && filter_sql.is_none() {
         // ST_Extent_Approx reads each geometry's cached bounding box instead of computing the
         // full extent, but still scans the relation. Any failure (missing cached boxes, an
@@ -302,14 +300,14 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn bounds_with_auto_over_read_parquet_with_filter() {
+    async fn bounds_with_auto_over_filtered_read_parquet_returns_matching_rows() {
         use std::path::PathBuf;
 
         use martin_core::tiles::duckdb::DuckDBPool;
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
         let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet-filter".to_owned(),
+            "bounds-parquet-filter-matching".to_owned(),
             path.clone(),
             1,
             None,
@@ -321,7 +319,6 @@ mod tests {
             path.to_str().expect("utf-8 parquet path")
         );
 
-        // Filter matching only the first polygon ([-5, 20, 5, 30])
         let bounds = bounds_with_auto(
             &pool,
             &from_expr,
@@ -335,8 +332,28 @@ mod tests {
         .expect("filtered parquet bounds");
 
         assert_eq!(bounds, Some(Bounds::new(-5.0, 20.0, 5.0, 30.0)));
+    }
 
-        // Quick bounds should also compute exact bounds when filtered
+    #[tokio::test(flavor = "multi_thread")]
+    async fn bounds_with_auto_over_filtered_read_parquet_uses_exact_bounds_for_quick_mode() {
+        use std::path::PathBuf;
+
+        use martin_core::tiles::duckdb::DuckDBPool;
+
+        let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
+        let pool = DuckDBPool::new_local_geoparquet(
+            "bounds-parquet-filter-quick".to_owned(),
+            path.clone(),
+            1,
+            None,
+            None,
+        )
+        .expect("local GeoParquet pool");
+        let from_expr = format!(
+            "read_parquet('{}')",
+            path.to_str().expect("utf-8 parquet path")
+        );
+
         let quick_bounds = bounds_with_auto(
             &pool,
             &from_expr,
@@ -350,8 +367,28 @@ mod tests {
         .expect("quick filtered parquet bounds");
 
         assert_eq!(quick_bounds, Some(Bounds::new(-5.0, 20.0, 5.0, 30.0)));
+    }
 
-        // Filter matching no rows returns None
+    #[tokio::test(flavor = "multi_thread")]
+    async fn bounds_with_auto_over_filtered_read_parquet_returns_none_for_no_matching_rows() {
+        use std::path::PathBuf;
+
+        use martin_core::tiles::duckdb::DuckDBPool;
+
+        let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
+        let pool = DuckDBPool::new_local_geoparquet(
+            "bounds-parquet-filter-empty".to_owned(),
+            path.clone(),
+            1,
+            None,
+            None,
+        )
+        .expect("local GeoParquet pool");
+        let from_expr = format!(
+            "read_parquet('{}')",
+            path.to_str().expect("utf-8 parquet path")
+        );
+
         let empty_bounds = bounds_with_auto(
             &pool,
             &from_expr,
