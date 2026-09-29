@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.1](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.0...martin-v2.0.0-beta.1) - 2026-09-29
+
+### Other
+
+- *(deps)* update npm dependencies ([#3411](https://github.com/maplibre/martin/pull/3411))
+
 ## [2.0.0-beta.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0-beta.0) - 2026-09-29
 
 > [!NOTE]
