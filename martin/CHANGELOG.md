@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0-beta.0) - 2026-09-29
+
+> [!NOTE]
+> This is the first beta of Martin 2.0.
+> Please try it against your setup and [report](https://github.com/maplibre/martin/issues) anything that breaks.
+
+> [!IMPORTANT]
+> Martin 2.0 removes options that 1.x deprecated, changes several defaults and raises the minimum PostGIS version.
+> Read the [migration guide](https://maplibre.org/martin/migration-guide/) before upgrading.
+
+### Breaking changes
+
+> [!WARNING]
+> Some removed settings are ignored silently rather than rejected.
+> A leftover `DATABASE_URL`, `DEFAULT_SRID`, `PGSSL*` or `AWS_*` environment variable no longer has any effect, and an old cache key only gets the unrecognized-key warning while the cache falls back to its default size.
+> Under v1.x, all of these are warnings, so if you startup on 1.16 does not have any, you can mostly relax and skip this section.
+
+- `martin-cp` is now the `martin cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327)). See [migration](https://maplibre.org/martin/migration-guide/#martin-cp-is-now-martin-cp).
+- The terminal dashboard is on by default when stdout is an interactive terminal. `--tui` was thus removed and replaced with `--no-tui` ([#3329](https://github.com/maplibre/martin/pull/3329)). See [migration](https://maplibre.org/martin/migration-guide/#the-terminal-dashboard-is-on-by-default).
+- `--webui` defaults to `enable`, which serves the web UI to loopback clients only instead of `disable` ([#3328](https://github.com/maplibre/martin/pull/3328)). See [migration](https://maplibre.org/martin/migration-guide/#the-web-ui-is-served-to-localhost-by-default).
+- Martin no longer reads `DATABASE_URL`, `DEFAULT_SRID`, `PGSSLCERT`, `PGSSLKEY` or `PGSSLROOTCERT`. Pass them on the command line or in the configuration file ([#3371](https://github.com/maplibre/martin/pull/3371)). See [migration](https://maplibre.org/martin/migration-guide/#postgresql-settings-come-from-the-command-line-or-the-configuration-file).
+- PostgreSQL sources need PostGIS 3.5 or newer ([#3400](https://github.com/maplibre/martin/pull/3400)).
+- Legacy `${VAR:default}` substitution was removed. Use `${VAR:-default}` instead. ([#3351](https://github.com/maplibre/martin/pull/3351)).
+- The deprecated cache keys `cache_size_mb`, `tile_cache_size_mb`, `directory_cache_size_mb` and `pmtiles.dir_cache_size_mb` are no longer supported ([#3353](https://github.com/maplibre/martin/pull/3353)). See [migration](https://maplibre.org/martin/migration-guide/#cache-sizes-have-one-spelling).
+- The legacy `AWS_*` environment variables and object storage keys are no longer read ([#3363](https://github.com/maplibre/martin/pull/3363)). See [migration](https://maplibre.org/martin/migration-guide/#object-storage-options-use-their-object_store-names).
+- `allow_http` defaults to `false` for PMTiles and COG, so `http://` sources must opt in ([#3352](https://github.com/maplibre/martin/pull/3352)). See [migration](https://maplibre.org/martin/migration-guide/#plain-http-sources-must-opt-in).
+- New normalized MBTiles files use `tiles_shallow` and `tiles_data` ([#3367](https://github.com/maplibre/martin/pull/3367)). See [migration](https://maplibre.org/martin/migration-guide/#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data).
+- Rendering is not part of the default build. Use the `-full` Docker image or tarball ([#2945](https://github.com/maplibre/martin/pull/2945)). See [migration](https://maplibre.org/martin/migration-guide/#rendering-is-not-part-of-the-default-build).
+- The `martin-core`, `martin-tile-utils` and `mbtiles` crates change their public APIs. See [migration](https://maplibre.org/martin/migration-guide/#for-users-of-the-crates).
+
+### Tile grids other than Web Mercator
+
+A PostgreSQL table or function, an MBTiles file or a PMTiles file can now be served on a tile grid other than Web Mercator, such as a national grid or a polar one.
+Name the grid with `tile_grid` on the source, or on a PostgreSQL connection to cover all of its sources.
+Seven grids from the OGC Two Dimensional Tile Matrix Set registry are built in, and others can be defined in the configuration.
+
+```yaml
+postgres:
+  tables:
+    nz_roads:
+      schema: public
+      table: roads
+      srid: 2193
+      geometry_column: geom
+      tile_grid: NZTM2000Quad
+```
+
+PostGIS does the projection, URLs stay the same, and Web Mercator sources serve what they did before.
+
+> [!TIP]
+> There are built-in grids such as `NZTM2000Quad` that need no `tile_grids` block. You can just name them via `tile_grid`.
+
+See the [documentation](https://maplibre.org/martin/tile-grids/).
+Done in [#3261](https://github.com/maplibre/martin/pull/3261) and [#3365](https://github.com/maplibre/martin/pull/3365).
+
+### Server-side rendering is stable
+
+Server-side style rendering no longer carries the experimental label or its startup warning.
+
+> [!NOTE]
+> The default Docker image, the Linux-gnu tarballs and `cargo install` no longer include rendering.
+> Use the `-full` Docker image (`:latest-full`, `:<version>-full`), a `-full` Linux-gnu tarball or `cargo install martin --features rendering`.
+
+Done in [#3354](https://github.com/maplibre/martin/pull/3354) and [#2945](https://github.com/maplibre/martin/pull/2945).
+
+### Faster startup
+
+Martin now accepts connections while its sources load.
+A request for a source that is still loading waits for it, and `/health` and `/catalog` answer once the load is done, so readiness probes still mean ready.
+PostgreSQL discovery also does less work per table and overlaps with loading PostGIS.
+Done in [#3398](https://github.com/maplibre/martin/pull/3398), [#3399](https://github.com/maplibre/martin/pull/3399), [#3400](https://github.com/maplibre/martin/pull/3400), [#3389](https://github.com/maplibre/martin/pull/3389), [#3394](https://github.com/maplibre/martin/pull/3394), [#3396](https://github.com/maplibre/martin/pull/3396) and [#3397](https://github.com/maplibre/martin/pull/3397).
+
+### Unstable sources
+
+> [!CAUTION]
+> These sources are behind `unstable-*` Cargo features and may change in any release.
+
+- *(unstable-duckdb)* serve `.duckdb` database files and GeoParquet, pass either as a positional argument, and hot reload local files ([#3346](https://github.com/maplibre/martin/pull/3346), [#3345](https://github.com/maplibre/martin/pull/3345), [#3388](https://github.com/maplibre/martin/pull/3388)).
+- *(unstable-cog)* discover and poll remote COG prefixes, and reload replaced remote objects ([#3344](https://github.com/maplibre/martin/pull/3344), [#3268](https://github.com/maplibre/martin/pull/3268)).
+
+### Added
+
+- *(duckdb)* hot reload for local GeoParquet + MLT postprocessing config ([#3388](https://github.com/maplibre/martin/pull/3388))
+- *(cp)* encode MLT from PostgreSQL rows ([#3358](https://github.com/maplibre/martin/pull/3358))
+- [**breaking**] stop reading the Postgres env vars ([#3371](https://github.com/maplibre/martin/pull/3371))
+- *(mbtiles)* [**breaking**] make dedup-id the default normalized schema ([#3367](https://github.com/maplibre/martin/pull/3367))
+- *(tile-grids)* build in the OGC registry's quad grids ([#3365](https://github.com/maplibre/martin/pull/3365))
+- [**breaking**] drop the legacy AWS env vars and config keys ([#3363](https://github.com/maplibre/martin/pull/3363))
+- serve sources on tile grids other than Web Mercator ([#3261](https://github.com/maplibre/martin/pull/3261))
+- [**breaking**] drop the deprecated cache keys ([#3353](https://github.com/maplibre/martin/pull/3353))
+- *(rendering)* mark server-side style rendering as stable ([#3354](https://github.com/maplibre/martin/pull/3354))
+- [**breaking**] drop the single-colon `${VAR:default}` substitution syntax ([#3351](https://github.com/maplibre/martin/pull/3351))
+- [**breaking**] default `allow_http` to `false` ([#3352](https://github.com/maplibre/martin/pull/3352))
+- *(duckdb)* serve tables and (z, x, y) macros of `.duckdb` database files ([#3346](https://github.com/maplibre/martin/pull/3346))
+- *(cog)* discover and poll remote COG prefixes ([#3344](https://github.com/maplibre/martin/pull/3344))
+- *(duckdb)* accept .parquet and .duckdb paths as CLI positional args ([#3345](https://github.com/maplibre/martin/pull/3345))
+- implement `--webui enable` (localhost-only) and make it the default ([#3328](https://github.com/maplibre/martin/pull/3328))
+- [**breaking**] show the dashboard by default in a terminal, `--no-tui` keeps the log ([#3329](https://github.com/maplibre/martin/pull/3329))
+- [**breaking**] merge `martin-cp` into `martin` as the `cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327))
+- drop rendering from default features; ship it in a `-full` variant ([#2945](https://github.com/maplibre/martin/pull/2945))
+- *(cog)* detect and reload replaced remote objects ([#3268](https://github.com/maplibre/martin/pull/3268))
+- *(mbtiles)* [**breaking**] drop the hidden --verbose flag ([#3377](https://github.com/maplibre/martin/pull/3377))
+- *(mbtiles)* write the dedup-id normalized schema ([#3366](https://github.com/maplibre/martin/pull/3366))
+
+### Fixed
+
+- *(reload)* flake fix: skip a file removed mid-rescan ([#3403](https://github.com/maplibre/martin/pull/3403))
+- *(srv)* merge gzip composites into one gzip member ([#3382](https://github.com/maplibre/martin/pull/3382))
+- *(srv)* answer HEAD on the style and font routes ([#3384](https://github.com/maplibre/martin/pull/3384))
+- *(rendering)* rebuild a render worker after a panic instead of losing it ([#3375](https://github.com/maplibre/martin/pull/3375))
+- *(tui)* pin the version the dashboard snapshots render ([#3368](https://github.com/maplibre/martin/pull/3368))
+- *(postgres)* skip a table PostGIS cannot convert to its tile grid ([#3360](https://github.com/maplibre/martin/pull/3360))
+- *(reload)* retry sources skipped by warn policy ([#3340](https://github.com/maplibre/martin/pull/3340))
+- *(object-store)* preserve remote URL components ([#3342](https://github.com/maplibre/martin/pull/3342))
+- *(object-store)* retain listings after transient failures ([#3341](https://github.com/maplibre/martin/pull/3341))
+- *(deps)* update npm dependencies ([#3339](https://github.com/maplibre/martin/pull/3339))
+- *(deps)* update npm dependencies ([#3321](https://github.com/maplibre/martin/pull/3321))
+- *(deps)* update dependency maplibre-gl to v6.8.0 ([#3313](https://github.com/maplibre/martin/pull/3313))
+- *(deps)* update npm dependencies ([#3307](https://github.com/maplibre/martin/pull/3307))
+- *(srv)* reject a transcode the source is configured not to perform ([#3297](https://github.com/maplibre/martin/pull/3297))
+- *(srv)* let an explicit Accept type outrank a `*/*` wildcard ([#3296](https://github.com/maplibre/martin/pull/3296))
+- *(webui)* request MLT tiles with an Accept header ([#3295](https://github.com/maplibre/martin/pull/3295))
+- oversized tiles in contour ([#3292](https://github.com/maplibre/martin/pull/3292))
+- *(mbtiles)* copy forwarded tile hashes in upper case ([#3379](https://github.com/maplibre/martin/pull/3379))
+- *(mbtiles)* recompute hashes when --hash-algorithm differs from the source ([#3383](https://github.com/maplibre/martin/pull/3383))
+- *(mbtiles)* compute tile hashes when copying from a dedup-id file ([#3364](https://github.com/maplibre/martin/pull/3364))
+
+### Other
+
+- *(postgres)* [**breaking**] discover tables while PostGIS loads ([#3400](https://github.com/maplibre/martin/pull/3400))
+- *(postgres)* [**breaking**] split the discovered table state out of TableInfo ([#3401](https://github.com/maplibre/martin/pull/3401))
+- publish the sources of the initial load a chunk at a time ([#3399](https://github.com/maplibre/martin/pull/3399))
+- *(postgres)* check table privileges only on relations a source can come from ([#3397](https://github.com/maplibre/martin/pull/3397))
+- *(postgres)* read only the schemas a table source can come from ([#3396](https://github.com/maplibre/martin/pull/3396))
+- *(postgres)* less work per row in table tile queries ([#3392](https://github.com/maplibre/martin/pull/3392))
+- start serving while the sources load ([#3398](https://github.com/maplibre/martin/pull/3398))
+- *(postgres)* discover tables without the geometry_columns views ([#3394](https://github.com/maplibre/martin/pull/3394))
+- *(srv)* skip the request span when the log filter drops it ([#3391](https://github.com/maplibre/martin/pull/3391))
+- *(pmtiles)* open local archives on the runtime's workers ([#3393](https://github.com/maplibre/martin/pull/3393))
+- *(postgres)* stop preparing a statement per table at startup ([#3389](https://github.com/maplibre/martin/pull/3389))
+- split AnySource into a two-layer enum ([#3387](https://github.com/maplibre/martin/pull/3387))
+- *(duckdb)* lint the feature and clarify CLI usage ([#3381](https://github.com/maplibre/martin/pull/3381))
+- *(martin-core)* [**breaking**] mark CatalogSourceEntry as non-exhaustive ([#3378](https://github.com/maplibre/martin/pull/3378))
+- clarify web UI modes and default ([#3373](https://github.com/maplibre/martin/pull/3373))
+- *(deps)* autoupdate pre-commit ([#3370](https://github.com/maplibre/martin/pull/3370))
+- dispatch tile sources through a closed AnySource enum ([#3362](https://github.com/maplibre/martin/pull/3362))
+- stop deep-cloning the source on every tile request ([#3359](https://github.com/maplibre/martin/pull/3359))
+- run the security scans from the CI workflow ([#3357](https://github.com/maplibre/martin/pull/3357))
+- publish the changelog as its own page ([#3347](https://github.com/maplibre/martin/pull/3347))
+- *(config)* fix directory_walking snapshot on Windows ([#3331](https://github.com/maplibre/martin/pull/3331))
+- *(deps)* update rust crate mlt-core to 0.13.0 ([#3320](https://github.com/maplibre/martin/pull/3320))
+- *(config)* cover ConfigFileError diagnostics, ArgsError elision and OptOneMany scalars ([#3315](https://github.com/maplibre/martin/pull/3315))
+- *(tui)* take key handling out of the draw loop ([#3317](https://github.com/maplibre/martin/pull/3317))
+- *(logging)* build the subscriber apart from installing it ([#3316](https://github.com/maplibre/martin/pull/3316))
+- *(deps)* autoupdate pre-commit ([#3303](https://github.com/maplibre/martin/pull/3303))
+- *(unstable-cog)* cover the requirements a COG has to meet ([#3300](https://github.com/maplibre/martin/pull/3300))
+- *(hotpath)* only profile PRs labeled "bench" ([#3299](https://github.com/maplibre/martin/pull/3299))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
+- add a benchmark to make sure we don't regress on cache usage ops ([#3291](https://github.com/maplibre/martin/pull/3291))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+- *(pmtiles)* share cached directories instead of copying them ([#3402](https://github.com/maplibre/martin/pull/3402))
+- *(postgres)* cover the TLS verifiers with an in-process handshake ([#3318](https://github.com/maplibre/martin/pull/3318))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+- *(tile-utils)* cover the Format name and content-type round trips ([#3314](https://github.com/maplibre/martin/pull/3314))
+
 ## [1.16.1](https://github.com/maplibre/martin/compare/martin-v1.16.0...martin-v1.16.1) - 2026-09-07
 
 ### Fixed
