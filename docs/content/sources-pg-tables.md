@@ -63,7 +63,6 @@ You can fine tune these by adjusting `auto_publish` section in [configuration fi
 A table source serves every row whose geometry intersects the tile.
 Add a `filter` to serve only the rows that match it.
 
-
 ```yaml
 postgres:
   tables:
