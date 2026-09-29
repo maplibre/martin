@@ -266,3 +266,5 @@ jobs:
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
+          MLN_PRECOMPILE: 1
