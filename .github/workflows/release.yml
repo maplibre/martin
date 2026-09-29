@@ -177,7 +177,7 @@ jobs:
           data_file: target/homebrew_config.yaml
 
       - name: Create a PR for maplibre/homebrew-martin
-        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above

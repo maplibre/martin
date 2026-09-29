@@ -315,7 +315,7 @@ jobs:
           flavor: ${{ matrix.flavor }}
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
