@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.1](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.0...martin-v2.0.0-beta.1) - 2026-09-30
+
+> [!NOTE]
+> This is the second beta of Martin 2.0. Nothing breaks relative to [2.0.0-beta.0](#200-beta0---2026-09-29).
+> If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
+
+### Added
+
+- DuckDB GeoParquet sources and DuckDB database tables accept a CQL2 `filter`, the same way PostgreSQL sources already do ([#1659](https://github.com/maplibre/martin/issues/1659), [#3409](https://github.com/maplibre/martin/pull/3409)).
+  Only matching rows are served, and bounds are computed from those rows. An empty or malformed filter fails at startup. See the [documentation](https://maplibre.org/martin/sources-duckdb/#filtering-rows).
+
+  ```yaml
+  duckdb:
+    sources:
+      - geoparquet: /data/buildings.parquet
+        filter: height > 20 AND type = 'residential'
+  ```
+
+### Performance
+
+- Martin tells MVT from MLT and JSON in a gzip or zlib tile from its first decompressed bytes instead of decompressing the whole tile ([#3429](https://github.com/maplibre/martin/pull/3429)).
+  MBTiles sources open faster, and `mbtiles unpack` of a Berlin OpenMapTiles archive went from 448 ms to 275 ms.
+- *(srv)* make the graceful shutdown timeout configurable ([#3430](https://github.com/maplibre/martin/pull/3430))
+
+### Other
+
+- *(config)* internal cleanups of how file-backed sections and one-or-many fields are parsed ([#3424](https://github.com/maplibre/martin/pull/3424), [#3425](https://github.com/maplibre/martin/pull/3425))
+- *(deps)* update `utoipa` to v6, `mlt-core` to 0.16.0 and the frontend's npm dependencies ([#3411](https://github.com/maplibre/martin/pull/3411), [#3418](https://github.com/maplibre/martin/pull/3418), [#3420](https://github.com/maplibre/martin/pull/3420))
+
 ## [2.0.0-beta.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0-beta.0) - 2026-09-29
 
 > [!NOTE]
