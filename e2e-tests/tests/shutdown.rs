@@ -1,5 +1,8 @@
 //! Graceful shutdown: on `SIGTERM`, requests in flight are answered before martin exits.
 
+// The harness can only send `SIGTERM` on Unix; elsewhere it kills martin after a timeout.
+#![cfg(not(windows))]
+
 use std::time::Duration;
 
 use indoc::formatdoc;
