@@ -339,6 +339,7 @@
         },
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -369,6 +370,7 @@
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -385,8 +387,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -399,6 +402,7 @@
         },
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -425,6 +429,7 @@
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -436,8 +441,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -457,6 +463,7 @@
         },
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "extent": {
@@ -468,6 +475,7 @@
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -479,8 +487,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -503,18 +512,21 @@
         },
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -523,18 +535,21 @@
       "properties": {
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -557,23 +572,26 @@
         },
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
           "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
     },
-    "FileConfigEnum": {
+    "FileConfigShape": {
       "anyOf": [
         {
           "type": "null"
@@ -590,9 +608,10 @@
         {
           "$ref": "#/$defs/FileConfig"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum2": {
+    "FileConfigShape2": {
       "anyOf": [
         {
           "type": "null"
@@ -609,9 +628,10 @@
         {
           "$ref": "#/$defs/FileConfig2"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum3": {
+    "FileConfigShape3": {
       "anyOf": [
         {
           "type": "null"
@@ -628,9 +648,10 @@
         {
           "$ref": "#/$defs/FileConfig3"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum4": {
+    "FileConfigShape4": {
       "anyOf": [
         {
           "type": "null"
@@ -647,9 +668,10 @@
         {
           "$ref": "#/$defs/FileConfig4"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum5": {
+    "FileConfigShape5": {
       "anyOf": [
         {
           "type": "null"
@@ -666,9 +688,10 @@
         {
           "$ref": "#/$defs/FileConfig5"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum6": {
+    "FileConfigShape6": {
       "anyOf": [
         {
           "type": "null"
@@ -685,7 +708,8 @@
         {
           "$ref": "#/$defs/FileConfig6"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
     "FileConfigSource": {
       "properties": {
@@ -1817,11 +1841,11 @@
       "description": "Optional endpoints, each off unless enabled here."
     },
     "fonts": {
-      "$ref": "#/$defs/FileConfigEnum6",
+      "$ref": "#/$defs/FileConfigShape6",
       "description": "Font configuration"
     },
     "geojson": {
-      "$ref": "#/$defs/FileConfigEnum3",
+      "$ref": "#/$defs/FileConfigShape3",
       "description": "Publish `GeoJSON` files as vector tile sources"
     },
     "keep_alive": {
@@ -1837,7 +1861,7 @@
       "type": ["string", "null"]
     },
     "mbtiles": {
-      "$ref": "#/$defs/FileConfigEnum2",
+      "$ref": "#/$defs/FileConfigShape2",
       "description": "Publish `MBTiles` files"
     },
     "observability": {
@@ -1868,7 +1892,7 @@
       "description": "Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.\nEach upstream is configured under `sources`."
     },
     "pmtiles": {
-      "$ref": "#/$defs/FileConfigEnum",
+      "$ref": "#/$defs/FileConfigShape",
       "description": "Publish `PMTiles` files from local disk or proxy to a web server"
     },
     "postgres": {
@@ -1891,11 +1915,11 @@
       "type": ["string", "null"]
     },
     "sprites": {
-      "$ref": "#/$defs/FileConfigEnum4",
+      "$ref": "#/$defs/FileConfigShape4",
       "description": "Sprite configuration"
     },
     "styles": {
-      "$ref": "#/$defs/FileConfigEnum5",
+      "$ref": "#/$defs/FileConfigShape5",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tile_grids": {
