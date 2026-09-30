@@ -228,9 +228,9 @@ postgres:
 
     martin.stop().await;
     insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
-    postgres.functions.function_zxy_query.warning
-    postgres.tables.points1.warning
-    postgres.warning
+    postgres[0].functions.function_zxy_query.warning
+    postgres[0].tables.points1.warning
+    postgres[0].warning
     ");
 }
 
@@ -257,8 +257,8 @@ postgres:
 
     martin.stop().await;
     insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
-    postgres.auto_publish.functions.warning
-    postgres.auto_publish.tables.warning
-    postgres.auto_publish.warning
+    postgres[0].auto_publish.functions.warning
+    postgres[0].auto_publish.tables.warning
+    postgres[0].auto_publish.warning
     ");
 }
