@@ -19,7 +19,9 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::config::file::srv::{
+    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
+};
 use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
@@ -286,6 +288,7 @@ pub fn new_server(
     )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
+    let shutdown_timeout = config.shutdown_timeout.unwrap_or(DEFAULT_SHUTDOWN_TIMEOUT);
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
@@ -366,7 +369,7 @@ pub fn new_server(
 
     let server = server
         .keep_alive(keep_alive)
-        .shutdown_timeout(0)
+        .shutdown_timeout(shutdown_timeout)
         .workers(worker_processes)
         .run()
         .err_into();

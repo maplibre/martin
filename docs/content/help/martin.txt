@@ -40,6 +40,9 @@ Options:
   -k, --keep-alive <KEEP_ALIVE>
           Connection keep alive timeout. [DEFAULT: 75]
 
+      --shutdown-timeout <SHUTDOWN_TIMEOUT>
+          Seconds to wait for in-flight requests to finish on SIGTERM. [DEFAULT: 5]
+
   -l, --listen-addresses <LISTEN_ADDRESSES>
           The socket address to bind. [DEFAULT: 0.0.0.0:3000]
 
