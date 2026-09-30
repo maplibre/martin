@@ -105,6 +105,7 @@ Each GeoParquet source supports:
 - **`extent`** - side length of the MVT tile coordinate grid each tile is encoded into (defaults to `4096`, the value [MapLibre](https://maplibre.org/) assumes). Must be non-zero.
 - **`buffer`** - clip margin kept around each tile edge, in tile units (defaults to `64`). Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
 - **`clip_geom`** - controls if geometries should be clipped or encoded as is (defaults to `true`).
+- **`filter`** - optional [CQL2](#filtering-rows) expression to filter served rows and computed bounds. The filter is parsed at startup and translated into SQL.
 
 Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override the top-level values for that source.
 
@@ -173,6 +174,7 @@ duckdb:
           extent: 4096
           buffer: 64
           clip_geom: true
+          filter: highway = 'motorway'
       macros:
         # Source id
         roads_at_zoom:
@@ -214,6 +216,19 @@ FROM (
 ```
 
 Macros are served as-is: Martin does not compute their bounds or `vector_layers`.
+
+## Filtering rows
+
+GeoParquet sources and DuckDB database tables can be filtered with a `filter` option.
+
+```yaml
+duckdb:
+  sources:
+    - geoparquet: /data/buildings.parquet
+      filter: height > 20 AND type = 'residential'
+```
+
+--8<-- "cql2-filter.md"
 
 ## About GeoParquet
 

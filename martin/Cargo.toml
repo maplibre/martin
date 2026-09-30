@@ -156,7 +156,13 @@ _process = []
 _catalog = []
 _file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
-unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
+unstable-duckdb = [
+    "dep:cql2",
+    "martin-core/unstable-duckdb",
+    "dep:duckdb",
+    "dep:enum-display",
+    "_tiles",
+]
 hotpath = [
     "hotpath/hotpath",
     "hotpath-alloc",

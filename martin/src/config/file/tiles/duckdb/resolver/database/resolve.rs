@@ -15,7 +15,7 @@ use crate::config::file::tiles::duckdb::resolver::database::discover::{
 use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
 use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
 use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
-use crate::config::file::tiles::duckdb::resolver::sql::build_mvt_sql;
+use crate::config::file::tiles::duckdb::resolver::sql::{build_mvt_sql, parse_cql2_filter};
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry,
 };
@@ -236,6 +236,7 @@ pub async fn resolve_table_source(
     auto_bounds: BoundsCalcType,
     cache: CachePolicy,
 ) -> DuckDbSourceResult<BoxedSource> {
+    let filter_sql = parse_cql2_filter(entry.layer.filter.as_deref())?;
     let relation = format!("{}.{}", entry.schema(), entry.table);
     let from_expr = format!(
         "{}.{}",
@@ -258,10 +259,17 @@ pub async fn resolve_table_source(
         &introspection.geometry_column,
         introspection.srid.get(),
         auto_bounds,
+        filter_sql.as_deref(),
     )
     .await?;
 
-    let sql_query = build_mvt_sql(&introspection, &entry.layer, &source_id, &from_expr);
+    let sql_query = build_mvt_sql(
+        &introspection,
+        &entry.layer,
+        &source_id,
+        &from_expr,
+        filter_sql.as_deref(),
+    );
     let tilejson = build_tilejson(
         &introspection,
         &entry.layer,
