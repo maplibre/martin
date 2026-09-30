@@ -5934,9 +5934,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.14.5"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "314d602a8a8eda1bef6ad8836ab7b78fa1aa53639730772a42a82fc9d974e933"
+checksum = "ede86516f7eb70aea510c00d9f6e55e6e34888e9bd4e98f65e6a24a6ad309f25"
 dependencies = [
  "bitvec",
  "bytemuck",

@@ -43,10 +43,9 @@ fn decode(data: &[u8]) -> Vec<TileLayer> {
         .into_iter()
         .map(|layer| {
             layer
-                .into_layer01()
-                .expect("unknown layer tag")
                 .into_tile(&mut decoder)
                 .expect("undecodable layer")
+                .expect("unknown layer tag")
         })
         .collect()
 }

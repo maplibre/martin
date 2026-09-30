@@ -569,10 +569,9 @@ pub fn mlt_layers(bytes: &[u8]) -> Vec<TileLayer> {
         .into_iter()
         .map(|layer| {
             layer
-                .into_layer01()
-                .expect("a layer is of an unknown kind")
                 .into_tile(&mut decoder)
                 .expect("a layer is not decodable")
+                .expect("a layer is of an unknown kind")
         })
         .collect()
 }
