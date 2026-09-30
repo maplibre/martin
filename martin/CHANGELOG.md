@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.1](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.0...martin-v2.0.0-beta.1) - 2026-09-30
+
+### Added
+
+- *(duckdb)* filter data through CQL2 ([#1659](https://github.com/maplibre/martin/pull/1659)) ([#3409](https://github.com/maplibre/martin/pull/3409))
+
+### Other
+
+- *(config)* always hold file-backed sections as `FileConfig` ([#3425](https://github.com/maplibre/martin/pull/3425))
+- *(config)* deserialize one-or-many fields straight into `Vec` ([#3424](https://github.com/maplibre/martin/pull/3424))
+- *(deps)* update rust crate utoipa to v6 ([#3420](https://github.com/maplibre/martin/pull/3420))
+- *(deps)* update npm dependencies ([#3411](https://github.com/maplibre/martin/pull/3411))
+- *(deps)* update rust crate mlt-core to 0.16.0 ([#3418](https://github.com/maplibre/martin/pull/3418))
+- detect a compressed tile's format from its first bytes ([#3429](https://github.com/maplibre/martin/pull/3429))
+- update Cargo.toml dependencies
+
 ## [2.0.0-beta.0](https://github.com/maplibre/martin/compare/martin-v1.16.1...martin-v2.0.0-beta.0) - 2026-09-29
 
 > [!NOTE]

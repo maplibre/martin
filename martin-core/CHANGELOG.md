@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1](https://github.com/maplibre/martin/compare/martin-core-v0.12.0...martin-core-v0.12.1) - 2026-09-30
+
+### Other
+
+- *(deps)* update rust crate mlt-core to 0.16.0 ([#3418](https://github.com/maplibre/martin/pull/3418))
+
 ## [0.12.0](https://github.com/maplibre/martin/compare/martin-core-v0.11.2...martin-core-v0.12.0) - 2026-09-29
 
 ### Added

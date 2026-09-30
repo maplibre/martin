@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1](https://github.com/maplibre/martin/compare/mbtiles-v0.20.0...mbtiles-v0.20.1) - 2026-09-30
+
+### Other
+
+- update Cargo.toml dependencies
+- detect a compressed tile's format from its first bytes ([#3429](https://github.com/maplibre/martin/pull/3429))
+
 ## [0.20.0](https://github.com/maplibre/martin/compare/mbtiles-v0.19.3...mbtiles-v0.20.0) - 2026-09-29
 
 ### Added
