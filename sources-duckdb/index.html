@@ -1233,6 +1233,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#filtering-rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Filtering rows
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#about-geoparquet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2239,6 +2250,7 @@ Its behavior may change in patch releases.</p>
 <li><strong><code>extent</code></strong> - side length of the MVT tile coordinate grid each tile is encoded into (defaults to <code>4096</code>, the value <a href="https://maplibre.org/">MapLibre</a> assumes). Must be non-zero.</li>
 <li><strong><code>buffer</code></strong> - clip margin kept around each tile edge, in tile units (defaults to <code>64</code>). Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.</li>
 <li><strong><code>clip_geom</code></strong> - controls if geometries should be clipped or encoded as is (defaults to <code>true</code>).</li>
+<li><strong><code>filter</code></strong> - optional <a href="#filtering-rows">CQL2</a> expression to filter served rows and computed bounds. The filter is parsed at startup and translated into SQL.</li>
 </ul>
 <p>Per-source <code>pool_size</code>, <code>threads</code>, <code>memory_limit_mb</code>, and <code>auto_bounds</code> override the top-level values for that source.</p>
 <div class="admonition tip">
@@ -2306,15 +2318,16 @@ Tables with a <code>GEOMETRY</code> column are served as MVT layers the same way
 </span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="w">          </span><span class="nt">extent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4096</span>
 </span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="w">          </span><span class="nt">buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
 </span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="w">          </span><span class="nt">clip_geom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="w">      </span><span class="nt">macros</span><span class="p">:</span>
-</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a><span class="w">        </span><span class="c1"># Source id</span>
-</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a><span class="w">        </span><span class="nt">roads_at_zoom</span><span class="p">:</span>
-</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="w">          </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
-</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a><span class="w">          </span><span class="nt">macro</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads_mvt</span>
-</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-</span><span id="__span-3-47"><a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a><span class="w">          </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
-</span><span id="__span-3-48"><a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="w">          </span><span class="c1"># Bounds in WGS84 [left, bottom, right, top]; not computed for macros</span>
-</span><span id="__span-3-49"><a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="w">          </span><span class="nt">bounds</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-85</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">85</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="w">          </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">highway = 'motorway'</span>
+</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a><span class="w">      </span><span class="nt">macros</span><span class="p">:</span>
+</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a><span class="w">        </span><span class="c1"># Source id</span>
+</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="w">        </span><span class="nt">roads_at_zoom</span><span class="p">:</span>
+</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a><span class="w">          </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
+</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="w">          </span><span class="nt">macro</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads_mvt</span>
+</span><span id="__span-3-47"><a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-3-48"><a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="w">          </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+</span><span id="__span-3-49"><a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="w">          </span><span class="c1"># Bounds in WGS84 [left, bottom, right, top]; not computed for macros</span>
+</span><span id="__span-3-50"><a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a><span class="w">          </span><span class="nt">bounds</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">-85</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">180</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">85</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <p><code>auto_publish</code> follows the <a href="../sources-pg-tables/">PostgreSQL rules</a>:</p>
 <ul>
@@ -2343,6 +2356,69 @@ Tables with a <code>GEOMETRY</code> column are served as MVT layers the same way
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">tile</span><span class="p">;</span>
 </span></code></pre></div>
 <p>Macros are served as-is: Martin does not compute their bounds or <code>vector_layers</code>.</p>
+<h2 id="filtering-rows">Filtering rows</h2>
+<p>GeoParquet sources and DuckDB database tables can be filtered with a <code>filter</code> option.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">duckdb</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">geoparquet</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/buildings.parquet</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">      </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">height &gt; 20 AND type = 'residential'</span>
+</span></code></pre></div>
+<p>The filter is written in CQL2, the OGC Common Query Language, using the comparison, logical, text, temporal and spatial operators of <a href="https://docs.ogc.org/is/21-065r2/21-065r2.html">its text encoding</a>.</p>
+<p>Martin translates it to SQL when it starts and adds it to the tile query, so a filter that does not parse stops Martin at startup with the reason.
+The filter also applies when Martin computes the bounds of the source.
+Column names are used exactly as written, so <code>Population</code> names the column <code>Population</code> and not <code>population</code>.
+A name with spaces or other special characters goes in double quotes.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Comparing values</label><label for="__tabbed_1_2">Combining conditions</label><label for="__tabbed_1_3">Matching text</label><label for="__tabbed_1_4">Dates and times</label><label for="__tabbed_1_5">Spatial and other functions</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>Compare a column with a literal using <code>=</code>, <code>&lt;&gt;</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code> and <code>&gt;=</code>.
+Strings go in single quotes, and numbers and <code>true</code>/<code>false</code> are written as they are.
+<code>BETWEEN</code>, <code>IN</code> and <code>IS NULL</code> cover ranges, lists and missing values.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Cities with a population of ten to a hundred thousand</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population BETWEEN 10000 AND 100000</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Rows with one of these kinds</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind IN ('city', 'town')</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Rows that have a name</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name IS NOT NULL</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Rows whose boolean column is set</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">is_capital = true</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Join conditions with <code>AND</code>, <code>OR</code> and <code>NOT</code>, and group them with parentheses.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Large cities and towns</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">population &gt; 100000 AND (kind = 'city' OR kind = 'town')</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Everything but villages</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NOT (kind = 'village')</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p><code>LIKE</code> matches a pattern in which <code>%</code> stands for any run of characters and <code>_</code> for a single one.
+Put a <code>\</code> before either to match it literally.
+<code>CASEI</code> compares text without regard to case.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Names starting with "San "</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name LIKE 'San %'</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># Names ending in "burg", except Hamburg</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">name LIKE '%burg' AND name &lt;&gt; 'Hamburg'</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># "Berlin", "berlin" and "BERLIN"</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CASEI(name) = 'berlin'</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Write a date as <code>DATE('2024-01-01')</code> and an instant as <code>TIMESTAMP('2024-01-01T00:00:00Z')</code>.
+Compare them like numbers, or use a temporal operator such as <code>T_BEFORE</code>, <code>T_AFTER</code> or <code>T_DURING</code>.
+Those take an <code>INTERVAL('start', 'end')</code> in which <code>'..'</code> leaves an end open.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Rows updated since the start of 2024</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">updated_at &gt;= DATE('2024-01-01')</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Rows updated within a period</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">T_DURING(updated_at, INTERVAL('2024-01-01T00:00:00Z', '2024-12-31T23:59:59Z'))</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p><code>S_INTERSECTS</code>, <code>S_WITHIN</code>, <code>S_CONTAINS</code>, <code>S_DISJOINT</code> and the other spatial operators compare the geometry column with a <code>BBOX(xmin, ymin, xmax, ymax)</code> or a WKT literal such as <code>POLYGON((...))</code>.</p>
+</div>
+</div>
+</div>
 <h2 id="about-geoparquet">About GeoParquet</h2>
 <p><a href="https://geoparquet.org/">GeoParquet</a> is a <a href="https://parquet.apache.org/">Parquet</a> file with geospatial metadata.</p>
 <p>Parquet is a columnar file format.
