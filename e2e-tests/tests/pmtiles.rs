@@ -91,7 +91,8 @@ async fn auto_configured_minimal() {
     insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
-      paths: tests/fixtures/pmtiles2
+      paths:
+      - tests/fixtures/pmtiles2
       sources:
         webp2: tests/fixtures/pmtiles2/webp2.pmtiles
     mbtiles: tests/fixtures/pmtiles2

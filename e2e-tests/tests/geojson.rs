@@ -108,10 +108,12 @@ async fn the_saved_config_names_every_discovered_file() {
     insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
-      paths: tests/fixtures/geojson
+      paths:
+      - tests/fixtures/geojson
     mbtiles: tests/fixtures/geojson
     geojson:
-      paths: tests/fixtures/geojson
+      paths:
+      - tests/fixtures/geojson
       sources:
         bare_geometry: tests/fixtures/geojson/bare_geometry.geojson
         clip: tests/fixtures/geojson/clip.geojson

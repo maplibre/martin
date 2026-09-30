@@ -14,7 +14,7 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{OptBoolObj, OptOneMany};
+use crate::config::primitives::{OptBoolObj, one_or_many};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
 /// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
@@ -217,8 +217,12 @@ impl Default for PostgresConfig {
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Here we enable both tables and functions auto discovery.
     /// You can also enable just one of them by not mentioning the other, or
     /// setting it to false. Setting one to true disables the other one as well.
@@ -249,8 +253,12 @@ pub struct PostgresCfgPublish {
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
     #[serde(alias = "id_format")]
@@ -265,8 +273,12 @@ pub struct PostgresCfgPublishTables {
     /// If a list of strings is given, the first found column will be treated as a
     /// feature ID.
     #[serde(alias = "id_column")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub id_columns: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
@@ -299,8 +311,12 @@ pub struct PostgresCfgPublishTables {
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the function's
     /// name and schema
     #[serde(alias = "id_format")]
@@ -376,7 +392,6 @@ mod tests {
     use super::*;
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
-    use crate::config::primitives::OptOneMany::{Many, One};
     use crate::config::test_helpers::render_finalize_failure;
 
     pub fn parse_cfg(yaml: &str) -> Config {
@@ -439,11 +454,11 @@ mod tests {
               connection_string: 'postgresql://postgres@localhost/db'
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -461,12 +476,12 @@ mod tests {
                 maxzoom: 10
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     cache: CachePolicy::new(martin_core::CacheZoomRange::new(Some(1), Some(10))),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -482,12 +497,12 @@ mod tests {
               retry_timeout: infinite
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     retry_timeout: Some(RetryTimeout::Infinite),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -503,7 +518,7 @@ mod tests {
               - connection_string: 'postgresql://postgres@localhost:5433/db'
         "},
             &Config {
-                postgres: Many(vec![
+                postgres: vec![
                     PostgresConfig {
                         connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                         auto_publish: OptBoolObj::Bool(true),
@@ -516,7 +531,7 @@ mod tests {
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
-                ]),
+                ],
                 ..Default::default()
             },
         )
@@ -560,7 +575,7 @@ mod tests {
                   bounds: [-180.0, -90.0, 180.0, 90.0]
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                     default_srid: Some(4326),
                     pool_size: NonZeroUsize::new(20),
@@ -598,7 +613,7 @@ mod tests {
                         ),
                     )])),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )

@@ -5,7 +5,8 @@ expression: saved
 listen_addresses: 127.0.0.1:0
 tilejson_url_version_param: version
 pmtiles:
-  paths: tests/fixtures/pmtiles
+  paths:
+  - tests/fixtures/pmtiles
   sources:
     png: tests/fixtures/pmtiles/png.pmtiles
     stamen_toner__raster_CC-BY-ODbL_z3: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles

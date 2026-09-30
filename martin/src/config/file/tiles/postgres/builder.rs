@@ -26,7 +26,6 @@ use crate::config::file::{
 };
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
-use crate::config::primitives::OptOneMany::NoVals;
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]
@@ -166,16 +165,12 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
 macro_rules! get_auto_schemas {
     ($config:expr, $typ:ident) => {
         if let Object(v) = &$config.auto_publish {
-            match (&v.from_schemas, &v.$typ) {
-                (NoVals, NoValue | Bool(_)) => None,
-                (v, NoValue | Bool(_)) => v.opt_iter().map(|v| v.cloned().collect()),
-                (NoVals, Object(v)) => v.from_schemas.opt_iter().map(|v| v.cloned().collect()),
-                (v, Object(v2)) => {
-                    let mut vals: HashSet<_> = v.iter().cloned().collect();
-                    vals.extend(v2.from_schemas.iter().cloned());
-                    Some(vals)
-                }
-            }
+            let inner: &[String] = match &v.$typ {
+                Object(v2) => &v2.from_schemas,
+                NoValue | Bool(_) => &[],
+            };
+            let vals: HashSet<String> = v.from_schemas.iter().chain(inner).cloned().collect();
+            (!vals.is_empty()).then_some(vals)
         } else {
             None
         }
@@ -803,7 +798,7 @@ fn calc_auto(
                     .as_deref()
                     .unwrap_or("{table}")
                     .to_owned(),
-                id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
+                id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
                 extent: v.extent,

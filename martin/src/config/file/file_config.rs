@@ -44,7 +44,7 @@ use crate::config::file::{ResolutionResult, TileSourceWarning};
 use crate::config::file::{SourceBuildError, SourceBuildResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
-use crate::config::primitives::OptOneMany;
+use crate::config::primitives::one_or_many;
 
 /// Lifecycle hooks for configuring the application
 ///
@@ -191,8 +191,8 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
             }
         } else {
             Self::Config(FileConfig {
-                paths: OptOneMany::new(paths),
-                collections: OptOneMany::new(collections),
+                paths,
+                collections,
                 sources: if configs.is_empty() {
                     None
                 } else {
@@ -237,11 +237,11 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         match self {
             Self::None => None,
             Self::Path(path) => Some(FileConfig {
-                paths: OptOneMany::One(mem::take(path)),
+                paths: vec![mem::take(path)],
                 ..FileConfig::default()
             }),
             Self::Paths(paths) => Some(FileConfig {
-                paths: OptOneMany::Many(mem::take(paths)),
+                paths: mem::take(paths),
                 ..Default::default()
             }),
             Self::Config(cfg) => Some(mem::take(cfg)),
@@ -253,14 +253,14 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     pub fn into_config(self) -> Self {
         match self {
             Self::Path(path) => Self::Config(FileConfig {
-                paths: OptOneMany::One(path),
-                collections: OptOneMany::NoVals,
+                paths: vec![path],
+                collections: Vec::new(),
                 sources: None,
                 custom: T::default(),
             }),
             Self::Paths(paths) => Self::Config(FileConfig {
-                paths: OptOneMany::Many(paths),
-                collections: OptOneMany::NoVals,
+                paths,
+                collections: Vec::new(),
                 sources: None,
                 custom: T::default(),
             }),
@@ -284,11 +284,19 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub paths: OptOneMany<PathBuf>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PathBuf>")
+    )]
+    pub paths: Vec<PathBuf>,
     /// A list of directories whose subdirectories are each published under the subdirectory's name
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub collections: OptOneMany<PathBuf>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PathBuf>")
+    )]
+    pub collections: Vec<PathBuf>,
     /// A map of source IDs to file paths or config objects
     pub sources: Option<BTreeMap<String, FileConfigSrc>>,
     /// Any customizations related to the specifics of the configuration section
@@ -302,10 +310,10 @@ impl<T: Serialize> Serialize for FileConfig<T> {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(None)?;
-        if !self.paths.is_none() {
+        if !self.paths.is_empty() {
             map.serialize_entry("paths", &self.paths)?;
         }
-        if !self.collections.is_none() {
+        if !self.collections.is_empty() {
             map.serialize_entry("collections", &self.collections)?;
         }
         if let Some(sources) = &self.sources {
@@ -325,8 +333,8 @@ impl<T: Serialize> Serialize for FileConfig<T> {
 impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none()
-            && self.collections.is_none()
+        self.paths.is_empty()
+            && self.collections.is_empty()
             && self.sources.is_none()
             && self.get_unrecognized_keys().is_empty()
     }
@@ -1448,7 +1456,7 @@ mod deserialize_tests {
         let FileConfigEnum::Config(file_config) = cfg else {
             panic!("expected Config variant");
         };
-        assert_eq!(file_config.paths, OptOneMany::One(PathBuf::from("/a")));
+        assert_eq!(file_config.paths, vec![PathBuf::from("/a")]);
         assert!(file_config.custom.flag);
     }
 
@@ -1804,8 +1812,8 @@ mod mbtiles_tests {
             FileConfigSrc::Path(invalid_source.clone()),
         );
         let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
-            paths: OptOneMany::One(invalid_path.clone()),
-            collections: OptOneMany::NoVals,
+            paths: vec![invalid_path.clone()],
+            collections: Vec::new(),
             sources: Some(file_sources),
             custom: MbtConfig::default(),
         });
@@ -1890,8 +1898,8 @@ mod pmtiles_tests {
             FileConfigSrc::Path(invalid_source.clone()),
         );
         let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
-            paths: OptOneMany::One(invalid_path.clone()),
-            collections: OptOneMany::NoVals,
+            paths: vec![invalid_path.clone()],
+            collections: Vec::new(),
             sources: Some(file_sources),
             custom: PmtConfig::default(),
         });

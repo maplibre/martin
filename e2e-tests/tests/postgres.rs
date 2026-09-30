@@ -728,7 +728,7 @@ async fn the_saved_config_spells_out_every_table_and_function_that_was_discovere
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
-        (r"(?m)^  connection_string: .*$", "  connection_string: [DATABASE_URL]"),
+        (r"(?m)^(- |  )connection_string: .*$", "${1}connection_string: [DATABASE_URL]"),
         (r"(-?\d+\.\d{10})\d+", "$1"),
     ]}, {
         insta::assert_snapshot!(saved);
@@ -747,7 +747,7 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
-        (r"(?m)^  connection_string: .*$", "  connection_string: [DATABASE_URL]"),
+        (r"(?m)^(- |  )connection_string: .*$", "${1}connection_string: [DATABASE_URL]"),
         (r"(-?\d+\.\d{10})\d+", "$1"),
     ]}, {
         insta::assert_snapshot!(saved);

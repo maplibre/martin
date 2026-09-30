@@ -18,7 +18,7 @@ use crate::config::file::{
     CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
     SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
 };
-use crate::config::primitives::{IdResolver, OptOneMany};
+use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
@@ -149,11 +149,7 @@ impl FsDiscovery {
         };
 
         match config {
-            FileConfigEnum::Config(cfg) => match &cfg.paths {
-                OptOneMany::One(path) => push_local(path),
-                OptOneMany::Many(paths) => paths.iter().for_each(&mut push_local),
-                OptOneMany::NoVals => {}
-            },
+            FileConfigEnum::Config(cfg) => cfg.paths.iter().for_each(push_local),
             FileConfigEnum::Path(path) => push_local(path),
             FileConfigEnum::Paths(paths) => paths.iter().for_each(push_local),
             FileConfigEnum::None => {}
@@ -162,7 +158,7 @@ impl FsDiscovery {
         let mut collections: Vec<PathBuf> = vec![];
         if let FileConfigEnum::Config(cfg) = config {
             let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
-            for collection in cfg.collections.iter() {
+            for collection in &cfg.collections {
                 if !matches!(
                     SourceLocation::classify_path(collection),
                     Ok(SourceLocation::Local(_))
@@ -645,7 +641,6 @@ mod tests {
     #[tokio::test]
     async fn discovered_files_take_the_kind_level_cache_bounds() {
         use crate::config::file::{FileConfig, FileConfigSource};
-        use crate::config::primitives::OptOneMany;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let scanned = dir.path().join("scanned.mbtiles");
@@ -654,7 +649,7 @@ mod tests {
         File::create(&configured).expect("create configured");
 
         let config = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::One(dir.path().to_path_buf()),
+            paths: vec![dir.path().to_path_buf()],
             sources: Some(BTreeMap::from([(
                 "configured".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {

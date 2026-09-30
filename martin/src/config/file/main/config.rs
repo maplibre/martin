@@ -51,7 +51,7 @@ use crate::config::file::{
     UnrecognizedValues,
 };
 #[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
+use crate::config::primitives::one_or_many;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 
@@ -141,8 +141,12 @@ pub struct Config {
     ///     default_srid: 3857
     /// ```
     #[cfg(feature = "postgres")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<PostgresConfig>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PostgresConfig>")
+    )]
+    pub postgres: Vec<PostgresConfig>,
 
     /// Publish `PMTiles` files from local disk or proxy to a web server
     #[cfg(feature = "pmtiles")]

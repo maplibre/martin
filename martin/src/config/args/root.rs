@@ -156,7 +156,7 @@ impl Args {
         #[cfg(feature = "postgres")]
         {
             let pg_args = self.pg.unwrap_or_default();
-            if config.postgres.is_none() {
+            if config.postgres.is_empty() {
                 config.postgres = pg_args.into_config(&mut cli_strings);
             } else {
                 // config was loaded from a file, we can only apply a few CLI overrides to it
@@ -359,7 +359,6 @@ mod tests {
     #[test]
     fn cli_with_config() {
         use crate::config::file::postgres::PostgresConfig;
-        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -378,10 +377,10 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PostgresConfig {
+            postgres: vec![PostgresConfig {
                 connection_string: Some("postgres://connection".to_owned()),
                 ..Default::default()
-            }),
+            }],
             ..Default::default()
         };
         let meta = MetaArgs {

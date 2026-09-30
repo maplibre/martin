@@ -115,7 +115,8 @@ async fn a_directory_publishes_a_source_per_file() {
     insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     cog:
-      paths: tests/fixtures/cog
+      paths:
+      - tests/fixtures/cog
       sources:
         usda_naip_128_none_z2: tests/fixtures/cog/usda_naip_128_none_z2.tif
         usda_naip_256_lzw_rgb_z2: tests/fixtures/cog/usda_naip_256_lzw_rgb_z2.tif

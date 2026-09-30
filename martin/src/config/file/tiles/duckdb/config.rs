@@ -235,14 +235,14 @@ sources:
                         },
                         auto_publish: Object(
                             DuckDbCfgPublish {
-                                from_schemas: NoVals,
+                                from_schemas: [],
                                 tables: Object(
                                     DuckDbCfgPublishTables {
-                                        from_schemas: One(
+                                        from_schemas: [
                                             "autodetect",
-                                        ),
+                                        ],
                                         source_id_format: None,
-                                        id_columns: NoVals,
+                                        id_columns: [],
                                         clip_geom: None,
                                         buffer: None,
                                         extent: None,

@@ -13,7 +13,6 @@ use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_b
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
-use martin::config::primitives::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -1215,9 +1214,7 @@ tables:
     )
     .await;
 
-    let OptOneMany::One(cfg) = cfg.postgres else {
-        panic!()
-    };
+    let [cfg] = <[_; 1]>::try_from(cfg.postgres).unwrap();
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;

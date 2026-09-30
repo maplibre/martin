@@ -21,7 +21,7 @@ use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, FileConfigSrc, SourceBuildResult,
     TileSourceConfiguration,
 };
-use crate::config::primitives::{IdResolver, OptOneMany};
+use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
 pub type ObjectStoreParser = Box<
@@ -281,11 +281,7 @@ impl ObjectStoreDiscovery {
             ),
         };
         match config {
-            FileConfigEnum::Config(cfg) => match &cfg.paths {
-                OptOneMany::One(path) => collect(path),
-                OptOneMany::Many(paths) => paths.iter().for_each(&mut collect),
-                OptOneMany::NoVals => {}
-            },
+            FileConfigEnum::Config(cfg) => cfg.paths.iter().for_each(collect),
             FileConfigEnum::Path(path) => collect(path),
             FileConfigEnum::Paths(paths) => paths.iter().for_each(collect),
             FileConfigEnum::None => {}
@@ -612,8 +608,8 @@ mod configured_object_tests {
             .await
             .unwrap();
         let config = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::NoVals,
-            collections: OptOneMany::NoVals,
+            paths: Vec::new(),
+            collections: Vec::new(),
             sources: Some(BTreeMap::from([
                 (
                     "remote".to_owned(),
@@ -650,8 +646,8 @@ mod configured_object_tests {
             .await
             .unwrap();
         let config = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::NoVals,
-            collections: OptOneMany::NoVals,
+            paths: Vec::new(),
+            collections: Vec::new(),
             sources: Some(BTreeMap::from([(
                 "remote".to_owned(),
                 FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.tif")),
