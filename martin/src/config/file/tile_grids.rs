@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, FileConfigEnum, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, FileConfig, UnrecognizedValues,
 };
 
 /// The configured grids by name, as written in the config file.
@@ -99,13 +99,10 @@ impl TileGrids {
     ///
     /// Kinds that only produce Web Mercator tiles pass `None` for `grids`, which turns any declaration into an error.
     pub fn check_file_sources<T>(
-        config: &FileConfigEnum<T>,
+        config: &FileConfig<T>,
         grids: Option<&Self>,
     ) -> ConfigFileResult<()> {
-        let FileConfigEnum::Config(cfg) = config else {
-            return Ok(());
-        };
-        for (id, source) in cfg.sources.iter().flatten() {
+        for (id, source) in &config.sources {
             declared_tile_grid(id, source, grids)?;
         }
         Ok(())

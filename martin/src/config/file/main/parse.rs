@@ -39,8 +39,6 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    #[cfg(feature = "sprites")]
-    use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
@@ -231,10 +229,7 @@ mod tests {
     #[test]
     fn cache_disable_sprites() {
         let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(0));
+        assert_eq!(config.sprites.custom.cache.size_mb, Some(0));
     }
 
     #[test]
@@ -270,12 +265,10 @@ mod tests {
         let config = parse_yaml(
             "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
         );
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(64));
-        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
-        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
+        let cache = &config.sprites.custom.cache;
+        assert_eq!(cache.size_mb, Some(64));
+        assert_eq!(cache.expiry, Some(Duration::from_hours(2)));
+        assert_eq!(cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 
     #[rstest]

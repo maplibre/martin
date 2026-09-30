@@ -27,7 +27,7 @@ use crate::config::file::ConfigurationLivecycleHooks;
     feature = "styles",
     feature = "geojson",
 ))]
-use crate::config::file::FileConfigEnum;
+use crate::config::file::FileConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
 #[cfg(feature = "fonts")]
@@ -208,12 +208,12 @@ impl Args {
 
         #[cfg(feature = "styles")]
         if !self.extras.style.is_empty() {
-            config.styles = FileConfigEnum::new(self.extras.style);
+            config.styles = FileConfig::new(self.extras.style);
         }
 
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new(self.extras.sprite);
+            config.sprites = FileConfig::new(self.extras.sprite);
         }
 
         #[cfg(feature = "fonts")]
@@ -288,8 +288,8 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
-) -> FileConfigEnum<T> {
-    FileConfigEnum::new(parse_file_paths(cli_strings, extensions, allow_url, true))
+) -> FileConfig<T> {
+    FileConfig::new(parse_file_paths(cli_strings, extensions, allow_url, true))
 }
 
 /// Claim the unclaimed CLI arguments that are files with one of `extensions`.
@@ -571,6 +571,10 @@ mod tests {
 
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
+        insta::assert_yaml_snapshot!(config, @r#"
+        geojson:
+          paths:
+            - "../tests/fixtures/geojson/feature_collection_1.geojson"
+        "#);
     }
 }

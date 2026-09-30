@@ -9,16 +9,6 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "styles",
-    feature = "sprites",
-    feature = "fonts",
-))]
-use crate::config::file::FileConfigEnum;
 #[cfg(feature = "_tiles")]
 use crate::config::file::SourceBuildResult;
 #[cfg(feature = "_tiles")]
@@ -50,6 +40,16 @@ use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
     UnrecognizedValues,
 };
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "styles",
+    feature = "sprites",
+    feature = "fonts",
+))]
+use crate::config::file::{FileConfig, path_or_config};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::one_or_many;
 #[cfg(feature = "_tiles")]
@@ -150,13 +150,29 @@ pub struct Config {
 
     /// Publish `PMTiles` files from local disk or proxy to a web server
     #[cfg(feature = "pmtiles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<PmtConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<PmtConfig>")
+    )]
+    pub pmtiles: FileConfig<PmtConfig>,
 
     /// Publish `MBTiles` files
     #[cfg(feature = "mbtiles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<MbtConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<MbtConfig>")
+    )]
+    pub mbtiles: FileConfig<MbtConfig>,
 
     /// Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
     /// Each upstream is configured under `sources`.
@@ -165,8 +181,16 @@ pub struct Config {
     pub passthrough: PassthroughConfig,
 
     #[cfg(feature = "unstable-cog")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<CogConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<CogConfig>")
+    )]
+    pub cog: FileConfig<CogConfig>,
 
     /// Publish `DuckDB` / `GeoParquet` sources (unstable)
     #[cfg(feature = "unstable-duckdb")]
@@ -175,8 +199,16 @@ pub struct Config {
 
     /// Publish `GeoJSON` files as vector tile sources
     #[cfg(feature = "geojson")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub geojson: FileConfigEnum<GeoJsonConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<GeoJsonConfig>")
+    )]
+    pub geojson: FileConfig<GeoJsonConfig>,
 
     /// Named combinations of tile sources.
     ///
@@ -190,18 +222,48 @@ pub struct Config {
 
     /// Sprite configuration
     #[cfg(feature = "sprites")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>"
+        )
+    )]
     pub sprites: SpriteConfig,
 
     /// Publish `MapLibre` style files
     /// You can also configure us to render the styles on the server side.
     #[cfg(feature = "styles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>"
+        )
+    )]
     pub styles: StyleConfig,
 
     /// Font configuration
     #[cfg(feature = "fonts")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>"
+        )
+    )]
     pub fonts: FontConfig,
 
     /// Encoder settings for MVT->MLT conversion (global level).

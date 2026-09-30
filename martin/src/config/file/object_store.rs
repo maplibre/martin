@@ -601,7 +601,7 @@ mod cog_tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::config::file::cog::CogConfig;
-    use crate::config::file::{Config, ConfigurationLivecycleHooks as _, FileConfigEnum};
+    use crate::config::file::{Config, ConfigurationLivecycleHooks as _};
     use crate::config::primitives::IdResolver;
     use crate::srv::RESERVED_KEYWORDS;
 
@@ -631,9 +631,7 @@ mod cog_tests {
         )
         .unwrap();
         config.finalize().await.unwrap();
-        let FileConfigEnum::Config(cog) = &config.cog else {
-            panic!("COG config must be expanded during finalization");
-        };
+        let cog = &config.cog;
         assert_eq!(
             cog.custom.object_store.options["aws_endpoint"],
             "http://localhost:9000"

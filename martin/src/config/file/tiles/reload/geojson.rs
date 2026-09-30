@@ -4,7 +4,7 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -19,18 +19,13 @@ impl GeoJsonReloader {
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<GeoJsonConfig>,
+        config: &FileConfig<GeoJsonConfig>,
         default_cache: CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         // Discovered files inherit the configured extent and buffer, so the builder closes over the
         // custom config and delegates to its `new_sources` (see `PmtilesReloader::new`).
-        let geojson_config = match config {
-            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                GeoJsonConfig::default()
-            }
-        };
+        let geojson_config = config.custom.clone();
         let recursive = geojson_config.recursive.unwrap_or_default();
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = geojson_config.clone();

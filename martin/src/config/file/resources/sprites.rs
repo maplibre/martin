@@ -6,41 +6,31 @@ use tracing::warn;
 
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
+    ConfigurationLivecycleHooks, FileConfig, UnrecognizedValues, subdirectories,
 };
 
-pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
+pub type SpriteConfig = FileConfig<InnerSpriteConfig>;
 impl SpriteConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<SpriteSources> {
-        let Some(cfg) = self.extract_file_config() else {
-            return Ok(SpriteSources::default());
-        };
-
         let results = SpriteSources::default();
-        let mut directories = Vec::new();
-        let mut configs = BTreeMap::new();
 
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                configs.insert(id.clone(), source.clone());
-                results.add_source(id, source.abs_path()?);
-            }
+        for (id, source) in &self.sources {
+            results.add_source(id.clone(), source.abs_path()?);
         }
 
-        for path in cfg.paths {
+        self.paths.retain(|path| {
             let Some(name) = path.file_name() else {
                 warn!(
                     "Ignoring sprite source with no name from {}",
                     path.display()
                 );
-                continue;
+                return false;
             };
-            directories.push(path.clone());
-            results.add_source(name.to_string_lossy().to_string(), path);
-        }
+            results.add_source(name.to_string_lossy().to_string(), path.clone());
+            true
+        });
 
-        let collections: Vec<_> = cfg.collections.into_iter().collect();
-        for collection in &collections {
+        for collection in &self.collections {
             for (name, path) in subdirectories(collection)
                 .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
@@ -48,13 +38,11 @@ impl SpriteConfig {
             }
         }
 
-        for (alias, sprites) in &cfg.custom.aliases {
+        for (alias, sprites) in &self.custom.aliases {
             results
                 .add_alias(alias.clone(), sprites.clone())
                 .map_err(ConfigFileError::SpriteAliasResolutionFailed)?;
         }
-
-        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }
