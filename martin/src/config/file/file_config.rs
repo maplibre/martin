@@ -282,6 +282,9 @@ impl<T: TileSourceConfiguration> FileConfig<T> {
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
+        if self.is_default() {
+            return Ok(());
+        }
         self.custom.finalize().await
     }
 }

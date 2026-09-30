@@ -514,8 +514,9 @@ mod tests {
         args.merge_into_config(&mut config).unwrap();
 
         insta::assert_yaml_snapshot!(config.cog, @r#"
-        - "https://example.org/imagery/vienna.tif"
-        - "s3://bucket/imagery/ortho.tiff"
+        paths:
+          - "https://example.org/imagery/vienna.tif"
+          - "s3://bucket/imagery/ortho.tiff"
         "#);
     }
 
