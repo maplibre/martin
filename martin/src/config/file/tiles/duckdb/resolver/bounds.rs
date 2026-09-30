@@ -349,6 +349,9 @@ mod tests {
             None,
         )
         .expect("local GeoParquet pool");
+        pool.generate_tile(|_| Ok(()))
+            .await
+            .expect("warm up DuckDB connection");
         let from_expr = format!(
             "read_parquet('{}')",
             path.to_str().expect("utf-8 parquet path")
