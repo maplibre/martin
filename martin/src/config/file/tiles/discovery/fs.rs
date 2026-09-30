@@ -15,7 +15,7 @@ use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
+    CachePolicy, FileConfig, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
     SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::IdResolver;
@@ -81,7 +81,7 @@ impl FsDiscovery {
     )]
     pub fn from_config<C>(
         kind: FileKind,
-        config: &FileConfigEnum<C>,
+        config: &FileConfig<C>,
         recursive: bool,
         extensions: &'static [&'static str],
         id_resolver: IdResolver,
@@ -94,30 +94,26 @@ impl FsDiscovery {
         let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
         let mut configured: BTreeMap<PathBuf, ConfiguredSource> = BTreeMap::new();
 
-        if let FileConfigEnum::Config(cfg) = config
-            && let Some(sources) = &cfg.sources
-        {
-            for (id, src) in sources {
-                let path = src.get_path();
-                let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
-                    continue;
-                };
-                let Ok(canonical) = path.canonicalize() else {
-                    tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
-                    continue;
-                };
-                // finalize() already rejected unknown names, so a miss here only means "no grid"
-                let grid = declared_tile_grid(id, src, tile_grids).ok().flatten();
-                configured.insert(
-                    canonical,
-                    ConfiguredSource {
-                        policy: src.cache_zoom().or(default_cache),
-                        process: per_source_process(process, src),
-                        grid,
-                        src: src.clone(),
-                    },
-                );
-            }
+        for (id, src) in &config.sources {
+            let path = src.get_path();
+            let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
+                continue;
+            };
+            let Ok(canonical) = path.canonicalize() else {
+                tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
+                continue;
+            };
+            // finalize() already rejected unknown names, so a miss here only means "no grid"
+            let grid = declared_tile_grid(id, src, tile_grids).ok().flatten();
+            configured.insert(
+                canonical,
+                ConfiguredSource {
+                    policy: src.cache_zoom().or(default_cache),
+                    process: per_source_process(process, src),
+                    grid,
+                    src: src.clone(),
+                },
+            );
         }
 
         let mut warnings: Vec<TileSourceWarning> = vec![];
@@ -140,7 +136,7 @@ impl FsDiscovery {
                 }
             }
         };
-        let mut push_local = |path: &PathBuf| {
+        let push_local = |path: &PathBuf| {
             if let Some(canonical) = readable(path)
                 && seen.insert(canonical)
             {
@@ -148,32 +144,24 @@ impl FsDiscovery {
             }
         };
 
-        match config {
-            FileConfigEnum::Config(cfg) => cfg.paths.iter().for_each(push_local),
-            FileConfigEnum::Path(path) => push_local(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(push_local),
-            FileConfigEnum::None => {}
-        }
+        config.paths.iter().for_each(push_local);
 
         let mut collections: Vec<PathBuf> = vec![];
-        if let FileConfigEnum::Config(cfg) = config {
-            let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
-            for collection in &cfg.collections {
-                if !matches!(
-                    SourceLocation::classify_path(collection),
-                    Ok(SourceLocation::Local(_))
-                ) {
-                    tracing::warn!(collection = ?collection, "a collection must be a local directory");
-                    continue;
-                }
-                if let Some(canonical) = readable(collection)
-                    && seen.insert(canonical)
-                {
-                    collections.push(collection.clone());
-                }
+        let mut seen_collections: BTreeSet<PathBuf> = BTreeSet::new();
+        for collection in &config.collections {
+            if !matches!(
+                SourceLocation::classify_path(collection),
+                Ok(SourceLocation::Local(_))
+            ) {
+                tracing::warn!(collection = ?collection, "a collection must be a local directory");
+                continue;
+            }
+            if let Some(canonical) = readable(collection)
+                && seen_collections.insert(canonical)
+            {
+                collections.push(collection.clone());
             }
         }
-
         Self {
             kind,
             directories,
@@ -492,7 +480,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -526,7 +514,7 @@ mod tests {
 
         let recursive = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             true,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -547,7 +535,7 @@ mod tests {
 
         let flat = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -579,7 +567,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -608,7 +596,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -648,9 +636,9 @@ mod tests {
         File::create(&scanned).expect("create scanned");
         File::create(&configured).expect("create configured");
 
-        let config = FileConfigEnum::Config(FileConfig {
+        let config = FileConfig {
             paths: vec![dir.path().to_path_buf()],
-            sources: Some(BTreeMap::from([(
+            sources: BTreeMap::from([(
                 "configured".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     path: configured.clone(),
@@ -666,9 +654,9 @@ mod tests {
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
                     tile_grid: None,
                 })),
-            )])),
+            )]),
             ..FileConfig::<()>::default()
-        });
+        };
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
@@ -704,8 +692,8 @@ mod tests {
         File::create(&overridden).expect("create overridden");
         File::create(&plain).expect("create plain");
 
-        let config = FileConfigEnum::Config(FileConfig {
-            sources: Some(BTreeMap::from([
+        let config = FileConfig {
+            sources: BTreeMap::from([
                 (
                     "overridden".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
@@ -721,9 +709,9 @@ mod tests {
                     })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
-            ])),
+            ]),
             ..FileConfig::<()>::default()
-        });
+        };
         let kind_level = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
@@ -769,8 +757,8 @@ mod tests {
         let pinned = dir.path().join("pinned.mbtiles");
         File::create(&pinned).expect("create pinned");
 
-        let config = FileConfigEnum::Config(FileConfig {
-            sources: Some(BTreeMap::from([(
+        let config = FileConfig {
+            sources: BTreeMap::from([(
                 "pinned".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     tile_grid: None,
@@ -788,9 +776,9 @@ mod tests {
                     ),
                     cache: CachePolicy::default(),
                 })),
-            )])),
+            )]),
             ..FileConfig::<()>::default()
-        });
+        };
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
@@ -827,7 +815,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Paths(vec![
+            &FileConfig::<()>::new(vec![
                 readable.path().to_path_buf(),
                 unreadable.path().to_path_buf(),
             ]),
@@ -870,7 +858,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),

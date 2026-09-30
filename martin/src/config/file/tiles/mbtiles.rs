@@ -100,17 +100,13 @@ mod tests {
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
-        FileConfigEnum, FileConfigSource, FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
+        FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one literal per configured source, spelled out"
-    )]
     async fn parse() {
-        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfig<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -135,12 +131,8 @@ mod tests {
             unrecognised.is_empty(),
             "unrecognized config: {unrecognised:?}"
         );
-        let FileConfigEnum::Config(cfg) = cfg else {
-            panic!();
-        };
-        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(
-            paths,
+            cfg.paths,
             vec![
                 PathBuf::from("/dir-path"),
                 PathBuf::from("/path/to/file2.ext"),
@@ -149,7 +141,7 @@ mod tests {
         );
         assert_eq!(
             cfg.sources,
-            Some(BTreeMap::from_iter(vec![
+            BTreeMap::from_iter(vec![
                 (
                     "pm-src1".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
@@ -209,7 +201,7 @@ mod tests {
                         cache_control: None,
                     }))
                 ),
-            ]))
+            ])
         );
     }
 }

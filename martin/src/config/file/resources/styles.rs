@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use std::env;
+use std::mem;
 #[cfg(feature = "rendering")]
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use tracing::warn;
 
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues, subdirectories,
+    FileConfig, UnrecognizedValues, subdirectories,
 };
 #[cfg(feature = "rendering")]
 use crate::config::primitives::OptBoolObj;
@@ -64,21 +64,17 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
+pub type StyleConfig = FileConfig<InnerStyleConfig>;
 
 impl StyleConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<StyleSources> {
-        let Some(cfg) = self.extract_file_config() else {
-            return Ok(StyleSources::default());
-        };
-
         #[cfg_attr(
             not(all(feature = "rendering", target_os = "linux")),
             expect(unused_mut)
         )]
         let mut results = StyleSources::default();
         #[cfg(all(feature = "rendering", target_os = "linux"))]
-        match cfg.custom.rendering {
+        match self.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
@@ -93,7 +89,7 @@ impl StyleConfig {
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
-        match cfg.custom.rendering {
+        match self.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => {}
             OptBoolObj::Object(ref o) if !o.enabled => {}
             OptBoolObj::Bool(true) | OptBoolObj::Object(_) => {
@@ -101,23 +97,20 @@ impl StyleConfig {
             }
         }
 
-        let mut configs = BTreeMap::new();
-
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                if source.get_path().is_file() {
-                    configs.insert(id.clone(), source.clone());
-                    results.add_style(id, source.into_path());
-                } else {
-                    warn!(
-                        "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
-                    );
-                }
+        self.sources.retain(|id, source| {
+            if source.get_path().is_file() {
+                results.add_style(id.clone(), source.get_path().clone());
+                true
+            } else {
+                warn!(
+                    "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
+                );
+                false
             }
-        }
+        });
 
         let mut paths_with_names = Vec::new();
-        for base_path in cfg.paths {
+        for base_path in mem::take(&mut self.paths) {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
                 warn!(
@@ -145,9 +138,9 @@ impl StyleConfig {
         }
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
+        self.paths = paths_with_names;
 
-        let collections: Vec<_> = cfg.collections.into_iter().collect();
-        for collection in &collections {
+        for collection in &self.collections {
             for (project, dir) in subdirectories(collection)
                 .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
@@ -160,8 +153,6 @@ impl StyleConfig {
                 }
             }
         }
-
-        *self = Self::new_extended(paths_with_names, collections, configs, cfg.custom);
 
         Ok(results)
     }
@@ -198,6 +189,8 @@ fn list_contained_files(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use indoc::indoc;
     use martin_core::styles::StyleCatalog;
 
@@ -225,11 +218,7 @@ mod tests {
         "};
         let cfg: StyleConfig =
             serde_saphyr::from_str(yaml).expect("styles with only paths must parse");
-        let StyleConfig::Config(cfg) = cfg else {
-            panic!("expected Config variant, got {cfg:?}");
-        };
-        let paths: Vec<_> = cfg.paths.into_iter().collect();
-        assert_eq!(paths, vec![PathBuf::from("/data")]);
+        assert_eq!(cfg.paths, vec![PathBuf::from("/data")]);
     }
 
     #[cfg(feature = "rendering")]
@@ -304,8 +293,10 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg =
-            StyleConfig::new_extended(vec![], vec![], configs, InnerStyleConfig::default());
+        let mut cfg = StyleConfig {
+            sources: configs,
+            ..StyleConfig::default()
+        };
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);

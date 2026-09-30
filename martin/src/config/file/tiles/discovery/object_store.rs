@@ -18,7 +18,7 @@ use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::fs::per_source_process;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, FileConfigSrc, SourceBuildResult,
+    CachePolicy, ConfigFileError, FileConfig, FileConfigSrc, SourceBuildResult,
     TileSourceConfiguration,
 };
 use crate::config::primitives::IdResolver;
@@ -110,7 +110,7 @@ impl ConfiguredObjectDiscovery {
     #[must_use]
     pub fn from_config<T>(
         kind: FileKind,
-        config: &FileConfigEnum<T>,
+        config: &FileConfig<T>,
         label: &'static str,
         reload_interval: Duration,
         default_cache: CachePolicy,
@@ -119,24 +119,20 @@ impl ConfiguredObjectDiscovery {
         build: ObjectStoreSourceBuilder,
     ) -> Self {
         let mut objects = Vec::new();
-        if let FileConfigEnum::Config(cfg) = config
-            && let Some(sources) = &cfg.sources
-        {
-            for (id, src) in sources {
-                let Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) =
-                    SourceLocation::classify_path(src.get_path())
-                else {
-                    // Local sources belong to the file-based discovery.
-                    continue;
-                };
-                objects.push(ConfiguredObject {
-                    id: id.clone(),
-                    url,
-                    policy: src.cache_zoom().or(default_cache),
-                    process: per_source_process(process, src),
-                    src: src.clone(),
-                });
-            }
+        for (id, src) in &config.sources {
+            let Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) =
+                SourceLocation::classify_path(src.get_path())
+            else {
+                // Local sources belong to the file-based discovery.
+                continue;
+            };
+            objects.push(ConfiguredObject {
+                id: id.clone(),
+                url,
+                policy: src.cache_zoom().or(default_cache),
+                process: per_source_process(process, src),
+                src: src.clone(),
+            });
         }
 
         Self {
@@ -260,7 +256,7 @@ impl ObjectStoreDiscovery {
     #[expect(clippy::too_many_arguments)]
     #[must_use]
     pub fn from_config<T: TileSourceConfiguration>(
-        config: &FileConfigEnum<T>,
+        config: &FileConfig<T>,
         extensions: &[&str],
         label: &'static str,
         reload_interval: Duration,
@@ -271,7 +267,7 @@ impl ObjectStoreDiscovery {
         build: ObjectStoreSourceBuilder,
     ) -> Self {
         let mut remote_prefixes = vec![];
-        let mut collect = |path: &PathBuf| match SourceLocation::classify_path(path) {
+        let collect = |path: &PathBuf| match SourceLocation::classify_path(path) {
             Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
                 remote_prefixes.push(url);
             }
@@ -280,12 +276,7 @@ impl ObjectStoreDiscovery {
                 "{label}: remote prefix {path:?} is not a valid URL ({error}); skipping"
             ),
         };
-        match config {
-            FileConfigEnum::Config(cfg) => cfg.paths.iter().for_each(collect),
-            FileConfigEnum::Path(path) => collect(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(collect),
-            FileConfigEnum::None => {}
-        }
+        config.paths.iter().for_each(collect);
         remote_prefixes.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         remote_prefixes.dedup();
 
@@ -531,8 +522,8 @@ mod tests {
                 object_store::path::Path::from("imagery"),
             ))
         });
-        let config: FileConfigEnum<PmtConfig> =
-            FileConfigEnum::Path(PathBuf::from("s3://bucket/imagery/"));
+        let config: FileConfig<PmtConfig> =
+            FileConfig::new(vec![PathBuf::from("s3://bucket/imagery/")]);
         let discovery = ObjectStoreDiscovery::from_config(
             &config,
             &["pmtiles"],
@@ -566,12 +557,12 @@ mod configured_object_tests {
     use url::Url;
 
     use super::*;
+    use crate::config::file::FileConfig;
     use crate::config::file::cog::CogConfig;
-    use crate::config::file::{FileConfig, FileConfigEnum};
 
     fn cog_discovery(
         store: &InMemory,
-        config: &FileConfigEnum<CogConfig>,
+        config: &FileConfig<CogConfig>,
         failing: bool,
     ) -> ConfiguredObjectDiscovery {
         let parser_store = store.clone();
@@ -607,10 +598,10 @@ mod configured_object_tests {
             .put(&path, PutPayload::from_static(b"first"))
             .await
             .unwrap();
-        let config = FileConfigEnum::Config(FileConfig {
+        let config = FileConfig {
             paths: Vec::new(),
             collections: Vec::new(),
-            sources: Some(BTreeMap::from([
+            sources: BTreeMap::from([
                 (
                     "remote".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.tif")),
@@ -619,9 +610,9 @@ mod configured_object_tests {
                     "local".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/elsewhere.tif")),
                 ),
-            ])),
+            ]),
             custom: CogConfig::default(),
-        });
+        };
         let discovery = cog_discovery(&store, &config, false);
 
         assert_eq!(discovery.objects.len(), 1, "local sources are skipped");
@@ -645,15 +636,15 @@ mod configured_object_tests {
             .put(&path, PutPayload::from_static(b"first"))
             .await
             .unwrap();
-        let config = FileConfigEnum::Config(FileConfig {
+        let config = FileConfig {
             paths: Vec::new(),
             collections: Vec::new(),
-            sources: Some(BTreeMap::from([(
+            sources: BTreeMap::from([(
                 "remote".to_owned(),
                 FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.tif")),
-            )])),
+            )]),
             custom: CogConfig::default(),
-        });
+        };
 
         let failing = Arc::new(AtomicBool::new(false));
         let failing_flag = Arc::clone(&failing);

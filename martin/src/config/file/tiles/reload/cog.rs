@@ -7,7 +7,7 @@ use crate::config::file::tiles::discovery::{
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -29,16 +29,11 @@ impl CogReloader {
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<CogConfig>,
+        config: &FileConfig<CogConfig>,
         default_cache: CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
-        let cog_config = match config {
-            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                CogConfig::default()
-            }
-        };
+        let cog_config = config.custom.clone();
         let local_config = cog_config.clone();
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = local_config.clone();

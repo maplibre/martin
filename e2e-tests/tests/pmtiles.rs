@@ -95,8 +95,12 @@ async fn auto_configured_minimal() {
       - tests/fixtures/pmtiles2
       sources:
         webp2: tests/fixtures/pmtiles2/webp2.pmtiles
-    mbtiles: tests/fixtures/pmtiles2
-    geojson: tests/fixtures/pmtiles2
+    mbtiles:
+      paths:
+      - tests/fixtures/pmtiles2
+    geojson:
+      paths:
+      - tests/fixtures/pmtiles2
     ");
 
     martin.stop().await;

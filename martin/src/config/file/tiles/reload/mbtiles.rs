@@ -7,7 +7,7 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, SourceBuildResult, TileGrids, TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -23,7 +23,7 @@ impl MbtilesReloader {
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<MbtConfig>,
+        config: &FileConfig<MbtConfig>,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
@@ -31,17 +31,12 @@ impl MbtilesReloader {
         let default_cache = config.cache_or(default_cache);
         #[cfg(feature = "_process")]
         let process = {
-            let source_type = match config {
-                FileConfigEnum::Config(cfg) => ProcessConfig {
-                    #[cfg(feature = "mlt")]
-                    convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
-                    #[cfg(feature = "mlt")]
-                    convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
-                    ..Default::default()
-                },
-                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                    ProcessConfig::default()
-                }
+            let source_type = ProcessConfig {
+                #[cfg(feature = "mlt")]
+                convert_to_mlt: config.custom.convert_to_mlt.clone(),
+                #[cfg(feature = "mlt")]
+                convert_to_mvt: config.custom.convert_to_mvt.clone(),
+                ..Default::default()
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
@@ -61,7 +56,7 @@ impl MbtilesReloader {
                 Ok(BackendSource::Mbtiles(src))
             })
         });
-        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());
+        let recursive = config.custom.recursive.unwrap_or_default();
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             config,

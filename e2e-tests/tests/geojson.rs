@@ -110,7 +110,9 @@ async fn the_saved_config_names_every_discovered_file() {
     pmtiles:
       paths:
       - tests/fixtures/geojson
-    mbtiles: tests/fixtures/geojson
+    mbtiles:
+      paths:
+      - tests/fixtures/geojson
     geojson:
       paths:
       - tests/fixtures/geojson
