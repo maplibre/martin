@@ -1914,6 +1914,13 @@
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",
       "type": ["string", "null"]
     },
+    "shutdown_timeout": {
+      "description": "Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them \\[default: 5\\]\n\nNew connections are refused as soon as the signal arrives and idle keep-alive connections are closed.",
+      "examples": [5],
+      "format": "uint64",
+      "minimum": 0,
+      "type": ["integer", "null"]
+    },
     "sprites": {
       "$ref": "#/$defs/FileConfigShape4",
       "description": "Sprite configuration"

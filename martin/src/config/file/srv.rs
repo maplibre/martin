@@ -14,6 +14,7 @@ use crate::config::file::cors::CorsConfig;
 use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
 
 pub const DEFAULT_KEEP_ALIVE: u64 = 75;
+pub const DEFAULT_SHUTDOWN_TIMEOUT: u64 = 5;
 pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
 
 /// A syntactically and semantically validated `Cache-Control` header value.
@@ -79,6 +80,11 @@ pub struct SrvConfig {
     /// Connection keep alive timeout \[default: 75\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &75u64))]
     pub keep_alive: Option<u64>,
+    /// Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them \[default: 5\]
+    ///
+    /// New connections are refused as soon as the signal arrives and idle keep-alive connections are closed.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &5u64))]
+    pub shutdown_timeout: Option<u64>,
     /// The socket address to bind \[default: `0.0.0.0:3000`\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"0.0.0.0:3000"))]
     pub listen_addresses: Option<String>,
@@ -264,12 +270,14 @@ mod tests {
         assert_eq!(
             serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
+                shutdown_timeout: 10
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
             "})
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
+                shutdown_timeout: Some(10),
                 listen_addresses: Some("0.0.0.0:3000".to_owned()),
                 worker_processes: Some(8),
                 ..Default::default()

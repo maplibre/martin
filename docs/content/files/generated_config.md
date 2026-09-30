@@ -527,6 +527,10 @@ preferred_encoding: brotli
 # Must begin with a `/`.
 # Examples: `/tiles`, `/api/v1/tiles`
 route_prefix: null
+# Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them [default: 5]
+#
+# New connections are refused as soon as the signal arrives and idle keep-alive connections are closed.
+shutdown_timeout: 5
 # Sprite configuration
 sprites:
   # Named combinations of sprite sources.
