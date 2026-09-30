@@ -19,11 +19,11 @@
                 "format": {
                   "oneOf": [
                     {
-                      "type": "null"
-                    },
-                    {
                       "$ref": "#/components/schemas/FontFormat",
                       "description": "Source font file container format."
+                    },
+                    {
+                      "type": "null"
                     }
                   ]
                 },
@@ -120,11 +120,11 @@
                 "type": {
                   "oneOf": [
                     {
-                      "type": "null"
-                    },
-                    {
                       "$ref": "#/components/schemas/StyleKind",
                       "description": "What kind of layers the style draws."
+                    },
+                    {
+                      "type": "null"
                     }
                   ]
                 },
