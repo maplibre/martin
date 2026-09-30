@@ -94,7 +94,7 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        for pg in self.postgres.iter_mut() {
+        for pg in &mut self.postgres {
             pg.finalize().await?;
         }
 
@@ -102,7 +102,7 @@ impl Config {
         {
             let tile_grids = TileGrids::resolve(&self.tile_grids)?;
             #[cfg(feature = "postgres")]
-            for pg in self.postgres.iter() {
+            for pg in &self.postgres {
                 pg.check_tile_grids(&tile_grids)?;
             }
             #[cfg(feature = "mbtiles")]
@@ -745,7 +745,7 @@ impl Config {
         let _ = catalog;
 
         #[cfg(feature = "postgres")]
-        for pg in config.postgres.iter_mut() {
+        for pg in &mut config.postgres {
             use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
             use crate::reload::SourceProvenance;
 

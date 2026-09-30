@@ -28,11 +28,13 @@ pmtiles:
   recursive: true
 geojson: {}
 sprites:
-  paths: tests/fixtures/sprites/src1
+  paths:
+  - tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
 styles:
-  paths: tests/fixtures/styles/src2
+  paths:
+  - tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
 fonts:

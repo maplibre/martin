@@ -10,7 +10,7 @@ use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
 use crate::config::file::{CachePolicy, UnrecognizedValues};
-use crate::config::primitives::{OptBoolObj, OptOneMany};
+use crate::config::primitives::OptBoolObj;
 
 #[derive(clap::Args, Debug, PartialEq, Eq, Default)]
 #[command(about, version)]
@@ -47,7 +47,7 @@ pub struct PostgresArgs {
 }
 
 impl PostgresArgs {
-    pub fn into_config(self, cli_strings: &mut Arguments) -> OptOneMany<PostgresConfig> {
+    pub fn into_config(self, cli_strings: &mut Arguments) -> Vec<PostgresConfig> {
         let connections = Self::extract_conn_strings(cli_strings);
         let certs = PostgresSslCerts {
             ssl_cert: self.ssl_cert,
@@ -56,7 +56,7 @@ impl PostgresArgs {
             unrecognized: UnrecognizedValues::default(),
         };
 
-        let results: Vec<_> = connections
+        connections
             .into_iter()
             .map(|s| PostgresConfig {
                 connection_string: Some(s),
@@ -78,17 +78,11 @@ impl PostgresArgs {
                 convert_to_mvt: None,
                 unrecognized: UnrecognizedValues::default(),
             })
-            .collect();
-
-        match results.len() {
-            0 => OptOneMany::NoVals,
-            1 => OptOneMany::One(results.into_iter().next().expect("one result exists")),
-            _ => OptOneMany::Many(results),
-        }
+            .collect()
     }
 
     /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
-    pub fn override_config(self, pg_config: &mut OptOneMany<PostgresConfig>) {
+    pub fn override_config(self, pg_config: &mut [PostgresConfig]) {
         // This ensures that if a new parameter is added to the struct, it will not be forgotten here
         let Self {
             default_srid,
@@ -105,68 +99,68 @@ impl PostgresArgs {
             info!(
                 "Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter"
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.default_srid = default_srid;
-            });
+            }
         }
         if let Some(value) = pool_size {
             info!(
                 "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.pool_size = pool_size;
-            });
+            }
         }
         if let Some(value) = pg_retry_timeout {
             info!(
                 "Overriding retry_timeout to {value} on all Postgres connections because of a CLI parameter"
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.retry_timeout = pg_retry_timeout;
-            });
+            }
         }
         if let Some(value) = auto_bounds {
             info!(
                 "Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter"
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.auto_bounds = auto_bounds;
-            });
+            }
         }
         if let Some(value) = max_feature_count {
             info!(
                 "Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter"
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.max_feature_count = max_feature_count;
-            });
+            }
         }
         if let Some(ref value) = ca_root_file {
             info!(
                 "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
                 value.display()
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
-            });
+            }
         }
         if let Some(ref value) = ssl_cert {
             info!(
                 "Overriding client SSL certificate to {} on all Postgres connections because of a CLI parameter",
                 value.display()
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_cert.clone_from(&ssl_cert);
-            });
+            }
         }
         if let Some(ref value) = ssl_key {
             info!(
                 "Overriding client SSL key to {} on all Postgres connections because of a CLI parameter",
                 value.display()
             );
-            pg_config.iter_mut().for_each(|c| {
+            for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_key.clone_from(&ssl_key);
-            });
+            }
         }
     }
 
@@ -217,10 +211,10 @@ mod tests {
         let config = PostgresArgs::default().into_config(&mut args);
         assert_eq!(
             config,
-            OptOneMany::One(PostgresConfig {
+            vec![PostgresConfig {
                 connection_string: Some("postgres://localhost:5432".to_owned()),
                 ..Default::default()
-            })
+            }]
         );
         args.check().unwrap();
     }
@@ -238,7 +232,7 @@ mod tests {
         let config = pg_args.into_config(&mut args);
         assert_eq!(
             config,
-            OptOneMany::One(PostgresConfig {
+            vec![PostgresConfig {
                 connection_string: Some("postgres://localhost:5432".to_owned()),
                 default_srid: Some(20),
                 ssl_certificates: PostgresSslCerts {
@@ -248,28 +242,28 @@ mod tests {
                     unrecognized: UnrecognizedValues::default()
                 },
                 ..Default::default()
-            })
+            }]
         );
         args.check().unwrap();
     }
 
     #[test]
     fn override_config_applies_ssl_cli_flags() {
-        let mut config = OptOneMany::One(PostgresConfig {
+        let mut config = vec![PostgresConfig {
             connection_string: Some("postgres://localhost:5432".to_owned()),
             ssl_certificates: PostgresSslCerts {
                 ssl_cert: Some(PathBuf::from("from-config")),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        }];
         PostgresArgs {
             ssl_cert: Some(PathBuf::from("from-cli")),
             ssl_key: Some(PathBuf::from("key-from-cli")),
             ..Default::default()
         }
         .override_config(&mut config);
-        let OptOneMany::One(cfg) = config else {
+        let [cfg] = config.as_slice() else {
             panic!("expected exactly one postgres config");
         };
         assert_eq!(

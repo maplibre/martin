@@ -338,7 +338,7 @@
           "description": "Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -368,7 +368,7 @@
           "description": "Size of the directory cache (in MB).\nDefaults to `cache.size_mb` / 4\n\nNote:\nTile and directory caching are complementary.\nFor good performance, you want\n- directory caching (to not resolve the directory on each request) and\n- tile caching (for high access tiles)\n\nUse `directory_cache: disable` to disable"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "recursive": {
@@ -398,7 +398,7 @@
           "description": "Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -424,7 +424,7 @@
           "description": "MLT->MVT conversion settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert_to_mvt`."
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "recursive": {
@@ -456,7 +456,7 @@
           "description": "Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "extent": {
@@ -467,7 +467,7 @@
           "type": "integer"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "recursive": {
@@ -502,11 +502,11 @@
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "sources": {
@@ -522,11 +522,11 @@
     "FileConfig5": {
       "properties": {
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "sources": {
@@ -556,11 +556,11 @@
           "description": "Cache configuration for fonts.\nUse `cache: disable` to disable font caching."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A list of file paths"
         },
         "sources": {
@@ -1094,6 +1094,46 @@
       },
       "type": "object"
     },
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/PostgresConfig",
+          "description": "Exactly one value present."
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "$ref": "#/$defs/PostgresConfig"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "The accepted shapes of a [`Vec`] field deserialized via [`deserialize`]."
+    },
+    "OneOrMany2": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "description": "Exactly one value present.",
+          "type": "string"
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "The accepted shapes of a [`Vec`] field deserialized via [`deserialize`]."
+    },
     "OnInvalid": {
       "description": "Describes the action to take during startup when configuration is found to be invalid\nbut Martin could still startup in a degraded state (ie, some sources not served).",
       "oneOf": [
@@ -1147,46 +1187,6 @@
         }
       ],
       "description": "A serde helper to store a boolean as an object."
-    },
-    "OptOneMany": {
-      "anyOf": [
-        {
-          "description": "No values present.",
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/PostgresConfig",
-          "description": "Exactly one value present."
-        },
-        {
-          "description": "Multiple values present.",
-          "items": {
-            "$ref": "#/$defs/PostgresConfig"
-          },
-          "type": "array"
-        }
-      ],
-      "description": "An enum that can hold no values, one value, or many values of type T."
-    },
-    "OptOneMany2": {
-      "anyOf": [
-        {
-          "description": "No values present.",
-          "type": "null"
-        },
-        {
-          "description": "Exactly one value present.",
-          "type": "string"
-        },
-        {
-          "description": "Multiple values present.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      ],
-      "description": "An enum that can hold no values, one value, or many values of type T."
     },
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
@@ -1342,7 +1342,7 @@
           "type": "string"
         },
         "url": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL."
         }
       },
@@ -1351,7 +1351,7 @@
     "PassthroughSrc": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Shorthand: an upstream URL template, a `TileJSON` URL, or a list of URL templates."
         },
         {
@@ -1364,7 +1364,7 @@
     "PostgresCfgPublish": {
       "properties": {
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Optionally limit to just these schemas"
         },
         "functions": {
@@ -1380,7 +1380,7 @@
     "PostgresCfgPublishFuncs": {
       "properties": {
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Optionally limit to just these schemas"
         },
         "source_id_format": {
@@ -1413,11 +1413,11 @@
           "type": ["integer", "null"]
         },
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Add more schemas to the ones listed above"
         },
         "id_columns": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A table column to use as the feature ID\nIf a table has no column with this name, `id_column` will not be set for\nthat table.\nIf a list of strings is given, the first found column will be treated as a\nfeature ID."
         },
         "source_id_format": {
@@ -1872,7 +1872,7 @@
       "description": "Publish `PMTiles` files from local disk or proxy to a web server"
     },
     "postgres": {
-      "$ref": "#/$defs/OptOneMany",
+      "$ref": "#/$defs/OneOrMany",
       "description": "Database configuration\n\nThis can also be a list of PG configs, for example:\n```yaml\npostgres:\n  - connection_string:  postgres://postgres:postgres@localhost:5432/db\n    default_srid: 4326\n  - connection_string:  postgres://postgres:postgres@another_host:5432/another_db\n    default_srid: 3857\n```"
     },
     "preferred_encoding": {

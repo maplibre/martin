@@ -156,7 +156,6 @@ mod tests {
     use crate::config::file::{
         CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid,
     };
-    use crate::config::primitives::OptOneMany;
 
     fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PmtilesReloader {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
@@ -210,12 +209,12 @@ mod tests {
     #[test]
     fn new_partitions_local_and_remote_paths() {
         let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::Many(vec![
+            collections: Vec::new(),
+            paths: vec![
                 PathBuf::from("s3://bucket-a/"),
                 PathBuf::from("s3://bucket-b/folder/"),
                 PathBuf::from("https://example.com/tiles/"),
-            ]),
+            ],
             sources: None,
             custom: PmtConfig {
                 reload_interval: Duration::from_secs(30),
@@ -236,11 +235,8 @@ mod tests {
     #[test]
     fn new_dedups_remote_prefixes() {
         let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::Many(vec![
-                PathBuf::from("s3://bucket/"),
-                PathBuf::from("s3://bucket/"),
-            ]),
+            collections: Vec::new(),
+            paths: vec![PathBuf::from("s3://bucket/"), PathBuf::from("s3://bucket/")],
             sources: None,
             custom: PmtConfig::default(),
         });
@@ -269,8 +265,8 @@ mod tests {
             })),
         );
         let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::NoVals,
+            collections: Vec::new(),
+            paths: Vec::new(),
             sources: Some(sources),
             custom: PmtConfig::default(),
         });

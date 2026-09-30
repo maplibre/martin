@@ -42,8 +42,6 @@ mod tests {
     #[cfg(feature = "sprites")]
     use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
-    #[cfg(feature = "postgres")]
-    use crate::config::primitives::OptOneMany;
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -305,11 +303,11 @@ mod tests {
         let env = props(&[("BASE", "/my/path")]);
         let yaml = format!("postgres:\n  connection_string: {input}\n");
         let config = parse_with_env(&yaml, &env);
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [pg] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
@@ -341,11 +339,11 @@ mod tests {
             Path::new("config.yaml"),
         )
         .expect("comments containing ${VAR} must not trigger substitution");
-        let one = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [one] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(
             one.connection_string.as_deref(),
