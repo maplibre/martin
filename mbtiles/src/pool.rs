@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use martin_tile_utils::TileInfo;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Pool, Sqlite, SqlitePool};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{Pool, Sqlite};
 use tilejson::TileJSON;
 
 #[cfg(test)]
@@ -119,7 +119,10 @@ impl MbtilesPool {
         let opt = SqliteConnectOptions::new()
             .filename(mbtiles.filepath())
             .read_only(true);
-        let pool = SqlitePool::connect_with(opt).await?;
+        let pool = SqlitePoolOptions::new()
+            .test_before_acquire(false)
+            .connect_with(opt)
+            .await?;
         Ok(Self { mbtiles, pool })
     }
 
