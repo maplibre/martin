@@ -60,6 +60,10 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
 
+    /// Highest `@nx` pixel ratio the tile endpoint serves. Defaults to 4.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_pixel_ratio: Option<u8>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -86,6 +90,7 @@ impl StyleConfig {
                 results
                     .enable_rendering(o.workers)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+                results.set_max_pixel_ratio(o.max_pixel_ratio.and_then(std::num::NonZeroU8::new));
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
