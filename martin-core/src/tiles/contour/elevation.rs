@@ -190,7 +190,10 @@ mod tests {
 
     #[test]
     fn all_nodata_grid_yields_no_thresholds() {
-        assert!(grid(&[FLOOR, NEAR_FLOOR]).get_thresholds(100.0).is_empty());
+        assert_eq!(
+            grid(&[FLOOR, NEAR_FLOOR]).get_thresholds(100.0),
+            [] as [f32; 0]
+        );
     }
 
     #[test]

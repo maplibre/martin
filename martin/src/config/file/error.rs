@@ -936,7 +936,7 @@ mod tests {
         assert!(diag.related().is_none());
         assert!(diag.diagnostic_source().is_none());
         assert!(diag.severity().is_none());
-        assert!(!report.to_string().is_empty());
+        assert_ne!(report.to_string(), "");
     }
 
     #[test]
