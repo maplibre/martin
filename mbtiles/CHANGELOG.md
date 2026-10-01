@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.2](https://github.com/maplibre/martin/compare/mbtiles-v0.20.1...mbtiles-v0.20.2) - 2026-10-01
+
+### Fixed
+
+- clippy issues ([#3442](https://github.com/maplibre/martin/pull/3442))
+
 ## [0.20.1](https://github.com/maplibre/martin/compare/mbtiles-v0.20.0...mbtiles-v0.20.1) - 2026-09-30
 
 ### Other

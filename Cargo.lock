@@ -5515,7 +5515,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "2.0.0-beta.1"
+version = "2.0.0-beta.2"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -5594,7 +5594,7 @@ dependencies = [
 
 [[package]]
 name = "martin-config-macros"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5605,7 +5605,7 @@ dependencies = [
 
 [[package]]
 name = "martin-core"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "actix-web",
  "approx",
@@ -5759,7 +5759,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "actix-rt",
  "anyhow",

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.2...martin-config-macros-v0.1.3) - 2026-10-01
+
+### Fixed
+
+- clippy issues ([#3442](https://github.com/maplibre/martin/pull/3442))
+
 ## [0.1.2](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.1...martin-config-macros-v0.1.2) - 2026-09-29
 
 ### Other
