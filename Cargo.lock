@@ -1949,7 +1949,7 @@ checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.1.14",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -5934,9 +5934,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ede86516f7eb70aea510c00d9f6e55e6e34888e9bd4e98f65e6a24a6ad309f25"
+checksum = "f6d81af4a1ef047fdf6551f3873a3f0afe328fd376a70f41005c17d864d55d44"
 dependencies = [
  "bitvec",
  "bytemuck",
@@ -7163,7 +7163,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
