@@ -4043,9 +4043,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fea08cd9a9b44bff59a678e2c140e25c90e0a5cf69032b546622ca4b29fdce6"
+checksum = "d8345e171844f80e5ae4cbed8bc8276e094f6ff2293a6f8e547c200183976674"
 dependencies = [
  "arc-swap",
  "axum",
@@ -4060,7 +4060,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.27.0",
+ "hotpath-macros 0.28.0",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4091,9 +4091,9 @@ checksum = "2ac39b5517f540cab511bdbd5a4dc8cfc62858d6cd26a095463c1d2acfb3f290"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc192b9ee12373854f13fd22ca359a2225e2c11d584999d61d8384ee589d06ef"
+checksum = "bf73e28fe4a7595c322e4265c1608cb10c215cbbce11e49cfcc258766ba686d6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5542,7 +5542,7 @@ dependencies = [
  "flate2",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.27.0",
+ "hotpath 0.28.0",
  "humantime-serde",
  "image",
  "indicatif",
@@ -5632,7 +5632,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.27.0",
+ "hotpath 0.28.0",
  "humantime",
  "image",
  "insta",
@@ -5723,7 +5723,7 @@ dependencies = [
  "brotli 8.0.4",
  "bytes",
  "flate2",
- "hotpath 0.27.0",
+ "hotpath 0.28.0",
  "rstest",
  "serde",
  "serde_json",
@@ -5771,7 +5771,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.27.0",
+ "hotpath 0.28.0",
  "indicatif",
  "insta",
  "itertools 0.15.0",
