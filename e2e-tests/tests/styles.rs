@@ -86,7 +86,7 @@ async fn a_style_is_served_as_json() {
     transfer-encoding: chunked
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
-    assert!(head.body().is_empty());
+    assert_eq!(head.body(), b"");
 
     martin.stop().await;
 }
