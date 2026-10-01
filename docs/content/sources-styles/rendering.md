@@ -37,13 +37,15 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly:
+The long form sets the number of render threads explicitly, and the highest [pixel ratio](#pixel-ratio) tiles are served at:
 
 ```yaml
 styles:
     rendering:
         enabled: true
         workers: 4
+        # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
+        max_pixel_ratio: 4
 ```
 
 ## Rendered XYZ tiles
@@ -51,6 +53,18 @@ styles:
 We support generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+
+### Pixel ratio
+
+Tiles are 512×512 px.
+For high-density (retina) screens, add `@{n}x` after the row to draw the same tile at `n` times the pixels:
+`/style/<style_id>/{z}/{x}/{y}@2x.png` is 1024×1024 px, `@3x` is 1536×1536 px.
+`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured), so `@1.5x` or `@5x` are answered with `400 Bad Request`.
+
+Leaflet's `{r}` placeholder picks it by screen: `/style/<style_id>/{z}/{x}/{y}{r}.png` asks for `@2x` on retina screens.
+
+Each render worker keeps one renderer per pixel ratio it has been asked for, so serving up to `@4x` holds up to four renderers per worker in memory.
+Lower `max_pixel_ratio` to bound that.
 
 ## Static images
 

@@ -1,7 +1,7 @@
 use std::env;
 use std::mem;
 #[cfg(feature = "rendering")]
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use martin_core::styles::StyleSources;
@@ -60,9 +60,9 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
 
-    /// Highest `@nx` pixel ratio the tile endpoint serves. Defaults to 4.
+    /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_pixel_ratio: Option<u8>,
+    pub max_pixel_ratio: Option<NonZeroU8>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -90,7 +90,7 @@ impl StyleConfig {
                 results
                     .enable_rendering(o.workers)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
-                results.set_max_pixel_ratio(o.max_pixel_ratio.and_then(std::num::NonZeroU8::new));
+                results.set_max_pixel_ratio(o.max_pixel_ratio);
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
@@ -260,6 +260,33 @@ mod tests {
             msg.contains("workers") || msg.contains("zero") || msg.contains("NonZero"),
             "unexpected error message: {msg}"
         );
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_parses_max_pixel_ratio() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              max_pixel_ratio: 2
+        "};
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(yaml).expect("rendering with max_pixel_ratio must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.max_pixel_ratio, NonZeroU8::new(2));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::zero("0")]
+    #[case::above_u8("256")]
+    #[case::negative("-1")]
+    fn renderer_config_rejects_invalid_max_pixel_ratio(#[case] value: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  max_pixel_ratio: {value}\n");
+        serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("max_pixel_ratio must be an integer in 1..=255");
     }
 
     #[test]

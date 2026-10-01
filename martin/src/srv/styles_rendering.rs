@@ -7,6 +7,7 @@
 )]
 
 use std::io::Cursor;
+use std::num::{IntErrorKind, NonZeroU8};
 
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Data, Path};
@@ -87,17 +88,58 @@ struct StyleRenderRequest {
     style_id: String,
     z: u8,
     x: u32,
-    /// The row, optionally followed by `@{n}x` for a tile drawn at pixel ratio `n`.
+    /// The row, optionally followed by `@{n}x` for a tile drawn at pixel ratio `n` (`n` times the pixels).
     y: String,
     #[cfg_attr(feature = "unstable-schemas", param(inline))]
     format: ImageFormatRequest,
 }
 
-/// Splits `123` / `123@3x` into the row and the requested pixel ratio (1 when absent).
-fn parse_row(y: &str) -> Option<(u32, std::num::NonZeroU8)> {
-    match y.split_once('@') {
-        None => Some((y.parse().ok()?, std::num::NonZeroU8::MIN)),
-        Some((row, ratio)) => Some((row.parse().ok()?, ratio.strip_suffix('x')?.parse().ok()?)),
+/// Why a `{y}` path segment was rejected.
+#[derive(Debug, PartialEq, Eq)]
+enum RowError {
+    Row,
+    PixelRatio,
+    AbovePixelRatio(NonZeroU8),
+}
+
+impl RowError {
+    fn response(&self) -> HttpResponse {
+        let body = match self {
+            Self::Row => "Invalid tile row".to_owned(),
+            Self::PixelRatio => {
+                "Invalid pixel ratio, expected {y}@{n}x with a whole number n of at least 1"
+                    .to_owned()
+            }
+            Self::AbovePixelRatio(max) => format!("Pixel ratio above @{max}x is not served"),
+        };
+        HttpResponse::BadRequest()
+            .content_type(ContentType::plaintext())
+            .body(body)
+    }
+}
+
+/// Splits `123` / `123@3x` into the row and the requested pixel ratio (1 when absent),
+/// accepting ratios from 1 to `max`.
+fn parse_row(y: &str, max: NonZeroU8) -> Result<(u32, NonZeroU8), RowError> {
+    let (row, pixel_ratio) = match y.split_once('@') {
+        None => (y, NonZeroU8::MIN),
+        Some((row, suffix)) => (row, parse_pixel_ratio(suffix, max)?),
+    };
+    let row = row.parse().ok().ok_or(RowError::Row)?;
+    Ok((row, pixel_ratio))
+}
+
+/// Parses the `{n}x` of an `@{n}x` suffix: `n` is plain decimal digits without leading zeros.
+fn parse_pixel_ratio(suffix: &str, max: NonZeroU8) -> Result<NonZeroU8, RowError> {
+    let digits = suffix.strip_suffix('x').ok_or(RowError::PixelRatio)?;
+    if digits.is_empty() || digits.starts_with('0') || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(RowError::PixelRatio);
+    }
+    match digits.parse::<NonZeroU8>() {
+        Ok(ratio) if ratio <= max => Ok(ratio),
+        Ok(_) => Err(RowError::AbovePixelRatio(max)),
+        Err(e) if *e.kind() == IntErrorKind::PosOverflow => Err(RowError::AbovePixelRatio(max)),
+        Err(_) => Err(RowError::PixelRatio),
     }
 }
 
@@ -109,7 +151,7 @@ fn parse_row(y: &str) -> Option<(u32, std::num::NonZeroU8)> {
         params(StyleRenderRequest),
         responses(
             (status = 200, description = "Server-side rendered style tile (PNG/JPEG/WebP)"),
-            (status = 400, description = "Invalid tile coordinates"),
+            (status = 400, description = "Invalid tile coordinates, or a pixel ratio that is malformed or above `max_pixel_ratio`"),
             (status = 403, description = "Rendering is disabled"),
             (status = 404, description = "No matching style"),
             (status = 500, description = "Renderer or encoder failure"),
@@ -128,27 +170,17 @@ pub async fn get_rendered_tile_style(
             .content_type(ContentType::plaintext())
             .body("No such style exists");
     };
-    let Some((y, pixel_ratio)) = parse_row(&path.y) else {
-        return HttpResponse::BadRequest()
-            .content_type(ContentType::plaintext())
-            .body("Invalid tile row");
+    let (y, pixel_ratio) = match parse_row(&path.y, styles.max_pixel_ratio()) {
+        Ok(parsed) => parsed,
+        Err(e) => return e.response(),
     };
-    #[cfg(target_os = "linux")]
-    if pixel_ratio > styles.max_pixel_ratio() {
-        return HttpResponse::BadRequest()
-            .content_type(ContentType::plaintext())
-            .body(format!(
-                "Pixel ratio above @{}x is not served",
-                styles.max_pixel_ratio()
-            ));
-    }
     let Some(zxy) = TileCoord::new_checked(path.z, path.x, y) else {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
             .body("Invalid tile coordinates for zoom level");
     };
     trace!(
-        "Rendering style {style_id} ({}) at {zxy}",
+        "Rendering style {style_id} ({}) at {zxy}@{pixel_ratio}x",
         style_path.display()
     );
 
@@ -157,7 +189,7 @@ pub async fn get_rendered_tile_style(
         use martin_core::styles::StyleError;
 
         match styles
-            .render(style_path, zxy.z(), zxy.x(), zxy.y(), pixel_ratio)
+            .render_with_pixel_ratio(style_path, zxy.z(), zxy.x(), zxy.y(), pixel_ratio)
             .await
         {
             Ok(image) => encode_image_response(image.as_image(), path.format),
@@ -190,15 +222,22 @@ struct TileJpegRedirectPath {
     style_id: String,
     z: u8,
     x: u32,
-    y: u32,
+    /// The row, optionally followed by `@{n}x`, kept as is in the redirect.
+    y: String,
 }
 
-/// Redirect `/style/{id}/{z}/{x}/{y}.jpeg` to the canonical `.jpg` form
+/// Redirect `/style/{id}/{z}/{x}/{y}.jpeg` (and `{y}@{n}x.jpeg`) to the canonical `.jpg` form
 /// (HTTP 301). Same pattern as the static endpoint's `.jpeg` redirect.
 #[route("/style/{style_id}/{z}/{x}/{y}.jpeg", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpResponse {
+pub async fn redirect_tile_jpeg(
+    path: Path<TileJpegRedirectPath>,
+    styles: Data<StyleSources>,
+) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let TileJpegRedirectPath { style_id, z, x, y } = path.as_ref();
+    if let Err(e) = parse_row(y, styles.max_pixel_ratio()) {
+        return e.response();
+    }
     WARNING
         .once_per_hour(|| {
             warn!(
@@ -209,4 +248,68 @@ pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpRespons
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/style/{style_id}/{z}/{x}/{y}.jpg")))
         .finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    const MAX: NonZeroU8 = NonZeroU8::new(4).expect("4 is non-zero");
+
+    fn ratio(n: u8) -> NonZeroU8 {
+        NonZeroU8::new(n).expect("non-zero")
+    }
+
+    #[rstest]
+    #[case::no_suffix("5", 5, 1)]
+    #[case::one_x("5@1x", 5, 1)]
+    #[case::two_x("5@2x", 5, 2)]
+    #[case::the_max("5@4x", 5, 4)]
+    #[case::a_large_row("123456@3x", 123_456, 3)]
+    fn a_row_parses(#[case] y: &str, #[case] row: u32, #[case] pixel_ratio: u8) {
+        assert_eq!(parse_row(y, MAX), Ok((row, ratio(pixel_ratio))));
+    }
+
+    #[rstest]
+    #[case::not_a_number("a@2x")]
+    #[case::no_row("@2x")]
+    #[case::negative("-5")]
+    #[case::past_u32("4294967296")]
+    fn a_bad_row_is_rejected(#[case] y: &str) {
+        assert_eq!(parse_row(y, MAX), Err(RowError::Row));
+    }
+
+    #[rstest]
+    #[case::zero("5@0x")]
+    #[case::no_number("5@x")]
+    #[case::fractional("5@1.5x")]
+    #[case::no_x("5@2")]
+    #[case::upper_case_x("5@2X")]
+    #[case::a_plus_sign("5@+2x")]
+    #[case::a_leading_zero("5@02x")]
+    #[case::twice("5@2x@2x")]
+    #[case::empty("5@")]
+    #[case::whitespace("5@ 2x")]
+    fn a_bad_pixel_ratio_is_rejected(#[case] y: &str) {
+        assert_eq!(parse_row(y, MAX), Err(RowError::PixelRatio));
+    }
+
+    #[rstest]
+    #[case::just_above("5@5x")]
+    #[case::past_u8("5@256x")]
+    #[case::far_past_u8("5@99999999999x")]
+    fn a_pixel_ratio_above_the_max_is_rejected(#[case] y: &str) {
+        assert_eq!(parse_row(y, MAX), Err(RowError::AbovePixelRatio(MAX)));
+    }
+
+    #[test]
+    fn a_lower_max_caps_the_pixel_ratio() {
+        assert_eq!(parse_row("5@2x", ratio(2)), Ok((5, ratio(2))));
+        assert_eq!(
+            parse_row("5@3x", ratio(2)),
+            Err(RowError::AbovePixelRatio(ratio(2)))
+        );
+    }
 }

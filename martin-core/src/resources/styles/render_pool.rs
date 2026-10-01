@@ -121,8 +121,20 @@ impl RenderPools {
         })
     }
 
-    /// Render a slippy tile asynchronously; `@nx` (`pixel_ratio` n) draws it at n times the pixels.
+    /// Render a 512×512 slippy tile asynchronously.
     pub async fn render_tile(
+        &self,
+        style_path: PathBuf,
+        z: u8,
+        x: u32,
+        y: u32,
+    ) -> Result<Image, StyleError> {
+        self.render_tile_with_pixel_ratio(style_path, z, x, y, NonZeroU8::MIN)
+            .await
+    }
+
+    /// Render a slippy tile asynchronously at `pixel_ratio` times the pixels of [`Self::render_tile`].
+    pub async fn render_tile_with_pixel_ratio(
         &self,
         style_path: PathBuf,
         z: u8,
@@ -576,6 +588,28 @@ mod tests {
             assert_eq!((img.width(), img.height()), (512, 512));
             let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
             assert!(unique.len() > 1, "image is blank");
+        }
+    }
+
+    #[tokio::test]
+    async fn one_worker_renders_each_pixel_ratio_at_its_own_size() {
+        let style_file = write_style();
+        let pool = RenderPool::<TileWorker>::new(NonZeroUsize::new(1)).expect("spawn render pool");
+        let style = style_file.path().to_path_buf();
+
+        for (pixel_ratio, px) in [(1, 512), (2, 1024), (1, 512), (3, 1536), (2, 1024)] {
+            let image = pool
+                .render(TileRequest {
+                    style_path: style.clone(),
+                    z: 0,
+                    x: 0,
+                    y: 0,
+                    pixel_ratio: NonZeroU8::new(pixel_ratio).expect("non-zero"),
+                })
+                .await
+                .expect("render");
+            let img = image.as_image();
+            assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
     }
 
