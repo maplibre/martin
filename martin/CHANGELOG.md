@@ -9,16 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0-beta.2](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.1...martin-v2.0.0-beta.2) - 2026-10-01
 
+> [!IMPORTANT]
+> This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j
+> Which is an fairly trivial DOS attack IF your operating system has out of date dependencys.
+> Docker is not affected, only binary instalations.
+
 ### Fixed
 
 - clippy issues ([#3442](https://github.com/maplibre/martin/pull/3442))
-- *(deps)* update dependency maplibre-gl to v6.11.2 ([#3441](https://github.com/maplibre/martin/pull/3441))
-- *(deps)* update npm dependencies ([#3436](https://github.com/maplibre/martin/pull/3436))
-
-### Other
-
-- *(deps)* update dependency vite to v8.3.1 ([#3439](https://github.com/maplibre/martin/pull/3439))
-- *(deps-dev)* bump brace-expansion from 2.1.4 to 2.1.7 in /martin/martin-ui in the npm_and_yarn group across 1 directory ([#3438](https://github.com/maplibre/martin/pull/3438))
+- various dependency updates ([#3441](https://github.com/maplibre/martin/pull/3441), [#3436](https://github.com/maplibre/martin/pull/3436), [#3439](https://github.com/maplibre/martin/pull/3439), [#3438](https://github.com/maplibre/martin/pull/3438))
 
 ## [2.0.0-beta.1](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.0...martin-v2.0.0-beta.1) - 2026-09-30
 
