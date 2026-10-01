@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > [!IMPORTANT]
 > This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j
-> Which is an fairly trivial DOS attack IF your operating system has out of date dependencys. 
+> Which is an fairly trivial DOS attack IF your operating system has out of date dependencys.
 
 ### Fixed
 
