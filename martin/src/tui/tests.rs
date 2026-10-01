@@ -218,8 +218,8 @@ fn clearing_forgets_the_requests_and_keeps_the_address() {
     let view = dashboard.snapshot_at(started + Duration::from_secs(1));
     assert_eq!(view.address, "http://127.0.0.1:3000/");
     assert_eq!(view.requests, 0);
-    assert!(view.sources.is_empty());
-    assert!(view.tiles.is_empty());
+    assert_eq!(view.sources, [] as [super::data::SourceRow; 0]);
+    assert_eq!(view.tiles, [] as [super::data::TileDot; 0]);
 }
 
 fn key(code: KeyCode) -> KeyEvent {

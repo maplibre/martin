@@ -181,7 +181,7 @@ macro_rules! assert_dump {
         let actual_value = &$actual_value;
         settings.bind(||
             allow_duplicates! {
-                insta::assert_yaml_snapshot!(actual_value)
+                insta::assert_yaml_snapshot!(actual_value);
             }
         );
     }};

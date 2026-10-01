@@ -239,7 +239,7 @@ fn a_v1_document_that_is_no_object_has_no_properties(#[case] document: Value) {
         vec![feature(vec![("doc", doc(document))])],
         EncoderConfig::default(),
     );
-    assert!(layer.property_names().is_empty());
+    assert_eq!(layer.property_names(), [] as [String; 0]);
     assert_eq!(layer.features().len(), 1);
 }
 

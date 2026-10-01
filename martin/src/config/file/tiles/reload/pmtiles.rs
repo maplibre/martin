@@ -188,8 +188,8 @@ mod tests {
     #[test]
     fn new_with_none_config_yields_default_interval() {
         let reloader = make_reloader(&FileConfig::default());
-        assert!(reloader.local.discovery().directories().is_empty());
-        assert!(reloader.remote.discovery().remote_prefixes().is_empty());
+        assert_eq!(reloader.local.discovery().directories(), [] as [PathBuf; 0]);
+        assert_eq!(reloader.remote.discovery().remote_prefixes(), []);
         assert_eq!(
             reloader.remote.discovery().reload_interval(),
             DEFAULT_RELOAD_INTERVAL
@@ -263,7 +263,7 @@ mod tests {
         let r = make_reloader(&cfg);
         // Remote single-file sources are tracked elsewhere (resolve_files) -- the reloader
         // does not need to re-list them, so neither half picks them up.
-        assert!(r.local.discovery().directories().is_empty());
-        assert!(r.remote.discovery().remote_prefixes().is_empty());
+        assert_eq!(r.local.discovery().directories(), [] as [PathBuf; 0]);
+        assert_eq!(r.remote.discovery().remote_prefixes(), []);
     }
 }
