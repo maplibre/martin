@@ -191,7 +191,7 @@ async fn pack_gzips_vector_tiles_unless_compression_is_disabled(
     command.run().await;
 
     let packed_tiles = tiles(&packed).await;
-    assert!(!packed_tiles.is_empty());
+    assert_ne!(packed_tiles, [] as [(i64, i64, i64, Vec<u8>); 0]);
     for (z, x, y, data) in &packed_tiles {
         assert_eq!(
             data.starts_with(&GZIP_MAGIC),
@@ -228,7 +228,7 @@ async fn uncompressed_image_tiles_round_trip_byte_for_byte(#[case] scheme: &str)
         .await;
 
     let source_tiles = tiles(&source).await;
-    assert!(!source_tiles.is_empty());
+    assert_ne!(source_tiles, [] as [(i64, i64, i64, Vec<u8>); 0]);
     assert_eq!(source_tiles, tiles(&packed).await);
 }
 

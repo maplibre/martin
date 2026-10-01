@@ -107,7 +107,7 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    assert!(head.body().is_empty());
+    assert_eq!(head.body(), b"");
 
     martin.stop().await;
 }
@@ -233,7 +233,7 @@ async fn a_glyph_range_answers_conditional_requests() {
         .get_with_headers(&path, &[("if-none-match", &etag)])
         .await;
     assert_eq!(cached.status(), 304);
-    assert!(cached.body().is_empty());
+    assert_eq!(cached.body(), b"");
 
     let stale = martin
         .get_with_headers(

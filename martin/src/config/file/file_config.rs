@@ -1786,7 +1786,7 @@ mod plan_one_path_tests {
     fn a_url_ending_with_a_known_extension_is_a_match() {
         let (planned, directories) = plan("https://example.com/image.tif");
         assert_eq!(planned.len(), 1);
-        assert!(directories.is_empty());
+        assert_eq!(directories, [] as [PathBuf; 0]);
     }
 }
 
