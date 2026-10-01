@@ -777,7 +777,7 @@ jobs:
       - name: Merge the reports into one Cobertura report
         run: just coverage-merge
       - name: Upload to GitHub code coverage
-        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
+        uses: actions/upload-code-coverage@2b21a77928be8d5168c2b9581a67f2adbebacc52 # v1.4.4
         with:
           file: target/cobertura.xml
           language: Rust
