@@ -62,6 +62,7 @@ pub struct RendererConfig {
 
     /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4))]
     pub max_pixel_ratio: Option<NonZeroU8>,
 
     #[serde(flatten, skip_serializing)]

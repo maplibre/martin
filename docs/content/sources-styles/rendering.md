@@ -61,10 +61,10 @@ For high-density (retina) screens, add `@{n}x` after the row to draw the same ti
 `/style/<style_id>/{z}/{x}/{y}@2x.png` is 1024×1024 px, `@3x` is 1536×1536 px.
 `n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured), so `@1.5x` or `@5x` are answered with `400 Bad Request`.
 
-Leaflet's `{r}` placeholder picks it by screen: `/style/<style_id>/{z}/{x}/{y}{r}.png` asks for `@2x` on retina screens.
+In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
 
-Each render worker keeps one renderer per pixel ratio it has been asked for, so serving up to `@4x` holds up to four renderers per worker in memory.
-Lower `max_pixel_ratio` to bound that.
+Since each render worker keeps one renderer per pixel ratio it has been asked for, serving up to `@4x` holds up to four renderers per worker in memory.
+You can lower `max_pixel_ratio` to reduce memory usage.
 
 ## Static images
 
