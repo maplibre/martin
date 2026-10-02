@@ -1,4 +1,4 @@
-//! A vector `PMTiles` archive, built at test time.
+//! `PMTiles` archives, built at test time.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -9,6 +9,9 @@ use pmtiles::{PmTilesWriter, TileCoord, TileType};
 use crate::{metadata, tiles};
 
 type Metadata = BTreeMap<String, String>;
+
+/// The only zoom level a [`leafy_pmtiles`] archive holds.
+pub const LEAFY_ZOOM: u8 = 8;
 
 /// Repack the `mbtiles` fixture as a vector `PMTiles` archive at `dest`, and return that path.
 ///
@@ -40,6 +43,42 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     }
     writer.finalize().expect("failed to finalize the archive");
     dest
+}
+
+/// Write a raster archive at `dest` holding every tile of [`LEAFY_ZOOM`], too many for the root
+/// directory alone, so tiles are found through leaf directories. `version` is part of every tile
+/// and shifts where the leaf directories land.
+pub fn leafy_pmtiles(version: u64, dest: impl AsRef<Path>) -> PathBuf {
+    let dest = dest.as_ref().to_path_buf();
+    let file = File::create(&dest).expect("failed to create the pmtiles archive");
+    let mut writer = PmTilesWriter::new(TileType::Png)
+        .min_zoom(LEAFY_ZOOM)
+        .max_zoom(LEAFY_ZOOM)
+        .bounds(-180.0, -85.0, 180.0, 85.0)
+        .create(file)
+        .expect("failed to write the pmtiles header");
+    let mut state = version;
+    for x in 0..1 << LEAFY_ZOOM {
+        for y in 0..1 << LEAFY_ZOOM {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let padding = usize::try_from(state >> 59).expect("five bits fit a usize");
+            let coord = TileCoord::new(LEAFY_ZOOM, x, y).expect("tile is on the pyramid");
+            let data = format!("{} {}", leafy_tile(version, x, y), ".".repeat(padding));
+            writer
+                .add_raw_tile(coord, data.as_bytes())
+                .expect("failed to write a tile");
+        }
+    }
+    writer.finalize().expect("failed to finalize the archive");
+    dest
+}
+
+/// What a [`leafy_pmtiles`] tile starts with.
+#[must_use]
+pub fn leafy_tile(version: u64, x: u32, y: u32) -> String {
+    format!("v{version} {LEAFY_ZOOM}/{x}/{y}")
 }
 
 /// The `PMTiles` coordinate of an `.mbtiles` row, which numbers rows from the south rather than
