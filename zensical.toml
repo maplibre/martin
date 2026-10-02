@@ -418,3 +418,44 @@ alternate_style = true
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.attr_list]
 [project.markdown_extensions.md_in_html]
+
+# ----------------------------------------------------------------------------
+# The "llmstxt" plugin writes an llms.txt for AI agents, and a Markdown copy
+# of each page listed below. A new page that none of the patterns match has to
+# be added to a section.
+#
+# Read more:
+# - https://zensical.org/docs/compatibility/mkdocs/plugins/#llmstxt
+# ----------------------------------------------------------------------------
+[project.plugins.llmstxt]
+full_output = "llms-full.txt"
+
+[project.plugins.llmstxt.sections]
+"Getting started" = ["index.md", "quick-start/index.md", "quick-start-*.md", "installation.md"]
+"Running" = ["run/index.md", "run-with-*.md", "env-vars.md", "troubleshooting.md"]
+"Configuration" = [
+  "config-file/index.md",
+  "sources-*.md",
+  "pg-connections/index.md",
+  "tile-grids.md",
+  "postprocessing/index.md",
+  "postprocessing/*.md",
+]
+"API" = ["using.md"]
+"Guides" = [
+  "using-guides/index.md",
+  "using-with-*.md",
+  "recipe*.md",
+  "pg-ssl-certificates.md",
+  "martin-cp.md",
+  "mbtiles/index.md",
+  "mbtiles-*.md",
+]
+"Development" = [
+  "development/index.md",
+  "getting-involved.md",
+  "tools.md",
+  "martin-as-a-library.md",
+  "architecture.md",
+]
+"Optional" = ["migration-guide.md", "changelog.md"]
