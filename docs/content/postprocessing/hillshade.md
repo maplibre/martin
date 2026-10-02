@@ -1,4 +1,5 @@
 ---
+description: Rendering raster hillshade tiles from Mapzen normal map tiles
 icon: material/image-filter-hdr
 tags:
   - hillshade

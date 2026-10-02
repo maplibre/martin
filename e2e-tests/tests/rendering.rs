@@ -33,23 +33,40 @@ async fn martin_rendering(cassette: &Cassette) -> Martin {
 
 /// Start martin rendering the test styles, with `options` added to its `rendering:` section.
 async fn start_rendering(cassette: &Cassette, options: &str) -> Result<Martin, StartError> {
+    start_with_rendering(
+        cassette,
+        &format!("\n    enabled: true\n    workers: 2\n{options}"),
+    )
+    .await
+}
+
+/// Start martin rendering the test styles, with `rendering` as the value of `styles.rendering`.
+async fn start_with_rendering(cassette: &Cassette, rendering: &str) -> Result<Martin, StartError> {
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
     Martin::builder()
         .config(&format!(
             "styles:
-  rendering:
-    enabled: true
-    workers: 2
-{options}  sources:
+  rendering: {}
+  sources:
     maplibre_demo: {}
     maptiler_basic: {}
 ",
+            rendering.trim_end(),
             maplibre_demo.display(),
             maptiler_basic.display()
         ))
         .start()
         .await
+}
+
+/// Colour type and bit depth the PNG `body` stores its pixels in, before any decoder expands them.
+fn png_pixel_format(body: &[u8]) -> String {
+    let reader = png::Decoder::new(std::io::Cursor::new(body))
+        .read_info()
+        .expect("response body is not a PNG");
+    let info = reader.info();
+    format!("{:?} {:?}", info.color_type, info.bit_depth)
 }
 
 /// Stop martin and consume the log lines rendering always emits, leaving the log clean for the
@@ -552,6 +569,126 @@ async fn a_doubled_pixel_ratio_doubles_the_static_image() {
     cassette.assert_no_misses();
 }
 
+const ENCODED_PATHS: &[&str] = &[
+    "/style/maplibre_demo/0/0/0.png",
+    "/style/maplibre_demo/5/15/15.png",
+    "/style/maptiler_basic/0/0/0.png",
+    "/style/maplibre_demo/static/0,0,0/200x200.png",
+    "/style/maplibre_demo/0/0/0.jpg",
+];
+
+/// `path: status, content type, PNG colour type and bit depth` for each of `paths`.
+async fn encodings(martin: &Martin, paths: &[&str]) -> String {
+    let mut lines = Vec::new();
+    for path in paths {
+        let response = martin.get(path).await;
+        let pixels = if response.image_format() == ImageFormat::Png {
+            png_pixel_format(response.body())
+        } else {
+            "-".to_owned()
+        };
+        lines.push(format!(
+            "{path}: {} {} {pixels}",
+            response.status(),
+            response.header("content-type").unwrap_or_default()
+        ));
+    }
+    lines.join("\n")
+}
+
+#[tokio::test]
+async fn rendered_pngs_are_indexed_by_default() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/5/15/15.png: 200 image/png Indexed Eight
+    /style/maptiler_basic/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/static/0,0,0/200x200.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn the_rendering_shorthand_indexes_pngs_too() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_with_rendering(&cassette, "true")
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/5/15/15.png: 200 image/png Indexed Eight
+    /style/maptiler_basic/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/static/0,0,0/200x200.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_disabled_png_palette_keeps_rgba() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_rendering(&cassette, "    png_palette: false\n")
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.png: 200 image/png Rgba Eight
+    /style/maplibre_demo/5/15/15.png: 200 image/png Rgba Eight
+    /style/maptiler_basic/0/0/0.png: 200 image/png Rgba Eight
+    /style/maplibre_demo/static/0,0,0/200x200.png: 200 image/png Rgba Eight
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_small_png_palette_packs_fewer_bits() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_rendering(&cassette, "    png_palette:\n      max_colors: 4\n")
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Two
+    /style/maplibre_demo/5/15/15.png: 200 image/png Indexed Two
+    /style/maptiler_basic/0/0/0.png: 200 image/png Indexed Two
+    /style/maplibre_demo/static/0,0,0/200x200.png: 200 image/png Indexed Two
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[rstest]
+#[case::too_few("    png_palette:\n      max_colors: 1\n")]
+#[case::too_many("    png_palette:\n      max_colors: 257\n")]
+#[tokio::test]
+async fn a_png_palette_size_outside_png_fails_startup(#[case] options: &str) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let error = start_rendering(&cassette, options)
+        .await
+        .expect_err("martin must reject the palette size");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("max_colors must be 2 to 256"),
+        "log must name the invalid option; log:\n{log}"
+    );
+}
+
 #[rstest]
 #[case::an_empty_body(b"")]
 #[case::an_overlay_without_features(br#"{"type": "FeatureCollection", "features": []}"#)]
@@ -575,7 +712,9 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
 
 async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, group: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let mut martin = start_rendering(&cassette, "    png_palette: false\n")
+        .await
+        .expect("failed to start martin");
 
     let overlay = std::fs::read(scenario)
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", scenario.display()));

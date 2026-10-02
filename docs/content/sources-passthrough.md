@@ -1,4 +1,5 @@
 ---
+description: Proxying tiles from an upstream HTTP tile server
 icon: material/transit-connection-variant
 tags:
   - passthrough

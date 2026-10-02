@@ -54,6 +54,12 @@ ignore = true
 #{ path = "LICENSE", hash = 0xbd0eed23 }
 #]
 
+# quantizr only points at its MIT licence through `license-file`
+[[licenses.clarify]]
+crate = "quantizr"
+expression = "MIT"
+license-files = [{ path = "LICENSE", hash = 0x28032a6c }]
+
 [bans]
 # Would be nice for compile time, but currently we don't have the capacity for this
 multiple-versions = "allow"

@@ -1,4 +1,5 @@
 ---
+description: Flat, flat-with-hash and normalized MBTiles table layouts
 icon: material/database-outline
 tags:
   - mbtiles
