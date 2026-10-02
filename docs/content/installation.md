@@ -1,4 +1,5 @@
 ---
+description: Installing Martin from binaries, Docker, Homebrew or source
 icon: material/download
 tags:
   - getting-started

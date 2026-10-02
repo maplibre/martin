@@ -1,4 +1,5 @@
 ---
+description: Command-line options and the terminal dashboard
 icon: material/console-line
 tags:
   - deployment

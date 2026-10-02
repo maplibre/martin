@@ -1,4 +1,5 @@
 ---
+description: Certificate authentication for PostgreSQL connections
 icon: simple/postgresql
 tags:
   - postgresql
