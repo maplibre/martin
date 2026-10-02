@@ -44,6 +44,11 @@ use render_pool::RenderPools;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 
+#[cfg(feature = "rendering")]
+mod tile_size;
+#[cfg(feature = "rendering")]
+pub use tile_size::{InvalidTileSize, TileSize};
+
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -191,7 +196,7 @@ impl StyleSources {
         self.sources.is_empty()
     }
 
-    /// Renders a 512×512 slippy tile via the dedicated tile renderer.
+    /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
         self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN)
@@ -237,9 +242,10 @@ impl StyleSources {
     pub fn enable_rendering(
         &mut self,
         workers: Option<NonZeroUsize>,
+        tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
     ) -> Result<(), std::io::Error> {
-        self.pools = Some(RenderPools::new(workers, renderers_per_worker)?);
+        self.pools = Some(RenderPools::new(workers, tile_size, renderers_per_worker)?);
         Ok(())
     }
 

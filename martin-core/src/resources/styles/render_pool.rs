@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::StyleError;
+use crate::resources::styles::{StyleError, TileSize};
 
 /// Parameters for a free-camera (static) map render.
 ///
@@ -104,14 +104,16 @@ impl RenderParams {
 #[derive(Debug, Clone)]
 pub struct RenderPools {
     tile: RenderPool<TileWorker>,
+    tile_size: TileSize,
     free: RenderPool<StaticWorker>,
 }
 
 impl RenderPools {
-    /// Spawn both pools, each with `workers` threads. See [`RenderPool::new`].
+    /// Spawn both pools, each with `workers` threads, rendering tiles of `tile_size`.
+    /// See [`RenderPool::new`].
     ///
     /// Each tile worker keeps up to `renderers_per_worker` renderers loaded, one per style
-    /// and pixel ratio.
+    /// and tile geometry.
     ///
     /// # Errors
     ///
@@ -119,15 +121,17 @@ impl RenderPools {
     /// cannot be started.
     pub fn new(
         workers: Option<NonZeroUsize>,
+        tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
     ) -> Result<Self, std::io::Error> {
         Ok(Self {
             tile: RenderPool::new(workers, move || TileWorker::new(renderers_per_worker))?,
+            tile_size,
             free: RenderPool::new(workers, StaticWorker::default)?,
         })
     }
 
-    /// Render a 512×512 slippy tile asynchronously.
+    /// Render a slippy tile of the pool's [`TileSize`] asynchronously.
     pub async fn render_tile(
         &self,
         style_path: PathBuf,
@@ -154,6 +158,7 @@ impl RenderPools {
                 z,
                 x,
                 y,
+                tile_size: self.tile_size,
                 pixel_ratio,
             })
             .await
@@ -330,22 +335,53 @@ struct TileRequest {
     z: u8,
     x: u32,
     y: u32,
+    tile_size: TileSize,
     pixel_ratio: NonZeroU8,
+}
+
+/// The output a tile renderer is built for. Each geometry needs its own renderer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Geometry {
+    Tile(TileSize, NonZeroU8),
+    /// `MapLibre` cannot zoom out below 0 (`RenderingError::TileZoomTooLow`), so the
+    /// 256 px world tile is the 512 px one drawn at half the pixel ratio.
+    World256(NonZeroU8),
+}
+
+impl Geometry {
+    fn of(req: &TileRequest) -> Self {
+        if req.z == 0 && req.tile_size == TileSize::Px256 {
+            Self::World256(req.pixel_ratio)
+        } else {
+            Self::Tile(req.tile_size, req.pixel_ratio)
+        }
+    }
+
+    fn renderer(self) -> ImageRenderer<Tile> {
+        let (size, pixel_ratio) = match self {
+            Self::Tile(size, ratio) => (size, f32::from(ratio.get())),
+            Self::World256(ratio) => (TileSize::Px512, f32::from(ratio.get()) / 2.0),
+        };
+        ImageRendererBuilder::default()
+            .with_size(size.px(), size.px())
+            .with_pixel_ratio(pixel_ratio)
+            .build_tile_renderer()
+    }
 }
 
 /// How many renderers a tile worker keeps loaded when none is configured.
 pub const DEFAULT_RENDERERS_PER_WORKER: NonZeroUsize = NonZeroUsize::new(8).expect("8 != 0");
 
-/// A tile renderer for one pixel ratio with a style loaded.
+/// A tile renderer for one geometry with a style loaded.
 struct TileSlot {
     style_path: PathBuf,
-    pixel_ratio: NonZeroU8,
+    geometry: Geometry,
     renderer: ImageRenderer<Tile>,
 }
 
 /// Worker that renders slippy tiles via the tile renderer.
 ///
-/// Keeps up to `capacity` renderers, one per style and pixel ratio, most recently used first,
+/// Keeps up to `capacity` renderers, one per style and geometry, most recently used first,
 /// so mixed traffic does not reload a style on every request.
 struct TileWorker {
     capacity: NonZeroUsize,
@@ -360,31 +396,25 @@ impl TileWorker {
         }
     }
 
-    /// Moves the renderer for `style_path` and `pixel_ratio` to the front, loading it if needed.
-    fn slot(
-        &mut self,
-        style_path: &Path,
-        pixel_ratio: NonZeroU8,
-    ) -> Result<&mut TileSlot, StyleError> {
+    /// Moves the renderer for `style_path` and `geometry` to the front, loading it if needed.
+    fn slot(&mut self, style_path: &Path, geometry: Geometry) -> Result<&mut TileSlot, StyleError> {
         if let Some(i) = self
             .slots
             .iter()
-            .position(|s| s.pixel_ratio == pixel_ratio && s.style_path == style_path)
+            .position(|s| s.geometry == geometry && s.style_path == style_path)
         {
             // Move the hit to the front, keeping the others in most-recently-used order,
             // so the `truncate` below always drops the least recently used renderer.
             self.slots[..=i].rotate_right(1);
         } else {
-            let mut renderer = ImageRendererBuilder::default()
-                .with_pixel_ratio(f32::from(pixel_ratio.get()))
-                .build_tile_renderer();
+            let mut renderer = geometry.renderer();
             renderer.load_style_from_path(style_path)?.wait()?;
             self.slots.truncate(self.capacity.get() - 1);
             self.slots.insert(
                 0,
                 TileSlot {
                     style_path: style_path.to_path_buf(),
-                    pixel_ratio,
+                    geometry,
                     renderer,
                 },
             );
@@ -398,7 +428,7 @@ impl Worker for TileWorker {
     type Request = TileRequest;
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
-        self.slot(&req.style_path, req.pixel_ratio)?
+        self.slot(&req.style_path, Geometry::of(&req))?
             .renderer
             .render_tile(req.z, req.x, req.y)
             .map_err(StyleError::RenderingError)
@@ -619,6 +649,7 @@ mod tests {
                     z: 0,
                     x: 0,
                     y: 0,
+                    tile_size: TileSize::Px512,
                     pixel_ratio: NonZeroU8::MIN,
                 })
                 .await
@@ -650,6 +681,7 @@ mod tests {
                     z: 0,
                     x: 0,
                     y: 0,
+                    tile_size: TileSize::Px512,
                     pixel_ratio: NonZeroU8::new(pixel_ratio).expect("non-zero"),
                 })
                 .await
@@ -658,6 +690,44 @@ mod tests {
             assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
     }
+
+    #[rstest]
+    #[case::px512_world(TileSize::Px512, 1, 0, 512)]
+    #[case::px512_at_2x(TileSize::Px512, 2, 1, 1024)]
+    #[case::px256(TileSize::Px256, 1, 1, 256)]
+    #[case::px256_at_2x(TileSize::Px256, 2, 1, 512)]
+    #[case::px256_world(TileSize::Px256, 1, 0, 256)]
+    #[case::px256_world_at_3x(TileSize::Px256, 3, 0, 768)]
+    #[tokio::test]
+    async fn a_tile_is_its_size_times_its_pixel_ratio(
+        #[case] tile_size: TileSize,
+        #[case] pixel_ratio: u8,
+        #[case] z: u8,
+        #[case] px: u32,
+    ) {
+        let style_file = write_style();
+        let pool = RenderPool::new(NonZeroUsize::new(1), || {
+            TileWorker::new(DEFAULT_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
+
+        let image = pool
+            .render(TileRequest {
+                style_path: style_file.path().to_path_buf(),
+                z,
+                x: 0,
+                y: 0,
+                tile_size,
+                pixel_ratio: NonZeroU8::new(pixel_ratio).expect("non-zero"),
+            })
+            .await
+            .expect("render");
+
+        let img = image.as_image();
+        assert_eq!((img.width(), img.height()), (px, px));
+    }
+
+    const PX512: Geometry = Geometry::Tile(TileSize::Px512, NonZeroU8::MIN);
 
     #[rstest]
     #[case::a_new_style_goes_first(&[0, 1], &[1, 0])]
@@ -672,9 +742,7 @@ mod tests {
         let mut worker = TileWorker::new(NonZeroUsize::new(2).expect("2 != 0"));
 
         for &i in requested {
-            worker
-                .slot(styles[i].path(), NonZeroU8::MIN)
-                .expect("load style");
+            worker.slot(styles[i].path(), PX512).expect("load style");
         }
 
         let loaded: Vec<_> = worker
@@ -687,25 +755,23 @@ mod tests {
     }
 
     #[test]
-    fn each_pixel_ratio_of_a_style_has_its_own_renderer() {
+    fn each_geometry_of_a_style_has_its_own_renderer() {
         let style = write_style();
         let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
-        let two_x = NonZeroU8::new(2).expect("2 != 0");
+        let two_x = Geometry::Tile(TileSize::Px512, NonZeroU8::new(2).expect("2 != 0"));
 
-        worker
-            .slot(style.path(), NonZeroU8::MIN)
-            .expect("load style");
+        worker.slot(style.path(), PX512).expect("load style");
         worker.slot(style.path(), two_x).expect("load style");
 
-        let pixel_ratios: Vec<_> = worker.slots.iter().map(|s| s.pixel_ratio).collect();
-        assert_eq!(pixel_ratios, [two_x, NonZeroU8::MIN]);
+        let geometries: Vec<_> = worker.slots.iter().map(|s| s.geometry).collect();
+        assert_eq!(geometries, [two_x, PX512]);
     }
 
     #[test]
     fn a_style_that_fails_to_load_takes_no_slot() {
         let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
 
-        let result = worker.slot(Path::new("/nonexistent/style.json"), NonZeroU8::MIN);
+        let result = worker.slot(Path::new("/nonexistent/style.json"), PX512);
 
         assert!(result.is_err());
         assert!(worker.slots.is_empty());

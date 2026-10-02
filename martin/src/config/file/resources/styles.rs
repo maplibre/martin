@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
+#[cfg(feature = "rendering")]
+use martin_core::styles::TileSize;
 use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -69,6 +71,12 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
     pub renderers_per_worker: Option<NonZeroUsize>,
+
+    /// Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.
+    /// \[default: 512\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &TileSize::Px256))]
+    pub tile_size: Option<TileSize>,
 
     /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -190,7 +198,7 @@ impl StyleConfig {
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
                 results
-                    .enable_rendering(None, DEFAULT_RENDERERS_PER_WORKER)
+                    .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
@@ -198,6 +206,7 @@ impl StyleConfig {
                 results
                     .enable_rendering(
                         o.workers,
+                        o.tile_size.unwrap_or_default(),
                         o.renderers_per_worker
                             .unwrap_or(DEFAULT_RENDERERS_PER_WORKER),
                     )
@@ -470,6 +479,54 @@ mod tests {
         "};
         serde_saphyr::from_str::<InnerStyleConfig>(yaml)
             .expect_err("renderers_per_worker: 0 must be rejected by NonZeroUsize");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::px256("256", TileSize::Px256)]
+    #[case::px512("512", TileSize::Px512)]
+    fn renderer_config_parses_tile_size(#[case] value: &str, #[case] tile_size: TileSize) {
+        let yaml = format!("rendering:\n  enabled: true\n  tile_size: {value}\n");
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(&yaml).expect("rendering with tile_size must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.tile_size, Some(tile_size));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::zero("0")]
+    #[case::between("300")]
+    #[case::retina("1024")]
+    #[case::negative("-1")]
+    #[case::text("large")]
+    fn renderer_config_rejects_invalid_tile_size(#[case] value: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  tile_size: {value}\n");
+        serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("tile_size must be 256 or 512");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_names_the_allowed_tile_sizes() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              tile_size: 300
+        "};
+        let err =
+            serde_saphyr::from_str::<InnerStyleConfig>(yaml).expect_err("300 is not a tile size");
+        insta::assert_snapshot!(err, @r"
+        error: line 3 column 14: tile size must be 256 or 512, got 300
+         --> <input>:3:14
+          |
+        1 | rendering:
+        2 |   enabled: true
+        3 |   tile_size: 300
+          |              ^ tile size must be 256 or 512, got 300
+        ");
     }
 
     #[test]

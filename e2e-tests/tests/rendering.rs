@@ -372,6 +372,44 @@ async fn a_zero_max_pixel_ratio_fails_startup() {
     );
 }
 
+#[rstest]
+#[case::the_world("/style/maplibre_demo/0/0/0.png", 256)]
+#[case::the_world_at_2x("/style/maplibre_demo/0/0/0@2x.png", 512)]
+#[case::the_world_at_3x("/style/maplibre_demo/0/0/0@3x.png", 768)]
+#[case::a_tile("/style/maplibre_demo/5/15/15.png", 256)]
+#[case::a_tile_at_2x("/style/maplibre_demo/5/15/15@2x.png", 512)]
+#[case::a_tile_as_jpeg("/style/maplibre_demo/1/0/0.jpg", 256)]
+#[tokio::test]
+async fn a_configured_tile_size_sizes_the_tiles(#[case] path: &str, #[case] size: u32) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_rendering(&cassette, "    tile_size: 256\n")
+        .await
+        .expect("failed to start martin");
+
+    let response = martin.get(path).await;
+    assert_eq!(response.status(), 200, "{path} did not render");
+    assert_eq!(response.image_size(), (size, size));
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn an_unsupported_tile_size_fails_startup() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let error = start_rendering(&cassette, "    tile_size: 300\n")
+        .await
+        .expect_err("martin must reject tile_size: 300");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("tile size must be 256 or 512, got 300"),
+        "log must name the allowed tile sizes; log:\n{log}"
+    );
+}
+
 #[tokio::test]
 async fn one_renderer_per_worker_still_renders_each_style() {
     let cassette = Cassette::serving(UPSTREAMS).await;
