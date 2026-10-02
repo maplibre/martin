@@ -1,4 +1,5 @@
 ---
+description: Components, data flow and design decisions of the tile server
 icon: material/sitemap
 tags:
   - development

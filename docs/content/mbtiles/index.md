@@ -1,4 +1,5 @@
 ---
+description: Installing and using the mbtiles command line tool
 tags:
   - mbtiles
   - tools

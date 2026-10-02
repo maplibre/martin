@@ -1,4 +1,5 @@
 ---
+description: Connecting to DigitalOcean, Heroku and other managed PostgreSQL providers
 icon: material/cloud
 tags:
   - postgresql

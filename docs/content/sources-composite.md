@@ -1,4 +1,5 @@
 ---
+description: Combining several tile sources into one tile request
 icon: material/layers-triple
 tags:
   - tile-sources

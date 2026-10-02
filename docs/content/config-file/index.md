@@ -1,4 +1,5 @@
 ---
+description: Config file format, environment variables and JSON Schema validation
 icon: material/file-cog
 tags:
   - configuration

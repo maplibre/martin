@@ -1,4 +1,5 @@
 ---
+description: Tracing vector contour lines from Terrarium elevation tiles
 icon: material/chart-timeline-variant
 tags:
   - contour

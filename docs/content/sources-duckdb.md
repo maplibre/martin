@@ -1,4 +1,5 @@
 ---
+description: Serving tiles from GeoParquet files through DuckDB
 icon: simple/duckdb
 tags:
   - duckdb

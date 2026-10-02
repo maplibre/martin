@@ -1,4 +1,5 @@
 ---
+description: Integrity and content checks run by mbtiles validate
 icon: material/database-check
 tags:
   - mbtiles
