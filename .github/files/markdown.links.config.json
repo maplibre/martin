@@ -32,6 +32,10 @@
       "pattern": "^http://opensource.org"
     },
     {
+      "__comment__": "The AUR drops the checker's connection (socket disconnected before TLS), which fails every docs build that links the installation page",
+      "pattern": "^https://aur.archlinux.org"
+    },
+    {
       "__comment__": "Geofabrik drops the checker's connection (socket hang up), which fails every docs build that links a download page",
       "pattern": "^https://download.geofabrik.de"
     },
