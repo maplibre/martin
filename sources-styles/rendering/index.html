@@ -1782,6 +1782,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Rendered XYZ tiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tile-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tile size
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pixel-ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pixel ratio
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renderers-per-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Renderers per worker
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2370,11 +2409,20 @@ You get it by either:</p>
 </span></code></pre></div>
 <p>Renders run on a dedicated thread pool.
 <code>rendering: true</code> sizes it from the logical CPU count, clamped to <code>2..=8</code>.
-The long form sets the number of render threads explicitly:</p>
+The long form sets the number of render threads explicitly, how many <a href="#renderers-per-worker">renderers</a> each keeps, the <a href="#tile-size">tile size</a>, and the highest <a href="#pixel-ratio">pixel ratio</a> tiles are served at:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">styles</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">        </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="c1"># Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="nt">renderers_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="c1"># Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="nt">tile_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="c1"># Highest @{n}x pixel ratio served for XYZ tiles [default: 4]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="nt">max_pixel_ratio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="c1"># Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">png_palette</span><span class="p">:</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">            </span><span class="nt">max_colors</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 </span></code></pre></div>
 <h2 id="indexed-palette-png">Indexed (palette) PNG</h2>
 <p>Rendered PNG tiles and static images are indexed (palette) PNGs.
@@ -2397,6 +2445,21 @@ Encoding a tile this way takes a few milliseconds of CPU.</p>
 <h2 id="rendered-xyz-tiles">Rendered XYZ tiles</h2>
 <p>We support generating a rasterized image for an XYZ tile of a given style.</p>
 <p>After enabling rendering, you can use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>'s rendered png/jpeg content.</p>
+<h3 id="tile-size">Tile size</h3>
+<p>Tiles are 512×512 px by default, the size MapLibre uses.
+Set <code>tile_size: 256</code> to serve 256×256 px tiles, the size most other raster clients (such as Leaflet or OpenLayers) expect by default.
+Any other value fails at startup.</p>
+<h3 id="pixel-ratio">Pixel ratio</h3>
+<p>For high-density (retina) screens, add <code>@{n}x</code> after the row to draw the same tile at <code>n</code> times the pixels:
+<code>/style/&lt;style_id&gt;/{z}/{x}/{y}@2x.png</code> is twice <code>tile_size</code> wide and high (1024×1024 px with the default 512), <code>@3x</code> three times.
+<code>n</code> is a whole number from 1 up to <code>max_pixel_ratio</code> (4 unless configured): <code>@5x</code> is answered with <code>400 Bad Request</code>, and a malformed suffix such as <code>@0x</code> or <code>@1.5x</code> with <code>404 Not Found</code>.</p>
+<p>In Leaflet, this is the <code>{r}</code>-placeholder (<code>/style/&lt;style_id&gt;/{z}/{x}/{y}{r}.png</code>), which means that on a retina screen, you get the crisp map your users expect.</p>
+<h3 id="renderers-per-worker">Renderers per worker</h3>
+<p>Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to <code>renderers_per_worker</code> (8 unless configured).
+Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
+With <code>tile_size: 256</code>, the zoom 0 tile takes one more renderer per pixel ratio.</p>
+<p>Reloading styles costs CPU on every request that misses, so set <code>renderers_per_worker</code> to at least the number of styles times the pixel ratios you serve.
+Each renderer holds its own memory: lower <code>renderers_per_worker</code> or <code>max_pixel_ratio</code> to reduce memory usage.</p>
 <h2 id="static-images">Static images</h2>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
