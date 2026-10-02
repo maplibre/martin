@@ -59,7 +59,7 @@ After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filety
 Tiles are 512×512 px.
 For high-density (retina) screens, add `@{n}x` after the row to draw the same tile at `n` times the pixels:
 `/style/<style_id>/{z}/{x}/{y}@2x.png` is 1024×1024 px, `@3x` is 1536×1536 px.
-`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured), so `@1.5x` or `@5x` are answered with `400 Bad Request`.
+`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured): `@5x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
 
 In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
 

@@ -226,29 +226,41 @@ async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
     cassette.assert_no_misses();
 }
 
-const INVALID_PIXEL_RATIO: &str =
-    "Invalid pixel ratio, expected {y}@{n}x with a whole number n of at least 1";
+#[rstest]
+#[case::a_zero_pixel_ratio("/style/maplibre_demo/0/0/0@0x.png")]
+#[case::a_pixel_ratio_without_a_number("/style/maplibre_demo/0/0/0@x.png")]
+#[case::a_fractional_pixel_ratio("/style/maplibre_demo/0/0/0@1.5x.png")]
+#[case::a_pixel_ratio_without_the_x("/style/maplibre_demo/0/0/0@2.png")]
+#[case::a_pixel_ratio_with_a_leading_zero("/style/maplibre_demo/0/0/0@02x.png")]
+#[case::a_pixel_ratio_past_u8("/style/maplibre_demo/0/0/0@256x.png")]
+#[case::a_row_that_is_not_a_number("/style/maplibre_demo/0/0/a@2x.png")]
+#[case::a_redirect_with_a_zero_pixel_ratio("/style/maplibre_demo/0/0/0@0x.jpeg")]
+#[tokio::test]
+async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    let response = martin.get(path).await;
+    assert_eq!(response.status(), 404);
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
 
 #[rstest]
-#[case::a_zero_pixel_ratio("/style/maplibre_demo/0/0/0@0x.png", INVALID_PIXEL_RATIO)]
-#[case::a_pixel_ratio_without_a_number("/style/maplibre_demo/0/0/0@x.png", INVALID_PIXEL_RATIO)]
-#[case::a_fractional_pixel_ratio("/style/maplibre_demo/0/0/0@1.5x.png", INVALID_PIXEL_RATIO)]
-#[case::a_pixel_ratio_without_the_x("/style/maplibre_demo/0/0/0@2.png", INVALID_PIXEL_RATIO)]
-#[case::a_pixel_ratio_above_the_default_max(
+#[case::above_the_default_max(
     "/style/maplibre_demo/0/0/0@5x.png",
     "Pixel ratio above @4x is not served"
 )]
-#[case::a_redirect_with_a_bad_pixel_ratio(
-    "/style/maplibre_demo/0/0/0@0x.jpeg",
-    INVALID_PIXEL_RATIO
-)]
-#[case::a_row_that_is_not_a_number("/style/maplibre_demo/0/0/a@2x.png", "Invalid tile row")]
-#[case::a_pixel_ratio_outside_the_zoom(
+#[case::outside_the_zoom(
     "/style/maplibre_demo/0/4000/4000@2x.png",
     "Invalid tile coordinates for zoom level"
 )]
 #[tokio::test]
-async fn a_bad_pixel_ratio_renders_nothing(#[case] path: &str, #[case] reason: &str) {
+async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(
+    #[case] path: &str,
+    #[case] reason: &str,
+) {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;
 
