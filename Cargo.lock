@@ -5540,6 +5540,7 @@ dependencies = [
  "duckdb",
  "enum-display",
  "flate2",
+ "fnv",
  "futures",
  "geojson 1.0.0",
  "hotpath 0.28.1",
@@ -5561,9 +5562,11 @@ dependencies = [
  "notify",
  "num_cpus",
  "object_store",
+ "png 0.18.1",
  "postgis",
  "postgres-protocol",
  "prometheus",
+ "quantizr",
  "ratatui",
  "rstest",
  "rustls",
@@ -5701,6 +5704,7 @@ dependencies = [
  "mlt-core",
  "pbf_font_tools",
  "pmtiles",
+ "png 0.18.1",
  "pretty_assertions",
  "regex",
  "reqwest 0.13.5",
@@ -7251,6 +7255,12 @@ dependencies = [
  "web-sys",
  "winapi",
 ]
+
+[[package]]
+name = "quantizr"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b28ab4659f6754222a9e96c7a48f68dba03a620f23803c67ccd4ca7c35d55f5f"
 
 [[package]]
 name = "quick-error"

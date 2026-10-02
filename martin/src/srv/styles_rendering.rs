@@ -6,6 +6,8 @@
     )
 )]
 
+mod png_palette;
+
 use std::io::Cursor;
 
 use actix_web::http::header::{ContentType, LOCATION};
@@ -52,12 +54,43 @@ impl ImageFormatRequest {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+enum EncodeError {
+    #[error(transparent)]
+    Image(#[from] image::ImageError),
+    #[error(transparent)]
+    Palette(#[from] png_palette::PngPaletteError),
+}
+
 /// Encode `img` into `format` and wrap it in a successful [`HttpResponse`].
-/// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
+/// A PNG is indexed with at most `png_max_colors` colours if set, and RGBA otherwise.
 pub(super) fn encode_image_response(
     img: &image::RgbaImage,
     format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
 ) -> HttpResponse {
+    match encode_image(img, format, png_max_colors) {
+        Ok(bytes) => HttpResponse::Ok()
+            .content_type(format.content_type())
+            .body(bytes),
+        Err(e) => {
+            error!("Failed to encode image: {e}");
+            HttpResponse::InternalServerError()
+                .content_type(ContentType::plaintext())
+                .body("Failed to encode image")
+        }
+    }
+}
+
+/// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
+fn encode_image(
+    img: &image::RgbaImage,
+    format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
+) -> Result<Vec<u8>, EncodeError> {
+    if let (ImageFormatRequest::Png, Some(max_colors)) = (format, png_max_colors) {
+        return Ok(png_palette::encode(img, max_colors)?);
+    }
     let image_format = format.image_format();
     let dynamic_img = DynamicImage::ImageRgba8(img.clone());
     let to_encode = if image_format == ImageFormat::Jpeg {
@@ -67,17 +100,8 @@ pub(super) fn encode_image_response(
     };
 
     let mut output = Cursor::new(Vec::new());
-    match to_encode.write_to(&mut output, image_format) {
-        Ok(()) => HttpResponse::Ok()
-            .content_type(format.content_type())
-            .body(output.into_inner()),
-        Err(e) => {
-            error!("Failed to encode image: {e}");
-            HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .body("Failed to encode image")
-        }
-    }
+    to_encode.write_to(&mut output, image_format)?;
+    Ok(output.into_inner())
 }
 
 #[derive(Deserialize, Debug)]
@@ -134,7 +158,9 @@ pub async fn get_rendered_tile_style(
         use martin_core::styles::StyleError;
 
         match styles.render(style_path, zxy.z(), zxy.x(), zxy.y()).await {
-            Ok(image) => encode_image_response(image.as_image(), path.format),
+            Ok(image) => {
+                encode_image_response(image.as_image(), path.format, styles.png_max_colors())
+            }
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {
                 error!("Failed to render style {style_id} at {zxy}: {e}");

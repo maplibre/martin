@@ -94,6 +94,9 @@ pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pools: Option<RenderPools>,
+    /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    png_max_colors: Option<u16>,
 }
 
 /// Style source file.
@@ -220,6 +223,19 @@ impl StyleSources {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub fn disable_rendering(&mut self) {
         self.pools = None;
+    }
+
+    /// Encode rendered PNGs with a palette of at most `max_colors` colours (`None` keeps RGBA).
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_png_max_colors(&mut self, max_colors: Option<u16>) {
+        self.png_max_colors = max_colors;
+    }
+
+    /// Palette size for rendered PNGs, if palette encoding is enabled.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn png_max_colors(&self) -> Option<u16> {
+        self.png_max_colors
     }
 }
 

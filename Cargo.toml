@@ -162,6 +162,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+quantizr = "1.4"
 quote = "1"
 ratatui = "0.30.2"
 rayon = "1.11.0"
