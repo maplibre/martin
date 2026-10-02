@@ -1,3 +1,7 @@
+---
+description: Setup instructions for common tile data sources
+---
+
 # Tile source specific
 
 Some sources for tiles are harder to setup than others.

@@ -1,4 +1,5 @@
 ---
+description: Serving tiles on grids other than Web Mercator
 icon: material/grid
 tags:
   - tile-sources

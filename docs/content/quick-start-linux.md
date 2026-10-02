@@ -1,4 +1,5 @@
 ---
+description: Serving a sample MBTiles file with the Linux binary
 icon: simple/linux
 tags:
   - getting-started

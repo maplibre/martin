@@ -1,4 +1,5 @@
 ---
+description: Transforming tiles before serving, such as MLT, hillshade and contours
 tags:
   - configuration
 ---

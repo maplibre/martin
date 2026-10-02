@@ -1,4 +1,5 @@
 ---
+description: Running behind an NGINX proxy with tile caching
 icon: simple/nginx
 tags:
   - deployment

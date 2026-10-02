@@ -1,4 +1,5 @@
 ---
+description: PostgreSQL connection strings, SSL modes and certificates
 icon: simple/postgresql
 tags:
   - postgresql

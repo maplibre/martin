@@ -1,4 +1,5 @@
 ---
+description: Environment variables Martin reads at startup
 icon: material/variable
 tags:
   - configuration

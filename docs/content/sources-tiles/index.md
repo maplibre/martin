@@ -1,4 +1,5 @@
 ---
+description: Tile archives, GeoJSON, DuckDB and PostgreSQL as tile sources
 tags:
   - tile-sources
   - configuration

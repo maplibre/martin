@@ -1,4 +1,5 @@
 ---
+description: Cargo features for embedding Martin in Rust applications
 icon: material/library
 tags:
   - development

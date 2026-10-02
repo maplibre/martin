@@ -1,4 +1,5 @@
 ---
+description: Rendering styles to raster tiles and static images
 icon: material/image
 tags:
   - styles
