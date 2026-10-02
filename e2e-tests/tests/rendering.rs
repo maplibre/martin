@@ -33,18 +33,26 @@ async fn martin_rendering(cassette: &Cassette) -> Martin {
 
 /// Start martin rendering the test styles, with `options` added to its `rendering:` section.
 async fn start_rendering(cassette: &Cassette, options: &str) -> Result<Martin, StartError> {
+    start_with_rendering(
+        cassette,
+        &format!("\n    enabled: true\n    workers: 2\n{options}"),
+    )
+    .await
+}
+
+/// Start martin rendering the test styles, with `rendering` as the value of `styles.rendering`.
+async fn start_with_rendering(cassette: &Cassette, rendering: &str) -> Result<Martin, StartError> {
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
     Martin::builder()
         .config(&format!(
             "styles:
-  rendering:
-    enabled: true
-    workers: 2
-{options}  sources:
+  rendering: {}
+  sources:
     maplibre_demo: {}
     maptiler_basic: {}
 ",
+            rendering.trim_end(),
             maplibre_demo.display(),
             maptiler_basic.display()
         ))
@@ -402,6 +410,25 @@ async fn encodings(martin: &Martin, paths: &[&str]) -> String {
 async fn rendered_pngs_are_indexed_by_default() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;
+
+    insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/5/15/15.png: 200 image/png Indexed Eight
+    /style/maptiler_basic/0/0/0.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/static/0,0,0/200x200.png: 200 image/png Indexed Eight
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn the_rendering_shorthand_indexes_pngs_too() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_with_rendering(&cassette, "true")
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
     /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Eight
