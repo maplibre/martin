@@ -1,0 +1,112 @@
+# Font Sources
+
+Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering. Martin will generate them dynamically on the fly. The glyph range generation is cached and the size of this cache can be configured via `fonts.cache.size_mb` in the config file.
+
+## API
+
+Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font names as they usually contain spaces.
+
+|  | Font Request |
+| --- | --- |
+| Pattern | `/font/{name}/{start}-{end}` |
+| Example | `/font/Overpass%20Mono%20Bold/0-255` |
+
+### Composite Font Request
+
+When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the fonts contain the glyph.
+
+|  | Composite Font Request with fallbacks |
+| --- | --- |
+| Pattern | `/font/{name1},…,{nameN}/{start}-{end}` |
+| Example | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` |
+
+### Catalog
+
+Martin will show all available fonts at the `/catalog` endpoint.
+
+```bash
+curl http://127.0.0.1:3000/catalog
+{
+  "fonts": {
+    "Overpass Mono Bold": {
+      "family": "Overpass Mono",
+      "style": "Bold",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
+    },
+    "Overpass Mono Light": {
+      "family": "Overpass Mono",
+      "style": "Light",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
+    },
+    "Overpass Mono SemiBold": {
+      "family": "Overpass Mono",
+      "style": "SemiBold",
+      "glyphs": 931,
+      "start": 0,
+      "end": 64258
+    }
+  }
+}
+```
+
+## Using from CLI
+
+A font file or directory can be configured from the [CLI](<https://maplibre.org/martin/run-with-cli/index.md>) with one or more `--font` parameters.
+
+```bash
+martin --font /path/to/font/file.ttf --font /path/to/font_dir
+```
+
+## Configuring from Config File
+
+A font directory can be configured from the config file with the `fonts` key.
+
+```yaml
+# Fonts configuration
+fonts:
+  # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
+  - /path/to/font/file.ttf
+  - /path/to/font_dir
+```
+
+A directory of per-project font directories is loaded in one line with `collections`. Every directory directly inside it is loaded like a `paths` entry, since a font is named by the family inside the file.
+
+```yaml
+fonts:
+  collections:
+    - /projects/fonts
+```
+
+### Font Aliases
+
+> [!TIP]
+>
+> **Supporting multiple writing systems via `aliases`**
+>
+> Working in an global world means that there are multiple languages that you will need to support in modern cartography. Sadly, not every font that you might want to use supports this or looks good in every language. To support this, we have `aliases`. Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](<#composite-font-request>).
+
+```yaml
+fonts:
+  paths:
+    - /path/to/font_dir
+  # Each alias can be requested like a font and serves the listed fonts combined, in fallback order.
+  aliases:
+    Noto Sans Stack: [Noto Sans Regular, Noto Sans Arabic Regular, Noto Sans Thai Regular]
+```
+
+Aliases may only reference discovered fonts, not other aliases. An alias may share the name of a font it references; requests for that name then serve the alias. This extends an existing font with fallbacks without changing the name a style uses:
+
+```yaml
+fonts:
+  paths:
+    - /path/to/font_dir
+  aliases:
+    # Requests for "Noto Sans Bold Italic" also get the Arabic glyphs as fallback.
+    Noto Sans Bold Italic: [Noto Sans Bold Italic, Noto Sans Arabic Bold]
+```
+
+Aliases are listed in the catalog under their own name. The `glyphs` value of an alias counts the distinct code points covered by its fonts.

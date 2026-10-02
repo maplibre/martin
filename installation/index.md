@@ -1,0 +1,115 @@
+### Prerequisites
+
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
+
+### Docker
+
+Martin is also available as a [Docker image](<https://ghcr.io/maplibre/martin>). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing a PostgreSQL connection string or the .mbtiles/.pmtiles files or URLs to .pmtiles. A configuration file can read a variable passed into the container, for example `connection_string: ${DATABASE_URL}`.
+
+```bash
+export DATABASE_URL=postgres://user:password@host:port/db  # secret!
+
+docker run -p 3000:3000 \
+           -e DATABASE_URL \
+           -v /path/to/config/dir:/config \
+           ghcr.io/maplibre/martin:2.0.0-beta.2 \
+           --config /config/config.yaml
+```
+
+> [!NOTE]
+>
+> The default image is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`. It is larger because it bundles the `maplibre_native` runtime libraries.
+
+### From Binary Distributions Manually
+
+You can download martin from [GitHub releases page](<https://github.com/maplibre/martin/releases>).
+
+| Platform | x64 | ARM-64 |
+| --- | --- | --- |
+| Linux | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz>) (gnu)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz>) (gnu, full)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz>) (musl)<br>[.deb](<https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb>) | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz>) (gnu)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz>) (gnu, full)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz>) (musl) |
+| macOS |  | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz>) |
+| Windows | [.zip](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip>) |  |
+
+> [!NOTE]
+>
+> The standard binaries do **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). The `-full` Linux-gnu tarballs do. They add the `rendering` feature and its bundled native libraries.
+
+Rust users can install pre-built martin binary with [cargo-binstall](<https://github.com/cargo-bins/cargo-binstall>) and `cargo`.
+
+```bash
+cargo install cargo-binstall
+cargo binstall martin
+martin --help
+```
+
+### From package
+
+To install with apt source and others, we need your help to [improve packaging for various platforms](<https://github.com/maplibre/martin/issues/578>).
+
+#### Homebrew
+
+If you are using [Homebrew](<https://brew.sh/>) you can install martin using
+
+```bash
+brew install martin
+martin --help
+```
+
+#### Debian packages (x86\_64) manually
+
+```bash
+curl -O https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
+sudo dpkg -i ./debian-x86_64.deb
+martin --help
+rm ./debian-x86_64.deb
+```
+
+#### Arch Linux
+
+The [AUR](<https://aur.archlinux.org/packages/martin>) carries `martin`, maintained by the community. With an AUR helper such as `yay`:
+
+```bash
+yay -S martin
+martin --help
+```
+
+#### Nix
+
+[nixpkgs](<https://search.nixos.org/packages?query=martin>) carries `martin`, usually a release or two behind.
+
+```bash
+nix-shell -p martin --run 'martin --help'
+```
+
+### Building from source
+
+If you [install Rust](<https://www.rust-lang.org/tools/install>), you can build martin from source with Cargo:
+
+```bash
+cargo install martin --locked
+martin --help
+```
+
+#### Optional features
+
+Features prefixed with `unstable-` are **not included** in default builds, Homebrew, Debian packages, or the Docker image. To experiment with them, build Martin from source with the feature enabled:
+
+```bash
+cargo install martin --locked --features=unstable-duckdb
+```
+
+The currently available unstable features are `unstable-cog` for [COG sources](<https://maplibre.org/martin/sources-cog-files/index.md>) and `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
+
+Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. You will need its build dependencies first (`just install-dependencies`).
+
+```bash
+cargo install martin --locked --features rendering
+```
+
+#### Platform-Specific Build Notes
+
+##### Windows
+
+When building from source on Windows, please note the following feature limitations:
+
+- **`rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](<https://github.com/maplibre/maplibre-native-rs>).

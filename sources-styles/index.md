@@ -1,0 +1,38 @@
+# Style Sources
+
+Martin will serve your styles as needed by MapLibre rendering libraries.
+
+To edit these styles, we recommend using [https://maputnik.github.io/editor/](<https://maputnik.github.io/editor/>).
+
+### API
+
+Martin can serve [MapLibre Style Spec](<https://maplibre.org/maplibre-style-spec/>). Currently, Martin will use any valid [`JSON`](<https://json.org>) file as a style, but in the future, we may optimize Martin which may result in additional restrictions.
+
+Use the `/catalog` API to see all the `<style_id>`s.
+
+### Map Style
+
+Use the `/style/<style_id>` API to get a `<style_id>`'s JSON content.
+
+Changes or removals of styles are reflected immediately, but additions are not. A restart of Martin is required to see new styles.
+
+### Configuring with Config File
+
+Styles are configured with the `styles` key. `paths` lists files or directories, and every `.json` file found is published under its file name. `sources` maps a `<style_id>` to one file. `collections` lists directories of per-project directories, and a style at `/projects/styles/project1/basic.json` is published as `project1.basic`.
+
+```yaml
+styles:
+  paths:
+    - /path/to/style.json
+    - /path/to/style_dir
+  sources:
+    my_style: /path/to/another_style.json
+  collections:
+    - /projects/styles
+```
+
+### Server-side raster tile rendering
+
+On Linux, Martin can also render a style server-side into raster images - both as XYZ tiles and as a single static image at a chosen camera, with an optional GeoJSON overlay.
+
+See [Server-side raster tile rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) for how to enable it, the endpoints, and the static-image overlay API.

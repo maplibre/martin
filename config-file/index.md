@@ -1,0 +1,649 @@
+# Configuration
+
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your config file: `connection_string: ${MY_DATABASE_URL}`, or with a default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}`
+
+```bash
+martin --config config.yaml
+```
+
+> [!TIP]
+>
+> **auto-generate a config file with `--save-config`**
+>
+> You can generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
+>
+> ```bash
+> martin  ... ... ...  --save-config config.yaml
+> ```
+
+## Full Configuration
+
+[Schema: `schemas/config.json`](<https://github.com/maplibre/martin/blob/main/schemas/config.json>).
+
+> [!NOTE]
+>
+> The generated reference and its JSON Schema cover the features included during schema generation. Unstable sources such as duckdb or cog are not included.
+>
+> Unstable sources such as duckdb or cog are not included.
+
+config.yaml
+
+````yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+
+# Named combinations of tile sources.
+#
+# Each alias can be requested like a tile source and serves the listed sources combined,
+# exactly like the composite request `/{source1},{source2}`.
+# Aliases may only reference tile sources, not other aliases.
+# An alias sharing the name of a tile source takes precedence over it.
+aliases: {}
+# Set `TileJSON` URL path prefix.
+# This overrides the default path prefix for URLs in `TileJSON` responses.
+# If both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.
+# If neither is set, the `X-Rewrite-URL` header is respected.
+# Must begin with a `/`.
+# Examples: `/`, `/tiles`
+base_path: null
+# Cache configuration
+# Use `cache: disable` to disable all caching entirely.
+cache:
+  # Maximum lifetime for all cache entries (time-to-live from creation).
+  # Entries are evicted after this duration regardless of access.
+  # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+  # default: null (no expiry, entries only evicted by size pressure)
+  expiry: 1h
+  # Maximum idle time for all cache entries (time-to-idle since last access).
+  # Entries are evicted if not accessed within this duration.
+  # default: null (no idle timeout)
+  idle_timeout: 30m
+  # Default maximum zoom level (inclusive) for tile caching.
+  # Tiles further zoomed in than this will bypass the cache entirely.
+  # Can be overridden per-source.
+  # default: null (no upper bound, all zoom levels cached)
+  maxzoom: 14
+  # Default minimum zoom level (inclusive) for tile caching.
+  # Tiles further zoomed out than this will bypass the cache entirely.
+  # Can be overridden with `cache.minzoom` on an individual source.
+  # default: null (no lower bound, all zoom levels cached)
+  minzoom: 0
+  # Total amount of cache we use [default: 512, 0 to disable]
+  # By default, this is split up between:
+  # - Tiles 50% -> 256 MB
+  # - Pmtiles' directories 25% -> 128 MB
+  # - Fonts 12.5% -> 64 MB
+  # - Sprites 12.5% -> 64 MB
+  #
+  # How the cache works internally is unstable and may change to improve performance/efficiency.
+  # For example, we may change the split between sources to improve efficiency.
+  #
+  # Specify each cache size individually for finer cache size control:
+  # - Tiles: `cache.tile_size_mb`
+  # - Pmtiles: `pmtiles.directory_cache.size_mb`
+  # - Fonts: `fonts.cache.size_mb`
+  # - Sprites: `sprites.cache.size_mb`
+  size_mb: 512
+  # Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
+  # default: null (inherits from `cache.expiry`)
+  tile_expiry: 1h
+  # Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
+  # default: null (inherits from `cache.idle_timeout`)
+  tile_idle_timeout: 30m
+  # Allows overriding the size of the tile cache.
+  # Defaults to `cache.size_mb` / 2
+  tile_size_mb: 256
+# Set the default `Cache-Control` response header.
+#
+# The value is used for responses that do not define a more specific cache policy.
+# For example: `public, max-age=3600`.
+# Endpoints with an explicit policy, such as the health check, keep their own header.
+cache_control: null
+# Encoder settings for MVT->MLT conversion (global level).
+# Overridden by source-type or per-source `convert_to_mlt` keys.
+#
+# Can be either:
+# - (default) `auto` - we choose defaults which we think work best for most users
+# - `disabled` - no conversion
+# - explicitly configured
+convert_to_mlt:
+  # Allow `FastPFOR` integer compression.
+  allow_fastpfor: null
+  # Allow FSST string compression.
+  allow_fsst: null
+  # Allow string grouping into shared dictionaries.
+  allow_shared_dict: null
+  # Generate tessellation data for polygons and multi-polygons.
+  tessellate: null
+  # Try sorting features by their feature ID in ascending order.
+  try_id_sort: null
+  # Try sorting features by Hilbert curve index of their first vertex.
+  try_spatial_hilbert_sort: null
+  # Try sorting features by Z-order (Morton) curve index of their first vertex.
+  try_spatial_morton_sort: null
+# Settings for MLT->MVT conversion (global level).
+# Overridden by source-type or per-source `convert_to_mvt` keys.
+#
+# Can be either:
+# - (default) `auto` - we choose defaults which we think work best for most users
+# - `disabled` - no conversion
+# - explicitly configured
+convert_to_mvt: {}
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: 3600
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - https://example.org
+# Optional endpoints, each off unless enabled here.
+endpoints:
+  # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
+  #
+  # The route has no authentication of its own, so to prevent DOS please put it behind a reverse proxy.
+  purge_cache: false
+# Font configuration
+fonts:
+  # Named font stacks.
+  #
+  # Each alias can be requested like a font and serves the listed fonts combined, in fallback order.
+  # Aliases may only reference discovered fonts, not other aliases.
+  # An alias sharing the name of a discovered font takes precedence over it.
+  aliases: {}
+  # Cache configuration for fonts.
+  # Use `cache: disable` to disable font caching.
+  cache:
+    # Maximum lifetime for cache entries.
+    # default: null (inherits from `cache.expiry`)
+    expiry: 1h
+    # Maximum idle time for cache entries.
+    # default: null (inherits from `cache.idle_timeout`)
+    idle_timeout: 30m
+    # Size of the cache in MB (0 to disable).
+    # default: inherits from `cache.size_mb` (with a per-source split)
+    size_mb: 64
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # A list of file paths
+  paths: []
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Publish `GeoJSON` files as vector tile sources
+geojson:
+  # Clip margin kept around each tile edge, in tile units, defaulting to 64.
+  # Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
+  buffer: 64
+  # Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
+  extent: 4096
+  # A list of file paths
+  paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+# The socket address to bind [default: `0.0.0.0:3000`]
+listen_addresses: 0.0.0.0:3000
+# Publish `MBTiles` files
+mbtiles:
+  # Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # MVT->MLT encoder settings for all `MBTiles` sources.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all `MBTiles` sources.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  convert_to_mvt: {}
+  # A list of file paths
+  paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Advanced monitoring options
+observability:
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+# The policy for handling invalid sources during startup. [default: abort]
+#
+# Invalid sources are those that are missing (file not found, table doesn't exist, ...),
+# reference columns that don't exist, and so on.
+# Currently limited to tile sources; broader rollout is planned.
+#
+# Options:
+# - `warn`: log warning messages
+# - `abort`: log warnings as error messages, abort startup
+on_invalid: abort
+# Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+# Each upstream is configured under `sources`.
+passthrough:
+  # Zoom-level bounds for caching the tiles of every passthrough source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # MVT->MLT encoder settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  convert_to_mvt: {}
+  # Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
+  #
+  # Each value is one of:
+  # - a `{z}/{x}/{y}` URL template, e.g. `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+  # - a `TileJSON` document URL; its tile URLs, zoom range, and bounds are read from the document
+  # - a list of URL templates, to spread requests across mirror upstreams
+  # - an object with `url` plus any of `headers` (e.g. for auth), `timeout`, `format`,
+  #   `minzoom`/`maxzoom`/`bounds`/`attribution`, `cache`, and `convert_to_mlt`/`convert_to_mvt`
+  sources:
+    hosted: https://demotiles.maplibre.org/tiles/tiles.json
+    osm: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+    secure:
+      format: mvt
+      headers:
+        Authorization: ${API_TOKEN}
+      maxzoom: 14
+      minzoom: 0
+      url: https://api.example.com/{z}/{x}/{y}
+# Publish `PMTiles` files from local disk or proxy to a web server
+pmtiles:
+  # Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # MVT->MLT encoder settings for all `PMTiles` sources.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all `PMTiles` sources.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  convert_to_mvt: {}
+  # Size of the directory cache (in MB).
+  # Defaults to `cache.size_mb` / 4
+  #
+  # Note:
+  # Tile and directory caching are complementary.
+  # For good performance, you want
+  # - directory caching (to not resolve the directory on each request) and
+  # - tile caching (for high access tiles)
+  #
+  # Use `directory_cache: disable` to disable
+  directory_cache:
+    # Maximum lifetime for cache entries.
+    # default: null (inherits from `cache.expiry`)
+    expiry: 1h
+    # Maximum idle time for cache entries.
+    # default: null (inherits from `cache.idle_timeout`)
+    idle_timeout: 30m
+    # Size of the cache in MB (0 to disable).
+    # default: inherits from `cache.size_mb` (with a per-source split)
+    size_mb: 64
+  # A list of file paths
+  paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
+  # How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
+  # Has no effect on local directories, which are watched via filesystem events.
+  #
+  # Supports human-readable formats: "10m", "1h", "30s".
+  # Defaults to "10m". Set to "0s" to disable remote polling.
+  reload_interval: 10m
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Database configuration
+#
+# This can also be a list of PG configs, for example:
+# ```yaml
+# postgres:
+#   - connection_string:  postgres://postgres:postgres@localhost:5432/db
+#     default_srid: 4326
+#   - connection_string:  postgres://postgres:postgres@another_host:5432/another_db
+#     default_srid: 3857
+# ```
+postgres:
+  # Specify how bounds should be computed for the spatial PG tables [default: quick]
+  #
+  # Options:
+  # - `calc` compute table geometry bounds on startup.
+  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+  # - `skip` does not compute table geometry bounds on startup.
+  auto_bounds: quick
+  # Enable automatic discovery of tables and functions. [default: null]
+  #
+  # Options:
+  # - `true`: run automatic discovery (`true` may be omitted if further configuration is provided)
+  # - `false`: disable automatic discovery
+  # - null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null
+  auto_publish:
+    # Optionally limit to just these schemas
+    from_schemas: []
+    functions:
+      # Optionally limit to just these schemas
+      from_schemas: []
+      # Optionally set how source ID should be generated based on the function's
+      # name and schema
+      source_id_format: "{schema}.{function}"
+    # Here we enable both tables and functions auto discovery.
+    # You can also enable just one of them by not mentioning the other, or
+    # setting it to false. Setting one to true disables the other one as well.
+    # E.g. `tables: false` enables just the functions auto-discovery.
+    tables:
+      # Buffer distance in tile coordinate space to optionally clip geometries,
+      # optional, default to 64
+      buffer: 64
+      # Controls if geometries should be clipped or encoded as is [default: true]
+      clip_geom: true
+      # Tile extent in tile coordinate space, optional, default to 4096
+      extent: 4096
+      # Add more schemas to the ones listed above
+      from_schemas: []
+      # A table column to use as the feature ID
+      # If a table has no column with this name, `id_column` will not be set for
+      # that table.
+      # If a list of strings is given, the first found column will be treated as a
+      # feature ID.
+      id_columns: []
+      # Optionally set how source ID should be generated based on the table's name,
+      # schema, and geometry column
+      source_id_format: table.{schema}.{table}.{column}
+  # Zoom-level bounds for caching the tiles of this connection.
+  # Every table and function without its own `cache` takes them, over the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # Database connection string.
+  #
+  # You can use environment variables too, for example:
+  # `connection_string: $DATABASE_URL`
+  # `connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`
+  connection_string: postgres://postgres@localhost:5432/db
+  # MVT->MLT encoder settings for all sources from this connection.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  #
+  # Can be either:
+  # - `null` (default) - defer to the global setting
+  # - `auto` - we choose defaults which we think work best for most users
+  # - `disabled` - no conversion
+  # - explicitly configured
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all sources from this connection.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  #
+  # Can be either:
+  # - `null` (default) - defer to the global setting
+  # - `auto` - we choose defaults which we think work best for most users
+  # - `disabled` - no conversion
+  # - explicitly configured
+  convert_to_mvt: {}
+  # If a spatial table has SRID 0, then this SRID will be used as a fallback
+  default_srid: 4326
+  # Associative arrays of function sources
+  functions: {}
+  # Limit the number of geo features per tile.
+  #
+  # If the source table has more features than set here, they will not be
+  # included in the tile and the result will look "cut off"/incomplete.
+  # This feature allows you to put a maximum latency bound on tiles with an
+  # extreme amount of detail at the cost of not returning all data.
+  # It is sensible to set this limit if you have user generated/untrusted
+  # geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+  #
+  # either a positive integer, or null=unlimited (default)
+  max_feature_count: null
+  # Maximum Postgres connections pool size [default: 20]
+  pool_size: 20
+  # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
+  # functions, update changed ones, and drop removed ones at runtime, without a restart.
+  #
+  # Supports human-readable formats: "10m", "1h", "30s".
+  # Defaults to "10m". Set to "0s" to disable runtime reloading.
+  reload_interval: 10m
+  # How long the first connection is retried before startup fails [default: 30s]
+  #
+  # A duration like `30s`, or `infinite` to wait until the database answers.
+  # `0s` fails on the first refused connection.
+  retry_timeout: 30s
+  # Same as `PGSSLCERT` for `psql`
+  ssl_cert: ./postgresql.crt
+  # Same as `PGSSLKEY` for `psql`
+  ssl_key: ./postgresql.key
+  # Same as `PGSSLROOTCERT` for `psql`
+  ssl_root_cert: ./root.crt
+  # Associative arrays of table sources
+  tables: {}
+  # Tile grid the sources of this connection are served in, unless a source names its own [default: `WebMercatorQuad`]
+  #
+  # One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+  tile_grid: WebMercatorQuad
+# Which compression should be used if the
+# - client accepts multiple compression formats, and
+# - tile source is not pre-compressed.
+#
+# `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
+# Default could be different depending on Martin version.
+preferred_encoding: brotli
+# Set the URL path prefix for all API routes.
+# When set, Martin will serve all endpoints under this path prefix.
+# This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
+# Must begin with a `/`.
+# Examples: `/tiles`, `/api/v1/tiles`
+route_prefix: null
+# Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them [default: 5]
+#
+# New connections are refused as soon as the signal arrives and idle keep-alive connections are closed.
+shutdown_timeout: 5
+# Sprite configuration
+sprites:
+  # Named combinations of sprite sources.
+  #
+  # Each alias can be requested like a sprite source and serves the listed sources combined.
+  # Aliases may only reference configured sprite sources, not other aliases.
+  # An alias sharing the name of a sprite source takes precedence over it.
+  aliases: {}
+  # Cache configuration for sprites.
+  # Use `cache: disable` to disable sprite caching.
+  cache:
+    # Maximum lifetime for cache entries.
+    # default: null (inherits from `cache.expiry`)
+    expiry: 1h
+    # Maximum idle time for cache entries.
+    # default: null (inherits from `cache.idle_timeout`)
+    idle_timeout: 30m
+    # Size of the cache in MB (0 to disable).
+    # default: inherits from `cache.size_mb` (with a per-source split)
+    size_mb: 64
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # A list of file paths
+  paths: []
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Publish `MapLibre` style files
+# You can also configure us to render the styles on the server side.
+styles:
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # A list of file paths
+  paths: []
+  # A map of source IDs to file paths or config objects
+  sources: {}
+# Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
+#
+# A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+# Sources refer to a grid by its name here.
+# ```yaml
+# tile_grids:
+#   DutchRD:
+#     crs: EPSG:28992
+#     origin: [-285401.92, 903401.92]
+#     extent_at_zoom0: 880803.84
+# ```
+tile_grids: {}
+# If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)
+# will be embedded in the `TileJSON` `tiles` URL, with the set identifier.
+# This is useful to give clients a better way to cache-bust a CDN:
+# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
+# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
+#    optimize browser/CDN cache hit rates, while also making sure that
+#    old tiles aren't served when a new tileset is deployed.
+#
+# The CDN must handle query parameters for caching to work correctly.
+# Many CDNs ignore them by default.
+#
+# For example, if
+# - the setting here is `version`, and
+# - the `PMTiles` tileset version is `1.0.0`, the
+# `TileJSON` will be:
+# `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`
+tilejson_url_version_param: version
+# Control access to Martin's web UI. [default: enable]
+#
+# - `enable` allows only connections from localhost.
+# - `enableforall` allows all connections.
+# - `disable` turns the web UI off.
+#
+# Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.
+web_ui: disable
+# Number of web server workers
+worker_processes: 8
+````
+
+## Validating your config
+
+Martin publishes a JSON Schema for the config file at [`schemas/config.json`](<https://github.com/maplibre/martin/blob/main/schemas/config.json>). You can use it to catch typos, wrong types, and unknown keys before starting Martin.
+
+Add the directive at the top of your `config.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+```
+
+Editors that respect it (any with the [YAML Language Server](<https://github.com/redhat-developer/yaml-language-server>) behind them) will validate your config. This means you get schema based autocomplete for keys, types and enums as you type.
+
+The same check Martin's CI runs against its own fixtures works on your config too. With [`uv`](<https://docs.astral.sh/uv/>) installed:
+
+```bash
+$ uvx --from check-jsonschema check-jsonschema \
+    --schemafile https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json \
+    config.yaml
+```
