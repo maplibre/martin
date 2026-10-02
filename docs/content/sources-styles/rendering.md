@@ -44,7 +44,7 @@ styles:
     rendering:
         enabled: true
         workers: 4
-        # Renderers each worker keeps loaded, one per style and tile geometry [default: 8]
+        # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
         renderers_per_worker: 8
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512

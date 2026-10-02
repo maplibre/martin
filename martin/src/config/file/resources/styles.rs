@@ -64,7 +64,7 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
 
-    /// Renderers each tile worker keeps loaded, one per style and tile geometry.
+    /// Renderers each tile worker keeps loaded, one per style and pixel ratio.
     /// Beyond this, the least recently used is dropped. \[default: 8\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
