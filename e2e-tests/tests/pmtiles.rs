@@ -492,8 +492,6 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
-/// Replacing the object lays its leaf directories out elsewhere, so the leaf directory a tile
-/// needs after the replacement has to come from the new object, not from the old offsets.
 #[tokio::test]
 async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
