@@ -181,3 +181,5 @@ impl_empty_collect_unrecognized!(RetryTimeout);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
+#[cfg(feature = "rendering")]
+impl_empty_collect_unrecognized!(martin_core::styles::TileSize);

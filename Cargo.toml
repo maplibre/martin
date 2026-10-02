@@ -225,3 +225,6 @@ libduckdb-sys.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
+
+[patch.crates-io]
+maplibre_native = { git = "https://github.com/CartoDB/maplibre-native-rs", branch = "carto" }
