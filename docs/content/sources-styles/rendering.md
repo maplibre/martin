@@ -46,13 +46,13 @@ styles:
         workers: 4
 ```
 
-### Indexed (palette) PNG
+## Indexed (palette) PNG
 
 Rendered PNG tiles and static images are indexed (palette) PNGs.
-For map tiles they are about a quarter of the size of full-colour RGBA, with no visible difference.
+For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference.
 JPEG and WebP are not affected.
 
-Each image gets the smallest palette that stays close to the full-colour render, up to `max_colors` (2 to 256, default 128).
+Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128).
 Encoding a tile this way takes a few milliseconds of CPU.
 
 ```yaml
@@ -63,7 +63,7 @@ styles:
             max_colors: 64
 ```
 
-Set `png_palette: false` for full-colour RGBA PNGs, for example for imagery or styles with smooth gradients:
+Set `png_palette: false` for full-color RGBA PNGs, for example for imagery or styles with smooth gradients:
 
 ```yaml
 styles:
