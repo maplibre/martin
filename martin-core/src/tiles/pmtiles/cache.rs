@@ -133,7 +133,11 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
             .or_try_insert_with(async { fetcher.await.map(Arc::new) })
             .await
             .map_err(|e| {
-                pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
+                if matches!(*e, pmtiles::PmtError::SourceModified) {
+                    pmtiles::PmtError::SourceModified
+                } else {
+                    pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
+                }
             })?;
         #[cfg(feature = "metrics")]
         {
