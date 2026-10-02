@@ -1,4 +1,5 @@
 ---
+description: Editor setup and debugging for Martin development
 icon: material/account-group
 tags:
   - development

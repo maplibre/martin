@@ -117,7 +117,15 @@ unstable-cog = [
     "_file_kinds",
 ]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
-rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
+rendering = [
+    "styles",
+    "overlay",
+    "martin-core/rendering",
+    "dep:fnv",
+    "dep:image",
+    "dep:png",
+    "dep:quantizr",
+]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
@@ -196,6 +204,7 @@ csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
+fnv = { workspace = true, optional = true }
 futures.workspace = true
 geojson = { workspace = true, optional = true }
 hotpath = { workspace = true, features = ["tokio"] }
@@ -215,9 +224,11 @@ mlt-core = { workspace = true, optional = true }
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+quantizr = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }

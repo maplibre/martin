@@ -1,4 +1,5 @@
 ---
+description: Serving tiles from local or cloud-hosted GeoTIFF files
 icon: material/satellite-variant
 tags:
   - cog

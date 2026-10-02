@@ -1,4 +1,5 @@
 ---
+description: Serving tiles from local or remote PMTiles archives
 icon: material/database
 tags:
   - pmtiles

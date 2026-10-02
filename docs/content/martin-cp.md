@@ -1,4 +1,5 @@
 ---
+description: Copying tiles from any source into an MBTiles file
 icon: material/content-copy
 tags:
   - tooling

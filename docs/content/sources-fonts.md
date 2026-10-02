@@ -1,4 +1,5 @@
 ---
+description: Serving glyph ranges from OTF, TTF and TTC font files
 icon: material/format-font
 tags:
   - fonts

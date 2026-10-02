@@ -6,6 +6,8 @@
     )
 )]
 
+mod png_palette;
+
 use std::io::Cursor;
 #[cfg(target_os = "linux")]
 use std::num::NonZero;
@@ -75,15 +77,19 @@ enum EncodeError {
     Task(#[from] tokio::task::JoinError),
     #[error(transparent)]
     Image(#[from] image::ImageError),
+    #[error(transparent)]
+    Palette(#[from] png_palette::PngPaletteError),
 }
 
 /// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
+/// A PNG is indexed with at most `png_max_colors` colours if set, and RGBA otherwise.
 #[cfg(target_os = "linux")]
 pub(super) async fn encode_image_response(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
 ) -> HttpResponse {
-    match encode_off_worker(image, format).await {
+    match encode_off_worker(image, format, png_max_colors).await {
         Ok(bytes) => HttpResponse::Ok()
             .content_type(format.content_type())
             .body(bytes),
@@ -100,6 +106,7 @@ pub(super) async fn encode_image_response(
 async fn encode_off_worker(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
 ) -> Result<Vec<u8>, EncodeError> {
     let _permit = ENCODE_PERMITS
         .acquire()
@@ -108,12 +115,20 @@ async fn encode_off_worker(
         .map_err(|_closed| EncodeError::ShuttingDown)?;
     // Encoding is CPU-bound for milliseconds, which would stall
     // every other request on this actix worker if it ran inline.
-    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format)).await?
+    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors))
+        .await?
 }
 
-/// Encode `img` into `format`.
+/// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set.
 /// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
-fn encode_image(img: &RgbaImage, format: ImageFormatRequest) -> Result<Vec<u8>, EncodeError> {
+fn encode_image(
+    img: &RgbaImage,
+    format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
+) -> Result<Vec<u8>, EncodeError> {
+    if let (ImageFormatRequest::Png, Some(max_colors)) = (format, png_max_colors) {
+        return Ok(png_palette::encode(img, max_colors)?);
+    }
     let image_format = format.image_format();
     let mut output = Cursor::new(Vec::new());
     if image_format == ImageFormat::Jpeg {
@@ -197,7 +212,7 @@ pub async fn get_rendered_tile_style(
             .render_with_pixel_ratio(style_path, zxy.z(), zxy.x(), zxy.y(), pixel_ratio)
             .await
         {
-            Ok(image) => encode_image_response(image, path.format).await,
+            Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {
                 error!("Failed to render style {style_id} at {zxy}: {e}");
@@ -281,7 +296,7 @@ mod tests {
     fn a_lossless_encode_keeps_every_pixel(#[case] format: ImageFormatRequest) {
         let image = translucent_image();
 
-        let encoded = encode_image(&image, format).expect("encodes");
+        let encoded = encode_image(&image, format, None).expect("encodes");
 
         let decoded =
             image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
@@ -291,7 +306,7 @@ mod tests {
     #[test]
     fn a_jpeg_encode_drops_the_alpha_channel() {
         let encoded =
-            encode_image(&translucent_image(), ImageFormatRequest::Jpeg).expect("encodes");
+            encode_image(&translucent_image(), ImageFormatRequest::Jpeg, None).expect("encodes");
 
         let decoded =
             image::load_from_memory_with_format(&encoded, ImageFormat::Jpeg).expect("decodes");
