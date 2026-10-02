@@ -9,6 +9,8 @@ use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+#[cfg(feature = "rendering")]
+use crate::config::file::UnrecognizedKeys;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     FileConfig, UnrecognizedValues, subdirectories,
@@ -60,10 +62,107 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
 
+    /// Encode rendered PNGs as indexed (palette) images, which is the default.
+    /// `false` keeps full-colour RGBA.
+    #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
+    pub png_palette: OptBoolObj<PngPaletteConfig>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
+
+#[cfg(feature = "rendering")]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct PngPaletteConfig {
+    /// Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
+    /// closely, up to this many colours. Defaults to 128.
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "u16", example = &128)
+    )]
+    pub max_colors: PngPaletteSize,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// Number of colours in a PNG palette, 2 to 256.
+#[cfg(feature = "rendering")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "u16", into = "u16")]
+pub struct PngPaletteSize(u16);
+
+#[cfg(feature = "rendering")]
+impl PngPaletteSize {
+    #[must_use]
+    pub const fn get(self) -> u16 {
+        self.0
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl Default for PngPaletteSize {
+    fn default() -> Self {
+        Self(128)
+    }
+}
+
+#[cfg(feature = "rendering")]
+#[derive(thiserror::Error, Debug)]
+#[error("max_colors must be 2 to 256, not {0}")]
+pub struct PngPaletteSizeError(u16);
+
+#[cfg(feature = "rendering")]
+impl TryFrom<u16> for PngPaletteSize {
+    type Error = PngPaletteSizeError;
+
+    fn try_from(colors: u16) -> Result<Self, Self::Error> {
+        if (2..=256).contains(&colors) {
+            Ok(Self(colors))
+        } else {
+            Err(PngPaletteSizeError(colors))
+        }
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl From<PngPaletteSize> for u16 {
+    fn from(size: PngPaletteSize) -> Self {
+        size.0
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl CollectUnrecognizedKeys for PngPaletteSize {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+}
+#[cfg(feature = "rendering")]
+impl RendererConfig {
+    /// Palette size for rendered PNGs, or `None` to keep RGBA.
+    #[must_use]
+    pub fn png_max_colors(&self) -> Option<u16> {
+        match &self.png_palette {
+            OptBoolObj::NoValue | OptBoolObj::Bool(true) => Some(PngPaletteSize::default().get()),
+            OptBoolObj::Bool(false) => None,
+            OptBoolObj::Object(palette) => Some(palette.max_colors.get()),
+        }
+    }
+}
+
 pub type StyleConfig = FileConfig<InnerStyleConfig>;
 
 impl StyleConfig {
@@ -81,11 +180,13 @@ impl StyleConfig {
                 results
                     .enable_rendering(None)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+                results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
             OptBoolObj::Object(ref o) => {
                 results
                     .enable_rendering(o.workers)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+                results.set_png_max_colors(o.png_max_colors());
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
@@ -237,6 +338,48 @@ mod tests {
         };
         assert!(renderer.enabled);
         assert_eq!(renderer.workers, NonZeroUsize::new(4));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::unset("rendering:\n  enabled: true\n", Some(128))]
+    #[case::enabled("rendering:\n  enabled: true\n  png_palette: true\n", Some(128))]
+    #[case::disabled("rendering:\n  enabled: true\n  png_palette: false\n", None)]
+    #[case::defaults("rendering:\n  enabled: true\n  png_palette: {}\n", Some(128))]
+    #[case::smallest(
+        "rendering:\n  enabled: true\n  png_palette:\n    max_colors: 2\n",
+        Some(2)
+    )]
+    #[case::largest(
+        "rendering:\n  enabled: true\n  png_palette:\n    max_colors: 256\n",
+        Some(256)
+    )]
+    fn renderer_config_picks_the_png_palette_size(
+        #[case] yaml: &str,
+        #[case] max_colors: Option<u16>,
+    ) {
+        let cfg: InnerStyleConfig = serde_saphyr::from_str(yaml).expect("rendering must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.png_max_colors(), max_colors);
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::none(0)]
+    #[case::one(1)]
+    #[case::past_png(257)]
+    fn renderer_config_rejects_png_palette_size(#[case] max_colors: u16) {
+        let yaml =
+            format!("rendering:\n  enabled: true\n  png_palette:\n    max_colors: {max_colors}\n");
+        let err = serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("a palette size outside 2..=256 must be rejected");
+        assert!(
+            err.to_string()
+                .contains(&format!("max_colors must be 2 to 256, not {max_colors}")),
+            "unexpected error message: {err}"
+        );
     }
 
     #[cfg(feature = "rendering")]
