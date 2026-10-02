@@ -371,6 +371,8 @@ impl TileWorker {
             .iter()
             .position(|s| s.pixel_ratio == pixel_ratio && s.style_path == style_path)
         {
+            // Move the hit to the front, keeping the others in most-recently-used order,
+            // so the `truncate` below always drops the least recently used renderer.
             self.slots[..=i].rotate_right(1);
         } else {
             let mut renderer = ImageRendererBuilder::default()
