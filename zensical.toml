@@ -385,22 +385,11 @@ bug = "octicons/bug-16"
 example = "octicons/beaker-16"
 quote = "octicons/quote-16"
 
-# ----------------------------------------------------------------------------
-# The "social" plugin generates a social card preview image for every page and
-# adds the matching Open Graph and Twitter meta tags.
-#
-# Read more: https://zensical.org/docs/setup/social-cards/
-# ----------------------------------------------------------------------------
+# https://zensical.org/docs/setup/social-cards/
 [project.plugins.social]
 cards_layout_options.background_color = "#ffffff"
 cards_layout_options.color = "#3f3576"
 
-# ----------------------------------------------------------------------------
-# The "llmstxt" plugin generates /llms.txt and /llms-full.txt, a Markdown index
-# and a full-text dump of the documentation meant to be consumed by LLMs.
-#
-# Read more: https://llmstxt.org/
-# ----------------------------------------------------------------------------
 [project.plugins.llmstxt]
 full_output = "llms-full.txt"
 markdown_description = """
