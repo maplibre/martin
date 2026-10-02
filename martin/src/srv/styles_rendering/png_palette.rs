@@ -23,8 +23,9 @@ const MAX_MSE: u64 = 2;
 /// Squared RGBA error allowed for a colour covering a visible share of the image: about 5 levels
 /// on each of three channels.
 const MAX_VISIBLE_ERR: u32 = 75;
-/// A colour on at least 1/`VISIBLE_SHARE` of the pixels is visible: 65 pixels of a 512×512 tile,
-/// enough for a thin road or a label fill, while antialiasing pixels stay below it.
+/// A colour on at least 1/`VISIBLE_SHARE` of the pixels is visible: 65 pixels of a 512×512 image
+/// (17 of a 256×256 one), enough for a thin road or a label fill, while antialiasing pixels stay
+/// below it.
 const VISIBLE_SHARE: u32 = 4000;
 
 type Rgba = [u8; 4];
