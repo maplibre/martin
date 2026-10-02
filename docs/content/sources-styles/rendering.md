@@ -37,13 +37,15 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly, and the highest [pixel ratio](#pixel-ratio) tiles are served at:
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, and the highest [pixel ratio](#pixel-ratio) tiles are served at:
 
 ```yaml
 styles:
     rendering:
         enabled: true
         workers: 4
+        # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
+        renderers_per_worker: 8
         # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
         max_pixel_ratio: 4
 ```
@@ -63,8 +65,13 @@ For high-density (retina) screens, add `@{n}x` after the row to draw the same ti
 
 In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
 
-Since each render worker keeps one renderer per pixel ratio it has been asked for, serving up to `@4x` holds up to four renderers per worker in memory.
-You can lower `max_pixel_ratio` to reduce memory usage.
+### Renderers per worker
+
+Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
+Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
+
+Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
+Each renderer holds its own memory: lower `renderers_per_worker` or `max_pixel_ratio` to reduce memory usage.
 
 ## Static images
 
