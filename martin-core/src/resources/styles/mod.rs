@@ -40,9 +40,9 @@ pub use error::StyleError;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::RenderParams;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -227,7 +227,7 @@ impl StyleSources {
 
     /// Enable rendering by spawning the tile and static [`RenderPools`]. Replaces any existing pools.
     ///
-    /// See [`RenderPools::new`] for the meaning of `workers`.
+    /// See [`RenderPools::new`] for the meaning of the arguments.
     ///
     /// # Errors
     ///
@@ -237,8 +237,9 @@ impl StyleSources {
     pub fn enable_rendering(
         &mut self,
         workers: Option<NonZeroUsize>,
+        renderers_per_worker: NonZeroUsize,
     ) -> Result<(), std::io::Error> {
-        self.pools = Some(RenderPools::new(workers)?);
+        self.pools = Some(RenderPools::new(workers, renderers_per_worker)?);
         Ok(())
     }
 

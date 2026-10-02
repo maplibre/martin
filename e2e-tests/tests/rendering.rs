@@ -373,6 +373,25 @@ async fn a_zero_max_pixel_ratio_fails_startup() {
 }
 
 #[tokio::test]
+async fn one_renderer_per_worker_still_renders_each_style() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_rendering(&cassette, "    renderers_per_worker: 1\n")
+        .await
+        .expect("failed to start martin");
+
+    for style in ["maplibre_demo", "maptiler_basic", "maplibre_demo"] {
+        let body = rendered(&martin, &format!("/style/{style}/0/0/0.png")).await;
+        assert_image_matches(
+            reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")),
+            &body,
+        );
+    }
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
 async fn neighbouring_tiles_render_differently() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let mut martin = martin_rendering(&cassette).await;

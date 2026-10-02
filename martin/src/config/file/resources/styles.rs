@@ -4,6 +4,8 @@ use std::mem;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
 use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
@@ -61,6 +63,12 @@ pub struct RendererConfig {
     /// Number of render worker threads. Unset picks a platform default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
+
+    /// Renderers each tile worker keeps loaded, one per style and pixel ratio.
+    /// Beyond this, the least recently used is dropped. \[default: 8\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
+    pub renderers_per_worker: Option<NonZeroUsize>,
 
     /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -182,13 +190,17 @@ impl StyleConfig {
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
                 results
-                    .enable_rendering(None)
+                    .enable_rendering(None, DEFAULT_RENDERERS_PER_WORKER)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
             OptBoolObj::Object(ref o) => {
                 results
-                    .enable_rendering(o.workers)
+                    .enable_rendering(
+                        o.workers,
+                        o.renderers_per_worker
+                            .unwrap_or(DEFAULT_RENDERERS_PER_WORKER),
+                    )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_max_pixel_ratio(o.max_pixel_ratio);
                 results.set_png_max_colors(o.png_max_colors());
@@ -430,6 +442,34 @@ mod tests {
         let yaml = format!("rendering:\n  enabled: true\n  max_pixel_ratio: {value}\n");
         serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
             .expect_err("max_pixel_ratio must be an integer in 1..=255");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_parses_renderers_per_worker() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              renderers_per_worker: 32
+        "};
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(yaml).expect("rendering with renderers_per_worker must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.renderers_per_worker, NonZeroUsize::new(32));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_rejects_zero_renderers_per_worker() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              renderers_per_worker: 0
+        "};
+        serde_saphyr::from_str::<InnerStyleConfig>(yaml)
+            .expect_err("renderers_per_worker: 0 must be rejected by NonZeroUsize");
     }
 
     #[test]
