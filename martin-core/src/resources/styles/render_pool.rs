@@ -1,4 +1,4 @@
-use std::num::{NonZeroU32, NonZeroUsize};
+use std::num::{NonZeroU8, NonZeroU32, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -129,12 +129,26 @@ impl RenderPools {
         x: u32,
         y: u32,
     ) -> Result<Image, StyleError> {
+        self.render_tile_with_pixel_ratio(style_path, z, x, y, NonZeroU8::MIN)
+            .await
+    }
+
+    /// Render a slippy tile asynchronously at `pixel_ratio` times the pixels of [`Self::render_tile`].
+    pub async fn render_tile_with_pixel_ratio(
+        &self,
+        style_path: PathBuf,
+        z: u8,
+        x: u32,
+        y: u32,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
         self.tile
             .render(TileRequest {
                 style_path,
                 z,
                 x,
                 y,
+                pixel_ratio,
             })
             .await
     }
@@ -306,13 +320,22 @@ struct TileRequest {
     z: u8,
     x: u32,
     y: u32,
+    pixel_ratio: NonZeroU8,
 }
 
-/// Worker that renders 512×512 slippy tiles via the tile renderer.
+/// A tile renderer for one pixel ratio and the style it currently has loaded.
+struct TileSlot {
+    pixel_ratio: NonZeroU8,
+    renderer: ImageRenderer<Tile>,
+    loaded_style: Option<PathBuf>,
+}
+
+/// Worker that renders slippy tiles via the tile renderer.
+///
+/// Keeps one renderer per pixel ratio, so mixed-density traffic never rebuilds one.
 #[derive(Default)]
 struct TileWorker {
-    renderer: Option<ImageRenderer<Tile>>,
-    loaded_style: Option<PathBuf>,
+    slots: Vec<TileSlot>,
 }
 
 impl Worker for TileWorker {
@@ -320,11 +343,25 @@ impl Worker for TileWorker {
     type Request = TileRequest;
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
-        let renderer = self
-            .renderer
-            .get_or_insert_with(|| ImageRendererBuilder::default().build_tile_renderer());
-        load_style_cached(renderer, &mut self.loaded_style, &req.style_path)?;
-        renderer
+        let i = if let Some(i) = self
+            .slots
+            .iter()
+            .position(|s| s.pixel_ratio == req.pixel_ratio)
+        {
+            i
+        } else {
+            self.slots.push(TileSlot {
+                pixel_ratio: req.pixel_ratio,
+                renderer: ImageRendererBuilder::default()
+                    .with_pixel_ratio(f32::from(req.pixel_ratio.get()))
+                    .build_tile_renderer(),
+                loaded_style: None,
+            });
+            self.slots.len() - 1
+        };
+        let slot = &mut self.slots[i];
+        load_style_cached(&mut slot.renderer, &mut slot.loaded_style, &req.style_path)?;
+        slot.renderer
             .render_tile(req.z, req.x, req.y)
             .map_err(StyleError::RenderingError)
     }
@@ -539,6 +576,7 @@ mod tests {
                     z: 0,
                     x: 0,
                     y: 0,
+                    pixel_ratio: NonZeroU8::MIN,
                 })
                 .await
             }));
@@ -550,6 +588,28 @@ mod tests {
             assert_eq!((img.width(), img.height()), (512, 512));
             let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
             assert!(unique.len() > 1, "image is blank");
+        }
+    }
+
+    #[tokio::test]
+    async fn one_worker_renders_each_pixel_ratio_at_its_own_size() {
+        let style_file = write_style();
+        let pool = RenderPool::<TileWorker>::new(NonZeroUsize::new(1)).expect("spawn render pool");
+        let style = style_file.path().to_path_buf();
+
+        for (pixel_ratio, px) in [(1, 512), (2, 1024), (1, 512), (3, 1536), (2, 1024)] {
+            let image = pool
+                .render(TileRequest {
+                    style_path: style.clone(),
+                    z: 0,
+                    x: 0,
+                    y: 0,
+                    pixel_ratio: NonZeroU8::new(pixel_ratio).expect("non-zero"),
+                })
+                .await
+                .expect("render");
+            let img = image.as_image();
+            assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
     }
 

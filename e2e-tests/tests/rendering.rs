@@ -197,6 +197,10 @@ async fn a_render_fetches_what_the_style_points_at() {
     "/style/maplibre_demo/5/15/15.jpeg",
     "/style/maplibre_demo/5/15/15.jpg"
 )]
+#[case::a_pixel_ratio(
+    "/style/maplibre_demo/0/0/0@2x.jpeg",
+    "/style/maplibre_demo/0/0/0@2x.jpg"
+)]
 #[tokio::test]
 async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
@@ -237,6 +241,135 @@ async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
 
     stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
+}
+
+#[rstest]
+#[case::a_zero_pixel_ratio("/style/maplibre_demo/0/0/0@0x.png")]
+#[case::a_pixel_ratio_without_a_number("/style/maplibre_demo/0/0/0@x.png")]
+#[case::a_fractional_pixel_ratio("/style/maplibre_demo/0/0/0@1.5x.png")]
+#[case::a_pixel_ratio_without_the_x("/style/maplibre_demo/0/0/0@2.png")]
+#[case::a_pixel_ratio_with_a_leading_zero("/style/maplibre_demo/0/0/0@02x.png")]
+#[case::a_pixel_ratio_past_u8("/style/maplibre_demo/0/0/0@256x.png")]
+#[case::a_row_that_is_not_a_number("/style/maplibre_demo/0/0/a@2x.png")]
+#[case::a_redirect_with_a_zero_pixel_ratio("/style/maplibre_demo/0/0/0@0x.jpeg")]
+#[tokio::test]
+async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    let response = martin.get(path).await;
+    assert_eq!(response.status(), 404);
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[rstest]
+#[case::above_the_default_max(
+    "/style/maplibre_demo/0/0/0@5x.png",
+    "Pixel ratio above @4x is not served"
+)]
+#[case::outside_the_zoom(
+    "/style/maplibre_demo/0/4000/4000@2x.png",
+    "Invalid tile coordinates for zoom level"
+)]
+#[tokio::test]
+async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(
+    #[case] path: &str,
+    #[case] reason: &str,
+) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    let response = martin.get(path).await;
+    assert_eq!(response.status(), 400);
+    assert_eq!(response.text(), reason);
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[rstest]
+#[case::one_x("/style/maplibre_demo/0/0/0@1x.png", 512)]
+#[case::two_x("/style/maplibre_demo/0/0/0@2x.png", 1024)]
+#[case::three_x("/style/maplibre_demo/5/15/15@3x.png", 1536)]
+#[case::four_x("/style/maplibre_demo/1/0/0@4x.png", 2048)]
+#[case::two_x_as_jpeg("/style/maplibre_demo/0/0/0@2x.jpg", 1024)]
+#[tokio::test]
+async fn a_pixel_ratio_multiplies_the_tile_size(#[case] path: &str, #[case] size: u32) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    let response = martin.get(path).await;
+    assert_eq!(response.status(), 200, "{path} did not render");
+    assert_eq!(response.image_size(), (size, size));
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_rendering(&cassette).await;
+
+    let paths = [
+        ("/style/maplibre_demo/1/0/0.png", 512),
+        ("/style/maplibre_demo/1/0/0@2x.png", 1024),
+        ("/style/maplibre_demo/1/1/0@2x.png", 1024),
+        ("/style/maplibre_demo/1/1/0.png", 512),
+        ("/style/maplibre_demo/1/0/1@3x.png", 1536),
+    ];
+    let rendered = tokio::join!(
+        martin.get(paths[0].0),
+        martin.get(paths[1].0),
+        martin.get(paths[2].0),
+        martin.get(paths[3].0),
+        martin.get(paths[4].0),
+    );
+    let rendered = [rendered.0, rendered.1, rendered.2, rendered.3, rendered.4];
+
+    for ((path, size), response) in paths.iter().zip(&rendered) {
+        assert_eq!(response.status(), 200, "{path} did not render");
+        assert_eq!(response.image_size(), (*size, *size), "{path}");
+    }
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_configured_max_pixel_ratio_caps_the_tiles() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = start_rendering(&cassette, "    max_pixel_ratio: 2\n")
+        .await
+        .expect("failed to start martin");
+
+    let two_x = martin.get("/style/maplibre_demo/0/0/0@2x.png").await;
+    assert_eq!(two_x.status(), 200);
+    assert_eq!(two_x.image_size(), (1024, 1024));
+    let three_x = martin.get("/style/maplibre_demo/0/0/0@3x.png").await;
+    assert_eq!(three_x.status(), 400);
+    assert_eq!(three_x.text(), "Pixel ratio above @2x is not served");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_zero_max_pixel_ratio_fails_startup() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let error = start_rendering(&cassette, "    max_pixel_ratio: 0\n")
+        .await
+        .expect_err("martin must reject max_pixel_ratio: 0");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    assert!(
+        log.contains("max_pixel_ratio"),
+        "log must name the invalid option; log:\n{log}"
+    );
 }
 
 #[tokio::test]
