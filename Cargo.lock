@@ -5515,7 +5515,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -5608,7 +5608,7 @@ dependencies = [
 
 [[package]]
 name = "martin-core"
-version = "0.12.2"
+version = "0.13.0"
 dependencies = [
  "actix-web",
  "approx",
@@ -5721,7 +5721,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "approx",
  "brotli 8.0.4",
@@ -5763,7 +5763,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.20.2"
+version = "0.20.3"
 dependencies = [
  "actix-rt",
  "anyhow",

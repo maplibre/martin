@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/maplibre/martin/compare/martin-core-v0.12.2...martin-core-v0.13.0) - 2026-10-02
+
+### Added
+
+- *(rendering)* configurable tile size (256 or 512 px) ([#3457](https://github.com/maplibre/martin/pull/3457))
+- *(rendering)* keep several renderers per worker ([#3454](https://github.com/maplibre/martin/pull/3454))
+- *(rendering)* serve @{n}x pixel ratios on rendered tiles ([#3453](https://github.com/maplibre/martin/pull/3453))
+- *(rendering)* [**breaking**] serve rendered PNGs as indexed (palette) images ([#3456](https://github.com/maplibre/martin/pull/3456))
+
+### Fixed
+
+- *(pmtiles)* reload a remote source whose leaf directories moved ([#3450](https://github.com/maplibre/martin/pull/3450))
+
 ## [0.12.2](https://github.com/maplibre/martin/compare/martin-core-v0.12.1...martin-core-v0.12.2) - 2026-10-01
 
 > [!IMPORTANT]
