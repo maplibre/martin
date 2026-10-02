@@ -7,14 +7,21 @@
 )]
 
 use std::io::Cursor;
+#[cfg(target_os = "linux")]
+use std::num::NonZero;
+#[cfg(target_os = "linux")]
+use std::sync::LazyLock;
 
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
-use image::{DynamicImage, ImageFormat};
+use image::buffer::ConvertBuffer as _;
+use image::{ImageFormat, RgbImage, RgbaImage};
 use martin_core::styles::StyleSources;
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
+#[cfg(target_os = "linux")]
+use tokio::sync::Semaphore;
 use tracing::{error, trace, warn};
 
 use crate::srv::server::DebouncedWarning;
@@ -52,25 +59,33 @@ impl ImageFormatRequest {
     }
 }
 
-/// Encode `img` into `format` and wrap it in a successful [`HttpResponse`].
-/// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
-pub(super) fn encode_image_response(
-    img: &image::RgbaImage,
+/// Bounds concurrent encodes across the process, given that this is CPU bound.
+#[cfg(target_os = "linux")]
+static ENCODE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
+    let cores = std::thread::available_parallelism().map_or(4, NonZero::get);
+    Semaphore::new(cores)
+});
+
+#[derive(thiserror::Error, Debug)]
+enum EncodeError {
+    #[error("the server is shutting down")]
+    ShuttingDown,
+    #[error("the encode task did not complete: {0}")]
+    Task(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    Image(#[from] image::ImageError),
+}
+
+/// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
+#[cfg(target_os = "linux")]
+pub(super) async fn encode_image_response(
+    image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
 ) -> HttpResponse {
-    let image_format = format.image_format();
-    let dynamic_img = DynamicImage::ImageRgba8(img.clone());
-    let to_encode = if image_format == ImageFormat::Jpeg {
-        DynamicImage::ImageRgb8(dynamic_img.to_rgb8())
-    } else {
-        dynamic_img
-    };
-
-    let mut output = Cursor::new(Vec::new());
-    match to_encode.write_to(&mut output, image_format) {
-        Ok(()) => HttpResponse::Ok()
+    match encode_off_worker(image, format).await {
+        Ok(bytes) => HttpResponse::Ok()
             .content_type(format.content_type())
-            .body(output.into_inner()),
+            .body(bytes),
         Err(e) => {
             error!("Failed to encode image: {e}");
             HttpResponse::InternalServerError()
@@ -78,6 +93,35 @@ pub(super) fn encode_image_response(
                 .body("Failed to encode image")
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+async fn encode_off_worker(
+    image: martin_core::styles::StaticImage,
+    format: ImageFormatRequest,
+) -> Result<Vec<u8>, EncodeError> {
+    let _permit = ENCODE_PERMITS
+        .acquire()
+        .await
+        // The only way to fail is a closed semaphore, which happens at shutdown.
+        .map_err(|_closed| EncodeError::ShuttingDown)?;
+    // Encoding is CPU-bound for milliseconds, which would stall
+    // every other request on this actix worker if it ran inline.
+    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format)).await?
+}
+
+/// Encode `img` into `format`.
+/// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
+fn encode_image(img: &RgbaImage, format: ImageFormatRequest) -> Result<Vec<u8>, EncodeError> {
+    let image_format = format.image_format();
+    let mut output = Cursor::new(Vec::new());
+    if image_format == ImageFormat::Jpeg {
+        let rgb: RgbImage = img.convert();
+        rgb.write_to(&mut output, image_format)?;
+    } else {
+        img.write_to(&mut output, image_format)?;
+    }
+    Ok(output.into_inner())
 }
 
 #[derive(Deserialize, Debug)]
@@ -134,7 +178,7 @@ pub async fn get_rendered_tile_style(
         use martin_core::styles::StyleError;
 
         match styles.render(style_path, zxy.z(), zxy.x(), zxy.y()).await {
-            Ok(image) => encode_image_response(image.as_image(), path.format),
+            Ok(image) => encode_image_response(image, path.format).await,
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {
                 error!("Failed to render style {style_id} at {zxy}: {e}");
@@ -183,4 +227,41 @@ pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpRespons
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/style/{style_id}/{z}/{x}/{y}.jpg")))
         .finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use image::ColorType;
+    use rstest::rstest;
+
+    use super::*;
+
+    fn translucent_image() -> RgbaImage {
+        let bytes = (0..=u8::MAX).cycle().take(64 * 32 * 4).collect();
+        RgbaImage::from_raw(64, 32, bytes).expect("the buffer fits 64x32 RGBA")
+    }
+
+    #[rstest]
+    #[case::png(ImageFormatRequest::Png)]
+    #[case::webp(ImageFormatRequest::Webp)]
+    fn a_lossless_encode_keeps_every_pixel(#[case] format: ImageFormatRequest) {
+        let image = translucent_image();
+
+        let encoded = encode_image(&image, format).expect("encodes");
+
+        let decoded =
+            image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
+        assert_eq!(decoded.to_rgba8(), image);
+    }
+
+    #[test]
+    fn a_jpeg_encode_drops_the_alpha_channel() {
+        let encoded =
+            encode_image(&translucent_image(), ImageFormatRequest::Jpeg).expect("encodes");
+
+        let decoded =
+            image::load_from_memory_with_format(&encoded, ImageFormat::Jpeg).expect("decodes");
+        assert_eq!(decoded.color(), ColorType::Rgb8);
+        assert_eq!((decoded.width(), decoded.height()), (64, 32));
+    }
 }
