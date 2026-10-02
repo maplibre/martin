@@ -1,9 +1,14 @@
 //! Indexed (palette) PNG encoding for rendered images.
 //!
 //! Map rasters are mostly flat fills, so a small per-image palette keeps them close to the RGBA
-//! original at a fraction of the bytes. Each image gets the smallest palette that is good enough,
-//! up to a configured maximum. Indices are packed at the smallest bit depth the palette allows and
-//! written unfiltered, which is what compresses best here.
+//! original at a fraction of the bytes. [`encode`] works in five steps:
+//!
+//! 1. Count the distinct colours of the image and how many pixels each one covers.
+//! 2. Try palettes of growing size until the error is small: mean squared error per pixel, and
+//!    the error of every colour large enough to be seen.
+//! 3. Put translucent palette entries first, so the `tRNS` chunk stays short.
+//! 4. Pack each pixel's palette index into 1, 2, 4 or 8 bits, the fewest the palette allows.
+//! 5. Write the PNG without filtering, which compresses these images best.
 
 use std::collections::hash_map::Entry;
 use std::num::TryFromIntError;
@@ -21,6 +26,8 @@ const MAX_VISIBLE_ERR: u32 = 75;
 /// A colour on at least 1/`VISIBLE_SHARE` of the pixels is visible: 65 pixels of a 512×512 tile,
 /// enough for a thin road or a label fill, while antialiasing pixels stay below it.
 const VISIBLE_SHARE: u32 = 4000;
+
+type Rgba = [u8; 4];
 
 /// Errors raised while encoding an indexed PNG.
 #[derive(thiserror::Error, Debug)]
@@ -43,10 +50,6 @@ pub enum PngPaletteError {
 
 /// Quantise `img` to at most `max_colors` colours, without dithering, and encode it as an
 /// indexed PNG.
-///
-/// Tries each of `BUDGETS` below `max_colors`, then `max_colors` itself, and keeps the first
-/// palette within `MAX_MSE` and `MAX_VISIBLE_ERR`. An image with no more distinct colours than
-/// a budget is encoded losslessly.
 pub fn encode(img: &RgbaImage, max_colors: u16) -> Result<Vec<u8>, PngPaletteError> {
     if !(2..=256).contains(&max_colors) {
         return Err(PngPaletteError::MaxColorsOutOfRange(max_colors));
@@ -57,153 +60,218 @@ pub fn encode(img: &RgbaImage, max_colors: u16) -> Result<Vec<u8>, PngPaletteErr
     }
     let too_many = |_: TryFromIntError| PngPaletteError::TooManyPixels { width, height };
     let pixels = u32::try_from(u64::from(width) * u64::from(height)).map_err(too_many)?;
-    let w = usize::try_from(width).map_err(too_many)?;
-    let h = usize::try_from(height).map_err(too_many)?;
+    let columns = usize::try_from(width).map_err(too_many)?;
+    let rows = usize::try_from(height).map_err(too_many)?;
 
-    let qimg = quantizr::Image::new(img.as_raw(), w, h)?;
-    let mut hist = quantizr::Histogram::new();
-    hist.add_image(&qimg);
-    let colors = Colors::of(img.as_raw(), pixels);
-    let distinct = colors.counts.len();
-    let uniq = quantizr::Image::new(&colors.uniq, distinct, 1)?;
-    let mut lut = vec![0u8; distinct];
+    let colors = DistinctColors::of(img.as_raw(), pixels);
+    let image = quantizr::Image::new(img.as_raw(), columns, rows)?;
+    let (mut palette, mut palette_index_of_color) = pick_palette(&image, &colors, max_colors)?;
+    translucent_first(&mut palette, &mut palette_index_of_color);
+    let (depth, indices) = pack_indices(&colors, &palette_index_of_color, palette.len(), columns);
+    write_png(width, height, depth, &palette, &indices)
+}
 
-    let quantize = |budget: u16, lut: &mut [u8]| -> Result<_, PngPaletteError> {
-        let mut opts = quantizr::Options::default();
-        opts.set_max_colors(i32::from(budget))?;
-        let mut res = quantizr::QuantizeResult::quantize_histogram(&hist, &opts);
-        res.set_dithering_level(0.0)?;
-        // An undithered remap is per colour, so remapping each distinct colour once is exact.
-        res.remap_image(&uniq, lut)?;
-        Ok(res)
-    };
-    let res = 'pick: {
-        for budget in BUDGETS.into_iter().filter(|&b| b < max_colors) {
-            let res = quantize(budget, &mut lut)?;
-            if distinct <= usize::from(budget) || colors.good_enough(res.get_palette(), &lut) {
-                break 'pick res;
-            }
+/// The distinct colours of an image, how many pixels each covers, and which one each pixel is.
+struct DistinctColors {
+    colors: Vec<Rgba>,
+    pixels_of_color: Vec<u32>,
+    color_of_pixel: Vec<usize>,
+    pixels: u32,
+}
+
+impl DistinctColors {
+    fn of(rgba: &[u8], pixels: u32) -> Self {
+        let mut index_of = FnvHashMap::<Rgba, usize>::default();
+        let mut colors = Vec::new();
+        let mut pixels_of_color = Vec::new();
+        let mut color_of_pixel = Vec::with_capacity(rgba.len() / 4);
+        let mut previous: Option<(Rgba, usize)> = None;
+        for &px in rgba.as_chunks::<4>().0 {
+            // Like quantizr, every alpha-0 pixel is transparent black.
+            let color = if px[3] == 0 { [0; 4] } else { px };
+            // Neighbouring pixels mostly share a colour, which skips the hash lookup.
+            let index = match previous {
+                Some((previous_color, index)) if previous_color == color => index,
+                Some(_) | None => match index_of.entry(color) {
+                    Entry::Occupied(entry) => *entry.get(),
+                    Entry::Vacant(entry) => {
+                        colors.push(color);
+                        pixels_of_color.push(0);
+                        *entry.insert(colors.len() - 1)
+                    }
+                },
+            };
+            previous = Some((color, index));
+            pixels_of_color[index] += 1;
+            color_of_pixel.push(index);
         }
-        quantize(max_colors, &mut lut)?
-    };
-    let palette = res.get_palette();
-    let palette: Vec<quantizr::Color> = palette
-        .entries
-        .iter()
-        .zip(0..palette.count)
-        .map(|(&color, _)| color)
-        .collect();
-
-    // Translucent entries first, so the tRNS chunk can stop at the last of them.
-    let mut order: Vec<usize> = (0..palette.len()).collect();
-    order.sort_by_key(|&i| palette[i].a == 255);
-    let mut remap = [0u8; 256];
-    for (new, &old) in (0..=u8::MAX).zip(&order) {
-        remap[old] = new;
+        Self {
+            colors,
+            pixels_of_color,
+            color_of_pixel,
+            pixels,
+        }
     }
 
-    let (depth, bits) = match palette.len() {
+    fn len(&self) -> usize {
+        self.colors.len()
+    }
+
+    /// Whether `palette` is within `MAX_MSE` of the image and within `MAX_VISIBLE_ERR` of every
+    /// visible colour.
+    fn close_enough(&self, palette: &[Rgba], palette_index_of_color: &[u8]) -> bool {
+        let visible = self.pixels.div_ceil(VISIBLE_SHARE);
+        let mut sq_err = 0u64;
+        for ((&color, &pixels), &index) in self
+            .colors
+            .iter()
+            .zip(&self.pixels_of_color)
+            .zip(palette_index_of_color)
+        {
+            let d2 = sq_dist(color, palette[usize::from(index)]);
+            if pixels >= visible && d2 > MAX_VISIBLE_ERR {
+                return false;
+            }
+            sq_err += u64::from(pixels) * u64::from(d2);
+        }
+        sq_err <= MAX_MSE * u64::from(self.pixels)
+    }
+}
+
+/// The first palette of `BUDGETS` (below `max_colors`) that is close enough to the image, or one
+/// of `max_colors` colours. An image with no more distinct colours than a budget gets them all.
+///
+/// Returns the palette and the palette index of each distinct colour. Without dithering a pixel's
+/// index depends only on its colour, so remapping each distinct colour once covers every pixel.
+fn pick_palette(
+    image: &quantizr::Image,
+    colors: &DistinctColors,
+    max_colors: u16,
+) -> Result<(Vec<Rgba>, Vec<u8>), PngPaletteError> {
+    let mut histogram = quantizr::Histogram::new();
+    histogram.add_image(image);
+    let distinct = quantizr::Image::new(colors.colors.as_flattened(), colors.len(), 1)?;
+    let mut palette_index_of_color = vec![0u8; colors.len()];
+    for budget in BUDGETS.into_iter().filter(|&b| b < max_colors) {
+        let palette = quantize(&histogram, &distinct, budget, &mut palette_index_of_color)?;
+        if colors.len() <= usize::from(budget)
+            || colors.close_enough(&palette, &palette_index_of_color)
+        {
+            return Ok((palette, palette_index_of_color));
+        }
+    }
+    let palette = quantize(
+        &histogram,
+        &distinct,
+        max_colors,
+        &mut palette_index_of_color,
+    )?;
+    Ok((palette, palette_index_of_color))
+}
+
+/// A palette of at most `budget` colours for `histogram`, writing the palette index of each of
+/// the `distinct` colours to `palette_index_of_color`.
+fn quantize(
+    histogram: &quantizr::Histogram,
+    distinct: &quantizr::Image,
+    budget: u16,
+    palette_index_of_color: &mut [u8],
+) -> Result<Vec<Rgba>, PngPaletteError> {
+    let mut options = quantizr::Options::default();
+    options.set_max_colors(i32::from(budget))?;
+    let mut result = quantizr::QuantizeResult::quantize_histogram(histogram, &options);
+    result.set_dithering_level(0.0)?;
+    result.remap_image(distinct, palette_index_of_color)?;
+    let palette = result.get_palette();
+    let count = usize::try_from(palette.count).expect("a palette has at most 256 colours");
+    Ok(palette
+        .entries
+        .iter()
+        .take(count)
+        .map(|c| [c.r, c.g, c.b, c.a])
+        .collect())
+}
+
+/// Move translucent entries to the front of `palette`, keeping the order within each group, and
+/// update `palette_index_of_color` to match.
+fn translucent_first(palette: &mut Vec<Rgba>, palette_index_of_color: &mut [u8]) {
+    let mut old_indices: Vec<usize> = (0..palette.len()).collect();
+    old_indices.sort_by_key(|&old| palette[old][3] == 255);
+    let mut new_index = [0u8; 256];
+    for (new, &old) in (0..=u8::MAX).zip(&old_indices) {
+        new_index[old] = new;
+    }
+    *palette = old_indices.iter().map(|&old| palette[old]).collect();
+    for index in palette_index_of_color {
+        *index = new_index[usize::from(*index)];
+    }
+}
+
+/// Each pixel's palette index, packed row by row at the bit depth `palette_len` needs, most
+/// significant bits first, each row starting on a new byte.
+fn pack_indices(
+    colors: &DistinctColors,
+    palette_index_of_color: &[u8],
+    palette_len: usize,
+    columns: usize,
+) -> (png::BitDepth, Vec<u8>) {
+    let (depth, bits) = match palette_len {
         0..=2 => (png::BitDepth::One, 1),
         3..=4 => (png::BitDepth::Two, 2),
         5..=16 => (png::BitDepth::Four, 4),
         _ => (png::BitDepth::Eight, 8),
     };
     let per_byte = 8 / bits;
-    let row_len = w.div_ceil(per_byte);
-    let mut data = vec![0u8; row_len * h];
-    for (y, row) in colors.ids.chunks_exact(w).enumerate() {
-        for (x, &id) in row.iter().enumerate() {
+    let row_bytes = columns.div_ceil(per_byte);
+    let rows = colors.color_of_pixel.len() / columns;
+    let mut packed = vec![0u8; row_bytes * rows];
+    for (row, packed_row) in colors
+        .color_of_pixel
+        .chunks_exact(columns)
+        .zip(packed.chunks_exact_mut(row_bytes))
+    {
+        for (x, &color) in row.iter().enumerate() {
             let shift = 8 - bits * (x % per_byte + 1);
-            data[y * row_len + x / per_byte] |= remap[usize::from(lut[id])] << shift;
+            packed_row[x / per_byte] |= palette_index_of_color[color] << shift;
         }
     }
+    (depth, packed)
+}
 
+fn write_png(
+    width: u32,
+    height: u32,
+    depth: png::BitDepth,
+    palette: &[Rgba],
+    indices: &[u8],
+) -> Result<Vec<u8>, PngPaletteError> {
     let mut out = Vec::new();
-    let mut enc = png::Encoder::new(&mut out, width, height);
-    enc.set_color(png::ColorType::Indexed);
-    enc.set_depth(depth);
-    enc.set_palette(
-        order
+    let mut encoder = png::Encoder::new(&mut out, width, height);
+    encoder.set_color(png::ColorType::Indexed);
+    encoder.set_depth(depth);
+    encoder.set_palette(
+        palette
             .iter()
-            .flat_map(|&i| [palette[i].r, palette[i].g, palette[i].b])
+            .flat_map(|&[r, g, b, _]| [r, g, b])
             .collect::<Vec<u8>>(),
     );
-    let trns: Vec<u8> = order
+    let alphas: Vec<u8> = palette
         .iter()
-        .map(|&i| palette[i].a)
+        .map(|&[.., a]| a)
         .take_while(|&a| a != 255)
         .collect();
-    if !trns.is_empty() {
-        enc.set_trns(trns);
+    if !alphas.is_empty() {
+        encoder.set_trns(alphas);
     }
-    enc.set_deflate_compression(png::DeflateCompression::Level(6));
-    enc.set_filter(png::Filter::NoFilter);
-    let mut writer = enc.write_header()?;
-    writer.write_image_data(&data)?;
+    encoder.set_deflate_compression(png::DeflateCompression::Level(6));
+    encoder.set_filter(png::Filter::NoFilter);
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(indices)?;
     writer.finish()?;
     Ok(out)
 }
 
-/// The distinct colours of an image, how often each appears, and which one each pixel is.
-struct Colors {
-    uniq: Vec<u8>,
-    counts: Vec<u32>,
-    ids: Vec<usize>,
-    pixels: u32,
-}
-
-impl Colors {
-    fn of(rgba: &[u8], pixels: u32) -> Self {
-        let mut slots = FnvHashMap::<u32, usize>::default();
-        let (mut uniq, mut counts) = (Vec::new(), Vec::new());
-        let mut ids = Vec::with_capacity(rgba.len() / 4);
-        let (mut last, mut slot) = (None, 0);
-        for px in rgba.as_chunks::<4>().0 {
-            // Like quantizr, every alpha-0 pixel is transparent black.
-            let key = if px[3] == 0 {
-                0
-            } else {
-                u32::from_le_bytes(*px)
-            };
-            if last != Some(key) {
-                last = Some(key);
-                slot = match slots.entry(key) {
-                    Entry::Occupied(entry) => *entry.get(),
-                    Entry::Vacant(entry) => {
-                        uniq.extend_from_slice(&key.to_le_bytes());
-                        counts.push(0);
-                        *entry.insert(counts.len() - 1)
-                    }
-                };
-            }
-            counts[slot] += 1;
-            ids.push(slot);
-        }
-        Self {
-            uniq,
-            counts,
-            ids,
-            pixels,
-        }
-    }
-
-    fn good_enough(&self, palette: &quantizr::Palette, lut: &[u8]) -> bool {
-        let visible = self.pixels.div_ceil(VISIBLE_SHARE);
-        let mut sq_err = 0u64;
-        let uniq = self.uniq.as_chunks::<4>().0;
-        for ((color, &count), &i) in uniq.iter().zip(&self.counts).zip(lut) {
-            let entry = palette.entries[usize::from(i)];
-            let d2 = sq_dist(*color, [entry.r, entry.g, entry.b, entry.a]);
-            if count >= visible && d2 > MAX_VISIBLE_ERR {
-                return false;
-            }
-            sq_err += u64::from(count) * u64::from(d2);
-        }
-        sq_err <= MAX_MSE * u64::from(self.pixels)
-    }
-}
-
-fn sq_dist(a: [u8; 4], b: [u8; 4]) -> u32 {
+fn sq_dist(a: Rgba, b: Rgba) -> u32 {
     a.iter()
         .zip(b)
         .map(|(&a, b)| u32::from(a.abs_diff(b)).pow(2))
@@ -265,12 +333,16 @@ mod tests {
         })
     }
 
-    fn flat_with_antialiasing() -> RgbaImage {
+    fn flat_fills() -> RgbaImage {
         let fills = [[230, 225, 215], [170, 210, 160], [255, 255, 255]];
-        let mut img = RgbaImage::from_fn(256, 256, |x, _| {
+        RgbaImage::from_fn(256, 256, |x, _| {
             let [r, g, b] = fills[usize::from(x >= 86) + usize::from(x >= 172)];
             Rgba([r, g, b, 255])
-        });
+        })
+    }
+
+    fn flat_with_antialiasing() -> RgbaImage {
+        let mut img = flat_fills();
         for i in 0..240u8 {
             let px = img.get_pixel_mut(u32::from(i), u32::from(i / 2));
             px.0[0] = px.0[0].saturating_sub(i % 4 + 1);
@@ -312,6 +384,31 @@ mod tests {
         300 colours: 128 colours at Eight
         flat fills with antialiasing: 16 colours at Four
         ");
+    }
+
+    fn flat_with_close_patches(patch_width: u32) -> RgbaImage {
+        let mut img = flat_fills();
+        for i in 0..20u8 {
+            let color = Rgba([40 + (i % 8) * 20, 40 + (i / 8) * 60, 128, 255]);
+            let (left, top) = (u32::from(i % 8) * 30, u32::from(i / 8) * 30);
+            for x in left..left + patch_width {
+                for y in top..top + 4 {
+                    img.put_pixel(x, y, color);
+                }
+            }
+        }
+        img
+    }
+
+    #[rstest]
+    #[case::patches_too_small_to_see(4, 16)]
+    #[case::visible_patches(5, 23)]
+    fn the_palette_grows_until_every_visible_colour_is_close(
+        #[case] patch_width: u32,
+        #[case] palette_len: usize,
+    ) {
+        let img = flat_with_close_patches(patch_width);
+        assert_eq!(encoded(&img, 128).palette.len(), palette_len);
     }
 
     #[rstest]
