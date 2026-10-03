@@ -1222,6 +1222,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cargo-features-were-merged" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cargo features were merged
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#for-users-of-the-crates" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1492,6 +1503,36 @@ Use <code>RUST_LOG</code> to control logging.</p>
 <p>For server-side style rendering on Linux, use the <code>-full</code> Docker image (<code>:latest-full</code> or <code>:&lt;version&gt;-full</code>), a <code>-full</code> Linux-gnu tarball, or <code>cargo install martin --features rendering</code>. The default builds no longer include rendering.</p>
 <p>Rendering is stable as of 2.0. The configuration is unchanged. Set <code>styles.rendering: true</code> to enable it, or keep your existing rendering options.</p>
 <p>See <a href="../sources-styles/rendering/">Server-side raster tile rendering</a> and <a href="../installation/">Installation</a>.</p>
+<h3 id="cargo-features-were-merged">Cargo features were merged</h3>
+<p>If you build Martin or <code>martin-core</code> yourself with <code>--features</code> or <code>--no-default-features</code>, rename the features:</p>
+<table>
+<thead>
+<tr>
+<th>1.x features</th>
+<th>2.0 feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fonts</code>, <code>sprites</code>, <code>styles</code></td>
+<td><code>resources</code></td>
+</tr>
+<tr>
+<td><code>hillshade</code>, <code>contour</code>, <code>geojson</code></td>
+<td><code>processing</code></td>
+</tr>
+<tr>
+<td><code>mlt</code></td>
+<td>none, always enabled</td>
+</tr>
+</tbody>
+</table>
+<p>Both are enabled by default, so default builds, release binaries and Docker images are unchanged. <code>metrics</code>, <code>webui</code>, <code>tui</code>, <code>lambda</code> and the source features <code>postgres</code>, <code>pmtiles</code>, <code>mbtiles</code> and <code>passthrough</code> keep their names.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,resources
+</span></code></pre></div>
 <h3 id="for-users-of-the-crates">For users of the crates</h3>
 <ul>
 <li>In <code>martin-tile-utils</code>, <code>TileCoord</code> fields are private. Construct coordinates with <code>TileCoord::new_checked</code> or <code>TileCoord::new_unchecked</code> and read them with <code>z()</code>, <code>x()</code> and <code>y()</code>.</li>
