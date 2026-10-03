@@ -77,18 +77,18 @@ bench-server: fetch start prepare-mbtiles
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson {{quote(DATABASE_URL)}}
 
 # Build martin with hotpath profiling support
-build-hotpath: fetch
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
+build-hotpath *args: fetch
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath {{args}}
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
-bench-server-hotpath: start build-hotpath prepare-mbtiles
+bench-server-hotpath *args: start (build-hotpath args) prepare-mbtiles
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles {{quote(DATABASE_URL)}}
 
-# Run the hotpath benchmark end-to-end: start the profiled server, wait for it, drive HTTP load, shut it down. Used by the hotpath-profile CI workflow.
-bench-hotpath:
+# Run the hotpath benchmark end-to-end: start the profiled server, wait for it, drive HTTP load, shut it down. Used by the hotpath benchmark CI workflow.
+bench-hotpath *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    {{just}} bench-server-hotpath &
+    {{just}} bench-server-hotpath {{args}} &
     MARTIN_PID=$!
 
     for i in {1..1000}; do
@@ -311,7 +311,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
