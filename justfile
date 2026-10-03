@@ -76,7 +76,7 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
 bench-server: fetch start prepare-mbtiles
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson {{quote(DATABASE_URL)}}
 
-# Build martin with hotpath profiling support
+# Build martin with hotpath profiling support (pass e.g. `--features hotpath-cloud`)
 build-hotpath *args: fetch
     RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath {{args}}
 
