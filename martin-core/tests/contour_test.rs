@@ -1,6 +1,6 @@
 //! End-to-end contour pipeline
 
-#![cfg(feature = "contour")]
+#![cfg(feature = "processing")]
 
 use std::assert_matches;
 use std::path::PathBuf;

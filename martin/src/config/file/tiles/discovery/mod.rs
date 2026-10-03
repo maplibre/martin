@@ -7,14 +7,14 @@ pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles"
 ))]
 mod fs;
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles"
 ))]
 pub use fs::{FsDiscovery, FsSourceBuilder};

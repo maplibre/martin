@@ -191,6 +191,25 @@ On older CPUs they fail with an illegal instruction error. aarch64 builds are un
 
 To run Martin on an older CPU, [build it from source](development/index.md) without `-C target-cpu=x86-64-v3`.
 
+### Cargo features were merged
+
+If you build Martin or `martin-core` yourself with `--features` or `--no-default-features`, rename the features:
+
+| 1.x features                      | 2.0 feature          |
+|-----------------------------------|----------------------|
+| `fonts`, `sprites`, `styles`      | `resources`          |
+| `hillshade`, `contour`, `geojson` | `processing`         |
+| `mlt`                             | none, always enabled |
+
+Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
+
+```bash
+# 1.x
+cargo install martin --locked --no-default-features --features postgres,fonts,sprites,styles
+# 2.0
+cargo install martin --locked --no-default-features --features postgres,resources
+```
+
 ### For users of the crates
 
 - In `martin-tile-utils`, `TileCoord` fields are private. Construct coordinates with `TileCoord::new_checked` or `TileCoord::new_unchecked` and read them with `z()`, `x()` and `y()`.

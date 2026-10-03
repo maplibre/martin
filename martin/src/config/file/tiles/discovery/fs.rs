@@ -225,14 +225,14 @@ pub(crate) fn per_source_process(
         return None;
     };
     let per_source = ProcessConfig {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         convert_to_mlt: obj.convert_to_mlt.clone(),
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         convert_to_mvt: obj.convert_to_mvt.clone(),
         cache_control: obj.cache_control.clone(),
-        #[cfg(feature = "hillshade")]
+        #[cfg(feature = "processing")]
         convert_to_hillshade: obj.convert_to_hillshade.clone(),
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        #[cfg(all(feature = "processing", feature = "_tiles"))]
         convert_to_contour: obj.convert_to_contour.clone(),
     };
     if per_source == ProcessConfig::default() {
@@ -642,14 +642,14 @@ mod tests {
                 "configured".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     path: configured.clone(),
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mlt: None,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mvt: None,
                     cache_control: None,
-                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_hillshade: None,
-                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
                     tile_grid: None,
@@ -680,7 +680,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
         use crate::config::file::{FileConfig, FileConfigSource};
@@ -703,7 +703,7 @@ mod tests {
                         convert_to_mvt: None,
                         cache_control: None,
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                     })),
@@ -717,7 +717,7 @@ mod tests {
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_contour: None,
         };
         let discovery = FsDiscovery::from_config(
@@ -763,13 +763,13 @@ mod tests {
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     tile_grid: None,
                     path: pinned.clone(),
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mlt: None,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mvt: None,
-                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_hillshade: None,
-                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_contour: None,
                     cache_control: Some(
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),

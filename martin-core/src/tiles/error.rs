@@ -2,7 +2,7 @@
 use super::cog::CogError;
 #[cfg(feature = "unstable-duckdb")]
 use super::duckdb::DuckDBError;
-#[cfg(feature = "hillshade")]
+#[cfg(feature = "processing")]
 use super::hillshade::HillshadeError;
 #[cfg(feature = "mbtiles")]
 use super::mbtiles::MbtilesError;
@@ -48,7 +48,7 @@ pub enum MartinCoreError {
     CogError(#[from] CogError),
 
     /// Errors that can occur while baking a [`hillshade`](crate::tiles::hillshade).
-    #[cfg(feature = "hillshade")]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     HillshadeError(#[from] HillshadeError),
 
@@ -59,7 +59,7 @@ pub enum MartinCoreError {
     SourceNeedsReload,
 
     /// Errors that can occur during [`geojson`](crate::tiles::geojson) processing operations.
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     GeoJsonError(#[from] super::geojson::GeoJsonError),
 
@@ -86,9 +86,9 @@ impl crate::Classify for MartinCoreError {
             Self::PassthroughError(e) => e.kind(),
             #[cfg(feature = "unstable-cog")]
             Self::CogError(e) => e.kind(),
-            #[cfg(feature = "geojson")]
+            #[cfg(feature = "processing")]
             Self::GeoJsonError(e) => e.kind(),
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             Self::HillshadeError(e) => e.kind(),
             Self::SourceNeedsReload | Self::OtherError(_) => crate::ErrorKind::Internal,
         }

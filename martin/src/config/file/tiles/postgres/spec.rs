@@ -86,7 +86,7 @@ mod tests {
     use super::*;
     use crate::config::file::CachePolicy;
     use crate::config::file::postgres::DiscoveredTable;
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     use crate::config::primitives::AutoOption;
 
     /// Mutates one field of a [`TableInfo`] in place, so a test can isolate its effect on the fingerprint.
@@ -196,7 +196,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::convert_to_mlt(|t: &mut TableInfo|t.convert_to_mlt = Some(AutoOption::Disabled))]
     #[case::convert_to_mvt(|t: &mut TableInfo|t.convert_to_mvt = Some(AutoOption::Disabled))]

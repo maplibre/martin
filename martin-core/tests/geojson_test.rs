@@ -1,4 +1,4 @@
-#![cfg(feature = "geojson")]
+#![cfg(feature = "processing")]
 #![allow(clippy::unwrap_used)]
 
 use std::assert_matches;

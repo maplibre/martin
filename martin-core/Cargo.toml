@@ -14,51 +14,40 @@ homepage.workspace = true
 [[bench]]
 name = "geojson_tiles"
 harness = false
-required-features = ["geojson"]
+required-features = ["processing"]
 
 [[bench]]
 name = "hillshade"
 harness = false
-required-features = ["hillshade"]
+required-features = ["processing"]
 
 [features]
 default = [
-    "contour",
-    "fonts",
-    "hillshade",
     "mbtiles",
     "metrics",
     "passthrough",
     "pmtiles",
     "postgres",
-    "sprites",
-    "styles",
+    "processing",
+    "resources",
     "unstable-cog",
-    "geojson",
 ]
 _testing = ["_tiles"]
-hillshade = ["_neighbourhood", "_raster", "_tiles"]
-geojson = [
+processing = [
+    "_neighbourhood",
     "_tiles",
+    "dep:contour",
     "dep:geo",
     "dep:geo-index",
     "dep:geo-types",
     "dep:geojson",
     "dep:mlt-core",
+    "dep:multiversion",
     "dep:rayon",
     "dep:serde_json",
     "dep:tokio",
     "tokio/fs",
 ]
-contour = [
-    "_neighbourhood",
-    "_tiles",
-    "dep:contour",
-    "dep:geo",
-    "dep:geo-types",
-    "dep:mlt-core",
-]
-
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
@@ -94,26 +83,21 @@ unstable-cog = [
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]
-rendering = ["styles", "overlay", "dep:maplibre_native", "dep:flume"]
-fonts = [
+rendering = ["resources", "overlay", "dep:maplibre_native", "dep:flume"]
+resources = [
+    "dep:actix-web",
     "dep:bit-set",
+    "dep:dashmap",
+    "dep:futures",
+    "dep:itertools",
     "dep:pbf_font_tools",
     "dep:regex",
-    "dep:itertools",
-    "dep:dashmap",
-    "dep:walkdir",
-    "dep:strum",
-]
-sprites = [
-    "dep:actix-web",
     "dep:spreet",
+    "dep:strum",
     "dep:tokio",
-    "tokio/fs",
-    "dep:futures",
-    "dep:dashmap",
     "dep:walkdir",
+    "tokio/fs",
 ]
-styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 passthrough = ["dep:reqwest", "dep:serde_json", "_tiles"]

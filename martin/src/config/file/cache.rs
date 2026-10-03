@@ -1,9 +1,9 @@
 use std::num::NonZeroU64;
 use std::time::Duration;
 
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use martin_core::fonts::{FontCache, OptFontCache};
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use martin_core::sprites::{OptSpriteCache, SpriteCache};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::TileCache;
@@ -28,9 +28,9 @@ pub struct CacheConfig {
     pub tiles: Option<SubCacheSetting>,
     #[cfg(feature = "pmtiles")]
     pub pmtiles: Option<SubCacheSetting>,
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprites: Option<SubCacheSetting>,
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub fonts: Option<SubCacheSetting>,
 }
 
@@ -71,7 +71,7 @@ impl CacheConfig {
     }
 
     /// Creates sprite cache if configured.
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[must_use]
     pub fn create_sprite_cache(&self) -> OptSpriteCache {
         if let Some(setting) = &self.sprites {
@@ -88,7 +88,7 @@ impl CacheConfig {
     }
 
     /// Creates font cache if configured.
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[must_use]
     pub fn create_font_cache(&self) -> OptFontCache {
         if let Some(setting) = &self.fonts {

@@ -24,7 +24,7 @@ pub struct TileReloaders {
     cog: super::cog::CogReloader,
     #[cfg(feature = "unstable-duckdb")]
     duckdb: super::duckdb::DuckDbReloader,
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     geojson: super::geojson::GeoJsonReloader,
     #[cfg(feature = "pmtiles")]
     pmtiles: super::pmtiles::PmtilesReloader,
@@ -51,16 +51,10 @@ impl TileReloaders {
             feature = "pmtiles",
             feature = "postgres"
         ))]
-        let global_process = {
-            #[cfg(feature = "mlt")]
-            let pc = ProcessConfig {
-                convert_to_mlt: config.convert_to_mlt.clone(),
-                convert_to_mvt: config.convert_to_mvt.clone(),
-                ..Default::default()
-            };
-            #[cfg(not(feature = "mlt"))]
-            let pc = ProcessConfig::default();
-            pc
+        let global_process = ProcessConfig {
+            convert_to_mlt: config.convert_to_mlt.clone(),
+            convert_to_mvt: config.convert_to_mvt.clone(),
+            ..Default::default()
         };
 
         #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
@@ -90,7 +84,7 @@ impl TileReloaders {
             config.cache.policy(),
             &global_process,
         );
-        #[cfg(feature = "geojson")]
+        #[cfg(feature = "processing")]
         let mut geojson = super::geojson::GeoJsonReloader::new(
             catalog.clone(),
             resolver.clone(),
@@ -121,7 +115,7 @@ impl TileReloaders {
             let warnings = duckdb.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
         }
-        #[cfg(feature = "geojson")]
+        #[cfg(feature = "processing")]
         {
             let warnings = geojson.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
@@ -168,7 +162,7 @@ impl TileReloaders {
             cog,
             #[cfg(feature = "unstable-duckdb")]
             duckdb,
-            #[cfg(feature = "geojson")]
+            #[cfg(feature = "processing")]
             geojson,
             #[cfg(feature = "pmtiles")]
             pmtiles,
@@ -208,7 +202,7 @@ impl TileReloaders {
         if let Err(e) = self.duckdb.start() {
             tracing::warn!("failed to start DuckDbReloader {e:?}");
         }
-        #[cfg(feature = "geojson")]
+        #[cfg(feature = "processing")]
         if let Err(e) = self.geojson.start() {
             tracing::warn!("failed to start GeoJsonReloader {e:?}");
         }

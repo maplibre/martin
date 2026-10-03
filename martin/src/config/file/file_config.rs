@@ -24,9 +24,9 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::ContourProcessConfig;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGrids;
@@ -36,7 +36,7 @@ use crate::config::file::{
     CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
@@ -253,9 +253,9 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
 /// Files and hidden directories are skipped.
 #[cfg(any(
     feature = "_file_kinds",
-    feature = "sprites",
-    feature = "styles",
-    feature = "fonts"
+    feature = "resources",
+    feature = "resources",
+    feature = "resources"
 ))]
 pub fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf)>> {
     let mut found = Vec::new();
@@ -408,12 +408,12 @@ pub struct FileConfigSource {
     pub tile_grid: Option<String>,
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
     /// MLT->MVT conversion settings for this source.
     /// Overrides source-type and global `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Hillshade settings for this source.
@@ -421,7 +421,7 @@ pub struct FileConfigSource {
     /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
     /// See the hillshade documentation for the knobs.
     /// Settable per source only, since it describes what this source serves rather than a server-wide policy.
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Trace contour lines from this source's tiles.
@@ -429,7 +429,7 @@ pub struct FileConfigSource {
     /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
     /// See the contour documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_contour: Option<ContourProcessConfig>,
     /// Zoom-level bounds for tile caching.
@@ -1610,7 +1610,7 @@ mod deserialize_tests {
     }
 
     #[test]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     fn cache_size_rejects_other_string() {
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"
@@ -1635,7 +1635,7 @@ mod deserialize_tests {
     }
 
     #[test]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     fn cache_size_rejects_integer() {
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"

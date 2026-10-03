@@ -1,0 +1,48 @@
+set shell := ['bash', '-euo', 'pipefail', '-c']
+
+martin := env('MARTIN', 'target/release/martin')
+port := env('PORT', '3000')
+requests := env('REQUESTS', '200000')
+pg_requests := env('PG_REQUESTS', '20000')
+hit_requests := env('HIT_REQUESTS', '1000000')
+
+all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss cache-hit
+
+mbtiles-miss: (run 'mbtiles-miss' 'world_cities' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
+
+pmtiles-miss: (run 'pmtiles-miss' 'stamen_toner__raster_CC-BY-ODbL_z3' '3' requests '--cache-size 0 tests/fixtures/pmtiles')
+
+postgres-function-miss: (run 'postgres-function-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0 "$DATABASE_URL"')
+
+postgres-function-mlt-miss: (run 'postgres-function-mlt-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0 "$DATABASE_URL"' "-H 'Accept: application/vnd.maplibre-tile'")
+
+postgres-table-miss: (run 'postgres-table-miss' 'table_source' '6' pg_requests '--cache-size 0 "$DATABASE_URL"')
+
+cache-hit: (run 'cache-hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
+
+[private]
+run name source max_zoom n martin_args='' oha_args='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work=$(mktemp -d)
+    urls="$work/urls.txt"
+    for ((z = 0; z <= {{ max_zoom }}; z++)); do
+        for ((x = 0; x < 1 << z; x++)); do
+            for ((y = 0; y < 1 << z; y++)); do echo "http://localhost:{{ port }}/{{ source }}/$z/$x/$y"; done
+        done
+    done > "$urls"
+
+    if [ -n "${HOTPATH_OUTPUT_DIR:-}" ]; then export HOTPATH_OUTPUT_PATH="$HOTPATH_OUTPUT_DIR/{{ name }}.json"; fi
+    HOTPATH_BENCHMARK="{{ name }}" \
+        {{ martin }} --listen-addresses "0.0.0.0:{{ port }}" {{ martin_args }} &
+    pid=$!
+    trap 'kill $pid 2> /dev/null || true; wait $pid 2> /dev/null || true; rm -rf "$work"' EXIT
+
+    for _ in {1..120}; do
+        curl -sf "http://localhost:{{ port }}/health" > /dev/null 2>&1 && break
+        sleep 1
+    done
+    curl -sf "http://localhost:{{ port }}/health" > /dev/null || { echo "::error::Martin failed to start for {{ name }}"; exit 1; }
+
+    eval "oha --latency-correction --no-tui -n 500 --urls-from-file {{ oha_args }} $urls" > /dev/null
+    eval "oha --latency-correction -n {{ n }} --urls-from-file {{ oha_args }} $urls"

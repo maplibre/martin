@@ -1,9 +1,4 @@
-#![cfg(all(
-    feature = "test-pg",
-    not(feature = "fonts"),
-    not(feature = "sprites"),
-    not(feature = "styles")
-))]
+#![cfg(all(feature = "test-pg", not(feature = "resources")))]
 
 use std::assert_matches;
 
@@ -26,7 +21,7 @@ macro_rules! create_app {
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(
-                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        #[cfg(feature = "resources")]
                         &state,
                     )
                     .unwrap(),
@@ -1203,7 +1198,7 @@ tables:
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
                 ::martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .unwrap(),

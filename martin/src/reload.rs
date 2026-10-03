@@ -20,7 +20,7 @@ pub enum FileKind {
     Pmtiles,
     #[cfg(feature = "unstable-cog")]
     Cog,
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     GeoJson,
 }
 

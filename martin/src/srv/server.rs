@@ -28,11 +28,11 @@ use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::srv::admin::{get_index_ui_disabled, webui};
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use crate::srv::fonts;
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use crate::srv::sprites;
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 use crate::srv::styles;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
@@ -55,7 +55,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 /// The status comes from the error's own `ErrorKind`, so a failure mode is classified once
 /// where it is defined rather than at each handler that can surface it. Only failures the
 /// caller cannot act on are logged.
-#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+#[cfg(any(feature = "_tiles", feature = "resources"))]
 pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
     use actix_web::error::{
         ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,
@@ -174,7 +174,7 @@ fn register_services(
         }
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     cfg.service(sprites::get_sprite_sdf_json)
         .service(sprites::redirect_sdf_sprites_json)
         .service(sprites::get_sprite_json)
@@ -184,13 +184,13 @@ fn register_services(
         .service(sprites::get_sprite_png)
         .service(sprites::redirect_sprites_png);
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     // Register the glyph file-extension redirect BEFORE the main font route
     cfg.service(fonts::redirect_font_ext)
         .service(fonts::get_font)
         .service(fonts::redirect_fonts);
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
@@ -283,7 +283,7 @@ pub fn new_server(
             .map_err(ServerStartError::MetricsInitialisation)?
     };
     let catalog = Catalog::new(
-        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+        #[cfg(feature = "resources")]
         &state,
     )?;
 
@@ -316,17 +316,17 @@ pub fn new_server(
         #[cfg(feature = "_tiles")]
         let app = app.app_data(Data::new(state.tile_manager.clone()));
 
-        #[cfg(feature = "sprites")]
+        #[cfg(feature = "resources")]
         let app = app
             .app_data(Data::new(state.sprites.clone()))
             .app_data(Data::new(state.sprite_cache.clone()));
 
-        #[cfg(feature = "fonts")]
+        #[cfg(feature = "resources")]
         let app = app
             .app_data(Data::new(state.fonts.clone()))
             .app_data(Data::new(state.font_cache.clone()));
 
-        #[cfg(feature = "styles")]
+        #[cfg(feature = "resources")]
         let app = app.app_data(Data::new(state.styles.clone()));
 
         let app = app.wrap(middleware::Condition::new(

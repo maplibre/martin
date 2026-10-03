@@ -1,16 +1,16 @@
 use std::path::{Path, PathBuf};
 
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use martin_core::fonts::FontError;
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use martin_core::sprites::SpriteError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::contour::ContourRangeError;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::hillshade::HillshadeRangeError;
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -63,7 +63,7 @@ pub enum ConfigFileError {
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[error("Source {source_id} has an invalid hillshade configuration: {source}")]
     InvalidHillshade {
         source_id: String,
@@ -71,7 +71,7 @@ pub enum ConfigFileError {
         source: Box<HillshadeRangeError>,
     },
 
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[error("Source {source_id} has an invalid contour configuration: {source}")]
     InvalidContour {
         source_id: String,
@@ -79,7 +79,7 @@ pub enum ConfigFileError {
         source: Box<ContourRangeError>,
     },
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(#[source] walkdir::Error, PathBuf),
 
@@ -91,15 +91,15 @@ pub enum ConfigFileError {
     #[error("Failed to create postgres pool: {0}")]
     PostgresPoolCreationFailed(#[source] PostgresError),
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] FontError, PathBuf),
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[error("Failed to configure font alias: {0}")]
     FontAliasResolutionFailed(#[source] FontError),
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[error("Failed to configure sprite alias: {0}")]
     SpriteAliasResolutionFailed(#[source] SpriteError),
 
@@ -318,21 +318,21 @@ impl Diagnostic for ConfigFileError {
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
             Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
             Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidContour { .. } => "martin::config::contour::invalid",
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
             Self::PostgresConnectionStringMissing => "martin::config::postgres::connection_string",
             #[cfg(feature = "postgres")]
             Self::PostgresPoolCreationFailed(_) => "martin::config::postgres::pool_creation",
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
             #[cfg(feature = "_tiles")]
             Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
@@ -382,29 +382,29 @@ impl Diagnostic for ConfigFileError {
             | Self::InvalidSourceFilePath(..)
             | Self::InvalidBasePath(_)
             | Self::TileResolutionWarningsIssued => return None,
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => {
                 "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."
             }
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidContour { .. } => {
                 "Check the `contour` block of the named source: every parameter must lie inside the range given above."
             }
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => return None,
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             Self::DirectoryWalking(..) => return None,
             #[cfg(feature = "postgres")]
             Self::PostgresConnectionStringMissing | Self::PostgresPoolCreationFailed(_) => {
                 return None;
             }
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontResolutionFailed(..) => return None,
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontAliasResolutionFailed(_) => {
                 "Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases."
             }
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             Self::SpriteAliasResolutionFailed(_) => {
                 "Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases."
             }
@@ -669,7 +669,7 @@ mod tests {
         ");
     }
 
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn invalid_hillshade() {
         let err = ConfigFileError::InvalidHillshade {
@@ -692,7 +692,7 @@ mod tests {
         ");
     }
 
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn invalid_contour() {
         let err = ConfigFileError::InvalidContour {
@@ -715,7 +715,7 @@ mod tests {
         ");
     }
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     #[test]
     fn directory_walking() {
         let walk_err = walkdir::WalkDir::new("/definitely/not/here")
@@ -773,7 +773,7 @@ mod tests {
         ");
     }
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[test]
     fn font_resolution_failed() {
         let err = ConfigFileError::FontResolutionFailed(
@@ -791,7 +791,7 @@ mod tests {
         ");
     }
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[test]
     fn font_alias_resolution_failed() {
         let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
@@ -808,7 +808,7 @@ mod tests {
         ");
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[test]
     fn sprite_alias_resolution_failed() {
         let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound(
