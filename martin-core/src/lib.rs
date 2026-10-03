@@ -19,9 +19,9 @@ pub mod metrics;
 #[cfg(feature = "_tiles")]
 pub mod tiles;
 
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 mod resources;
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 pub use resources::*;
 
 /// Draw vector overlays (paths, markers) onto a rendered raster.

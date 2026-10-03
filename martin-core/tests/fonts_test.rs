@@ -1,4 +1,4 @@
-#![cfg(feature = "fonts")]
+#![cfg(feature = "resources")]
 #![expect(clippy::panic)]
 #![expect(clippy::unwrap_used)]
 

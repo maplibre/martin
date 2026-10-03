@@ -136,25 +136,25 @@ fn per_source_process(
 ) -> Result<ResolvedProcess, ProcessResolveError> {
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: info.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         },
         SourceSpec::Function(info, _) => ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: info.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         },
     };
@@ -340,7 +340,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
     #[test]
     fn per_source_convert_overrides_the_connection_level() {
         use crate::config::file::postgres::TableInfo;
@@ -350,9 +349,9 @@ mod tests {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
             cache_control: None,
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         };
 

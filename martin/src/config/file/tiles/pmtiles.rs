@@ -13,7 +13,7 @@ use crate::config::file::{
     ConfigurationLivecycleHooks, ObjectStoreConfig, SourceBuildResult, TileSourceConfiguration,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 /// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
@@ -72,13 +72,13 @@ pub struct PmtConfig {
 
     /// MVT->MLT encoder settings for all `PMTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all `PMTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -111,9 +111,9 @@ impl Default for PmtConfig {
             directory_cache: CacheSizeConfig::default(),
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             object_store: ObjectStoreConfig::default(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
             recursive: None,
             cache: CachePolicy::default(),
@@ -139,11 +139,11 @@ impl Serialize for PmtConfig {
             )?;
         }
         self.object_store.serialize_entries(&mut map)?;
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         if let Some(config) = &self.convert_to_mlt {
             map.serialize_entry("convert_to_mlt", config)?;
         }
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         if let Some(config) = &self.convert_to_mvt {
             map.serialize_entry("convert_to_mvt", config)?;
         }
@@ -165,7 +165,7 @@ impl PartialEq for PmtConfig {
             && self.recursive == other.recursive
             && self.cache == other.cache
             && self.unrecognized == other.unrecognized;
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         let base = base
             && self.convert_to_mlt == other.convert_to_mlt
             && self.convert_to_mvt == other.convert_to_mvt;

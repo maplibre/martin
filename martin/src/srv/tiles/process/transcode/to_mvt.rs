@@ -6,7 +6,7 @@ use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{Decoder, Layer, Parser};
 
 use crate::srv::tiles::content;
-use crate::srv::tiles::process::ProcessError;
+use crate::srv::tiles::process::transcode::TranscodeError;
 
 /// Convert an MLT tile to MVT (protobuf) format.
 ///
@@ -15,17 +15,17 @@ use crate::srv::tiles::process::ProcessError;
 ///
 /// The output keeps the source tile's etag with a `+mvt` suffix rather than
 /// re-hashing the converted bytes, mirroring [`convert_mvt_to_mlt`](super::to_mlt::convert_mvt_to_mlt).
-pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, ProcessError> {
+pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, TranscodeError> {
     let mut etag = std::mem::take(&mut tile.etag);
     etag.write_str("+mvt").expect("can write");
 
     let mlt =
-        content::decode(tile).map_err(|e| ProcessError::DecompressionFailed(e.to_string()))?;
+        content::decode(tile).map_err(|e| TranscodeError::DecompressionFailed(e.to_string()))?;
 
     let mut parser = Parser::default();
     let layers = parser
         .parse_layers(&mlt.data)
-        .map_err(|e| ProcessError::MvtConversion(format!("MLT parse failed: {e}")))?;
+        .map_err(|e| TranscodeError::MvtConversion(format!("MLT parse failed: {e}")))?;
 
     let mut decoder = Decoder::default();
     let mut tile_layers = Vec::with_capacity(layers.len());
@@ -33,14 +33,15 @@ pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, ProcessError> {
         // Skip unknown layer tags - they have no MVT analogue.
         if let Layer::Tag01(l) = layer {
             tile_layers.push(
-                l.into_tile(&mut decoder)
-                    .map_err(|e| ProcessError::MvtConversion(format!("MLT decode failed: {e}")))?,
+                l.into_tile(&mut decoder).map_err(|e| {
+                    TranscodeError::MvtConversion(format!("MLT decode failed: {e}"))
+                })?,
             );
         }
     }
 
-    let mvt_bytes =
-        tile_layers_to_mvt(tile_layers).map_err(|e| ProcessError::MvtConversion(e.to_string()))?;
+    let mvt_bytes = tile_layers_to_mvt(tile_layers)
+        .map_err(|e| TranscodeError::MvtConversion(e.to_string()))?;
 
     Ok(Tile::new_with_etag(
         mvt_bytes,

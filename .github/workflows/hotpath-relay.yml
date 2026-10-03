@@ -12,12 +12,22 @@ permissions: {}
 
 jobs:
   relay:
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - mbtiles-miss
+          - pmtiles-miss
+          - postgres-function-miss
+          - postgres-function-mlt-miss
+          - postgres-table-miss
+          - cache-hit
     uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@773ede70e9894951f63005c862a8f527432db669 # v0.28.3
     permissions:
       actions: read
       id-token: write
       pull-requests: read
     with:
-      benchmark: http
+      benchmark: ${{ matrix.scenario }}
       artifact_name: hotpath-report
-      report_file: report.json
+      report_file: ${{ matrix.scenario }}.json

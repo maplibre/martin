@@ -38,7 +38,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      HOTPATH_BENCHMARK: http
       HOTPATH_ALLOC_SELF: true
     services:
       postgres:
@@ -86,24 +85,24 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: |
           set -o pipefail
-          just bench-hotpath --features hotpath-cloud 2>&1 | tee /tmp/hotpath-run.log
-          grep -q '^hotpath: uploaded report ' /tmp/hotpath-run.log
+          just bench-hotpath all --features hotpath-cloud 2>&1 | tee /tmp/hotpath-run.log
+          test "$(grep -c '^hotpath: uploaded report ' /tmp/hotpath-run.log)" -eq 6
 
       - name: Benchmark and write report
         if: github.event_name == 'pull_request'
         env:
           HOTPATH_OUTPUT_FORMAT: json
           HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},profile=release
-          HOTPATH_OUTPUT_PATH: /tmp/hotpath/report.json
+          HOTPATH_OUTPUT_DIR: /tmp/hotpath
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: |
           mkdir -p /tmp/hotpath
-          just bench-hotpath --features hotpath-cloud
+          just bench-hotpath all --features hotpath-cloud
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'pull_request'
         with:
           name: hotpath-report
-          path: /tmp/hotpath/report.json
+          path: /tmp/hotpath/
           retention-days: 1
           if-no-files-found: error

@@ -12,7 +12,7 @@ use crate::config::file::postgres::utils::patch_json;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
@@ -78,7 +78,7 @@ pub struct FunctionInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -90,7 +90,7 @@ pub struct FunctionInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 

@@ -179,13 +179,13 @@ mod tests {
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
                         tile_grid: None,
                         path: PathBuf::from("/tmp/file.ext"),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mlt: None,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mvt: None,
-                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
@@ -200,13 +200,13 @@ mod tests {
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
                         tile_grid: None,
                         path: PathBuf::from("https://example.org/file4.ext"),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mlt: None,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mvt: None,
-                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,

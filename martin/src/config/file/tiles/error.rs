@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "unstable-cog")]
 use martin_core::tiles::cog::CogError;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 use martin_core::tiles::geojson::GeoJsonError;
 #[cfg(feature = "mbtiles")]
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -51,7 +51,7 @@ pub enum SourceBuildError {
     #[error(transparent)]
     Cog(#[from] CogError),
 
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     GeoJson(#[from] GeoJsonError),
 
