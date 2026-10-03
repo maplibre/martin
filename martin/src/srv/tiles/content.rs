@@ -22,24 +22,23 @@ use serde::Deserialize;
 use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::config::file::ResolvedContour;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::config::file::ResolvedHillshade;
 use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
-#[cfg(feature = "_tiles")]
 use crate::config::file::{MltConversion, MvtConversion};
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::srv::tiles::process::ProcessError;
 use crate::srv::tiles::process::apply_pre_cache_processors;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::srv::tiles::process::bake_hillshade;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::srv::tiles::process::trace_contour;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -305,14 +304,12 @@ fn redirect_tile_with_query(
 /// A source opts out with `convert_to_mlt: disabled` / `convert_to_mvt: disabled`,
 /// and a composite is merged into a single format, so a target is only negotiable
 /// when all of the request's sources encode it.
-#[cfg(feature = "_tiles")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TranscodeTargets {
     to_mlt: bool,
     to_mvt: bool,
 }
 
-#[cfg(feature = "_tiles")]
 impl TranscodeTargets {
     fn of(sources: &[(BoxedSource, ResolvedProcess)]) -> Self {
         Self {
@@ -377,7 +374,6 @@ impl<'a> DynTileSource<'a> {
         let accepted_format = Self::resolve_accepted_format(
             &headers.accepted_formats,
             resolved.info.format,
-            #[cfg(feature = "_tiles")]
             TranscodeTargets::of(&resolved.sources),
         )?;
 
@@ -414,17 +410,15 @@ impl<'a> DynTileSource<'a> {
     fn resolve_accepted_format(
         accepted: &AcceptedFormats,
         source_format: Format,
-        #[cfg(feature = "_tiles")] transcodes: TranscodeTargets,
+        transcodes: TranscodeTargets,
     ) -> Result<Option<Format>, TileError> {
         let formats = &accepted.preferred;
         if formats.contains(&source_format) {
             return Ok(Some(source_format));
         }
-        #[cfg(feature = "_tiles")]
         if source_format == Format::Mvt && formats.contains(&Format::Mlt) && transcodes.to_mlt {
             return Ok(Some(Format::Mlt));
         }
-        #[cfg(feature = "_tiles")]
         if source_format == Format::Mlt && formats.contains(&Format::Mvt) && transcodes.to_mvt {
             return Ok(Some(Format::Mvt));
         }
@@ -589,7 +583,7 @@ impl<'a> DynTileSource<'a> {
         pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, TileError> {
-        #[cfg(all(feature = "processing", feature = "_tiles"))]
+        #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_hillshade(pc)? {
             return match bake_hillshade(s, settings, xyz, self.cache).await {
                 Err(ProcessError::HillshadeSourceNeedsReload) => {
@@ -600,7 +594,7 @@ impl<'a> DynTileSource<'a> {
             };
         }
 
-        #[cfg(all(feature = "processing", feature = "_tiles"))]
+        #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_contour(pc)? {
             let traced = match trace_contour(s, settings.clone(), xyz, self.cache).await {
                 Err(ProcessError::ContourSourceNeedsReload) => {
@@ -611,9 +605,7 @@ impl<'a> DynTileSource<'a> {
             };
             return Ok(apply_pre_cache_processors(
                 traced,
-                #[cfg(feature = "_tiles")]
                 pc,
-                #[cfg(feature = "_tiles")]
                 self.accepted_format,
             )?);
         }
@@ -663,7 +655,6 @@ impl<'a> DynTileSource<'a> {
             .map_err(TileError::from)
     }
 
-    #[cfg_attr(not(feature = "_tiles"), expect(unused_variables))]
     async fn fetch_tile_content_with_cache(
         &self,
         s: &BoxedSource,
@@ -676,14 +667,8 @@ impl<'a> DynTileSource<'a> {
             let t = src
                 .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
                 .await?;
-            apply_pre_cache_processors(
-                t,
-                #[cfg(feature = "_tiles")]
-                pc,
-                #[cfg(feature = "_tiles")]
-                self.accepted_format,
-            )
-            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+            apply_pre_cache_processors(t, pc, self.accepted_format)
+                .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
         };
         if let (Some(cache), true) = (self.cache, cache_zoom) {
             cache
@@ -710,7 +695,7 @@ impl<'a> DynTileSource<'a> {
 
     /// Resolves this source's contour settings for the current request.
     /// Returns `None` when the source is not contoured.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     fn resolve_contour(&self, pc: &ResolvedProcess) -> Result<Option<ResolvedContour>, TileError> {
         let Some(settings) = pc.contour.clone() else {
             return Ok(None);
@@ -731,7 +716,7 @@ impl<'a> DynTileSource<'a> {
 
     /// Resolves this source's hillshade settings for the current request.
     /// Returns `None` when the source is not hillshaded.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     fn resolve_hillshade(
         &self,
         pc: &ResolvedProcess,
@@ -1371,7 +1356,6 @@ mod tests {
         DynTileSource::resolve_accepted_format(
             accepted,
             source_format,
-            #[cfg(feature = "_tiles")]
             TranscodeTargets {
                 to_mlt: true,
                 to_mvt: true,
@@ -1461,17 +1445,6 @@ mod tests {
         result.unwrap_err();
     }
 
-    #[cfg(not(feature = "_tiles"))]
-    #[rstest]
-    #[case::mlt_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
-    #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
-    fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
-        let parsed = parse_accept_header(accept_values);
-        let result = resolve(&parsed, source_format);
-        result.unwrap_err();
-    }
-
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
     #[case::mlt_short(&["application/vnd.maplibre-tile"])]
@@ -1482,7 +1455,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::a_lower_ranked_wildcard(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)])]
     #[case::an_equally_ranked_wildcard(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 1.0)])]
@@ -1494,7 +1466,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn accept_prefers_the_source_format_over_a_higher_ranked_transcode() {
         let parsed = parse_weighted_accept_header(&[
@@ -1505,7 +1476,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mvt_only(&["application/x-protobuf"])]
     #[case::mvt_with_other(&["image/png", "application/x-protobuf"])]
@@ -1516,19 +1486,16 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
-    #[cfg(feature = "_tiles")]
     const NO_MLT: TranscodeTargets = TranscodeTargets {
         to_mlt: false,
         to_mvt: true,
     };
 
-    #[cfg(feature = "_tiles")]
     const NO_MVT: TranscodeTargets = TranscodeTargets {
         to_mlt: true,
         to_mvt: false,
     };
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mlt_disabled(&["application/vnd.maplibre-tile"], Format::Mvt, NO_MLT)]
     #[case::mlt_disabled_beside_an_unservable_type(&["image/png", "application/vnd.maplibre-tile"], Format::Mvt, NO_MLT)]
@@ -1544,7 +1511,6 @@ mod tests {
         assert!(matches!(result, Err(TileError::UnacceptableFormat(f)) if f == source_format));
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mlt_disabled(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)], Format::Mvt, NO_MLT)]
     #[case::mlt_disabled_with_a_leading_wildcard(&[("*/*", 0.1), ("application/vnd.maplibre-tile", 1.0)], Format::Mvt, NO_MLT)]
@@ -1559,7 +1525,6 @@ mod tests {
         assert_eq!(result.unwrap(), None);
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::to_mlt(&["application/vnd.maplibre-tile"], Format::Mvt, NO_MVT, Format::Mlt)]
     #[case::to_mvt(&["application/x-protobuf"], Format::Mlt, NO_MLT, Format::Mvt)]
@@ -1574,7 +1539,6 @@ mod tests {
         assert_eq!(result.unwrap(), Some(expected));
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::all_enabled(&[true, true], true)]
     #[case::one_disabled(&[true, false], false)]
@@ -1605,7 +1569,6 @@ mod tests {
         assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);
     }
 
-    #[cfg(feature = "_tiles")]
     fn mlt_disabled_manager() -> TileSourceManager {
         let src = TestSource::new("mvt", TileData::from_static(&[1, 2, 3]));
         let pc = ResolvedProcess {
@@ -1615,7 +1578,6 @@ mod tests {
         TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(src.boxed(), pc)]])
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn a_disabled_mlt_source_rejects_a_bare_mlt_accept() {
         let mgr = mlt_disabled_manager();
@@ -1629,7 +1591,6 @@ mod tests {
         assert!(matches!(err, TileError::UnacceptableFormat(Format::Mvt)));
     }
 
-    #[cfg(feature = "_tiles")]
     #[actix_rt::test]
     async fn a_disabled_mlt_source_serves_mvt_to_a_wildcard_fallback() {
         let mgr = mlt_disabled_manager();
@@ -1662,7 +1623,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[actix_rt::test]
     async fn a_hillshaded_source_needing_reload_is_reloaded_and_the_bake_retried() {
         let normal_tile = TileData::from_static(include_bytes!(

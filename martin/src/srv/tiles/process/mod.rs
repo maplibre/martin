@@ -1,100 +1,91 @@
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 mod contour;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 pub use contour::trace_contour;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 mod hillshade;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 mod neighbourhood;
-#[cfg(feature = "_tiles")]
 mod to_mlt;
-#[cfg(feature = "_tiles")]
 mod to_mvt;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 pub use hillshade::bake_hillshade;
 use martin_core::tiles::Tile;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use martin_core::tiles::contour::ContourError;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use martin_core::tiles::hillshade::HillshadeError;
-#[cfg(feature = "_tiles")]
 use martin_tile_utils::Format;
-#[cfg(feature = "_tiles")]
 use to_mlt::convert_mvt_to_mlt;
-#[cfg(feature = "_tiles")]
 use to_mvt::convert_mlt_to_mvt;
 
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::config::file::ContourRangeError;
-#[cfg(all(feature = "processing", feature = "_tiles"))]
+#[cfg(feature = "processing")]
 use crate::config::file::HillshadeRangeError;
-#[cfg(feature = "_tiles")]
 use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
 
 /// Errors that can occur during tile post-processing.
 #[derive(thiserror::Error, Debug)]
 pub enum ProcessError {
-    #[cfg(feature = "_tiles")]
     #[error("MVT to MLT conversion failed: {0}")]
     MltConversion(String),
-    #[cfg(feature = "_tiles")]
     #[error("MLT encoding failed: {0}")]
     MltEncoding(String),
-    #[cfg(feature = "_tiles")]
     #[error("MLT to MVT conversion failed: {0}")]
     MvtConversion(String),
     #[error("Tile decompression failed: {0}")]
     DecompressionFailed(String),
 
     /// A hillshade parameter supplied by the request was out of range.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     HillshadeParameter(#[from] HillshadeRangeError),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("Hillshade failed: {0}")]
     Hillshade(#[from] HillshadeError),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("Could not read the normal tiles a hillshade needs: {0}")]
     HillshadeSource(String),
 
     /// The normals source changed underneath us and must be reloaded before the bake can be retried.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The normals source changed and must be reloaded")]
     HillshadeSourceNeedsReload,
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The hillshade bake did not complete: {0}")]
     HillshadeBakeFailed(String),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The server is shutting down and cannot start a new hillshade bake")]
     HillshadeShuttingDown,
 
     /// A contour parameter supplied by the request was out of range.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     ContourParameter(#[from] ContourRangeError),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("Contour tracing failed: {0}")]
     Contour(#[from] ContourError),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("Could not read the elevation tiles a contour needs: {0}")]
     ContourSource(String),
 
     /// The elevation source changed underneath us and must be reloaded before the trace can be retried.
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The elevation source changed and must be reloaded")]
     ContourSourceNeedsReload,
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The contour trace did not complete: {0}")]
     ContourTraceFailed(String),
 
-    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[cfg(feature = "processing")]
     #[error("The server is shutting down and cannot start a new contour trace")]
     ContourShuttingDown,
 }
@@ -102,19 +93,19 @@ pub enum ProcessError {
 impl From<ProcessError> for actix_web::Error {
     fn from(e: ProcessError) -> Self {
         match e {
-            #[cfg(all(feature = "processing", feature = "_tiles"))]
+            #[cfg(feature = "processing")]
             ProcessError::HillshadeParameter(ref inner) => {
                 actix_web::error::ErrorBadRequest(inner.to_string())
             }
-            #[cfg(all(feature = "processing", feature = "_tiles"))]
+            #[cfg(feature = "processing")]
             ProcessError::HillshadeShuttingDown => {
                 actix_web::error::ErrorServiceUnavailable(e.to_string())
             }
-            #[cfg(all(feature = "processing", feature = "_tiles"))]
+            #[cfg(feature = "processing")]
             ProcessError::ContourParameter(ref inner) => {
                 actix_web::error::ErrorBadRequest(inner.to_string())
             }
-            #[cfg(all(feature = "processing", feature = "_tiles"))]
+            #[cfg(feature = "processing")]
             ProcessError::ContourShuttingDown => {
                 actix_web::error::ErrorServiceUnavailable(e.to_string())
             }
@@ -143,14 +134,13 @@ impl From<ProcessError> for actix_web::Error {
 /// coexist naturally.
 pub fn apply_pre_cache_processors(
     tile: Tile,
-    #[cfg(feature = "_tiles")] config: &ResolvedProcess,
-    #[cfg(feature = "_tiles")] accepted: Option<Format>,
+    config: &ResolvedProcess,
+    accepted: Option<Format>,
 ) -> Result<Tile, ProcessError> {
     if tile.data.is_empty() {
         return Ok(tile);
     }
 
-    #[cfg(feature = "_tiles")]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
         match config.mlt {
             MltConversion::Encode(cfg) => convert_mvt_to_mlt(tile, cfg)?,
@@ -170,26 +160,18 @@ pub fn apply_pre_cache_processors(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "_tiles")]
     use martin_core::tiles::Tile;
-    #[cfg(feature = "_tiles")]
     use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
-    #[cfg(feature = "_tiles")]
     use mlt_core::encoder::EncoderConfig;
-    #[cfg(feature = "_tiles")]
     use rstest::rstest;
 
-    #[cfg(feature = "_tiles")]
     use super::to_mvt::{empty_layer_mvt_bytes, mvt_with_feature_bytes};
-    #[cfg(feature = "_tiles")]
     use super::*;
 
-    #[cfg(feature = "_tiles")]
     fn make_tile(data: impl Into<TileData>, format: Format, encoding: Encoding) -> Tile {
         Tile::new_hash_etag(data, TileInfo::new(format, encoding))
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mvt_unc_mlt(Format::Mvt, Encoding::Uncompressed, Format::Mlt)]
     #[case::mlt_unc_mvt(Format::Mlt, Encoding::Uncompressed, Format::Mvt)]
@@ -204,7 +186,6 @@ mod tests {
         assert!(result.data.is_empty());
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn mvt_request_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
@@ -214,7 +195,6 @@ mod tests {
         assert_eq!(result.info.format, Format::Mvt);
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn no_accept_header_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
@@ -223,7 +203,6 @@ mod tests {
         assert_eq!(result.info.format, Format::Mvt);
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn non_mvt_source_with_mlt_accept_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Png, Encoding::Internal);
@@ -233,7 +212,6 @@ mod tests {
         assert_eq!(result.info.format, Format::Png);
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn mlt_accept_converts_mvt_with_default_encoder() {
         let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
@@ -244,7 +222,6 @@ mod tests {
         assert_eq!(result.info.encoding, Encoding::Internal);
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn mlt_accept_uses_explicit_encoder_overrides() {
         let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
@@ -256,7 +233,6 @@ mod tests {
     /// `Accept` negotiation never resolves to a target a `disabled` source would
     /// have to encode - such a request is a 406, or falls back to the source format
     /// with `accepted` unset - so the pipeline only ever sees `None` for those.
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt)]
     #[case::mvt_disabled(
@@ -284,7 +260,6 @@ mod tests {
         assert_eq!(result.data, empty_layer_mvt_bytes());
     }
 
-    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::mlt_disabled(
         MltConversion::Disabled,
@@ -319,7 +294,6 @@ mod tests {
         assert_eq!(result.data, empty_layer_mvt_bytes());
     }
 
-    #[cfg(feature = "_tiles")]
     #[test]
     fn compressed_mvt_decompressed_and_converted() {
         use martin_tile_utils::encode_gzip;
@@ -335,13 +309,11 @@ mod tests {
 
     /// An MVT tile with one point feature - needed for meaningful round-trip tests
     /// since a 0-feature layer encodes to 0 bytes in MLT.
-    #[cfg(feature = "_tiles")]
     fn mvt_with_feature() -> Vec<u8> {
         mvt_with_feature_bytes()
     }
 
     /// MVT->MLT->MVT round-trip: encode an MVT as MLT, then convert back.
-    #[cfg(feature = "_tiles")]
     #[test]
     fn mlt_to_mvt_round_trip() {
         // First convert MVT->MLT
@@ -364,7 +336,6 @@ mod tests {
     /// Converting MVT->MLT keeps the source etag with a `+mlt` suffix instead of
     /// re-hashing, so the converted bytes get a distinct-but-stable etag. Converting
     /// back to MVT appends `+mvt`.
-    #[cfg(feature = "_tiles")]
     #[test]
     fn conversion_suffixes_source_etag() {
         let tile = Tile::new_with_etag(
@@ -384,7 +355,6 @@ mod tests {
     }
 
     /// MLT source tile with MVT Accept header converts to MVT.
-    #[cfg(feature = "_tiles")]
     #[test]
     fn mlt_source_with_mvt_accept_converts() {
         // First produce an MLT tile from MVT
