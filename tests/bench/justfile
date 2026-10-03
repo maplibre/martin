@@ -12,11 +12,11 @@ mbtiles-miss: (run 'mbtiles-miss' 'world_cities' '6' requests '--cache-size 0 te
 
 pmtiles-miss: (run 'pmtiles-miss' 'stamen_toner__raster_CC-BY-ODbL_z3' '3' requests '--cache-size 0 tests/fixtures/pmtiles')
 
-postgres-function-miss: (run 'postgres-function-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0')
+postgres-function-miss: (run 'postgres-function-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0 "$DATABASE_URL"')
 
-postgres-function-mlt-miss: (run 'postgres-function-mlt-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0' "-H 'Accept: application/vnd.maplibre-tile'")
+postgres-function-mlt-miss: (run 'postgres-function-mlt-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0 "$DATABASE_URL"' "-H 'Accept: application/vnd.maplibre-tile'")
 
-postgres-table-miss: (run 'postgres-table-miss' 'table_source' '6' pg_requests '--cache-size 0')
+postgres-table-miss: (run 'postgres-table-miss' 'table_source' '6' pg_requests '--cache-size 0 "$DATABASE_URL"')
 
 cache-hit: (run 'cache-hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
 
