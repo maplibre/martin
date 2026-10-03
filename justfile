@@ -80,9 +80,9 @@ bench-server: fetch start prepare-mbtiles
 build-hotpath: fetch
     RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
-# Run the hotpath benchmarks (see tests/bench/hotpath.sh); reports go to HOTPATH_OUTPUT_DIR, default /tmp/metrics. Used by the hotpath-profile CI workflow.
+# Run the hotpath benchmarks (see tests/bench/justfile); reports go to HOTPATH_OUTPUT_DIR, default /tmp/metrics. Used by the hotpath-profile CI workflow.
 bench-hotpath *names: start build-hotpath prepare-mbtiles (cargo-install 'oha')
-    tests/bench/hotpath.sh {{names}}
+    {{just}} --justfile tests/bench/justfile --working-directory . {{names}}
 
 # Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas: fetch

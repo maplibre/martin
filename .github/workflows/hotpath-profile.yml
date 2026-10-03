@@ -103,7 +103,7 @@ jobs:
         run: |
           git checkout "$HEAD_SHA" -- tests/bench
           just start prepare-mbtiles
-          tests/bench/hotpath.sh
+          just --justfile tests/bench/justfile --working-directory .
 
       - name: Save PR metadata
         env:
