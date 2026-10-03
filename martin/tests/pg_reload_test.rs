@@ -168,7 +168,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
         actix_web::App::new()
             .app_data(Data::new(
                 martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .expect("catalog"),

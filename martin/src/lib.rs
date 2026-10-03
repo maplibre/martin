@@ -30,7 +30,7 @@ pub use error::{StartupError, StartupResult};
 #[cfg(all(test, feature = "_tiles"))]
 mod test_support;
 
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 pub mod maplibre_style;
 
 pub mod srv;

@@ -32,7 +32,7 @@ pub enum ServerStartError {
     MetricsInitialisation(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     /// The sprite catalog could not be built while assembling the server's catalog.
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[error(transparent)]
     SpriteCatalog(#[from] martin_core::sprites::SpriteError),
 

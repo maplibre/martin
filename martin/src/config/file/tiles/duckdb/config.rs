@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::{
@@ -56,7 +56,7 @@ pub struct DuckDbConfig {
     /// Ordered source definitions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<DuckDbSourceEntry>,
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -81,7 +81,7 @@ impl Default for DuckDbConfig {
             memory_limit_mb: None,
             auto_bounds: BoundsCalcType::default(),
             sources: Vec::new(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
             cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
@@ -96,14 +96,10 @@ impl DuckDbConfig {
         self.sources.is_empty()
     }
 
-    #[cfg_attr(
-        not(feature = "mlt"),
-        expect(clippy::unused_self, reason = "only mlt has DuckDB process settings")
-    )]
     #[must_use]
     pub fn process_config(&self) -> ProcessConfig {
         ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: self.convert_to_mlt.clone(),
             ..ProcessConfig::default()
         }

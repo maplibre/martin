@@ -225,7 +225,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[test]
     fn cache_disable_sprites() {
         let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(config.cache.tile_idle_timeout, None);
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[test]
     fn cache_expiry_sprites() {
         let config = parse_yaml(

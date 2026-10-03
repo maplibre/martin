@@ -204,7 +204,7 @@ async fn pmt_s3_polls_catalog_via_public_api() {
         actix_web::App::new()
             .app_data(Data::new(
                 martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .unwrap(),
@@ -320,7 +320,7 @@ async fn pmt_s3_in_place_blob_overwrite_updates_existing_source() {
         actix_web::App::new()
             .app_data(Data::new(
                 martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .unwrap(),

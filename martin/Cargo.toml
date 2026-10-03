@@ -91,21 +91,16 @@ required-features = ["postgres"]
 
 [features]
 default = [
-    "fonts",
     "lambda",
     "mbtiles",
     "metrics",
     "passthrough",
     "pmtiles",
     "postgres",
-    "sprites",
-    "styles",
-    "webui",
-    "geojson",
-    "mlt",
-    "hillshade",
-    "contour",
+    "processing",
+    "resources",
     "tui",
+    "webui",
 ]
 unstable-cog = [
     "martin-core/unstable-cog",
@@ -118,7 +113,7 @@ unstable-cog = [
 ]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
 rendering = [
-    "styles",
+    "resources",
     "overlay",
     "martin-core/rendering",
     "dep:fnv",
@@ -126,7 +121,6 @@ rendering = [
     "dep:png",
     "dep:quantizr",
 ]
-fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
@@ -150,17 +144,17 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
-hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
-contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
-sprites = ["martin-core/sprites", "_catalog"]
-styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
+processing = [
+    "martin-core/processing",
+    "_tiles",
+    "_file_kinds",
+    "dep:base64",
+]
+resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-mlt = ["dep:mlt-core", "_process"]
-unstable-mlt-v2 = ["mlt", "_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
+unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
-_process = []
 _catalog = []
 _file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
@@ -182,7 +176,7 @@ hotpath-alloc = ["hotpath/hotpath-alloc"]
 hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
-test-duckdb = ["unstable-duckdb", "mlt"]
+test-duckdb = ["unstable-duckdb"]
 test-s3 = ["pmtiles"]
 
 [dependencies]
@@ -221,7 +215,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
-mlt-core = { workspace = true, optional = true }
+mlt-core.workspace = true
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }

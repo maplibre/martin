@@ -184,6 +184,25 @@ Rendering is stable as of 2.0. The configuration is unchanged. Set `styles.rende
 
 See [Server-side raster tile rendering](sources-styles/rendering.md) and [Installation](installation.md).
 
+### Cargo features were merged
+
+If you build Martin or `martin-core` yourself with `--features` or `--no-default-features`, rename the features:
+
+| 1.x features | 2.0 feature |
+|---|---|
+| `fonts`, `sprites`, `styles` | `resources` |
+| `hillshade`, `contour`, `geojson` | `processing` |
+| `mlt` | none, always enabled |
+
+Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
+
+```bash
+# 1.x
+cargo install martin --locked --no-default-features --features postgres,fonts,sprites,styles
+# 2.0
+cargo install martin --locked --no-default-features --features postgres,resources
+```
+
 ### For users of the crates
 
 - In `martin-tile-utils`, `TileCoord` fields are private. Construct coordinates with `TileCoord::new_checked` or `TileCoord::new_unchecked` and read them with `z()`, `x()` and `y()`.

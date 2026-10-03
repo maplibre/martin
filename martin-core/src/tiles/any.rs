@@ -12,7 +12,7 @@ use crate::tiles::cog::CogSource;
 use crate::tiles::declared_grid::DeclaredGridSource;
 #[cfg(feature = "unstable-duckdb")]
 use crate::tiles::duckdb::DuckDBSource;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 use crate::tiles::geojson::source::GeoJsonSource;
 #[cfg(feature = "mbtiles")]
 use crate::tiles::mbtiles::MbtSource;
@@ -55,7 +55,7 @@ pub enum BackendSource {
     #[cfg(feature = "passthrough")]
     Passthrough(PassthroughSource),
     /// A `.geojson` file tiled on the fly.
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     GeoJson(GeoJsonSource),
     /// A cloud-optimized `GeoTIFF`.
     #[cfg(feature = "unstable-cog")]
@@ -80,7 +80,7 @@ macro_rules! dispatch_backend {
             BackendSource::Postgres(ref $s) => $body,
             #[cfg(feature = "passthrough")]
             BackendSource::Passthrough(ref $s) => $body,
-            #[cfg(feature = "geojson")]
+            #[cfg(feature = "processing")]
             BackendSource::GeoJson(ref $s) => $body,
             #[cfg(feature = "unstable-cog")]
             BackendSource::Cog(ref $s) => $body,
@@ -120,7 +120,7 @@ impl_from_backend! {
     #[cfg(feature = "mbtiles")] Mbtiles(MbtSource),
     #[cfg(feature = "postgres")] Postgres(PostgresSource),
     #[cfg(feature = "passthrough")] Passthrough(PassthroughSource),
-    #[cfg(feature = "geojson")] GeoJson(GeoJsonSource),
+    #[cfg(feature = "processing")] GeoJson(GeoJsonSource),
     #[cfg(feature = "unstable-cog")] Cog(CogSource),
     #[cfg(feature = "unstable-duckdb")] DuckDb(DuckDBSource),
     #[cfg(feature = "_testing")] Test(TestSource),
@@ -132,7 +132,7 @@ impl_from_backend! {
         feature = "mbtiles",
         feature = "postgres",
         feature = "passthrough",
-        feature = "geojson",
+        feature = "processing",
         feature = "unstable-cog",
         feature = "unstable-duckdb",
         feature = "_testing",
@@ -211,7 +211,7 @@ impl BackendSource {
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
-            feature = "geojson",
+            feature = "processing",
             feature = "unstable-cog",
             feature = "unstable-duckdb",
             feature = "_testing",

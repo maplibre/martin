@@ -1,6 +1,6 @@
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 pub mod fonts;
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 pub mod sprites;
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 pub mod styles;

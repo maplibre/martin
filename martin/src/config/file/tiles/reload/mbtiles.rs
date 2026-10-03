@@ -29,21 +29,13 @@ impl MbtilesReloader {
         tile_grids: &TileGrids,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
-        #[cfg(feature = "_process")]
         let process = {
             let source_type = ProcessConfig {
-                #[cfg(feature = "mlt")]
                 convert_to_mlt: config.custom.convert_to_mlt.clone(),
-                #[cfg(feature = "mlt")]
                 convert_to_mvt: config.custom.convert_to_mvt.clone(),
                 ..Default::default()
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
-        };
-        #[cfg(not(feature = "_process"))]
-        let process = {
-            let _ = (config, global_process);
-            ProcessConfig::default()
         };
 
         // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
