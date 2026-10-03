@@ -179,6 +179,7 @@ hotpath = [
     "hotpath/futures",
 ]
 hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 test-duckdb = ["unstable-duckdb", "mlt"]
