@@ -37,7 +37,7 @@ default = [
     "geojson",
 ]
 _testing = ["_tiles"]
-hillshade = ["_neighbourhood", "_raster", "_tiles", "dep:multiversion"]
+hillshade = ["_neighbourhood", "_raster", "_tiles"]
 geojson = [
     "_tiles",
     "dep:geo",
@@ -167,7 +167,6 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
-multiversion = { workspace = true, optional = true }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }

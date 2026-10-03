@@ -18,8 +18,6 @@
     reason = "decode/encode of the canvas index arithmetic is lossy and sign-changing casts unavoidable"
 )]
 
-use multiversion::multiversion;
-
 use crate::tiles::neighbourhood::{CHANNELS, DEFAULT_TILE_SIZE, GRID_SIDE};
 
 /// Core side [`BakeParams::padding`] is expressed against, independent of the
@@ -194,7 +192,6 @@ impl Canvas {
 ///
 /// `nx`/`ny`/`alpha` are lanes of red/green/alpha in `[0, 1]`.
 /// Blue is unused, since the vertical normal component is reconstructed rather than read..
-#[multiversion(targets("x86_64+avx2", "x86_64+avx"))]
 fn relief_shade(
     nx: [f64; CHANNELS],
     ny: [f64; CHANNELS],
@@ -230,7 +227,6 @@ fn relief_shade(
 /// Quantises each lane of `shade`'s deviation from `neutral` into `bands` hard steps.
 ///
 /// Anchored at `neutral`, not zero, so flat ground lands on a band boundary instead of dithering.
-#[multiversion(targets("x86_64+avx2", "x86_64+avx"))]
 fn band_hard(shade: [f64; CHANNELS], neutral: f64, bands: f64) -> [f64; CHANNELS] {
     let band_size = 1.0 / bands;
     let mut out = [0.0; CHANNELS];
