@@ -5,8 +5,8 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{
-    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, Encoding as HeaderEnc,
-    EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
+    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG,
+    Encoding as HeaderEnc, EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
