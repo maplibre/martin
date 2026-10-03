@@ -3,7 +3,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 use martin_core::tiles::{AnySource, BoxedSource};
-use martin_tile_utils::{TileGrid, TileInfo};
+use martin_tile_utils::TileInfo;
 use tracing::{debug, info};
 
 use crate::config::file::ResolvedProcess;
@@ -246,20 +246,20 @@ impl TileSources {
         source_ids: &str,
         zoom: Option<u8>,
     ) -> Result<ResolvedSources, TileError> {
-        let ids: Vec<&str> = source_ids.split(',').collect();
-        if ids.len() > MAX_SOURCE_IDS_PER_REQUEST {
+        let id_count = source_ids.split(',').count();
+        if id_count > MAX_SOURCE_IDS_PER_REQUEST {
             return Err(TileError::TooManySources {
-                requested: ids.len(),
+                requested: id_count,
                 max: MAX_SOURCE_IDS_PER_REQUEST,
             });
         }
 
-        let mut sources = Vec::new();
+        let mut sources = Vec::with_capacity(id_count);
         let mut info: Option<TileInfo> = None;
-        let mut grid: Option<TileGrid> = None;
+        let mut grid: Option<BoxedSource> = None;
         let mut use_url_query = false;
 
-        for id in ids {
+        for id in source_ids.split(',') {
             if let Some(alias) = self.aliases.get(id) {
                 for member in alias.value() {
                     self.collect_source(
@@ -297,7 +297,7 @@ impl TileSources {
         zoom: Option<u8>,
         sources: &mut Vec<(BoxedSource, ResolvedProcess)>,
         info: &mut Option<TileInfo>,
-        grid: &mut Option<TileGrid>,
+        grid: &mut Option<BoxedSource>,
         use_url_query: &mut bool,
     ) -> Result<(), TileError> {
         let (src, pc) = self.get_source(id)?;
@@ -319,14 +319,14 @@ impl TileSources {
 
         // and in the same tile grid, or the same z/x/y would name different ground
         match grid {
-            Some(g) if *g == *src.tile_grid() => {}
+            Some(g) if g.tile_grid() == src.tile_grid() => {}
             Some(g) => {
                 return Err(TileError::MismatchedGrids {
-                    left: g.id().to_owned(),
+                    left: g.tile_grid().id().to_owned(),
                     right: src.tile_grid().id().to_owned(),
                 });
             }
-            None => *grid = Some(src.tile_grid().clone()),
+            None => *grid = Some(BoxedSource::clone(&src)),
         }
 
         // TODO: Use chained-if-let once available

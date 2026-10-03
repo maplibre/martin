@@ -39,7 +39,6 @@ use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[hotpath::measure]
 #[expect(
     clippy::too_many_lines,
     reason = "the startup steps in the order they run"

@@ -95,8 +95,8 @@ impl Format {
     }
 
     #[must_use]
-    pub const fn content_type(&self) -> &str {
-        match *self {
+    pub const fn content_type(self) -> &'static str {
+        match self {
             Self::Gif => "image/gif",
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
