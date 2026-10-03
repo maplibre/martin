@@ -37,6 +37,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       # for writing attestations
       id-token: write
@@ -131,6 +132,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          RELEASE_IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           set -euo pipefail
           if ! compgen -G "target/files/*" > /dev/null; then
@@ -138,7 +140,8 @@ jobs:
             exit 1
           fi
           gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
+          if [[ "$RELEASE_IS_PRERELEASE" == true ]]; then latest=false; else latest=true; fi
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest="$latest"
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
         env:
@@ -174,7 +177,7 @@ jobs:
           data_file: target/homebrew_config.yaml
 
       - name: Create a PR for maplibre/homebrew-martin
-        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
@@ -200,6 +203,7 @@ jobs:
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write
@@ -224,7 +228,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@8e61445f0b34e7c6d985255f2f1f05a36eb350dc # v0.5.137
+        uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         id: release
         with: { command: release }
         env:
@@ -247,20 +251,51 @@ jobs:
         run: |
           set -euo pipefail
           for tag in $(jq -r '.[].tag' <<< "$RELEASES"); do
-            if ! gh release view "$tag" --json isDraft --jq '.isDraft' | grep -qx true; then
+            state=$(gh release view "$tag" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' || true)
+            if [[ "$state" != "true "* ]]; then
               echo "$tag has no draft release to publish, skipping"
               continue
             fi
             if [[ "$tag" == martin-v* ]]; then
-              gh release upload "$tag" target/files/*
-              gh release edit "$tag" --verify-tag --draft=false --latest
-            else
-              gh release edit "$tag" --verify-tag --draft=false --latest=false
+              gh release upload "$tag" target/files/* --clobber
             fi
+            if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
+            gh release edit "$tag" --verify-tag --draft=false --latest="$latest"
           done
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Install uv
+        continue-on-error: true
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
+      # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Generate the files that follow martin's next version
+        id: generate
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # release-plz is on the PATH from the release step
+          release-plz update --package martin
+          mapfile -t bumped < <(git diff --name-only)
+          # what pre-commit.ci and the autofix.yml jobs push, in the order they push it
+          uvx pre-commit run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
+          just fmt-toml
+          npm --prefix demo/frontend install --package-lock-only --no-fund
+          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+          just gen-schemas
+          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          # release-pr bumps these itself
+          if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
+          git status --short
+      - if: ${{ steps.generate.outcome == 'failure' }}
+        name: Hand release-pr a clean tree
+        run: git reset --hard && git clean -fd
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@8e61445f0b34e7c6d985255f2f1f05a36eb350dc # v0.5.137
+        uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
+          MLN_PRECOMPILE: 1

@@ -1,4 +1,5 @@
 [workspace]
+allow_dirty = true # release-pr commits what the release job generated before it ran, see release.yml
 dependencies_update = false # sounds good but only works if this were not to pull in incompatible versions
 changelog_update = true
 # Our process goes as follows:

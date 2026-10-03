@@ -1,4 +1,5 @@
 ---
+description: HTTP API for tiles, TileJSON, catalog, sprites and fonts
 icon: material/api
 tags:
   - api

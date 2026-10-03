@@ -26,6 +26,8 @@ pub struct MvtLayerOptions {
     pub buffer: Option<u32>,
     /// Optional geometry clipping toggle.
     pub clip_geom: Option<bool>,
+    /// CQL2 filter that limits which rows are served, translated to SQL and added to the tile query with `AND`.
+    pub filter: Option<String>,
 }
 
 impl MvtLayerOptions {

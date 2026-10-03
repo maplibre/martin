@@ -115,7 +115,7 @@ async fn a_traced_tile_reprojects_to_contour_lines_over_the_fixture_tile() {
     assert_eq!(response.status(), 200);
 
     let collection = response.geojson(10, 163, 396);
-    assert!(!collection.features.is_empty());
+    assert_ne!(collection.features, [] as [geojson::Feature; 0]);
     for feature in &collection.features {
         let geometry = feature.geometry.as_ref().expect("a feature has geometry");
         let GeometryValue::LineString { coordinates } = &geometry.value else {

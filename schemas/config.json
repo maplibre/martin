@@ -338,7 +338,8 @@
           "description": "Zoom-level bounds for caching the tiles of every `PMTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -368,7 +369,8 @@
           "description": "Size of the directory cache (in MB).\nDefaults to `cache.size_mb` / 4\n\nNote:\nTile and directory caching are complementary.\nFor good performance, you want\n- directory caching (to not resolve the directory on each request) and\n- tile caching (for high access tiles)\n\nUse `directory_cache: disable` to disable"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -385,8 +387,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -398,7 +401,8 @@
           "description": "Zoom-level bounds for caching the tiles of every `MBTiles` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "convert_to_mlt": {
@@ -424,7 +428,8 @@
           "description": "MLT->MVT conversion settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert_to_mvt`."
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -436,8 +441,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -456,7 +462,8 @@
           "description": "Zoom-level bounds for caching the tiles of every `GeoJSON` source without its own `cache`.\nOverrides the top-level `cache` bounds."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "extent": {
@@ -467,7 +474,8 @@
           "type": "integer"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "recursive": {
@@ -479,8 +487,9 @@
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -502,19 +511,22 @@
           "description": "Cache configuration for sprites.\nUse `cache: disable` to disable sprite caching."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -522,19 +534,22 @@
     "FileConfig5": {
       "properties": {
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
@@ -556,24 +571,27 @@
           "description": "Cache configuration for fonts.\nUse `cache: disable` to disable font caching."
         },
         "collections": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
         },
         "paths": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
           "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
           },
+          "default": {},
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": "object"
         }
       },
       "type": "object"
     },
-    "FileConfigEnum": {
+    "FileConfigShape": {
       "anyOf": [
         {
           "type": "null"
@@ -590,9 +608,10 @@
         {
           "$ref": "#/$defs/FileConfig"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum2": {
+    "FileConfigShape2": {
       "anyOf": [
         {
           "type": "null"
@@ -609,9 +628,10 @@
         {
           "$ref": "#/$defs/FileConfig2"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum3": {
+    "FileConfigShape3": {
       "anyOf": [
         {
           "type": "null"
@@ -628,9 +648,10 @@
         {
           "$ref": "#/$defs/FileConfig3"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum4": {
+    "FileConfigShape4": {
       "anyOf": [
         {
           "type": "null"
@@ -647,9 +668,10 @@
         {
           "$ref": "#/$defs/FileConfig4"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum5": {
+    "FileConfigShape5": {
       "anyOf": [
         {
           "type": "null"
@@ -666,9 +688,10 @@
         {
           "$ref": "#/$defs/FileConfig5"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
-    "FileConfigEnum6": {
+    "FileConfigShape6": {
       "anyOf": [
         {
           "type": "null"
@@ -685,7 +708,8 @@
         {
           "$ref": "#/$defs/FileConfig6"
         }
-      ]
+      ],
+      "description": "A path, a list of paths, or a configuration map."
     },
     "FileConfigSource": {
       "properties": {
@@ -1094,6 +1118,46 @@
       },
       "type": "object"
     },
+    "OneOrMany": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/PostgresConfig",
+          "description": "Exactly one value present."
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "$ref": "#/$defs/PostgresConfig"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "The accepted shapes of a [`Vec`] field deserialized via [`deserialize`]."
+    },
+    "OneOrMany2": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "description": "Exactly one value present.",
+          "type": "string"
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "The accepted shapes of a [`Vec`] field deserialized via [`deserialize`]."
+    },
     "OnInvalid": {
       "description": "Describes the action to take during startup when configuration is found to be invalid\nbut Martin could still startup in a degraded state (ie, some sources not served).",
       "oneOf": [
@@ -1147,46 +1211,6 @@
         }
       ],
       "description": "A serde helper to store a boolean as an object."
-    },
-    "OptOneMany": {
-      "anyOf": [
-        {
-          "description": "No values present.",
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/PostgresConfig",
-          "description": "Exactly one value present."
-        },
-        {
-          "description": "Multiple values present.",
-          "items": {
-            "$ref": "#/$defs/PostgresConfig"
-          },
-          "type": "array"
-        }
-      ],
-      "description": "An enum that can hold no values, one value, or many values of type T."
-    },
-    "OptOneMany2": {
-      "anyOf": [
-        {
-          "description": "No values present.",
-          "type": "null"
-        },
-        {
-          "description": "Exactly one value present.",
-          "type": "string"
-        },
-        {
-          "description": "Multiple values present.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      ],
-      "description": "An enum that can hold no values, one value, or many values of type T."
     },
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
@@ -1342,7 +1366,7 @@
           "type": "string"
         },
         "url": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL."
         }
       },
@@ -1351,7 +1375,7 @@
     "PassthroughSrc": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Shorthand: an upstream URL template, a `TileJSON` URL, or a list of URL templates."
         },
         {
@@ -1364,7 +1388,7 @@
     "PostgresCfgPublish": {
       "properties": {
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Optionally limit to just these schemas"
         },
         "functions": {
@@ -1380,7 +1404,7 @@
     "PostgresCfgPublishFuncs": {
       "properties": {
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Optionally limit to just these schemas"
         },
         "source_id_format": {
@@ -1413,11 +1437,11 @@
           "type": ["integer", "null"]
         },
         "from_schemas": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "Add more schemas to the ones listed above"
         },
         "id_columns": {
-          "$ref": "#/$defs/OptOneMany2",
+          "$ref": "#/$defs/OneOrMany2",
           "description": "A table column to use as the feature ID\nIf a table has no column with this name, `id_column` will not be set for\nthat table.\nIf a list of strings is given, the first found column will be treated as a\nfeature ID."
         },
         "source_id_format": {
@@ -1817,11 +1841,11 @@
       "description": "Optional endpoints, each off unless enabled here."
     },
     "fonts": {
-      "$ref": "#/$defs/FileConfigEnum6",
+      "$ref": "#/$defs/FileConfigShape6",
       "description": "Font configuration"
     },
     "geojson": {
-      "$ref": "#/$defs/FileConfigEnum3",
+      "$ref": "#/$defs/FileConfigShape3",
       "description": "Publish `GeoJSON` files as vector tile sources"
     },
     "keep_alive": {
@@ -1837,7 +1861,7 @@
       "type": ["string", "null"]
     },
     "mbtiles": {
-      "$ref": "#/$defs/FileConfigEnum2",
+      "$ref": "#/$defs/FileConfigShape2",
       "description": "Publish `MBTiles` files"
     },
     "observability": {
@@ -1868,11 +1892,11 @@
       "description": "Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.\nEach upstream is configured under `sources`."
     },
     "pmtiles": {
-      "$ref": "#/$defs/FileConfigEnum",
+      "$ref": "#/$defs/FileConfigShape",
       "description": "Publish `PMTiles` files from local disk or proxy to a web server"
     },
     "postgres": {
-      "$ref": "#/$defs/OptOneMany",
+      "$ref": "#/$defs/OneOrMany",
       "description": "Database configuration\n\nThis can also be a list of PG configs, for example:\n```yaml\npostgres:\n  - connection_string:  postgres://postgres:postgres@localhost:5432/db\n    default_srid: 4326\n  - connection_string:  postgres://postgres:postgres@another_host:5432/another_db\n    default_srid: 3857\n```"
     },
     "preferred_encoding": {
@@ -1890,19 +1914,26 @@
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",
       "type": ["string", "null"]
     },
+    "shutdown_timeout": {
+      "description": "Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them \\[default: 5\\]\n\nNew connections are refused as soon as the signal arrives and idle keep-alive connections are closed.",
+      "examples": [5],
+      "format": "uint64",
+      "minimum": 0,
+      "type": ["integer", "null"]
+    },
     "sprites": {
-      "$ref": "#/$defs/FileConfigEnum4",
+      "$ref": "#/$defs/FileConfigShape4",
       "description": "Sprite configuration"
     },
     "styles": {
-      "$ref": "#/$defs/FileConfigEnum5",
+      "$ref": "#/$defs/FileConfigShape5",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tile_grids": {
       "additionalProperties": {
         "$ref": "#/$defs/TileGridConfig"
       },
-      "description": "Tile grids sources can be served in, besides the built-in `WebMercatorQuad`\n\nA grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.\nSources refer to a grid by its name here.\n```yaml\ntile_grids:\n  NZTM2000Quad:\n    crs: EPSG:2193\n    origin: [-3260586.7284, 10438190.1652]\n    extent_at_zoom0: 10018754.1714\n```",
+      "description": "Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`\n\nA grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.\nSources refer to a grid by its name here.\n```yaml\ntile_grids:\n  DutchRD:\n    crs: EPSG:28992\n    origin: [-285401.92, 903401.92]\n    extent_at_zoom0: 880803.84\n```",
       "type": "object"
     },
     "tilejson_url_version_param": {
@@ -1919,7 +1950,7 @@
           "type": "null"
         }
       ],
-      "description": "Enable or disable Martin web UI. \\[default: disable\\]\n\nAt the moment, only allows `enable-for-all`, which enables the web UI for all connections.\nThis may be undesirable in a production environment",
+      "description": "Control access to Martin's web UI. \\[default: enable\\]\n\n- `enable` allows only connections from localhost.\n- `enableforall` allows all connections.\n- `disable` turns the web UI off.\n\nUse `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.",
       "examples": ["disable"]
     },
     "worker_processes": {

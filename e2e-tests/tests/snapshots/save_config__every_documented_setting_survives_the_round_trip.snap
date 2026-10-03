@@ -7,6 +7,7 @@ cache:
   minzoom: 0
   maxzoom: 20
 keep_alive: 75
+shutdown_timeout: 10
 listen_addresses: 127.0.0.1:0
 worker_processes: 1
 cache_control: public, max-age=3600
@@ -26,15 +27,17 @@ pmtiles:
         maxzoom: 3
       cache_control: no-store
   recursive: true
-geojson: {}
 sprites:
-  paths: tests/fixtures/sprites/src1
+  paths:
+  - tests/fixtures/sprites/src1
   sources:
     mysrc: tests/fixtures/sprites/src2
 styles:
-  paths: tests/fixtures/styles/src2
+  paths:
+  - tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
 fonts:
-- tests/fixtures/fonts/overpass-mono-regular.ttf
-- tests/fixtures/fonts
+  paths:
+  - tests/fixtures/fonts/overpass-mono-regular.ttf
+  - tests/fixtures/fonts

@@ -25,18 +25,30 @@ async fn table_source() {
     antimeridian:
       content_type: application/x-protobuf
       description: public.antimeridian.geom
+    array_props:
+      content_type: application/x-protobuf
+      description: "Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key"
     auto_table:
       content_type: application/x-protobuf
       description: autodetect.auto_table.geom
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
+    constrained_geometry:
+      content_type: application/x-protobuf
+      description: An untyped geometry column whose SRID and type come from CHECK constraints
     curves:
       content_type: application/x-protobuf
       description: public.curves.geom
     curves_untyped:
       content_type: application/x-protobuf
       description: public.curves_untyped.geom
+    dimensioned_shapes:
+      content_type: application/x-protobuf
+      description: "Every geometry type, in XY, XYZ, XYM and XYZM"
+    domain_props:
+      content_type: application/x-protobuf
+      description: "A domain column and a domain over a domain, which a query returns as the integer under them"
     empty_bounds:
       content_type: application/x-protobuf
       description: public.empty_bounds.geom
@@ -112,6 +124,9 @@ async fn table_source() {
     linestring_bounds_vertical:
       content_type: application/x-protobuf
       description: public.linestring_bounds_vertical.geom
+    measured_shapes:
+      content_type: application/x-protobuf
+      description: "Geometries carrying an M ordinate, in every property type martin serves"
     nz_points:
       content_type: application/x-protobuf
       description: public.nz_points.geom
@@ -369,11 +384,6 @@ async fn table_bounds_empty_table_ok() {
 #[actix_rt::test]
 async fn tables_tile_grid_must_be_configured() {
     let yaml = indoc! {"
-        tile_grids:
-          NZTM2000Quad:
-            crs: EPSG:2193
-            origin: [-3260586.7284, 10438190.1652]
-            extent_at_zoom0: 10018754.1714
         postgres:
           connection_string: $DATABASE_URL
           tables:
@@ -399,7 +409,7 @@ async fn tables_tile_grid_must_be_configured() {
         .expect_err("an unknown tile grid is a config error");
     assert_eq!(
         err.to_string(),
-        "Table source nz_points refers to tile grid NZTM2000quad, which is not configured. Known grids: NZTM2000Quad, WebMercatorQuad, WorldCRS84Quad"
+        "Table source nz_points refers to tile grid NZTM2000quad, which is not configured. Known grids: EuropeanETRS89_LAEAQuad, NZTM2000Quad, UPSAntarcticWGS84Quad, UPSArcticWGS84Quad, WGS1984Quad, WebMercatorQuad, WorldCRS84Quad, WorldMercatorWGS84Quad"
     );
 }
 
@@ -407,11 +417,6 @@ async fn tables_tile_grid_must_be_configured() {
 async fn tables_tile_grid_is_the_connection_default_unless_a_table_names_one() {
     let mock = mock_sources(
         mock_cfg(indoc! {"
-        tile_grids:
-          NZTM2000Quad:
-            crs: EPSG:2193
-            origin: [-3260586.7284, 10438190.1652]
-            extent_at_zoom0: 10018754.1714
         postgres:
           connection_string: $DATABASE_URL
           tile_grid: NZTM2000Quad

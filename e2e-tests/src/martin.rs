@@ -13,8 +13,8 @@ use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue,
 use image::{ColorType, ImageFormat, ImageReader};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
-use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, Layer, Parser, TileLayer};
+use mlt_core::geo_types::{Coord, Geometry, LineString, MultiPolygon, Polygon};
+use mlt_core::{Decoder, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
 use tempfile::TempDir;
@@ -23,7 +23,7 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 
-use crate::{binary_command, workspace_root};
+use crate::{binary_command, pg_ssl_args, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -46,13 +46,9 @@ fn ready_timeout() -> Duration {
 }
 
 const ALLOWED_LOG_LINES: &[&str] = &[
-    "Margin parameter in ST_TileEnvelope is not supported",
-    "PostgreSQL is older than the recommended minimum 12.0.0",
-    "In the used version, some geometry may be hidden on some zoom levels.",
     "Unable to deserialize SQL comment on public.points2 as tilejson",
     "Discovering tables in PostgreSQL database",
     "ST_EstimatedExtent on",
-    "Environment variable DATABASE_URL is deprecated",
     "aborting query. Use --auto-bounds=calc",
 ];
 
@@ -108,7 +104,7 @@ impl MartinBuilder {
         self
     }
 
-    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at.
+    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
         let url = env::var("DATABASE_URL")
@@ -140,6 +136,10 @@ impl MartinBuilder {
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
+            if !self.args.iter().any(|arg| arg == "--config") {
+                cmd.arg(url);
+            }
+            cmd.args(pg_ssl_args());
         }
 
         let mut child = cmd.spawn().map_err(StartError::Spawn)?;
@@ -558,6 +558,160 @@ fn terminate(child: &Child) {
     let _ = child;
 }
 
+/// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.
+#[must_use]
+pub fn mlt_layers(bytes: &[u8]) -> Vec<TileLayer> {
+    let mut parser = Parser::default();
+    let mut decoder = Decoder::default();
+    parser
+        .parse_layers(bytes)
+        .expect("not a maplibre tile")
+        .into_iter()
+        .map(|layer| {
+            layer
+                .into_tile(&mut decoder)
+                .expect("a layer is not decodable")
+                .expect("a layer is of an unknown kind")
+        })
+        .collect()
+}
+
+/// Vector tile bytes in `mvt dump`'s text form.
+#[must_use]
+pub fn mvt_dump(bytes: &[u8]) -> String {
+    format!("{:?}", MvtReaderRef::new(bytes).expect("not a vector tile"))
+}
+
+/// `MapLibre` tile layers as text: a line per layer, then a line per feature.
+///
+/// The features, and the properties of each, are sorted, because an encoder is free to order them
+/// as it likes and two encodings of the same tile only agree on the set of features. A layer with
+/// vertex-scoped columns lists each feature's values for them after its properties.
+#[must_use]
+pub fn mlt_dump(layers: &[TileLayer]) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    for layer in layers {
+        writeln!(
+            out,
+            "layer {} extent {}",
+            layer.name(),
+            layer.extent().get()
+        )
+        .expect("writing to a String cannot fail");
+        let mut rows: Vec<String> = layer
+            .features()
+            .iter()
+            .map(|feature| {
+                let mut props: Vec<String> = layer
+                    .property_names()
+                    .iter()
+                    .zip(feature.properties())
+                    .map(|(name, value)| format!("{name}={value:?}"))
+                    .collect();
+                props.sort();
+                format!(
+                    "  id={:?} geom={:?} props=[{}]{}{}",
+                    feature.id(),
+                    feature.geometry(),
+                    props.join(", "),
+                    vertex_values(layer, feature),
+                    nested_values(layer, feature)
+                )
+            })
+            .collect();
+        rows.sort();
+        out.push_str(&rows.join("\n"));
+        out.push('\n');
+    }
+    out
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn vertex_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.m_value_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .m_value_names()
+        .iter()
+        .zip(feature.m_values())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" vertex=[{}]", values.join(", "))
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn nested_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.nested_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .nested_names()
+        .iter()
+        .zip(feature.nested())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" nested=[{}]", values.join(", "))
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn nested_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn vertex_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
+}
+
+/// `geometry` with every polygon ring started at its smallest vertex.
+#[must_use]
+pub fn rings_from_smallest_vertex(geometry: &Geometry<i32>) -> Geometry<i32> {
+    let polygon = |polygon: &Polygon<i32>| {
+        Polygon::new(
+            ring_from_smallest_vertex(polygon.exterior()),
+            polygon
+                .interiors()
+                .iter()
+                .map(ring_from_smallest_vertex)
+                .collect(),
+        )
+    };
+    match geometry {
+        Geometry::Polygon(p) => Geometry::Polygon(polygon(p)),
+        Geometry::MultiPolygon(mp) => {
+            Geometry::MultiPolygon(MultiPolygon(mp.iter().map(polygon).collect()))
+        }
+        other @ (Geometry::Point(_)
+        | Geometry::Line(_)
+        | Geometry::LineString(_)
+        | Geometry::MultiPoint(_)
+        | Geometry::MultiLineString(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)) => other.clone(),
+    }
+}
+
+fn ring_from_smallest_vertex(ring: &LineString<i32>) -> LineString<i32> {
+    let open = match ring.0.as_slice() {
+        [head @ .., last] if ring.0.first() == Some(last) => head,
+        all => all,
+    };
+    let Some(start) = (0..open.len()).min_by_key(|&i| (open[i].x, open[i].y)) else {
+        return ring.clone();
+    };
+    let mut coords: Vec<Coord<i32>> = open[start..]
+        .iter()
+        .chain(&open[..start])
+        .copied()
+        .collect();
+    coords.push(open[start]);
+    LineString(coords)
+}
+
 pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
     let mut body = Vec::new();
     if raw.is_empty() {
@@ -634,30 +788,13 @@ impl TestResponse {
     /// Decompressed response body decoded as a `MapLibre` tile.
     #[must_use]
     pub fn mlt(&self) -> Vec<TileLayer> {
-        let mut parser = Parser::default();
-        let mut decoder = Decoder::default();
-        parser
-            .parse_layers(&self.body)
-            .expect("response body is not a maplibre tile")
-            .into_iter()
-            .map(|layer| {
-                let Layer::Tag01(layer) = layer else {
-                    panic!("response body has a layer that is not MVT-compatible");
-                };
-                layer
-                    .into_tile(&mut decoder)
-                    .expect("response body has an undecodable layer")
-            })
-            .collect()
+        mlt_layers(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
     #[must_use]
     pub fn mvt_dump(&self) -> String {
-        format!(
-            "{:?}",
-            MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
-        )
+        mvt_dump(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.

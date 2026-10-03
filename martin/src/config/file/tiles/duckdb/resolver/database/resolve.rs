@@ -1,9 +1,8 @@
 use std::path::Path;
-use std::sync::Arc;
 
 use futures::future::join_all;
 use martin_core::tiles::duckdb::{DuckDBPool, DuckDBSource, DuckDBSqlInfo};
-use martin_core::tiles::{AnySource, BoxedSource};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use tilejson::tilejson;
 use tracing::{debug, info};
@@ -16,7 +15,7 @@ use crate::config::file::tiles::duckdb::resolver::database::discover::{
 use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
 use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
 use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
-use crate::config::file::tiles::duckdb::resolver::sql::build_mvt_sql;
+use crate::config::file::tiles::duckdb::resolver::sql::{build_mvt_sql, parse_cql2_filter};
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry,
 };
@@ -217,14 +216,15 @@ pub fn resolve_macro_source(
     tilejson.minzoom = entry.minzoom;
     tilejson.maxzoom = entry.maxzoom;
     tilejson.bounds = entry.bounds;
-    Arc::new(AnySource::DuckDb(DuckDBSource::new(
+    BackendSource::DuckDb(DuckDBSource::new(
         source_id,
         DuckDBSqlInfo::new(sql_query, false, "z, x, y".to_owned()),
         tilejson,
         pool,
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),
         cache.zoom(),
-    )))
+    ))
+    .boxed()
 }
 
 /// Introspects one table of a database file and builds a tile-ready `DuckDBSource` for it.
@@ -236,6 +236,7 @@ pub async fn resolve_table_source(
     auto_bounds: BoundsCalcType,
     cache: CachePolicy,
 ) -> DuckDbSourceResult<BoxedSource> {
+    let filter_sql = parse_cql2_filter(entry.layer.filter.as_deref())?;
     let relation = format!("{}.{}", entry.schema(), entry.table);
     let from_expr = format!(
         "{}.{}",
@@ -258,10 +259,17 @@ pub async fn resolve_table_source(
         &introspection.geometry_column,
         introspection.srid.get(),
         auto_bounds,
+        filter_sql.as_deref(),
     )
     .await?;
 
-    let sql_query = build_mvt_sql(&introspection, &entry.layer, &source_id, &from_expr);
+    let sql_query = build_mvt_sql(
+        &introspection,
+        &entry.layer,
+        &source_id,
+        &from_expr,
+        filter_sql.as_deref(),
+    );
     let tilejson = build_tilejson(
         &introspection,
         &entry.layer,
@@ -279,5 +287,5 @@ pub async fn resolve_table_source(
         cache.zoom(),
     );
 
-    Ok(Arc::new(AnySource::DuckDb(source)))
+    Ok(BackendSource::DuckDb(source).boxed())
 }

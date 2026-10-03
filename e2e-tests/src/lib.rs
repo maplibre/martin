@@ -26,13 +26,16 @@ use tokio::process::Command;
 pub use crate::cassette::Cassette;
 pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
-pub use crate::martin::{Martin, MartinBuilder, StartError, TestResponse};
+pub use crate::martin::{
+    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump,
+    rings_from_smallest_vertex,
+};
 pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{
-    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, open_read_only,
-    open_read_write, patch_tiles, summary, summary_filters, tiles,
+    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing,
+    open_read_only, open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
-pub use crate::pmtiles::vector_pmtiles;
+pub use crate::pmtiles::{LEAFY_ZOOM, leafy_pmtiles, leafy_tile, vector_pmtiles};
 pub use crate::statics::StaticFiles;
 
 /// A temporary directory for a test to build its fixtures and outputs in.
@@ -59,6 +62,19 @@ pub fn workspace_root() -> PathBuf {
         .parent()
         .expect("e2e-tests crate must live directly under the workspace root")
         .to_path_buf()
+}
+
+/// The client certificate flags for the test database, taken from the `PGSSL*` variables in the harness's environment.
+fn pg_ssl_args() -> Vec<OsString> {
+    [
+        ("PGSSLROOTCERT", "--ca-root-file"),
+        ("PGSSLCERT", "--ssl-cert"),
+        ("PGSSLKEY", "--ssl-key"),
+    ]
+    .into_iter()
+    .filter_map(|(var, flag)| env::var_os(var).map(|path| [OsString::from(flag), path]))
+    .flatten()
+    .collect()
 }
 
 /// A workspace binary, run from its debug build unless `env_var` names another one.

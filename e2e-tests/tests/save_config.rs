@@ -5,6 +5,7 @@ use tempfile::TempDir;
 
 const CONFIG: &str = "
 keep_alive: 75
+shutdown_timeout: 10
 cache_control: public, max-age=3600
 cache:
   size_mb: 8

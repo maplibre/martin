@@ -39,6 +39,80 @@ pub const WORLD_CRS84_QUAD: TileGrid = TileGrid {
     wraps: true,
 };
 
+/// The registry's other name for [`WORLD_CRS84_QUAD`], `EPSG:4326` in the axis order Martin always uses.
+pub const WGS1984_QUAD_ID: &str = "WGS1984Quad";
+
+/// Mercator on the WGS84 ellipsoid (`EPSG:3395`), with the zoom scales of [`WEB_MERCATOR_QUAD`].
+///
+/// This is `WorldMercatorWGS84Quad` from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html#toc51) registry.
+pub const WORLD_MERCATOR_WGS84_QUAD: TileGrid = TileGrid {
+    id: Cow::Borrowed("WorldMercatorWGS84Quad"),
+    crs: Cow::Borrowed("EPSG:3395"),
+    origin: [-EARTH_CIRCUMFERENCE / 2.0, EARTH_CIRCUMFERENCE / 2.0],
+    extent_at_zoom0: EARTH_CIRCUMFERENCE,
+    matrix_at_zoom0: [1, 1],
+    wraps: true,
+};
+
+/// Europe on the equal-area ETRS89-LAEA projection (`EPSG:3035`).
+///
+/// This is `EuropeanETRS89_LAEAQuad` from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html#toc55) registry.
+pub const EUROPEAN_ETRS89_LAEA_QUAD: TileGrid = TileGrid {
+    id: Cow::Borrowed("EuropeanETRS89_LAEAQuad"),
+    crs: Cow::Borrowed("EPSG:3035"),
+    origin: [2_000_000.0, 5_500_000.0],
+    extent_at_zoom0: 4_500_000.0,
+    matrix_at_zoom0: [1, 1],
+    wraps: false,
+};
+
+/// New Zealand on NZTM2000 (`EPSG:2193`), with the zoom scales of [`WEB_MERCATOR_QUAD`] from its zoom 2 on.
+///
+/// This is `NZTM2000Quad` as [LINZ](https://github.com/linz/NZTM2000TileMatrixSet) publishes it.
+pub const NZTM2000_QUAD: TileGrid = TileGrid {
+    id: Cow::Borrowed("NZTM2000Quad"),
+    crs: Cow::Borrowed("EPSG:2193"),
+    origin: [-3_260_586.728_4, 10_438_190.165_2],
+    extent_at_zoom0: EARTH_CIRCUMFERENCE / 4.0,
+    matrix_at_zoom0: [1, 1],
+    wraps: false,
+};
+
+/// The Arctic on Universal Polar Stereographic North (`EPSG:5041`).
+///
+/// This is `UPSArcticWGS84Quad` from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html#toc53) registry.
+pub const UPS_ARCTIC_WGS84_QUAD: TileGrid = TileGrid {
+    id: Cow::Borrowed("UPSArcticWGS84Quad"),
+    crs: Cow::Borrowed("EPSG:5041"),
+    origin: [-14_440_759.350_252, 18_440_759.350_252],
+    extent_at_zoom0: 32_881_518.694_4,
+    matrix_at_zoom0: [1, 1],
+    wraps: false,
+};
+
+/// The Antarctic on Universal Polar Stereographic South (`EPSG:5042`).
+///
+/// This is `UPSAntarcticWGS84Quad` from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html#toc54) registry.
+pub const UPS_ANTARCTIC_WGS84_QUAD: TileGrid = TileGrid {
+    id: Cow::Borrowed("UPSAntarcticWGS84Quad"),
+    crs: Cow::Borrowed("EPSG:5042"),
+    origin: [-14_440_759.350_252, 18_440_759.350_252],
+    extent_at_zoom0: 32_881_518.694_4,
+    matrix_at_zoom0: [1, 1],
+    wraps: false,
+};
+
+/// Every built-in grid.
+pub const BUILT_IN_GRIDS: [TileGrid; 7] = [
+    WEB_MERCATOR_QUAD,
+    WORLD_CRS84_QUAD,
+    WORLD_MERCATOR_WGS84_QUAD,
+    EUROPEAN_ETRS89_LAEA_QUAD,
+    NZTM2000_QUAD,
+    UPS_ARCTIC_WGS84_QUAD,
+    UPS_ANTARCTIC_WGS84_QUAD,
+];
+
 /// A square power-of-two quad tile grid in a coordinate reference system.
 ///
 /// Zoom 0 is `matrix_at_zoom0` square tiles of side `extent_at_zoom0`, the first with its top-left corner at `origin`.
@@ -92,8 +166,7 @@ impl TileGrid {
     /// A grid named `id` in the coordinate reference system `crs`, whose zoom-0 tile has its top-left corner at `origin` and side `extent_at_zoom0`, both in CRS units.
     ///
     /// `crs` is an authority-prefixed identifier such as `EPSG:2193` or `IAU_2015:49900`, or [`SIMPLE_CRS`] for plain planar units.
-    /// Grids built here never wrap.
-    /// Only the built-in grids do.
+    /// Grids built here never wrap, only [`WEB_MERCATOR_QUAD`], [`WORLD_CRS84_QUAD`] and [`WORLD_MERCATOR_WGS84_QUAD`] do.
     pub fn new(
         id: impl Into<String>,
         crs: impl Into<String>,
@@ -262,27 +335,29 @@ mod tests {
 
     use super::*;
 
-    /// LINZ's `NZTM2000Quad`, from <https://github.com/linz/NZTM2000TileMatrixSet>.
-    fn nztm2000quad() -> TileGrid {
-        TileGrid::new(
-            "NZTM2000Quad",
-            "EPSG:2193",
-            [-3_260_586.728_4, 10_438_190.165_2],
-            10_018_754.171_4,
-        )
-        .unwrap()
-    }
-
     #[test]
-    fn only_the_built_in_grids_wrap() {
-        assert!(WEB_MERCATOR_QUAD.wraps());
-        assert!(WEB_MERCATOR_QUAD.is_web_mercator());
-        assert_eq!(WEB_MERCATOR_QUAD.crs(), "EPSG:3857");
-        assert!(WORLD_CRS84_QUAD.wraps());
-        assert!(!WORLD_CRS84_QUAD.is_web_mercator());
-        let nztm = nztm2000quad();
-        assert!(!nztm.wraps());
-        assert!(!nztm.is_web_mercator());
+    fn only_the_cylindrical_world_grids_wrap() {
+        let wrapping: Vec<&str> = BUILT_IN_GRIDS
+            .iter()
+            .filter(|grid| grid.wraps())
+            .map(TileGrid::id)
+            .collect();
+        assert_eq!(
+            wrapping,
+            [
+                "WebMercatorQuad",
+                "WorldCRS84Quad",
+                "WorldMercatorWGS84Quad"
+            ]
+        );
+        let mercator: Vec<&str> = BUILT_IN_GRIDS
+            .iter()
+            .filter(|grid| grid.is_web_mercator())
+            .map(TileGrid::id)
+            .collect();
+        assert_eq!(mercator, ["WebMercatorQuad"]);
+        let plan = TileGrid::new("floor", SIMPLE_CRS, [0.0, 1000.0], 1000.0).unwrap();
+        assert!(!plan.wraps());
     }
 
     #[rstest]
@@ -340,7 +415,7 @@ mod tests {
     #[case([3, 1])]
     #[case([0, 1])]
     fn only_one_by_one_two_by_one_and_one_by_two_matrices_exist(#[case] matrix: [u32; 2]) {
-        let err = nztm2000quad().with_matrix_at_zoom0(matrix).unwrap_err();
+        let err = NZTM2000_QUAD.with_matrix_at_zoom0(matrix).unwrap_err();
         assert!(
             matches!(err, TileGridError::InvalidMatrix(id, c, r) if id == "NZTM2000Quad" && [c, r] == matrix)
         );
@@ -386,14 +461,14 @@ mod tests {
 
     #[test]
     fn serializes_like_the_maplibre_tile_matrix() {
-        let json = serde_json::to_value(nztm2000quad()).unwrap();
+        let json = serde_json::to_value(NZTM2000_QUAD).unwrap();
         assert_eq!(
             json,
             serde_json::json!({
                 "id": "NZTM2000Quad",
                 "crs": "EPSG:2193",
                 "origin": [-3_260_586.728_4, 10_438_190.165_2],
-                "extentAtZoom0": 10_018_754.171_4,
+                "extentAtZoom0": EARTH_CIRCUMFERENCE / 4.0,
             })
         );
         // the matrix only shows up when there is more than one tile at zoom 0

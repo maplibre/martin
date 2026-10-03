@@ -1,0 +1,260 @@
+{
+  "crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+  "id": "WebMercatorQuad",
+  "orderedAxes": ["X", "Y"],
+  "tileMatrices": [
+    {
+      "cellSize": 156543.033928041,
+      "id": "0",
+      "matrixHeight": 1,
+      "matrixWidth": 1,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 559082264.028717,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 78271.5169640204,
+      "id": "1",
+      "matrixHeight": 2,
+      "matrixWidth": 2,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 279541132.014358,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 39135.7584820102,
+      "id": "2",
+      "matrixHeight": 4,
+      "matrixWidth": 4,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 139770566.007179,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 19567.8792410051,
+      "id": "3",
+      "matrixHeight": 8,
+      "matrixWidth": 8,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 69885283.0035897,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 9783.93962050256,
+      "id": "4",
+      "matrixHeight": 16,
+      "matrixWidth": 16,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 34942641.5017948,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 4891.96981025128,
+      "id": "5",
+      "matrixHeight": 32,
+      "matrixWidth": 32,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 17471320.7508974,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 2445.98490512564,
+      "id": "6",
+      "matrixHeight": 64,
+      "matrixWidth": 64,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 8735660.37544871,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1222.99245256282,
+      "id": "7",
+      "matrixHeight": 128,
+      "matrixWidth": 128,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 4367830.18772435,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 611.49622628141,
+      "id": "8",
+      "matrixHeight": 256,
+      "matrixWidth": 256,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 2183915.09386217,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 305.748113140704,
+      "id": "9",
+      "matrixHeight": 512,
+      "matrixWidth": 512,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 1091957.54693108,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 152.874056570352,
+      "id": "10",
+      "matrixHeight": 1024,
+      "matrixWidth": 1024,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 545978.773465544,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 76.4370282851762,
+      "id": "11",
+      "matrixHeight": 2048,
+      "matrixWidth": 2048,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 272989.386732772,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 38.2185141425881,
+      "id": "12",
+      "matrixHeight": 4096,
+      "matrixWidth": 4096,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 136494.693366386,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 19.109257071294,
+      "id": "13",
+      "matrixHeight": 8192,
+      "matrixWidth": 8192,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 68247.346683193,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 9.55462853564703,
+      "id": "14",
+      "matrixHeight": 16384,
+      "matrixWidth": 16384,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 34123.6733415964,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 4.77731426782351,
+      "id": "15",
+      "matrixHeight": 32768,
+      "matrixWidth": 32768,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 17061.8366707982,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 2.38865713391175,
+      "id": "16",
+      "matrixHeight": 65536,
+      "matrixWidth": 65536,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 8530.91833539913,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 1.19432856695587,
+      "id": "17",
+      "matrixHeight": 131072,
+      "matrixWidth": 131072,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 4265.45916769956,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.597164283477939,
+      "id": "18",
+      "matrixHeight": 262144,
+      "matrixWidth": 262144,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 2132.72958384978,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.29858214173897,
+      "id": "19",
+      "matrixHeight": 524288,
+      "matrixWidth": 524288,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 1066.36479192489,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.149291070869485,
+      "id": "20",
+      "matrixHeight": 1048576,
+      "matrixWidth": 1048576,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 533.182395962445,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.0746455354347424,
+      "id": "21",
+      "matrixHeight": 2097152,
+      "matrixWidth": 2097152,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 266.591197981222,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.0373227677173712,
+      "id": "22",
+      "matrixHeight": 4194304,
+      "matrixWidth": 4194304,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 133.295598990611,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.0186613838586856,
+      "id": "23",
+      "matrixHeight": 8388608,
+      "matrixWidth": 8388608,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 66.6477994953056,
+      "tileHeight": 256,
+      "tileWidth": 256
+    },
+    {
+      "cellSize": 0.0093306919293428,
+      "id": "24",
+      "matrixHeight": 16777216,
+      "matrixWidth": 16777216,
+      "pointOfOrigin": [-20037508.3427892, 20037508.3427892],
+      "scaleDenominator": 33.3238997476528,
+      "tileHeight": 256,
+      "tileWidth": 256
+    }
+  ],
+  "title": "Google Maps Compatible for the World",
+  "uri": "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad",
+  "wellKnownScaleSet": "http://www.opengis.net/def/wkss/OGC/1.0/GoogleMapsCompatible"
+}

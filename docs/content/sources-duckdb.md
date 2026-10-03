@@ -1,4 +1,5 @@
 ---
+description: Serving tiles from GeoParquet files through DuckDB
 icon: simple/duckdb
 tags:
   - duckdb
@@ -22,21 +23,26 @@ tags:
     It is unstable due to the limitations of our current implementation:
 
     - DuckDB sources are not included in default binaries, Homebrew, or the Docker image
-    - There is no CLI shorthand for `.parquet` or `.duckdb` files
     - Local GeoParquet must be a single file; directories and globs are rejected
-    - Hot reload is not implemented
-    - MLT postprocessing is not supported
+    - Hot reload only watches local GeoParquet files. Changes to `database` files and remote GeoParquet need a restart.
     - The published configuration schema does not yet include DuckDB sources
 
     We welcome contributions to help stabilize this feature!
 
-Martin can serve vector tiles on the fly from [GeoParquet](https://geoparquet.org/) files and from the tables and macros of `.duckdb` database files via [DuckDB](https://duckdb.org/).
-Instead of incurring the overhead of serving them directly, we serve them as vector tiles.
+Martin serves vector tiles from [GeoParquet](https://geoparquet.org/) files and from tables and macros in [DuckDB](https://duckdb.org/) database files.
 
-DuckDB sources are only available via the [configuration file](config-file/index.md).
-There is no CLI shorthand.
-Create a configuration file and start Martin with `martin --config config.yaml`.
-Once a DuckDB configuration exists, `martin --config config.yaml --save-config resolved-config.yaml` writes a copy with the resolved per-source defaults.
+Pass a local file to use the default settings:
+
+- `martin data.parquet` serves a GeoParquet file.
+- `martin tiles.duckdb` publishes the database's geometry tables and `(z, x, y)` tile macros.
+
+To customize DuckDB sources or use remote GeoParquet, use a [configuration file](config-file/index.md) and run `martin --config config.yaml`.
+
+Add `--save-config resolved-config.yaml` to any of these commands to save the configuration with resolved per-source defaults:
+
+```bash
+martin --config config.yaml --save-config resolved-config.yaml
+```
 
 ## Run Martin with configuration file
 
@@ -100,6 +106,7 @@ Each GeoParquet source supports:
 - **`extent`** - side length of the MVT tile coordinate grid each tile is encoded into (defaults to `4096`, the value [MapLibre](https://maplibre.org/) assumes). Must be non-zero.
 - **`buffer`** - clip margin kept around each tile edge, in tile units (defaults to `64`). Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
 - **`clip_geom`** - controls if geometries should be clipped or encoded as is (defaults to `true`).
+- **`filter`** - optional [CQL2](#filtering-rows) expression to filter served rows and computed bounds. The filter is parsed at startup and translated into SQL.
 
 Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override the top-level values for that source.
 
@@ -168,6 +175,7 @@ duckdb:
           extent: 4096
           buffer: 64
           clip_geom: true
+          filter: highway = 'motorway'
       macros:
         # Source id
         roads_at_zoom:
@@ -209,6 +217,19 @@ FROM (
 ```
 
 Macros are served as-is: Martin does not compute their bounds or `vector_layers`.
+
+## Filtering rows
+
+GeoParquet sources and DuckDB database tables can be filtered with a `filter` option.
+
+```yaml
+duckdb:
+  sources:
+    - geoparquet: /data/buildings.parquet
+      filter: height > 20 AND type = 'residential'
+```
+
+--8<-- "cql2-filter.md"
 
 ## About GeoParquet
 

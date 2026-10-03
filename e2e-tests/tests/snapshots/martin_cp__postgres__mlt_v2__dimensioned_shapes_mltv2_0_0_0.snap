@@ -1,0 +1,33 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: mlt_dump(&v2)
+---
+layer dimensioned_shapes extent 4096
+  id=Some(1) geom=POINT(2048 2048) props=[dims=Str(Some("xy")), kind=Str(Some("point"))] vertex=[m=F64(None)]
+  id=Some(11) geom=POINT(2048 2048) props=[dims=Str(Some("xyz")), kind=Str(Some("point"))] vertex=[m=F64(None)]
+  id=Some(12) geom=LINESTRING(2162 2048,2276 1934,2389 2048) props=[dims=Str(Some("xyz")), kind=Str(Some("linestring"))] vertex=[m=F64(None)]
+  id=Some(13) geom=POLYGON((2503 2048,2503 1816,2731 1816,2731 2048,2503 2048),(2674 1875,2560 1875,2560 1991,2674 1991,2674 1875)) props=[dims=Str(Some("xyz")), kind=Str(Some("polygon"))] vertex=[m=F64(None)]
+  id=Some(14) geom=MULTIPOINT(2844 2048,2958 1934) props=[dims=Str(Some("xyz")), kind=Str(Some("multipoint"))] vertex=[m=F64(None)]
+  id=Some(15) geom=MULTILINESTRING((3072 2048,3186 1934),(3072 1934,3186 2048)) props=[dims=Str(Some("xyz")), kind=Str(Some("multilinestring"))] vertex=[m=F64(None)]
+  id=Some(16) geom=MULTIPOLYGON(((3300 2048,3300 1934,3413 1934,3413 2048,3300 2048)),((3470 2048,3470 1934,3584 1934,3584 2048,3470 2048))) props=[dims=Str(Some("xyz")), kind=Str(Some("multipolygon"))] vertex=[m=F64(None)]
+  id=Some(17) geom=LINESTRING(3641 1934,3755 1816) props=[dims=Str(Some("xyz")), kind=Str(Some("geometrycollection"))] vertex=[m=F64(None)]
+  id=Some(2) geom=LINESTRING(2162 2048,2276 1934,2389 2048) props=[dims=Str(Some("xy")), kind=Str(Some("linestring"))] vertex=[m=F64(None)]
+  id=Some(21) geom=POINT(2048 2048) props=[dims=Str(Some("xym")), kind=Str(Some("point"))] vertex=[m=F64(Some([1.0]))]
+  id=Some(22) geom=LINESTRING(2162 2048,2276 1934,2389 2048) props=[dims=Str(Some("xym")), kind=Str(Some("linestring"))] vertex=[m=F64(Some([1.0, 2.0, 3.0]))]
+  id=Some(23) geom=POLYGON((2503 2048,2503 1816,2731 1816,2731 2048,2503 2048),(2560 1991,2674 1991,2674 1875,2560 1875,2560 1991)) props=[dims=Str(Some("xym")), kind=Str(Some("polygon"))] vertex=[m=F64(Some([1.0, 4.0, 3.0, 2.0, 5.0, 8.0, 7.0, 6.0]))]
+  id=Some(24) geom=MULTIPOINT(2844 2048,2958 1934) props=[dims=Str(Some("xym")), kind=Str(Some("multipoint"))] vertex=[m=F64(Some([1.0, 2.0]))]
+  id=Some(25) geom=MULTILINESTRING((3072 2048,3186 1934),(3072 1934,3186 2048)) props=[dims=Str(Some("xym")), kind=Str(Some("multilinestring"))] vertex=[m=F64(Some([1.0, 2.0, 3.0, 4.0]))]
+  id=Some(26) geom=MULTIPOLYGON(((3300 2048,3300 1934,3413 1934,3413 2048,3300 2048)),((3470 2048,3470 1934,3584 1934,3584 2048,3470 2048))) props=[dims=Str(Some("xym")), kind=Str(Some("multipolygon"))] vertex=[m=F64(Some([1.0, 4.0, 3.0, 2.0, 5.0, 8.0, 7.0, 6.0]))]
+  id=Some(27) geom=LINESTRING(3641 1934,3755 1816) props=[dims=Str(Some("xym")), kind=Str(Some("geometrycollection"))] vertex=[m=F64(Some([2.0, 3.0]))]
+  id=Some(3) geom=POLYGON((2503 2048,2503 1816,2731 1816,2731 2048,2503 2048),(2674 1875,2560 1875,2560 1991,2674 1991,2674 1875)) props=[dims=Str(Some("xy")), kind=Str(Some("polygon"))] vertex=[m=F64(None)]
+  id=Some(31) geom=POINT(2048 2048) props=[dims=Str(Some("xyzm")), kind=Str(Some("point"))] vertex=[m=F64(Some([1.0]))]
+  id=Some(32) geom=LINESTRING(2162 2048,2276 1934,2389 2048) props=[dims=Str(Some("xyzm")), kind=Str(Some("linestring"))] vertex=[m=F64(Some([1.0, 2.0, 3.0]))]
+  id=Some(33) geom=POLYGON((2503 2048,2503 1816,2731 1816,2731 2048,2503 2048),(2560 1991,2674 1991,2674 1875,2560 1875,2560 1991)) props=[dims=Str(Some("xyzm")), kind=Str(Some("polygon"))] vertex=[m=F64(Some([1.0, 4.0, 3.0, 2.0, 5.0, 8.0, 7.0, 6.0]))]
+  id=Some(34) geom=MULTIPOINT(2844 2048,2958 1934) props=[dims=Str(Some("xyzm")), kind=Str(Some("multipoint"))] vertex=[m=F64(Some([1.0, 2.0]))]
+  id=Some(35) geom=MULTILINESTRING((3072 2048,3186 1934),(3072 1934,3186 2048)) props=[dims=Str(Some("xyzm")), kind=Str(Some("multilinestring"))] vertex=[m=F64(Some([1.0, 2.0, 3.0, 4.0]))]
+  id=Some(36) geom=MULTIPOLYGON(((3300 2048,3300 1934,3413 1934,3413 2048,3300 2048)),((3470 2048,3470 1934,3584 1934,3584 2048,3470 2048))) props=[dims=Str(Some("xyzm")), kind=Str(Some("multipolygon"))] vertex=[m=F64(Some([1.0, 4.0, 3.0, 2.0, 5.0, 8.0, 7.0, 6.0]))]
+  id=Some(37) geom=LINESTRING(3641 1934,3755 1816) props=[dims=Str(Some("xyzm")), kind=Str(Some("geometrycollection"))] vertex=[m=F64(Some([2.0, 3.0]))]
+  id=Some(4) geom=MULTIPOINT(2844 2048,2958 1934) props=[dims=Str(Some("xy")), kind=Str(Some("multipoint"))] vertex=[m=F64(None)]
+  id=Some(5) geom=MULTILINESTRING((3072 2048,3186 1934),(3072 1934,3186 2048)) props=[dims=Str(Some("xy")), kind=Str(Some("multilinestring"))] vertex=[m=F64(None)]
+  id=Some(6) geom=MULTIPOLYGON(((3300 2048,3300 1934,3413 1934,3413 2048,3300 2048)),((3470 2048,3470 1934,3584 1934,3584 2048,3470 2048))) props=[dims=Str(Some("xy")), kind=Str(Some("multipolygon"))] vertex=[m=F64(None)]
+  id=Some(7) geom=LINESTRING(3641 1934,3755 1816) props=[dims=Str(Some("xy")), kind=Str(Some("geometrycollection"))] vertex=[m=F64(None)]

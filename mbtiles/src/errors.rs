@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::HashAlgorithm;
+
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use sqlite_hashes::rusqlite;
 
@@ -96,6 +98,15 @@ pub enum MbtError {
     )]
     UnsupportedHashAlgorithm {
         algorithm: String,
+        filepath: PathBuf,
+    },
+
+    #[error(
+        "Cannot copy with hash algorithm `{requested}` into {filepath}, which stores its hashes as `{destination}`"
+    )]
+    HashAlgorithmMismatch {
+        requested: HashAlgorithm,
+        destination: HashAlgorithm,
         filepath: PathBuf,
     },
 
@@ -227,6 +238,11 @@ pub enum MbtError {
     #[cfg(feature = "transcode")]
     #[error("Transcoding error: {0}")]
     TranscodeError(String),
+
+    #[error(
+        "Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first"
+    )]
+    CannotTranscodeNormalizedToDedupId,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

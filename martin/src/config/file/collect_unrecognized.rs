@@ -1,6 +1,6 @@
 use std::collections::hash_map::IntoIter as HashMapIntoIter;
 use std::collections::{BTreeMap, HashMap};
-use std::num::{NonZeroI32, NonZeroU32, NonZeroU64, NonZeroUsize};
+use std::num::{NonZeroI32, NonZeroU8, NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -158,6 +158,7 @@ impl_empty_collect_unrecognized!(
     f64,
     [f64; 2],
     [u32; 2],
+    NonZeroU8,
     NonZeroU32,
     NonZeroU64,
     NonZeroI32,
@@ -180,3 +181,5 @@ impl_empty_collect_unrecognized!(RetryTimeout);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
+#[cfg(feature = "rendering")]
+impl_empty_collect_unrecognized!(martin_core::styles::TileSize);

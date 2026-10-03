@@ -4,7 +4,7 @@ expression: saved
 ---
 listen_addresses: 127.0.0.1:0
 postgres:
-  connection_string: [DATABASE_URL]
+- connection_string: [DATABASE_URL]
   default_srid: 900913
   auto_bounds: calc
   pool_size: 1
@@ -51,6 +51,22 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    array_props:
+      schema: public
+      table: array_props
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        doc: jsonb
+        feat_id: int4
+        label: text
+        tags: int4
     auto_table:
       schema: autodetect
       table: auto_table
@@ -79,6 +95,19 @@ postgres:
       properties:
         big_feat_id: int8
         id: int4
+    constrained_geometry:
+      schema: public
+      table: constrained_geometry
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        gid: int4
     curves:
       schema: public
       table: curves
@@ -105,6 +134,36 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    dimensioned_shapes:
+      schema: public
+      table: dimensioned_shapes
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 150.0
+      - 20.0
+      geometry_type: GEOMETRY
+      properties:
+        dims: text
+        feat_id: int4
+        kind: text
+    domain_props:
+      schema: public
+      table: domain_props
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 1.0
+      - 1.0
+      geometry_type: POINT
+      properties:
+        feat_id: int4
+        floors: small_count
+        visitors: positive_count
     empty_bounds:
       schema: public
       table: empty_bounds
@@ -166,6 +225,28 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         id: int4
+    measured_shapes:
+      schema: public
+      table: measured_shapes
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - 0.0
+      - 0.0
+      - 9.0
+      - 9.0
+      geometry_type: GEOMETRYM
+      properties:
+        big: int8
+        code: varchar
+        double: float8
+        feat_id: int4
+        flag: bool
+        label: text
+        never_set: int4
+        signed: int4
+        single: float4
+        small: int2
     nz_points:
       schema: public
       table: nz_points

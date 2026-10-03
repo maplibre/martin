@@ -1,4 +1,5 @@
 ---
+description: Installing Martin from binaries, Docker, Homebrew or source
 icon: material/download
 tags:
   - getting-started
@@ -7,7 +8,7 @@ tags:
 
 ### Prerequisites
 
-If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. PostGIS v3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
 On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
 Older CPUs need to [build Martin from source](development/index.md).
@@ -16,16 +17,16 @@ Older CPUs need to [build Martin from source](development/index.md).
 
 Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration
 file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by
-passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.
+passing a PostgreSQL connection string or the .mbtiles/.pmtiles files or URLs to .pmtiles.
+A configuration file can read a variable passed into the container, for example `connection_string: ${DATABASE_URL}`.
 
 ```bash
-export PGPASSWORD=postgres  # secret!
+export DATABASE_URL=postgres://user:password@host:port/db  # secret!
 
 docker run -p 3000:3000 \
-           -e PGPASSWORD \
-           -e DATABASE_URL=postgres://user@host:port/db \
+           -e DATABASE_URL \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.16.1 \
+           ghcr.io/maplibre/martin:2.0.0-beta.2 \
            --config /config/config.yaml
 ```
 

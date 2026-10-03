@@ -152,8 +152,7 @@ curl http://localhost:3000/catalog
 ```bash
 just start
 PGHOST=localhost PGPORT=5411 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=db tests/fixtures/initdb.sh
-export DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'
-cargo run --bin martin -- --webui enable-for-all
+cargo run --bin martin -- --webui enable-for-all postgres://postgres:postgres@localhost:5411/db
 ```
 
 ### Scenario 3 - CLI Tools

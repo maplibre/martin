@@ -4,7 +4,8 @@
 use std::fs;
 
 use martin_e2e_tests::{
-    Martin, StartError, StaticFiles, WatchedDir, fixture, mbtiles_fixture, vector_pmtiles,
+    LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile,
+    mbtiles_fixture, vector_pmtiles,
 };
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
@@ -91,11 +92,16 @@ async fn auto_configured_minimal() {
     insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
-      paths: tests/fixtures/pmtiles2
+      paths:
+      - tests/fixtures/pmtiles2
       sources:
         webp2: tests/fixtures/pmtiles2/webp2.pmtiles
-    mbtiles: tests/fixtures/pmtiles2
-    geojson: tests/fixtures/pmtiles2
+    mbtiles:
+      paths:
+      - tests/fixtures/pmtiles2
+    geojson:
+      paths:
+      - tests/fixtures/pmtiles2
     ");
 
     martin.stop().await;
@@ -480,9 +486,42 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
     GET /pmtilestest/world_cities.pmtiles bytes=0-16383
-    GET /pmtilestest/world_cities.pmtiles bytes=16384-17147
-    GET /pmtilestest/world_cities.pmtiles bytes=18275-18425
+    GET /pmtilestest/world_cities.pmtiles bytes=16384-17166
+    GET /pmtilestest/world_cities.pmtiles bytes=18294-18444
     ");
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
+#[tokio::test]
+async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let key = "pmtilestest/leafy.pmtiles";
+    let statics =
+        StaticFiles::serving(&[(key, leafy_pmtiles(1, tmp.path().join("v1.pmtiles")))]).await;
+    let mut martin = Martin::builder()
+        .config(&s3_config(&statics, "leafy", "leafy.pmtiles"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let last = (1 << LEAFY_ZOOM) - 1;
+    let tile = martin.get(&format!("/leafy/{LEAFY_ZOOM}/0/0")).await;
+    assert_eq!(tile.status(), 200);
+    assert!(tile.text().starts_with(&leafy_tile(1, 0, 0)));
+
+    statics.replace(key, &leafy_pmtiles(2, tmp.path().join("v2.pmtiles")));
+
+    let tile = martin
+        .get(&format!("/leafy/{LEAFY_ZOOM}/{last}/{last}"))
+        .await;
+    assert_eq!(tile.status(), 200, "{}", tile.text());
+    assert!(tile.text().starts_with(&leafy_tile(2, last, last)));
+    let tile = martin.get(&format!("/leafy/{LEAFY_ZOOM}/0/0")).await;
+    assert_eq!(tile.status(), 200, "{}", tile.text());
+    assert!(tile.text().starts_with(&leafy_tile(2, 0, 0)));
+
+    martin.stop().await;
+    martin.assert_log_contains("Source modified; reloading");
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 

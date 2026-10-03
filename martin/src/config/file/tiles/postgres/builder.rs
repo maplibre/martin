@@ -2,12 +2,11 @@ use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::num::NonZeroU32;
-use std::sync::Arc;
 
 use itertools::Itertools as _;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
-use martin_core::tiles::{AnySource, BoxedSource};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
 
@@ -27,7 +26,6 @@ use crate::config::file::{
 };
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
-use crate::config::primitives::OptOneMany::NoVals;
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]
@@ -167,16 +165,12 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
 macro_rules! get_auto_schemas {
     ($config:expr, $typ:ident) => {
         if let Object(v) = &$config.auto_publish {
-            match (&v.from_schemas, &v.$typ) {
-                (NoVals, NoValue | Bool(_)) => None,
-                (v, NoValue | Bool(_)) => v.opt_iter().map(|v| v.cloned().collect()),
-                (NoVals, Object(v)) => v.from_schemas.opt_iter().map(|v| v.cloned().collect()),
-                (v, Object(v2)) => {
-                    let mut vals: HashSet<_> = v.iter().cloned().collect();
-                    vals.extend(v2.from_schemas.iter().cloned());
-                    Some(vals)
-                }
-            }
+            let inner: &[String] = match &v.$typ {
+                Object(v2) => &v2.from_schemas,
+                NoValue | Bool(_) => &[],
+            };
+            let vals: HashSet<String> = v.from_schemas.iter().chain(inner).cloned().collect();
+            (!vals.is_empty()).then_some(vals)
         } else {
             None
         }
@@ -288,6 +282,7 @@ impl PostgresAutoDiscoveryBuilder {
             .await?;
         self.discover_functions(&all_schemas, &mut specs, &mut warnings)
             .await?;
+        self.pool.check_postgis().await?;
         Ok((specs, warnings))
     }
 
@@ -307,7 +302,8 @@ impl PostgresAutoDiscoveryBuilder {
             return Ok(());
         }
         let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
-        let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
+        let mut db_tables_info =
+            query_available_tables(&self.pool, self.source_schemas(), restrict_to_tables).await?;
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -669,7 +665,7 @@ impl PostgresAutoDiscoveryBuilder {
         }
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        Arc::new(AnySource::Postgres(PostgresSource::new(
+        BackendSource::Postgres(PostgresSource::new(
             id,
             sql_info,
             tilejson,
@@ -677,7 +673,8 @@ impl PostgresAutoDiscoveryBuilder {
             tile_info,
             cache.zoom(),
             grid.grid().clone(),
-        )))
+        ))
+        .boxed()
     }
 
     fn configured_tables(&self) -> HashSet<(String, String)> {
@@ -685,6 +682,21 @@ impl PostgresAutoDiscoveryBuilder {
             .values()
             .map(|t| (t.schema.to_lowercase(), t.table.to_lowercase()))
             .collect()
+    }
+
+    /// The lowercased schemas a table source can come from, or `None` if auto-publishing reads every schema.
+    fn source_schemas(&self) -> Option<Vec<String>> {
+        let auto_schemas = match &self.auto_tables {
+            Some(auto_tables) => auto_tables.schemas.as_ref()?.iter().collect(),
+            None => Vec::new(),
+        };
+        Some(
+            auto_schemas
+                .into_iter()
+                .chain(self.tables.values().map(|t| &t.schema))
+                .map(|schema| schema.to_lowercase())
+                .collect(),
+        )
     }
 }
 
@@ -786,7 +798,7 @@ fn calc_auto(
                     .as_deref()
                     .unwrap_or("{table}")
                     .to_owned(),
-                id_columns: v.id_columns.opt_iter().map(|v| v.cloned().collect()),
+                id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
                 extent: v.extent,
@@ -1159,6 +1171,7 @@ mod tests {
             signature: "public.my_func(integer, integer, integer) -> bytea",
             has_etag_column: false,
             queryless: None,
+            row_query: None,
         }
         "#);
 

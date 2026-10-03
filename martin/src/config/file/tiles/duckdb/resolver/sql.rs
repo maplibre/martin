@@ -1,8 +1,10 @@
+use std::fmt::Write as _;
 use std::num::NonZeroU32;
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use tracing::debug;
 
+use crate::config::file::tiles::duckdb::resolver::errors::{DuckDbSourceError, DuckDbSourceResult};
 use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
 use crate::config::file::tiles::duckdb::sources::MvtLayerOptions;
 use crate::config::file::tiles::duckdb::sql_utils::{
@@ -30,12 +32,25 @@ const TILE_ENVELOPE: &str = "ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEG
 /// edges, so those sources keep scanning every row group instead.
 const AXIS_MONOTONE_SRIDS: [i32; 2] = [3857, 4326];
 
+/// The configured CQL2 `filter` translated to a SQL expression string, or `None`.
+pub fn parse_cql2_filter(filter: Option<&str>) -> DuckDbSourceResult<Option<String>> {
+    use cql2::ToSqlAst as _;
+    let Some(filter) = filter else {
+        return Ok(None);
+    };
+    let invalid = |reason: String| DuckDbSourceError::InvalidFilter(filter.to_owned(), reason);
+    let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
+    let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
+    Ok(Some(sql))
+}
+
 #[must_use]
 pub fn build_mvt_sql(
     introspection: &LayerIntrospection,
     layer: &MvtLayerOptions,
     layer_id: &str,
     from_expr: &str,
+    filter_sql: Option<&str>,
 ) -> String {
     let extent = layer.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
     let buffer = layer.buffer.unwrap_or(DEFAULT_BUFFER);
@@ -64,16 +79,17 @@ pub fn build_mvt_sql(
     filters.push(format!(
         "ST_Intersects({transformed_geometry}, {buffered_envelope})"
     ));
+    if let Some(filter_sql) = filter_sql {
+        filters.push(format!("({filter_sql})"));
+    }
     let where_clause = filters.join("\n    AND ");
 
-    let properties = introspection
-        .property_columns
-        .iter()
-        .map(|(column, mvt_type)| {
-            let escaped = escape_identifier(column);
-            format!(", {escaped}::{mvt_type} AS {escaped}")
-        })
-        .collect::<String>();
+    let mut properties = String::new();
+    for (column, mvt_type) in &introspection.property_columns {
+        let escaped = escape_identifier(column);
+        write!(properties, ", {escaped}::{mvt_type} AS {escaped}")
+            .expect("writing to a String should not fail");
+    }
 
     let (id_name, id_field) = if let Some(id_column) = &layer.id_column {
         (
@@ -199,6 +215,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -225,6 +242,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -255,6 +273,7 @@ mod tests {
             &layer,
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -281,6 +300,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -311,6 +331,7 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         insta::assert_snapshot!(sql, @r#"
@@ -341,11 +362,72 @@ mod tests {
             &MvtLayerOptions::default(),
             "buildings",
             &from_expr(),
+            None,
         );
 
         assert!(
             !sql.contains("bbox"),
             "unexpected covering predicate: {sql}"
+        );
+    }
+
+    #[test]
+    fn build_mvt_sql_includes_cql2_filter() {
+        let filter = parse_cql2_filter(Some("id <= 10 AND name = 'abc'"))
+            .expect("valid CQL2")
+            .expect("filter is present");
+        let sql = build_mvt_sql(
+            &introspection_with_srid(4326),
+            &MvtLayerOptions::default(),
+            "buildings",
+            &from_expr(),
+            Some(&filter),
+        );
+
+        insta::assert_snapshot!(sql, @r#"
+
+        SELECT ST_AsMVT(tile, 'buildings', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_Extent(ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEGER)),
+                4096::BIGINT, 64::BIGINT, true
+            ) AS geom
+            , "category"::VARCHAR AS "category", "name"::VARCHAR AS "name"
+          FROM read_parquet('/data/points.parquet')
+          WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Expand(ST_TileEnvelope($z::INTEGER, $x::INTEGER, $y::INTEGER), ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, $z::INTEGER)))
+            AND (id <= 10 AND name = 'abc')
+        ) AS tile;
+        "#);
+    }
+
+    #[test]
+    fn parse_cql2_filter_returns_none_when_omitted() {
+        assert_eq!(parse_cql2_filter(None).unwrap(), None);
+    }
+
+    #[test]
+    fn parse_cql2_filter_translates_valid_expression() {
+        let parsed = parse_cql2_filter(Some("id > 5")).unwrap();
+        assert_eq!(parsed.as_deref(), Some("id > 5"));
+    }
+
+    #[test]
+    fn parse_cql2_filter_rejects_malformed_expression() {
+        let err = parse_cql2_filter(Some("id <=")).unwrap_err();
+        assert!(
+            matches!(err, DuckDbSourceError::InvalidFilter(ref f, _) if f == "id <="),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_cql2_filter_rejects_empty_string() {
+        let empty_err = parse_cql2_filter(Some("")).unwrap_err();
+        assert!(
+            matches!(empty_err, DuckDbSourceError::InvalidFilter(ref f, _) if f.is_empty()),
+            "empty string must fail CQL2 parsing: {empty_err}"
         );
     }
 }

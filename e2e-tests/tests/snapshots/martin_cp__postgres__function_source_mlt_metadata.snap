@@ -1,0 +1,12 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: metadata
+---
+agg_tiles_hash = BBB85A0FD64D73314947E62EE9F53A03
+description = public.function_zxy_query_test
+format = mlt
+generator = martin cp v0.0.0
+hash_algorithm = md5
+maxzoom = 0
+minzoom = 0
+name = function_zxy_query_test

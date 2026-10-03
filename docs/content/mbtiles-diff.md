@@ -1,4 +1,5 @@
 ---
+description: Comparing two MBTiles files and applying the resulting patch
 icon: material/database-sync
 tags:
   - mbtiles

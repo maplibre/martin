@@ -1,0 +1,116 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: summary
+---
+{
+  "avg_tile_size": 187.9212598425,
+  "bbox": [
+    -180.0,
+    -85.0511287798,
+    180.0,
+    85.0511287798
+  ],
+  "file_path": "[TMP]",
+  "file_size": 0,
+  "max_tile_size": 983,
+  "max_zoom": 6,
+  "mbt_type": "FlatWithHash",
+  "min_tile_size": 57,
+  "min_zoom": 0,
+  "page_count": 0,
+  "page_size": 0,
+  "tile_count": 127,
+  "zoom_info": [
+    {
+      "avg_tile_size": 892.0,
+      "bbox": [
+        -180.0,
+        -85.0511287798,
+        180.0,
+        85.0511287798
+      ],
+      "max_tile_size": 892,
+      "min_tile_size": 892,
+      "tile_count": 1,
+      "zoom": 0
+    },
+    {
+      "avg_tile_size": 609.5,
+      "bbox": [
+        -180.0,
+        -85.0511287798,
+        180.0,
+        85.0511287798
+      ],
+      "max_tile_size": 983,
+      "min_tile_size": 474,
+      "tile_count": 4,
+      "zoom": 1
+    },
+    {
+      "avg_tile_size": 451.0,
+      "bbox": [
+        -90.0,
+        -66.5132604431,
+        180.0,
+        66.5132604431
+      ],
+      "max_tile_size": 865,
+      "min_tile_size": 150,
+      "tile_count": 5,
+      "zoom": 2
+    },
+    {
+      "avg_tile_size": 264.5,
+      "bbox": [
+        -45.0,
+        -40.9798980696,
+        180.0,
+        66.5132604431
+      ],
+      "max_tile_size": 839,
+      "min_tile_size": 57,
+      "tile_count": 8,
+      "zoom": 3
+    },
+    {
+      "avg_tile_size": 216.6153846153,
+      "bbox": [
+        -22.5,
+        -21.9430455334,
+        157.5000000000,
+        55.7765730186
+      ],
+      "max_tile_size": 751,
+      "min_tile_size": 57,
+      "tile_count": 13,
+      "zoom": 4
+    },
+    {
+      "avg_tile_size": 167.4814814814,
+      "bbox": [
+        -11.25,
+        -11.1784018737,
+        146.25,
+        48.9224992637
+      ],
+      "max_tile_size": 666,
+      "min_tile_size": 57,
+      "tile_count": 27,
+      "zoom": 5
+    },
+    {
+      "avg_tile_size": 127.9275362318,
+      "bbox": [
+        -5.625,
+        -5.6159858191,
+        146.25,
+        45.0890355648
+      ],
+      "max_tile_size": 636,
+      "min_tile_size": 57,
+      "tile_count": 69,
+      "zoom": 6
+    }
+  ]
+}

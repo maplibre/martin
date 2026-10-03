@@ -98,7 +98,10 @@ pub trait Source: Send + Sync + Debug {
     /// implement this method.
     ///
     /// The default implementation asserts.
-    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<BoxedSource>> + Send {
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<Self>> + Send
+    where
+        Self: Sized,
+    {
         async { unreachable!() }
     }
 

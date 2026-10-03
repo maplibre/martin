@@ -1,4 +1,5 @@
 ---
+description: Serving tiles, fonts, sprites and style from one instance
 icon: material/map
 tags:
   - recipes

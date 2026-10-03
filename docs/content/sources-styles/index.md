@@ -1,4 +1,5 @@
 ---
+description: Serving MapLibre style JSON files
 icon: material/palette
 tags:
   - styles

@@ -6,7 +6,9 @@
 
 use std::f64::consts::PI;
 use std::fmt::{Display, Formatter};
+use std::io::Read;
 
+use flate2::read::{MultiGzDecoder, ZlibDecoder};
 use strum::EnumIter;
 
 /// circumference of the earth in meters
@@ -23,8 +25,9 @@ mod decoders;
 pub use decoders::*;
 mod grid;
 pub use grid::{
-    SIMPLE_CRS, TileGrid, TileGridError, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WORLD_CRS84_QUAD,
-    WORLD_CRS84_QUAD_ID,
+    BUILT_IN_GRIDS, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
+    UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID,
+    WGS1984_QUAD_ID, WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
 };
 mod rectangle;
 pub use rectangle::{TileRect, append_rect};
@@ -238,8 +241,12 @@ impl TileInfo {
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
         match Encoding::detect(value) {
-            Some(encoding @ Encoding::Gzip) => Self::detect_inner(decode_gzip(value), encoding),
-            Some(encoding @ Encoding::Zlib) => Self::detect_inner(decode_zlib(value), encoding),
+            Some(encoding @ Encoding::Gzip) => {
+                Self::detect_inner(&mut MultiGzDecoder::new(value), encoding)
+            }
+            Some(encoding @ Encoding::Zlib) => {
+                Self::detect_inner(&mut ZlibDecoder::new(value), encoding)
+            }
             _ => match Self::detect_raster_formats(value) {
                 Some(raster_format) => Self::new(raster_format, Encoding::Internal),
                 None => Self::detect_vectorish_format(value).into(),
@@ -249,8 +256,20 @@ impl TileInfo {
 
     /// Detect the format carried inside a compressed payload, assuming MVT if it cannot be
     /// decompressed.
-    fn detect_inner(decompressed: std::io::Result<Vec<u8>>, encoding: Encoding) -> Self {
-        let format = decompressed.map_or(Format::Mvt, |d| Self::detect_vectorish_format(&d));
+    fn detect_inner(decoder: &mut impl Read, encoding: Encoding) -> Self {
+        let mut decompressed = Vec::new();
+        let format = if decoder
+            .by_ref()
+            .take(DETECT_PREFIX_LEN)
+            .read_to_end(&mut decompressed)
+            .is_err()
+            || rules_out_mlt_and_json(&decompressed)
+            || decoder.read_to_end(&mut decompressed).is_err()
+        {
+            Format::Mvt
+        } else {
+            Self::detect_vectorish_format(&decompressed)
+        };
         Self::new(format, encoding)
     }
 
@@ -404,6 +423,20 @@ fn is_valid_json(tile: &[u8]) -> bool {
     tile.starts_with(b"{")
         && tile.ends_with(b"}")
         && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
+}
+
+/// How many decompressed bytes detection reads before it decides whether it needs the rest
+const DETECT_PREFIX_LEN: u64 = 16;
+
+/// Whether the first decompressed bytes of a tile already rule out both MLT and JSON
+fn rules_out_mlt_and_json(prefix: &[u8]) -> bool {
+    !prefix.starts_with(b"{")
+        && matches!(
+            decode_7bit_length_and_tag(prefix, &[0x1]),
+            Err(SevenBitDecodingError::UnexpectedTag(_)
+                | SevenBitDecodingError::SizeOverflow
+                | SevenBitDecodingError::SizeUnderflow)
+        )
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom

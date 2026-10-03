@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
     CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedValues, subdirectories,
+    ConfigurationLivecycleHooks, FileConfig, UnrecognizedValues, subdirectories,
 };
 
 #[serde_with::skip_serializing_none]
@@ -43,37 +43,26 @@ pub struct InnerFontConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-pub type FontConfig = FileConfigEnum<InnerFontConfig>;
+pub type FontConfig = FileConfig<InnerFontConfig>;
 
 impl FontConfig {
     /// Discovers and loads fonts from the specified directories by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
-    pub fn resolve(&mut self) -> ConfigFileResult<FontSources> {
-        let Some(cfg) = self.extract_file_config() else {
-            return Ok(FontSources::default());
-        };
-
+    pub fn resolve(&self) -> ConfigFileResult<FontSources> {
         let mut results = FontSources::default();
-        let mut directories = Vec::new();
-        let mut configs = BTreeMap::new();
 
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                configs.insert(id, source.clone());
-                results
-                    .recursively_add_directory(source.get_path().clone())
-                    .map_err(|e| ConfigFileError::FontResolutionFailed(e, source.into_path()))?;
-            }
+        for source in self.sources.values() {
+            results
+                .recursively_add_directory(source.get_path().clone())
+                .map_err(|e| ConfigFileError::FontResolutionFailed(e, source.get_path().clone()))?;
         }
 
-        for base_path in cfg.paths {
-            directories.push(base_path.clone());
+        for base_path in &self.paths {
             results
                 .recursively_add_directory(base_path.clone())
                 .map_err(|e| ConfigFileError::FontResolutionFailed(e, base_path.clone()))?;
         }
 
-        let collections: Vec<_> = cfg.collections.into_iter().collect();
-        for collection in &collections {
+        for collection in &self.collections {
             for (_name, path) in subdirectories(collection)
                 .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
@@ -83,13 +72,11 @@ impl FontConfig {
             }
         }
 
-        for (alias, fonts) in &cfg.custom.aliases {
+        for (alias, fonts) in &self.custom.aliases {
             results
                 .add_alias(alias.clone(), fonts.clone())
                 .map_err(ConfigFileError::FontAliasResolutionFailed)?;
         }
-
-        *self = Self::new_extended(directories, collections, configs, cfg.custom);
 
         Ok(results)
     }

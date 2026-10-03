@@ -11,7 +11,7 @@ import Tabs from './Tabs';
 const OPTIONS = [
   {
     command:
-      'docker run -p 3000:3000 \\\n  -e DATABASE_URL=postgres://user:password@host/db \\\n  ghcr.io/maplibre/martin',
+      'docker run -p 3000:3000 \\\n  ghcr.io/maplibre/martin \\\n  postgres://user:password@host/db',
     id: 'docker',
     label: 'Docker',
   },

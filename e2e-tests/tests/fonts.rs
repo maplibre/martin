@@ -97,6 +97,18 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
     });
     assert_eq!(fontstack(&response).name, "Overpass Mono Regular");
 
+    let head = martin.head(&format!("/font/{REGULAR}/0-255")).await;
+    assert_eq!(head.status(), 200);
+    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+        insta::assert_snapshot!(head.headers_snapshot(), @"
+        content-encoding: br
+        content-type: application/x-protobuf
+        transfer-encoding: chunked
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
+    assert_eq!(head.body(), b"");
+
     martin.stop().await;
 }
 
@@ -221,7 +233,7 @@ async fn a_glyph_range_answers_conditional_requests() {
         .get_with_headers(&path, &[("if-none-match", &etag)])
         .await;
     assert_eq!(cached.status(), 304);
-    assert!(cached.body().is_empty());
+    assert_eq!(cached.body(), b"");
 
     let stale = martin
         .get_with_headers(

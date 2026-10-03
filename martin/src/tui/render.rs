@@ -29,6 +29,10 @@ const NOTE_INDENT: &str = "    ";
 const WITH: &str = " with ";
 /// What the pretty format puts between the message of an event and its fields.
 const FIELD_SEPARATOR: &str = ", ";
+#[cfg(not(test))]
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(test)]
+const VERSION: &str = "0.0.0";
 
 /// Draws `view` onto the whole frame.
 pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
@@ -59,7 +63,7 @@ pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
 
 fn header_line(view: &Snapshot) -> Line<'static> {
     Line::from(vec![
-        Span::from(format!(" Martin v{} ", env!("CARGO_PKG_VERSION"))).bold(),
+        Span::from(format!(" Martin v{VERSION} ")).bold(),
         Span::from(format!(
             " {}  up {}  {} requests  {} errors  {:.1} req/s",
             view.address,

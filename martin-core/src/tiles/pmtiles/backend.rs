@@ -20,7 +20,7 @@ pub(crate) struct PmtFileBackend {
     #[dbg(skip)]
     mmap: MmapBackend,
     path: PathBuf,
-    version: String,
+    version: (u64, u128, u64),
 }
 
 impl PmtFileBackend {
@@ -39,19 +39,16 @@ impl PmtFileBackend {
 
 impl AsyncBackend for PmtFileBackend {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
-        let version = data_version(&std::fs::metadata(&self.path)?);
-        if version != self.version {
+        if data_version(&std::fs::metadata(&self.path)?) != self.version {
             return Err(PmtError::SourceModified);
         }
-        let mut response = self.mmap.read(offset, length).await?;
-        response.data_version_string = Some(version);
-        Ok(response)
+        self.mmap.read(offset, length).await
     }
 }
 
 /// The inode, modification time and size of the file.
 /// This is the fingerprint `object_store` uses as an `ETag`.
-fn data_version(meta: &Metadata) -> String {
+fn data_version(meta: &Metadata) -> (u64, u128, u64) {
     #[cfg(unix)]
     let inode = meta.ino();
     #[cfg(not(unix))]
@@ -62,7 +59,7 @@ fn data_version(meta: &Metadata) -> String {
         .and_then(|mtime| mtime.duration_since(SystemTime::UNIX_EPOCH).ok())
         .unwrap_or_default()
         .as_nanos();
-    format!("{inode:x}-{mtime:x}-{:x}", meta.len())
+    (inode, mtime, meta.len())
 }
 
 /// Where a [`PmtilesSource`](super::PmtilesSource) reads its bytes from.

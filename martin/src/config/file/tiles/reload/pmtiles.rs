@@ -7,7 +7,7 @@ use crate::config::file::tiles::discovery::{
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -29,7 +29,7 @@ impl PmtilesReloader {
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<PmtConfig>,
+        config: &FileConfig<PmtConfig>,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
@@ -37,17 +37,12 @@ impl PmtilesReloader {
         let default_cache = config.cache_or(default_cache);
         #[cfg(feature = "_process")]
         let process = {
-            let source_type = match config {
-                FileConfigEnum::Config(cfg) => ProcessConfig {
-                    #[cfg(feature = "mlt")]
-                    convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
-                    #[cfg(feature = "mlt")]
-                    convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
-                    ..Default::default()
-                },
-                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                    ProcessConfig::default()
-                }
+            let source_type = ProcessConfig {
+                #[cfg(feature = "mlt")]
+                convert_to_mlt: config.custom.convert_to_mlt.clone(),
+                #[cfg(feature = "mlt")]
+                convert_to_mvt: config.custom.convert_to_mvt.clone(),
+                ..Default::default()
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
@@ -57,12 +52,7 @@ impl PmtilesReloader {
             ProcessConfig::default()
         };
 
-        let pmt_config = match config {
-            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
-            FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                PmtConfig::default()
-            }
-        };
+        let pmt_config = config.custom.clone();
 
         // Local sources are built through `PmtConfig::new_sources` (path -> file:// URL).
         // This closure captures `build_config` so every discovered file reuses the same shared directory cache and `object_store` options.
@@ -156,9 +146,8 @@ mod tests {
     use crate::config::file::{
         CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid,
     };
-    use crate::config::primitives::OptOneMany;
 
-    fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PmtilesReloader {
+    fn make_reloader(config: &FileConfig<PmtConfig>) -> PmtilesReloader {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let resolver = IdResolver::new(&[]);
         PmtilesReloader::new(
@@ -198,9 +187,9 @@ mod tests {
 
     #[test]
     fn new_with_none_config_yields_default_interval() {
-        let reloader = make_reloader(&FileConfigEnum::None);
-        assert!(reloader.local.discovery().directories().is_empty());
-        assert!(reloader.remote.discovery().remote_prefixes().is_empty());
+        let reloader = make_reloader(&FileConfig::default());
+        assert_eq!(reloader.local.discovery().directories(), [] as [PathBuf; 0]);
+        assert_eq!(reloader.remote.discovery().remote_prefixes(), []);
         assert_eq!(
             reloader.remote.discovery().reload_interval(),
             DEFAULT_RELOAD_INTERVAL
@@ -209,19 +198,19 @@ mod tests {
 
     #[test]
     fn new_partitions_local_and_remote_paths() {
-        let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::Many(vec![
+        let cfg = FileConfig {
+            collections: Vec::new(),
+            paths: vec![
                 PathBuf::from("s3://bucket-a/"),
                 PathBuf::from("s3://bucket-b/folder/"),
                 PathBuf::from("https://example.com/tiles/"),
-            ]),
-            sources: None,
+            ],
+            sources: BTreeMap::new(),
             custom: PmtConfig {
                 reload_interval: Duration::from_secs(30),
                 ..PmtConfig::default()
             },
-        });
+        };
         assert_yaml_snapshot!(ReloaderSnapshot::from(&make_reloader(&cfg)), @r#"
         local_dir_count: 0
         remote_prefix_count: 3
@@ -235,15 +224,12 @@ mod tests {
 
     #[test]
     fn new_dedups_remote_prefixes() {
-        let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::Many(vec![
-                PathBuf::from("s3://bucket/"),
-                PathBuf::from("s3://bucket/"),
-            ]),
-            sources: None,
+        let cfg = FileConfig {
+            collections: Vec::new(),
+            paths: vec![PathBuf::from("s3://bucket/"), PathBuf::from("s3://bucket/")],
+            sources: BTreeMap::new(),
             custom: PmtConfig::default(),
-        });
+        };
         let r = make_reloader(&cfg);
         assert_eq!(r.remote.discovery().remote_prefixes().len(), 1);
     }
@@ -268,16 +254,16 @@ mod tests {
                 convert_to_contour: None,
             })),
         );
-        let cfg = FileConfigEnum::Config(FileConfig {
-            collections: OptOneMany::NoVals,
-            paths: OptOneMany::NoVals,
-            sources: Some(sources),
+        let cfg = FileConfig {
+            collections: Vec::new(),
+            paths: Vec::new(),
+            sources,
             custom: PmtConfig::default(),
-        });
+        };
         let r = make_reloader(&cfg);
         // Remote single-file sources are tracked elsewhere (resolve_files) -- the reloader
         // does not need to re-list them, so neither half picks them up.
-        assert!(r.local.discovery().directories().is_empty());
-        assert!(r.remote.discovery().remote_prefixes().is_empty());
+        assert_eq!(r.local.discovery().directories(), [] as [PathBuf; 0]);
+        assert_eq!(r.remote.discovery().remote_prefixes(), []);
     }
 }

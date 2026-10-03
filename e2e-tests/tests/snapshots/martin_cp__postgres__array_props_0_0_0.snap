@@ -1,0 +1,7 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: mlt_dump(&direct)
+---
+layer array_props extent 4096
+  id=Some(1) geom=POINT(2048 2048) props=[kind=Str(Some("a")), label=Str(Some("one")), rank=I32(Some(1)), score=Str(Some("1.5")), tags=Str(Some("{1,2,3}"))]
+  id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("two")), rank=I32(Some(-2)), score=Str(Some("3")), tags=Str(None)]

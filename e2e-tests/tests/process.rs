@@ -232,7 +232,7 @@ async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
     assert_eq!(proxied.status(), 200);
     insta::assert_snapshot!(proxied.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 643
+    content-length: 678
     content-type: application/x-protobuf
     etag: "lDkxk7p2r2HsWFzhXDsD5A"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

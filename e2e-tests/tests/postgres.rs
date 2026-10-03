@@ -215,22 +215,6 @@ async fn assert_tiles_across_zooms(martin: &Martin, source: &str, snapshot_prefi
 }
 
 #[tokio::test]
-async fn legacy_postgres_env_vars_warn_in_the_log() {
-    let mut martin = Martin::builder()
-        .with_postgres()
-        .env("DEFAULT_SRID", "4326")
-        .start()
-        .await
-        .expect("failed to start martin");
-
-    martin.stop().await;
-    for var in ["DATABASE_URL", "DEFAULT_SRID"] {
-        martin.assert_log_contains(&format!("Environment variable {var} is deprecated"));
-    }
-    assert_discovery_warnings(&mut martin);
-}
-
-#[tokio::test]
 async fn every_kind_of_source_in_the_database_is_published() {
     let mut martin = martin_with_postgres().await;
 
@@ -744,7 +728,7 @@ async fn the_saved_config_spells_out_every_table_and_function_that_was_discovere
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
-        (r"(?m)^  connection_string: .*$", "  connection_string: [DATABASE_URL]"),
+        (r"(?m)^(- |  )connection_string: .*$", "${1}connection_string: [DATABASE_URL]"),
         (r"(-?\d+\.\d{10})\d+", "$1"),
     ]}, {
         insta::assert_snapshot!(saved);
@@ -763,7 +747,7 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
-        (r"(?m)^  connection_string: .*$", "  connection_string: [DATABASE_URL]"),
+        (r"(?m)^(- |  )connection_string: .*$", "${1}connection_string: [DATABASE_URL]"),
         (r"(-?\d+\.\d{10})\d+", "$1"),
     ]}, {
         insta::assert_snapshot!(saved);
@@ -1626,6 +1610,21 @@ async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
 }
 
 #[tokio::test]
+async fn an_exported_database_url_alone_is_not_a_source() {
+    let error = Martin::builder()
+        .env("DATABASE_URL", "postgres://ignored@127.0.0.1:1/db")
+        .env("RUST_LOG", "martin=error")
+        .start()
+        .await
+        .expect_err("martin must not pick a database up from its environment");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"ERROR No tile sources found. Set sources by giving a database connection string on command line or a config file.");
+}
+
+#[tokio::test]
 async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()
@@ -1664,10 +1663,6 @@ postgres:
 /// New Zealand on LINZ's `NZTM2000Quad`, world points on a square WGS84 grid, and Mars landing sites on a CRS `PostGIS` only knows from a `spatial_ref_sys` row.
 const TILE_GRIDS_CONFIG: &str = "
 tile_grids:
-  NZTM2000Quad:
-    crs: EPSG:2193
-    origin: [-3260586.7284, 10438190.1652]
-    extent_at_zoom0: 10018754.1714
   WGS84Square:
     crs: EPSG:4326
     origin: [-180, 90]
@@ -1784,7 +1779,7 @@ async fn a_table_on_another_tile_grid_advertises_the_grid_and_serves_its_tiles()
       "name": "nz_points",
       "tileGrid": {
         "crs": "EPSG:2193",
-        "extentAtZoom0": 10018754.1714,
+        "extentAtZoom0": 10018754.171394626,
         "id": "NZTM2000Quad",
         "origin": [
           -3260586.7284,
@@ -1946,12 +1941,17 @@ postgres:
     martin.stop().await;
     insta::assert_snapshot!(martin.take_log_lines("simple tile grid").join("\n"), @"
     WARN Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.constrained_geometry.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.domain_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Table public.measured_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
     WARN Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping

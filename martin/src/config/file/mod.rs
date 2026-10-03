@@ -43,7 +43,6 @@ pub mod process;
 
 #[cfg(feature = "_tiles")]
 mod tile_grids;
-#[cfg(any(feature = "postgres", feature = "_file_kinds"))]
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{
     MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,

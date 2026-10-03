@@ -491,7 +491,7 @@ mod tests {
         .await
         .unwrap();
         let got = mbt.get_cached(&mut conn, 5, 1, 1).await.unwrap().unwrap();
-        assert!(got.data.is_empty());
+        assert_eq!(got.data, b"");
         assert_eq!(got.fetched, Some(UnixSeconds(5)));
         assert_eq!(got.expires, Some(UnixSeconds(60)));
         assert_eq!(got.etag.as_deref(), Some("miss-etag"));

@@ -1,4 +1,5 @@
 ---
+description: Serving tiles from local MBTiles files
 icon: material/database
 tags:
   - mbtiles

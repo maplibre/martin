@@ -34,34 +34,11 @@ use crate::StartupResult;
     feature = "fonts"
 ))]
 use crate::config::file::ConfigurationLivecycleHooks;
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "sprites",
-    feature = "fonts",
-))]
-use crate::config::file::FileConfigEnum;
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson"
-))]
-use crate::config::file::FileConfigSrc;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "passthrough",
-    feature = "unstable-cog",
-    feature = "geojson"
-))]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ResolvedProcess;
@@ -73,10 +50,24 @@ use crate::config::file::process::ResolvedProcess;
 ))]
 use crate::config::file::resolve_files;
 use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson"
+))]
+use crate::config::file::{FileConfig, FileConfigSrc};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
+
+#[cfg(feature = "_tiles")]
+type ResolvedTileSources = (
+    Vec<Vec<BoxedSource>>,
+    Vec<TileSourceWarning>,
+    HashMap<String, ProcessConfig>,
+);
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
@@ -94,7 +85,7 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        for pg in self.postgres.iter_mut() {
+        for pg in &mut self.postgres {
             pg.finalize().await?;
         }
 
@@ -102,7 +93,7 @@ impl Config {
         {
             let tile_grids = TileGrids::resolve(&self.tile_grids)?;
             #[cfg(feature = "postgres")]
-            for pg in self.postgres.iter() {
+            for pg in &self.postgres {
                 pg.check_tile_grids(&tile_grids)?;
             }
             #[cfg(feature = "mbtiles")]
@@ -118,14 +109,7 @@ impl Config {
         }
 
         #[cfg(feature = "pmtiles")]
-        {
-            // if a pmtiles source were to keep being configured like this,
-            // we would not be able to migrate defaults/deprecate settings
-            //
-            // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
-            self.pmtiles = self.pmtiles.clone().into_config();
-            self.pmtiles.finalize().await?;
-        }
+        self.pmtiles.finalize().await?;
 
         #[cfg(feature = "mbtiles")]
         self.mbtiles.finalize().await?;
@@ -134,11 +118,7 @@ impl Config {
         self.passthrough.finalize().await?;
 
         #[cfg(feature = "unstable-cog")]
-        {
-            // URL-only shorthand still needs object-store defaults and environment migration.
-            self.cog = self.cog.clone().into_config();
-            self.cog.finalize().await?;
-        }
+        self.cog.finalize().await?;
 
         #[cfg(feature = "unstable-duckdb")]
         self.duckdb.finalize().await?;
@@ -229,7 +209,14 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         #[cfg(feature = "_tiles")]
-        let (tile_sources, warnings) = self
+        #[cfg_attr(
+            not(feature = "unstable-duckdb"),
+            expect(
+                unused_variables,
+                reason = "only duckdb reports per-source process layers"
+            )
+        )]
+        let (tile_sources, warnings, duckdb_process) = self
             .resolve_tile_sources(
                 idr,
                 #[cfg(feature = "pmtiles")]
@@ -244,7 +231,15 @@ impl Config {
 
         #[cfg(feature = "_tiles")]
         let tile_sources_with_process = {
-            let process_map = self.resolved_process_map()?;
+            #[cfg_attr(
+                not(feature = "unstable-duckdb"),
+                expect(unused_mut, reason = "duckdb inserts per-source process entries")
+            )]
+            let mut process_map = self.resolved_process_map()?;
+
+            #[cfg(feature = "unstable-duckdb")]
+            self.populate_duckdb_process_map(duckdb_process, &mut process_map)?;
+
             tile_sources
                 .into_iter()
                 .map(|group| {
@@ -310,47 +305,32 @@ impl Config {
 
             #[cfg(feature = "pmtiles")]
             let pmtiles = {
-                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                    (
-                        cfg.custom
-                            .directory_cache
-                            .size_mb
-                            .unwrap_or(cache_size_mb / 4),
-                        cfg.custom.directory_cache.expiry.or(global_expiry),
-                        cfg.custom.directory_cache.idle_timeout.or(global_idle),
-                    )
-                } else {
-                    (cache_size_mb / 4, global_expiry, global_idle)
-                };
-                Self::make_sub_cache(size, expiry, idle)
+                let cache = &self.pmtiles.custom.directory_cache;
+                Self::make_sub_cache(
+                    cache.size_mb.unwrap_or(cache_size_mb / 4),
+                    cache.expiry.or(global_expiry),
+                    cache.idle_timeout.or(global_idle),
+                )
             };
 
             #[cfg(feature = "sprites")]
             let sprites = {
-                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                    (
-                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
-                        cfg.custom.cache.expiry.or(global_expiry),
-                        cfg.custom.cache.idle_timeout.or(global_idle),
-                    )
-                } else {
-                    (cache_size_mb / 8, global_expiry, global_idle)
-                };
-                Self::make_sub_cache(size, expiry, idle)
+                let cache = &self.sprites.custom.cache;
+                Self::make_sub_cache(
+                    cache.size_mb.unwrap_or(cache_size_mb / 8),
+                    cache.expiry.or(global_expiry),
+                    cache.idle_timeout.or(global_idle),
+                )
             };
 
             #[cfg(feature = "fonts")]
             let fonts = {
-                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                    (
-                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
-                        cfg.custom.cache.expiry.or(global_expiry),
-                        cfg.custom.cache.idle_timeout.or(global_idle),
-                    )
-                } else {
-                    (cache_size_mb / 8, global_expiry, global_idle)
-                };
-                Self::make_sub_cache(size, expiry, idle)
+                let cache = &self.fonts.custom.cache;
+                Self::make_sub_cache(
+                    cache.size_mb.unwrap_or(cache_size_mb / 8),
+                    cache.expiry.or(global_expiry),
+                    cache.idle_timeout.or(global_idle),
+                )
             };
 
             CacheConfig {
@@ -416,9 +396,14 @@ impl Config {
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> StartupResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+    ) -> StartupResult<ResolvedTileSources> {
         #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
         let tile_grids = TileGrids::resolve(&self.tile_grids)?;
+        #[cfg_attr(
+            not(feature = "unstable-duckdb"),
+            expect(unused_mut, reason = "duckdb reports per-source process layers here")
+        )]
+        let mut duckdb_process = HashMap::new();
         #[cfg_attr(
             not(any(
                 feature = "pmtiles",
@@ -434,18 +419,9 @@ impl Config {
 
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
-            let cfg = &mut self.pmtiles;
-            match cfg {
-                FileConfigEnum::None => {}
-                FileConfigEnum::Paths(_) | FileConfigEnum::Path(_) => unreachable!(
-                    "pmtiles was transformed to FileConfigEnum::Config in the previous step via `into_config`",
-                ),
-                FileConfigEnum::Config(file_config) => {
-                    file_config.custom.pmtiles_directory_cache = pmtiles_cache;
-                }
-            }
+            self.pmtiles.custom.pmtiles_directory_cache = pmtiles_cache;
             let val = resolve_files(
-                cfg,
+                &mut self.pmtiles,
                 idr,
                 &["pmtiles"],
                 self.cache.policy(),
@@ -483,7 +459,12 @@ impl Config {
         #[cfg(feature = "unstable-duckdb")]
         if !self.duckdb.is_empty() {
             let val = self.duckdb.resolve(idr.clone(), self.cache.policy());
-            sources_and_warnings.push(Box::pin(val));
+            let process = &mut duckdb_process;
+            sources_and_warnings.push(Box::pin(async move {
+                let (sources, warnings, per_source) = val.await?;
+                *process = per_source;
+                Ok((sources, warnings))
+            }));
         }
 
         #[cfg(feature = "geojson")]
@@ -500,6 +481,7 @@ impl Config {
         Ok((
             all_tile_sources,
             all_tile_warnings.into_iter().flatten().collect(),
+            duckdb_process,
         ))
     }
 
@@ -509,6 +491,7 @@ impl Config {
         feature = "mbtiles",
         feature = "passthrough",
         feature = "unstable-cog",
+        feature = "unstable-duckdb",
         feature = "geojson"
     ))]
     fn global_process_config(&self) -> ProcessConfig {
@@ -665,27 +648,45 @@ impl Config {
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
         map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
-        file_cfg: &FileConfigEnum<T>,
+        file_cfg: &FileConfig<T>,
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
     ) -> StartupResult<()> {
-        if let FileConfigEnum::Config(cfg) = file_cfg {
-            let source_type = get_source_type_pc(&cfg.custom);
-            if let Some(sources) = &cfg.sources {
-                Self::insert_source_configs(map, global, &source_type, sources, |src| match src {
-                    FileConfigSrc::Obj(obj) => ProcessConfig {
-                        #[cfg(feature = "mlt")]
-                        convert_to_mlt: obj.convert_to_mlt.clone(),
-                        #[cfg(feature = "mlt")]
-                        convert_to_mvt: obj.convert_to_mvt.clone(),
-                        cache_control: obj.cache_control.clone(),
-                        #[cfg(feature = "hillshade")]
-                        convert_to_hillshade: obj.convert_to_hillshade.clone(),
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
-                        convert_to_contour: obj.convert_to_contour.clone(),
-                    },
-                    FileConfigSrc::Path(_) => ProcessConfig::default(),
-                })?;
-            }
+        let source_type = get_source_type_pc(&file_cfg.custom);
+        Self::insert_source_configs(
+            map,
+            global,
+            &source_type,
+            &file_cfg.sources,
+            |src| match src {
+                FileConfigSrc::Obj(obj) => ProcessConfig {
+                    #[cfg(feature = "mlt")]
+                    convert_to_mlt: obj.convert_to_mlt.clone(),
+                    #[cfg(feature = "mlt")]
+                    convert_to_mvt: obj.convert_to_mvt.clone(),
+                    cache_control: obj.cache_control.clone(),
+                    #[cfg(feature = "hillshade")]
+                    convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    convert_to_contour: obj.convert_to_contour.clone(),
+                },
+                FileConfigSrc::Path(_) => ProcessConfig::default(),
+            },
+        )
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    fn populate_duckdb_process_map(
+        &self,
+        per_source: HashMap<String, ProcessConfig>,
+        map: &mut HashMap<String, ResolvedProcess>,
+    ) -> StartupResult<()> {
+        let global = self.global_process_config();
+        let source_type = self.duckdb.process_config();
+        for (id, per_source) in per_source {
+            let resolved = ProcessConfig::layered(&global, &source_type, &per_source)
+                .resolve()
+                .map_err(|e| e.for_source(id.clone()))?;
+            map.insert(id, resolved);
         }
         Ok(())
     }
@@ -701,7 +702,7 @@ impl Config {
         let _ = catalog;
 
         #[cfg(feature = "postgres")]
-        for pg in config.postgres.iter_mut() {
+        for pg in &mut config.postgres {
             use crate::config::file::postgres::{FuncInfoSources, SourceSpec, TableInfoSources};
             use crate::reload::SourceProvenance;
 
@@ -740,13 +741,21 @@ impl Config {
             match provenance {
                 SourceProvenance::File { kind, src } => match kind {
                     #[cfg(feature = "mbtiles")]
-                    FileKind::Mbtiles => config.mbtiles.insert_source(id, src),
+                    FileKind::Mbtiles => {
+                        config.mbtiles.sources.insert(id, src);
+                    }
                     #[cfg(feature = "pmtiles")]
-                    FileKind::Pmtiles => config.pmtiles.insert_source(id, src),
+                    FileKind::Pmtiles => {
+                        config.pmtiles.sources.insert(id, src);
+                    }
                     #[cfg(feature = "unstable-cog")]
-                    FileKind::Cog => config.cog.insert_source(id, src),
+                    FileKind::Cog => {
+                        config.cog.sources.insert(id, src);
+                    }
                     #[cfg(feature = "geojson")]
-                    FileKind::GeoJson => config.geojson.insert_source(id, src),
+                    FileKind::GeoJson => {
+                        config.geojson.sources.insert(id, src);
+                    }
                 },
                 #[cfg(feature = "postgres")]
                 SourceProvenance::Postgres { .. } => {}
@@ -856,7 +865,7 @@ mod tests {
     async fn finalize_no_sources() {
         insta::assert_snapshot!(
             render_finalize_failure("keep_alive: 75\n").await,
-            @"No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+            @"No tile sources found. Set sources by giving a database connection string on command line or a config file."
         );
     }
 }

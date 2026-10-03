@@ -19,7 +19,9 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::config::file::srv::{
+    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
+};
 use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
@@ -115,7 +117,11 @@ impl DebouncedWarning {
     )
 )]
 #[route("/health", method = "GET", method = "HEAD")]
-pub async fn get_health() -> impl Responder {
+pub async fn get_health(
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    tile_manager.wait_until_loaded().await;
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
@@ -282,6 +288,7 @@ pub fn new_server(
     )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
+    let shutdown_timeout = config.shutdown_timeout.unwrap_or(DEFAULT_SHUTDOWN_TIMEOUT);
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
@@ -291,6 +298,13 @@ pub fn new_server(
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;
     cors_config.log_current_configuration();
+
+    // only build a span for each request when the log filter keeps it
+    let request_spans = tracing::enabled!(
+        kind: tracing::metadata::Kind::SPAN,
+        target: "tracing_actix_web::root_span_builder",
+        tracing::Level::INFO
+    );
 
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
@@ -329,10 +343,13 @@ pub fn new_server(
             middleware::from_fn(crate::tui::observe),
         ));
 
-        app.wrap(TracingLogger::default())
-            .wrap(cache_control_middleware(cache_control.clone()))
-            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| router(c, &config))
+        app.wrap(middleware::Condition::new(
+            request_spans,
+            TracingLogger::default(),
+        ))
+        .wrap(cache_control_middleware(cache_control.clone()))
+        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
@@ -352,7 +369,7 @@ pub fn new_server(
 
     let server = server
         .keep_alive(keep_alive)
-        .shutdown_timeout(0)
+        .shutdown_timeout(shutdown_timeout)
         .workers(worker_processes)
         .run()
         .err_into();

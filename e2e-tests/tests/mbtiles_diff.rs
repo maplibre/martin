@@ -137,7 +137,10 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
         .run()
         .await;
 
-    assert!(patch_tiles(&patch).await.is_empty());
+    assert_eq!(
+        patch_tiles(&patch).await,
+        [] as [(i64, i64, i64, Option<Vec<u8>>); 0]
+    );
     // The hash of an empty tileset, which is how the differ reports "no changes".
     assert_eq!(
         metadata(&patch).await["agg_tiles_hash"],

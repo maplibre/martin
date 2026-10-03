@@ -104,6 +104,7 @@ pub async fn get_tile(
         if_none_match: req.get_header::<IfNoneMatch>(),
         preferred_enc: srv_config.preferred_encoding,
     };
+    manager.wait_for_sources(&path.source_ids).await;
     let src = DynTileSource::new(
         &manager,
         &path.source_ids,
@@ -706,7 +707,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// The query the sources read their own parameters from, `None` when they ignore it.
-    fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
+    pub(crate) fn source_query(&self) -> Option<&(&'a str, UrlQuery)> {
         self.query.as_ref().filter(|_| self.use_url_query)
     }
 
@@ -795,10 +796,9 @@ impl<'a> DynTileSource<'a> {
 
                 if matches!(
                     merged_info.encoding,
-                    Encoding::Uncompressed | Encoding::Gzip | Encoding::Zstd
+                    Encoding::Uncompressed | Encoding::Zstd
                 ) {
-                    // Gzip and Zstd support stream/frame concatenation, so we
-                    // can avoid decompressing and recompressing entirely.
+                    // Zstd decoders consume every frame, so frames concatenate as they are.
                     let data = tiles
                         .into_iter()
                         .map(|t| t.data)
@@ -806,8 +806,8 @@ impl<'a> DynTileSource<'a> {
                         .concat();
                     Tile::new_with_etag(data, merged_info, combined_etag)
                 } else {
-                    // Brotli and zlib don't support stream concatenation, so
-                    // decompress, concat raw, and leave uncompressed for later recompression.
+                    // Brotli and zlib have no stream concatenation and browsers stop after the
+                    // first gzip member, so decode, concat raw, and leave uncompressed for later recompression.
                     let mut combined = Vec::new();
                     for tile in tiles {
                         let decoded = decode(tile)?;
@@ -1004,6 +1004,8 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read as _;
+
     use actix_http::header::TryIntoHeaderValue as _;
     use actix_web::http::header::QualityItem;
     use martin_core::tiles::testing::{Behaviour, TestSource};
@@ -1169,6 +1171,7 @@ mod tests {
     #[case(Encoding::Zstd, None, Encoding::Uncompressed)]
     #[case(Encoding::Brotli, Some("zstd"), Encoding::Zstd)]
     #[case(Encoding::Gzip, Some("br"), Encoding::Brotli)]
+    #[case(Encoding::Gzip, Some("gzip"), Encoding::Gzip)]
     #[case(Encoding::Zlib, Some("br"), Encoding::Brotli)]
     #[case(Encoding::Zstd, Some("gzip"), Encoding::Gzip)]
     #[actix_rt::test]
@@ -1209,6 +1212,16 @@ mod tests {
             decoded, expected_raw,
             "decoded content mismatch for src={src_enc:?}, accept={accept:?}"
         );
+        if tile.info.encoding == Encoding::Gzip {
+            let mut first_member = Vec::new();
+            flate2::read::GzDecoder::new(&tile.data[..])
+                .read_to_end(&mut first_member)
+                .unwrap();
+            assert_eq!(
+                first_member, expected_raw,
+                "a browser decodes only the first gzip member"
+            );
+        }
     }
 
     const ORIGIN: TileCoord = TileCoord::new_unchecked(0, 0, 0);

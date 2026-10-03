@@ -37,6 +37,11 @@ pub enum StyleError {
     #[error("Failed to receive response from rendering thread")]
     FailedToReceiveResponse,
 
+    /// The renderer panicked while handling the request.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Rendering thread panicked while handling the request")]
+    RenderingPanicked,
+
     /// Rendering is disabled by configuration.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Rendering is disabled")]

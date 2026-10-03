@@ -1,0 +1,44 @@
+---
+source: mbtiles/tests/copy.rs
+expression: actual_value
+---
+- type: table
+  tbl_name: metadata
+  sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
+  values:
+    - "(  \"agg_tiles_hash\", \"5FABD69093778A0D\"  )"
+    - "(  \"hash_algorithm\", \"xxh3\"  )"
+    - "(  \"md-edit\", \"value - v2\"  )"
+    - "(  \"md-new\", \"value - new\"  )"
+    - "(  \"md-remove\", \"value - remove\"  )"
+    - "(  \"md-same\", \"value - same\"  )"
+- type: table
+  tbl_name: tiles_with_hash
+  sql: "CREATE TABLE tiles_with_hash (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_data BLOB,\n    tile_hash TEXT,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
+  values:
+    - "(  3, 6, 7, blob(root), \"0A5CF7B99AE76577\"  )"
+    - "(  5, 0, 0, blob(same), \"877F0F22D94AAF10\"  )"
+    - "(  5, 0, 1, blob(), \"2D06800538D394C2\"  )"
+    - "(  5, 1, 1, blob(edit-v2), \"D07AF92F1C8EF37D\"  )"
+    - "(  5, 1, 2, blob(not-empty), \"B6EA9D86BE903D1E\"  )"
+    - "(  5, 1, 3, blob(), \"2D06800538D394C2\"  )"
+    - "(  5, 2, 2, blob(remove), \"4C8DE019AEBF03A3\"  )"
+    - "(  5, 2, 3, blob(), \"2D06800538D394C2\"  )"
+    - "(  5, 3, 7, blob(new), \"4DB73088ACE631B8\"  )"
+    - "(  5, 3, 8, blob(new), \"4DB73088ACE631B8\"  )"
+    - "(  6, 0, 3, blob(same), \"877F0F22D94AAF10\"  )"
+    - "(  6, 0, 5, blob(1-keep-1-rm), \"AE6076901C6F506F\"  )"
+    - "(  6, 1, 4, blob(edit-v2a), \"0B386EFD17093E54\"  )"
+    - "(  6, 2, 6, blob(1-keep-1-rm), \"AE6076901C6F506F\"  )"
+- type: index
+  tbl_name: metadata
+  sql: ~
+  values: ~
+- type: index
+  tbl_name: tiles_with_hash
+  sql: ~
+  values: ~
+- type: view
+  tbl_name: tiles
+  sql: "CREATE VIEW tiles AS\nSELECT\n    zoom_level,\n    tile_column,\n    tile_row,\n    tile_data\nFROM tiles_with_hash"
+  values: ~
