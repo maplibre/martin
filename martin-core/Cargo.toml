@@ -42,7 +42,6 @@ processing = [
     "dep:geo-types",
     "dep:geojson",
     "dep:mlt-core",
-    "dep:multiversion",
     "dep:rayon",
     "dep:serde_json",
     "dep:tokio",
