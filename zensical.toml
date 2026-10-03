@@ -123,6 +123,7 @@ nav = [
     {"Martin as a library" = "martin-as-a-library.md"},
     {"Architecture" = "architecture.md"}
   ]},
+  {"Migration Guide" = "migration.md"},
   {"Changelog" = "changelog.md"}
 ]
 

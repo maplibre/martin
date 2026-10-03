@@ -13,6 +13,11 @@ stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,p
 # stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
 full_features := stable_features + ',rendering'
 
+# Release binaries for x86_64 require at least x86-64-v3 (Intel Haswell / AMD Excavator, 2015+)
+x86_cpu_flag := '-C target-cpu=x86-64-v3'
+# Benchmarks build for the host, so they must use the same CPU level as the release binaries to measure what users get
+bench_rustflags := if arch() == 'x86_64' {x86_cpu_flag} else {''}
+
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 # cargo-binstall needs a workaround due to caching when used in CI
@@ -53,8 +58,8 @@ export AWS_REGION := 'eu-central-1'
 
 # Run benchmark tests
 bench: fetch
-    cargo bench --bench sources
-    cargo bench -p martin-core --bench geojson_tiles
+    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo bench --bench sources
+    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo bench -p martin-core --bench geojson_tiles
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
@@ -74,11 +79,11 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: fetch start prepare-mbtiles
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
+    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Build martin with hotpath profiling support
 build-hotpath: fetch
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable {{bench_rustflags}}" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath prepare-mbtiles
@@ -254,7 +259,7 @@ build-release target: fetch
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
@@ -264,7 +269,7 @@ build-release-full target: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols'
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
@@ -273,7 +278,7 @@ build-release-full target: fetch
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    RUSTFLAGS='-C strip=symbols' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
+    RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -284,7 +289,7 @@ build-release-musl target: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages'
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
