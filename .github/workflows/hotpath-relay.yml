@@ -29,5 +29,5 @@ jobs:
       pull-requests: read
     with:
       benchmark: ${{ matrix.scenario }}
-      artifact_name: hotpath-report-${{ matrix.scenario }}
-      report_file: report.json
+      artifact_name: hotpath-report
+      report_file: ${{ matrix.scenario }}.json
