@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   relay:
-    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@e9010631dbc961585f5f5c096c17c8e944ce58c5 # main
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@773ede70e9894951f63005c862a8f527432db669 # v0.28.3
     permissions:
       actions: read
       id-token: write
