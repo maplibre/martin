@@ -80,27 +80,9 @@ bench-server: fetch start prepare-mbtiles
 build-hotpath *args: fetch
     RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath {{args}}
 
-# Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
-bench-server-hotpath *args: start (build-hotpath args) prepare-mbtiles
-    exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles {{quote(DATABASE_URL)}}
-
-# Run the hotpath benchmark end-to-end: start the profiled server, wait for it, drive HTTP load, shut it down. Used by the hotpath benchmark CI workflow.
-bench-hotpath *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{just}} bench-server-hotpath {{args}} &
-    MARTIN_PID=$!
-
-    for i in {1..1000}; do
-        if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
-        sleep 1
-    done
-    curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill "$MARTIN_PID" 2>/dev/null; exit 1; }
-
-    {{just}} bench-http 1m 100k
-
-    kill "$MARTIN_PID" 2>/dev/null || true
-    wait "$MARTIN_PID" || true
+# Run one hotpath benchmark, or all of them (see tests/bench/justfile). Extra args go to the build, e.g. `--features hotpath-cloud`. Used by the hotpath benchmark CI workflow.
+bench-hotpath scenario='all' *args: start (build-hotpath args) prepare-mbtiles (cargo-install 'oha')
+    {{just}} --justfile tests/bench/justfile --working-directory . {{scenario}}
 
 # Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas: fetch
