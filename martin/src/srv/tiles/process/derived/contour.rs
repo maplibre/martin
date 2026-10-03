@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
-use martin_core::tiles::contour::trace_contours;
+use martin_core::tiles::contour::{ContourError, trace_contours};
 use martin_core::tiles::neighbourhood::{
     InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
 };
@@ -15,9 +15,51 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-use super::ProcessError;
 use super::neighbourhood::{GATHER_PERMITS, gather};
-use crate::config::file::ResolvedContour;
+use crate::config::file::{ContourRangeError, ResolvedContour};
+
+/// Errors that can occur while tracing a contour tile.
+#[derive(thiserror::Error, Debug)]
+pub enum ContourTraceError {
+    /// A contour parameter supplied by the request was out of range.
+    #[error(transparent)]
+    Parameter(#[from] ContourRangeError),
+
+    #[error("Contour tracing failed: {0}")]
+    Core(#[from] ContourError),
+
+    #[error("Could not read the elevation tiles a contour needs: {0}")]
+    Source(String),
+
+    /// The elevation source changed underneath us and must be reloaded before the trace can be retried.
+    #[error("The elevation source changed and must be reloaded")]
+    SourceNeedsReload,
+
+    #[error("The contour trace did not complete: {0}")]
+    TraceFailed(String),
+
+    #[error("The server is shutting down and cannot start a new contour trace")]
+    ShuttingDown,
+}
+
+impl From<ContourTraceError> for actix_web::Error {
+    fn from(e: ContourTraceError) -> Self {
+        match e {
+            ContourTraceError::Parameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            ContourTraceError::ShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            ContourTraceError::Core(_)
+            | ContourTraceError::Source(_)
+            | ContourTraceError::SourceNeedsReload
+            | ContourTraceError::TraceFailed(_) => {
+                actix_web::error::ErrorInternalServerError(e.to_string())
+            }
+        }
+    }
+}
 
 /// Bounds concurrent traces across the process, given that this is CPU bound.
 static TRACE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
@@ -31,18 +73,18 @@ pub async fn trace_contour(
     settings: ResolvedContour,
     xyz: TileCoord,
     cache: Option<&TileCache>,
-) -> Result<Tile, ProcessError> {
+) -> Result<Tile, ContourTraceError> {
     let slots = {
         let _permit = GATHER_PERMITS
             .acquire()
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
-            .map_err(|_closed| ProcessError::ContourShuttingDown)?;
+            .map_err(|_closed| ContourTraceError::ShuttingDown)?;
         gather(source, xyz, cache).await.map_err(|e| {
             if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) {
-                ProcessError::ContourSourceNeedsReload
+                ContourTraceError::SourceNeedsReload
             } else {
-                ProcessError::ContourSource(e.to_string())
+                ContourTraceError::Source(e.to_string())
             }
         })?
     };
@@ -81,13 +123,13 @@ pub async fn trace_contour(
             .acquire()
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
-            .map_err(|_closed| ProcessError::ContourShuttingDown)?;
+            .map_err(|_closed| ContourTraceError::ShuttingDown)?;
         // Marching squares over a 320-square grid is CPU-bound for tens of
         // milliseconds, which would stall every other task on this worker if it
         // ran inline.
         tokio::task::spawn_blocking(move || trace_contours(&neighbourhood, xyz.z(), &settings.opts))
             .await
-            .map_err(|e| ProcessError::ContourTraceFailed(e.to_string()))??
+            .map_err(|e| ContourTraceError::TraceFailed(e.to_string()))??
     };
 
     if etag.is_none() {

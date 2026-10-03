@@ -15,7 +15,9 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 use crate::config::file::ConfigFileError;
 #[cfg(feature = "_tiles")]
-use crate::srv::tiles::process::ProcessError;
+use crate::srv::tiles::process::TranscodeError;
+#[cfg(feature = "processing")]
+use crate::srv::tiles::process::derived::{ContourTraceError, HillshadeBakeError};
 
 /// Why the HTTP server could not be started.
 #[derive(thiserror::Error, Debug)]
@@ -102,10 +104,20 @@ pub enum TileError {
     #[error("{0}")]
     Source(Arc<MartinCoreError>),
 
-    /// Post-processing (hillshade, contour, MVT/MLT) failed; it classifies its own status.
+    /// MVT/MLT conversion failed.
     #[cfg(feature = "_tiles")]
     #[error(transparent)]
-    Process(#[from] ProcessError),
+    Transcode(#[from] TranscodeError),
+
+    /// Baking a hillshade failed; it classifies its own status.
+    #[cfg(feature = "processing")]
+    #[error(transparent)]
+    Hillshade(#[from] HillshadeBakeError),
+
+    /// Tracing contours failed; it classifies its own status.
+    #[cfg(feature = "processing")]
+    #[error(transparent)]
+    Contour(#[from] ContourTraceError),
 
     /// The tile body could not be (de)compressed.
     #[error("Tile compression failed: {0}")]
@@ -157,8 +169,15 @@ impl From<TileError> for actix_web::Error {
 
             // Both of these already classify themselves, so reuse their own mapping.
             TileError::Source(inner) => super::server::map_error(inner.as_ref()),
+            #[cfg(feature = "processing")]
+            TileError::Hillshade(inner) => inner.into(),
+            #[cfg(feature = "processing")]
+            TileError::Contour(inner) => inner.into(),
             #[cfg(feature = "_tiles")]
-            TileError::Process(inner) => inner.into(),
+            TileError::Transcode(inner) => {
+                tracing::error!("{inner}");
+                ErrorInternalServerError(msg)
+            }
         }
     }
 }

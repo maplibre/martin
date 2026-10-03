@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
-use martin_core::tiles::hillshade::{Canvas, bake_with_light};
+use martin_core::tiles::hillshade::{Canvas, HillshadeError, bake_with_light};
 use martin_core::tiles::neighbourhood::{
     InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
 };
@@ -15,9 +15,51 @@ use martin_tile_utils::{Encoding, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-use super::ProcessError;
 use super::neighbourhood::{GATHER_PERMITS, gather};
-use crate::config::file::ResolvedHillshade;
+use crate::config::file::{HillshadeRangeError, ResolvedHillshade};
+
+/// Errors that can occur while baking a hillshade tile.
+#[derive(thiserror::Error, Debug)]
+pub enum HillshadeBakeError {
+    /// A hillshade parameter supplied by the request was out of range.
+    #[error(transparent)]
+    Parameter(#[from] HillshadeRangeError),
+
+    #[error("Hillshade failed: {0}")]
+    Core(#[from] HillshadeError),
+
+    #[error("Could not read the normal tiles a hillshade needs: {0}")]
+    Source(String),
+
+    /// The normals source changed underneath us and must be reloaded before the bake can be retried.
+    #[error("The normals source changed and must be reloaded")]
+    SourceNeedsReload,
+
+    #[error("The hillshade bake did not complete: {0}")]
+    BakeFailed(String),
+
+    #[error("The server is shutting down and cannot start a new hillshade bake")]
+    ShuttingDown,
+}
+
+impl From<HillshadeBakeError> for actix_web::Error {
+    fn from(e: HillshadeBakeError) -> Self {
+        match e {
+            HillshadeBakeError::Parameter(ref inner) => {
+                actix_web::error::ErrorBadRequest(inner.to_string())
+            }
+            HillshadeBakeError::ShuttingDown => {
+                actix_web::error::ErrorServiceUnavailable(e.to_string())
+            }
+            HillshadeBakeError::Core(_)
+            | HillshadeBakeError::Source(_)
+            | HillshadeBakeError::SourceNeedsReload
+            | HillshadeBakeError::BakeFailed(_) => {
+                actix_web::error::ErrorInternalServerError(e.to_string())
+            }
+        }
+    }
+}
 
 /// Bounds concurrent bakes across the process, given that this is CPU bound.
 static BAKE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
@@ -31,18 +73,18 @@ pub async fn bake_hillshade(
     settings: ResolvedHillshade,
     xyz: TileCoord,
     cache: Option<&TileCache>,
-) -> Result<Tile, ProcessError> {
+) -> Result<Tile, HillshadeBakeError> {
     let slots = {
         let _permit = GATHER_PERMITS
             .acquire()
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
-            .map_err(|_closed| ProcessError::HillshadeShuttingDown)?;
+            .map_err(|_closed| HillshadeBakeError::ShuttingDown)?;
         gather(source, xyz, cache).await.map_err(|e| {
             if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) {
-                ProcessError::HillshadeSourceNeedsReload
+                HillshadeBakeError::SourceNeedsReload
             } else {
-                ProcessError::HillshadeSource(e.to_string())
+                HillshadeBakeError::Source(e.to_string())
             }
         })?
     };
@@ -82,7 +124,7 @@ pub async fn bake_hillshade(
             .acquire()
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
-            .map_err(|_closed| ProcessError::HillshadeShuttingDown)?;
+            .map_err(|_closed| HillshadeBakeError::ShuttingDown)?;
         // The bake is CPU-bound for tens of milliseconds, which would stall
         // every other task on this worker if it ran inline.
         tokio::task::spawn_blocking(move || {
@@ -91,7 +133,7 @@ pub async fn bake_hillshade(
             baked.encode(format)
         })
         .await
-        .map_err(|e| ProcessError::HillshadeBakeFailed(e.to_string()))??
+        .map_err(|e| HillshadeBakeError::BakeFailed(e.to_string()))??
     };
 
     let info = TileInfo::new(format, Encoding::Internal);

@@ -33,13 +33,11 @@ use crate::config::file::{MltConversion, MvtConversion};
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
-#[cfg(feature = "processing")]
-use crate::srv::tiles::process::ProcessError;
 use crate::srv::tiles::process::apply_pre_cache_processors;
 #[cfg(feature = "processing")]
-use crate::srv::tiles::process::bake_hillshade;
-#[cfg(feature = "processing")]
-use crate::srv::tiles::process::trace_contour;
+use crate::srv::tiles::process::derived::{
+    ContourTraceError, HillshadeBakeError, bake_hillshade, trace_contour,
+};
 use crate::tile_source_manager::TileSourceManager;
 
 /// Maximum number of source tiles fetched concurrently for one composite response.
@@ -586,7 +584,7 @@ impl<'a> DynTileSource<'a> {
         #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_hillshade(pc)? {
             return match bake_hillshade(s, settings, xyz, self.cache).await {
-                Err(ProcessError::HillshadeSourceNeedsReload) => {
+                Err(HillshadeBakeError::SourceNeedsReload) => {
                     let fresh_src = self.reload_source(s, pc).await?;
                     Ok(bake_hillshade(&fresh_src, settings, xyz, self.cache).await?)
                 }
@@ -597,7 +595,7 @@ impl<'a> DynTileSource<'a> {
         #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_contour(pc)? {
             let traced = match trace_contour(s, settings.clone(), xyz, self.cache).await {
-                Err(ProcessError::ContourSourceNeedsReload) => {
+                Err(ContourTraceError::SourceNeedsReload) => {
                     let fresh_src = self.reload_source(s, pc).await?;
                     trace_contour(&fresh_src, settings, xyz, self.cache).await?
                 }
@@ -710,7 +708,7 @@ impl<'a> DynTileSource<'a> {
         };
         let settings = settings
             .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
-            .map_err(ProcessError::from)?;
+            .map_err(ContourTraceError::from)?;
         Ok(Some(settings))
     }
 
@@ -734,7 +732,7 @@ impl<'a> DynTileSource<'a> {
         };
         let settings = settings
             .with_query_overrides(overrides.iter().map(|(k, v)| (k.as_str(), v.as_str())))
-            .map_err(ProcessError::from)?;
+            .map_err(HillshadeBakeError::from)?;
         Ok(Some(settings))
     }
 

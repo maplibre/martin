@@ -1,33 +1,18 @@
 #[cfg(feature = "processing")]
-mod contour;
-#[cfg(feature = "processing")]
-pub use contour::trace_contour;
-#[cfg(feature = "processing")]
-mod hillshade;
-#[cfg(feature = "processing")]
-mod neighbourhood;
+pub mod derived;
 mod to_mlt;
 mod to_mvt;
-#[cfg(feature = "processing")]
-pub use hillshade::bake_hillshade;
+
 use martin_core::tiles::Tile;
-#[cfg(feature = "processing")]
-use martin_core::tiles::contour::ContourError;
-#[cfg(feature = "processing")]
-use martin_core::tiles::hillshade::HillshadeError;
 use martin_tile_utils::Format;
 use to_mlt::convert_mvt_to_mlt;
 use to_mvt::convert_mlt_to_mvt;
 
-#[cfg(feature = "processing")]
-use crate::config::file::ContourRangeError;
-#[cfg(feature = "processing")]
-use crate::config::file::HillshadeRangeError;
 use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
 
-/// Errors that can occur during tile post-processing.
+/// Errors that can occur while converting a tile between MVT and MLT.
 #[derive(thiserror::Error, Debug)]
-pub enum ProcessError {
+pub enum TranscodeError {
     #[error("MVT to MLT conversion failed: {0}")]
     MltConversion(String),
     #[error("MLT encoding failed: {0}")]
@@ -36,82 +21,6 @@ pub enum ProcessError {
     MvtConversion(String),
     #[error("Tile decompression failed: {0}")]
     DecompressionFailed(String),
-
-    /// A hillshade parameter supplied by the request was out of range.
-    #[cfg(feature = "processing")]
-    #[error(transparent)]
-    HillshadeParameter(#[from] HillshadeRangeError),
-
-    #[cfg(feature = "processing")]
-    #[error("Hillshade failed: {0}")]
-    Hillshade(#[from] HillshadeError),
-
-    #[cfg(feature = "processing")]
-    #[error("Could not read the normal tiles a hillshade needs: {0}")]
-    HillshadeSource(String),
-
-    /// The normals source changed underneath us and must be reloaded before the bake can be retried.
-    #[cfg(feature = "processing")]
-    #[error("The normals source changed and must be reloaded")]
-    HillshadeSourceNeedsReload,
-
-    #[cfg(feature = "processing")]
-    #[error("The hillshade bake did not complete: {0}")]
-    HillshadeBakeFailed(String),
-
-    #[cfg(feature = "processing")]
-    #[error("The server is shutting down and cannot start a new hillshade bake")]
-    HillshadeShuttingDown,
-
-    /// A contour parameter supplied by the request was out of range.
-    #[cfg(feature = "processing")]
-    #[error(transparent)]
-    ContourParameter(#[from] ContourRangeError),
-
-    #[cfg(feature = "processing")]
-    #[error("Contour tracing failed: {0}")]
-    Contour(#[from] ContourError),
-
-    #[cfg(feature = "processing")]
-    #[error("Could not read the elevation tiles a contour needs: {0}")]
-    ContourSource(String),
-
-    /// The elevation source changed underneath us and must be reloaded before the trace can be retried.
-    #[cfg(feature = "processing")]
-    #[error("The elevation source changed and must be reloaded")]
-    ContourSourceNeedsReload,
-
-    #[cfg(feature = "processing")]
-    #[error("The contour trace did not complete: {0}")]
-    ContourTraceFailed(String),
-
-    #[cfg(feature = "processing")]
-    #[error("The server is shutting down and cannot start a new contour trace")]
-    ContourShuttingDown,
-}
-
-impl From<ProcessError> for actix_web::Error {
-    fn from(e: ProcessError) -> Self {
-        match e {
-            #[cfg(feature = "processing")]
-            ProcessError::HillshadeParameter(ref inner) => {
-                actix_web::error::ErrorBadRequest(inner.to_string())
-            }
-            #[cfg(feature = "processing")]
-            ProcessError::HillshadeShuttingDown => {
-                actix_web::error::ErrorServiceUnavailable(e.to_string())
-            }
-            #[cfg(feature = "processing")]
-            ProcessError::ContourParameter(ref inner) => {
-                actix_web::error::ErrorBadRequest(inner.to_string())
-            }
-            #[cfg(feature = "processing")]
-            ProcessError::ContourShuttingDown => {
-                actix_web::error::ErrorServiceUnavailable(e.to_string())
-            }
-            other => actix_web::error::ErrorInternalServerError(other.to_string()),
-        }
-    }
 }
 
 /// Apply pre-cache postprocessors to a tile based on the negotiated `Accept`
@@ -136,7 +45,7 @@ pub fn apply_pre_cache_processors(
     tile: Tile,
     config: &ResolvedProcess,
     accepted: Option<Format>,
-) -> Result<Tile, ProcessError> {
+) -> Result<Tile, TranscodeError> {
     if tile.data.is_empty() {
         return Ok(tile);
     }
