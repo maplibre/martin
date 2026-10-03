@@ -144,12 +144,7 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-processing = [
-    "martin-core/processing",
-    "_tiles",
-    "_file_kinds",
-    "dep:base64",
-]
+processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
