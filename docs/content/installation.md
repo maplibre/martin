@@ -10,7 +10,7 @@ tags:
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
-On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
+On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer).
 Older CPUs need to [build Martin from source](development/index.md).
 
 ### Docker
