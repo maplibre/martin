@@ -17,7 +17,7 @@ use crate::config::file::ConfigFileError;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles::process::TranscodeError;
 #[cfg(feature = "processing")]
-use crate::srv::tiles::process::derived::{ContourTraceError, HillshadeBakeError};
+use crate::srv::tiles::process::terrain::{ContourTraceError, HillshadeBakeError};
 
 /// Why the HTTP server could not be started.
 #[derive(thiserror::Error, Debug)]

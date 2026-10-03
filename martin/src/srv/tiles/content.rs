@@ -35,7 +35,7 @@ use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::tiles::process::apply_pre_cache_processors;
 #[cfg(feature = "processing")]
-use crate::srv::tiles::process::derived::{
+use crate::srv::tiles::process::terrain::{
     ContourTraceError, HillshadeBakeError, bake_hillshade, trace_contour,
 };
 use crate::tile_source_manager::TileSourceManager;

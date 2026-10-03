@@ -1,5 +1,5 @@
 #[cfg(feature = "processing")]
-pub mod derived;
+pub mod terrain;
 mod to_mlt;
 mod to_mvt;
 
