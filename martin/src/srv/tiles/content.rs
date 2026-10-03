@@ -33,11 +33,11 @@ use crate::config::file::{MltConversion, MvtConversion};
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
-use crate::srv::tiles::process::apply_pre_cache_processors;
 #[cfg(feature = "processing")]
 use crate::srv::tiles::process::terrain::{
     ContourTraceError, HillshadeBakeError, bake_hillshade, trace_contour,
 };
+use crate::srv::tiles::process::transcode::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
 
 /// Maximum number of source tiles fetched concurrently for one composite response.

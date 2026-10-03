@@ -14,10 +14,10 @@ use martin_core::tiles::MartinCoreError;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 use crate::config::file::ConfigFileError;
-#[cfg(feature = "_tiles")]
-use crate::srv::tiles::process::TranscodeError;
 #[cfg(feature = "processing")]
 use crate::srv::tiles::process::terrain::{ContourTraceError, HillshadeBakeError};
+#[cfg(feature = "_tiles")]
+use crate::srv::tiles::process::transcode::TranscodeError;
 
 /// Why the HTTP server could not be started.
 #[derive(thiserror::Error, Debug)]

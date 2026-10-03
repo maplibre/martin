@@ -5,7 +5,7 @@ use martin_tile_utils::Format;
 use mlt_core::encoder::EncoderConfig;
 
 use crate::srv::tiles::content;
-use crate::srv::tiles::process::TranscodeError;
+use crate::srv::tiles::process::transcode::TranscodeError;
 
 /// Convert an MVT tile to MLT format.
 ///

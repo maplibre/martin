@@ -6,7 +6,7 @@ use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{Decoder, Layer, Parser};
 
 use crate::srv::tiles::content;
-use crate::srv::tiles::process::TranscodeError;
+use crate::srv::tiles::process::transcode::TranscodeError;
 
 /// Convert an MLT tile to MVT (protobuf) format.
 ///
