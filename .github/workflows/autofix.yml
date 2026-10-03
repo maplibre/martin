@@ -14,6 +14,7 @@ jobs:
   fmt-toml:
     name: Format Cargo.toml
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     if: |
@@ -35,6 +36,7 @@ jobs:
   sync-lockfiles:
     name: Sync npm lock files
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     if: |
@@ -57,6 +59,7 @@ jobs:
   gen-schemas:
     name: Generate config + OpenAPI schemas + UI types
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     if: |
@@ -82,7 +85,7 @@ jobs:
       # Run pre-commit so the generated JSON conforms to the repo's formatter
       # rules (trailing newline, etc.) - same tiebreaker the bless job uses.
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts
         continue-on-error: true
@@ -92,6 +95,7 @@ jobs:
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     if: |
@@ -133,7 +137,7 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - run: just bless

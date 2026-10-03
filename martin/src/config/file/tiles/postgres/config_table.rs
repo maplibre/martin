@@ -54,17 +54,6 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"geom"))]
     pub geometry_column: String,
 
-    /// Geometry column has a spatial index
-    #[serde(skip)]
-    pub geometry_index: Option<bool>,
-
-    /// Flag indicating the `PostgreSQL relkind`:
-    /// - `"t"`: Table
-    /// - `"v"`: View
-    /// - `"m"`: Materialized View
-    #[serde(skip)]
-    pub relkind: Option<char>,
-
     /// Feature id column name
     pub id_column: Option<String>,
 
@@ -128,11 +117,6 @@ pub struct TableInfo {
     /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
     pub properties: Option<BTreeMap<String, String>>,
 
-    /// Mapping of properties to the actual table columns
-    #[serde(skip)]
-    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub prop_mapping: HashMap<String, String>,
-
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -155,9 +139,31 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
-    /// `TileJSON` provider by the SQL comment. Shouldn't be serialized
+    /// What discovery found out about the table, which the config never sets
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub discovered: DiscoveredTable,
+}
+
+/// What discovery found out about a table, which the config never sets.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct DiscoveredTable {
+    /// Geometry column has a spatial index
+    pub geometry_index: Option<bool>,
+
+    /// Flag indicating the `PostgreSQL relkind`:
+    /// - `"t"`: Table
+    /// - `"v"`: View
+    /// - `"m"`: Materialized View
+    pub relkind: Option<char>,
+
+    /// Mapping of properties to the actual table columns
+    pub prop_mapping: HashMap<String, String>,
+
+    /// The type a query returns each table column as, by column name
+    pub column_types: HashMap<String, String>,
+
+    /// `TileJSON` provider by the SQL comment
     pub tilejson: Option<serde_json::Value>,
 }
 
@@ -193,7 +199,7 @@ impl PostgresInfo for TableInfo {
             other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
-        patch_json(tilejson, self.tilejson.as_ref())
+        patch_json(tilejson, self.discovered.tilejson.as_ref())
     }
 
     fn tile_info(&self) -> TileInfo {
@@ -217,12 +223,12 @@ impl TableInfo {
             table: self.table.clone(),
             geometry_column: self.geometry_column.clone(),
             // These values are not serialized, so copy auto-detected values from the database
-            geometry_index: self.geometry_index,
-            relkind: self.relkind,
-            tilejson: self.tilejson.clone(),
+            discovered: DiscoveredTable {
+                prop_mapping: HashMap::new(),
+                ..self.discovered.clone()
+            },
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
-            prop_mapping: HashMap::new(),
             ..cfg_inf.clone()
         };
 
@@ -241,13 +247,13 @@ impl TableInfo {
 
         if let Some(id_column) = &cfg_inf.id_column {
             let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
-            inf.prop_mapping.insert(id_column.clone(), prop);
+            inf.discovered.prop_mapping.insert(id_column.clone(), prop);
         }
 
         if let Some(p) = &cfg_inf.properties {
             for key in p.keys() {
                 let prop = normalize_key(props, key.as_str(), "property", new_id)?;
-                inf.prop_mapping.insert(key.clone(), prop);
+                inf.discovered.prop_mapping.insert(key.clone(), prop);
             }
         }
 

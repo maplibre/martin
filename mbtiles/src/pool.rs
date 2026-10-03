@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use martin_tile_utils::TileInfo;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Pool, Sqlite, SqlitePool};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{Pool, Sqlite};
 use tilejson::TileJSON;
 
 #[cfg(test)]
@@ -119,7 +119,10 @@ impl MbtilesPool {
         let opt = SqliteConnectOptions::new()
             .filename(mbtiles.filepath())
             .read_only(true);
-        let pool = SqlitePool::connect_with(opt).await?;
+        let pool = SqlitePoolOptions::new()
+            .test_before_acquire(false)
+            .connect_with(opt)
+            .await?;
         Ok(Self { mbtiles, pool })
     }
 
@@ -398,7 +401,7 @@ mod tests {
         // invalid type => cannot hash properly, but can get tile
         pool.detect_type().await.unwrap_err();
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
-        assert!(!t1.is_empty());
+        assert_ne!(t1, b"");
         // this is an access and then md5 hash => should not fail
         let (t2, h2) = pool
             .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
@@ -504,7 +507,7 @@ mod tests {
         );
 
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
-        assert!(!t1.is_empty());
+        assert_ne!(t1, b"");
 
         let (t2, h2) = pool
             .get_tile_and_hash(
@@ -702,7 +705,7 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
-        assert!(!t1.is_empty());
+        assert_ne!(t1, b"");
 
         let (t2, h2) = pool
             .get_tile_and_hash(MbtType::FlatWithHash, 6, 38, 19)

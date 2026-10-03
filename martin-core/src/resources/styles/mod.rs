@@ -15,6 +15,8 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+#[cfg(feature = "rendering")]
+use std::num::NonZeroU8;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -38,9 +40,14 @@ pub use error::StyleError;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::RenderParams;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
+
+#[cfg(feature = "rendering")]
+mod tile_size;
+#[cfg(feature = "rendering")]
+pub use tile_size::{InvalidTileSize, TileSize};
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -94,7 +101,17 @@ pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pools: Option<RenderPools>,
+    /// Highest `@{n}x` pixel ratio served by the tile endpoint. `None` means [`DEFAULT_MAX_PIXEL_RATIO`].
+    #[cfg(feature = "rendering")]
+    max_pixel_ratio: Option<NonZeroU8>,
+    /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    png_max_colors: Option<u16>,
 }
+
+/// Highest tile pixel ratio served when none is configured.
+#[cfg(feature = "rendering")]
+pub const DEFAULT_MAX_PIXEL_RATIO: NonZeroU8 = NonZeroU8::new(4).expect("4 is non-zero");
 
 /// Style source file.
 #[derive(Clone, Debug)]
@@ -179,13 +196,27 @@ impl StyleSources {
         self.sources.is_empty()
     }
 
-    /// Renders a 512×512 slippy tile via the dedicated tile renderer.
+    /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN)
+            .await
+    }
+
+    /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render_with_pixel_ratio(
+        &self,
+        path: PathBuf,
+        z: u8,
+        x: u32,
+        y: u32,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
-            .render_tile(path, z, x, y)
+            .render_tile_with_pixel_ratio(path, z, x, y, pixel_ratio)
             .await
     }
 
@@ -201,7 +232,7 @@ impl StyleSources {
 
     /// Enable rendering by spawning the tile and static [`RenderPools`]. Replaces any existing pools.
     ///
-    /// See [`RenderPools::new`] for the meaning of `workers`.
+    /// See [`RenderPools::new`] for the meaning of the arguments.
     ///
     /// # Errors
     ///
@@ -211,15 +242,43 @@ impl StyleSources {
     pub fn enable_rendering(
         &mut self,
         workers: Option<NonZeroUsize>,
+        tile_size: TileSize,
+        renderers_per_worker: NonZeroUsize,
     ) -> Result<(), std::io::Error> {
-        self.pools = Some(RenderPools::new(workers)?);
+        self.pools = Some(RenderPools::new(workers, tile_size, renderers_per_worker)?);
         Ok(())
+    }
+
+    /// Limit the tile endpoint to pixel ratios up to `max` (`None` restores the default).
+    #[cfg(feature = "rendering")]
+    pub fn set_max_pixel_ratio(&mut self, max: Option<NonZeroU8>) {
+        self.max_pixel_ratio = max;
+    }
+
+    /// Highest pixel ratio the tile endpoint serves.
+    #[cfg(feature = "rendering")]
+    #[must_use]
+    pub fn max_pixel_ratio(&self) -> NonZeroU8 {
+        self.max_pixel_ratio.unwrap_or(DEFAULT_MAX_PIXEL_RATIO)
     }
 
     /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub fn disable_rendering(&mut self) {
         self.pools = None;
+    }
+
+    /// Encode rendered PNGs with a palette of at most `max_colors` colours (`None` keeps RGBA).
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_png_max_colors(&mut self, max_colors: Option<u16>) {
+        self.png_max_colors = max_colors;
+    }
+
+    /// Palette size for rendered PNGs, if palette encoding is enabled.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn png_max_colors(&self) -> Option<u16> {
+        self.png_max_colors
     }
 }
 

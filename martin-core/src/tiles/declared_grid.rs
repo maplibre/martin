@@ -1,21 +1,22 @@
 //! A source served on a tile grid the config declares for it, since stored archives cannot say so themselves.
 
-use std::future::Future;
 use std::sync::Arc;
 
 use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
-use crate::tiles::{AnySource, BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
+use crate::tiles::{
+    AnySource, BackendSource, BoxedSource, MartinCoreResult, Source, Tile, UrlQuery,
+};
 
 /// A source whose `z/x/y` addresses are declared to be on `grid`.
 ///
 /// Every request passes straight through to the wrapped source.
 /// The `TileJSON` gains the `tileGrid` key and the catalog entry names the grid.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct DeclaredGridSource {
-    inner: BoxedSource,
+    inner: BackendSource,
     grid: TileGrid,
     tilejson: TileJSON,
 }
@@ -23,7 +24,7 @@ pub struct DeclaredGridSource {
 impl DeclaredGridSource {
     /// Declares that `inner` serves its tiles on `grid`.
     #[must_use]
-    pub fn new(inner: BoxedSource, grid: TileGrid) -> Self {
+    pub fn new(inner: BackendSource, grid: TileGrid) -> Self {
         let mut tilejson = inner.get_tilejson().clone();
         tilejson.other.insert(
             "tileGrid".to_owned(),
@@ -39,7 +40,7 @@ impl DeclaredGridSource {
 
     /// The source the grid was declared for.
     #[must_use]
-    pub fn inner(&self) -> &BoxedSource {
+    pub fn inner(&self) -> &BackendSource {
         &self.inner
     }
 
@@ -87,28 +88,24 @@ impl Source for DeclaredGridSource {
         self.inner.cache_zoom()
     }
 
-    /// Boxed because [`AnySource`] holds this wrapper, so an unboxed future here
-    /// would be infinitely sized. Only grid-declared sources pay for it.
-    fn get_tile(
+    async fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send {
-        Box::pin(async move { self.inner.get_tile(xyz, url_query).await })
+    ) -> MartinCoreResult<TileData> {
+        self.inner.get_tile(xyz, url_query).await
     }
 
-    fn get_tile_with_etag(
+    async fn get_tile_with_etag(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> impl Future<Output = MartinCoreResult<Tile>> + Send {
-        Box::pin(async move { self.inner.get_tile_with_etag(xyz, url_query).await })
+    ) -> MartinCoreResult<Tile> {
+        self.inner.get_tile_with_etag(xyz, url_query).await
     }
 
-    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<BoxedSource>> + Send {
-        Box::pin(async move {
-            let inner = self.inner.try_reload().await?;
-            Ok(Self::new(inner, self.grid.clone()).boxed())
-        })
+    async fn try_reload(&self) -> MartinCoreResult<Self> {
+        let inner = self.inner.try_reload().await?;
+        Ok(Self::new(inner, self.grid.clone()))
     }
 }

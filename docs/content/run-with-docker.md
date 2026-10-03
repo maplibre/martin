@@ -1,4 +1,5 @@
 ---
+description: Running the official Martin Docker image with PostgreSQL or files
 icon: simple/docker
 tags:
   - deployment
@@ -19,8 +20,8 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
+  postgres://postgres@postgres.example.org/db
 ```
 
 ### Exposing Local Files
@@ -31,7 +32,7 @@ You can expose local files to the Docker container using the `-v` flag.
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
   /files
 ```
 
@@ -41,7 +42,7 @@ You can also pass any [CLI flags](run-with-cli.md) after the image name, for exa
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.16.1 \
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
   --webui enable-for-all \
   /files
 ```
@@ -57,8 +58,8 @@ You would not need to export ports with `-p` because the container is already us
 ```bash
 docker run \
   --net=host \
-  -e DATABASE_URL=postgres://postgres@localhost/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
+  postgres://postgres@localhost/db
 ```
 
 ### Accessing Local PostgreSQL on macOS
@@ -68,8 +69,8 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
+  postgres://postgres@host.docker.internal/db
 ```
 
 ### Accessing Local PostgreSQL on Windows
@@ -79,6 +80,6 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  ghcr.io/maplibre/martin:1.16.1
+  ghcr.io/maplibre/martin:2.0.0-beta.2 \
+  postgres://postgres@docker.for.win.localhost/db
 ```

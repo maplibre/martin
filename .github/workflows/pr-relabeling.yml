@@ -17,6 +17,7 @@ permissions: {}
 jobs:
   remove-bless:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       pull-requests: write
     if: contains(github.event.label.name, 'bless')

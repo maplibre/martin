@@ -2,31 +2,29 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 
 martin := env('MARTIN', 'target/release/martin')
 port := env('PORT', '3000')
-out_dir := env('HOTPATH_OUTPUT_DIR', '/tmp/metrics')
 requests := env('REQUESTS', '200000')
 pg_requests := env('PG_REQUESTS', '20000')
 hit_requests := env('HIT_REQUESTS', '1000000')
 
 all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss cache-hit
 
-mbtiles-miss: (run 'mbtiles_miss' 'world_cities' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
+mbtiles-miss: (run 'mbtiles-miss' 'world_cities' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
 
-pmtiles-miss: (run 'pmtiles_miss' 'stamen_toner__raster_CC-BY-ODbL_z3' '3' requests '--cache-size 0 tests/fixtures/pmtiles')
+pmtiles-miss: (run 'pmtiles-miss' 'stamen_toner__raster_CC-BY-ODbL_z3' '3' requests '--cache-size 0 tests/fixtures/pmtiles')
 
-postgres-function-miss: (run 'postgres_function_miss' 'function_zxy_query' '6' pg_requests '--cache-size 0')
+postgres-function-miss: (run 'postgres-function-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0')
 
-postgres-function-mlt-miss: (run 'postgres_function_mlt_miss' 'function_zxy_query' '6' pg_requests '--cache-size 0' "-H 'Accept: application/vnd.maplibre-tile'")
+postgres-function-mlt-miss: (run 'postgres-function-mlt-miss' 'function_zxy_query' '6' pg_requests '--cache-size 0' "-H 'Accept: application/vnd.maplibre-tile'")
 
-postgres-table-miss: (run 'postgres_table_miss' 'table_source' '6' pg_requests '--cache-size 0')
+postgres-table-miss: (run 'postgres-table-miss' 'table_source' '6' pg_requests '--cache-size 0')
 
-cache-hit: (run 'cache_hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
+cache-hit: (run 'cache-hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':
     #!/usr/bin/env bash
     set -euo pipefail
     work=$(mktemp -d)
-    mkdir -p "{{ out_dir }}"
     urls="$work/urls.txt"
     for ((z = 0; z <= {{ max_zoom }}; z++)); do
         for ((x = 0; x < 1 << z; x++)); do
@@ -34,7 +32,7 @@ run name source max_zoom n martin_args='' oha_args='':
         done
     done > "$urls"
 
-    HOTPATH_OUTPUT_FORMAT=json HOTPATH_OUTPUT_PATH="{{ out_dir }}/{{ name }}.json" HOTPATH_ALLOC_SELF=true \
+    HOTPATH_BENCHMARK="{{ name }}" \
         {{ martin }} --listen-addresses "0.0.0.0:{{ port }}" {{ martin_args }} &
     pid=$!
     trap 'kill $pid 2> /dev/null || true; wait $pid 2> /dev/null || true; rm -rf "$work"' EXIT

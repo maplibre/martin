@@ -1,17 +1,23 @@
-use std::collections::BTreeMap;
 use std::env;
+use std::mem;
 #[cfg(feature = "rendering")]
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
+#[cfg(feature = "rendering")]
+use martin_core::styles::TileSize;
 use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+#[cfg(feature = "rendering")]
+use crate::config::file::UnrecognizedKeys;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    FileConfigEnum, UnrecognizedValues, subdirectories,
+    FileConfig, UnrecognizedValues, subdirectories,
 };
 #[cfg(feature = "rendering")]
 use crate::config::primitives::OptBoolObj;
@@ -60,40 +66,157 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<NonZeroUsize>,
 
+    /// Renderers each tile worker keeps loaded, one per style and pixel ratio.
+    /// Beyond this, the least recently used is dropped. \[default: 8\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
+    pub renderers_per_worker: Option<NonZeroUsize>,
+
+    /// Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.
+    /// \[default: 512\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &TileSize::Px256))]
+    pub tile_size: Option<TileSize>,
+
+    /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4))]
+    pub max_pixel_ratio: Option<NonZeroU8>,
+    /// Encode rendered PNGs as indexed (palette) images, which is the default.
+    /// `false` keeps full-colour RGBA.
+    #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
+    pub png_palette: OptBoolObj<PngPaletteConfig>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
+
+#[cfg(feature = "rendering")]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct PngPaletteConfig {
+    /// Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
+    /// closely, up to this many colours. Defaults to 128.
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "u16", example = &128)
+    )]
+    pub max_colors: PngPaletteSize,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// Number of colours in a PNG palette, 2 to 256.
+#[cfg(feature = "rendering")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "u16", into = "u16")]
+pub struct PngPaletteSize(u16);
+
+#[cfg(feature = "rendering")]
+impl PngPaletteSize {
+    #[must_use]
+    pub const fn get(self) -> u16 {
+        self.0
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl Default for PngPaletteSize {
+    fn default() -> Self {
+        Self(128)
+    }
+}
+
+#[cfg(feature = "rendering")]
+#[derive(thiserror::Error, Debug)]
+#[error("max_colors must be 2 to 256, not {0}")]
+pub struct PngPaletteSizeError(u16);
+
+#[cfg(feature = "rendering")]
+impl TryFrom<u16> for PngPaletteSize {
+    type Error = PngPaletteSizeError;
+
+    fn try_from(colors: u16) -> Result<Self, Self::Error> {
+        if (2..=256).contains(&colors) {
+            Ok(Self(colors))
+        } else {
+            Err(PngPaletteSizeError(colors))
+        }
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl From<PngPaletteSize> for u16 {
+    fn from(size: PngPaletteSize) -> Self {
+        size.0
+    }
+}
+
+#[cfg(feature = "rendering")]
+impl CollectUnrecognizedKeys for PngPaletteSize {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+}
+#[cfg(feature = "rendering")]
+impl RendererConfig {
+    /// Palette size for rendered PNGs, or `None` to keep RGBA.
+    #[must_use]
+    pub fn png_max_colors(&self) -> Option<u16> {
+        match &self.png_palette {
+            OptBoolObj::NoValue | OptBoolObj::Bool(true) => Some(PngPaletteSize::default().get()),
+            OptBoolObj::Bool(false) => None,
+            OptBoolObj::Object(palette) => Some(palette.max_colors.get()),
+        }
+    }
+}
+
+pub type StyleConfig = FileConfig<InnerStyleConfig>;
 
 impl StyleConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<StyleSources> {
-        let Some(cfg) = self.extract_file_config() else {
-            return Ok(StyleSources::default());
-        };
-
         #[cfg_attr(
             not(all(feature = "rendering", target_os = "linux")),
             expect(unused_mut)
         )]
         let mut results = StyleSources::default();
         #[cfg(all(feature = "rendering", target_os = "linux"))]
-        match cfg.custom.rendering {
+        match self.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
                 results
-                    .enable_rendering(None)
+                    .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+                results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
             OptBoolObj::Object(ref o) => {
                 results
-                    .enable_rendering(o.workers)
+                    .enable_rendering(
+                        o.workers,
+                        o.tile_size.unwrap_or_default(),
+                        o.renderers_per_worker
+                            .unwrap_or(DEFAULT_RENDERERS_PER_WORKER),
+                    )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+                results.set_max_pixel_ratio(o.max_pixel_ratio);
+                results.set_png_max_colors(o.png_max_colors());
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
-        match cfg.custom.rendering {
+        match self.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => {}
             OptBoolObj::Object(ref o) if !o.enabled => {}
             OptBoolObj::Bool(true) | OptBoolObj::Object(_) => {
@@ -101,23 +224,20 @@ impl StyleConfig {
             }
         }
 
-        let mut configs = BTreeMap::new();
-
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                if source.get_path().is_file() {
-                    configs.insert(id.clone(), source.clone());
-                    results.add_style(id, source.into_path());
-                } else {
-                    warn!(
-                        "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
-                    );
-                }
+        self.sources.retain(|id, source| {
+            if source.get_path().is_file() {
+                results.add_style(id.clone(), source.get_path().clone());
+                true
+            } else {
+                warn!(
+                    "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
+                );
+                false
             }
-        }
+        });
 
         let mut paths_with_names = Vec::new();
-        for base_path in cfg.paths {
+        for base_path in mem::take(&mut self.paths) {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
                 warn!(
@@ -145,9 +265,9 @@ impl StyleConfig {
         }
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
+        self.paths = paths_with_names;
 
-        let collections: Vec<_> = cfg.collections.into_iter().collect();
-        for collection in &collections {
+        for collection in &self.collections {
             for (project, dir) in subdirectories(collection)
                 .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
@@ -160,8 +280,6 @@ impl StyleConfig {
                 }
             }
         }
-
-        *self = Self::new_extended(paths_with_names, collections, configs, cfg.custom);
 
         Ok(results)
     }
@@ -198,6 +316,8 @@ fn list_contained_files(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use indoc::indoc;
     use martin_core::styles::StyleCatalog;
 
@@ -225,11 +345,7 @@ mod tests {
         "};
         let cfg: StyleConfig =
             serde_saphyr::from_str(yaml).expect("styles with only paths must parse");
-        let StyleConfig::Config(cfg) = cfg else {
-            panic!("expected Config variant, got {cfg:?}");
-        };
-        let paths: Vec<_> = cfg.paths.into_iter().collect();
-        assert_eq!(paths, vec![PathBuf::from("/data")]);
+        assert_eq!(cfg.paths, vec![PathBuf::from("/data")]);
     }
 
     #[cfg(feature = "rendering")]
@@ -251,6 +367,48 @@ mod tests {
     }
 
     #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::unset("rendering:\n  enabled: true\n", Some(128))]
+    #[case::enabled("rendering:\n  enabled: true\n  png_palette: true\n", Some(128))]
+    #[case::disabled("rendering:\n  enabled: true\n  png_palette: false\n", None)]
+    #[case::defaults("rendering:\n  enabled: true\n  png_palette: {}\n", Some(128))]
+    #[case::smallest(
+        "rendering:\n  enabled: true\n  png_palette:\n    max_colors: 2\n",
+        Some(2)
+    )]
+    #[case::largest(
+        "rendering:\n  enabled: true\n  png_palette:\n    max_colors: 256\n",
+        Some(256)
+    )]
+    fn renderer_config_picks_the_png_palette_size(
+        #[case] yaml: &str,
+        #[case] max_colors: Option<u16>,
+    ) {
+        let cfg: InnerStyleConfig = serde_saphyr::from_str(yaml).expect("rendering must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.png_max_colors(), max_colors);
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::none(0)]
+    #[case::one(1)]
+    #[case::past_png(257)]
+    fn renderer_config_rejects_png_palette_size(#[case] max_colors: u16) {
+        let yaml =
+            format!("rendering:\n  enabled: true\n  png_palette:\n    max_colors: {max_colors}\n");
+        let err = serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("a palette size outside 2..=256 must be rejected");
+        assert!(
+            err.to_string()
+                .contains(&format!("max_colors must be 2 to 256, not {max_colors}")),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_config_rejects_zero_workers() {
         let yaml = indoc! {"
@@ -266,6 +424,109 @@ mod tests {
             msg.contains("workers") || msg.contains("zero") || msg.contains("NonZero"),
             "unexpected error message: {msg}"
         );
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_parses_max_pixel_ratio() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              max_pixel_ratio: 2
+        "};
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(yaml).expect("rendering with max_pixel_ratio must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.max_pixel_ratio, NonZeroU8::new(2));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::zero("0")]
+    #[case::above_u8("256")]
+    #[case::negative("-1")]
+    fn renderer_config_rejects_invalid_max_pixel_ratio(#[case] value: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  max_pixel_ratio: {value}\n");
+        serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("max_pixel_ratio must be an integer in 1..=255");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_parses_renderers_per_worker() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              renderers_per_worker: 32
+        "};
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(yaml).expect("rendering with renderers_per_worker must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.renderers_per_worker, NonZeroUsize::new(32));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_rejects_zero_renderers_per_worker() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              renderers_per_worker: 0
+        "};
+        serde_saphyr::from_str::<InnerStyleConfig>(yaml)
+            .expect_err("renderers_per_worker: 0 must be rejected by NonZeroUsize");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::px256("256", TileSize::Px256)]
+    #[case::px512("512", TileSize::Px512)]
+    fn renderer_config_parses_tile_size(#[case] value: &str, #[case] tile_size: TileSize) {
+        let yaml = format!("rendering:\n  enabled: true\n  tile_size: {value}\n");
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(&yaml).expect("rendering with tile_size must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.tile_size, Some(tile_size));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[rstest::rstest]
+    #[case::zero("0")]
+    #[case::between("300")]
+    #[case::retina("1024")]
+    #[case::negative("-1")]
+    #[case::text("large")]
+    fn renderer_config_rejects_invalid_tile_size(#[case] value: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  tile_size: {value}\n");
+        serde_saphyr::from_str::<InnerStyleConfig>(&yaml)
+            .expect_err("tile_size must be 256 or 512");
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_names_the_allowed_tile_sizes() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              tile_size: 300
+        "};
+        let err =
+            serde_saphyr::from_str::<InnerStyleConfig>(yaml).expect_err("300 is not a tile size");
+        insta::assert_snapshot!(err, @r"
+        error: line 3 column 14: tile size must be 256 or 512, got 300
+         --> <input>:3:14
+          |
+        1 | rendering:
+        2 |   enabled: true
+        3 |   tile_size: 300
+          |              ^ tile size must be 256 or 512, got 300
+        ");
     }
 
     #[test]
@@ -304,8 +565,10 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_owned(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg =
-            StyleConfig::new_extended(vec![], vec![], configs, InnerStyleConfig::default());
+        let mut cfg = StyleConfig {
+            sources: configs,
+            ..StyleConfig::default()
+        };
 
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);

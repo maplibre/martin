@@ -418,7 +418,7 @@ async fn handle_static_request(
 
     #[cfg(target_os = "linux")]
     let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
-        Ok(image) => encode_image_response(image.as_image(), path.format),
+        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
         Err(resp) => *resp,
     };
     #[cfg(not(target_os = "linux"))]
@@ -538,7 +538,8 @@ async fn render_with_overlays(
             | StyleError::StyleLoadError(_)
             | StyleError::RenderingError(_)
             | StyleError::FailedToSendRequest
-            | StyleError::FailedToReceiveResponse) => {
+            | StyleError::FailedToReceiveResponse
+            | StyleError::RenderingPanicked) => {
                 error!("Failed to render static image: {other}");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())

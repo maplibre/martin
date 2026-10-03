@@ -179,6 +179,21 @@ where
                 "the cache schema is not supported for transcoding; copy it to a standard schema first".to_owned(),
             ));
         }
+        if matches!(
+            src_type,
+            MbtType::Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            }
+        ) && matches!(
+            dst_type,
+            MbtType::Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            }
+        ) {
+            return Err(MbtError::CannotTranscodeNormalizedToDedupId);
+        }
 
         let algorithm = src.get_hash_algorithm(&mut src_conn).await?;
         let dst = Mbtiles::new(&self.dst_file)?;
@@ -961,6 +976,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(count, 6);
+    }
+
+    #[actix_rt::test]
+    async fn transcode_hash_normalized_to_dedup_id_is_refused() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_norm_dedup_id", script).await;
+        let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
+        let err = MbtilesTranscoder::new(&src_file, &dst_file, |data| Ok(Bytes::from(data)))
+            .dst_type(MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            })
+            .run()
+            .await
+            .unwrap_err();
+        assert!(matches!(err, MbtError::CannotTranscodeNormalizedToDedupId));
+        insta::assert_snapshot!(err.to_string(), @"Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first");
     }
 
     #[actix_rt::test]

@@ -1,11 +1,17 @@
 #[cfg(feature = "postgres")]
 use futures::future::try_join_all;
+use tokio::task::JoinHandle;
 
 use crate::StartupResult;
 use crate::config::file::Config;
 #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
 use crate::config::file::TileGrids;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-duckdb",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
 use crate::config::file::process::ProcessConfig;
 use crate::config::primitives::IdResolver;
 use crate::tile_source_manager::TileSourceManager;
@@ -16,6 +22,8 @@ pub struct TileReloaders {
     mbtiles: super::mbtiles::MbtilesReloader,
     #[cfg(feature = "unstable-cog")]
     cog: super::cog::CogReloader,
+    #[cfg(feature = "unstable-duckdb")]
+    duckdb: super::duckdb::DuckDbReloader,
     #[cfg(feature = "geojson")]
     geojson: super::geojson::GeoJsonReloader,
     #[cfg(feature = "pmtiles")]
@@ -28,7 +36,7 @@ impl TileReloaders {
     /// Constructs every reloader and initializes the PostgreSQL sources.
     /// Nothing is spawned until [`start`](Self::start) is called.
     #[cfg_attr(
-        not(feature = "postgres"),
+        not(any(feature = "postgres", feature = "unstable-duckdb")),
         expect(clippy::unused_async, clippy::unused_async_trait_impl)
     )]
     #[expect(clippy::too_many_lines, reason = "one block per file kind")]
@@ -37,7 +45,12 @@ impl TileReloaders {
         catalog: &TileSourceManager,
         resolver: &IdResolver,
     ) -> StartupResult<Self> {
-        #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
+        #[cfg(any(
+            feature = "mbtiles",
+            feature = "unstable-duckdb",
+            feature = "pmtiles",
+            feature = "postgres"
+        ))]
         let global_process = {
             #[cfg(feature = "mlt")]
             let pc = ProcessConfig {
@@ -69,6 +82,14 @@ impl TileReloaders {
             &config.cog,
             config.cache.policy(),
         );
+        #[cfg(feature = "unstable-duckdb")]
+        let mut duckdb = super::duckdb::DuckDbReloader::new(
+            catalog.clone(),
+            resolver,
+            &config.duckdb,
+            config.cache.policy(),
+            &global_process,
+        );
         #[cfg(feature = "geojson")]
         let mut geojson = super::geojson::GeoJsonReloader::new(
             catalog.clone(),
@@ -93,6 +114,11 @@ impl TileReloaders {
         #[cfg(feature = "unstable-cog")]
         {
             let warnings = cog.init().await?;
+            catalog.on_invalid().handle_tile_warnings(&warnings)?;
+        }
+        #[cfg(feature = "unstable-duckdb")]
+        {
+            let warnings = duckdb.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
         }
         #[cfg(feature = "geojson")]
@@ -140,12 +166,30 @@ impl TileReloaders {
             mbtiles,
             #[cfg(feature = "unstable-cog")]
             cog,
+            #[cfg(feature = "unstable-duckdb")]
+            duckdb,
             #[cfg(feature = "geojson")]
             geojson,
             #[cfg(feature = "pmtiles")]
             pmtiles,
             #[cfg(feature = "postgres")]
             postgres,
+        })
+    }
+
+    /// Loads every source on a task of its own and then starts the reload loops.
+    /// Requests for a source that is not published yet wait until the load is done.
+    pub fn load(
+        config: Config,
+        catalog: TileSourceManager,
+        resolver: IdResolver,
+    ) -> JoinHandle<StartupResult<()>> {
+        catalog.start_loading();
+        tokio::spawn(async move {
+            let reloaders = Self::init(&config, &catalog, &resolver).await?;
+            catalog.finish_loading();
+            reloaders.start();
+            Ok(())
         })
     }
 
@@ -159,6 +203,10 @@ impl TileReloaders {
         #[cfg(feature = "unstable-cog")]
         if let Err(e) = self.cog.start() {
             tracing::warn!("failed to start CogReloader {e:?}");
+        }
+        #[cfg(feature = "unstable-duckdb")]
+        if let Err(e) = self.duckdb.start() {
+            tracing::warn!("failed to start DuckDbReloader {e:?}");
         }
         #[cfg(feature = "geojson")]
         if let Err(e) = self.geojson.start() {

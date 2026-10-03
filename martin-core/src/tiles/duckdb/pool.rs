@@ -187,7 +187,7 @@ impl DuckDBPoolManager {
                     let val: i64 = threads_val
                         .get()
                         .try_into()
-                        .map_err(|_| InvalidThreadCount(threads_val.get()))?;
+                        .map_err(|_err| InvalidThreadCount(threads_val.get()))?;
                     cfg.threads(val).map_err(|source| ApplySetting {
                         source: source.into(),
                         setting: "threads",
@@ -246,17 +246,17 @@ impl Manager for DuckDBPoolManager {
         }
     }
 
-    async fn recycle(
+    fn recycle(
         &self,
         conn: &mut Self::Type,
         _metrics: &Metrics,
-    ) -> RecycleResult<Self::Error> {
-        conn.execute_batch("SELECT 1").map_err(|source| {
+    ) -> impl Future<Output = RecycleResult<Self::Error>> + Send {
+        std::future::ready(conn.execute_batch("SELECT 1").map_err(|source| {
             HealthCheck {
                 source: source.into(),
                 target: self.target.clone().into(),
             }
             .into()
-        })
+        }))
     }
 }

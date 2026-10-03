@@ -39,6 +39,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     needs:
       - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     strategy:
@@ -69,6 +70,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -86,6 +88,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -103,6 +106,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - lint-rust
     steps:
@@ -120,6 +124,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,6 +142,7 @@ jobs:
     needs:
       - lint-rust
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -153,6 +159,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,6 +187,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images (${{ matrix.variant }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu, build-aarch64-unknown-linux-gnu-full, build-x86_64-unknown-linux-gnu-full ]
     if: |
       !cancelled()
@@ -307,7 +315,7 @@ jobs:
           flavor: ${{ matrix.flavor }}
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
@@ -361,7 +369,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -379,7 +387,7 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e DEFAULT_SRID -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -483,6 +491,7 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-musl ]
@@ -500,6 +509,7 @@ jobs:
   test-windows:
     name: Test on windows-latest
     runs-on: windows-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-pc-windows-msvc ]
@@ -550,6 +560,7 @@ jobs:
   test-svc-pg:
     name: Test against PostGIS variants
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
@@ -568,8 +579,8 @@ jobs:
     # server cert copied out of the service container into PGSSLROOTCERT.
     services:
       # These must match the versions of postgres used in the docker-compose.yml
-      pg13-alpine:
-        image: postgis/postgis:13-3.0-alpine
+      pg12-alpine:
+        image: postgis/postgis:17-3.5-alpine
         ports:
           - 5432/tcp
         env: &postgis-env
@@ -605,10 +616,10 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest,fast-mvt', rendering: true, coverage: true }
       - parallel:
-          - name: Init pg13-alpine database
+          - name: Init pg12-alpine database
             run: tests/fixtures/initdb.sh
             env:
-              PGPORT: ${{ job.services['pg13-alpine'].ports[5432] }}
+              PGPORT: ${{ job.services['pg12-alpine'].ports[5432] }}
           - name: Init pg18-alpine database
             run: tests/fixtures/initdb.sh
             env:
@@ -617,12 +628,12 @@ jobs:
             run: tests/fixtures/initdb.sh
             env:
               PGPORT: ${{ job.services['pg18-ssl'].ports[5432] }}
-      - name: Unit Tests postgis:13-3.0-alpine sslmode=disable
+      - name: Unit Tests postgis:12-3.5-alpine sslmode=disable
         run: &unit-tests |
           echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
           just test-pg
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg13-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
       - name: Unit Tests postgis:18-3.6-alpine sslmode=disable
         run: *unit-tests
         env:
@@ -650,13 +661,13 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-      - name: Release binary tests postgis:13-3.0-alpine sslmode=disable
+      - name: Release binary tests postgis:12-3.5-alpine sslmode=disable
         run: &release-config-tests |
           export MARTIN_BIN=target_releases/martin
           export MBTILES_BIN=target_releases/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg13-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
       - name: Release binary tests postgis:18-3.6-alpine sslmode=disable
         run: *release-config-tests
         env:
@@ -680,14 +691,14 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-      - name: Debian package tests postgis:13-3.0-alpine sslmode=disable
+      - name: Debian package tests postgis:12-3.5-alpine sslmode=disable
         if: inputs.run-release-builds
         run: &debian-config-tests |
           export MARTIN_BIN=/usr/bin/martin
           export MBTILES_BIN=/usr/bin/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg13-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
       - name: Debian package tests postgis:18-3.6-alpine sslmode=disable
         if: inputs.run-release-builds
         run: *debian-config-tests
@@ -697,12 +708,13 @@ jobs:
         if: inputs.run-release-builds
         run: sudo dpkg -P martin
 
-  unit-test-svc-minio:
-    # Exercises the PmtilesReloader's S3-prefix polling against a MinIO testcontainer
+  unit-test-svc-s3:
+    # Exercises the PmtilesReloader's S3-prefix polling against a RustFS testcontainer
     # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
     # which is all the testcontainers crate needs.
-    name: Unit test against MinIO (S3-compatible)
+    name: Unit test against RustFS (S3-compatible)
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
@@ -712,9 +724,9 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest', coverage: true }
       - name: Unit Tests
-        run: just test-minio
+        run: just test-s3
       - uses: $/.github/actions/upload-coverage
-        with: { suite: minio }
+        with: { suite: s3 }
 
 
   test-publish:
@@ -722,6 +734,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     # A from-scratch package and build of the whole workspace. What it guards
     # is the release itself, so on pull requests it only runs for the one
     # release-plz opens; pushes and releases always run it.
@@ -740,13 +753,14 @@ jobs:
   coverage:
     name: Merge and upload code coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs:
       - unit-test-rust
       - test-cog
       - test-duckdb
       - test-rendering
       - test-svc-pg
-      - unit-test-svc-minio
+      - unit-test-svc-s3
     permissions:
       contents: read
       code-quality: write
@@ -763,7 +777,7 @@ jobs:
       - name: Merge the reports into one Cobertura report
         run: just coverage-merge
       - name: Upload to GitHub code coverage
-        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
+        uses: actions/upload-code-coverage@2b21a77928be8d5168c2b9581a67f2adbebacc52 # v1.4.4
         with:
           file: target/cobertura.xml
           language: Rust

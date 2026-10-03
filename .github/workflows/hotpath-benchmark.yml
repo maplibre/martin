@@ -1,6 +1,12 @@
-name: Hotpath profile
+name: Hotpath benchmark
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
   pull_request:
     types: [opened, synchronize, reopened, labeled]
     paths-ignore:
@@ -20,14 +26,30 @@ permissions:
   contents: read
 
 jobs:
-  profile:
-    if: contains(github.event.pull_request.labels.*.name, 'bench')
+  benchmark:
+    name: benchmark (${{ matrix.scenario }})
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - mbtiles-miss
+          - pmtiles-miss
+          - postgres-function-miss
+          - postgres-function-mlt-miss
+          - postgres-table-miss
+          - cache-hit
+    permissions:
+      contents: read
+      id-token: write
     env:
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
+      HOTPATH_ALLOC_SELF: true
     services:
       postgres:
         image: postgis/postgis:18-3.6
@@ -48,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - run: rustup update stable && rustup default stable
@@ -62,61 +84,36 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
 
-      - name: Create metrics directory
-        run: mkdir -p /tmp/metrics/head /tmp/metrics/base
+      - name: Build
+        run: just build-hotpath --features hotpath-cloud
 
-      - name: Build head
-        run: just build-hotpath
-
-      - name: Benchmark head
+      - name: Benchmark and upload baseline
+        if: github.event_name == 'push'
         env:
-          HOTPATH_OUTPUT_DIR: /tmp/metrics/head
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-        run: just bench-hotpath
-
-      - name: Checkout base
-        run: git checkout ${{ github.event.pull_request.base.sha }}
-
-      - name: Drop the head's database so the base run loads its own fixtures
-        run: just stop
-
-      - name: Check base has hotpath support
-        id: base-check
-        run: |
-          if grep -q 'hotpath' martin/Cargo.toml; then
-            echo "supported=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::Base branch does not have hotpath feature, skipping base benchmark"
-            echo "supported=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build base
-        if: steps.base-check.outputs.supported == 'true'
-        run: just build-hotpath
-
-      - name: Benchmark base
-        if: steps.base-check.outputs.supported == 'true'
-        env:
-          HOTPATH_OUTPUT_DIR: /tmp/metrics/base
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HOTPATH_UPLOAD: fail-on-error
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},profile=release
+          HOTPATH_OUTPUT_FORMAT: none
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: |
-          git checkout "$HEAD_SHA" -- tests/bench
-          just start prepare-mbtiles
-          just --justfile tests/bench/justfile --working-directory .
+          set -o pipefail
+          just bench-hotpath ${{ matrix.scenario }} --features hotpath-cloud 2>&1 | tee /tmp/hotpath-run.log
+          grep -q '^hotpath: uploaded report ' /tmp/hotpath-run.log
 
-      - name: Save PR metadata
+      - name: Benchmark and write report
+        if: github.event_name == 'pull_request'
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_REF: ${{ github.base_ref }}
-          HEAD_REF: ${{ github.head_ref }}
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},profile=release
+          HOTPATH_OUTPUT_PATH: /tmp/hotpath/report.json
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: |
-          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
-          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
-          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
+          mkdir -p /tmp/hotpath
+          just bench-hotpath ${{ matrix.scenario }} --features hotpath-cloud
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name == 'pull_request'
         with:
-          name: profile-metrics
-          path: /tmp/metrics/
+          name: hotpath-report-${{ matrix.scenario }}
+          path: /tmp/hotpath/report.json
           retention-days: 1
+          if-no-files-found: error

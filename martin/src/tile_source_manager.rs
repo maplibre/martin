@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
+use tokio::sync::watch;
 use tracing::{info, warn};
 
 use crate::config::file::driver::{ApplyOutcome, Sink};
@@ -26,6 +27,8 @@ pub struct TileSourceManager {
     provenance: Arc<DashMap<String, SourceProvenance>>,
     tile_cache: OptTileCache,
     on_invalid: OnInvalid,
+    /// Whether the sources have loaded, so a request for a source that is not published yet can wait for it.
+    loaded: Arc<watch::Sender<bool>>,
 }
 
 impl TileSourceManager {
@@ -38,6 +41,7 @@ impl TileSourceManager {
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
+            loaded: Arc::new(watch::Sender::new(true)),
         }
     }
 
@@ -61,7 +65,36 @@ impl TileSourceManager {
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
+            loaded: Arc::new(watch::Sender::new(true)),
         }
+    }
+
+    /// Marks the sources as loading.
+    pub fn start_loading(&self) {
+        self.loaded.send_replace(false);
+    }
+
+    /// Marks the sources as loaded and releases the requests waiting for them.
+    pub fn finish_loading(&self) {
+        self.loaded.send_replace(true);
+    }
+
+    /// Waits until `source_ids` resolve or the sources have loaded.
+    pub async fn wait_for_sources(&self, source_ids: &str) {
+        let resolves = || self.tile_sources().get_sources(source_ids, None).is_ok();
+        if *self.loaded.borrow() || resolves() {
+            return;
+        }
+        let mut loaded = self.loaded.subscribe();
+        // The manager holds the sender, so the channel cannot close while this waits.
+        let _ = loaded.wait_for(|loaded| *loaded || resolves()).await;
+    }
+
+    /// Waits for the sources to load.
+    pub async fn wait_until_loaded(&self) {
+        let mut loaded = self.loaded.subscribe();
+        // The manager holds the sender, so the channel cannot close while this waits.
+        let _ = loaded.wait_for(|loaded| *loaded).await;
     }
 
     /// Returns a [`TileSources`] view for read-only tile serving.
@@ -194,6 +227,9 @@ impl Sink for TileSourceManager {
             cache.run_pending_tasks().await;
         }
 
+        // 5. Wake the requests waiting for sources that may exist now
+        self.loaded.send_modify(|_| {});
+
         Ok(ApplyOutcome { failed })
     }
 }
@@ -289,6 +325,54 @@ mod tests {
         let mgr = make_manager();
         mgr.apply_changes(ReloadAdvisory::default()).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
+    }
+
+    #[tokio::test]
+    async fn requests_for_missing_sources_wait_until_the_sources_load() {
+        let mgr = make_manager();
+        let advisory = ReloadAdvisory {
+            additions: vec![new_source("src_a")],
+            ..Default::default()
+        };
+        mgr.apply_changes(advisory).await.unwrap();
+        mgr.start_loading();
+        mgr.wait_for_sources("src_a").await;
+        let waiting = tokio::spawn({
+            let mgr = mgr.clone();
+            async move { mgr.wait_for_sources("src_b").await }
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !waiting.is_finished(),
+            "a missing source waits while the sources load"
+        );
+        mgr.finish_loading();
+        waiting
+            .await
+            .expect("a missing source stops waiting once the sources have loaded");
+    }
+
+    #[tokio::test]
+    async fn a_request_for_a_source_proceeds_once_the_source_is_published() {
+        let mgr = make_manager();
+        mgr.start_loading();
+        let waiting = tokio::spawn({
+            let mgr = mgr.clone();
+            async move { mgr.wait_for_sources("src_b").await }
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !waiting.is_finished(),
+            "a missing source waits while the sources load"
+        );
+        let advisory = ReloadAdvisory {
+            additions: vec![new_source("src_b")],
+            ..Default::default()
+        };
+        mgr.apply_changes(advisory).await.unwrap();
+        waiting
+            .await
+            .expect("a source published during the load ends the wait");
     }
 
     #[test]

@@ -3,7 +3,9 @@ use std::time::Duration;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::config::file::srv::{
+    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
+};
 
 #[allow(
     clippy::doc_markdown,
@@ -14,6 +16,8 @@ use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, Srv
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]
     pub keep_alive: Option<u64>,
+    #[arg(help = format!("Seconds to wait for in-flight requests to finish on SIGTERM. [DEFAULT: {DEFAULT_SHUTDOWN_TIMEOUT}]"), long)]
+    pub shutdown_timeout: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {DEFAULT_LISTEN_ADDRESSES}]"), short, long)]
     pub listen_addresses: Option<String>,
     /// Set URL path prefix for all API routes.
@@ -104,6 +108,9 @@ impl SrvArgs {
         // Override config values with the ones from the command line
         if self.keep_alive.is_some() {
             srv_config.keep_alive = self.keep_alive;
+        }
+        if self.shutdown_timeout.is_some() {
+            srv_config.shutdown_timeout = self.shutdown_timeout;
         }
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;

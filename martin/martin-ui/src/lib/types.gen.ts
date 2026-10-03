@@ -192,7 +192,7 @@ export interface components {
                     end: number;
                     /** @description Font family name (e.g., "Arial"). */
                     family: string;
-                    format?: null | components["schemas"]["FontFormat"];
+                    format?: components["schemas"]["FontFormat"] | null;
                     /**
                      * Format: int32
                      * @description Total number of glyphs in this font.
@@ -247,7 +247,7 @@ export interface components {
                     layer_count?: number | null;
                     /** @description Path to the style JSON file. */
                     path: string;
-                    type?: null | components["schemas"]["StyleKind"];
+                    type?: components["schemas"]["StyleKind"] | null;
                     /** @description Hash identifying the current style revision. */
                     version_hash?: string | null;
                 };

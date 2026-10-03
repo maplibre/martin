@@ -89,8 +89,6 @@ repos:
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
             grep -rl "ghcr.io/maplibre/martin:" docs demo justfile \
               | xargs -r sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%"
-            grep -rl "Martin v[0-9]" martin/src/tui/snapshots \
-              | xargs -r sed -i "s/Martin v[0-9][^[:space:]]*/Martin v$VERSION/g"
             echo "Synced version to $VERSION"
           '
         language: system
@@ -118,12 +116,12 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.5.13"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.5.14"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.5.13" ]
+        additional_dependencies: [ "@biomejs/biome@2.5.14" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.5.13" ]
+        additional_dependencies: [ "@biomejs/biome@2.5.14" ]
 
   - repo: local
     hooks:

@@ -49,6 +49,7 @@ pub async fn get_source_info(
     manager: Data<TileSourceManager>,
     srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
+    manager.wait_for_sources(&path.source_ids).await;
     let resolved = manager.tile_sources().get_sources(&path.source_ids, None)?;
 
     // Determine the path prefix for tile URLs in TileJSON responses

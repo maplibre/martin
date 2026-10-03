@@ -108,10 +108,14 @@ async fn the_saved_config_names_every_discovered_file() {
     insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     pmtiles:
-      paths: tests/fixtures/geojson
-    mbtiles: tests/fixtures/geojson
+      paths:
+      - tests/fixtures/geojson
+    mbtiles:
+      paths:
+      - tests/fixtures/geojson
     geojson:
-      paths: tests/fixtures/geojson
+      paths:
+      - tests/fixtures/geojson
       sources:
         bare_geometry: tests/fixtures/geojson/bare_geometry.geojson
         clip: tests/fixtures/geojson/clip.geojson
@@ -255,7 +259,7 @@ async fn a_tile_is_served_gzipped_with_an_etag() {
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 143
+    content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
@@ -358,7 +362,7 @@ async fn reload_adds_updates_and_removes_a_source() {
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 143
+    content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

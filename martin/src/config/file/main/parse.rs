@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[cfg(feature = "postgres")]
-use tracing::warn;
-
 use super::Config;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::config::primitives::env::Env;
@@ -13,48 +10,6 @@ pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config>
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, &env.as_property_map(), file_name)
-}
-
-/// Postgres env vars Martin still reads implicitly, but will stop in the future
-#[cfg(feature = "postgres")]
-const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
-    (
-        "DATABASE_URL",
-        r#"martin "$DATABASE_URL""#,
-        "postgres.connection_string: ${DATABASE_URL}",
-    ),
-    (
-        "DEFAULT_SRID",
-        r#"--default-srid "$DEFAULT_SRID""#,
-        "postgres.default_srid: ${DEFAULT_SRID}",
-    ),
-    (
-        "PGSSLCERT",
-        r#"--ssl-cert "$PGSSLCERT""#,
-        "postgres.ssl_cert: ${PGSSLCERT}",
-    ),
-    (
-        "PGSSLKEY",
-        r#"--ssl-key "$PGSSLKEY""#,
-        "postgres.ssl_key: ${PGSSLKEY}",
-    ),
-    (
-        "PGSSLROOTCERT",
-        r#"--ca-root-file "$PGSSLROOTCERT""#,
-        "postgres.ssl_root_cert: ${PGSSLROOTCERT}",
-    ),
-];
-
-/// Warn once at startup about legacy Postgres env vars Martin still reads implicitly.
-#[cfg(feature = "postgres")]
-pub fn warn_legacy_env_vars(env: &impl Env) {
-    for (name, cli, config_key) in LEGACY_ENV_VARS {
-        if env.var_os(name).is_some() {
-            warn!(
-                "Environment variable {name} is deprecated; use `{config_key}` in your configuration file (or `{cli}` on the command line) instead. See https://maplibre.org/martin/env-vars/"
-            );
-        }
-    }
 }
 
 pub fn parse_config(
@@ -84,11 +39,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    #[cfg(feature = "sprites")]
-    use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
-    #[cfg(feature = "postgres")]
-    use crate::config::primitives::OptOneMany;
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -278,10 +229,7 @@ mod tests {
     #[test]
     fn cache_disable_sprites() {
         let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(0));
+        assert_eq!(config.sprites.custom.cache.size_mb, Some(0));
     }
 
     #[test]
@@ -317,12 +265,10 @@ mod tests {
         let config = parse_yaml(
             "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
         );
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(64));
-        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
-        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
+        let cache = &config.sprites.custom.cache;
+        assert_eq!(cache.size_mb, Some(64));
+        assert_eq!(cache.expiry, Some(Duration::from_hours(2)));
+        assert_eq!(cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 
     #[rstest]
@@ -350,11 +296,11 @@ mod tests {
         let env = props(&[("BASE", "/my/path")]);
         let yaml = format!("postgres:\n  connection_string: {input}\n");
         let config = parse_with_env(&yaml, &env);
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [pg] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
@@ -386,11 +332,11 @@ mod tests {
             Path::new("config.yaml"),
         )
         .expect("comments containing ${VAR} must not trigger substitution");
-        let one = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [one] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(
             one.connection_string.as_deref(),

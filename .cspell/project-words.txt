@@ -30,8 +30,10 @@ demotiles
 dflt
 dpkg
 duckdb
+enableforall
 enmod
 epsg
+ETRS
 extfile
 fastpfor
 fontawesome
@@ -60,6 +62,7 @@ isolines
 jpegxl
 justfiles
 keepalives
+LAEA
 linestring
 linestrings
 lldb
@@ -93,6 +96,7 @@ openlayers
 openmaptiles
 osmus
 overturemaps
+PDOK
 peucker
 pfor
 pgpassword

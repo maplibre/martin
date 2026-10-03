@@ -13,12 +13,12 @@ services:
       - ./certs:/etc/ssl/certs
 
   tiles:
-    image: ghcr.io/maplibre/martin:1.16.1
+    image: ghcr.io/maplibre/martin:2.0.0-beta.2
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - DATABASE_URL=postgres://postgres@db/db
+    command:
+      - postgres://postgres@db/db
     depends_on:
       db:
         condition: service_healthy

@@ -27,16 +27,12 @@ use crate::config::file::ConfigurationLivecycleHooks;
     feature = "styles",
     feature = "geojson",
 ))]
-use crate::config::file::FileConfigEnum;
+use crate::config::file::FileConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
-#[cfg(feature = "postgres")]
-use crate::config::file::warn_legacy_env_vars;
 use crate::config::file::{Config, OnInvalid};
-#[cfg(feature = "postgres")]
-use crate::config::primitives::env::Env;
 #[cfg(feature = "mbtiles")]
 use crate::cp::CopierArgs;
 
@@ -120,17 +116,10 @@ pub struct ExtraArgs {
 }
 
 impl Args {
-    pub fn merge_into_config(
-        self,
-        config: &mut Config,
-        #[cfg(feature = "postgres")] env: &impl Env,
-    ) -> ArgsResult<()> {
+    pub fn merge_into_config(self, config: &mut Config) -> ArgsResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnections(self.meta.connection));
         }
-
-        #[cfg(feature = "postgres")]
-        warn_legacy_env_vars(env);
 
         if self.srv.cache_size.is_some() {
             config.cache.size_mb = self.srv.cache_size;
@@ -167,8 +156,8 @@ impl Args {
         #[cfg(feature = "postgres")]
         {
             let pg_args = self.pg.unwrap_or_default();
-            if config.postgres.is_none() {
-                config.postgres = pg_args.into_config(&mut cli_strings, env);
+            if config.postgres.is_empty() {
+                config.postgres = pg_args.into_config(&mut cli_strings);
             } else {
                 // config was loaded from a file, we can only apply a few CLI overrides to it
                 pg_args.override_config(&mut config.postgres);
@@ -219,12 +208,12 @@ impl Args {
 
         #[cfg(feature = "styles")]
         if !self.extras.style.is_empty() {
-            config.styles = FileConfigEnum::new(self.extras.style);
+            config.styles = FileConfig::new(self.extras.style);
         }
 
         #[cfg(feature = "sprites")]
         if !self.extras.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new(self.extras.sprite);
+            config.sprites = FileConfig::new(self.extras.sprite);
         }
 
         #[cfg(feature = "fonts")]
@@ -299,8 +288,8 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
-) -> FileConfigEnum<T> {
-    FileConfigEnum::new(parse_file_paths(cli_strings, extensions, allow_url, true))
+) -> FileConfig<T> {
+    FileConfig::new(parse_file_paths(cli_strings, extensions, allow_url, true))
 }
 
 /// Claim the unclaimed CLI arguments that are files with one of `extensions`.
@@ -350,18 +339,12 @@ mod tests {
     use super::*;
     use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
-    #[cfg(feature = "postgres")]
-    use crate::config::primitives::env::FauxEnv;
 
     fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )?;
+        args.merge_into_config(&mut config)?;
         Ok((config, meta))
     }
 
@@ -376,7 +359,6 @@ mod tests {
     #[test]
     fn cli_with_config() {
         use crate::config::file::postgres::PostgresConfig;
-        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -395,10 +377,10 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PostgresConfig {
+            postgres: vec![PostgresConfig {
                 connection_string: Some("postgres://connection".to_owned()),
                 ..Default::default()
-            }),
+            }],
             ..Default::default()
         };
         let meta = MetaArgs {
@@ -506,9 +488,7 @@ mod tests {
         let args = Args::parse_from(["martin", "--config", "c.toml", "postgres://a"]);
 
         let mut config = Config::default();
-        let err = args
-            .merge_into_config(&mut config, &FauxEnv::default())
-            .unwrap_err();
+        let err = args.merge_into_config(&mut config).unwrap_err();
         assert_matches!(err, ConfigAndConnections(..));
     }
 
@@ -517,13 +497,7 @@ mod tests {
         let args = Args::parse_from(["martin", "foobar"]);
 
         let mut config = Config::default();
-        let err = args
-            .merge_into_config(
-                &mut config,
-                #[cfg(feature = "postgres")]
-                &FauxEnv::default(),
-            )
-            .unwrap_err();
+        let err = args.merge_into_config(&mut config).unwrap_err();
         let bad = vec!["foobar".to_owned()];
         assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
@@ -537,16 +511,12 @@ mod tests {
             "s3://bucket/imagery/ortho.tiff",
         ]);
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
+        args.merge_into_config(&mut config).unwrap();
 
         insta::assert_yaml_snapshot!(config.cog, @r#"
-        - "https://example.org/imagery/vienna.tif"
-        - "s3://bucket/imagery/ortho.tiff"
+        paths:
+          - "https://example.org/imagery/vienna.tif"
+          - "s3://bucket/imagery/ortho.tiff"
         "#);
     }
 
@@ -566,12 +536,7 @@ mod tests {
         ]);
 
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
+        args.merge_into_config(&mut config).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
@@ -587,11 +552,7 @@ mod tests {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let mut config = Config::default();
-        let err = args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        );
+        let err = args.merge_into_config(&mut config);
         err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
@@ -610,48 +571,11 @@ mod tests {
         ]);
 
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
-    }
-
-    /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`
-    /// still configures Postgres exactly as it does today.
-    #[cfg(feature = "postgres")]
-    #[test]
-    #[tracing_test::traced_test]
-    fn legacy_env_var_still_configures_postgres_and_warns() {
-        use std::ffi::OsString;
-
-        use crate::config::primitives::OptOneMany;
-
-        let env: FauxEnv = [(
-            "DATABASE_URL",
-            OsString::from("postgres://localhost:5432/from-env"),
-        )]
-        .into_iter()
-        .collect();
-
-        let args = Args::parse_from(["martin"]);
-        let mut config = Config::default();
-        args.merge_into_config(&mut config, &env).unwrap();
-
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
-        };
-        assert_eq!(
-            pg.connection_string.as_deref(),
-            Some("postgres://localhost:5432/from-env")
-        );
-        assert!(logs_contain(
-            "Environment variable DATABASE_URL is deprecated"
-        ));
+        args.merge_into_config(&mut config).unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
+        geojson:
+          paths:
+            - "../tests/fixtures/geojson/feature_collection_1.geojson"
+        "#);
     }
 }

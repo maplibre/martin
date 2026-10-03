@@ -1,4 +1,5 @@
 ---
+description: A fast tile server for PostGIS, PMTiles and MBTiles
 icon: material/home
 hide:
   - navigation

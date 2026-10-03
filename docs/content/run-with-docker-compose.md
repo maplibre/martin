@@ -1,4 +1,5 @@
 ---
+description: Running Martin and PostGIS together with Docker Compose
 icon: simple/docker
 tags:
   - deployment
@@ -14,12 +15,12 @@ file as a reference
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:1.16.1
+    image: ghcr.io/maplibre/martin:2.0.0-beta.2
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - DATABASE_URL=postgres://postgres:password@db/db
+    command:
+      - postgres://postgres:password@db/db
     depends_on:
       - db
 

@@ -19,6 +19,10 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.antimeridian.geom"
   },
+  "array_props": {
+    "content_type": "application/x-protobuf",
+    "description": "Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key"
+  },
   "auto_table": {
     "content_type": "application/x-protobuf",
     "description": "autodetect.auto_table.geom"
@@ -27,6 +31,10 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "autodetect.bigint_table.geom"
   },
+  "constrained_geometry": {
+    "content_type": "application/x-protobuf",
+    "description": "An untyped geometry column whose SRID and type come from CHECK constraints"
+  },
   "curves": {
     "content_type": "application/x-protobuf",
     "description": "public.curves.geom"
@@ -34,6 +42,14 @@ expression: "catalog.json()[\"tiles\"]"
   "curves_untyped": {
     "content_type": "application/x-protobuf",
     "description": "public.curves_untyped.geom"
+  },
+  "dimensioned_shapes": {
+    "content_type": "application/x-protobuf",
+    "description": "Every geometry type, in XY, XYZ, XYM and XYZM"
+  },
+  "domain_props": {
+    "content_type": "application/x-protobuf",
+    "description": "A domain column and a domain over a domain, which a query returns as the integer under them"
   },
   "empty_bounds": {
     "content_type": "application/x-protobuf",
@@ -142,6 +158,10 @@ expression: "catalog.json()[\"tiles\"]"
   "mat_view": {
     "content_type": "application/x-protobuf",
     "description": "materialized view comment"
+  },
+  "measured_shapes": {
+    "content_type": "application/x-protobuf",
+    "description": "Geometries carrying an M ordinate, in every property type martin serves"
   },
   "nz_points": {
     "content_type": "application/x-protobuf",

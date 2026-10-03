@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::sync::Arc;
 
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::geojson::source::GeoJsonSource;
-use martin_core::tiles::{AnySource, BoxedSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -105,10 +104,10 @@ impl TileSourceConfiguration for GeoJsonConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         let geojson_source =
             GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
-        Ok(Arc::new(AnySource::GeoJson(geojson_source)))
+        Ok(BackendSource::GeoJson(geojson_source))
     }
 
     #[expect(
@@ -120,7 +119,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         unreachable!()
     }
 }
@@ -134,13 +133,13 @@ mod tests {
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
-        FileConfigEnum, FileConfigSource, FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
+        FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]
     async fn parse() {
-        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<GeoJsonConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfig<GeoJsonConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -160,12 +159,8 @@ mod tests {
             unrecognised.is_empty(),
             "unrecognized config: {unrecognised:?}"
         );
-        let FileConfigEnum::Config(cfg) = cfg else {
-            panic!();
-        };
-        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(
-            paths,
+            cfg.paths,
             vec![
                 PathBuf::from("/dir-path"),
                 PathBuf::from("/path/to/file2.ext"),
@@ -174,7 +169,7 @@ mod tests {
         );
         assert_eq!(
             cfg.sources,
-            Some(BTreeMap::from_iter(vec![
+            BTreeMap::from_iter(vec![
                 (
                     "pm-src1".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
@@ -217,7 +212,7 @@ mod tests {
                         cache_control: None,
                     }))
                 ),
-            ]))
+            ])
         );
     }
 

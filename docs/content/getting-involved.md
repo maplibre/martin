@@ -1,4 +1,5 @@
 ---
+description: Editor setup and debugging for Martin development
 icon: material/account-group
 tags:
   - development
@@ -114,7 +115,7 @@ Just copy and paste after it, and modify your pasted like this:
     },
     "args": ["postgres://postgres:postgres@localhost:5411/db"], // add your arguments here
      "env": {
-         "DEFAULT_SRID": 4490, // add your env here
+         "RUST_LOG": "martin=debug", // add your env here
      },
     "cwd": "${workspaceFolder}"
 },

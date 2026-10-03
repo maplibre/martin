@@ -368,7 +368,7 @@ async fn a_matching_etag_answers_not_modified() {
         .get_with_headers(&tile_path(), &[("if-none-match", &etag)])
         .await;
     assert_eq!(second.status(), 304);
-    assert!(second.body().is_empty());
+    assert_eq!(second.body(), b"");
     martin.stop().await;
 }
 

@@ -1,0 +1,7 @@
+---
+source: e2e-tests/tests/martin_cp.rs
+expression: mlt_dump(&direct)
+---
+layer domain_props extent 4096
+  id=Some(1) geom=POINT(2048 2048) props=[floors=U32(Some(3)), visitors=U32(Some(1200))]
+  id=Some(2) geom=POINT(2059 2037) props=[floors=U32(Some(12)), visitors=U32(Some(45))]

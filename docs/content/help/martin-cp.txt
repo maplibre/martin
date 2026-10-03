@@ -28,6 +28,15 @@ Options:
 
           [default: gzip]
 
+      --format <FORMAT>
+          Tile format to request from the source.
+
+          A vector source converts between `mvt` and `mlt` unless `convert_to_{mlt,mvt}` turns that off, and a source that can neither produce nor convert to this format fails the copy. Defaults to what the source produces.
+
+          Possible values:
+          - mvt:  Mapbox Vector Tile
+          - mlt1: MapLibre Tile, v1 wire format
+
       --on-duplicate <ON_DUPLICATE>
           Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
 
@@ -42,6 +51,8 @@ Options:
           Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
 
           If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+
+          For a source on a tile grid other than Web Mercator the bounds are min_x,min_y,max_x,max_y in the grid's CRS units, and the whole grid is copied if omitted.
 
           [default: -180,-85.05112877980659,180,85.0511287798066]
 
@@ -73,8 +84,8 @@ Options:
           - warn:  Log warning messages, abort if the error is critical
           - abort: Log warnings as errors, abort startup
 
-      --tui
-          Show a live dashboard of the server in this terminal instead of the log stream
+      --no-tui
+          Print the log stream instead of the live dashboard an interactive terminal gets by default
 
   -b, --auto-bounds <AUTO_BOUNDS>
           Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]

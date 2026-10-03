@@ -1,4 +1,5 @@
 ---
+description: Generating sprite sheets from a directory of SVG icons
 icon: material/shape
 tags:
   - sprites

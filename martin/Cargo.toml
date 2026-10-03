@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.16.1"
+version = "2.0.0-beta.2"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -117,7 +117,15 @@ unstable-cog = [
     "_file_kinds",
 ]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
-rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
+rendering = [
+    "styles",
+    "overlay",
+    "martin-core/rendering",
+    "dep:fnv",
+    "dep:image",
+    "dep:png",
+    "dep:quantizr",
+]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
@@ -150,12 +158,19 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 mlt = ["dep:mlt-core", "_process"]
+unstable-mlt-v2 = ["mlt", "_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _process = []
 _catalog = []
 _file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
-unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
+unstable-duckdb = [
+    "dep:cql2",
+    "martin-core/unstable-duckdb",
+    "dep:duckdb",
+    "dep:enum-display",
+    "_tiles",
+]
 hotpath = [
     "hotpath/hotpath",
     "hotpath-alloc",
@@ -164,10 +179,11 @@ hotpath = [
     "hotpath/futures",
 ]
 hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
-test-duckdb = ["unstable-duckdb"]
-test-minio = ["pmtiles"]
+test-duckdb = ["unstable-duckdb", "mlt"]
+test-s3 = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -189,6 +205,7 @@ csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
+fnv = { workspace = true, optional = true }
 futures.workspace = true
 geojson = { workspace = true, optional = true }
 hotpath = { workspace = true, features = ["tokio"] }
@@ -208,9 +225,11 @@ mlt-core = { workspace = true, optional = true }
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+quantizr = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
@@ -253,6 +272,7 @@ walkdir = { workspace = true, optional = true }
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
+flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 martin-core = { workspace = true, features = ["_testing"] }
