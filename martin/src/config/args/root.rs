@@ -16,21 +16,21 @@ use crate::config::args::PostgresArgs;
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing"
 ))]
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "sprites",
-    feature = "styles",
-    feature = "geojson",
+    feature = "resources",
+    feature = "resources",
+    feature = "processing",
 ))]
 use crate::config::file::FileConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use crate::config::file::fonts::FontConfig;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "mbtiles")]
@@ -103,15 +103,15 @@ pub struct MetaArgs {
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short = 's', long)]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub font: Vec<PathBuf>,
     /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
     #[arg(short = 'S', long)]
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     pub style: Vec<PathBuf>,
 }
 
@@ -142,7 +142,7 @@ impl Args {
                 feature = "postgres",
                 feature = "mbtiles",
                 feature = "pmtiles",
-                feature = "geojson",
+                feature = "processing",
                 feature = "unstable-cog",
                 feature = "unstable-duckdb"
             )),
@@ -174,7 +174,7 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
-        #[cfg(feature = "geojson")]
+        #[cfg(feature = "processing")]
         if !cli_strings.is_empty() {
             config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
         }
@@ -206,17 +206,17 @@ impl Args {
             config.duckdb.sources.extend(geoparquet.chain(databases));
         }
 
-        #[cfg(feature = "styles")]
+        #[cfg(feature = "resources")]
         if !self.extras.style.is_empty() {
             config.styles = FileConfig::new(self.extras.style);
         }
 
-        #[cfg(feature = "sprites")]
+        #[cfg(feature = "resources")]
         if !self.extras.sprite.is_empty() {
             config.sprites = FileConfig::new(self.extras.sprite);
         }
 
-        #[cfg(feature = "fonts")]
+        #[cfg(feature = "resources")]
         if !self.extras.font.is_empty() {
             config.fonts = FontConfig::new(self.extras.font);
         }
@@ -230,7 +230,7 @@ impl Args {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson",
+    feature = "processing",
     feature = "unstable-duckdb"
 ))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
@@ -262,7 +262,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson",
+    feature = "processing",
     feature = "unstable-duckdb"
 ))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
@@ -282,7 +282,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing"
 ))]
 pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
@@ -299,7 +299,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson",
+    feature = "processing",
     feature = "unstable-duckdb"
 ))]
 fn parse_file_paths(
@@ -562,7 +562,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[test]
     fn cli_geojson_file() {
         let args = Args::parse_from([

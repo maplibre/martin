@@ -14,8 +14,10 @@ use martin_core::tiles::MartinCoreError;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 use crate::config::file::ConfigFileError;
+#[cfg(feature = "processing")]
+use crate::srv::tiles::process::terrain::{ContourTraceError, HillshadeBakeError};
 #[cfg(feature = "_tiles")]
-use crate::srv::tiles::process::ProcessError;
+use crate::srv::tiles::process::transcode::TranscodeError;
 
 /// Why the HTTP server could not be started.
 #[derive(thiserror::Error, Debug)]
@@ -32,7 +34,7 @@ pub enum ServerStartError {
     MetricsInitialisation(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     /// The sprite catalog could not be built while assembling the server's catalog.
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[error(transparent)]
     SpriteCatalog(#[from] martin_core::sprites::SpriteError),
 
@@ -102,10 +104,20 @@ pub enum TileError {
     #[error("{0}")]
     Source(Arc<MartinCoreError>),
 
-    /// Post-processing (hillshade, contour, MVT/MLT) failed; it classifies its own status.
+    /// MVT/MLT conversion failed.
     #[cfg(feature = "_tiles")]
     #[error(transparent)]
-    Process(#[from] ProcessError),
+    Transcode(#[from] TranscodeError),
+
+    /// Baking a hillshade failed; it classifies its own status.
+    #[cfg(feature = "processing")]
+    #[error(transparent)]
+    Hillshade(#[from] HillshadeBakeError),
+
+    /// Tracing contours failed; it classifies its own status.
+    #[cfg(feature = "processing")]
+    #[error(transparent)]
+    Contour(#[from] ContourTraceError),
 
     /// The tile body could not be (de)compressed.
     #[error("Tile compression failed: {0}")]
@@ -157,8 +169,15 @@ impl From<TileError> for actix_web::Error {
 
             // Both of these already classify themselves, so reuse their own mapping.
             TileError::Source(inner) => super::server::map_error(inner.as_ref()),
+            #[cfg(feature = "processing")]
+            TileError::Hillshade(inner) => inner.into(),
+            #[cfg(feature = "processing")]
+            TileError::Contour(inner) => inner.into(),
             #[cfg(feature = "_tiles")]
-            TileError::Process(inner) => inner.into(),
+            TileError::Transcode(inner) => {
+                tracing::error!("{inner}");
+                ErrorInternalServerError(msg)
+            }
         }
     }
 }

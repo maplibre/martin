@@ -11,16 +11,16 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::ContourProcessConfig;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
     ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 use crate::config::primitives::{IdResolver, one_or_many};
 
@@ -60,13 +60,13 @@ fn passthrough_sources_example() -> serde_json::Value {
 pub struct PassthroughConfig {
     /// MVT->MLT encoder settings for all passthrough sources.
     /// Overrides global; overridden by per-source `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all passthrough sources.
     /// Overrides global; overridden by per-source `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -102,7 +102,7 @@ impl PassthroughConfig {
     pub fn is_empty(&self) -> bool {
         let empty = self.sources.as_ref().is_none_or(BTreeMap::is_empty)
             && self.get_unrecognized_keys().is_empty();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         let empty = empty && self.convert_to_mlt.is_none() && self.convert_to_mvt.is_none();
         empty
     }
@@ -275,12 +275,12 @@ pub struct PassthroughSourceConfig {
 
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
     /// MLT->MVT conversion settings for this source.
     /// Overrides source-type and global `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Hillshade settings for this source.
@@ -288,7 +288,7 @@ pub struct PassthroughSourceConfig {
     /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
     /// See the hillshade documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (raster data in Mapzen format).
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Trace contour lines from this source's tiles.
@@ -296,7 +296,7 @@ pub struct PassthroughSourceConfig {
     /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
     /// See the contour documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_contour: Option<ContourProcessConfig>,
 
@@ -318,13 +318,13 @@ impl Default for PassthroughSourceConfig {
             attribution: None,
             cache: CachePolicy::default(),
             cache_control: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_hillshade: None,
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_contour: None,
             unrecognized: UnrecognizedValues::default(),
         }

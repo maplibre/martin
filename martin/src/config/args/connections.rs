@@ -26,7 +26,7 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
-        feature = "geojson",
+        feature = "processing",
         feature = "unstable-cog",
         feature = "unstable-duckdb"
     ))]
@@ -39,7 +39,7 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
-        feature = "geojson",
+        feature = "processing",
         feature = "unstable-cog",
         feature = "unstable-duckdb"
     ))]

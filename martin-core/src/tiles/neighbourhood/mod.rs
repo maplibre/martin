@@ -4,7 +4,7 @@
 mod assemble;
 mod etag;
 
-#[cfg(feature = "hillshade")]
+#[cfg(feature = "processing")]
 pub(crate) use assemble::CHANNELS;
 pub use assemble::{
     DEFAULT_TILE_SIZE, GRID_SIDE, NEIGHBOURHOOD_LEN, Neighbourhood, NeighbourhoodError, RgbaField,

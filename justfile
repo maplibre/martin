@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
-stable_features := 'contour,fonts,geojson,hillshade,lambda,mbtiles,metrics,mlt,passthrough,pmtiles,postgres,sprites,styles,tui,webui'
+stable_features := 'lambda,mbtiles,metrics,passthrough,pmtiles,postgres,processing,resources,tui,webui'
 # stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
 full_features := stable_features + ',rendering'
 

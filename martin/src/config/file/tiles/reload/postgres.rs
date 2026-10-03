@@ -40,7 +40,7 @@ impl PostgresReloader {
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         let process = {
             let source_type = ProcessConfig {
                 convert_to_mlt: config.convert_to_mlt.clone(),
@@ -49,7 +49,7 @@ impl PostgresReloader {
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
         };
-        #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
+        #[cfg(not(feature = "_tiles"))]
         let process = {
             let _ = global_process;
             ProcessConfig::default()

@@ -1,4 +1,4 @@
-#![cfg(all(feature = "passthrough", feature = "mlt"))]
+#![cfg(feature = "passthrough")]
 
 //! End-to-end tests for the `passthrough` tile source driven through martin's HTTP API
 //! against a mock upstream tile server ([`wiremock`]).
@@ -25,7 +25,7 @@ macro_rules! create_app {
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
                     Catalog::new(
-                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        #[cfg(feature = "resources")]
                         &state,
                     )
                     .unwrap(),

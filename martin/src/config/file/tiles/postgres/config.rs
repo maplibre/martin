@@ -12,7 +12,7 @@ use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 use crate::config::primitives::{OptBoolObj, one_or_many};
 
@@ -150,7 +150,7 @@ pub struct PostgresConfig {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -162,7 +162,7 @@ pub struct PostgresConfig {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -193,9 +193,9 @@ impl Default for PostgresConfig {
             auto_publish: OptBoolObj::default(),
             tables: None,
             functions: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
             unrecognized: UnrecognizedValues::default(),
         }

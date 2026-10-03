@@ -1,4 +1,4 @@
-#![cfg(all(feature = "styles", feature = "rendering", target_os = "linux"))]
+#![cfg(all(feature = "resources", feature = "rendering", target_os = "linux"))]
 
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
@@ -16,7 +16,7 @@ macro_rules! create_app {
         let app = ::actix_web::App::new()
             .app_data(::actix_web::web::Data::new(
                 ::martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .unwrap(),
@@ -26,7 +26,7 @@ macro_rules! create_app {
         #[cfg(feature = "_tiles")]
         let app = app.app_data(::actix_web::web::Data::new(state.tile_manager.clone()));
 
-        #[cfg(feature = "sprites")]
+        #[cfg(feature = "resources")]
         let app = app.app_data(::actix_web::web::Data::new(state.sprites));
 
         let app = app

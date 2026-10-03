@@ -19,12 +19,12 @@ use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
 use martin_core::tiles::BoxedSource;
-#[cfg(all(feature = "postgres", feature = "mlt"))]
+#[cfg(feature = "postgres")]
 use martin_core::tiles::MartinCoreError;
 use martin_core::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::ActiveQueryRegistry;
-#[cfg(all(feature = "postgres", feature = "mlt"))]
+#[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError::{BadTileGeometry, UnsupportedPropertyType};
 use martin_tile_utils::{
     Format, TileCoord, TileData, TileGrid, TileInfo, TileRect, append_rect, bbox_to_xyz,
@@ -370,7 +370,7 @@ pub enum MartinCpError {
 
 /// The tile bytes to copy, taken from the cheapest path the source offers.
 async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<TileData> {
-    #[cfg(all(feature = "postgres", feature = "mlt"))]
+    #[cfg(feature = "postgres")]
     if let Some(data) = copy_as_mlt_directly(src, xyz).await? {
         return Ok(data);
     }
@@ -378,13 +378,13 @@ async fn fetch_tile(src: &DynTileSource<'_>, xyz: TileCoord) -> MartinCpResult<T
 }
 
 /// Latches the once-per-run warning that a source fell back off the row-per-feature path.
-#[cfg(all(feature = "postgres", feature = "mlt"))]
+#[cfg(feature = "postgres")]
 static UNENCODABLE_FEATURE_WARNED: std::sync::Once = std::sync::Once::new();
 
 /// Encodes the source's own features as MLT, instead of taking an MVT tile apart to do it.
 ///
 /// `None` when this copy is not eligible, leaving the caller on the ordinary path.
-#[cfg(all(feature = "postgres", feature = "mlt"))]
+#[cfg(feature = "postgres")]
 async fn copy_as_mlt_directly(
     src: &DynTileSource<'_>,
     xyz: TileCoord,
@@ -946,15 +946,15 @@ mod tests {
     fn test_state(sources: Vec<Vec<BoxedSource>>) -> ServerState {
         ServerState {
             tile_manager: test_manager(sources),
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             sprites: martin_core::sprites::SpriteSources::default(),
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             sprite_cache: None,
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             fonts: martin_core::fonts::FontSources::default(),
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             font_cache: None,
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             styles: martin_core::styles::StyleSources::default(),
         }
     }

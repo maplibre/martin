@@ -17,9 +17,9 @@ use crate::config::file::TileGridsConfig;
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::DuckDbConfig;
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use crate::config::file::fonts::FontConfig;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
@@ -29,12 +29,12 @@ use crate::config::file::passthrough::PassthroughConfig;
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::PostgresConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
@@ -44,10 +44,10 @@ use crate::config::file::{
     feature = "pmtiles",
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
-    feature = "styles",
-    feature = "sprites",
-    feature = "fonts",
+    feature = "processing",
+    feature = "resources",
+    feature = "resources",
+    feature = "resources",
 ))]
 use crate::config::file::{FileConfig, path_or_config};
 #[cfg(feature = "postgres")]
@@ -72,17 +72,17 @@ pub struct ServerState {
     #[cfg(feature = "_tiles")]
     pub tile_manager: TileSourceManager,
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprites: martin_core::sprites::SpriteSources,
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprite_cache: martin_core::sprites::OptSpriteCache,
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub fonts: martin_core::fonts::FontSources,
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub font_cache: martin_core::fonts::OptFontCache,
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     pub styles: martin_core::styles::StyleSources,
 }
 
@@ -198,7 +198,7 @@ pub struct Config {
     pub duckdb: DuckDbConfig,
 
     /// Publish `GeoJSON` files as vector tile sources
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -221,7 +221,7 @@ pub struct Config {
     pub aliases: BTreeMap<String, Vec<String>>,
 
     /// Sprite configuration
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -237,7 +237,7 @@ pub struct Config {
 
     /// Publish `MapLibre` style files
     /// You can also configure us to render the styles on the server side.
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -252,7 +252,7 @@ pub struct Config {
     pub styles: StyleConfig,
 
     /// Font configuration
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -273,7 +273,7 @@ pub struct Config {
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -284,7 +284,7 @@ pub struct Config {
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 

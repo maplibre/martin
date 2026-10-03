@@ -2,7 +2,7 @@
 pub mod cog;
 #[cfg(feature = "unstable-duckdb")]
 pub mod duckdb;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
@@ -15,7 +15,7 @@ pub mod postgres;
     feature = "mbtiles",
     feature = "unstable-cog",
     feature = "unstable-duckdb",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles",
     feature = "postgres"
 ))]
@@ -25,7 +25,7 @@ mod reloaders;
     feature = "mbtiles",
     feature = "unstable-cog",
     feature = "unstable-duckdb",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles",
     feature = "postgres"
 ))]

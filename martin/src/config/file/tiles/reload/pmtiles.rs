@@ -35,21 +35,13 @@ impl PmtilesReloader {
         tile_grids: &TileGrids,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
-        #[cfg(feature = "_process")]
         let process = {
             let source_type = ProcessConfig {
-                #[cfg(feature = "mlt")]
                 convert_to_mlt: config.custom.convert_to_mlt.clone(),
-                #[cfg(feature = "mlt")]
                 convert_to_mvt: config.custom.convert_to_mvt.clone(),
                 ..Default::default()
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
-        };
-        #[cfg(not(feature = "_process"))]
-        let process = {
-            let _ = global_process;
-            ProcessConfig::default()
         };
 
         let pmt_config = config.custom.clone();
@@ -243,14 +235,12 @@ mod tests {
                 tile_grid: None,
                 path: PathBuf::from("s3://bucket/file.pmtiles"),
                 cache: CachePolicy::default(),
-                #[cfg(feature = "mlt")]
                 convert_to_mlt: None,
-                #[cfg(feature = "mlt")]
                 convert_to_mvt: None,
                 cache_control: None,
-                #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                #[cfg(all(feature = "processing", feature = "_tiles"))]
                 convert_to_hillshade: None,
-                #[cfg(all(feature = "contour", feature = "_tiles"))]
+                #[cfg(all(feature = "processing", feature = "_tiles"))]
                 convert_to_contour: None,
             })),
         );
