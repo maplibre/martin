@@ -63,16 +63,14 @@ jobs:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
 
       - name: Create metrics directory
-        run: mkdir -p /tmp/metrics
+        run: mkdir -p /tmp/metrics/head /tmp/metrics/base
 
       - name: Build head
         run: just build-hotpath
 
       - name: Benchmark head
         env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
-          HOTPATH_ALLOC_SELF: true
+          HOTPATH_OUTPUT_DIR: /tmp/metrics/head
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: just bench-hotpath
 
@@ -89,7 +87,6 @@ jobs:
             echo "supported=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::Base branch does not have hotpath feature, skipping base benchmark"
-            echo '{}' > /tmp/metrics/base_timing.json
             echo "supported=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -100,11 +97,13 @@ jobs:
       - name: Benchmark base
         if: steps.base-check.outputs.supported == 'true'
         env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
-          HOTPATH_ALLOC_SELF: true
+          HOTPATH_OUTPUT_DIR: /tmp/metrics/base
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
-        run: just bench-hotpath
+        run: |
+          git checkout "$HEAD_SHA" -- tests/bench
+          just start prepare-mbtiles
+          tests/bench/hotpath.sh
 
       - name: Save PR metadata
         env:

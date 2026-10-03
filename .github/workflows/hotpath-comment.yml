@@ -54,9 +54,14 @@ jobs:
           set -euo pipefail
           export GITHUB_BASE_REF=$(cat /tmp/metrics/base_ref.txt)
           export GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
-          hotpath-utils profile-pr \
-            --head-metrics /tmp/metrics/head_timing.json \
-            --base-metrics /tmp/metrics/base_timing.json \
-            --github-token "$GH_TOKEN" \
-            --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
-            --benchmark-id "timing"
+          for head in /tmp/metrics/head/*.json; do
+            name=$(basename "$head" .json)
+            base=/tmp/metrics/base/$name.json
+            [ -f "$base" ] || echo '{}' > "$base"
+            hotpath-utils profile-pr \
+              --head-metrics "$head" \
+              --base-metrics "$base" \
+              --github-token "$GH_TOKEN" \
+              --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
+              --benchmark-id "$name"
+          done
