@@ -188,11 +188,11 @@ See [Server-side raster tile rendering](sources-styles/rendering.md) and [Instal
 
 If you build Martin or `martin-core` yourself with `--features` or `--no-default-features`, rename the features:
 
-| 1.x features | 2.0 feature |
-|---|---|
-| `fonts`, `sprites`, `styles` | `resources` |
-| `hillshade`, `contour`, `geojson` | `processing` |
-| `mlt` | none, always enabled |
+| 1.x features                      | 2.0 feature          |
+|-----------------------------------|----------------------|
+| `fonts`, `sprites`, `styles`      | `resources`          |
+| `hillshade`, `contour`, `geojson` | `processing`         |
+| `mlt`                             | none, always enabled |
 
 Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
 
