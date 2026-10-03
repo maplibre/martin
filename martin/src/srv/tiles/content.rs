@@ -5,7 +5,7 @@ use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{
-    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc,
+    Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, Encoding as HeaderEnc,
     EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
@@ -115,6 +115,15 @@ pub async fn get_tile(
 
     src.get_http_response(TileCoord::new_unchecked(path.z, path.x, path.y))
         .await
+}
+
+/// `"{tag}"` as a header value, built with a single allocation.
+fn quoted_header_value(tag: &str) -> ActixResult<HeaderValue> {
+    let mut buf = Vec::with_capacity(tag.len() + 2);
+    buf.push(b'"');
+    buf.extend_from_slice(tag.as_bytes());
+    buf.push(b'"');
+    HeaderValue::from_maybe_shared(buf).map_err(actix_web::error::ErrorInternalServerError)
 }
 
 /// Parsed request headers for tile serving.
@@ -461,12 +470,15 @@ impl<'a> DynTileSource<'a> {
         // An empty etag means the tile couldn't be identified from its inputs;
         // omit the header rather than send `ETag: ""`, which would let clients
         // treat unrelated tiles as identical.
-        let etag = (!tile.etag.is_empty()).then(|| EntityTag::new_strong(tile.etag.to_string()));
+        let etag = (!tile.etag.is_empty()).then_some(tile.etag.as_str());
 
-        if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag.as_ref()) {
+        if let (Some(if_none_match), Some(etag)) = (&self.headers.if_none_match, etag) {
             let dominated_by = match if_none_match {
                 IfNoneMatch::Any => true,
-                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(etag)),
+                IfNoneMatch::Items(items) => {
+                    let etag = EntityTag::new_strong(etag.to_owned());
+                    items.iter().any(|e| e.strong_eq(&etag))
+                }
             };
             if dominated_by {
                 return Ok(HttpResponse::NotModified().finish());
@@ -474,12 +486,15 @@ impl<'a> DynTileSource<'a> {
         }
 
         let mut response = HttpResponse::Ok();
-        response.content_type(tile.info.format.content_type());
+        response.insert_header((
+            CONTENT_TYPE,
+            HeaderValue::from_static(tile.info.format.content_type()),
+        ));
         if let Some(etag) = etag {
-            response.insert_header((ETAG, etag));
+            response.insert_header((ETAG, quoted_header_value(etag)?));
         }
         if let Some(val) = tile.info.encoding.compression() {
-            response.insert_header((CONTENT_ENCODING, val));
+            response.insert_header((CONTENT_ENCODING, HeaderValue::from_static(val)));
         }
         if let Some(cache_control) = self.cache_control_header() {
             response.insert_header((CACHE_CONTROL, cache_control));
