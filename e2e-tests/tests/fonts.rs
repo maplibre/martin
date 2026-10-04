@@ -119,6 +119,49 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
 }
 
 #[rstest]
+#[case::identity("identity", None)]
+#[case::gzip("gzip", Some("gzip"))]
+#[case::deflate("deflate", Some("deflate"))]
+#[case::brotli("br", Some("br"))]
+#[case::zstd("zstd", Some("zstd"))]
+#[case::highest_quality("br;q=0.5, gzip;q=0.8", Some("gzip"))]
+#[tokio::test]
+async fn a_glyph_range_is_served_in_the_negotiated_encoding(
+    #[case] accept_encoding: &str,
+    #[case] content_encoding: Option<&str>,
+) {
+    let mut martin = martin_with_font_dir().await;
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", accept_encoding)],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.header("content-encoding"), content_encoding);
+    assert_eq!(fontstack(&response).glyphs.len(), 192);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_client_accepting_no_encoding_is_refused() {
+    let mut martin = martin_with_font_dir().await;
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", "identity;q=0")],
+        )
+        .await;
+    assert_eq!(response.status(), 406);
+    assert_eq!(response.text(), "br, gzip, deflate, zstd");
+
+    martin.stop().await;
+}
+
+#[rstest]
 #[case::first_range("0-255", 192)]
 #[case::latin_extended_a("256-511", 144)]
 #[case::codepoints_the_font_lacks("65280-65535", 0)]

@@ -11,7 +11,9 @@ use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
 use image::{ColorType, ImageFormat, ImageReader};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
+use martin_tile_utils::{
+    EARTH_CIRCUMFERENCE, decode_zlib, decode_zstd, tile_bbox, webmercator_to_wgs84,
+};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
 use mlt_core::geo_types::{Coord, Geometry, LineString, MultiPolygon, Polygon};
 use mlt_core::{Decoder, Parser, TileLayer};
@@ -359,6 +361,7 @@ impl Martin {
         self.get_with_headers(path, &[]).await
     }
 
+    /// [`Self::get`] with extra headers, where an `accept-encoding` replaces the default one.
     pub async fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         self.request(Method::GET, path, headers).await
     }
@@ -404,8 +407,13 @@ impl Martin {
         let mut request = self
             .client
             .request(method.clone(), &url)
-            .header("accept-encoding", "br, gzip")
             .body(body.to_vec());
+        if !headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("accept-encoding"))
+        {
+            request = request.header("accept-encoding", "br, gzip");
+        }
         for (name, value) in headers {
             request = request.header(*name, *value);
         }
@@ -728,6 +736,8 @@ pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
                 .read_to_end(&mut body)
                 .expect("failed to decompress a gzip body");
         }
+        Some("deflate") => body = decode_zlib(raw).expect("failed to decompress a deflate body"),
+        Some("zstd") => body = decode_zstd(raw).expect("failed to decompress a zstd body"),
         _ => body.extend_from_slice(raw),
     }
     body

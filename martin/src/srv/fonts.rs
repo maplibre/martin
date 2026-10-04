@@ -88,7 +88,7 @@ pub async fn get_font(
                 })
                 .await
                 .map_err(|e| map_font_error(e.as_ref()))?;
-            let data = compress(glyphs, encoding)?;
+            let data = compress(glyphs, encoding).await?;
             if let Some(served) = served {
                 cache.insert(served, data.clone()).await;
             }
@@ -98,7 +98,7 @@ pub async fn get_font(
         let glyphs = fonts
             .get_font_range(&path.fontstack, path.start, path.end)
             .map_err(|e| map_font_error(&e))?;
-        compress(glyphs.into(), encoding)?
+        compress(glyphs.into(), encoding).await?
     };
     let mut response = HttpResponse::Ok();
     response
@@ -140,16 +140,18 @@ fn negotiate_encoding(accept: Option<AcceptEncoding>) -> Option<Encoding> {
     })
 }
 
-/// Compresses a glyph range into `encoding`.
-fn compress(glyphs: Bytes, encoding: Encoding) -> ActixResult<Bytes> {
-    let compressed = match encoding {
-        Encoding::Gzip => encode_gzip(&glyphs),
-        Encoding::Zlib => encode_zlib(&glyphs),
-        Encoding::Brotli => encode_brotli_with_quality(&glyphs, BROTLI_QUALITY),
-        Encoding::Zstd => encode_zstd(&glyphs),
+/// Compresses a glyph range into `encoding` on the blocking thread pool.
+async fn compress(glyphs: Bytes, encoding: Encoding) -> ActixResult<Bytes> {
+    let encode: fn(&[u8]) -> std::io::Result<Vec<u8>> = match encoding {
+        Encoding::Gzip => encode_gzip,
+        Encoding::Zlib => encode_zlib,
+        Encoding::Brotli => |glyphs| encode_brotli_with_quality(glyphs, BROTLI_QUALITY),
+        Encoding::Zstd => encode_zstd,
         Encoding::Uncompressed | Encoding::Internal => return Ok(glyphs),
     };
-    compressed
+    tokio::task::spawn_blocking(move || encode(&glyphs))
+        .await
+        .map_err(ErrorInternalServerError)?
         .map(Bytes::from)
         .map_err(ErrorInternalServerError)
 }
