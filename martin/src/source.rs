@@ -4,6 +4,7 @@ use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::TileInfo;
+use smallvec::SmallVec;
 use tracing::{debug, info};
 
 use crate::config::file::ResolvedProcess;
@@ -13,9 +14,15 @@ use crate::srv::TileError;
 /// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
 const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
+/// A source with its process config, which is shared so a request never copies it.
+pub type SourceEntry = (BoxedSource, Arc<ResolvedProcess>);
+
+/// The sources of one request, inline for the common single-source case.
+pub type SourceList = SmallVec<[SourceEntry; 1]>;
+
 /// Result of resolving multiple sources for a composite tile request.
 pub struct ResolvedSources {
-    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
+    pub sources: SourceList,
     pub use_url_query: bool,
     pub info: TileInfo,
 }
@@ -73,7 +80,7 @@ pub enum TileAliasError {
 /// Each source is paired with its resolved [`ResolvedProcess`].
 #[derive(Default, Clone)]
 pub struct TileSources {
-    sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+    sources: Arc<DashMap<String, SourceEntry>>,
     /// Map of alias name to the tile source ids it combines.
     aliases: Arc<DashMap<String, Vec<String>>>,
 }
@@ -105,7 +112,7 @@ impl TileSources {
                 sources
                     .into_iter()
                     .flatten()
-                    .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
+                    .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
                     .collect(),
             ),
             aliases: Arc::default(),
@@ -115,7 +122,7 @@ impl TileSources {
     /// Creates a registry backed by existing shared maps.
     #[must_use]
     pub(crate) fn from_maps(
-        sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+        sources: Arc<DashMap<String, SourceEntry>>,
         aliases: Arc<DashMap<String, Vec<String>>>,
     ) -> Self {
         Self { sources, aliases }
@@ -225,7 +232,7 @@ impl TileSources {
     }
 
     /// Gets a source and its process config by ID, returning 404 error if not found.
-    pub fn get_source(&self, id: &str) -> Result<(BoxedSource, ResolvedProcess), TileError> {
+    pub fn get_source(&self, id: &str) -> Result<SourceEntry, TileError> {
         Ok(self
             .sources
             .get(id)
@@ -254,7 +261,7 @@ impl TileSources {
             });
         }
 
-        let mut sources = Vec::with_capacity(id_count);
+        let mut sources = SourceList::new();
         let mut info: Option<TileInfo> = None;
         let mut grid: Option<BoxedSource> = None;
         let mut use_url_query = false;
@@ -295,7 +302,7 @@ impl TileSources {
         &self,
         id: &str,
         zoom: Option<u8>,
-        sources: &mut Vec<(BoxedSource, ResolvedProcess)>,
+        sources: &mut SourceList,
         info: &mut Option<TileInfo>,
         grid: &mut Option<BoxedSource>,
         use_url_query: &mut bool,

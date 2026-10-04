@@ -9,7 +9,7 @@ use tracing::{info, warn};
 use crate::config::file::driver::{ApplyOutcome, Sink};
 use crate::config::file::{OnInvalid, ResolvedProcess, SourceBuildResult};
 use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
-use crate::source::TileSources;
+use crate::source::{SourceEntry, TileSources};
 
 /// Manages the live set of tile sources and their caches.
 ///
@@ -20,7 +20,7 @@ use crate::source::TileSources;
 /// `TileSourceManager` is cheap to clone.
 #[derive(Clone)]
 pub struct TileSourceManager {
-    tile_sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+    tile_sources: Arc<DashMap<String, SourceEntry>>,
     /// Named combinations of tile sources, served like a single source.
     aliases: Arc<DashMap<String, Vec<String>>>,
     /// Kept beside the serving map so `--save-config` can serialize what is actually served.
@@ -54,10 +54,10 @@ impl TileSourceManager {
         on_invalid: OnInvalid,
         sources: Vec<Vec<(BoxedSource, ResolvedProcess)>>,
     ) -> Self {
-        let map: DashMap<String, (BoxedSource, ResolvedProcess)> = sources
+        let map: DashMap<String, SourceEntry> = sources
             .into_iter()
             .flatten()
-            .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
+            .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -137,7 +137,7 @@ impl TileSourceManager {
         if let Some(p) = provenance {
             self.provenance.insert(id.clone(), p);
         }
-        self.tile_sources.insert(id, (src, process));
+        self.tile_sources.insert(id, (src, Arc::new(process)));
     }
 }
 

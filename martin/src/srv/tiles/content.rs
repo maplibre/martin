@@ -19,6 +19,7 @@ use martin_tile_utils::{
     encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
+use smallvec::SmallVec;
 use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
@@ -31,6 +32,7 @@ use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
 use crate::config::file::{MltConversion, MvtConversion};
 use crate::reload::{NewSource, ReloadAdvisory};
+use crate::source::{SourceEntry, SourceList};
 use crate::srv::TileError;
 use crate::srv::server::DebouncedWarning;
 #[cfg(feature = "processing")]
@@ -143,7 +145,7 @@ pub struct TileRequestHeaders {
 pub struct AcceptedFormats {
     /// The explicitly named formats, most preferred first.
     /// `image/*` is expanded into all image formats.
-    pub preferred: Vec<Format>,
+    pub preferred: SmallVec<[Format; 4]>,
     /// Whether a format outside `preferred` may be served, i.e. the header carried a `*/*`.
     pub allow_any: bool,
 }
@@ -151,7 +153,7 @@ pub struct AcceptedFormats {
 impl AcceptedFormats {
     /// Any format is acceptable: no `Accept` header, an empty one, or a bare `*/*`.
     pub const ANY: Self = Self {
-        preferred: Vec::new(),
+        preferred: SmallVec::new_const(),
         allow_any: true,
     };
 }
@@ -180,7 +182,7 @@ fn parse_accept(accept: Option<Accept>) -> ActixResult<AcceptedFormats> {
         return Ok(AcceptedFormats::ANY);
     }
     let mut allow_any = false;
-    let mut weighted: Vec<(Quality, Format)> = Vec::new();
+    let mut weighted: SmallVec<[(Quality, Format); 4]> = SmallVec::new();
     for qi in &accept.0 {
         if qi.quality == Quality::ZERO {
             continue;
@@ -318,7 +320,7 @@ struct TranscodeTargets {
 }
 
 impl TranscodeTargets {
-    fn of(sources: &[(BoxedSource, ResolvedProcess)]) -> Self {
+    fn of(sources: &[SourceEntry]) -> Self {
         Self {
             to_mlt: sources
                 .iter()
@@ -331,7 +333,7 @@ impl TranscodeTargets {
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
+    pub sources: SourceList,
     pub info: TileInfo,
     /// The request's query string and its parsed form, when the request carried one.
     pub query: Option<(&'a str, UrlQuery)>,
@@ -1386,7 +1388,7 @@ mod tests {
         #[case] expected: &[Format],
     ) {
         let parsed = parse_weighted_accept_header(accept_values);
-        assert_eq!(parsed.preferred, expected);
+        assert_eq!(parsed.preferred.as_slice(), expected);
         assert!(!parsed.allow_any);
     }
 
@@ -1409,7 +1411,7 @@ mod tests {
     fn parse_accept_keeps_explicit_types_alongside_a_wildcard() {
         let parsed =
             parse_weighted_accept_header(&[("application/vnd.maplibre-tile", 1.0), ("*/*", 0.1)]);
-        assert_eq!(parsed.preferred, [Format::Mlt]);
+        assert_eq!(parsed.preferred.as_slice(), [Format::Mlt]);
         assert!(parsed.allow_any);
     }
 
@@ -1560,7 +1562,7 @@ mod tests {
         #[case] enabled: &[bool],
         #[case] expected: bool,
     ) {
-        let sources: Vec<(BoxedSource, ResolvedProcess)> = enabled
+        let sources: Vec<SourceEntry> = enabled
             .iter()
             .enumerate()
             .map(|(i, on)| {
@@ -1576,7 +1578,7 @@ mod tests {
                         ..Default::default()
                     }
                 };
-                (src.boxed(), pc)
+                (src.boxed(), Arc::new(pc))
             })
             .collect();
         assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);
