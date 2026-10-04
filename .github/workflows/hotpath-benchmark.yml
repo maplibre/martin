@@ -86,7 +86,8 @@ jobs:
         run: |
           set -o pipefail
           just bench-hotpath all --features hotpath-cloud 2>&1 | tee /tmp/hotpath-run.log
-          test "$(grep -c '^hotpath: uploaded report ' /tmp/hotpath-run.log)" -eq 6
+          scenarios=$(just --justfile tests/bench/justfile --dump --dump-format json | jq '.recipes.all.dependencies | length')
+          test "$(grep -c '^hotpath: uploaded report ' /tmp/hotpath-run.log)" -eq "$scenarios"
 
       - name: Benchmark and write report
         if: github.event_name == 'pull_request'
