@@ -7,13 +7,12 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use itertools::Itertools as _;
-use martin_core::tiles::BoxedSource;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
-use crate::config::file::ResolvedProcess;
 use crate::config::file::srv::SrvConfig;
+use crate::source::SourceEntry;
 use crate::tile_source_manager::TileSourceManager;
 
 #[derive(Deserialize)]
@@ -115,7 +114,7 @@ pub async fn get_source_info(
 
 /// Merges what each source advertises after post-processing into one [`TileJSON`].
 #[must_use]
-pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: String) -> TileJSON {
+pub fn merge_tilejson(sources: &[SourceEntry], tiles_url: String) -> TileJSON {
     let mut advertised: Vec<TileJSON> = sources
         .iter()
         .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
@@ -213,6 +212,7 @@ pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: Str
 #[cfg(test)]
 pub mod tests {
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     use martin_core::tiles::Source as _;
     use martin_core::tiles::testing::TestSource;
@@ -239,10 +239,7 @@ pub mod tests {
                 ],
             })
             .with_format(Format::Mvt);
-        let tj = merge_tilejson(
-            &[(src1.clone().boxed(), ResolvedProcess::default())],
-            url.clone(),
-        );
+        let tj = merge_tilejson(&[(src1.clone().boxed(), Arc::default())], url.clone());
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
@@ -269,8 +266,8 @@ pub mod tests {
 
         let tj = merge_tilejson(
             &[
-                (src1.clone().boxed(), ResolvedProcess::default()),
-                (src2.boxed(), ResolvedProcess::default()),
+                (src1.clone().boxed(), Arc::default()),
+                (src2.boxed(), Arc::default()),
             ],
             url.clone(),
         );

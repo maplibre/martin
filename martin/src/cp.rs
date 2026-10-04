@@ -18,7 +18,6 @@ use futures::TryStreamExt as _;
 use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
 use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
-use martin_core::tiles::BoxedSource;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::MartinCoreError;
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -46,11 +45,12 @@ use crate::StartupError;
 use crate::config::args::PostgresArgs;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
 use crate::config::file::reload::TileReloaders;
-use crate::config::file::{Config, ResolvedProcess, ServerState, read_config};
+use crate::config::file::{Config, ServerState, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::logging::LogFormat;
 use crate::logging::progress::TileCopyProgress;
+use crate::source::SourceEntry;
 use crate::srv::{
     AcceptedFormats, DynTileSource, RESERVED_KEYWORDS, TileError, TileRequestHeaders,
     merge_tilejson,
@@ -170,7 +170,7 @@ impl CopyFormat {
     /// Requests exactly this format, so a source that cannot produce it fails the copy.
     fn accepted(self) -> AcceptedFormats {
         AcceptedFormats {
-            preferred: vec![match self {
+            preferred: smallvec::smallvec![match self {
                 Self::Mvt => Format::Mvt,
                 #[cfg(feature = "unstable-mlt-v2")]
                 Self::MltV1 | Self::MltV2 => Format::Mlt,
@@ -837,7 +837,7 @@ fn pin_mlt_wire_version(src: &mut DynTileSource<'_>, format: CopyFormat) {
         CopyFormat::MltV2 => WireVersion::V02,
     };
     for (_, process) in &mut src.sources {
-        if let MltConversion::Encode(cfg) = &mut process.mlt {
+        if let MltConversion::Encode(cfg) = &mut Arc::make_mut(process).mlt {
             *cfg = cfg.with_wire_version(wire);
         }
     }
@@ -846,7 +846,7 @@ fn pin_mlt_wire_version(src: &mut DynTileSource<'_>, format: CopyFormat) {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[(BoxedSource, ResolvedProcess)],
+    sources: &[SourceEntry],
     format: Format,
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {
@@ -926,6 +926,8 @@ mod tests {
     use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
     use tilejson::tilejson;
+
+    use martin_core::tiles::BoxedSource;
 
     use super::*;
     use crate::TileSourceManager;
