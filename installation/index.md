@@ -2,6 +2,8 @@
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
+On x86\_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer). Older CPUs need to [build Martin from source](<https://maplibre.org/martin/development/index.md>).
+
 ### Docker
 
 Martin is also available as a [Docker image](<https://ghcr.io/maplibre/martin>). You could either share a configuration file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by passing a PostgreSQL connection string or the .mbtiles/.pmtiles files or URLs to .pmtiles. A configuration file can read a variable passed into the container, for example `connection_string: ${DATABASE_URL}`.

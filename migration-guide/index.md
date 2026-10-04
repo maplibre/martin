@@ -176,6 +176,12 @@ Rendering is stable as of 2.0. The configuration is unchanged. Set `styles.rende
 
 See [Server-side raster tile rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) and [Installation](<https://maplibre.org/martin/installation/index.md>).
 
+### x86\_64 binaries require an x86-64-v3 CPU
+
+The prebuilt x86\_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer). On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.
+
+To run Martin on an older CPU, [build it from source](<https://maplibre.org/martin/development/index.md>) without `-C target-cpu=x86-64-v3`.
+
 ### Cargo features were merged
 
 If you build Martin or `martin-core` yourself with `--features` or `--no-default-features`, rename the features:

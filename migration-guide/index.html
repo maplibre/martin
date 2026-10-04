@@ -1222,6 +1222,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#x86_64-binaries-require-an-x86-64-v3-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        x86_64 binaries require an x86-64-v3 CPU
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cargo-features-were-merged" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1503,6 +1514,10 @@ Use <code>RUST_LOG</code> to control logging.</p>
 <p>For server-side style rendering on Linux, use the <code>-full</code> Docker image (<code>:latest-full</code> or <code>:&lt;version&gt;-full</code>), a <code>-full</code> Linux-gnu tarball, or <code>cargo install martin --features rendering</code>. The default builds no longer include rendering.</p>
 <p>Rendering is stable as of 2.0. The configuration is unchanged. Set <code>styles.rendering: true</code> to enable it, or keep your existing rendering options.</p>
 <p>See <a href="../sources-styles/rendering/">Server-side raster tile rendering</a> and <a href="../installation/">Installation</a>.</p>
+<h3 id="x86_64-binaries-require-an-x86-64-v3-cpu">x86_64 binaries require an x86-64-v3 CPU</h3>
+<p>The prebuilt x86_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
+On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.</p>
+<p>To run Martin on an older CPU, <a href="../development/">build it from source</a> without <code>-C target-cpu=x86-64-v3</code>.</p>
 <h3 id="cargo-features-were-merged">Cargo features were merged</h3>
 <p>If you build Martin or <code>martin-core</code> yourself with <code>--features</code> or <code>--no-default-features</code>, rename the features:</p>
 <table>
