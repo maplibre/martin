@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CopyDuplicateMode, HashAlgorithm, MbtType, NormalizedSchema, invert_y_value};
+use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -630,25 +630,36 @@ impl Mbtiles {
             let sql = NormalizedSchema::create_tile_ids_sql(algorithm);
             sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
         }
-        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate, algorithm);
+        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
+        let hashes: Vec<String> = match mbt_type {
+            MbtType::Flat | MbtType::Cache => Vec::new(),
+            MbtType::FlatWithHash | MbtType::Normalized { .. } => batch
+                .iter()
+                .map(|(_, _, _, tile_data)| algorithm.hash(tile_data.as_ref()))
+                .collect(),
+        };
         for sql2 in sql2 {
             let sql2 = tx.prepare(to_sql_str(sql2)).await?;
-            for (_, _, _, tile_data) in batch {
-                sql2.query()
-                    .bind(tile_data.as_ref())
-                    .execute(&mut *tx)
-                    .await?;
+            for (i, (_, _, _, tile_data)) in batch.iter().enumerate() {
+                let mut query = sql2.query().bind(tile_data.as_ref());
+                if let Some(hash) = hashes.get(i) {
+                    query = query.bind(hash);
+                }
+                query.execute(&mut *tx).await?;
             }
         }
         let sql1 = tx.prepare(to_sql_str(sql1)).await?;
-        for (z, x, y, tile_data) in batch {
-            sql1.query()
+        for (i, (z, x, y, tile_data)) in batch.iter().enumerate() {
+            let mut query = sql1
+                .query()
                 .bind(z)
                 .bind(x)
                 .bind(invert_y_value(*z, *y))
-                .bind(tile_data.as_ref())
-                .execute(&mut *tx)
-                .await?;
+                .bind(tile_data.as_ref());
+            if let Some(hash) = hashes.get(i) {
+                query = query.bind(hash);
+            }
+            query.execute(&mut *tx).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -686,14 +697,9 @@ impl Mbtiles {
         Ok(row.is_some())
     }
 
-    fn get_insert_sql(
-        src_type: MbtType,
-        on_duplicate: CopyDuplicateMode,
-        algorithm: HashAlgorithm,
-    ) -> (String, Vec<String>) {
+    /// The statements that insert one tile, with parameters bound by [`Self::insert_tiles`].
+    fn get_insert_sql(src_type: MbtType, on_duplicate: CopyDuplicateMode) -> (String, Vec<String>) {
         let on_duplicate = on_duplicate.to_sql();
-        let hash4 = algorithm.sql_hash("?4");
-        let hash1 = algorithm.sql_hash("?1");
         match src_type {
             MbtType::Flat => (
                 format!(
@@ -707,7 +713,7 @@ impl Mbtiles {
                 format!(
                     "
     INSERT {on_duplicate} INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-    VALUES (?1, ?2, ?3, ?4, {hash4});"
+    VALUES (?1, ?2, ?3, ?4, ?5);"
                 ),
                 vec![],
             ),
@@ -718,12 +724,12 @@ impl Mbtiles {
                 format!(
                     "
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
-    VALUES (?1, ?2, ?3, {hash4});"
+    VALUES (?1, ?2, ?3, ?5);"
                 ),
                 vec![format!(
                     "
     INSERT {on_duplicate} INTO images (tile_id, tile_data)
-    VALUES ({hash1}, ?1);"
+    VALUES (?2, ?1);"
                 )],
             ),
             MbtType::Normalized {
@@ -733,19 +739,17 @@ impl Mbtiles {
                 format!(
                     "
     INSERT {on_duplicate} INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
-    SELECT ?1, ?2, ?3, tile_data_id FROM tile_ids WHERE tile_hash = {hash4};"
+    SELECT ?1, ?2, ?3, tile_data_id FROM tile_ids WHERE tile_hash = ?5;"
                 ),
                 vec![
-                    format!(
-                        "
+                    "
     INSERT OR IGNORE INTO tile_ids (tile_hash)
-    VALUES ({hash1});"
-                    ),
-                    format!(
-                        "
+    VALUES (?2);"
+                        .to_owned(),
+                    "
     INSERT OR IGNORE INTO tiles_data (tile_data_id, tile_data)
-    SELECT tile_data_id, ?1 FROM tile_ids WHERE tile_hash = {hash1};"
-                    ),
+    SELECT tile_data_id, ?1 FROM tile_ids WHERE tile_hash = ?2;"
+                        .to_owned(),
                 ],
             ),
             // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
