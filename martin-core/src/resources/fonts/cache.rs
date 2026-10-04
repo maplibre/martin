@@ -1,7 +1,10 @@
+use bytes::Bytes;
+use martin_tile_utils::Encoding;
+
 use crate::cache::{CacheKey, ResourceCache};
 
 /// Font cache for storing generated font ranges (PBF glyph data).
-pub type FontCache = ResourceCache<FontCacheKey, Vec<u8>>;
+pub type FontCache = ResourceCache<FontCacheKey, Bytes>;
 
 /// Optional wrapper for [`FontCache`].
 pub type OptFontCache = Option<FontCache>;
@@ -21,13 +24,29 @@ pub struct FontCacheKey {
     ids: String,
     start: u32,
     end: u32,
+    /// The content encoding the range is cached in, `None` for the glyphs as generated.
+    encoding: Option<Encoding>,
 }
 
 impl FontCacheKey {
     /// Build a key for the given font stack and glyph range.
     #[must_use]
     pub const fn new(ids: String, start: u32, end: u32) -> Self {
-        Self { ids, start, end }
+        Self {
+            ids,
+            start,
+            end,
+            encoding: None,
+        }
+    }
+
+    /// The key of the same glyph range compressed with `encoding`.
+    #[must_use]
+    pub fn with_encoding(self, encoding: Encoding) -> Self {
+        Self {
+            encoding: Some(encoding),
+            ..self
+        }
     }
 }
 

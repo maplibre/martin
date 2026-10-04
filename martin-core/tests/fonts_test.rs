@@ -5,6 +5,7 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
+use bytes::Bytes;
 use martin_core::fonts::{FontCache, FontCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
@@ -19,7 +20,7 @@ async fn cache_entry_available_before_ttl_expires() {
     insert(&cache, "font-a", 0, 255, b"glyph-data").await;
 
     let hit = assert_hit(&cache, "font-a", 0, 255).await;
-    assert_eq!(hit, b"glyph-data");
+    assert_eq!(hit.as_ref(), b"glyph-data");
 }
 
 #[tokio::test]
@@ -63,7 +64,7 @@ async fn cache_entry_survives_when_accessed_within_tti() {
     for _ in 0..3 {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let hit = assert_hit(&cache, "font-a", 0, 255).await;
-        assert_eq!(hit, b"data");
+        assert_eq!(hit.as_ref(), b"data");
     }
 }
 
@@ -120,7 +121,7 @@ async fn cache_entry_persists_without_ttl_or_tti() {
     wait_and_flush(&cache, Duration::from_millis(50)).await;
 
     let hit = assert_hit(&cache, "font-a", 0, 255).await;
-    assert_eq!(hit, b"data");
+    assert_eq!(hit.as_ref(), b"data");
 }
 
 #[tokio::test]
@@ -139,7 +140,7 @@ async fn ttl_applies_independently_per_entry() {
     assert_miss(&cache, "font-a", 0, 255, b"first-new").await;
 
     let second = assert_hit(&cache, "font-a", 256, 511).await;
-    assert_eq!(second, b"second");
+    assert_eq!(second.as_ref(), b"second");
 }
 
 #[tokio::test]
@@ -180,8 +181,8 @@ fn key(ids: &str, start: u32, end: u32) -> FontCacheKey {
     FontCacheKey::new(ids.into(), start, end)
 }
 
-async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Vec<u8> {
-    let data = data.to_vec();
+async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Bytes {
+    let data = Bytes::copy_from_slice(data);
     cache
         .get_or_insert(key(ids, start, end), async || {
             Ok::<_, Infallible>(data.clone())
@@ -190,7 +191,7 @@ async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8])
         .unwrap()
 }
 
-async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Vec<u8> {
+async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Bytes {
     cache
         .get_or_insert::<_, _, Infallible>(key(ids, start, end), async || {
             panic!("expected cache hit, but compute was called");
@@ -201,7 +202,7 @@ async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Vec<u
 
 async fn assert_miss(cache: &FontCache, ids: &str, start: u32, end: u32, new_data: &[u8]) {
     let mut recomputed = false;
-    let data = new_data.to_vec();
+    let data = Bytes::copy_from_slice(new_data);
     cache
         .get_or_insert(key(ids, start, end), async || {
             recomputed = true;

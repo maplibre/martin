@@ -86,12 +86,15 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
 
     let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 200);
-    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
         insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
+        content-length: [LENGTH]
         content-type: application/x-protobuf
         etag: [ETAG]
-        transfer-encoding: chunked
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
@@ -99,11 +102,14 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
 
     let head = martin.head(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(head.status(), 200);
-    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
         insta::assert_snapshot!(head.headers_snapshot(), @"
         content-encoding: br
+        content-length: [LENGTH]
         content-type: application/x-protobuf
-        transfer-encoding: chunked
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
@@ -162,11 +168,10 @@ async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
     assert_eq!(response.text(), "Font Nonexistent not found");
     insta::allow_duplicates! {
         insta::assert_snapshot!(response.headers_snapshot(), @r#"
-        content-encoding: br
+        content-length: 26
         content-type: text/plain; charset=utf-8
         etag: W/"1a-v2HxsjSSPxQe7xjbF9rAaw=="
-        transfer-encoding: chunked
-        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         "#);
     }
 
