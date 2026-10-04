@@ -86,12 +86,15 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
 
     let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 200);
-    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
         insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
+        content-length: [LENGTH]
         content-type: application/x-protobuf
         etag: [ETAG]
-        transfer-encoding: chunked
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
@@ -99,15 +102,61 @@ async fn a_glyph_range_is_served_as_compressed_protobuf() {
 
     let head = martin.head(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(head.status(), 200);
-    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
         insta::assert_snapshot!(head.headers_snapshot(), @"
         content-encoding: br
+        content-length: [LENGTH]
         content-type: application/x-protobuf
-        transfer-encoding: chunked
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
     assert_eq!(head.body(), b"");
+
+    martin.stop().await;
+}
+
+#[rstest]
+#[case::identity("identity", None)]
+#[case::gzip("gzip", Some("gzip"))]
+#[case::deflate("deflate", Some("deflate"))]
+#[case::brotli("br", Some("br"))]
+#[case::zstd("zstd", Some("zstd"))]
+#[case::highest_quality("br;q=0.5, gzip;q=0.8", Some("gzip"))]
+#[tokio::test]
+async fn a_glyph_range_is_served_in_the_negotiated_encoding(
+    #[case] accept_encoding: &str,
+    #[case] content_encoding: Option<&str>,
+) {
+    let mut martin = martin_with_font_dir().await;
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", accept_encoding)],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.header("content-encoding"), content_encoding);
+    assert_eq!(fontstack(&response).glyphs.len(), 192);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_client_accepting_no_encoding_is_refused() {
+    let mut martin = martin_with_font_dir().await;
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", "identity;q=0")],
+        )
+        .await;
+    assert_eq!(response.status(), 406);
+    assert_eq!(response.text(), "br, gzip, deflate, zstd");
 
     martin.stop().await;
 }
@@ -162,11 +211,10 @@ async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
     assert_eq!(response.text(), "Font Nonexistent not found");
     insta::allow_duplicates! {
         insta::assert_snapshot!(response.headers_snapshot(), @r#"
-        content-encoding: br
+        content-length: 26
         content-type: text/plain; charset=utf-8
         etag: W/"1a-v2HxsjSSPxQe7xjbF9rAaw=="
-        transfer-encoding: chunked
-        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         "#);
     }
 
