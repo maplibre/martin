@@ -60,6 +60,7 @@ indicatif
 inspectable
 isnull
 isolines
+legacycpu
 jpegxl
 justfiles
 keepalives
