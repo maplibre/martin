@@ -14,7 +14,8 @@ stable_features := 'lambda,mbtiles,metrics,passthrough,pmtiles,postgres,processi
 full_features := stable_features + ',rendering'
 
 # Release binaries for x86_64 require at least x86-64-v3 (Intel Haswell / AMD Excavator, 2015+)
-x86_cpu_flag := '-C target-cpu=x86-64-v3'
+# Set LEGACY_CPU=1 to build for the baseline x86-64 instead (the `legacycpu` release artefacts)
+x86_cpu_flag := if env('LEGACY_CPU', '') != '' {''} else {'-C target-cpu=x86-64-v3'}
 # Benchmarks build for the host, so they must use the same CPU level as the release binaries to measure what users get
 bench_rustflags := if arch() == 'x86_64' {x86_cpu_flag} else {''}
 
