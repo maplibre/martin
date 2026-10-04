@@ -1316,7 +1316,7 @@
 <h3 id="prerequisites">Prerequisites</h3>
 <p>If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.</p>
 <p>On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer).
-Older CPUs need to <a href="../development/">build Martin from source</a>.</p>
+Older CPUs can use the static <code>x86_64-unknown-linux-musl-legacycpu</code> tarball or the <code>:latest-legacycpu</code> / <code>:&lt;version&gt;-legacycpu</code> Docker image (<code>linux/amd64</code> only, no rendering), or <a href="../development/">build Martin from source</a>.</p>
 <h3 id="docker">Docker</h3>
 <p>Martin is also available as a <a href="https://ghcr.io/maplibre/martin">Docker image</a>. You could either share a configuration
 file from the host with the container via the <code>-v</code> param, or you can let Martin auto-discover all sources e.g. by

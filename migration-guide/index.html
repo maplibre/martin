@@ -1517,7 +1517,7 @@ Use <code>RUST_LOG</code> to control logging.</p>
 <h3 id="x86_64-binaries-require-an-x86-64-v3-cpu">x86_64 binaries require an x86-64-v3 CPU</h3>
 <p>The prebuilt x86_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
 On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.</p>
-<p>To run Martin on an older CPU, <a href="../development/">build it from source</a> without <code>-C target-cpu=x86-64-v3</code>.</p>
+<p>To run Martin on an older CPU, use the <code>martin-x86_64-unknown-linux-musl-legacycpu.tar.gz</code> release asset or the <code>:latest-legacycpu</code> Docker image, or <a href="../development/">build it from source</a> without <code>-C target-cpu=x86-64-v3</code>.</p>
 <h3 id="cargo-features-were-merged">Cargo features were merged</h3>
 <p>If you build Martin or <code>martin-core</code> yourself with <code>--features</code> or <code>--no-default-features</code>, rename the features:</p>
 <table>
