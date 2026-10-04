@@ -6,7 +6,7 @@ requests := env('REQUESTS', '200000')
 pg_requests := env('PG_REQUESTS', '20000')
 hit_requests := env('HIT_REQUESTS', '1000000')
 
-all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss cache-hit
+all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss composite-miss cache-hit composite-hit
 
 mbtiles-miss: (run 'mbtiles-miss' 'world_cities' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
 
@@ -18,7 +18,11 @@ postgres-function-mlt-miss: (run 'postgres-function-mlt-miss' 'function_zxy_quer
 
 postgres-table-miss: (run 'postgres-table-miss' 'table_source' '6' pg_requests '--cache-size 0 "$DATABASE_URL"')
 
+composite-miss: (run 'composite-miss' 'world_cities,world_cities_modified' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
+
 cache-hit: (run 'cache-hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
+
+composite-hit: (run 'composite-hit' 'world_cities,world_cities_modified' '2' hit_requests 'tests/fixtures/mbtiles')
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':

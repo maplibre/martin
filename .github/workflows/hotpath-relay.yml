@@ -21,7 +21,9 @@ jobs:
           - postgres-function-miss
           - postgres-function-mlt-miss
           - postgres-table-miss
+          - composite-miss
           - cache-hit
+          - composite-hit
     uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@773ede70e9894951f63005c862a8f527432db669 # v0.28.3
     permissions:
       actions: read
