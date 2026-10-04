@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-04
+
+### Added
+
+- [**breaking**] merge cargo features and make mlt always-on ([#3466](https://github.com/maplibre/martin/pull/3466))
+- *(rendering)* configurable tile size (256 or 512 px) ([#3457](https://github.com/maplibre/martin/pull/3457))
+- *(rendering)* keep several renderers per worker ([#3454](https://github.com/maplibre/martin/pull/3454))
+- *(rendering)* serve @{n}x pixel ratios on rendered tiles ([#3453](https://github.com/maplibre/martin/pull/3453))
+- *(rendering)* [**breaking**] serve rendered PNGs as indexed (palette) images ([#3456](https://github.com/maplibre/martin/pull/3456))
+- [**breaking**] require x86-64-v3 CPU ([#3464](https://github.com/maplibre/martin/pull/3464))
+
+### Fixed
+
+- *(deps)* update npm dependencies ([#3447](https://github.com/maplibre/martin/pull/3447))
+- *(pmtiles)* reload a remote source whose leaf directories moved ([#3450](https://github.com/maplibre/martin/pull/3450))
+
+### Other
+
+- avoid per-request allocations in source resolution and Accept parsing ([#3468](https://github.com/maplibre/martin/pull/3468))
+- reduce allocations a bit ([#3467](https://github.com/maplibre/martin/pull/3467))
+- *(deps)* Update hotpath and enable hotpath-cloud ([#3461](https://github.com/maplibre/martin/pull/3461))
+- *(rendering)* encode rendered images off the actix workers ([#3460](https://github.com/maplibre/martin/pull/3460))
+- *(deps)* update github-actions ([#3449](https://github.com/maplibre/martin/pull/3449))
+- update Cargo.lock dependencies
+
 ## [2.0.0-beta.2](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.1...martin-v2.0.0-beta.2) - 2026-10-01
 
 > [!IMPORTANT]
