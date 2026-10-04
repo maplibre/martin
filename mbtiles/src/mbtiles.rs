@@ -631,21 +631,22 @@ impl Mbtiles {
             sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
         }
         let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
-        let hashes: Vec<String> = match mbt_type {
-            MbtType::Flat | MbtType::Cache => Vec::new(),
-            MbtType::FlatWithHash | MbtType::Normalized { .. } => batch
-                .iter()
-                .map(|(_, _, _, tile_data)| algorithm.hash(tile_data.as_ref()))
-                .collect(),
+        let needs_hash = match mbt_type {
+            MbtType::Flat | MbtType::Cache => false,
+            MbtType::FlatWithHash | MbtType::Normalized { .. } => true,
         };
+        let mut hashes = Vec::with_capacity(if needs_hash { batch.len() } else { 0 });
         for sql2 in sql2 {
             let sql2 = tx.prepare(to_sql_str(sql2)).await?;
             for (i, (_, _, _, tile_data)) in batch.iter().enumerate() {
-                let mut query = sql2.query().bind(tile_data.as_ref());
-                if let Some(hash) = hashes.get(i) {
-                    query = query.bind(hash);
+                if hashes.len() == i {
+                    hashes.push(algorithm.hash(tile_data.as_ref()));
                 }
-                query.execute(&mut *tx).await?;
+                sql2.query()
+                    .bind(tile_data.as_ref())
+                    .bind(&hashes[i])
+                    .execute(&mut *tx)
+                    .await?;
             }
         }
         let sql1 = tx.prepare(to_sql_str(sql1)).await?;
@@ -656,8 +657,11 @@ impl Mbtiles {
                 .bind(x)
                 .bind(invert_y_value(*z, *y))
                 .bind(tile_data.as_ref());
-            if let Some(hash) = hashes.get(i) {
-                query = query.bind(hash);
+            if needs_hash {
+                if hashes.len() == i {
+                    hashes.push(algorithm.hash(tile_data.as_ref()));
+                }
+                query = query.bind(&hashes[i]);
             }
             query.execute(&mut *tx).await?;
         }
