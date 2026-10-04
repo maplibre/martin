@@ -42,7 +42,6 @@ processing = [
     "dep:geo-types",
     "dep:geojson",
     "dep:mlt-core",
-    "dep:multiversion",
     "dep:rayon",
     "dep:serde_json",
     "dep:tokio",
@@ -151,7 +150,6 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
-multiversion = { workspace = true, optional = true }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
