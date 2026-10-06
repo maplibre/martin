@@ -829,7 +829,6 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains(r#"ERROR error="Source usda_naip_128_none_z2 does not exist""#);
 }
 
-#[cfg(not(windows))]
 #[tokio::test]
 async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing() {
     let tmp = temp_dir();
@@ -853,8 +852,7 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
     assert_eq!(martin.get("/health").await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_contains("served.tif changed after it was opened");
-    martin.assert_log_contains("External(Modified {");
+    martin.assert_log_contains("failed to fill whole buffer");
 }
 
 /// The COG README states the requirements a file has to meet. Each case breaks one of them in a

@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::fs::{File, Metadata};
+use std::fs::File;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,11 +8,9 @@ use async_tiff::error::{AsyncTiffError, AsyncTiffResult};
 use async_tiff::reader::AsyncFileReader;
 use async_trait::async_trait;
 use bytes::Bytes;
-use derive_debug::Dbg;
 use object_store::{
     GetOptions, OBJECT_STORE_COALESCE_DEFAULT, ObjectStore, ObjectStoreExt as _, coalesce_ranges,
 };
-use pmtiles::{AsyncBackend as _, MmapBackend};
 
 /// Metadata captured when a COG reader is opened.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,22 +58,12 @@ pub enum CogReaderError {
         #[source]
         source: std::io::Error,
     },
-
-    /// The local file changed size or modification time after it was opened.
-    #[error("{location} changed after it was opened")]
-    Modified {
-        /// Display form of the local source path.
-        location: String,
-    },
 }
 
-/// A COG reader that serves a local file from a memory map.
-#[derive(Dbg)]
+/// A COG reader that reads a local file through one open handle.
+#[derive(Debug)]
 pub(crate) struct LocalFileCogReader {
-    #[dbg(skip)]
-    bytes: Bytes,
     file: File,
-    opened: Metadata,
     location: String,
     metadata: CogObjectMeta,
 }
@@ -84,11 +72,10 @@ impl LocalFileCogReader {
     pub(crate) async fn try_new(path: PathBuf) -> Result<Self, CogReaderError> {
         let location = path.display().to_string();
         let metadata_location = location.clone();
-        let (path, file, opened) = tokio::task::spawn_blocking(move || {
-            let path = std::fs::canonicalize(path)?;
-            let file = File::open(&path)?;
-            let opened = file.metadata()?;
-            Ok::<_, std::io::Error>((path, file, opened))
+        let (file, size) = tokio::task::spawn_blocking(move || {
+            let file = File::open(path)?;
+            let size = file.metadata()?.len();
+            Ok::<_, std::io::Error>((file, size))
         })
         .await
         .map_err(|source| CogReaderError::Io {
@@ -99,90 +86,64 @@ impl LocalFileCogReader {
             location: metadata_location,
             source,
         })?;
-        let map_error = |source| CogReaderError::Io {
-            location: location.clone(),
-            source: std::io::Error::other(source),
-        };
-        let mmap = MmapBackend::try_from(&path).await.map_err(map_error)?;
-        // The whole mapping as one `Bytes`.
-        let bytes = mmap.read(0, usize::MAX).await.map_err(map_error)?.bytes;
-        let mapped = std::fs::metadata(&path).map_err(|source| CogReaderError::Io {
-            location: location.clone(),
-            source,
-        })?;
-        if !same_version(&mapped, &opened) || bytes.len() as u64 != opened.len() {
-            return Err(CogReaderError::Modified { location });
-        }
         Ok(Self {
-            bytes,
             file,
             location,
             metadata: CogObjectMeta {
-                size: opened.len(),
+                size,
                 e_tag: None,
                 version: None,
                 last_modified_millis: None,
             },
-            opened,
         })
     }
 
-    fn checked_range(&self, range: Range<u64>) -> Result<Range<usize>, CogReaderError> {
-        match (usize::try_from(range.start), usize::try_from(range.end)) {
-            (Ok(start), Ok(end)) if start < end && end <= self.bytes.len() => Ok(start..end),
-            _ => Err(CogReaderError::InvalidRange {
+    fn checked_range(&self, range: Range<u64>) -> Result<Range<u64>, CogReaderError> {
+        if range.start >= range.end || range.end > self.metadata.size {
+            return Err(CogReaderError::InvalidRange {
                 location: self.location.clone(),
                 range,
                 size: self.metadata.size,
-            }),
+            });
         }
+        Ok(range)
     }
-
-    /// Fails when the open file no longer has the size and modification time it was mapped with.
-    fn check_unmodified(&self) -> Result<(), CogReaderError> {
-        let current = self.file.metadata().map_err(|source| CogReaderError::Io {
-            location: self.location.clone(),
-            source,
-        })?;
-        if same_version(&current, &self.opened) {
-            Ok(())
-        } else {
-            Err(CogReaderError::Modified {
-                location: self.location.clone(),
-            })
-        }
-    }
-}
-
-/// Whether `a` and `b` describe the same file with the same size and modification time.
-fn same_version(a: &Metadata, b: &Metadata) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        if (a.dev(), a.ino()) != (b.dev(), b.ino()) {
-            return false;
-        }
-    }
-    a.len() == b.len() && a.modified().ok() == b.modified().ok()
 }
 
 #[async_trait]
 impl CogReader for LocalFileCogReader {
     async fn read_range(&self, range: Range<u64>) -> Result<Bytes, CogReaderError> {
-        self.check_unmodified()?;
-        Ok(Bytes::copy_from_slice(
-            &self.bytes[self.checked_range(range)?],
-        ))
+        let mut ranges = self.read_ranges(&[range]).await?;
+        ranges.pop().ok_or_else(|| CogReaderError::Io {
+            location: self.location.clone(),
+            source: std::io::Error::other("local COG reader returned no byte range"),
+        })
     }
 
     async fn read_ranges(&self, ranges: &[Range<u64>]) -> Result<Vec<Bytes>, CogReaderError> {
-        self.check_unmodified()?;
-        ranges
+        let ranges = ranges
             .iter()
+            .cloned()
+            .map(|range| self.checked_range(range))
+            .collect::<Result<Vec<_>, _>>()?;
+        ranges
+            .into_iter()
             .map(|range| {
-                Ok(Bytes::copy_from_slice(
-                    &self.bytes[self.checked_range(range.clone())?],
-                ))
+                let length = usize::try_from(range.end - range.start).map_err(|_source| {
+                    CogReaderError::InvalidRange {
+                        location: self.location.clone(),
+                        range: range.clone(),
+                        size: self.metadata.size,
+                    }
+                })?;
+                let mut bytes = vec![0; length];
+                read_exact_at(&self.file, &mut bytes, range.start).map_err(|source| {
+                    CogReaderError::Io {
+                        location: self.location.clone(),
+                        source,
+                    }
+                })?;
+                Ok(Bytes::from(bytes))
             })
             .collect()
     }
@@ -194,6 +155,36 @@ impl CogReader for LocalFileCogReader {
     fn location(&self) -> &str {
         &self.location
     }
+}
+
+/// Fills `buf` from `file` starting at `offset`.
+#[cfg(unix)]
+fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
+    use std::os::unix::fs::FileExt as _;
+    file.read_exact_at(buf, offset)
+}
+
+/// Fills `buf` from `file` starting at `offset`.
+#[cfg(windows)]
+fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> std::io::Result<()> {
+    use std::os::windows::fs::FileExt as _;
+    while !buf.is_empty() {
+        match file.seek_read(buf, offset) {
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "failed to fill whole buffer",
+                ));
+            }
+            Ok(n) => {
+                buf = &mut buf[n..];
+                offset += n as u64;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 impl CogReaderError {

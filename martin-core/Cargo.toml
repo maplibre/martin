@@ -74,7 +74,6 @@ unstable-cog = [
     "dep:async-tiff",
     "dep:futures",
     "dep:object_store",
-    "dep:pmtiles",
     "dep:png",
     "dep:serde_json",
     "dep:tiff",
