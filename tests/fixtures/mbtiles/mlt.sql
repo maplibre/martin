@@ -14,7 +14,7 @@ INSERT INTO metadata VALUES('maxzoom','2');
 INSERT INTO metadata VALUES('json','{"vector_layers":[]}');
 INSERT INTO metadata VALUES('compression','none');
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
-INSERT INTO tiles VALUES(0,0,0,x'0201');
+INSERT INTO tiles VALUES(0,0,0,x'0101');
 CREATE UNIQUE INDEX name ON metadata (name);
 CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);
 COMMIT;

@@ -349,8 +349,8 @@ enum SevenBitDecodingError {
     /// The size of the tile is too large to be decoded
     #[error("The size of the tile is too large to be decoded")]
     SizeOverflow,
-    /// The size of the tile is lower than the number of bytes for the size and tag
-    #[error("The size of the tile is lower than the number of bytes for the size and tag")]
+    /// The size of the tile is lower than the one byte for the tag
+    #[error("The size of the tile is lower than the one byte for the tag")]
     SizeUnderflow,
     /// Expected a size, but got nothing
     #[error("Expected a size, but got nothing")]
@@ -384,13 +384,11 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                 return Err(SevenBitDecodingError::SizeOverflow);
             }
             // decode size
-            size <<= 7;
             let seven_bit_mask = !0x80;
-            size |= u64::from(*b & seven_bit_mask);
+            size |= u64::from(*b & seven_bit_mask) << ((header_bit_count - 1) * 7);
             // 0 => no further size
             if b & 0x80 == 0 {
                 // need to check tag
-                header_bit_count += 1;
                 let Some(tag) = tile_iter.next() else {
                     return Err(SevenBitDecodingError::TruncatedTag);
                 };
@@ -399,7 +397,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                 }
                 // need to check data-length
                 let payload_len = size
-                    .checked_sub(header_bit_count)
+                    .checked_sub(1)
                     .ok_or(SevenBitDecodingError::SizeUnderflow)?;
                 for i in 0..payload_len {
                     if tile_iter.next().is_none() {
@@ -527,17 +525,17 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case::minimal_tile(&[0x02, 0x01], Ok(()))]
-    #[case::one_byte_length(&[0x03, 0x01, 0xaa], Ok(()))]
-    #[case::two_byte_length(&[0x80, 0x04, 0x01, 0xaa], Ok(()))]
-    #[case::multi_byte_length(&[0x80, 0x80, 0x05, 0x01, 0xdd], Ok(()))]
+    #[case::minimal_tile(&[0x01, 0x01], Ok(()))]
+    #[case::one_byte_length(&[0x02, 0x01, 0xaa], Ok(()))]
+    #[case::two_byte_length(&[[0xac_u8, 0x02, 0x01].as_slice(), &[0xaa; 299]].concat(), Ok(()))]
+    #[case::multi_byte_length(&[[0x80_u8, 0x80, 0x01, 0x01].as_slice(), &[0xdd; 16383]].concat(), Ok(()))]
     #[case::wrong_version(&[0x03, 0x02, 0xaa], Err(SevenBitDecodingError::UnexpectedTag(0x02)))]
     #[case::empty_input(&[], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::size_overflow(&[0xFF; 64], Err(SevenBitDecodingError::SizeOverflow))]
     #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
-    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 1, actual: 0 }))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 2, actual: 0 }))]
     fn test_decode_7bit_length_and_tag(
         #[case] tile: &[u8],
         #[case] expected: Result<(), SevenBitDecodingError>,
@@ -549,7 +547,7 @@ mod tests {
         if tile.is_empty() {
             return;
         }
-        let mut tile_with_two_layers = vec![0x02, 0x01];
+        let mut tile_with_two_layers = vec![0x01, 0x01];
         tile_with_two_layers.extend_from_slice(tile);
         let decoded = decode_7bit_length_and_tag(&tile_with_two_layers, allowed_versions);
         assert_eq!(decoded, expected, "can decode two layers correctly");
