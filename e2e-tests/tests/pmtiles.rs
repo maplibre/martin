@@ -362,8 +362,6 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
-/// A server whose `pmtilestest/tiles/` prefix holds `webp2.pmtiles`, configured explicitly by
-/// each test, next to `png.pmtiles`, which only the prefix discovers.
 async fn statics_with_a_prefix() -> StaticFiles {
     StaticFiles::serving(&[
         (
@@ -378,8 +376,6 @@ async fn statics_with_a_prefix() -> StaticFiles {
     .await
 }
 
-/// A config polling the `pmtilestest/tiles/` prefix every second, with `sources` given as a YAML
-/// flow mapping.
 fn s3_prefix_config(statics: &StaticFiles, sources: &str) -> String {
     format!(
         "
@@ -398,8 +394,7 @@ pmtiles:
     )
 }
 
-/// Waits for the prefix to be listed twice: the poller reconciles one listing before it starts the
-/// next, so everything the first listing discovered is in the catalog by then.
+/// The poller applies a listing before starting the next one.
 async fn wait_for_the_second_prefix_listing(statics: &StaticFiles) {
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         while statics.request_log().await.matches("list-type=2").count() < 2 {

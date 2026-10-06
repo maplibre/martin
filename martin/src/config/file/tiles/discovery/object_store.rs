@@ -238,13 +238,8 @@ impl Discovery for ConfiguredObjectDiscovery {
 }
 
 /// A [`Discovery`] over one or more remote object-store prefixes.
-///
-/// An object listed under a prefix that is also configured explicitly under `sources` is skipped,
-/// so the explicit entry and its per-source settings are not replaced by a plain discovered copy.
 pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
-    /// Sanitized URLs of the remote objects configured explicitly under `sources`, the same key
-    /// the [`IdResolver`] tells objects apart by.
     configured: BTreeSet<String>,
     extensions: Arc<[String]>,
     label: &'static str,
@@ -400,8 +395,6 @@ fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
     }
 }
 
-/// Lists the objects under `prefix` with one of `extensions`, skipping the `configured` ones
-/// before they claim an id.
 async fn list_remote_prefix(
     prefix: &Url,
     extensions: &[String],
@@ -580,8 +573,6 @@ mod tests {
         assert_eq!(retained, first);
     }
 
-    /// A `PMTiles` prefix discovery over `s3://bucket/` holding `objects`, listing `prefixes` and
-    /// with `sources` configured as `(id, url)`.
     #[cfg(feature = "pmtiles")]
     async fn pmtiles_prefix_discovery(
         objects: &[&str],
@@ -642,7 +633,7 @@ mod tests {
     #[cfg(feature = "pmtiles")]
     #[tokio::test]
     async fn a_skipped_object_does_not_claim_its_file_name_as_an_id() {
-        // Prefixes are listed in sorted order, so the skipped `archive/` object comes up first.
+        // Prefixes are listed sorted, so the skipped `archive/` object comes first.
         let discovery = pmtiles_prefix_discovery(
             &["archive/vienna.pmtiles", "imagery/vienna.pmtiles"],
             &["s3://bucket/imagery/", "s3://bucket/archive/"],
