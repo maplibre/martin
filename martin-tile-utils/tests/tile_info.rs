@@ -26,6 +26,10 @@ use rstest::rstest;
     br#"{"foo":"bar"}"#,
     TileInfo::new(Format::Json, Encoding::Uncompressed)
 )]
+#[case::mlt(
+    include_bytes!("../fixtures/point.mlt"),
+    TileInfo::new(Format::Mlt, Encoding::Internal)
+)]
 // we have no way of knowing what is an MVT -> we just say it is out of the
 // fact that it is not something else
 #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
@@ -80,15 +84,14 @@ fn compressed_json_zlib() {
 fn raw_mlt_encoding_internal() {
     // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
     // to prevent the serve path from applying heavyweight gzip/brotli on top.
-    let mlt_data = &[0x02, 0x01];
+    let mlt_data = &[0x01, 0x01];
     let result = TileInfo::detect(mlt_data);
     assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Internal));
 }
 
 #[test]
 fn compressed_mlt_gzip() {
-    // MLT tile: length=2 (0x02), version=1 (0x01)
-    let mlt_data = &[0x02, 0x01];
+    let mlt_data = &[0x01, 0x01];
     let compressed = encode_gzip(mlt_data).unwrap();
     let result = TileInfo::detect(&compressed);
     assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Gzip));
@@ -96,8 +99,7 @@ fn compressed_mlt_gzip() {
 
 #[test]
 fn compressed_mlt_zlib() {
-    // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
-    let mlt_data = &[0x05, 0x01, 0xaa, 0xbb, 0xcc];
+    let mlt_data = &[0x04, 0x01, 0xaa, 0xbb, 0xcc];
     let compressed = encode_zlib(mlt_data).unwrap();
 
     let result = TileInfo::detect(&compressed);
