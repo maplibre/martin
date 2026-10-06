@@ -122,7 +122,7 @@ pub struct CopyArgs {
     /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
     ///
     /// For a source on a tile grid other than Web Mercator the bounds are `min_x,min_y,max_x,max_y` in the grid's CRS units, and the whole grid is copied if omitted.
-    #[arg(long, default_value = "-180,-85.05112877980659,180,85.0511287798066")]
+    #[arg(long)]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
     #[arg(long, alias = "minzoom", conflicts_with("zoom_levels"))]
@@ -306,18 +306,6 @@ fn compute_tile_ranges(grid: &TileGrid, boxes: &[Bounds], zooms: &[u8]) -> Vec<T
     ranges
 }
 
-/// Whether `boxes` is just the CLI's default, the whole Web Mercator world.
-fn is_mercator_world(boxes: &[Bounds]) -> bool {
-    let [world] = boxes else {
-        return false;
-    };
-    let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
-    close(world.left, Bounds::MAX_TILED.left)
-        && close(world.bottom, Bounds::MAX_TILED.bottom)
-        && close(world.right, Bounds::MAX_TILED.right)
-        && close(world.top, Bounds::MAX_TILED.top)
-}
-
 fn get_zooms(args: &CopyArgs) -> Cow<'_, [u8]> {
     if let Some(max_zoom) = args.max_zoom {
         let mut zooms_vec = Vec::new();
@@ -476,7 +464,21 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let mut source_bounds = src
             .sources
             .iter()
-            .map(|(source, _)| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
+            .map(|(source, _)| {
+                let world = Bounds::MAX_TILED;
+                source
+                    .get_tilejson()
+                    .bounds
+                    .filter(|bounds| bounds.left <= bounds.right && bounds.bottom <= bounds.top)
+                    .map_or(world, |bounds| {
+                        Bounds::new(
+                            bounds.left.clamp(world.left, world.right),
+                            bounds.bottom.clamp(world.bottom, world.top),
+                            bounds.right.clamp(world.left, world.right),
+                            bounds.top.clamp(world.bottom, world.top),
+                        )
+                    })
+            })
             .collect::<Vec<Bounds>>();
 
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
@@ -713,13 +715,11 @@ where
             source.tile_grid()
         })
         .clone();
-    // the CLI default bbox is the Web Mercator world, which means nothing on another grid
-    let inferred_bboxes =
-        if args.bbox.is_empty() || (!grid.is_web_mercator() && is_mercator_world(&args.bbox)) {
-            default_bounds(&src)
-        } else {
-            args.bbox.clone()
-        };
+    let inferred_bboxes = if args.bbox.is_empty() {
+        default_bounds(&src)
+    } else {
+        args.bbox.clone()
+    };
     let bboxes = check_bboxes(&grid, inferred_bboxes)?;
     let tiles = compute_tile_ranges(&grid, &bboxes, &get_zooms(&args));
 
@@ -965,11 +965,11 @@ mod tests {
     fn many_sources() -> TileSourceManager {
         test_manager(vec![vec![
             TestSource::empty("test_source")
-                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() })
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap() })
                 .with_empty_children()
                 .boxed(),
             TestSource::empty("test_source2")
-                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() })
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-170.0,10.0,-130.0,40.0").unwrap() })
                 .with_empty_children()
                 .boxed(),
             TestSource::empty("unrequested_source")
@@ -997,11 +997,11 @@ mod tests {
 
     #[rstest]
     #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
-    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap()])]
-    #[case::many_sources_rev(many_sources(), "test_source2,test_source", vec![Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap(), Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
+    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap(), Bounds::from_str("-170.0,10.0,-130.0,40.0").unwrap()])]
+    #[case::many_sources_rev(many_sources(), "test_source2,test_source", vec![Bounds::from_str("-170.0,10.0,-130.0,40.0").unwrap(), Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap()])]
     #[case::many_sources_only_unbounded(many_sources(), "unbounded_source", vec![Bounds::MAX_TILED])]
-    #[case::many_sources_bounded_and_unbounded(many_sources(), "test_source,unbounded_source", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::MAX_TILED])]
-    #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
+    #[case::many_sources_bounded_and_unbounded(many_sources(), "test_source,unbounded_source", vec![Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap(), Bounds::MAX_TILED])]
+    #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap()])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
         #[case] src: TileSourceManager,

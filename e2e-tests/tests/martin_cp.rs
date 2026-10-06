@@ -115,6 +115,48 @@ async fn copies_the_only_source_when_none_is_named() {
     validate(&output).await;
 }
 
+#[tokio::test]
+async fn falls_back_to_the_source_bounds_without_a_bbox() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    MbtilesCli::new("meta-set")
+        .arg(&source)
+        .arg("bounds")
+        .arg("0,0,180,90")
+        .run()
+        .await;
+    let bounded = dir.path().join("bounded.mbtiles");
+    let unbounded = dir.path().join("unbounded.mbtiles");
+
+    for (output, bbox) in [
+        (&bounded, Some("--bbox=0,0,180,85.0511287798066")),
+        (&unbounded, None),
+    ] {
+        let mut command = MartinCp::new()
+            .arg(&source)
+            .arg("--output-file")
+            .arg(output)
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("6");
+        if let Some(bbox) = bbox {
+            command = command.arg(bbox);
+        }
+        command.run().await;
+    }
+
+    assert_eq!(tile_listing(&bounded).await, tile_listing(&unbounded).await);
+    insta::assert_snapshot!(tile_listing(&unbounded).await, @r"
+    0/0/0 1107 bytes
+    2/3/1 151 bytes
+    2/3/2 263 bytes
+    3/7/3 20 bytes
+    5/16/20 20 bytes
+    6/45/37 20 bytes
+    ");
+}
+
 #[rstest]
 #[case::flat(Some("flat"), json!("Flat"))]
 #[case::flat_with_hash(Some("flat-with-hash"), json!("FlatWithHash"))]
@@ -224,7 +266,7 @@ mod postgres {
 
     use martin_e2e_tests::{
         GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-        summary, summary_filters, temp_dir, tile_listing, tiles,
+        summary, summary_filters, temp_dir, tiles,
     };
     use mlt_core::TileLayer;
 
@@ -364,37 +406,6 @@ mod postgres {
         });
         insta::assert_snapshot!("composite_0_0_0", lowest_zoom_dump(&output).await);
         validate(&output).await;
-    }
-
-    #[tokio::test]
-    async fn falls_back_to_the_source_bounds_without_a_bbox() {
-        let dir = temp_dir();
-        let bounded = dir.path().join("bounded.mbtiles");
-        let unbounded = dir.path().join("unbounded.mbtiles");
-
-        for (output, bbox) in [
-            (&bounded, Some("--bbox=-2,-1,142.84131509869133,45")),
-            (&unbounded, None),
-        ] {
-            let mut command = copy(output)
-                .arg("--auto-bounds")
-                .arg("calc")
-                .arg("--source")
-                .arg("table_source")
-                .arg("--mbtiles-type")
-                .arg("flat")
-                .arg("--min-zoom")
-                .arg("0")
-                .arg("--max-zoom")
-                .arg("6");
-            if let Some(bbox) = bbox {
-                command = command.arg(bbox);
-            }
-            command.run().await;
-        }
-
-        assert_eq!(tiles(&bounded).await, tiles(&unbounded).await);
-        insta::assert_snapshot!("source_bounds_tiles", tile_listing(&unbounded).await);
     }
 
     /// The config the MLT test below drives: one table, with every property type martin serves.
