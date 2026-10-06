@@ -829,6 +829,32 @@ async fn reload_adds_updates_and_removes_a_source() {
     martin.assert_log_contains(r#"ERROR error="Source usda_naip_128_none_z2 does not exist""#);
 }
 
+#[tokio::test]
+async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing() {
+    let tmp = temp_dir();
+    let path = tmp.path().join("served.tif");
+    fs::copy(fixture("cog/usda_naip_512_webp_z5.tif"), &path).expect("failed to copy the fixture");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let cached = martin.get("/served/13/1334/3042").await;
+    assert_eq!(cached.status(), 200);
+
+    fs::write(&path, b"").expect("failed to empty the served file");
+
+    assert_eq!(
+        martin.get("/served/13/1334/3042").await.body(),
+        cached.body()
+    );
+    assert_eq!(martin.get("/served/13/1334/3041").await.status(), 500);
+    assert_eq!(martin.get("/health").await.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains("failed to fill whole buffer");
+}
+
 /// The COG README states the requirements a file has to meet. Each case breaks one of them in a
 /// copy of a fixture that otherwise meets them all.
 #[rstest]

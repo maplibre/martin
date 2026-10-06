@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::io::{Read as _, Seek as _, SeekFrom};
+use std::fs::File;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -60,10 +60,10 @@ pub enum CogReaderError {
     },
 }
 
-/// A COG reader that retains the original operating-system path representation.
-#[derive(Clone, Debug)]
+/// A COG reader that reads a local file through one open handle.
+#[derive(Debug)]
 pub(crate) struct LocalFileCogReader {
-    path: PathBuf,
+    file: File,
     location: String,
     metadata: CogObjectMeta,
 }
@@ -72,10 +72,10 @@ impl LocalFileCogReader {
     pub(crate) async fn try_new(path: PathBuf) -> Result<Self, CogReaderError> {
         let location = path.display().to_string();
         let metadata_location = location.clone();
-        let (path, size) = tokio::task::spawn_blocking(move || {
-            let path = std::fs::canonicalize(path)?;
-            let size = std::fs::metadata(&path)?.len();
-            Ok::<_, std::io::Error>((path, size))
+        let (file, size) = tokio::task::spawn_blocking(move || {
+            let file = File::open(path)?;
+            let size = file.metadata()?.len();
+            Ok::<_, std::io::Error>((file, size))
         })
         .await
         .map_err(|source| CogReaderError::Io {
@@ -87,7 +87,7 @@ impl LocalFileCogReader {
             source,
         })?;
         Ok(Self {
-            path,
+            file,
             location,
             metadata: CogObjectMeta {
                 size,
@@ -126,44 +126,26 @@ impl CogReader for LocalFileCogReader {
             .cloned()
             .map(|range| self.checked_range(range))
             .collect::<Result<Vec<_>, _>>()?;
-        let path = self.path.clone();
-        let location = self.location.clone();
-        let size = self.metadata.size;
-        let task_location = location.clone();
-        tokio::task::spawn_blocking(move || {
-            let mut file = std::fs::File::open(path).map_err(|source| CogReaderError::Io {
-                location: location.clone(),
-                source,
-            })?;
-            let mut result = Vec::with_capacity(ranges.len());
-            for range in ranges {
-                file.seek(SeekFrom::Start(range.start))
-                    .map_err(|source| CogReaderError::Io {
-                        location: location.clone(),
-                        source,
-                    })?;
+        ranges
+            .into_iter()
+            .map(|range| {
                 let length = usize::try_from(range.end - range.start).map_err(|_source| {
                     CogReaderError::InvalidRange {
-                        location: location.clone(),
+                        location: self.location.clone(),
                         range: range.clone(),
-                        size,
+                        size: self.metadata.size,
                     }
                 })?;
                 let mut bytes = vec![0; length];
-                file.read_exact(&mut bytes)
-                    .map_err(|source| CogReaderError::Io {
-                        location: location.clone(),
+                read_exact_at(&self.file, &mut bytes, range.start).map_err(|source| {
+                    CogReaderError::Io {
+                        location: self.location.clone(),
                         source,
-                    })?;
-                result.push(Bytes::from(bytes));
-            }
-            Ok(result)
-        })
-        .await
-        .map_err(|source| CogReaderError::Io {
-            location: task_location,
-            source: std::io::Error::other(source),
-        })?
+                    }
+                })?;
+                Ok(Bytes::from(bytes))
+            })
+            .collect()
     }
 
     fn metadata(&self) -> &CogObjectMeta {
@@ -173,6 +155,36 @@ impl CogReader for LocalFileCogReader {
     fn location(&self) -> &str {
         &self.location
     }
+}
+
+/// Fills `buf` from `file` starting at `offset`.
+#[cfg(unix)]
+fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
+    use std::os::unix::fs::FileExt as _;
+    file.read_exact_at(buf, offset)
+}
+
+/// Fills `buf` from `file` starting at `offset`.
+#[cfg(windows)]
+fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> std::io::Result<()> {
+    use std::os::windows::fs::FileExt as _;
+    while !buf.is_empty() {
+        match file.seek_read(buf, offset) {
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "failed to fill whole buffer",
+                ));
+            }
+            Ok(n) => {
+                buf = &mut buf[n..];
+                offset += n as u64;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 impl CogReaderError {
