@@ -24,7 +24,7 @@ jobs:
           - composite-miss
           - cache-hit
           - composite-hit
-    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@773ede70e9894951f63005c862a8f527432db669 # v0.28.3
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@d74b7cd480ccc85ed22c5d0ca9e5ab4c514e5954 # v0.28.4
     permissions:
       actions: read
       id-token: write
