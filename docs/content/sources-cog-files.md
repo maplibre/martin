@@ -118,6 +118,7 @@ Remote object stores and HTTP(S) servers have no event channel, so Martin polls 
 
 - **Configured remote objects** - `cog.sources` entries with an `s3://`, `gs://`, `az://`, `http://`, or `https://` URL, as well as remote URLs passed on the CLI, are re-checked with a `HEAD` request and rebuilt when their `ETag` or `Last-Modified` changes.
 - **Remote prefixes** - prefixes in `cog.paths` are re-listed, and the resulting objects are diffed against the previous snapshot, so added, updated, and removed TIFF objects propagate to the catalog.
+  An object that is also a configured remote object is skipped by the listing, so it is served once, with its `cog.sources` settings.
 
 Configured remote objects still load at startup when `reload_interval` is `0s`, but are not checked again.
 Remote prefixes are first discovered by the polling loop, so setting `reload_interval` to `0s` prevents their sources from loading.

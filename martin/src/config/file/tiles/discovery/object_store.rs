@@ -1,6 +1,6 @@
 //! Storage-neutral discovery over remote object prefixes.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -238,8 +238,14 @@ impl Discovery for ConfiguredObjectDiscovery {
 }
 
 /// A [`Discovery`] over one or more remote object-store prefixes.
+///
+/// An object listed under a prefix that is also configured explicitly under `sources` is skipped,
+/// so the explicit entry and its per-source settings are not replaced by a plain discovered copy.
 pub struct ObjectStoreDiscovery {
     remote_prefixes: Vec<Url>,
+    /// Sanitized URLs of the remote objects configured explicitly under `sources`, the same key
+    /// the [`IdResolver`] tells objects apart by.
+    configured: BTreeSet<String>,
     extensions: Arc<[String]>,
     label: &'static str,
     id_resolver: IdResolver,
@@ -279,9 +285,20 @@ impl ObjectStoreDiscovery {
         config.paths.iter().for_each(collect);
         remote_prefixes.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         remote_prefixes.dedup();
+        let configured = config
+            .sources
+            .values()
+            .filter_map(|src| {
+                SourceLocation::classify_path(src.get_path())
+                    .ok()?
+                    .into_url()
+            })
+            .map(|url| sanitized_url(&url))
+            .collect();
 
         Self {
             remote_prefixes,
+            configured,
             extensions: extensions
                 .iter()
                 .map(|extension| extension.to_ascii_lowercase())
@@ -316,40 +333,46 @@ impl Discovery for ObjectStoreDiscovery {
     async fn discover(&self) -> SourceBuildResult<Discovered<Self::Args>> {
         let mut out: BTreeMap<String, (Version, Url)> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
-            let entries =
-                match list_remote_prefix(prefix, &self.extensions, &self.id_resolver, &self.parser)
-                    .await
-                {
-                    Ok(entries) => {
-                        self.last_entries
-                            .lock()
-                            .expect("prefix listing map mutex")
-                            .insert(prefix.to_string(), entries.clone());
-                        entries
-                    }
-                    Err(error) => {
-                        let Some(entries) = self
-                            .last_entries
-                            .lock()
-                            .expect("prefix listing map mutex")
-                            .get(prefix.as_str())
-                            .cloned()
-                        else {
-                            tracing::warn!(
-                                "{}: list failed for {}: {error:?}; skipping prefix this tick",
-                                self.label,
-                                sanitized_url(prefix)
-                            );
-                            continue;
-                        };
+            let entries = match list_remote_prefix(
+                prefix,
+                &self.extensions,
+                &self.configured,
+                self.label,
+                &self.id_resolver,
+                &self.parser,
+            )
+            .await
+            {
+                Ok(entries) => {
+                    self.last_entries
+                        .lock()
+                        .expect("prefix listing map mutex")
+                        .insert(prefix.to_string(), entries.clone());
+                    entries
+                }
+                Err(error) => {
+                    let Some(entries) = self
+                        .last_entries
+                        .lock()
+                        .expect("prefix listing map mutex")
+                        .get(prefix.as_str())
+                        .cloned()
+                    else {
                         tracing::warn!(
-                            "{}: list failed for {}: {error:?}; retaining last successful listing",
+                            "{}: list failed for {}: {error:?}; skipping prefix this tick",
                             self.label,
                             sanitized_url(prefix)
                         );
-                        entries
-                    }
-                };
+                        continue;
+                    };
+                    tracing::warn!(
+                        "{}: list failed for {}: {error:?}; retaining last successful listing",
+                        self.label,
+                        sanitized_url(prefix)
+                    );
+                    entries
+                }
+            };
             for (id, url, version) in entries {
                 out.insert(id, (version, url));
             }
@@ -377,9 +400,13 @@ fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
     }
 }
 
+/// Lists the objects under `prefix` with one of `extensions`, skipping the `configured` ones
+/// before they claim an id.
 async fn list_remote_prefix(
     prefix: &Url,
     extensions: &[String],
+    configured: &BTreeSet<String>,
+    label: &str,
     id_resolver: &IdResolver,
     parser: &ObjectStoreParser,
 ) -> SourceBuildResult<Vec<PrefixEntry>> {
@@ -409,7 +436,14 @@ async fn list_remote_prefix(
         }
         let mut object_url = prefix.clone();
         object_url.set_path(meta.location.as_ref());
-        let id = id_resolver.resolve(stem, sanitized_url(&object_url));
+        let sanitized = sanitized_url(&object_url);
+        if configured.contains(&sanitized) {
+            tracing::debug!(
+                "{label}: {sanitized} is configured explicitly under `sources`; skipping its prefix discovery"
+            );
+            continue;
+        }
+        let id = id_resolver.resolve(stem, sanitized);
         out.push((id, object_url, version_from_meta(&meta)));
     }
     Ok(out)
@@ -470,6 +504,8 @@ mod tests {
             &Url::parse("https://user:secret@example.com:8443/imagery/?token=secret#fragment")
                 .unwrap(),
             &["tif".to_owned(), "tiff".to_owned()],
+            &BTreeSet::new(),
+            "test",
             &IdResolver::new(&[]),
             &parser,
         )
@@ -542,6 +578,85 @@ mod tests {
         let retained = discovery.discover().await.unwrap().sources;
 
         assert_eq!(retained, first);
+    }
+
+    /// A `PMTiles` prefix discovery over `s3://bucket/` holding `objects`, listing `prefixes` and
+    /// with `sources` configured as `(id, url)`.
+    #[cfg(feature = "pmtiles")]
+    async fn pmtiles_prefix_discovery(
+        objects: &[&str],
+        prefixes: &[&str],
+        sources: &[(&str, &str)],
+    ) -> ObjectStoreDiscovery {
+        let store = InMemory::new();
+        for object in objects {
+            store
+                .put(
+                    &object_store::path::Path::from(*object),
+                    PutPayload::from_static(b"fixture"),
+                )
+                .await
+                .unwrap();
+        }
+        let parser: ObjectStoreParser = Box::new(move |url: &Url| {
+            Ok((
+                Box::new(store.clone()) as Box<dyn object_store::ObjectStore>,
+                object_store::path::Path::from(url.path().trim_start_matches('/')),
+            ))
+        });
+        let mut config: FileConfig<PmtConfig> =
+            FileConfig::new(prefixes.iter().map(PathBuf::from).collect());
+        for (id, url) in sources {
+            config
+                .sources
+                .insert((*id).to_owned(), FileConfigSrc::Path(PathBuf::from(url)));
+        }
+        ObjectStoreDiscovery::from_config(
+            &config,
+            &["pmtiles"],
+            "test",
+            Duration::from_secs(1),
+            IdResolver::new(&[]),
+            CachePolicy::default(),
+            &ProcessConfig::default(),
+            parser,
+            ObjectStoreSourceBuilder::Pmtiles(Box::default()),
+        )
+    }
+
+    #[cfg(feature = "pmtiles")]
+    #[tokio::test]
+    async fn prefix_discovery_skips_objects_configured_under_sources() {
+        let discovery = pmtiles_prefix_discovery(
+            &["imagery/vienna.pmtiles", "imagery/graz.pmtiles"],
+            &["s3://bucket/imagery/"],
+            &[("vienna", "s3://bucket/imagery/vienna.pmtiles")],
+        )
+        .await;
+
+        let discovered = discovery.discover().await.unwrap().sources;
+
+        assert_eq!(discovered.keys().collect::<Vec<_>>(), ["graz"]);
+    }
+
+    #[cfg(feature = "pmtiles")]
+    #[tokio::test]
+    async fn a_skipped_object_does_not_claim_its_file_name_as_an_id() {
+        // Prefixes are listed in sorted order, so the skipped `archive/` object comes up first.
+        let discovery = pmtiles_prefix_discovery(
+            &["archive/vienna.pmtiles", "imagery/vienna.pmtiles"],
+            &["s3://bucket/imagery/", "s3://bucket/archive/"],
+            &[("hillshade", "s3://bucket/archive/vienna.pmtiles")],
+        )
+        .await;
+
+        let discovered = discovery.discover().await.unwrap().sources;
+
+        let found = discovered
+            .iter()
+            .map(|(id, (_, url))| (id.as_str(), url.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(found, [("vienna", "s3://bucket/imagery/vienna.pmtiles")]);
     }
 }
 

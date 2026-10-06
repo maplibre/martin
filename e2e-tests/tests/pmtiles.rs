@@ -362,6 +362,113 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
+/// A server whose `pmtilestest/tiles/` prefix holds `webp2.pmtiles`, configured explicitly by
+/// each test, next to `png.pmtiles`, which only the prefix discovers.
+async fn statics_with_a_prefix() -> StaticFiles {
+    StaticFiles::serving(&[
+        (
+            "pmtilestest/tiles/webp2.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+        (
+            "pmtilestest/tiles/png.pmtiles",
+            fixture("pmtiles/png.pmtiles"),
+        ),
+    ])
+    .await
+}
+
+/// A config polling the `pmtilestest/tiles/` prefix every second, with `sources` given as a YAML
+/// flow mapping.
+fn s3_prefix_config(statics: &StaticFiles, sources: &str) -> String {
+    format!(
+        "
+pmtiles:
+  aws_endpoint: {}
+  aws_region: eu-central-1
+  skip_signature: true
+  allow_http: true
+  virtual_hosted_style_request: false
+  reload_interval: 1s
+  paths:
+    - s3://pmtilestest/tiles/
+  sources: {sources}
+",
+        statics.base_url()
+    )
+}
+
+/// Waits for the prefix to be listed twice: the poller reconciles one listing before it starts the
+/// next, so everything the first listing discovered is in the catalog by then.
+async fn wait_for_the_second_prefix_listing(statics: &StaticFiles) {
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        while statics.request_log().await.matches("list-type=2").count() < 2 {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("the prefix must be listed twice within the poll window");
+}
+
+#[tokio::test]
+async fn a_source_configured_under_a_listed_prefix_keeps_its_settings() {
+    let statics = statics_with_a_prefix().await;
+    let mut martin = Martin::builder()
+        .config(&s3_prefix_config(
+            &statics,
+            "{ webp2: { path: s3://pmtilestest/tiles/webp2.pmtiles, cache_control: no-store } }",
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    wait_for_the_second_prefix_listing(&statics).await;
+    let tile = martin.get("/webp2/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("cache-control"), Some("no-store"));
+
+    martin.stop().await;
+    assert_eq!(
+        martin.take_log_lines("Added source"),
+        [" INFO Added source source.id=png"]
+    );
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
+#[tokio::test]
+async fn a_source_configured_under_a_listed_prefix_is_not_served_twice() {
+    let statics = statics_with_a_prefix().await;
+    let mut martin = Martin::builder()
+        .config(&s3_prefix_config(
+            &statics,
+            "{ hillshade: s3://pmtilestest/tiles/webp2.pmtiles }",
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    wait_for_the_second_prefix_listing(&statics).await;
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "hillshade": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      },
+      "png": {
+        "content_type": "image/png",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    martin.stop().await;
+    assert_eq!(
+        martin.take_log_lines("Added source"),
+        [" INFO Added source source.id=png"]
+    );
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
 #[tokio::test]
 async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
