@@ -6,6 +6,7 @@ use std::os::unix::fs::MetadataExt as _;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use bytes::Bytes;
 use derive_debug::Dbg;
 use pmtiles::{
     AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult,
@@ -15,6 +16,7 @@ use pmtiles::{
 ///
 /// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
 /// The mapping is not read once the file changed underneath it.
+/// Reads copy their bytes out of the mapping.
 #[derive(Dbg)]
 pub(crate) struct PmtFileBackend {
     #[dbg(skip)]
@@ -42,7 +44,9 @@ impl AsyncBackend for PmtFileBackend {
         if data_version(&std::fs::metadata(&self.path)?) != self.version {
             return Err(PmtError::SourceModified);
         }
-        self.mmap.read(offset, length).await
+        let response = self.mmap.read(offset, length).await?;
+        let bytes = Bytes::copy_from_slice(&response.bytes);
+        Ok(BackendResponse::new(bytes))
     }
 }
 
