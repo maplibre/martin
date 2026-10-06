@@ -1,9 +1,8 @@
 use std::fmt::Debug;
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use async_tiff::error::{AsyncTiffError, AsyncTiffResult};
 use async_tiff::reader::AsyncFileReader;
@@ -76,7 +75,7 @@ pub(crate) struct LocalFileCogReader {
     #[dbg(skip)]
     bytes: Bytes,
     file: File,
-    modified: Option<SystemTime>,
+    opened: Metadata,
     location: String,
     metadata: CogObjectMeta,
 }
@@ -85,11 +84,11 @@ impl LocalFileCogReader {
     pub(crate) async fn try_new(path: PathBuf) -> Result<Self, CogReaderError> {
         let location = path.display().to_string();
         let metadata_location = location.clone();
-        let (path, file, file_metadata) = tokio::task::spawn_blocking(move || {
+        let (path, file, opened) = tokio::task::spawn_blocking(move || {
             let path = std::fs::canonicalize(path)?;
             let file = File::open(&path)?;
-            let file_metadata = file.metadata()?;
-            Ok::<_, std::io::Error>((path, file, file_metadata))
+            let opened = file.metadata()?;
+            Ok::<_, std::io::Error>((path, file, opened))
         })
         .await
         .map_err(|source| CogReaderError::Io {
@@ -107,17 +106,24 @@ impl LocalFileCogReader {
         let mmap = MmapBackend::try_from(&path).await.map_err(map_error)?;
         // The whole mapping as one `Bytes`.
         let bytes = mmap.read(0, usize::MAX).await.map_err(map_error)?.bytes;
+        let mapped = std::fs::metadata(&path).map_err(|source| CogReaderError::Io {
+            location: location.clone(),
+            source,
+        })?;
+        if !same_version(&mapped, &opened) || bytes.len() as u64 != opened.len() {
+            return Err(CogReaderError::Modified { location });
+        }
         Ok(Self {
             bytes,
             file,
-            modified: file_metadata.modified().ok(),
             location,
             metadata: CogObjectMeta {
-                size: file_metadata.len(),
+                size: opened.len(),
                 e_tag: None,
                 version: None,
                 last_modified_millis: None,
             },
+            opened,
         })
     }
 
@@ -134,13 +140,11 @@ impl LocalFileCogReader {
 
     /// Fails when the open file no longer has the size and modification time it was mapped with.
     fn check_unmodified(&self) -> Result<(), CogReaderError> {
-        let file_metadata = self.file.metadata().map_err(|source| CogReaderError::Io {
+        let current = self.file.metadata().map_err(|source| CogReaderError::Io {
             location: self.location.clone(),
             source,
         })?;
-        if file_metadata.len() == self.metadata.size
-            && file_metadata.modified().ok() == self.modified
-        {
+        if same_version(&current, &self.opened) {
             Ok(())
         } else {
             Err(CogReaderError::Modified {
@@ -150,18 +154,36 @@ impl LocalFileCogReader {
     }
 }
 
+/// Whether `a` and `b` describe the same file with the same size and modification time.
+fn same_version(a: &Metadata, b: &Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        if (a.dev(), a.ino()) != (b.dev(), b.ino()) {
+            return false;
+        }
+    }
+    a.len() == b.len() && a.modified().ok() == b.modified().ok()
+}
+
 #[async_trait]
 impl CogReader for LocalFileCogReader {
     async fn read_range(&self, range: Range<u64>) -> Result<Bytes, CogReaderError> {
         self.check_unmodified()?;
-        Ok(self.bytes.slice(self.checked_range(range)?))
+        Ok(Bytes::copy_from_slice(
+            &self.bytes[self.checked_range(range)?],
+        ))
     }
 
     async fn read_ranges(&self, ranges: &[Range<u64>]) -> Result<Vec<Bytes>, CogReaderError> {
         self.check_unmodified()?;
         ranges
             .iter()
-            .map(|range| Ok(self.bytes.slice(self.checked_range(range.clone())?)))
+            .map(|range| {
+                Ok(Bytes::copy_from_slice(
+                    &self.bytes[self.checked_range(range.clone())?],
+                ))
+            })
             .collect()
     }
 
