@@ -4072,9 +4072,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.28.1"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0de0a21e30c2076fb662e9d013a7b3ef51ac8651c32f9017bc3333ab3c54bf"
+checksum = "92f8d56370b4cf47b04cf873315d2d0a226a3766ca74f5131521b7aa8bc3d41f"
 dependencies = [
  "arc-swap",
  "axum",
@@ -4089,7 +4089,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.28.1",
+ "hotpath-macros 0.28.4",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4109,9 +4109,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.28.1"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8898c3903b73d61b580ed5bf2f23d4e64fbe0d4a9cbf42bdf8486a3ddfda176f"
+checksum = "f9b046ca03d797e6728d43593d7d6aca9782a217cdaa1d81ea9c632993d78292"
 
 [[package]]
 name = "hotpath-macros"
@@ -4121,9 +4121,9 @@ checksum = "2ac39b5517f540cab511bdbd5a4dc8cfc62858d6cd26a095463c1d2acfb3f290"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.28.1"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "392802394e8cfaa58b1fb19d6ddc33de7dd711390d6afafb86bb2e5d5c0710a4"
+checksum = "b846c9cd71ddc939fa4f3ca40fef97505e2d4838580cfed2328a02f345a94761"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4344,7 +4344,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -5323,9 +5323,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.189"
+version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "libdeflate-sys"
@@ -5573,7 +5573,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.28.1",
+ "hotpath 0.28.4",
  "humantime-serde",
  "image",
  "indicatif",
@@ -5666,7 +5666,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.28.1",
+ "hotpath 0.28.4",
  "humantime",
  "image",
  "insta",
@@ -5757,7 +5757,7 @@ dependencies = [
  "brotli 8.0.4",
  "bytes",
  "flate2",
- "hotpath 0.28.1",
+ "hotpath 0.28.4",
  "rstest",
  "serde",
  "serde_json",
@@ -5805,7 +5805,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.28.1",
+ "hotpath 0.28.4",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -7176,7 +7176,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -7300,7 +7300,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.3",
  "rustls",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -7339,7 +7339,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -9731,9 +9731,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.1"
+version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
+checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
 dependencies = [
  "bytes",
  "libc",
