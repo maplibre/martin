@@ -7,6 +7,8 @@
 pub mod config;
 #[cfg(feature = "mbtiles")]
 pub mod cp;
+#[cfg(feature = "unstable-generate")]
+pub mod generate;
 pub mod logging;
 
 #[cfg(feature = "_tiles")]
