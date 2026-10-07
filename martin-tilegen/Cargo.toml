@@ -18,17 +18,26 @@ perf-event2.workspace = true
 name = "sort"
 harness = false
 
+[features]
+default = ["mbtiles"]
+mbtiles = ["dep:mbtiles", "dep:tokio"]
+
 [dependencies]
+flume.workspace = true
 integer-encoding.workspace = true
 martin-tile-utils.workspace = true
+mbtiles = { workspace = true, optional = true }
 pmtiles.workspace = true
 rayon.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
+tilejson.workspace = true
+tokio = { workspace = true, features = ["rt"], optional = true }
 
 [dev-dependencies]
 criterion.workspace = true
 rstest.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true
