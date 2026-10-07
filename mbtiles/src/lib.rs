@@ -4,6 +4,9 @@
 pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
+mod bulk_writer;
+pub use bulk_writer::{BulkTile, DedupHint, MbtilesBulkWriter};
+
 mod cache;
 pub use cache::{CacheEntryMeta, CachedTile, UnixSeconds};
 

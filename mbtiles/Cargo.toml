@@ -20,6 +20,10 @@ path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
 
 [[bench]]
+name = "bulk_insert"
+harness = false
+
+[[bench]]
 name = "transcode"
 harness = false
 required-features = ["transcode"]

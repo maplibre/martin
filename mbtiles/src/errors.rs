@@ -130,6 +130,9 @@ pub enum MbtError {
     #[error("Unexpected duplicate tiles found when copying")]
     DuplicateValues,
 
+    #[error("Bulk writing into a {0} MBTiles file is not supported")]
+    UnsupportedBulkWriteType(MbtType),
+
     #[error("Applying a patch while diffing is not supported")]
     CannotApplyPatchAndDiff,
 

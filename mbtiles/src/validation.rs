@@ -134,6 +134,16 @@ impl HashAlgorithm {
             Self::Xxh3 => format!("{:016X}", xxhash_rust::xxh3::xxh3_64(data)),
         }
     }
+
+    pub(crate) fn from_metadata(value: Option<String>, filepath: &str) -> MbtResult<Self> {
+        match value {
+            None => Ok(Self::Md5),
+            Some(value) => Self::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
+                algorithm: value,
+                filepath: filepath.into(),
+            }),
+        }
+    }
 }
 
 impl std::fmt::Display for HashAlgorithm {
@@ -371,15 +381,8 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        match self.get_metadata_value(&mut *conn, HASH_ALGORITHM).await? {
-            None => Ok(HashAlgorithm::Md5),
-            Some(value) => {
-                HashAlgorithm::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
-                    algorithm: value,
-                    filepath: self.filepath().into(),
-                })
-            }
-        }
+        let value = self.get_metadata_value(&mut *conn, HASH_ALGORITHM).await?;
+        HashAlgorithm::from_metadata(value, self.filepath())
     }
 
     /// Detect tile format and verify that it is consistent across some tiles
