@@ -979,6 +979,14 @@ mod tests {
             TestSource::empty("unbounded_source")
                 .with_empty_children()
                 .boxed(),
+            TestSource::empty("antimeridian_source")
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("170.0,-50.0,-170.0,-30.0").unwrap() })
+                .with_empty_children()
+                .boxed(),
+            TestSource::empty("inverted_source")
+                .with_tilejson(tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,40.0,-110.0,30.0").unwrap() })
+                .with_empty_children()
+                .boxed(),
         ]])
     }
 
@@ -1002,6 +1010,8 @@ mod tests {
     #[case::many_sources_only_unbounded(many_sources(), "unbounded_source", vec![Bounds::MAX_TILED])]
     #[case::many_sources_bounded_and_unbounded(many_sources(), "test_source,unbounded_source", vec![Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap(), Bounds::MAX_TILED])]
     #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-120.0,20.0,-110.0,80.0").unwrap()])]
+    #[case::many_sources_antimeridian(many_sources(), "antimeridian_source", vec![Bounds::MAX_TILED])]
+    #[case::many_sources_inverted(many_sources(), "inverted_source", vec![Bounds::MAX_TILED])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
         #[case] src: TileSourceManager,
