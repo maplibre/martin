@@ -10,13 +10,35 @@ use mlt_core::{PropKind, PropValue};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyId(pub(crate) u32);
 
+/// The id of the `n`th key declared up front: a source can use column positions without interning.
+impl From<u32> for KeyId {
+    fn from(n: u32) -> Self {
+        Self(n)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PropRef<'a> {
+pub enum Prop<S = String> {
     Bool(bool),
     I64(i64),
     F32(f32),
     F64(f64),
-    Str(&'a str),
+    Str(S),
+}
+
+pub type PropRef<'a> = Prop<&'a str>;
+
+impl<S: AsRef<str>> Prop<S> {
+    #[must_use]
+    pub fn as_ref(&self) -> PropRef<'_> {
+        match self {
+            Self::Bool(v) => Prop::Bool(*v),
+            Self::I64(v) => Prop::I64(*v),
+            Self::F32(v) => Prop::F32(*v),
+            Self::F64(v) => Prop::F64(*v),
+            Self::Str(v) => Prop::Str(v.as_ref()),
+        }
+    }
 }
 
 impl PropRef<'_> {
@@ -90,13 +112,7 @@ impl KeyInterner {
     }
 
     pub fn intern(&self, name: &str) -> KeyId {
-        if let Some(&id) = self
-            .keys
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .ids
-            .get(name)
-        {
+        if let Some(id) = self.get(name) {
             return id;
         }
         let mut keys = self.keys.write().unwrap_or_else(PoisonError::into_inner);
@@ -107,6 +123,26 @@ impl KeyInterner {
         keys.names.push(name.to_owned());
         keys.ids.insert(name.to_owned(), id);
         id
+    }
+
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<KeyId> {
+        self.keys
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .ids
+            .get(name)
+            .copied()
+    }
+
+    #[must_use]
+    pub fn name(&self, id: KeyId) -> Option<String> {
+        self.keys
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .names
+            .get(id.0 as usize)
+            .cloned()
     }
 
     fn len(&self) -> u32 {
