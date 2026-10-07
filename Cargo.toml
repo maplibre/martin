@@ -6,6 +6,7 @@ members = [
     "martin-config-macros",
     "martin-core",
     "martin-tile-utils",
+    "martin-tilegen",
     "mbtiles",
 ]
 
@@ -145,13 +146,13 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.0" }
 mbtiles = { path = "./mbtiles", version = "0.21.0" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.19.0", default-features = false }
+mlt-core = { version = "0.19.3", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
-pmtiles = { version = "0.24.1", default-features = false, features = ["tilejson", "object-store", "mmap-async-tokio"] }
+pmtiles = { version = "0.24.1", default-features = false }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [

@@ -152,7 +152,7 @@ mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
-pmtiles = { workspace = true, optional = true }
+pmtiles = { workspace = true, optional = true, features = ["tilejson", "object-store", "mmap-async-tokio"] }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
