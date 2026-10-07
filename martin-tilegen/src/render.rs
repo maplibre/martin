@@ -2,12 +2,13 @@
 
 use std::ops::{Range, RangeInclusive};
 
-use geo::{BoundingRect, SimplifyIdx as _};
+use geo::BoundingRect;
 use geo_types::{Coord, LineString, Polygon, Rect};
 use map_tile_toolkit::{PolygonSlicerAll, SlicerAll, signed_area_2x};
 use martin_tile_utils::TileCoord;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
+use crate::simplify::Simplifier;
 use crate::{
     LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileId, TileOrder,
 };
@@ -180,6 +181,8 @@ pub(crate) fn unit_bounds([west, south, east, north]: [f64; 4]) -> [f64; 4] {
 pub struct Renderer {
     slicers: Vec<(LayerGrid, SlicerAll)>,
     poly_slicers: Vec<(LayerGrid, PolygonSlicerAll)>,
+    simplifier: Simplifier,
+    kept: Vec<usize>,
     /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
     /// and vertices.
     polys: Vec<u32>,
@@ -344,8 +347,10 @@ impl Renderer {
     ) -> TileGenResult<usize> {
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         let epsilon = ctx.layer.pixels(zoom, ctx.feature.simplify) / (TILE_PIXELS * scale(zoom));
+        self.kept.clear();
+        self.simplifier.simplify(&line.0, epsilon, &mut self.kept);
         let start = self.vertices.len();
-        for i in line.simplify_idx(epsilon) {
+        for &i in &self.kept {
             let [x, y] = quantize(line.0[i], shift, world)?;
             let c = Coord { x, y };
             if self.vertices.len() == start || self.vertices.last() != Some(&c) {
