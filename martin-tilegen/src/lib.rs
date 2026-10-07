@@ -2,7 +2,9 @@
 #![forbid(unsafe_code)]
 
 mod assemble;
+mod encode;
 mod error;
+mod group;
 pub mod pipeline;
 pub mod props;
 pub mod record;
@@ -12,7 +14,11 @@ mod sort_key;
 mod tile;
 
 pub use assemble::{LayerAssembler, LayerGrid};
+pub use encode::{
+    DedupIndex, EncodeSettings, FeatureOrder, LayerInfo, LayerStats, TileEncoder, TileFormat,
+};
 pub use error::{TileGenError, TileGenResult};
+pub use group::{TileGrouper, TileRecords};
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
 pub use sink::{EncodedTile, TileSink};
