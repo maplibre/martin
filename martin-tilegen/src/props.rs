@@ -10,8 +10,41 @@ use mlt_core::{PropKind, PropValueRef};
 pub struct KeyId(pub(crate) u32);
 
 impl KeyId {
+    fn from_spur(spur: Spur) -> Self {
+        Self(index_u32(spur.into_usize()))
+    }
+
     fn spur(self) -> Spur {
         Spur::try_from_usize(self.0 as usize).expect("key ids come from a Spur")
+    }
+}
+
+/// The id of the `n`th key declared up front: a source can use column positions without interning.
+impl From<u32> for KeyId {
+    fn from(n: u32) -> Self {
+        Self(n)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Prop {
+    Bool(bool),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+    Str(String),
+}
+
+impl Prop {
+    #[must_use]
+    pub fn as_ref(&self) -> PropValueRef<'_> {
+        match self {
+            Self::Bool(v) => PropValueRef::Bool(*v),
+            Self::I64(v) => PropValueRef::I64(*v),
+            Self::F32(v) => PropValueRef::F32(*v),
+            Self::F64(v) => PropValueRef::F64(*v),
+            Self::Str(v) => PropValueRef::Str(v),
+        }
     }
 }
 
@@ -39,7 +72,19 @@ impl KeyInterner {
     }
 
     pub fn intern(&self, name: &str) -> KeyId {
-        KeyId(index_u32(self.keys.get_or_intern(name).into_usize()))
+        KeyId::from_spur(self.keys.get_or_intern(name))
+    }
+
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<KeyId> {
+        self.keys.get(name).map(KeyId::from_spur)
+    }
+
+    #[must_use]
+    pub fn name(&self, id: KeyId) -> Option<String> {
+        Spur::try_from_usize(id.0 as usize)
+            .and_then(|spur| self.keys.try_resolve(&spur))
+            .map(str::to_owned)
     }
 
     /// Call once no more keys can appear, i.e. after rendering.

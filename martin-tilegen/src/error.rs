@@ -38,6 +38,12 @@ pub enum TileGenError {
     #[error("layer {index}: buffer {buffer} is not below half the extent {extent} or above 65535")]
     InvalidBuffer { index: u8, buffer: u32, extent: u32 },
 
+    #[error("feature batch names table {0}, but the plan has fewer tables")]
+    UnknownTable(u16),
+
+    #[error("partition {0} does not exist")]
+    UnknownPartition(u32),
+
     #[error("a line with {0} vertices does not fit a record")]
     TooManyVertices(usize),
 
@@ -46,6 +52,24 @@ pub enum TileGenError {
 
     #[error(transparent)]
     Slice(#[from] map_tile_toolkit::TileError),
+
+    #[error("{0} layers exceed the 256 a sort key can address")]
+    TooManyLayers(usize),
+
+    #[error("{0} tables exceed the 65536 a feature batch can address")]
+    TooManyTables(usize),
+
+    #[error("layer name `{0}` is used more than once")]
+    DuplicateLayer(String),
+
+    #[error("layer `{layer}`: zoom {zoom} is above {MAX_ZOOM}")]
+    ZoomTooHigh { layer: String, zoom: u8 },
+
+    #[error("layer `{layer}`: attribute `{key}` is listed more than once")]
+    DuplicateAttribute { layer: String, key: String },
+
+    #[error("layer `{layer}`: attribute `{column}` is not a table column")]
+    UnknownColumn { layer: String, column: String },
 
     #[error("a temp record is corrupt")]
     CorruptRecord,
