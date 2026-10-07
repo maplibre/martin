@@ -32,13 +32,15 @@ pub struct LayerDef {
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
     pub min_size: PixelThreshold,
+    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]`: only tiles intersecting it are generated.
+    pub bounds: Option<[f64; 4]>,
     pub order: FeatureOrder,
     pub id: IdDef,
     pub attributes: AttributesDef,
 }
 
 impl LayerDef {
-    /// Clipped, in source order, keeping ids and all attributes, with
+    /// Clipped, unbounded, in source order, keeping ids and all attributes, with
     /// [`PixelThreshold::PLANETILER_SIMPLIFY`] and [`PixelThreshold::PLANETILER_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
@@ -49,6 +51,7 @@ impl LayerDef {
             clip: true,
             simplify: PixelThreshold::PLANETILER_SIMPLIFY,
             min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+            bounds: None,
             order: FeatureOrder::Source,
             id: IdDef::Keep,
             attributes: AttributesDef::All,
@@ -179,6 +182,7 @@ fn plan_layer(
         .collect();
     let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid)?;
     render.clip = def.clip;
+    render.bounds = def.bounds.map(crate::render::unit_bounds);
     Ok(PlannedLayer {
         render,
         info: LayerInfo {
