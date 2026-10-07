@@ -4,6 +4,7 @@
 mod assemble;
 mod encode;
 mod error;
+mod generate;
 mod group;
 mod key;
 pub mod pipeline;
@@ -13,6 +14,7 @@ pub mod record;
 mod render;
 mod sink;
 mod sort;
+pub mod source;
 mod tile;
 
 pub use assemble::{LayerAssembler, LayerGrid};
@@ -20,6 +22,7 @@ pub use encode::{
     DedupIndex, EncodeSettings, FeatureOrder, LayerInfo, LayerStats, TileEncoder, TileFormat,
 };
 pub use error::{TileGenError, TileGenResult};
+pub use generate::{GenerateConfig, Summary, generate};
 pub use group::{TileGrouper, TileRecords};
 pub use key::{Seq, SortKey};
 pub use render::{Feature, FeatureGeom, RenderLayer, Renderer};

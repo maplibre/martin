@@ -34,6 +34,9 @@ pub enum TileGenError {
     #[error(transparent)]
     Slice(#[from] map_tile_toolkit::TileError),
 
+    #[error("{0} layers exceed the 256 a sort key can address")]
+    TooManyLayers(usize),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

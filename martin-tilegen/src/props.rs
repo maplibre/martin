@@ -10,6 +10,13 @@ use mlt_core::{PropKind, PropValue};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyId(pub(crate) u32);
 
+/// The id of the `n`th key declared up front: a source can use column positions without interning.
+impl From<u32> for KeyId {
+    fn from(n: u32) -> Self {
+        Self(n)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PropRef<'a> {
     Bool(bool),
