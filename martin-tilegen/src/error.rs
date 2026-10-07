@@ -16,6 +16,15 @@ pub enum TileGenError {
     #[error("source sequence (partition {partition}, row {row}) does not fit the sort key")]
     SeqOverflow { partition: u32, row: u64 },
 
+    #[error("a {0}-byte record does not fit a sort buffer")]
+    RecordTooLarge(usize),
+
+    #[error("invalid sort configuration: {0}")]
+    InvalidSortConfig(&'static str),
+
+    #[error("temp file I/O failed: {0}")]
+    Io(#[from] std::io::Error),
+
     #[error(transparent)]
     Pmtiles(#[from] pmtiles::PmtError),
 }
