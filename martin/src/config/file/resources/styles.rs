@@ -1,8 +1,7 @@
-use std::env;
-use std::mem;
 #[cfg(feature = "rendering")]
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::{Path, PathBuf};
+use std::{env, mem};
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;

@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use crate::HashAlgorithm;
-
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use sqlite_hashes::rusqlite;
 
-use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtType};
+use crate::{
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtType,
+};
 
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
