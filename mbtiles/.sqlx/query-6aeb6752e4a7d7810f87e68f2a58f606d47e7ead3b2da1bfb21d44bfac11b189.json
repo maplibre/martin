@@ -1,0 +1,19 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "count(*)",
+        "ordinal": 0,
+        "origin": "Expression",
+        "type_info": "Integer"
+      }
+    ],
+    "nullable": [false],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "6aeb6752e4a7d7810f87e68f2a58f606d47e7ead3b2da1bfb21d44bfac11b189",
+  "query": "SELECT count(*) FROM images"
+}

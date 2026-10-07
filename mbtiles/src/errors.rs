@@ -31,6 +31,12 @@ pub enum MbtError {
     #[error(transparent)]
     RusqliteError(#[from] rusqlite::Error),
 
+    #[error("A raw SQLite action left a transaction open; it was rolled back")]
+    TransactionLeftOpen,
+
+    #[error("Tiles written with dedup key {0} have different bytes")]
+    DedupKeyMismatch(u64),
+
     #[error(transparent)]
     JsonSerdeError(#[from] serde_json::Error),
 
