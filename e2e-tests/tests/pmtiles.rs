@@ -5,7 +5,7 @@ use std::fs;
 
 use martin_e2e_tests::{
     LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile,
-    mbtiles_fixture, temp_dir, vector_pmtiles,
+    mbtiles_fixture, vector_pmtiles,
 };
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
@@ -718,7 +718,7 @@ async fn reload_removes_a_source_present_at_startup() {
 #[cfg(not(windows))]
 #[tokio::test]
 async fn an_archive_emptied_while_served_fails_its_uncached_tiles_without_crashing() {
-    let tmp = temp_dir();
+    let tmp = martin_e2e_tests::temp_dir();
     let path = tmp.path().join("served.pmtiles");
     fs::copy(
         fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
