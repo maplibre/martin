@@ -123,7 +123,7 @@ impl PgScanSource {
         })
     }
 
-    /// Rows whose geometry the generator cannot render (yet), e.g. polygons or collections.
+    /// Rows whose geometry the generator cannot render: geometry collections and empty geometries.
     pub fn skipped(&self) -> u64 {
         self.skipped.load(Ordering::Relaxed)
     }

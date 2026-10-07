@@ -2,7 +2,7 @@
 
 use std::ops::RangeInclusive;
 
-use geo_types::{Coord, LineString};
+use geo_types::{Coord, LineString, Polygon};
 
 use crate::props::{KeyId, KeyInterner, PropRef};
 use crate::{FeatureOrder, LayerGrid, TileGenResult};
@@ -33,6 +33,7 @@ pub enum Crs {
 pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
+    Polygons(Vec<Polygon<f64>>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

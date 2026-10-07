@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use martin_tile_utils::TileCoord;
 use pmtiles::{PYRAMID_SIZE_BY_ZOOM, TileId};
 
@@ -48,6 +50,76 @@ impl TileOrder {
                 TileCoord::new_unchecked(z, (offset >> z) as u32, flip_row(z, row))
             }
         })
+    }
+}
+
+impl TileOrder {
+    /// Appends contiguous id ranges that together hold exactly the tiles `x` × `y` (XYZ) of `zoom`,
+    /// merging adjacent ones. A covered rectangle then costs a range per column (TMS) or per aligned
+    /// quadtree cell (Hilbert, whose cells are contiguous along the curve), not a record per tile.
+    pub fn fill_ranges(
+        self,
+        zoom: u8,
+        x: Range<u32>,
+        y: Range<u32>,
+        out: &mut Vec<Range<u64>>,
+    ) -> TileGenResult<()> {
+        let side = 1u32 << zoom.min(MAX_ZOOM);
+        let (x, y) = (x.start..x.end.min(side), y.start..y.end.min(side));
+        if zoom > MAX_ZOOM || x.is_empty() || y.is_empty() {
+            return Ok(());
+        }
+        let first = out.len();
+        match self {
+            Self::Tms => {
+                for col in x {
+                    let start = self.tile_id(TileCoord::new_unchecked(zoom, col, y.end - 1))?;
+                    out.push(start..start + u64::from(y.end - y.start));
+                }
+            }
+            Self::Hilbert => self.hilbert_cells(zoom, 0, (0, 0), (&x, &y), out)?,
+        }
+        let ranges = &mut out[first..];
+        ranges.sort_unstable_by_key(|r| r.start);
+        let mut merged = first;
+        for i in first..out.len() {
+            if merged > first && out[merged - 1].end == out[i].start {
+                out[merged - 1].end = out[i].end;
+            } else {
+                out[merged] = out[i].clone();
+                merged += 1;
+            }
+        }
+        out.truncate(merged);
+        Ok(())
+    }
+
+    /// The cell `(cx, cy)` of `level` covers `2^(zoom - level)` tiles per side of `zoom`; its tiles are one
+    /// contiguous Hilbert range, starting at the cell's own index scaled to the finer zoom.
+    fn hilbert_cells(
+        self,
+        zoom: u8,
+        level: u8,
+        (cx, cy): (u32, u32),
+        (x, y): (&Range<u32>, &Range<u32>),
+        out: &mut Vec<Range<u64>>,
+    ) -> TileGenResult<()> {
+        let shift = zoom - level;
+        let (x0, y0) = (cx << shift, cy << shift);
+        let (x1, y1) = (x0 + (1 << shift), y0 + (1 << shift));
+        if x1 <= x.start || x0 >= x.end || y1 <= y.start || y0 >= y.end {
+            return Ok(());
+        }
+        if x0 >= x.start && x1 <= x.end && y0 >= y.start && y1 <= y.end {
+            let cell = self.tile_id(TileCoord::new_unchecked(level, cx, cy))? - pyramid_base(level);
+            let start = pyramid_base(zoom) + (cell << (2 * shift));
+            out.push(start..start + (1 << (2 * shift)));
+            return Ok(());
+        }
+        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            self.hilbert_cells(zoom, level + 1, (cx * 2 + dx, cy * 2 + dy), (x, y), out)?;
+        }
+        Ok(())
     }
 }
 
@@ -128,6 +200,46 @@ mod tests {
     ) {
         let coord = TileCoord::new_unchecked(z, x, y);
         assert!(matches!(order.tile_id(coord), Err(TileGenError::InvalidTile(c)) if c == coord));
+    }
+
+    #[rstest]
+    fn fill_ranges_hold_exactly_the_rectangle(
+        #[values(TileOrder::Hilbert, TileOrder::Tms)] order: TileOrder,
+    ) {
+        let mut ranges = Vec::new();
+        for (zoom, x, y) in [
+            (0, 0..1, 0..1),
+            (3, 0..8, 0..8),
+            (3, 1..6, 2..7),
+            (4, 5..6, 0..16),
+            (4, 3..11, 9..10),
+            (5, 7..30, 3..19),
+        ] {
+            ranges.clear();
+            order
+                .fill_ranges(zoom, x.clone(), y.clone(), &mut ranges)
+                .unwrap();
+            let mut got: Vec<u64> = ranges.iter().flat_map(Clone::clone).collect();
+            let mut want: Vec<u64> = x
+                .clone()
+                .flat_map(|tx| y.clone().map(move |ty| (tx, ty)))
+                .map(|(tx, ty)| {
+                    order
+                        .tile_id(TileCoord::new_unchecked(zoom, tx, ty))
+                        .unwrap()
+                })
+                .collect();
+            got.sort_unstable();
+            want.sort_unstable();
+            assert_eq!(got, want, "z{zoom} {x:?} x {y:?}");
+            assert!(
+                ranges.windows(2).all(|w| w[0].end < w[1].start),
+                "merged and sorted"
+            );
+        }
+        ranges.clear();
+        order.fill_ranges(5, 0..32, 0..32, &mut ranges).unwrap();
+        assert_eq!(ranges.len(), 1, "a whole zoom is one range");
     }
 
     #[rstest]

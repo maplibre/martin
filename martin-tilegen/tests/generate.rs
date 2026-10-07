@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use geo_types::{Coord, LineString};
+use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::props::{KeyId, KeyInterner};
 use martin_tilegen::source::{
@@ -33,9 +33,10 @@ fn layer(name: &str, keys: &[&str]) -> LayerSpec {
     }
 }
 
-/// Six partitions alternating between a points layer and a lines layer, in WGS84.
+/// Six partitions alternating between a points layer and a lines layer, in WGS84, and one partition
+/// of polygons: a large one with a hole, whose covered tiles become fill ranges, and a small one.
 fn source() -> MemorySource {
-    let batches = (0..6u32)
+    let mut batches: Vec<_> = (0..6u32)
         .map(|p| {
             let base = f64::from(p) * 20.0 - 60.0;
             let features = (0..20u32)
@@ -69,10 +70,36 @@ fn source() -> MemorySource {
             }
         })
         .collect();
+    let rect = |w: f64, s: f64, e: f64, n: f64| {
+        LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)])
+    };
+    let parks = [
+        Polygon::new(
+            rect(-100.0, -40.0, 60.0, 50.0),
+            vec![rect(-30.0, -10.0, 10.0, 20.0)],
+        ),
+        Polygon::new(rect(100.0, 10.0, 104.0, 13.0), vec![]),
+    ];
+    batches.push(FeatureBatch {
+        layer: 2,
+        partition: 6,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: parks
+            .into_iter()
+            .zip(1..)
+            .map(|(polygon, id)| SourceFeature {
+                id: Some(id),
+                geometry: Geometry::Polygons(vec![polygon]),
+                props: vec![(KeyId::from(0), Prop::Str(format!("park {id}")))],
+            })
+            .collect(),
+    });
     MemorySource {
         layers: vec![
             layer("places", &["name", "rank"]),
             layer("roads", &["name", "rank"]),
+            layer("parks", &["name"]),
         ],
         batches,
     }
@@ -136,7 +163,7 @@ fn generates_a_deterministic_tileset() {
     let source = source();
     let dir = tempfile::tempdir().unwrap();
     let (summary, rows, mbt) = run(&source, dir.path(), 1);
-    assert_eq!(summary.features, 120);
+    assert_eq!(summary.features, 122);
     assert_eq!(summary.slice_errors, 0);
     assert_eq!(summary.tiles, rows.len() as u64);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 4));
@@ -145,8 +172,9 @@ fn generates_a_deterministic_tileset() {
     let z0 = decode(&rows[0].3);
     assert_eq!(
         z0.iter().map(TileLayer::name).collect::<Vec<_>>(),
-        ["places", "roads"]
+        ["places", "roads", "parks"]
     );
+    assert_eq!(z0[2].features().len(), 2);
     assert_eq!(z0[0].features().len(), 60);
     let ids: Vec<_> = z0[1].features().iter().map(|f| f.id().unwrap()).collect();
     assert!(ids.is_sorted(), "source order is draw order: {ids:?}");
@@ -164,9 +192,29 @@ fn generates_a_deterministic_tileset() {
     let layers = metadata.tilejson.vector_layers.unwrap();
     assert_eq!(
         layers.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(),
-        ["places", "roads"]
+        ["places", "roads", "parks"]
     );
     assert_eq!(layers[0].fields["rank"], "Number");
+
+    // Interior tiles of the big park are fill squares, stored once however many tiles they are.
+    let fills = rows
+        .iter()
+        .filter(|r| r.0 == 4)
+        .filter(|r| {
+            decode(&r.3).iter().any(|layer| {
+                layer.name() == "parks"
+                    && matches!(layer.features()[0].geometry(), geo_types::Geometry::Polygon(p)
+                        if p.exterior().0[0] == Coord { x: -64, y: -64 })
+            })
+        })
+        .count();
+    assert!(fills > 10, "{fills} fill tiles at z4");
+    let fill_bytes: std::collections::HashSet<_> =
+        rows.iter().filter(|r| r.0 == 4).map(|r| &r.3).collect();
+    assert!(
+        fill_bytes.len() < rows.iter().filter(|r| r.0 == 4).count(),
+        "identical tiles repeat"
+    );
 
     let (parallel, parallel_rows, _) = run(&source, dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
