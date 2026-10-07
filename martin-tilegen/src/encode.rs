@@ -4,7 +4,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Mutex, PoisonError};
 
-use martin_tile_utils::{Encoding, TileCoord};
+use martin_tile_utils::{Encoding, Format, TileCoord};
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{PropKind, TileLayer};
@@ -18,6 +18,15 @@ use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, 
 pub enum TileFormat {
     Mlt,
     Mvt,
+}
+
+impl From<TileFormat> for Format {
+    fn from(format: TileFormat) -> Self {
+        match format {
+            TileFormat::Mlt => Self::Mlt,
+            TileFormat::Mvt => Self::Mvt,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

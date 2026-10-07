@@ -28,8 +28,17 @@ pub enum TileGenError {
     #[error(transparent)]
     RenderLayer(#[from] crate::RenderLayerError),
 
+    #[error("feature batch names table {0}, but the plan has fewer tables")]
+    UnknownTable(u16),
+
+    #[error("partition {0} does not exist")]
+    UnknownPartition(u32),
+
     #[error(transparent)]
     Geometry(#[from] crate::GeometryError),
+
+    #[error(transparent)]
+    Plan(#[from] crate::plan::PlanError),
 
     #[error("a temp record is corrupt")]
     CorruptRecord,
