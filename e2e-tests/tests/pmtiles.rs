@@ -5,7 +5,7 @@ use std::fs;
 
 use martin_e2e_tests::{
     LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile,
-    mbtiles_fixture, vector_pmtiles,
+    mbtiles_fixture, temp_dir, vector_pmtiles,
 };
 
 /// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
@@ -713,6 +713,34 @@ async fn reload_removes_a_source_present_at_startup() {
 
     martin.stop().await;
     martin.assert_log_contains("Removed source source.id=png");
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
+async fn an_archive_emptied_while_served_fails_its_uncached_tiles_without_crashing() {
+    let tmp = temp_dir();
+    let path = tmp.path().join("served.pmtiles");
+    fs::copy(
+        fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
+        &path,
+    )
+    .expect("failed to copy the fixture");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let cached = martin.get("/served/3/4/2").await;
+    assert_eq!(cached.status(), 200);
+
+    fs::write(&path, b"").expect("failed to empty the served archive");
+
+    assert_eq!(martin.get("/served/3/4/2").await.body(), cached.body());
+    assert_eq!(martin.get("/served/3/4/3").await.status(), 500);
+    assert_eq!(martin.get("/health").await.status(), 200);
+
+    martin.stop().await;
+    martin.assert_log_contains("Invalid header");
 }
 
 #[tokio::test]
