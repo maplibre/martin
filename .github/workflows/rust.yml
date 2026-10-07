@@ -213,7 +213,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl-legacycpu
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-musl-legacycpu', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
@@ -368,13 +368,13 @@ jobs:
         with: { install: true, platforms: "${{ env.DOCKER_PLATFORMS }}" }
       - name: Download build artifact build-aarch64-unknown-linux-gnu${{ matrix.suffix }}
         if: contains(env.DOCKER_PLATFORMS, 'arm64')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-aarch64-unknown-linux-gnu${{ matrix.suffix }}', path: 'target_releases/linux/arm64/' }
       - name: Mark target_releases/linux/arm64/* as executable
         if: contains(env.DOCKER_PLATFORMS, 'arm64')
         run: chmod +x target_releases/linux/arm64/*
       - name: Download build artifact build-x86_64-unknown-linux-gnu${{ matrix.suffix }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-gnu${{ matrix.suffix }}', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
@@ -588,7 +588,7 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
       - run: just test-lambda target/martin
 
@@ -627,7 +627,7 @@ jobs:
         env:
           PGSERVICE: ${{ steps.pg.outputs.service-name }}
       - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build-x86_64-pc-windows-msvc
           path: target/
@@ -731,7 +731,7 @@ jobs:
       - uses: $/.github/actions/upload-coverage
         with: { suite: pg }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Mark the downloaded binaries as executable
         run: chmod +x target_releases/martin target_releases/mbtiles
@@ -762,7 +762,7 @@ jobs:
         run: rm -rf target_releases
       - name: Download Debian package
         if: inputs.run-release-builds
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-debian-x86_64', path: 'target_releases/' }
       - name: Install the Debian package
         if: inputs.run-release-builds
@@ -856,7 +856,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - name: Download the per-suite lcov reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { pattern: 'coverage-*', merge-multiple: true, path: 'target/coverage' }
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none, tools: 'just,grcov' }
