@@ -280,7 +280,8 @@ impl Columns {
 fn widen(a: PropKind, b: PropKind) -> PropKind {
     match (a, b) {
         _ if a == b => a,
-        (PropKind::F32, PropKind::F64) | (PropKind::F64, PropKind::F32) => PropKind::F64,
+        (PropKind::F32 | PropKind::F64 | PropKind::I64, PropKind::F32 | PropKind::F64)
+        | (PropKind::F32 | PropKind::F64, PropKind::I64) => PropKind::F64,
         _ => PropKind::Str,
     }
 }
@@ -290,6 +291,11 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
     match (kind, value) {
         (PropKind::U64, PropValue::I64(v)) => PropValue::U64(v.and_then(|i| u64::try_from(i).ok())),
         (PropKind::F64, PropValue::F32(v)) => PropValue::F64(v.map(f64::from)),
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "the round trip widens the same way"
+        )]
+        (PropKind::F64, PropValue::I64(v)) => PropValue::F64(v.map(|v| v as f64)),
         (PropKind::Str, PropValue::Bool(v)) => PropValue::Str(v.map(|v| v.to_string())),
         (PropKind::Str, PropValue::I64(v)) => PropValue::Str(v.map(|v| v.to_string())),
         (PropKind::Str, PropValue::F32(v)) => PropValue::Str(v.map(|v| v.to_string())),

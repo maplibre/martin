@@ -751,7 +751,7 @@ where
 
     // 4. Spawn the consumer: read tiles from the channel and write them to MBTiles.
     // Runs in the background so this task can do other work (step 5: fetch tiles and ctrl+c).
-    let (tx, rx) = hotpath::channel!(channel::<TileXyz>(500), label = "tile_copy");
+    let (tx, rx) = hotpath::channel!(channel::<TileXyz>(500), label = { "tile_copy" });
     let consumer_task = tokio::spawn(write_tiles_to_mbtiles(
         rx,
         mbt.clone(),

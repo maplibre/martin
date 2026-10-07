@@ -2,7 +2,7 @@
 source: e2e-tests/tests/martin_cp.rs
 expression: metadata
 ---
-agg_tiles_hash = 4B34F56C264D8F4035628AA0A9CE001B
+agg_tiles_hash = D6392A3A5AEC4FD531A65E002885471A
 bounds = -180,-90,180,90
 description = Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key
 format = mlt

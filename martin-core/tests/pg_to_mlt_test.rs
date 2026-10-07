@@ -267,7 +267,7 @@ fn a_v1_document_key_shares_the_column_of_the_same_name() {
 }
 
 #[test]
-fn a_v1_key_holding_integers_and_doubles_holds_text_like_the_mvt_round_trip() {
+fn a_v1_key_holding_integers_and_doubles_holds_doubles_like_the_mvt_round_trip() {
     let features = vec![
         feature(vec![("doc", doc(json!({"f": 1.5})))]),
         feature(vec![("doc", doc(json!({"f": 2})))]),
@@ -276,8 +276,8 @@ fn a_v1_key_holding_integers_and_doubles_holds_text_like_the_mvt_round_trip() {
     assert_eq!(
         properties(&layer),
         [
-            vec![("f".to_owned(), str("1.5"))],
-            vec![("f".to_owned(), str("2"))],
+            vec![("f".to_owned(), PropValue::F64(Some(1.5)))],
+            vec![("f".to_owned(), PropValue::F64(Some(2.0)))],
         ]
     );
 }
