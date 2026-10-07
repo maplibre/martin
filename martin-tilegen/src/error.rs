@@ -22,6 +22,12 @@ pub enum TileGenError {
     #[error("invalid sort configuration: {0}")]
     InvalidSortConfig(&'static str),
 
+    #[error("a temp record is corrupt")]
+    CorruptRecord,
+
+    #[error(transparent)]
+    Mlt(#[from] mlt_core::MltError),
+
     #[error("the tile writer stopped early")]
     WriterStopped,
 
