@@ -5840,6 +5840,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-tilegen"
+version = "0.1.0"
+dependencies = [
+ "martin-tile-utils",
+ "pmtiles",
+ "rstest",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
