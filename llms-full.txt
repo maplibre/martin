@@ -7460,7 +7460,7 @@ The format is based on [Keep a Changelog](<https://keepachangelog.com/en/1.0.0/>
 
 ## [2.0.0-beta.2](<https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.1...martin-v2.0.0-beta.2>) - 2026-10-01
 
-> \[!IMPORTANT\] This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j Which is an fairly trivial DOS attack IF your operating system has out of date dependencys. Docker is not affected, only binary instalations.
+> \[!IMPORTANT\] This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j Which is an fairly trivial DOS attack IF your operating system has out of date dependencies. Docker is not affected, only binary installations.
 
 ### Fixed
 
@@ -7636,7 +7636,7 @@ Martin now accepts connections while its sources load. A request for a source th
 - *(pmtiles)* read local files in place instead of through object\_store ([\#3293](<https://github.com/maplibre/martin/pull/3293>))
 - add a benchmark to make sure we don't regress on cache usage ops ([\#3291](<https://github.com/maplibre/martin/pull/3291>))
 - reduce public API of `TileCoord` ([\#3290](<https://github.com/maplibre/martin/pull/3290>))
-- Change to Box where no resizing is nessary ([\#3289](<https://github.com/maplibre/martin/pull/3289>))
+- Change to Box where no resizing is necessary ([\#3289](<https://github.com/maplibre/martin/pull/3289>))
 - fix a few clippy lints findings ([\#3273](<https://github.com/maplibre/martin/pull/3273>))
 - *(pmtiles)* share cached directories instead of copying them ([\#3402](<https://github.com/maplibre/martin/pull/3402>))
 - *(postgres)* cover the TLS verifiers with an in-process handshake ([\#3318](<https://github.com/maplibre/martin/pull/3318>))
