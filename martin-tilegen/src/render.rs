@@ -15,8 +15,6 @@ use crate::{
 
 /// Simplification and size thresholds are in pixels of a 256-pixel tile, as in Planetiler.
 const TILE_PIXELS: f64 = 256.0;
-/// The toolkit indexes polyline vertices with 16 bits.
-const MAX_SLICED_VERTICES: usize = 1 << 16;
 
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
@@ -429,14 +427,7 @@ impl Renderer {
         for &len in &self.parts {
             let (line, tail) = rest.split_at(len as usize);
             rest = tail;
-            let mut start = 0;
-            while start + 1 < line.len() {
-                let end = (start + MAX_SLICED_VERTICES).min(line.len());
-                slicer
-                    .add_feature(&line[start..end])
-                    .map_err(GeometryError::from)?;
-                start = end - 1;
-            }
+            slicer.add_feature(line).map_err(GeometryError::from)?;
         }
         for tile in slicer.iter_tiles() {
             let id = tile.tile_id();
@@ -959,6 +950,31 @@ mod tests {
             .collect();
         assert_eq!(zooms, ["1", "1", "2", "2", "3", "3"]);
         assert!(tiles.iter().all(|t| t.1 == GeomKind::Line));
+    }
+
+    #[test]
+    fn long_dense_diagonal_is_sliced_whole_at_z14() {
+        let layer = RenderLayer::new(
+            0,
+            14..=14,
+            LayerGrid {
+                extent: 4096,
+                buffer: 64,
+            },
+        )
+        .unwrap();
+        // More vertices than 16 bits index, zigzagging so none simplify away, 40 degrees diagonally.
+        let line: LineString<f64> = (0..100_000_u32)
+            .map(|i| {
+                let t = f64::from(i) / 2500.0;
+                unit(t, t + if i % 2 == 0 { 0.001 } else { 0.0 })
+            })
+            .collect();
+        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
+        // About 1800 tiles across and up, at least one per column crossed.
+        assert!(tiles.len() > 1800, "{}", tiles.len());
+        let vertices: usize = tiles.iter().map(|t| t.2.vertices.len()).sum();
+        assert!(vertices >= 100_000, "{vertices}");
     }
 
     #[test]
