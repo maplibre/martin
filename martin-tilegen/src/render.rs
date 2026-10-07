@@ -67,6 +67,10 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
+    /// `false` keeps whole features in every tile they touch, like `ST_AsMVTGeom(..., clip_geom => false)`.
+    pub clip: bool,
+    /// Only tiles intersecting these unit-coordinate bounds (`[min_x, min_y, max_x, max_y]`) are kept.
+    pub bounds: Option<[f64; 4]>,
 }
 
 /// Pixels of a 256-pixel tile, with a separate value for the layer's max zoom.
@@ -96,6 +100,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
+    /// Clipped and unbounded.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -117,7 +122,13 @@ impl RenderLayer {
         if grid.buffer >= grid.extent / 2 || u16::try_from(grid.buffer).is_err() {
             return Err(invalid_buffer(grid));
         }
-        Ok(Self { index, zooms, grid })
+        Ok(Self {
+            index,
+            zooms,
+            grid,
+            clip: true,
+            bounds: None,
+        })
     }
 
     /// The zooms both the layer and the feature cover.
@@ -125,6 +136,20 @@ impl RenderLayer {
         let start = (*self.zooms.start()).max(*feature.zooms.start());
         let end = (*self.zooms.end()).min(*feature.zooms.end());
         start..=end
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "unit bounds times 2^zoom fit i64"
+    )]
+    fn contains(&self, zoom: u8, x: u32, y: u32) -> bool {
+        let Some([x0, y0, x1, y1]) = self.bounds else {
+            return true;
+        };
+        let side = scale(zoom);
+        let tile = |v: f64| (v * side).floor() as i64;
+        (tile(x0)..=tile(x1)).contains(&i64::from(x))
+            && (tile(y0)..=tile(y1)).contains(&i64::from(y))
     }
 
     /// Picks the threshold value that applies at `zoom`.
@@ -135,6 +160,13 @@ impl RenderLayer {
             threshold.below_max_zoom
         }
     }
+}
+
+/// WGS84 `[min_lon, min_lat, max_lon, max_lat]` as unit-coordinate `[min_x, min_y, max_x, max_y]`.
+pub(crate) fn unit_bounds([west, south, east, north]: [f64; 4]) -> [f64; 4] {
+    let mut corners = [Coord { x: west, y: north }, Coord { x: east, y: south }];
+    crate::project::from_lonlat(&mut corners);
+    [corners[0].x, corners[0].y, corners[1].x, corners[1].y]
 }
 
 #[derive(Default)]
@@ -409,7 +441,7 @@ impl Ctx<'_> {
         let (Ok(x), Ok(y)) = (u32::try_from(tx.rem_euclid(side)), u32::try_from(ty)) else {
             return Ok(());
         };
-        if y >= side.cast_unsigned() {
+        if y >= side.cast_unsigned() || !self.layer.contains(zoom, x, y) {
             return Ok(());
         }
         let tile = self.order.tile_id(TileCoord::new_unchecked(zoom, x, y))?;
@@ -636,6 +668,28 @@ mod tests {
         );
         let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
         assert_eq!(names, Vec::<&str>::new());
+    }
+
+    #[test]
+    fn bounds_drop_tiles_outside() {
+        let mut layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        layer.bounds = Some([0.0, 0.0, 0.4, 0.4]);
+        let line = LineString::from(vec![coord! { x: 0.1, y: 0.1 }, coord! { x: 0.9, y: 0.1 }]);
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                zooms: 1..=1,
+                simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(
+            tiles.iter().map(|t| t.0.as_str()).collect::<Vec<_>>(),
+            ["1/0/0"]
+        );
     }
 
     #[test]
