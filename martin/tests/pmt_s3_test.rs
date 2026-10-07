@@ -15,10 +15,9 @@ use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use serde_json::Value;
-use testcontainers_modules::testcontainers::ContainerAsync;
-use testcontainers_modules::testcontainers::Image;
 use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand, WaitFor};
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+use testcontainers_modules::testcontainers::{ContainerAsync, Image};
 use url::Url;
 
 pub mod utils;

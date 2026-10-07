@@ -1,5 +1,4 @@
 use crate::TileSourceManager;
-use crate::config::file::TileGrids;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{
@@ -7,7 +6,8 @@ use crate::config::file::tiles::discovery::{
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfig, SourceBuildResult, TileSourceConfiguration as _, TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceConfiguration as _,
+    TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;

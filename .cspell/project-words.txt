@@ -103,6 +103,7 @@ peucker
 pfor
 pgpassword
 pgsql
+pgssl
 pgsslcert
 pgsslkey
 pgsslmode
