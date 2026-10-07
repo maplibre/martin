@@ -2,10 +2,14 @@
 
 #[cfg(feature = "mbtiles")]
 mod mbtiles;
+#[cfg(feature = "pmtiles")]
+mod pmtiles;
 
 use martin_tile_utils::TileCoord;
 #[cfg(feature = "mbtiles")]
 pub use mbtiles::MbtilesSink;
+#[cfg(feature = "pmtiles")]
+pub use pmtiles::PmtilesSink;
 use tilejson::TileJSON;
 
 use crate::{TileGenResult, TileOrder};
