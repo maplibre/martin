@@ -25,6 +25,28 @@ pub enum TileGenError {
     #[error("invalid sort configuration: {0}")]
     InvalidSortConfig(&'static str),
 
+    #[error("layer {index}: extent {extent} at max zoom {max_zoom} overflows the i32 grid")]
+    ZoomGridOverflow {
+        index: u8,
+        extent: u32,
+        max_zoom: u8,
+    },
+
+    #[error("layer {0} has no zooms")]
+    EmptyZooms(u8),
+
+    #[error("layer {index}: buffer {buffer} is not below half the extent {extent} or above 65535")]
+    InvalidBuffer { index: u8, buffer: u32, extent: u32 },
+
+    #[error("a line with {0} vertices does not fit a record")]
+    TooManyVertices(usize),
+
+    #[error("a coordinate is outside the i32 zoom grid")]
+    CoordOverflow,
+
+    #[error(transparent)]
+    Slice(#[from] map_tile_toolkit::TileError),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

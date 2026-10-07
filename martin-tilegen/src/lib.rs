@@ -6,8 +6,10 @@ mod encode;
 mod error;
 mod group;
 pub mod pipeline;
+pub mod project;
 pub mod props;
 pub mod record;
+mod render;
 mod sink;
 mod sort;
 mod sort_key;
@@ -19,6 +21,7 @@ pub use encode::{
 };
 pub use error::{TileGenError, TileGenResult};
 pub use group::{TileGrouper, TileRecords};
+pub use render::{Feature, FeatureGeom, PixelThreshold, RenderLayer, Renderer};
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
 pub use sink::{EncodedTile, TileSink};
