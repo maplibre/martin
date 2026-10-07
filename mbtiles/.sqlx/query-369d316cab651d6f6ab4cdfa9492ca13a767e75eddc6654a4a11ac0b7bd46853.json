@@ -1,0 +1,24 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "tile_hash",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "tile_hash",
+            "table": "tiles_with_hash"
+          }
+        },
+        "type_info": "Text"
+      }
+    ],
+    "nullable": [true],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "369d316cab651d6f6ab4cdfa9492ca13a767e75eddc6654a4a11ac0b7bd46853",
+  "query": "SELECT tile_hash FROM tiles_with_hash LIMIT 1"
+}

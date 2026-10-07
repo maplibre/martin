@@ -702,7 +702,10 @@ impl Mbtiles {
     }
 
     /// The statements that insert one tile, with parameters bound by [`Self::insert_tiles`].
-    fn get_insert_sql(src_type: MbtType, on_duplicate: CopyDuplicateMode) -> (String, Vec<String>) {
+    pub(crate) fn get_insert_sql(
+        src_type: MbtType,
+        on_duplicate: CopyDuplicateMode,
+    ) -> (String, Vec<String>) {
         let on_duplicate = on_duplicate.to_sql();
         match src_type {
             MbtType::Flat => (
@@ -730,11 +733,13 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
     VALUES (?1, ?2, ?3, ?5);"
                 ),
-                vec![format!(
+                // Blobs are keyed by their content, so a repeated one is no duplicate tile.
+                vec![
                     "
-    INSERT {on_duplicate} INTO images (tile_id, tile_data)
+    INSERT OR IGNORE INTO images (tile_id, tile_data)
     VALUES (?2, ?1);"
-                )],
+                        .to_owned(),
+                ],
             ),
             MbtType::Normalized {
                 schema: NormalizedSchema::DedupId,

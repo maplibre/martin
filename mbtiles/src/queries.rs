@@ -6,7 +6,7 @@ use tracing::debug;
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
 use crate::{
-    MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables,
+    MbtError, MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables,
     create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
     create_tiles_with_hash_view,
 };
@@ -160,10 +160,12 @@ SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
     }
 }
 
-pub async fn action_with_rusqlite(
+/// Runs `action` on the connection's raw rusqlite handle. A transaction `action` leaves open would
+/// silently swallow every later statement of `conn`, so it is rolled back and reported instead.
+pub async fn action_with_rusqlite<R>(
     conn: &mut SqliteConnection,
-    action: impl FnOnce(&Connection) -> MbtResult<()>,
-) -> MbtResult<()> {
+    action: impl FnOnce(&Connection) -> MbtResult<R>,
+) -> MbtResult<R> {
     // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
     // Make sure not to execute any other queries while the handle is locked
     let mut handle_lock = conn.lock_handle().await?;
@@ -172,7 +174,16 @@ pub async fn action_with_rusqlite(
     // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
     let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
-    action(&rusqlite_conn)
+    // Inside a caller's own sqlx transaction, that transaction is theirs to end.
+    let was_autocommit = rusqlite_conn.is_autocommit();
+    let result = action(&rusqlite_conn);
+    if was_autocommit && !rusqlite_conn.is_autocommit() {
+        rusqlite_conn.execute_batch("ROLLBACK")?;
+        // A failed action's own error explains the open transaction better.
+        result?;
+        return Err(MbtError::TransactionLeftOpen);
+    }
+    result
 }
 
 #[cfg(test)]
