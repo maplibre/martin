@@ -25,8 +25,18 @@ pub enum TileGenError {
     #[error("invalid sort configuration: {0}")]
     InvalidSortConfig(&'static str),
 
-    #[error("temp file I/O failed: {0}")]
+    #[error("the tile writer stopped early")]
+    WriterStopped,
+
+    #[error("output {} already exists and is not empty", .0.display())]
+    OutputNotEmpty(std::path::PathBuf),
+
+    #[error("I/O failed: {0}")]
     Io(#[from] std::io::Error),
+
+    #[cfg(feature = "mbtiles")]
+    #[error(transparent)]
+    Mbtiles(#[from] mbtiles::MbtError),
 
     #[error(transparent)]
     Pmtiles(#[from] pmtiles::PmtError),
