@@ -3,13 +3,13 @@
 
 use std::ops::{Range, RangeInclusive};
 
-use geo::SimplifyIdx as _;
 use geo_types::{Coord, LineString, Polygon};
 use map_tile_toolkit::{PolygonSlicerAll, SlicerAll, TileError, signed_area_2x};
 use martin_tile_utils::TileCoord;
 
 use crate::props::{KeyId, PropRef};
 use crate::record::{EncodedProps, Geom, Vertex, encode};
+use crate::simplify::Simplifier;
 use crate::{LayerGrid, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileOrder};
 
 /// Simplification and size thresholds are in pixels of a 256-pixel tile, as in Planetiler.
@@ -104,6 +104,7 @@ pub struct Renderer {
     slicers: Vec<(LayerGrid, SlicerAll)>,
     poly_slicers: Vec<(LayerGrid, PolygonSlicerAll)>,
     props: EncodedProps,
+    simplifier: Simplifier,
     kept: Vec<usize>,
     /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
     /// and vertices.
@@ -201,7 +202,8 @@ impl Renderer {
     ) -> TileGenResult<usize> {
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         let epsilon = ctx.layer.at_max(zoom, ctx.layer.simplify) / (TILE_PIXELS * scale(zoom));
-        self.kept = line.simplify_idx(epsilon);
+        self.kept.clear();
+        self.simplifier.simplify(&line.0, epsilon, &mut self.kept);
         let start = self.vertices.len();
         for &i in &self.kept {
             let [x, y] = quantize(line.0[i], shift, world)?;
