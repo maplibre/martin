@@ -1,0 +1,23 @@
+[package]
+name = "martin-tilegen"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Bulk vector tile generation engine: renders features once per zoom, external-sorts the pieces, and assembles MLT/MVT tilesets"
+keywords = ["maps", "tiles", "mvt", "mlt", "tileserver"]
+categories = ["science::geo"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[dependencies]
+martin-tile-utils.workspace = true
+pmtiles.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+
+[lints]
+workspace = true
