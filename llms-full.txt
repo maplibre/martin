@@ -5634,8 +5634,6 @@ Options:
 
           For a source on a tile grid other than Web Mercator the bounds are min_x,min_y,max_x,max_y in the grid's CRS units, and the whole grid is copied if omitted.
 
-          [default: -180,-85.05112877980659,180,85.0511287798066]
-
       --min-zoom <MIN_ZOOM>
           Minimum zoom level to copy
 
