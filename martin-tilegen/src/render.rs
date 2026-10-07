@@ -327,12 +327,32 @@ impl Renderer {
             }
         }
 
+        let (parts, vertices) = (
+            std::mem::take(&mut self.parts),
+            std::mem::take(&mut self.vertices),
+        );
+        let result = match sole_tile(&vertices, ctx.layer.grid)? {
+            Some(tile) => self.push_whole(ctx, zoom, tile, (&[], &parts, &vertices), out),
+            None => self.slice_lines(ctx, zoom, &parts, &vertices, out),
+        };
+        (self.parts, self.vertices) = (parts, vertices);
+        result
+    }
+
+    fn slice_lines(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        parts: &[u32],
+        vertices: &[Coord<i32>],
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
         let grid = ctx.layer.grid;
         let slicer_index = self.slicer_index(ctx.layer)?;
         let slicer = &mut self.slicers[slicer_index].1;
         slicer.clear();
-        let mut rest = self.vertices.as_slice();
-        for &len in &self.parts {
+        let mut rest = vertices;
+        for &len in parts {
             let (line, tail) = rest.split_at(len as usize);
             rest = tail;
             slicer.add_feature(line)?;
@@ -349,10 +369,8 @@ impl Renderer {
                         .extend(polyline.iter().map(|c| [c.x, c.y]));
                 }
             } else {
-                self.piece.set_whole(
-                    (&[], &self.parts, &self.vertices),
-                    (id.x * extent, id.y * extent),
-                );
+                self.piece
+                    .set_whole((&[], parts, vertices), (id.x * extent, id.y * extent));
             }
             ctx.push(zoom, id.x, id.y, self.piece.lines(), out)?;
         }
@@ -406,9 +424,31 @@ impl Renderer {
             std::mem::take(&mut self.parts),
             std::mem::take(&mut self.vertices),
         );
-        let result = self.slice_polygons(ctx, zoom, &polys, &parts, &vertices, out);
+        let result = match sole_tile(&vertices, ctx.layer.grid)? {
+            Some(tile) => self.push_whole(ctx, zoom, tile, (&polys, &parts, &vertices), out),
+            None => self.slice_polygons(ctx, zoom, &polys, &parts, &vertices, out),
+        };
         (self.polys, self.parts, self.vertices) = (polys, parts, vertices);
         result
+    }
+
+    /// A feature in one tile is that tile's piece, unchanged but for the tile-local frame.
+    fn push_whole(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        (tx, ty): (i32, i32),
+        feature: Rings<'_>,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        let extent = to_i32(ctx.layer.grid.extent)?;
+        self.piece.set_whole(feature, (tx * extent, ty * extent));
+        let geom = if feature.0.is_empty() {
+            self.piece.lines()
+        } else {
+            self.piece.polygons()
+        };
+        ctx.push(zoom, tx, ty, geom, out)
     }
 
     fn slice_polygons(
@@ -694,6 +734,25 @@ fn clip(range: Range<i32>, grid: Range<i32>, allowed: &Range<u32>) -> Range<u32>
         .unwrap_or(0)
         .min(allowed.end);
     lo..hi.max(lo)
+}
+
+/// The tile a quantized feature lies in when it keeps clear of every neighbor's buffer, as most
+/// features do at most zooms: no slicer is needed to know it reaches that tile alone, whole.
+fn sole_tile(vertices: &[Coord<i32>], grid: LayerGrid) -> TileGenResult<Option<(i32, i32)>> {
+    let (extent, buffer) = (to_i32(grid.extent)?, i64::from(grid.buffer));
+    let Some(first) = vertices.first() else {
+        return Ok(None);
+    };
+    let tile = (first.x.div_euclid(extent), first.y.div_euclid(extent));
+    // Strictly inside, as a vertex on a buffer's edge belongs to the neighbor too.
+    let inside = |v: i32, t: i32| {
+        let local = i64::from(v) - i64::from(t) * i64::from(extent);
+        local > buffer && local < i64::from(extent) - buffer
+    };
+    let sole = vertices
+        .iter()
+        .all(|c| inside(c.x, tile.0) && inside(c.y, tile.1));
+    Ok(sole.then_some(tile))
 }
 
 fn len32(n: usize) -> TileGenResult<u32> {
@@ -1137,5 +1196,110 @@ mod tests {
             },
         )
         .unwrap_err();
+    }
+
+    /// Records a renderer call leaves, as `(tile id, bytes)`.
+    fn records(fill: impl FnOnce(&mut Renderer, &mut SortBuffer<'_>)) -> Vec<(u64, Vec<u8>)> {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = Sorter::new(SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 1 << 20,
+            max_fan_in: 8,
+            read_buffer_bytes: 4096,
+        })
+        .unwrap();
+        let mut buffer = sorter.buffer();
+        fill(&mut Renderer::default(), &mut buffer);
+        buffer.finish().unwrap();
+        let mut merger = sorter.merge().unwrap();
+        let mut out = Vec::new();
+        while let Some((key, bytes)) = merger.next_record().unwrap() {
+            out.push((key.tile_id().value(), bytes.to_vec()));
+        }
+        out
+    }
+
+    #[test]
+    #[expect(clippy::cast_possible_truncation, reason = "the hull of i32 vertices")]
+    fn sole_tile_features_match_the_slicer() {
+        let layer = RenderLayer::new(0, 4..=4, GRID).unwrap();
+        let ctx = Ctx {
+            order: TileOrder::Tms,
+            layer: &layer,
+            seq: Seq::default(),
+            id: Some(7),
+            props: &EncodedProps::default(),
+            simplify: PixelThreshold::PLANETILER_SIMPLIFY,
+            min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+        };
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = move |n: i32| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            i32::try_from(state % u64::from(n.unsigned_abs())).unwrap()
+        };
+        let (mut sole, mut sliced) = (0, 0);
+        for case in 0..3000 {
+            let (cx, cy, r) = (next(16 * 256), next(16 * 256), 1 + next(40));
+            let mut ring: Vec<_> = (0..3 + next(6))
+                .map(|_| Coord {
+                    x: cx + next(2 * r) - r,
+                    y: cy + next(2 * r) - r,
+                })
+                .collect();
+            ring.dedup();
+            if case % 2 == 0 {
+                let parts = [len32(ring.len()).unwrap()];
+                if ring.len() < 2 || sole_tile(&ring, GRID).unwrap().is_none() {
+                    continue;
+                }
+                let fast = records(|r, out| {
+                    let tile = sole_tile(&ring, GRID).unwrap().unwrap();
+                    r.push_whole(&ctx, 4, tile, (&[], &parts, &ring), out)
+                        .unwrap();
+                });
+                let slow = records(|r, out| r.slice_lines(&ctx, 4, &parts, &ring, out).unwrap());
+                assert_eq!(fast, slow, "line {ring:?}");
+            } else {
+                // A convex hull, wound as the renderer winds exteriors.
+                let mut hull = geo::ConvexHull::convex_hull(&geo_types::MultiPoint::from(
+                    ring.iter()
+                        .map(|c| (f64::from(c.x), f64::from(c.y)))
+                        .collect::<Vec<_>>(),
+                ))
+                .exterior()
+                .0
+                .iter()
+                .map(|c| Coord {
+                    x: c.x as i32,
+                    y: c.y as i32,
+                })
+                .collect::<Vec<_>>();
+                hull.pop();
+                if hull.len() < 3 || signed_area_2x(&hull) == 0 {
+                    continue;
+                }
+                if signed_area_2x(&hull) < 0 {
+                    hull.reverse();
+                }
+                let (polys, parts) = ([1], [len32(hull.len()).unwrap()]);
+                let Some(tile) = sole_tile(&hull, GRID).unwrap() else {
+                    sliced += 1;
+                    continue;
+                };
+                let fast = records(|r, out| {
+                    r.push_whole(&ctx, 4, tile, (&polys, &parts, &hull), out)
+                        .unwrap();
+                });
+                let slow = records(|r, out| {
+                    r.slice_polygons(&ctx, 4, &polys, &parts, &hull, out)
+                        .unwrap();
+                });
+                assert_eq!(fast, slow, "polygon {hull:?}");
+            }
+            sole += 1;
+        }
+        assert!(sole > 1000 && sliced > 50, "{sole} sole, {sliced} sliced");
     }
 }
