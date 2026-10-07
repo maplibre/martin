@@ -377,6 +377,17 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) -> FeatureGeom<'_> {
             }
             FeatureGeom::Lines(lines)
         }
+        Geometry::Polygons(polygons) => {
+            for polygon in polygons.iter_mut() {
+                polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
+                polygon.interiors_mut(|rings| {
+                    for ring in rings {
+                        project_coords(crs, &mut ring.0);
+                    }
+                });
+            }
+            FeatureGeom::Polygons(polygons)
+        }
     }
 }
 

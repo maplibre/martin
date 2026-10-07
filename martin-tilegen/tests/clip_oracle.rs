@@ -7,13 +7,14 @@
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
-use geo_types::{Coord, Geometry, LineString, MultiPoint, Point};
+use geo::ConvexHull as _;
+use geo_types::{Coord, Geometry, LineString, MultiPoint, Point, Polygon};
 use martin_core::tiles::geojson::clip_to_tile;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tilegen::record::EncodedProps;
+use martin_tilegen::record::{EncodedProps, GeomKind, Record};
 use martin_tilegen::{
     Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, Renderer, Seq, SortConfig,
-    Sorter, TileOrder,
+    Sorter, TileId, TileOrder,
 };
 
 const GRID: LayerGrid = LayerGrid {
@@ -55,9 +56,17 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
     buffer.finish().unwrap();
     let mut merger = sorter.merge().unwrap();
     let mut tiles = Tiles::new();
-    while let Some((key, _)) = merger.next_record().unwrap() {
-        let c = TileOrder::Tms.tile_coord(key.tile_id()).unwrap();
-        tiles.insert((c.z(), c.x(), c.y()));
+    while let Some((key, bytes)) = merger.next_record().unwrap() {
+        let end = match Record::decode(bytes).unwrap().kind {
+            GeomKind::FillRange { end } => end,
+            GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
+                key.tile_id().value() + 1
+            }
+        };
+        for id in key.tile_id().value()..end {
+            let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();
+            tiles.insert((c.z(), c.x(), c.y()));
+        }
     }
     tiles
 }
@@ -126,6 +135,28 @@ fn lines_cover_the_same_tiles() {
             line.0.iter().copied().map(meters).collect(),
         ));
         check(&format!("line {seed}"), &ours, &geom);
+    }
+}
+
+#[test]
+fn polygons_cover_the_same_tiles() {
+    let to_meters =
+        |ring: &LineString<f64>| LineString::new(ring.0.iter().copied().map(meters).collect());
+    let mut polygons: Vec<Polygon<f64>> = (200..210)
+        .map(|seed| {
+            MultiPoint(random_coords(seed, 6).into_iter().map(Point).collect()).convex_hull()
+        })
+        .collect();
+    let square =
+        |lo: f64, hi: f64| LineString::from(vec![(lo, lo), (hi, lo), (hi, hi), (lo, hi), (lo, lo)]);
+    polygons.push(Polygon::new(square(0.1, 0.9), vec![square(0.3, 0.6)]));
+    for (i, polygon) in polygons.iter().enumerate() {
+        let ours = rendered(FeatureGeom::Polygons(std::slice::from_ref(polygon)));
+        let geom = Geometry::Polygon(Polygon::new(
+            to_meters(polygon.exterior()),
+            polygon.interiors().iter().map(to_meters).collect(),
+        ));
+        check(&format!("polygon {i}"), &ours, &geom);
     }
 }
 

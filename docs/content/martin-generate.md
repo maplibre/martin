@@ -15,9 +15,9 @@ it reads each table once, renders every feature at every zoom itself, and writes
 For large tilesets this is much faster and puts far less load on the database.
 
 !!! warning
-    `martin generate` is new. It renders points and lines; features with polygon or collection
-    geometry are skipped and counted for now. Output is MBTiles only; PMTiles output is planned.
-    The feature is not in the default build:
+    `martin generate` is new. It renders points, lines and polygons; geometry collections are
+    skipped and counted. Output is MBTiles only; PMTiles output is planned. The feature is not in
+    the default build:
 
     ```bash
     cargo build --package martin --bin martin --features unstable-generate
@@ -48,8 +48,11 @@ Layer names must be unique across all sources.
    and materialized views on PostgreSQL 14 and newer, and id ranges for views with an integer
    `id_column`. Anything else is read as one stream.
 2. Each feature is rendered for every zoom of its layer: features smaller than a pixel are dropped,
-   lines are simplified, and the geometry is sliced into the tiles it touches, keeping its own
-   vertices (no new vertices are cut at tile edges).
+   lines and polygon rings are simplified, and the geometry is sliced into the tiles it touches,
+   keeping its own vertices (no new vertices are cut at tile edges; a polygon ring leaving a tile is
+   closed by corners just outside the tile's buffer, where renderers clip it away). Tiles a polygon
+   covers entirely are recorded as ranges, not one by one, so huge polygons cost time and space in
+   proportion to their outline.
 3. The pieces are sorted on disk by tile, merged, encoded as MLT or MVT, compressed, and written in
    the MBTiles key order. Identical tiles are stored once.
 
