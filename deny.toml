@@ -91,6 +91,7 @@ unknown-git = "deny"
 
 # If git deps are ever needed, they must be explicitly allowed here
 allow-git = [
+  "https://github.com/nyurik/pmtiles-rs",
   "https://github.com/nyurik/map-tile-toolkit",
 ]
 

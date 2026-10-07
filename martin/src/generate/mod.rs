@@ -12,7 +12,8 @@ use std::time::{Duration, Instant};
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::Encoding;
 use martin_tilegen::{
-    GenerateConfig, MbtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, generate,
+    GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat,
+    TileGenError, TileGenResult, generate,
 };
 use mlt_core::encoder::EncoderConfig;
 use tilejson::{Bounds, tilejson};
@@ -51,12 +52,12 @@ pub struct GenerateArgs {
     /// Table sources to render. Defaults to every table source.
     #[arg(short, long = "source", value_name = "ID")]
     pub sources: Vec<String>,
-    /// The `MBTiles` file to create; it must not exist or be empty.
+    /// The `.mbtiles` file to create, which must not exist or be empty, or a new `.pmtiles` archive.
     #[arg(short, long)]
     pub output_file: PathBuf,
     #[arg(long, value_enum, default_value = "mlt")]
     pub format: GenerateFormat,
-    /// Tile compression: `gzip`, `zstd`, `br`, `zlib` or `none`.
+    /// Tile compression: `gzip`, `zstd`, `br`, `zlib` (`MBTiles` only) or `none`.
     #[arg(long, default_value = "gzip", value_parser = parse_encoding)]
     pub encoding: Encoding,
     /// Lowest zoom to generate; a source's own `minzoom` raises it.
@@ -109,8 +110,6 @@ pub enum GenerateError {
     NoSources,
     #[error("Source `{0}` has no zoom between {1} and {2}")]
     NoZooms(String, u8, u8),
-    #[error("PMTiles output is not supported yet; write an .mbtiles file and convert it")]
-    PmtilesNotSupported,
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
     #[error("Background task failed: {0}")]
@@ -135,13 +134,6 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     info!("Martin v{VERSION} tile generator");
     let started = Instant::now();
     let options = args.generate;
-    if options
-        .output_file
-        .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
-    {
-        return Err(GenerateError::PmtilesNotSupported);
-    }
     let mut config = match &args.meta.config {
         Some(path) => read_config(path, &OsEnv)?,
         None => Config::default(),
@@ -174,21 +166,17 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     let generate_config = generate_config(&options, threads);
     let metadata = metadata(&options);
     let output = options.output_file;
+    let sink = {
+        let (output, format, encoding) = (output.clone(), generate_config.format, options.encoding);
+        tokio::task::spawn_blocking(move || Output::create(&output, format, encoding)).await??
+    };
 
     let progress = Arc::new(Progress::default());
     let reporter = tokio::spawn(report(Arc::clone(&progress)));
     let task = tokio::task::spawn_blocking({
-        let (output, progress) = (output.clone(), Arc::clone(&progress));
+        let progress = Arc::clone(&progress);
         move || -> GenerateResult<(Summary, u64)> {
-            let sink = MbtilesSink::create(&output)?;
-            let summary = generate(
-                &source,
-                source.plan(),
-                sink,
-                &generate_config,
-                metadata,
-                &progress,
-            )?;
+            let summary = sink.generate(&source, &generate_config, metadata, &progress)?;
             Ok((summary, source.skipped()))
         }
     });
@@ -217,6 +205,42 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
         );
     }
     Ok(())
+}
+
+/// Created before the run starts, so that a failure removes only a file this run created.
+enum Output {
+    Mbtiles(MbtilesSink),
+    Pmtiles(PmtilesSink),
+}
+
+impl Output {
+    fn create(path: &Path, format: TileFormat, encoding: Encoding) -> TileGenResult<Self> {
+        if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
+        {
+            PmtilesSink::create(path, format, encoding).map(Self::Pmtiles)
+        } else {
+            MbtilesSink::create(path).map(Self::Mbtiles)
+        }
+    }
+
+    fn generate(
+        self,
+        source: &PgScanSource,
+        config: &GenerateConfig,
+        metadata: tilejson::TileJSON,
+        progress: &Progress,
+    ) -> TileGenResult<Summary> {
+        match self {
+            Self::Mbtiles(sink) => {
+                generate(source, source.plan(), sink, config, metadata, progress)
+            }
+            Self::Pmtiles(sink) => {
+                generate(source, source.plan(), sink, config, metadata, progress)
+            }
+        }
+    }
 }
 
 fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
