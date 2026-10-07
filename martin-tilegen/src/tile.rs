@@ -1,10 +1,33 @@
 use martin_tile_utils::TileCoord;
-use pmtiles::{PYRAMID_SIZE_BY_ZOOM, TileId};
+use pmtiles::{PYRAMID_SIZE_BY_ZOOM, TileId as PmTileId};
 
 use crate::{TileGenError, TileGenResult};
 
 /// Highest zoom whose tile ids leave the low byte of a [`SortKey`](crate::SortKey) free for the layer.
 pub const MAX_ZOOM: u8 = 27;
+
+/// A tile's position in a [`TileOrder`]; always small enough to leave the low byte of a
+/// [`SortKey`](crate::SortKey) free for the layer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TileId(u64);
+
+impl TileId {
+    pub fn new(id: u64) -> TileGenResult<Self> {
+        if id >= pyramid_base(MAX_ZOOM + 1) {
+            return Err(TileGenError::InvalidTileId(id));
+        }
+        Ok(Self(id))
+    }
+
+    pub(crate) const fn from_key_bits(id: u64) -> Self {
+        Self(id)
+    }
+
+    #[must_use]
+    pub const fn value(self) -> u64 {
+        self.0
+    }
+}
 
 /// The order a sink writes tiles in; ascending tile ids follow it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -17,13 +40,13 @@ pub enum TileOrder {
 }
 
 impl TileOrder {
-    pub fn tile_id(self, coord: TileCoord) -> TileGenResult<u64> {
+    pub fn tile_id(self, coord: TileCoord) -> TileGenResult<TileId> {
         let (z, x, y) = (coord.z(), coord.x(), coord.y());
         if z > MAX_ZOOM || !TileCoord::is_possible_on_zoom_level(z, x, y) {
             return Err(TileGenError::InvalidTile(coord));
         }
-        Ok(match self {
-            Self::Hilbert => TileId::from(pmtiles::TileCoord::new(z, x, y)?).value(),
+        TileId::new(match self {
+            Self::Hilbert => PmTileId::from(pmtiles::TileCoord::new(z, x, y)?).value(),
             Self::Tms => pyramid_base(z) + (u64::from(x) << z) + u64::from(flip_row(z, y)),
         })
     }
@@ -32,13 +55,11 @@ impl TileOrder {
         clippy::cast_possible_truncation,
         reason = "x and row are below 2^MAX_ZOOM"
     )]
-    pub fn tile_coord(self, id: u64) -> TileGenResult<TileCoord> {
-        if id >= pyramid_base(MAX_ZOOM + 1) {
-            return Err(TileGenError::InvalidTileId(id));
-        }
+    pub fn tile_coord(self, tile: TileId) -> TileGenResult<TileCoord> {
+        let id = tile.value();
         Ok(match self {
             Self::Hilbert => {
-                let coord = pmtiles::TileCoord::from(TileId::new(id)?);
+                let coord = pmtiles::TileCoord::from(PmTileId::new(id)?);
                 TileCoord::new_unchecked(coord.z(), coord.x(), coord.y())
             }
             Self::Tms => {
@@ -52,7 +73,7 @@ impl TileOrder {
 }
 
 /// Number of tiles in all zooms below `z`, i.e. the first id of zoom `z`.
-fn pyramid_base(z: u8) -> u64 {
+pub(crate) fn pyramid_base(z: u8) -> u64 {
     PYRAMID_SIZE_BY_ZOOM[usize::from(z)]
 }
 
@@ -91,8 +112,8 @@ mod tests {
         for coord in all_tiles(5).chain(corners) {
             let id = order.tile_id(coord).unwrap();
             assert!(
-                id < 1 << 56,
-                "{coord:#} id {id} leaves no room for the layer"
+                id.value() < 1 << 56,
+                "{coord:#} id {id:?} leaves no room for the layer"
             );
             assert_eq!(order.tile_coord(id).unwrap(), coord);
         }
@@ -102,8 +123,11 @@ mod tests {
     fn hilbert_ids_match_pmtiles() {
         for coord in all_tiles(5) {
             let expected =
-                TileId::from(pmtiles::TileCoord::new(coord.z(), coord.x(), coord.y()).unwrap());
-            assert_eq!(TileOrder::Hilbert.tile_id(coord).unwrap(), expected.value());
+                PmTileId::from(pmtiles::TileCoord::new(coord.z(), coord.x(), coord.y()).unwrap());
+            assert_eq!(
+                TileOrder::Hilbert.tile_id(coord).unwrap().value(),
+                expected.value()
+            );
         }
     }
 
@@ -133,9 +157,10 @@ mod tests {
     #[rstest]
     fn rejects_ids_above_max_zoom(#[values(TileOrder::Hilbert, TileOrder::Tms)] order: TileOrder) {
         let first_invalid = pyramid_base(MAX_ZOOM + 1);
-        assert_eq!(order.tile_coord(first_invalid - 1).unwrap().z(), MAX_ZOOM);
+        let last_valid = TileId::new(first_invalid - 1).unwrap();
+        assert_eq!(order.tile_coord(last_valid).unwrap().z(), MAX_ZOOM);
         assert!(matches!(
-            order.tile_coord(first_invalid),
+            TileId::new(first_invalid),
             Err(TileGenError::InvalidTileId(id)) if id == first_invalid
         ));
     }
