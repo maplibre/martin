@@ -41,6 +41,9 @@ pub enum TileGenError {
     #[error(transparent)]
     Plan(#[from] crate::plan::PlanError),
 
+    #[error("reading the source failed: {0}")]
+    Source(Box<dyn std::error::Error + Send + Sync>),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 
