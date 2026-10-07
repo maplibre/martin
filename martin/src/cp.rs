@@ -263,7 +263,7 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
 /// On Web Mercator a bbox is longitude and latitude and must stay on the tiled world.
 /// On any other grid it is in the grid's CRS units, and the grid itself clamps it.
-fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
+pub(crate) fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     if let Some(bb) = boxes
         .iter()
         .find(|bb| bb.left > bb.right || bb.bottom > bb.top)

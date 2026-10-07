@@ -1,0 +1,31 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: metadata
+---
+agg_tiles_hash = D77F1ABD35798BA3F7F8BDA641425433
+format = mlt
+generator = martin generate v[VERSION]
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "gid": "Number"
+      },
+      "id": "points1",
+      "maxzoom": 3,
+      "minzoom": 0
+    },
+    {
+      "fields": {
+        "gid": "Number"
+      },
+      "id": "mixed",
+      "maxzoom": 3,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 3
+minzoom = 0
+name = generated
