@@ -21,6 +21,18 @@ pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     read_all(decoder, gzip_size_hint(data))
 }
 
+/// Compresses `data` with `encoding`; data that is uncompressed or internally compressed stays as is.
+pub fn encode(data: Vec<u8>, encoding: crate::Encoding) -> Result<Vec<u8>, std::io::Error> {
+    use crate::Encoding;
+    match encoding {
+        Encoding::Uncompressed | Encoding::Internal => Ok(data),
+        Encoding::Gzip => encode_gzip(&data),
+        Encoding::Zlib => encode_zlib(&data),
+        Encoding::Brotli => encode_brotli(&data),
+        Encoding::Zstd => encode_zstd(&data),
+    }
+}
+
 pub fn encode_zlib(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let encoder = hotpath::io!(
         ZlibEncoder::new(data, flate2::Compression::default()),
@@ -78,4 +90,30 @@ pub fn encode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
         label = { "encode_zstd" }
     );
     read_all(encoder, 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Encoding;
+
+    type Decode = fn(&[u8]) -> std::io::Result<Vec<u8>>;
+
+    #[test]
+    fn encode_round_trips_every_encoding() {
+        let data = b"tile bytes tile bytes tile bytes".to_vec();
+        let cases: [(Encoding, Decode); 4] = [
+            (Encoding::Gzip, decode_gzip),
+            (Encoding::Zlib, decode_zlib),
+            (Encoding::Brotli, decode_brotli),
+            (Encoding::Zstd, decode_zstd),
+        ];
+        for (encoding, decode) in cases {
+            let encoded = encode(data.clone(), encoding).unwrap();
+            assert_ne!(encoded, data, "{encoding:?}");
+            assert_eq!(decode(&encoded).unwrap(), data, "{encoding:?}");
+        }
+        assert_eq!(encode(data.clone(), Encoding::Uncompressed).unwrap(), data);
+        assert_eq!(encode(data.clone(), Encoding::Internal).unwrap(), data);
+    }
 }
