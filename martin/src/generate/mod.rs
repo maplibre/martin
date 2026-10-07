@@ -203,7 +203,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     );
     if summary.skipped > 0 {
         warn!(
-            "Skipped {} features with polygon or collection geometry, which `martin generate` cannot render yet",
+            "Skipped {} features with geometry collections or empty geometries, which tiles cannot hold",
             summary.skipped
         );
     }

@@ -2,7 +2,7 @@
 
 use bytes::Bytes;
 use geo_traits::to_geo::ToGeoGeometry as _;
-use geo_types::{Coord, Geometry as GeoGeometry, LineString};
+use geo_types::{Coord, Geometry as GeoGeometry, LineString, Polygon};
 use wkb::reader::Wkb;
 
 use crate::generate::props::{KeyId, KeyInterner, Prop};
@@ -41,13 +41,13 @@ pub enum Crs {
 pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
+    Polygons(Vec<Polygon<f64>>),
     /// Well-known binary, decoded by [`Geometry::decode_wkb`] on the render workers.
     Wkb(Bytes),
 }
 
 impl Geometry {
-    /// Decodes [`Geometry::Wkb`] in place; `false` if it is invalid or of a kind the generator cannot render
-    /// (yet), e.g. polygons or collections.
+    /// Decodes [`Geometry::Wkb`] in place; `false` if it is invalid, empty or a geometry collection.
     #[must_use]
     pub fn decode_wkb(&mut self) -> bool {
         let Self::Wkb(bytes) = self else {
@@ -69,12 +69,12 @@ fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
         GeoGeometry::MultiPoint(mp) => Geometry::Points(mp.0.into_iter().map(|p| p.0).collect()),
         GeoGeometry::LineString(ls) => Geometry::Lines(vec![ls]),
         GeoGeometry::MultiLineString(mls) => Geometry::Lines(mls.0),
-        GeoGeometry::Line(_)
-        | GeoGeometry::Polygon(_)
-        | GeoGeometry::MultiPolygon(_)
-        | GeoGeometry::GeometryCollection(_)
-        | GeoGeometry::Rect(_)
-        | GeoGeometry::Triangle(_) => return None,
+        GeoGeometry::Polygon(polygon) => Geometry::Polygons(vec![polygon]),
+        GeoGeometry::MultiPolygon(mp) => Geometry::Polygons(mp.0),
+        GeoGeometry::Line(line) => Geometry::Lines(vec![line.into()]),
+        GeoGeometry::Rect(rect) => Geometry::Polygons(vec![rect.to_polygon()]),
+        GeoGeometry::Triangle(triangle) => Geometry::Polygons(vec![triangle.to_polygon()]),
+        GeoGeometry::GeometryCollection(_) => return None,
     })
 }
 
@@ -194,7 +194,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn wkb_decodes_points_and_lines_and_skips_the_rest() {
+    fn wkb_decodes_points_and_lines_and_skips_collections() {
         let point = [
             &[1, 1, 0, 0, 0][..],
             &1.5f64.to_le_bytes(),
@@ -220,8 +220,8 @@ mod tests {
             Geometry::Lines(vec![LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])])
         );
 
-        let polygon = vec![1, 3, 0, 0, 0, 0, 0, 0, 0];
-        assert!(!Geometry::Wkb(Bytes::from(polygon)).decode_wkb());
+        let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
+        assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());
         assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
     }
 }
