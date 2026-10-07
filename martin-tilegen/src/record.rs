@@ -213,6 +213,12 @@ impl<'a> Record<'a> {
         })
     }
 
+    /// Whether an encoded record is a fill or fill range, without decoding it.
+    #[must_use]
+    pub fn is_fill(bytes: &[u8]) -> bool {
+        matches!(bytes.first(), Some(&(FILL | FILL_RANGE)))
+    }
+
     #[must_use]
     pub fn props(&self) -> Props<'a> {
         Props {
