@@ -15,6 +15,10 @@ homepage.workspace = true
 perf-event2.workspace = true
 
 [[bench]]
+name = "encode"
+harness = false
+
+[[bench]]
 name = "sort"
 harness = false
 
@@ -34,6 +38,7 @@ tempfile.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, optional = true, features = ["rt"] }
+xxhash-rust.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

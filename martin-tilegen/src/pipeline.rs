@@ -29,17 +29,19 @@ impl<I> Submit<I> {
     }
 }
 
-/// Runs `produce` on the calling thread, `encode` on `threads` workers and `write` on its own thread.
+/// Runs `produce` on the calling thread, `encode` on `threads` workers (each with its own state from
+/// `init`, returned at the end, e.g. for statistics) and `write` on its own thread.
 /// At most `window` batches are produced but not yet written, which bounds memory even when one batch
 /// is slow. A producer or encoder error reaches the writer in order as an `Err` item, so a sink never
 /// finishes a partial output; the first root-cause error is returned.
-pub fn run<I: Send, O: Send, W: Send>(
+pub fn run<I: Send, O: Send, S: Send, W: Send>(
     threads: usize,
     window: usize,
     produce: impl FnOnce(&mut Submit<I>) -> TileGenResult<()>,
-    encode: impl Fn(I) -> TileGenResult<O> + Sync,
+    init: impl Fn() -> S + Sync,
+    encode: impl Fn(&mut S, I) -> TileGenResult<O> + Sync,
     write: impl FnOnce(&mut dyn Iterator<Item = TileGenResult<O>>) -> TileGenResult<W> + Send,
-) -> TileGenResult<W> {
+) -> TileGenResult<(W, Vec<S>)> {
     let (work_tx, work_rx) = flume::bounded::<(usize, I)>(window);
     let (result_tx, result_rx) = flume::unbounded::<Indexed<O>>();
     let (credit_tx, credit_rx) = flume::bounded(window);
@@ -49,16 +51,21 @@ pub fn run<I: Send, O: Send, W: Send>(
             .map_err(|_closed| TileGenError::WriterStopped)?;
     }
     thread::scope(|scope| {
-        for _ in 0..threads.max(1) {
-            let (work_rx, result_tx, encode) = (work_rx.clone(), result_tx.clone(), &encode);
-            scope.spawn(move || {
-                for (index, batch) in work_rx {
-                    if result_tx.send((index, encode(batch))).is_err() {
-                        break;
+        let encoders: Vec<_> = (0..threads.max(1))
+            .map(|_| {
+                let (work_rx, result_tx, init, encode) =
+                    (work_rx.clone(), result_tx.clone(), &init, &encode);
+                scope.spawn(move || {
+                    let mut state = init();
+                    for (index, batch) in work_rx {
+                        if result_tx.send((index, encode(&mut state, batch))).is_err() {
+                            break;
+                        }
                     }
-                }
-            });
-        }
+                    state
+                })
+            })
+            .collect();
         drop(work_rx);
         let writer = scope.spawn(move || {
             write(&mut InOrder {
@@ -80,9 +87,17 @@ pub fn run<I: Send, O: Send, W: Send>(
             let _ = result_tx.send((submit.next, Err(err)));
         }
         drop((submit, result_tx));
-        writer
+        let written = writer
             .join()
-            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+        let states = encoders
+            .into_iter()
+            .map(|e| {
+                e.join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+            .collect();
+        Ok((written, states))
     })
 }
 
@@ -127,20 +142,25 @@ mod tests {
 
     #[test]
     fn writes_in_production_order() {
-        let out = run(
+        let (out, counts) = run(
             4,
             8,
             produce_n(500),
-            |i| Ok(slow_early(i)),
+            || 0,
+            |count: &mut usize, i| {
+                *count += 1;
+                Ok(slow_early(i))
+            },
             |results| results.collect::<TileGenResult<Vec<_>>>(),
         )
         .unwrap();
         assert_eq!(out, (0..500).map(|i| i * 10).collect::<Vec<_>>());
+        assert_eq!(counts.iter().sum::<usize>(), 500);
     }
 
     #[test]
     fn encoder_error_stops_the_writer_in_order() {
-        let encode = |i| {
+        let encode = |(): &mut (), i| {
             if i == 7 {
                 Err(TileGenError::RecordTooLarge(i))
             } else {
@@ -148,13 +168,20 @@ mod tests {
             }
         };
         let mut seen = 0;
-        let err = run(4, 8, produce_n(100), encode, |results| {
-            for result in results {
-                result?;
-                seen += 1;
-            }
-            Ok(())
-        })
+        let err = run(
+            4,
+            8,
+            produce_n(100),
+            || (),
+            encode,
+            |results| {
+                for result in results {
+                    result?;
+                    seen += 1;
+                }
+                Ok(())
+            },
+        )
         .unwrap_err();
         assert!(matches!(err, TileGenError::RecordTooLarge(7)));
         assert_eq!(seen, 7);
@@ -167,12 +194,19 @@ mod tests {
             Err(TileGenError::InvalidTileId(99))
         };
         let mut seen = Vec::new();
-        let err = run(2, 3, produce, Ok, |results| {
-            for result in results {
-                seen.push(result?);
-            }
-            Ok(())
-        })
+        let err = run(
+            2,
+            3,
+            produce,
+            || (),
+            |(), i| Ok(i),
+            |results| {
+                for result in results {
+                    seen.push(result?);
+                }
+                Ok(())
+            },
+        )
         .unwrap_err();
         assert!(matches!(err, TileGenError::InvalidTileId(99)));
         assert_eq!(seen, [0, 1, 2, 3, 4]);
@@ -180,10 +214,17 @@ mod tests {
 
     #[test]
     fn writer_error_stops_the_producer() {
-        let err = run(2, 2, produce_n(1_000_000), Ok, |results| {
-            results.take(3).try_for_each(|r| r.map(drop))?;
-            Err::<(), _>(TileGenError::InvalidTileId(1))
-        })
+        let err = run(
+            2,
+            2,
+            produce_n(1_000_000),
+            || (),
+            |(), i| Ok(i),
+            |results| {
+                results.take(3).try_for_each(|r| r.map(drop))?;
+                Err::<(), _>(TileGenError::InvalidTileId(1))
+            },
+        )
         .unwrap_err();
         assert!(matches!(err, TileGenError::InvalidTileId(1)));
     }

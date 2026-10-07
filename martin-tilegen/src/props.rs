@@ -152,7 +152,8 @@ impl KeyNames {
 /// The columns of one layer in one tile, built from the values its features carry. Reused across tiles.
 #[derive(Default)]
 pub(crate) struct TileColumns {
-    index: HashMap<KeyId, usize>,
+    /// Column position + 1 by key id (0 = absent); key ids are small and dense, so this beats hashing.
+    slots: Vec<u32>,
     columns: Vec<Column>,
 }
 
@@ -164,19 +165,33 @@ struct Column {
 
 impl TileColumns {
     pub(crate) fn clear(&mut self) {
-        self.index.clear();
+        for column in &self.columns {
+            self.slots[column.key.0 as usize] = 0;
+        }
         self.columns.clear();
     }
 
+    fn slot(&mut self, key: KeyId) -> &mut u32 {
+        let idx = key.0 as usize;
+        if idx >= self.slots.len() {
+            self.slots.resize(idx + 1, 0);
+        }
+        &mut self.slots[idx]
+    }
+
     pub(crate) fn add(&mut self, key: KeyId, value: PropRef<'_>) {
-        let idx = *self.index.entry(key).or_insert_with(|| {
+        let slot = *self.slot(key);
+        let idx = if slot == 0 {
             self.columns.push(Column {
                 key,
                 kind: value.kind(),
                 has_negative: false,
             });
+            *self.slot(key) = index_u32(self.columns.len());
             self.columns.len() - 1
-        });
+        } else {
+            slot as usize - 1
+        };
         let column = &mut self.columns[idx];
         column.kind = widen(column.kind, value.kind());
         column.has_negative |= matches!(value, PropRef::I64(v) if v < 0);
@@ -187,7 +202,7 @@ impl TileColumns {
         self.columns
             .sort_by(|a, b| names.column_order(a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
-            self.index.insert(column.key, pos);
+            self.slots[column.key.0 as usize] = index_u32(pos + 1);
         }
         self.columns
             .iter()
@@ -200,7 +215,8 @@ impl TileColumns {
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
     pub(crate) fn position(&self, key: KeyId) -> Option<usize> {
-        self.index.get(&key).copied()
+        let slot = *self.slots.get(key.0 as usize)?;
+        (slot != 0).then(|| slot as usize - 1)
     }
 }
 
