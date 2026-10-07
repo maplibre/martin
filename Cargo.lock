@@ -5906,6 +5906,7 @@ dependencies = [
  "radsort",
  "rayon",
  "rstest",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tilejson",
@@ -7156,8 +7157,7 @@ dependencies = [
 [[package]]
 name = "pmtiles"
 version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1a0f1f459242a388f10c9b181917cb18abdf7bc082100d560722a0293b245a4"
+source = "git+https://github.com/nyurik/pmtiles-rs?branch=writer-dedup-hint#d965540c87f3bd6553e124d355f2027616562ac8"
 dependencies = [
  "async-compression",
  "bytes",

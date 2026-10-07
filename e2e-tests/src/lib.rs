@@ -35,7 +35,9 @@ pub use crate::mbtiles::{
     GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing,
     open_read_only, open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
-pub use crate::pmtiles::{LEAFY_ZOOM, leafy_pmtiles, leafy_tile, vector_pmtiles};
+pub use crate::pmtiles::{
+    LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles,
+};
 pub use crate::statics::StaticFiles;
 
 /// A temporary directory for a test to build its fixtures and outputs in.

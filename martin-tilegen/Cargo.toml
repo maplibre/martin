@@ -27,8 +27,9 @@ name = "sort"
 harness = false
 
 [features]
-default = ["mbtiles"]
+default = ["mbtiles", "pmtiles"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
+pmtiles = ["pmtiles/write", "dep:serde_json"]
 
 [dependencies]
 flume.workspace = true
@@ -42,6 +43,7 @@ mlt-core.workspace = true
 pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
+serde_json = { workspace = true, optional = true }
 tempfile.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
