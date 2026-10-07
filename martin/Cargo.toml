@@ -157,6 +157,7 @@ unstable-generate = [
     "dep:indexmap",
     "dep:martin-tilegen",
     "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
 ]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]

@@ -28,6 +28,8 @@ pub use render::{
 };
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
+#[cfg(feature = "pmtiles")]
+pub use sink::PmtilesSink;
 pub use sink::{EncodedTile, TileSink};
 pub use sort::{Merger, SortBuffer, SortConfig, Sorter};
 pub use sort_key::{LayerId, Seq, SortKey};
