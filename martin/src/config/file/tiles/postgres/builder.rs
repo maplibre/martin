@@ -262,6 +262,12 @@ impl PostgresAutoDiscoveryBuilder {
         self.auto_bounds
     }
 
+    /// The connection pool discovery runs on, also used by `martin generate` to scan tables.
+    #[must_use]
+    pub fn pool(&self) -> &PostgresPool {
+        &self.pool
+    }
+
     /// ID under which this [`PostgresAutoDiscoveryBuilder`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {

@@ -505,6 +505,66 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     Ok(format!(" {keyword} ({sql})"))
 }
 
+/// The query `martin generate` streams a whole table with, before any partition condition.
+#[cfg(feature = "unstable-generate")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanSql {
+    /// `SELECT` ending in a `WHERE` clause, so partition conditions can be appended with `AND`.
+    pub sql: String,
+    /// Geometries come back in Web Mercator rather than WGS84.
+    pub mercator: bool,
+    pub has_id: bool,
+    /// Property names in select order.
+    pub properties: Vec<String>,
+}
+
+/// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
+/// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
+/// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+#[cfg(feature = "unstable-generate")]
+pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
+    let props = info.properties.iter().flatten();
+    let row_properties: String = props
+        .clone()
+        .map(|(column, label)| {
+            let table_column = info.discovered.prop_mapping.get(column).unwrap_or(column);
+            let pg_type = info
+                .discovered
+                .column_types
+                .get(table_column)
+                .unwrap_or(label);
+            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
+        })
+        .collect();
+    let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
+        escape_with_alias(&info.discovered.prop_mapping, id)
+    });
+    let column = escape_identifier(&info.geometry_column);
+    let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
+        format!("ST_Force2D(ST_CurveToLine({column}::geometry))")
+    } else {
+        format!("ST_Force2D({column}::geometry)")
+    };
+    let (geometry, mercator) = match info.srid {
+        4326 => (geometry, false),
+        3857 => (geometry, true),
+        _ => (format!("ST_Transform({geometry}, 4326)"), false),
+    };
+    let (schema, table) = (
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table),
+    );
+    let filter = row_filter(info, "AND")?;
+    Ok(ScanSql {
+        sql: format!(
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}"
+        ),
+        mercator,
+        has_id: info.id_column.is_some(),
+        properties: props.map(|(column, _)| column.clone()).collect(),
+    })
+}
+
 /// Whether a column of this geometry type can hold circular arcs.
 /// Everything but the six linear types is assumed to, including the generic `GEOMETRY` and an unknown type.
 fn may_contain_arcs(geometry_type: Option<&str>) -> bool {

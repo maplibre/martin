@@ -37,6 +37,9 @@ pub enum TileGenError {
     #[error("{0} layers exceed the 256 a sort key can address")]
     TooManyLayers(usize),
 
+    #[error("reading the source failed: {0}")]
+    Source(Box<dyn std::error::Error + Send + Sync>),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

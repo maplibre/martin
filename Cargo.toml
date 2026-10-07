@@ -143,7 +143,7 @@ maplibre_native = "0.10.0"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.3" }
 martin-core = { path = "./martin-core", version = "0.12.2", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.8.1" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.1.0" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.1.0", default-features = false }
 mbtiles = { path = "./mbtiles", version = "0.20.2" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }

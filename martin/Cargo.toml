@@ -121,6 +121,13 @@ rendering = [
     "dep:png",
     "dep:quantizr",
 ]
+unstable-generate = [
+    "mbtiles",
+    "postgres",
+    "martin-core/unstable-generate",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
@@ -208,6 +215,7 @@ log.workspace = true
 martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
 mlt-core.workspace = true

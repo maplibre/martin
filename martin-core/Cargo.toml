@@ -47,6 +47,7 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
+unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen"]
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
@@ -147,6 +148,7 @@ image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 jxl-oxide = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }

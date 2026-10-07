@@ -136,6 +136,11 @@ fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
+/// One property column's value, typed by its runtime type, as tile queries read it.
+pub fn row_property(row: &Row, idx: usize) -> PostgresResult<PostgresProperty> {
+    property(row, idx, "reading a feature property")
+}
+
 fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
     let column = &row.columns()[idx];
     let read = |e| PgError(e, context);
