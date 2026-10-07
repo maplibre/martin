@@ -5879,6 +5879,7 @@ dependencies = [
  "integer-encoding",
  "martin-tile-utils",
  "mbtiles",
+ "mlt-core",
  "perf-event2",
  "pmtiles",
  "rayon",

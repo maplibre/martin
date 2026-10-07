@@ -27,6 +27,7 @@ flume.workspace = true
 integer-encoding.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+mlt-core.workspace = true
 pmtiles.workspace = true
 rayon.workspace = true
 tempfile.workspace = true
