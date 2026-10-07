@@ -921,13 +921,12 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     use insta::assert_yaml_snapshot;
+    use martin_core::tiles::BoxedSource;
     use martin_core::tiles::testing::TestSource;
     use martin_tile_utils::{WEB_MERCATOR_QUAD, WORLD_CRS84_QUAD};
     use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
     use tilejson::tilejson;
-
-    use martin_core::tiles::BoxedSource;
 
     use super::*;
     use crate::TileSourceManager;

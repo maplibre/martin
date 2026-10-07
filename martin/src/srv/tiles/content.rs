@@ -27,10 +27,9 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::ResolvedContour;
 #[cfg(feature = "processing")]
 use crate::config::file::ResolvedHillshade;
-use crate::config::file::ResolvedProcess;
 use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
-use crate::config::file::{MltConversion, MvtConversion};
+use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
 use crate::reload::{NewSource, ReloadAdvisory};
 use crate::source::{SourceEntry, SourceList};
 use crate::srv::TileError;

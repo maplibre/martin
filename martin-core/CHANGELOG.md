@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > [!IMPORTANT]
 > This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j
-> Which is an fairly trivial DOS attack IF your operating system has out of date dependencys.
+> Which is an fairly trivial DOS attack IF your operating system has out of date dependencies.
 
 ### Fixed
 
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
 - *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
 - reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
-- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- Change to Box<str> where no resizing is necessary ([#3289](https://github.com/maplibre/martin/pull/3289))
 - migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
 - fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
 

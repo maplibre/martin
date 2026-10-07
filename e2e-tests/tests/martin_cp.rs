@@ -643,14 +643,13 @@ postgres:
     #[cfg(feature = "test-mlt-v2")]
     mod mlt_v2 {
         use std::collections::BTreeMap;
-
-        use martin_e2e_tests::{mlt_dump, rings_from_smallest_vertex};
-        use mlt_core::geo_types::Geometry;
-        use mlt_core::{MValue, PropValue, TileLayer};
-
         use std::fs;
 
-        use martin_e2e_tests::{MartinCp, mlt_layers, temp_dir, tiles};
+        use martin_e2e_tests::{
+            MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles,
+        };
+        use mlt_core::geo_types::Geometry;
+        use mlt_core::{MValue, PropValue, TileLayer};
 
         use super::{ARRAYS, MEASURED, copy_dimensioned, copy_props};
 

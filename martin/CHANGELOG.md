@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > [!IMPORTANT]
 > This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j
-> Which is an fairly trivial DOS attack IF your operating system has out of date dependencys.
-> Docker is not affected, only binary instalations.
+> Which is an fairly trivial DOS attack IF your operating system has out of date dependencies.
+> Docker is not affected, only binary installations.
 
 ### Fixed
 
@@ -209,7 +209,7 @@ Done in [#3398](https://github.com/maplibre/martin/pull/3398), [#3399](https://g
 - *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
 - add a benchmark to make sure we don't regress on cache usage ops ([#3291](https://github.com/maplibre/martin/pull/3291))
 - reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
-- Change to Box<str> where no resizing is nessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- Change to Box<str> where no resizing is necessary ([#3289](https://github.com/maplibre/martin/pull/3289))
 - fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
 - *(pmtiles)* share cached directories instead of copying them ([#3402](https://github.com/maplibre/martin/pull/3402))
 - *(postgres)* cover the TLS verifiers with an in-process handshake ([#3318](https://github.com/maplibre/martin/pull/3318))
