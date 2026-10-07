@@ -205,7 +205,7 @@ bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
     {{insta_test}} --package martin-e2e-tests --features test-pg,test-mlt-v2 {{args}}
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
@@ -658,13 +658,13 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
     cargo nextest run --package martin-e2e-tests --features test-mlt-v2 {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test martin_cp --test postgres --test process {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_generate --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
@@ -732,7 +732,7 @@ test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
 # Run all tests using an SSL connection to a test database
 test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets") test-pg test-doc
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
 
 # Install the nextest test runner if not already installed.
 [private]

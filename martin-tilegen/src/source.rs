@@ -18,6 +18,8 @@ pub struct LayerSpec {
     pub order: FeatureOrder,
     /// Property keys known up front, e.g. table columns, in their column order.
     pub known_keys: Vec<String>,
+    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]`: only tiles intersecting it are generated.
+    pub bounds: Option<[f64; 4]>,
 }
 
 /// Coordinate system of a batch's geometry; projection to Web Mercator happens on render workers.

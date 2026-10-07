@@ -26,6 +26,8 @@ pub struct ScanLayer {
     pub name: String,
     pub info: TableInfo,
     pub zooms: RangeInclusive<u8>,
+    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]` to generate, if not the whole world.
+    pub bbox: Option<[f64; 4]>,
 }
 
 /// How finely tables are split for parallel scans.
@@ -71,7 +73,17 @@ impl PgScanSource {
         for (layer, scan) in layers.into_iter().enumerate() {
             // `generate` rejects more than 256 layers before reading any of them.
             let index = u8::try_from(layer).unwrap_or(u8::MAX);
-            let sql = scan_sql(&scan.info)?;
+            let grid = LayerGrid {
+                extent: scan
+                    .info
+                    .extent
+                    .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
+                buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
+            };
+            let sql = scan_sql(
+                &scan.info,
+                scan.bbox.map(|b| widen(b, grid, *scan.zooms.end())),
+            )?;
             for condition in plan(&pool, &scan.info, options, tid_ranges).await? {
                 partitions.push(Partition {
                     table: layer,
@@ -81,16 +93,11 @@ impl PgScanSource {
             specs.push(LayerSpec {
                 name: scan.name,
                 zooms: scan.zooms,
-                grid: LayerGrid {
-                    extent: scan
-                        .info
-                        .extent
-                        .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
-                    buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
-                },
+                grid,
                 clip: scan.info.clip_geom.unwrap_or(true),
                 order: FeatureOrder::Source,
                 known_keys: sql.properties.clone(),
+                bounds: scan.bbox,
             });
             tables.push(Table {
                 layout: ScanLayout {
@@ -152,6 +159,18 @@ impl FeatureSource for PgScanSource {
         self.skipped.fetch_add(skipped, Ordering::Relaxed);
         Ok(())
     }
+}
+
+/// Grows a bbox by the tile buffer at `max_zoom`, so tiles at its edge still get their buffer contents.
+fn widen([west, south, east, north]: [f64; 4], grid: LayerGrid, max_zoom: u8) -> [f64; 4] {
+    let margin =
+        360.0 / f64::from(1u32 << max_zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
+    [
+        west - margin,
+        (south - margin).max(-90.0),
+        east + margin,
+        (north + margin).min(90.0),
+    ]
 }
 
 /// Splits a table (or each leaf of a partitioned one) into page ranges, a view or foreign table with an

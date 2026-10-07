@@ -11,7 +11,8 @@ use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, LayerSpec, MemorySource, Prop, SourceFeature,
 };
 use martin_tilegen::{
-    FeatureOrder, GenerateConfig, LayerGrid, MbtilesSink, SortConfig, Summary, TileFormat, generate,
+    FeatureOrder, GenerateConfig, LayerGrid, MbtilesSink, Progress, SortConfig, Summary,
+    TileFormat, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::EncoderConfig;
@@ -28,6 +29,7 @@ fn layer(name: &str, keys: &[&str]) -> LayerSpec {
         clip: true,
         order: FeatureOrder::Source,
         known_keys: keys.iter().map(|&k| k.to_owned()).collect(),
+        bounds: None,
     }
 }
 
@@ -99,6 +101,7 @@ fn run(source: &impl FeatureSource, dir: &Path, threads: usize) -> (Summary, Vec
         MbtilesSink::create(&path).unwrap(),
         &config,
         tilejson::tilejson! { tiles: vec![] },
+        &Progress::default(),
     )
     .unwrap();
     let mbt = Mbtiles::new(&path).unwrap();

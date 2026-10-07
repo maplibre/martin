@@ -9,7 +9,7 @@ use martin::config::primitives::IdResolver;
 use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
 use martin_tile_utils::Encoding;
 use martin_tilegen::source::FeatureSource as _;
-use martin_tilegen::{GenerateConfig, MbtilesSink, SortConfig, TileFormat, generate};
+use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
 use mlt_core::encoder::EncoderConfig;
 
@@ -55,6 +55,7 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
                 name: name.to_owned(),
                 info,
                 zooms: 0..=6,
+                bbox: None,
             }
         })
         .collect();
@@ -93,6 +94,7 @@ async fn run(dir: &Path, options: ScanOptions, threads: usize) -> (u32, u64, Vec
                 sink,
                 &config,
                 tilejson::tilejson! { tiles: vec![] },
+                &Progress::default(),
             )
             .unwrap(),
             path,

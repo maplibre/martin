@@ -1,6 +1,6 @@
 //! Runs a whole generation: render every feature into sorted runs, then merge, encode and write tiles.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread;
 
 use martin_tile_utils::Encoding;
@@ -38,6 +38,15 @@ pub struct Summary {
     pub layers: Vec<LayerStats>,
 }
 
+/// Live counters another thread can report while a generation runs.
+#[derive(Debug, Default)]
+pub struct Progress {
+    pub features: AtomicU64,
+    pub tiles: AtomicU64,
+    /// Set when rendering is done and tiles are being merged, encoded and written.
+    pub writing: AtomicBool,
+}
+
 /// Generates every tile of `source` into `sink`. `metadata` is completed with the zooms, `format` and
 /// `vector_layers` the run produced, then stored once all tiles are written.
 pub fn generate<S: FeatureSource, K: TileSink>(
@@ -45,6 +54,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     mut sink: K,
     config: &GenerateConfig,
     mut metadata: TileJSON,
+    progress: &Progress,
 ) -> TileGenResult<Summary> {
     let specs = source.layers();
     if specs.len() > 256 {
@@ -57,6 +67,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         .map(|(spec, index)| {
             let mut layer = RenderLayer::new(index, spec.zooms.clone(), spec.grid)?;
             layer.clip = spec.clip;
+            layer.bounds = spec.bounds.map(unit_bounds);
             Ok(layer)
         })
         .collect::<TileGenResult<Vec<_>>>()?;
@@ -73,7 +84,9 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         &keys,
         order,
         config.threads,
+        progress,
     )?;
+    progress.writing.store(true, Ordering::Relaxed);
 
     let names: Vec<KeyNames> = keys.into_iter().map(KeyInterner::freeze).collect();
     let infos: Vec<_> = specs
@@ -121,6 +134,9 @@ pub fn generate<S: FeatureSource, K: TileSink>(
             sink.write_all(&mut batches.inspect(|batch| {
                 if let Ok(batch) = batch {
                     tiles += batch.len() as u64;
+                    progress
+                        .tiles
+                        .fetch_add(batch.len() as u64, Ordering::Relaxed);
                 }
             }))?;
             Ok((sink, tiles))
@@ -151,6 +167,7 @@ fn render_all<S: FeatureSource>(
     keys: &[KeyInterner],
     order: crate::TileOrder,
     threads: usize,
+    progress: &Progress,
 ) -> TileGenResult<(u64, u64)> {
     let threads = threads.max(1);
     let partitions = source.partitions();
@@ -199,6 +216,9 @@ fn render_all<S: FeatureSource>(
                         render_batch(&mut batch, &mut renderer, layers, order, &mut buffer)
                             .map_err(fail)?;
                         count += batch.features.len() as u64;
+                        progress
+                            .features
+                            .fetch_add(batch.features.len() as u64, Ordering::Relaxed);
                     }
                     buffer.finish().map_err(fail)?;
                     Ok((count, renderer.slice_errors))
@@ -280,6 +300,16 @@ fn render_batch(
         )?;
     }
     Ok(())
+}
+
+/// WGS84 `[min_lon, min_lat, max_lon, max_lat]` as unit-coordinate `[min_x, min_y, max_x, max_y]`.
+fn unit_bounds([west, south, east, north]: [f64; 4]) -> [f64; 4] {
+    let mut corners = [
+        geo_types::Coord { x: west, y: north },
+        geo_types::Coord { x: east, y: south },
+    ];
+    project::from_lonlat(&mut corners);
+    [corners[0].x, corners[0].y, corners[1].x, corners[1].y]
 }
 
 fn project_coords(crs: Crs, coords: &mut [geo_types::Coord<f64>]) {

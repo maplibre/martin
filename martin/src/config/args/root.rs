@@ -72,6 +72,9 @@ pub struct Args {
 pub enum Command {
     /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
     Cp(CopierArgs),
+    /// Generate a tileset from whole tables in one pass (bulk generation)
+    #[cfg(feature = "unstable-generate")]
+    Generate(crate::generate::GeneratorArgs),
 }
 
 // None of these params will be transferred to the config

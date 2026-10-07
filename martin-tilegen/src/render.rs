@@ -42,6 +42,8 @@ pub struct RenderLayer {
     /// Lines and polygons whose bounding box is smaller than this many pixels are dropped, below the
     /// max zoom and at it. Size only shrinks with zoom, so a dropped feature stays dropped.
     pub min_size: (f64, f64),
+    /// Only tiles intersecting these unit-coordinate bounds (`[min_x, min_y, max_x, max_y]`) are kept.
+    pub bounds: Option<[f64; 4]>,
 }
 
 impl RenderLayer {
@@ -65,7 +67,22 @@ impl RenderLayer {
             clip: true,
             simplify: (0.1, 0.0625),
             min_size: (1.0, 0.0625),
+            bounds: None,
         })
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "unit bounds times 2^zoom fit i64"
+    )]
+    fn contains(&self, zoom: u8, x: u32, y: u32) -> bool {
+        let Some([x0, y0, x1, y1]) = self.bounds else {
+            return true;
+        };
+        let side = scale(zoom);
+        let tile = |v: f64| (v * side).floor() as i64;
+        (tile(x0)..=tile(x1)).contains(&i64::from(x))
+            && (tile(y0)..=tile(y1)).contains(&i64::from(y))
     }
 
     fn at_max(&self, zoom: u8, (below, at): (f64, f64)) -> f64 {
@@ -312,7 +329,7 @@ impl Ctx<'_> {
         let (Ok(x), Ok(y)) = (u32::try_from(tx.rem_euclid(side)), u32::try_from(ty)) else {
             return Ok(());
         };
-        if y >= side.cast_unsigned() {
+        if y >= side.cast_unsigned() || !self.layer.contains(zoom, x, y) {
             return Ok(());
         }
         let tile = self.order.tile_id(TileCoord::new_unchecked(zoom, x, y))?;
@@ -517,6 +534,19 @@ mod tests {
             assert_eq!(geom.vertices.len(), 2);
         }
         assert_eq!(tiles[1].2.vertices, [[51 - 256, 51], [461 - 256, 51]]);
+    }
+
+    #[test]
+    fn bounds_drop_tiles_outside() {
+        let mut layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        layer.min_size = (0.0, 0.0);
+        layer.bounds = Some([0.0, 0.0, 0.4, 0.4]);
+        let line = LineString::from(vec![coord! { x: 0.1, y: 0.1 }, coord! { x: 0.9, y: 0.1 }]);
+        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
+        assert_eq!(
+            tiles.iter().map(|t| t.0.as_str()).collect::<Vec<_>>(),
+            ["1/0/0"]
+        );
     }
 
     #[test]

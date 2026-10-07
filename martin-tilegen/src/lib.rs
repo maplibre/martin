@@ -22,7 +22,7 @@ pub use encode::{
     DedupIndex, EncodeSettings, FeatureOrder, LayerInfo, LayerStats, TileEncoder, TileFormat,
 };
 pub use error::{TileGenError, TileGenResult};
-pub use generate::{GenerateConfig, Summary, generate};
+pub use generate::{GenerateConfig, Progress, Summary, generate};
 pub use group::{TileGrouper, TileRecords};
 pub use key::{Seq, SortKey};
 pub use render::{Feature, FeatureGeom, RenderLayer, Renderer};

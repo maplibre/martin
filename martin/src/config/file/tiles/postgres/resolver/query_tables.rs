@@ -521,8 +521,10 @@ pub struct ScanSql {
 /// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
 /// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
 /// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+///
+/// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
 #[cfg(feature = "unstable-generate")]
-pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
+pub fn scan_sql(info: &TableInfo, bbox: Option<[f64; 4]>) -> PostgresResult<ScanSql> {
     let props = info.properties.iter().flatten();
     let row_properties: String = props
         .clone()
@@ -555,9 +557,16 @@ pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
         escape_identifier(&info.table),
     );
     let filter = row_filter(info, "AND")?;
+    let bbox = bbox.map_or_else(String::new, |[west, south, east, north]| {
+        let envelope = format!("ST_MakeEnvelope({west}, {south}, {east}, {north}, 4326)");
+        match info.srid {
+            4326 => format!(" AND {column} && {envelope}"),
+            srid => format!(" AND {column} && ST_Transform({envelope}, {srid})"),
+        }
+    });
     Ok(ScanSql {
         sql: format!(
-            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}"
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
         ),
         mercator,
         has_id: info.id_column.is_some(),
