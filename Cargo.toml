@@ -219,6 +219,11 @@ zstd = "0.14"
 zune-core = "0.5"
 zune-jpegxl = "0.5"
 
+[patch.crates-io]
+# Until https://github.com/nyurik/map-tile-toolkit/pull/22 (on top of #23) is released:
+# `PolygonSlicerAll` and the exact line walk, needed by martin-tilegen
+map-tile-toolkit = { git = "https://github.com/nyurik/map-tile-toolkit", branch = "line-walk" }
+
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
 sqlx-macros.opt-level = 3
