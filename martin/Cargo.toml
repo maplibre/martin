@@ -127,6 +127,7 @@ unstable-generate = [
     "martin-core/unstable-generate",
     "dep:martin-tilegen",
     "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
 ]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]

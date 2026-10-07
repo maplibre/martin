@@ -46,6 +46,9 @@ pub enum TileGenError {
     #[error(transparent)]
     Mlt(#[from] mlt_core::MltError),
 
+    #[error("{0:?} compression cannot be used here")]
+    UnsupportedEncoding(martin_tile_utils::Encoding),
+
     #[error("the tile writer stopped early")]
     WriterStopped,
 

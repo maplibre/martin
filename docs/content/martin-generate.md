@@ -4,6 +4,7 @@ icon: material/layers-triple
 tags:
   - tooling
   - mbtiles
+  - pmtiles
   - postgres
 ---
 
@@ -16,8 +17,7 @@ For large tilesets this is much faster and puts far less load on the database.
 
 !!! warning
     `martin generate` is new. It renders points, lines and polygons; geometry collections are
-    skipped and counted. Output is MBTiles only; PMTiles output is planned. The feature is not in
-    the default build:
+    skipped and counted. The feature is not in the default build:
 
     ```bash
     cargo build --package martin --bin martin --features unstable-generate
@@ -53,7 +53,8 @@ Sources are configured exactly as for the tile server, with the same connection 
    covers entirely are recorded as ranges, not one by one, so huge polygons cost time and space in
    proportion to their outline.
 3. The pieces are sorted on disk by tile, merged, encoded as MLT or MVT, compressed, and written in
-   the MBTiles key order. Identical tiles are stored once.
+   the order the output stores them: MBTiles key order, or the Hilbert order of a clustered PMTiles
+   archive. Identical tiles are stored once.
 
 The output is deterministic: the same data and options produce the same file, whatever the number of
 threads. Features keep their source order within a tile, so a view's `ORDER BY` controls the draw
@@ -63,10 +64,10 @@ order. Partitioned views are read in id order.
 
 | Option              | Default         | Meaning                                                                 |
 |---------------------|-----------------|-------------------------------------------------------------------------|
-| `--output-file`     |                 | The MBTiles file to create; it must not exist or be empty               |
+| `--output-file`     |                 | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty    |
 | `--source`          | all tables      | `id` or `id=layer_name`, repeatable                                     |
 | `--format`          | `mlt`           | `mlt` or `mvt`                                                          |
-| `--encoding`        | `gzip`          | `gzip`, `zstd`, `br`, `zlib` or `none`                                  |
+| `--encoding`        | `gzip`          | `gzip`, `zstd`, `br`, `zlib` (MBTiles only) or `none`                   |
 | `--min-zoom`        | `0`             | Lowest zoom; a source's `minzoom` raises it                             |
 | `--max-zoom`        | `14`            | Highest zoom; a source's `maxzoom` lowers it                            |
 | `--bbox`            | whole world     | `min_lon,min_lat,max_lon,max_lat`: only features and tiles inside it    |

@@ -3,7 +3,9 @@
 
 use std::path::Path;
 
-use martin_e2e_tests::{MartinCp, MbtilesCli, metadata_listing, temp_dir, tile_listing};
+use martin_e2e_tests::{
+    MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, temp_dir, tile_listing,
+};
 
 /// The arguments shared by every generation from the test database: two layers, zooms 0 to 3,
 /// uncompressed so the snapshots do not depend on the compressor.
@@ -41,7 +43,24 @@ async fn generates_a_valid_tileset() {
 }
 
 #[tokio::test]
-async fn rejects_function_sources_and_pmtiles() {
+async fn generates_pmtiles_with_the_same_tiles() {
+    let dir = temp_dir();
+    let (mbtiles, pmtiles) = (
+        dir.path().join("out.mbtiles"),
+        dir.path().join("out.pmtiles"),
+    );
+    generate(&mbtiles).run().await;
+    generate(&pmtiles).run().await;
+    assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
+
+    // An existing archive is neither overwritten nor removed.
+    let log = generate(&pmtiles).run_expecting_failure().await;
+    assert!(log.contains("not empty"), "{log}");
+    assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
+}
+
+#[tokio::test]
+async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::generate()
         .with_postgres()
@@ -52,12 +71,4 @@ async fn rejects_function_sources_and_pmtiles() {
         .run_expecting_failure()
         .await;
     assert!(log.contains("function source"), "{log}");
-
-    let log = MartinCp::generate()
-        .with_postgres()
-        .arg("--output-file")
-        .arg(dir.path().join("out.pmtiles"))
-        .run_expecting_failure()
-        .await;
-    assert!(log.contains("PMTiles output is not supported yet"), "{log}");
 }

@@ -28,6 +28,8 @@ pub use key::{Seq, SortKey};
 pub use render::{Feature, FeatureGeom, RenderLayer, Renderer};
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
+#[cfg(feature = "pmtiles")]
+pub use sink::PmtilesSink;
 pub use sink::{EncodedTile, TileSink};
 pub use sort::{Merger, SortBuffer, SortConfig, Sorter};
 pub use tile::{MAX_ZOOM, TileOrder};
