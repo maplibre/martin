@@ -57,13 +57,15 @@ pub struct LayerDef {
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
     pub min_size: PixelThreshold,
+    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]`: only tiles intersecting it are generated.
+    pub bounds: Option<[f64; 4]>,
     pub encoder: EncoderConfig,
     pub id: IdDef,
     pub attributes: AttributesDef,
 }
 
 impl LayerDef {
-    /// In source order, keeping ids and all attributes, with
+    /// Unbounded, in source order, keeping ids and all attributes, with
     /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
@@ -73,6 +75,7 @@ impl LayerDef {
             grid,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+            bounds: None,
             encoder: EncoderConfig::default(),
             id: IdDef::Keep,
             attributes: AttributesDef::All,
@@ -201,12 +204,13 @@ fn plan_layer(
                 .map(|pos| KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys")))
         })
         .collect();
-    let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
+    let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
         PlanError::InvalidLayer {
             layer: def.name.clone(),
             error,
         }
     })?;
+    render.bounds = def.bounds.map(crate::render::unit_bounds);
     Ok(PlannedLayer {
         render,
         info: LayerInfo {
