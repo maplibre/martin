@@ -21,6 +21,16 @@ pub use mlt_encoder::{encode_features_as_mlt, keeps_measures};
 mod source;
 pub use source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo};
 
+#[cfg(feature = "unstable-generate")]
+mod scan;
+#[cfg(feature = "unstable-generate")]
+pub use deadpool_postgres::Object as PooledConnection;
+#[cfg(feature = "unstable-generate")]
+pub use scan::{
+    ScanLayout, id_bounds, open_snapshot_connections, relation_blocks, scan_features,
+    server_version_num,
+};
+
 mod tile_wkb;
 pub use tile_wkb::{TileWkbError, parse_tile_wkb};
 
