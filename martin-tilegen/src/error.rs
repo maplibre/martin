@@ -71,6 +71,9 @@ pub enum TileGenError {
     #[error("layer `{layer}`: attribute `{column}` is not a table column")]
     UnknownColumn { layer: String, column: String },
 
+    #[error("reading the source failed: {0}")]
+    Source(Box<dyn std::error::Error + Send + Sync>),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

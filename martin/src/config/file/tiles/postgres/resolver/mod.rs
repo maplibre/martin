@@ -4,4 +4,6 @@ mod query_tables;
 
 pub use query_functions::{function_name, query_available_function};
 pub use query_schemas::query_schemas;
+#[cfg(feature = "unstable-generate")]
+pub use query_tables::{ScanSql, scan_sql};
 pub use query_tables::{query_available_tables, table_to_query};

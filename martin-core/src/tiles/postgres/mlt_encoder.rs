@@ -306,7 +306,9 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
 
 /// The properties `ST_AsMVT` makes of a `jsonb` document: one for each top-level key holding a
 /// string, a boolean or a number, and none for a document that is not an object.
-fn st_asmvt_properties(document: Option<Value>) -> impl Iterator<Item = (String, PropValue)> {
+pub(super) fn st_asmvt_properties(
+    document: Option<Value>,
+) -> impl Iterator<Item = (String, PropValue)> {
     let object = match document {
         Some(Value::Object(object)) => object,
         _ => serde_json::Map::new(),

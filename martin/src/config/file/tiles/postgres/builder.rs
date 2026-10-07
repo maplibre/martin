@@ -262,6 +262,12 @@ impl PostgresAutoDiscoveryBuilder {
         self.auto_bounds
     }
 
+    #[cfg(feature = "unstable-generate")]
+    #[must_use]
+    pub fn pool(&self) -> &PostgresPool {
+        &self.pool
+    }
+
     /// ID under which this [`PostgresAutoDiscoveryBuilder`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {

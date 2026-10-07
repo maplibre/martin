@@ -148,7 +148,16 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-generate = ["dep:cel", "dep:indexmap", "_tiles"]
+unstable-generate = [
+    "_tiles",
+    "mbtiles",
+    "postgres",
+    "martin-core/unstable-generate",
+    "dep:cel",
+    "dep:indexmap",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
@@ -211,6 +220,7 @@ log.workspace = true
 martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
 mlt-core.workspace = true

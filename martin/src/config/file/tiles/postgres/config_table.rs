@@ -246,6 +246,17 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
+    /// The type a query returns `column` as, after mapping a property to its table column.
+    #[must_use]
+    pub fn column_type(&self, column: &str) -> Option<&str> {
+        let column = self
+            .discovered
+            .prop_mapping
+            .get(column)
+            .map_or(column, String::as_str);
+        self.discovered.column_types.get(column).map(String::as_str)
+    }
+
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
     pub fn append_cfg_info(

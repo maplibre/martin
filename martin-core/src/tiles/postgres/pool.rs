@@ -231,6 +231,12 @@ impl PostgresPool {
         Err(CannotTransform(Box::new(refusal), from, to))
     }
 
+    /// The most connections [`Self::get`] hands out at once.
+    #[must_use]
+    pub fn max_size(&self) -> usize {
+        self.pool.status().max_size
+    }
+
     /// Closes `conn` instead of returning it to the pool.
     ///
     /// `PostGIS` keeps projection state per connection, and after one `ST_Transform` fails with
