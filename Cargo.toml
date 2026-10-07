@@ -132,6 +132,7 @@ image-compare = "0.5"
 indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
+integer-encoding = "4.1.0"
 itertools = "0.15"
 json-patch = "4"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
@@ -151,6 +152,7 @@ notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
+perf-event2 = "0.7.4"
 pmtiles = { version = "0.24.1", default-features = false }
 png = "0.18.0"
 postgis = "0.9"

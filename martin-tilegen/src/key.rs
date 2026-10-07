@@ -68,6 +68,16 @@ impl SortKey {
         Seq(self.0 as u64)
     }
 
+    /// High and low halves, so sort indexes can store keys without `u128`'s 16-byte alignment.
+    #[expect(clippy::cast_possible_truncation, reason = "splits into halves")]
+    pub(crate) const fn words(self) -> [u64; 2] {
+        [(self.0 >> 64) as u64, self.0 as u64]
+    }
+
+    pub(crate) const fn from_words([hi, lo]: [u64; 2]) -> Self {
+        Self((hi as u128) << 64 | lo as u128)
+    }
+
     /// Little-endian, so encoding is a plain copy on common targets; runs compare decoded keys, never bytes.
     #[must_use]
     pub const fn to_bytes(self) -> [u8; Self::ENCODED_LEN] {
