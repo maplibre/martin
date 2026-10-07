@@ -1,13 +1,17 @@
 #![doc = include_str!("../README.md")]
 #![forbid(unsafe_code)]
 
+mod assemble;
 mod error;
 pub mod pipeline;
+pub mod props;
+pub mod record;
 mod sink;
 mod sort;
 mod sort_key;
 mod tile;
 
+pub use assemble::{LayerAssembler, LayerGrid};
 pub use error::{TileGenError, TileGenResult};
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
