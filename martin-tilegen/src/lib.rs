@@ -13,6 +13,7 @@ pub mod project;
 pub mod props;
 pub mod record;
 mod render;
+mod simplify;
 mod sink;
 mod sort;
 pub mod source;
