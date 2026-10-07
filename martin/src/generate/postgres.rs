@@ -23,6 +23,8 @@ pub struct ScanLayer {
     pub name: String,
     pub info: TableInfo,
     pub zooms: RangeInclusive<u8>,
+    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]` to generate, if not the whole world.
+    pub bbox: Option<[f64; 4]>,
 }
 
 /// Each table is one partition, and all of them are read by one reader in one transaction.
@@ -56,7 +58,11 @@ impl PgScanSource {
                     .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
                 buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
             };
-            let sql = scan_sql(&scan.info).map_err(SourceError::from)?;
+            let sql = scan_sql(
+                &scan.info,
+                scan.bbox.map(|b| widen(b, grid, *scan.zooms.end())),
+            )
+            .map_err(SourceError::from)?;
             let dynamic_props = scan
                 .info
                 .properties
@@ -66,7 +72,10 @@ impl PgScanSource {
             defs.push(TableDef {
                 columns: sql.properties.clone(),
                 dynamic_props,
-                layers: vec![LayerDef::new(scan.name, scan.zooms, grid)],
+                layers: vec![LayerDef {
+                    bounds: scan.bbox,
+                    ..LayerDef::new(scan.name, scan.zooms, grid)
+                }],
             });
             tables.push(Table {
                 layout: ScanLayout {
@@ -155,4 +164,16 @@ impl Drop for ScanReader<'_> {
             PostgresPool::discard(conn);
         }
     }
+}
+
+/// Grows a bbox by the tile buffer at `max_zoom`, so tiles at its edge still get their buffer contents.
+fn widen([west, south, east, north]: [f64; 4], grid: LayerGrid, max_zoom: u8) -> [f64; 4] {
+    let margin =
+        360.0 / f64::from(1u32 << max_zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
+    [
+        west - margin,
+        (south - margin).max(-90.0),
+        east + margin,
+        (north + margin).min(90.0),
+    ]
 }
