@@ -11,12 +11,23 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+perf-event2.workspace = true
+
+[[bench]]
+name = "sort"
+harness = false
+
 [dependencies]
+integer-encoding.workspace = true
 martin-tile-utils.workspace = true
 pmtiles.workspace = true
+rayon.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 rstest.workspace = true
 
 [lints]
