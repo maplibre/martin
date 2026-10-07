@@ -1,6 +1,6 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
-use geo_types::{Coord, LineString};
+use geo_types::{Coord, LineString, Polygon};
 
 use crate::generate::props::{KeyId, KeyInterner, Prop};
 
@@ -38,6 +38,7 @@ pub enum Crs {
 pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
+    Polygons(Vec<Polygon<f64>>),
 }
 
 /// One feature as a source reads it.
