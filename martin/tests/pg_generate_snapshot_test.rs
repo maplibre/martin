@@ -71,6 +71,7 @@ async fn source_over_new_table(
         name: name.to_owned(),
         info,
         zooms: 0..=6,
+        bbox: None,
     };
     let options = ScanOptions {
         partitions_per_table: partitions,
