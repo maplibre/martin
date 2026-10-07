@@ -235,6 +235,16 @@ async fn main() {
         return;
     }
 
+    #[cfg(feature = "unstable-generate")]
+    if let Some(Command::Generate(generate_args)) = args.command {
+        init_tracing(&filter, LogFormat::from_env(), true);
+        if let Err(e) = Box::pin(martin::generate::start(generate_args)).await {
+            error!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     #[cfg(feature = "tui")]
     let use_dashboard = !args.meta.no_tui && tui::is_available();
     #[cfg(not(feature = "tui"))]

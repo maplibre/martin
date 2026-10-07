@@ -53,6 +53,7 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
                 name: name.to_owned(),
                 info,
                 zooms: 0..=6,
+                bbox: None,
             }
         })
         .collect();
