@@ -22,6 +22,18 @@ pub enum TileGenError {
     #[error("invalid sort configuration: {0}")]
     InvalidSortConfig(&'static str),
 
+    #[error(
+        "layer {index}: extent {extent} and max zoom {max_zoom} overflow the i32 grid, or the buffer is not below half the extent"
+    )]
+    InvalidLayer {
+        index: u8,
+        extent: u32,
+        max_zoom: u8,
+    },
+
+    #[error(transparent)]
+    Slice(#[from] map_tile_toolkit::TileError),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

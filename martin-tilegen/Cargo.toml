@@ -28,7 +28,10 @@ mbtiles = ["dep:mbtiles", "dep:tokio"]
 
 [dependencies]
 flume.workspace = true
+geo.workspace = true
+geo-types.workspace = true
 integer-encoding.workspace = true
+map-tile-toolkit.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core.workspace = true
@@ -41,7 +44,9 @@ tokio = { workspace = true, optional = true, features = ["rt"] }
 xxhash-rust.workspace = true
 
 [dev-dependencies]
+approx.workspace = true
 criterion.workspace = true
+martin-core = { workspace = true, features = ["_testing", "processing"] }
 rstest.workspace = true
 
 [lints]
