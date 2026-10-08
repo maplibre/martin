@@ -30,6 +30,10 @@ use rstest::rstest;
     include_bytes!("../fixtures/point.mlt"),
     TileInfo::new(Format::Mlt, Encoding::Internal)
 )]
+#[case::mlt_whose_first_layer_is_1407_bytes(
+    &[[0xFF_u8, 0x0A, 0x01].as_slice(), &[0; 1406]].concat(),
+    TileInfo::new(Format::Mlt, Encoding::Internal)
+)]
 // we have no way of knowing what is an MVT -> we just say it is out of the
 // fact that it is not something else
 #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
