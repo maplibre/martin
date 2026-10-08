@@ -470,7 +470,7 @@ impl<'a> DynTileSource<'a> {
                 IfNoneMatch::Any => true,
                 IfNoneMatch::Items(items) => {
                     let etag = EntityTag::new_strong(etag.to_owned());
-                    items.iter().any(|e| e.strong_eq(&etag))
+                    items.iter().any(|e| e.weak_eq(&etag))
                 }
             };
             if dominated_by {
@@ -1063,6 +1063,7 @@ mod tests {
     #[rstest]
     #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
     #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())])), None)]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_weak("O3OuMnabzuvUuMTLiOt3rA".to_owned())])), None)]
     #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_owned())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
     #[actix_rt::test]
     async fn test_etag(
