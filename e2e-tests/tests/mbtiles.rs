@@ -68,7 +68,7 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.body(), b"\xff\xd8\xff\xff\xff\xd9");
 
@@ -111,7 +111,7 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
     content-length: 9
     content-type: image/png
     etag: "AsEwc3Kp5v5Qd7xgb4RDuA"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.body(), b"\x89PNG\r\n\x1a\n\x01");
 
@@ -173,7 +173,7 @@ async fn an_mvt_source_serves_a_decodable_tile() {
     content-length: 263
     content-type: application/x-protobuf
     etag: "nQg6luGC0-kziK3j3sM-zA"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     insta::assert_snapshot!(tile.mvt_dump(), @r#"
     layer: 0
@@ -275,7 +275,7 @@ async fn a_normalized_source_serves_its_tilejson() {
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     martin.stop().await;
@@ -372,7 +372,7 @@ async fn reload_adds_and_updates_a_source() {
     content-length: 1107
     content-type: application/x-protobuf
     etag: "fZ_WrS_v5P9bJuL6UuRBQQ"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let layers = tile.mvt().layers;
     assert_eq!(layers.len(), 1);

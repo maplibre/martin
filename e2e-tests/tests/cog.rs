@@ -733,7 +733,7 @@ async fn the_shape_of_a_tile_response() {
     content-length: 5031
     content-type: image/png
     etag: "HzR-km-Kc313WfVG2_0Kew"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     martin.stop().await;

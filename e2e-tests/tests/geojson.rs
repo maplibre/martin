@@ -262,7 +262,7 @@ async fn a_tile_is_served_gzipped_with_an_etag() {
     content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     martin.stop().await;
@@ -365,7 +365,7 @@ async fn reload_adds_updates_and_removes_a_source() {
     content-length: 133
     content-type: application/x-protobuf
     etag: "Wtlvu7ZHlUF7ibfKmKKoag"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let layers = tile.mvt().layers;
     assert_eq!(layers.len(), 1);

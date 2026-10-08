@@ -107,7 +107,7 @@ async fn a_normal_source_is_served_as_a_baked_hillshade() {
         content-length: [LENGTH]
         content-type: image/png
         etag: [ETAG]
-        vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
     assert_image_matches(reference("baked.png"), response.body());

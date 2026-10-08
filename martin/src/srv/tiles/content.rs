@@ -6,7 +6,7 @@ use actix_http::header::Quality;
 use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{
     Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG,
-    Encoding as HeaderEnc, EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
+    Encoding as HeaderEnc, EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference, VARY,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -489,6 +489,7 @@ impl<'a> DynTileSource<'a> {
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, HeaderValue::from_static(val)));
         }
+        response.insert_header((VARY, HeaderValue::from_static("accept-encoding")));
         if let Some(cache_control) = self.cache_control_header() {
             response.insert_header((CACHE_CONTROL, cache_control));
         }

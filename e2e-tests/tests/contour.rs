@@ -86,7 +86,7 @@ async fn an_elevation_source_is_served_as_traced_contours() {
         content-length: [LENGTH]
         content-type: application/x-protobuf
         etag: [ETAG]
-        vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
     let layers = response.mvt().layers;
