@@ -218,6 +218,8 @@ zune-core = "0.5"
 zune-jpegxl = "0.5"
 
 [patch.crates-io]
+# Until https://github.com/maplibre/maplibre-tile-spec/pull/1888 is released: `LayerWriter`, faster encoding
+mlt-core = { git = "https://github.com/nyurik/maplibre-tile-spec", branch = "layer-writer" }
 # Until https://github.com/nyurik/map-tile-toolkit/pull/22 (on top of #23) is released:
 # `PolygonSlicerAll` and the exact line walk, needed by martin-tilegen
 map-tile-toolkit = { git = "https://github.com/nyurik/map-tile-toolkit", branch = "line-walk" }

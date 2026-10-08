@@ -7,7 +7,7 @@ use std::sync::{Mutex, PoisonError};
 use martin_tile_utils::Encoding;
 use mlt_core::PropKind;
 use mlt_core::encoder::EncoderConfig;
-use mlt_core::mvt::tile_layers_to_mvt;
+use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::group::TileRecords;
@@ -40,12 +40,13 @@ pub enum FeatureOrder {
 }
 
 impl FeatureOrder {
+    /// Sets the sort trials of this order; mlt-core's own default tries none.
     fn apply(self, config: EncoderConfig) -> EncoderConfig {
         let spatial = self == Self::Auto;
         config
-            .with_id_sort(self != Self::Source && config.attempt_id_sort())
-            .with_spatial_morton_sort(spatial && config.attempt_spatial_morton_sort())
-            .with_spatial_hilbert_sort(spatial && config.attempt_spatial_hilbert_sort())
+            .with_id_sort(self != Self::Source)
+            .with_spatial_morton_sort(spatial)
+            .with_spatial_hilbert_sort(spatial)
     }
 }
 
@@ -199,8 +200,8 @@ impl TileEncoder {
         zoom: u8,
         features: &mut Vec<(u8, u64)>,
     ) -> TileGenResult<Vec<u8>> {
-        let mut layers = Vec::new();
-        let mut orders = Vec::new();
+        let mut mlt = Vec::new();
+        let mut mvt = MvtTileBuilder::new();
         let mut records: Vec<(Seq, &[u8])> = Vec::new();
         let mut all = tile.records().peekable();
         while let Some(&(layer, _, _)) = all.peek() {
@@ -209,35 +210,27 @@ impl TileEncoder {
                 records.push((seq, bytes));
             }
             let info = &settings.layers[usize::from(layer)];
-            let assembled = self.assembler.assemble(
-                &info.name,
-                info.grid,
-                &settings.keys[usize::from(layer)],
-                &records,
-            )?;
+            let names = &settings.keys[usize::from(layer)];
+            let assembled = self
+                .assembler
+                .assemble(&info.name, info.grid, names, &records)?;
             let stats = &mut self.stats[usize::from(layer)];
-            let count = assembled.features().len() as u64;
+            let count = assembled.layer.feature_count() as u64;
             stats.add_features(zoom, count);
-            for (name, &kind) in assembled
-                .property_names()
-                .iter()
-                .zip(assembled.property_kinds())
-            {
-                stats.add_field(name, kind);
+            for &(key, kind) in assembled.columns {
+                stats.add_field(names.name(key), kind);
             }
             features.push((layer, count));
-            layers.push(assembled);
-            orders.push(info.order);
+            match settings.format {
+                TileFormat::Mlt(config) => {
+                    mlt.extend(assembled.layer.encode(info.order.apply(config))?);
+                }
+                TileFormat::Mvt => mvt = assembled.layer.write_mvt(mvt)?,
+            }
         }
         let data = match settings.format {
-            TileFormat::Mlt(config) => {
-                let mut data = Vec::new();
-                for (layer, order) in layers.into_iter().zip(orders) {
-                    data.extend(layer.encode(order.apply(config))?);
-                }
-                data
-            }
-            TileFormat::Mvt => tile_layers_to_mvt(layers)?,
+            TileFormat::Mlt(_) => mlt,
+            TileFormat::Mvt => mvt.encode(),
         };
         Ok(martin_tile_utils::encode(data, settings.encoding)?)
     }
@@ -365,6 +358,28 @@ mod tests {
         let raw = decode_gzip(&tiles[0].data).unwrap();
         let tile = mlt_core::fast_mvt::MvtReaderRef::new(&raw).unwrap();
         assert!(format!("{tile:?}").contains("roads"));
+    }
+
+    #[test]
+    fn feature_orders_set_their_sort_trials() {
+        let trials = |order: FeatureOrder, config: EncoderConfig| {
+            let c = order.apply(config);
+            let spatial = (
+                c.attempt_spatial_morton_sort(),
+                c.attempt_spatial_hilbert_sort(),
+            );
+            (c.attempt_id_sort(), spatial)
+        };
+        let none = EncoderConfig::default();
+        assert_eq!(trials(FeatureOrder::Source, none), (false, (false, false)));
+        assert_eq!(trials(FeatureOrder::Id, none), (true, (false, false)));
+        assert_eq!(trials(FeatureOrder::Auto, none), (true, (true, true)));
+        // Draw order stays, whatever the configuration would try.
+        let all = none
+            .with_id_sort(true)
+            .with_spatial_morton_sort(true)
+            .with_spatial_hilbert_sort(true);
+        assert_eq!(trials(FeatureOrder::Source, all), (false, (false, false)));
     }
 
     #[test]

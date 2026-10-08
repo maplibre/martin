@@ -160,7 +160,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
 
     assert_eq!(mlt.status(), 200);
     insta::assert_snapshot!(mlt.headers_snapshot(), @r#"
-    content-length: 916
+    content-length: 927
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
@@ -255,7 +255,7 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
         .await;
     assert_eq!(proxied.status(), 200);
     insta::assert_snapshot!(proxied.headers_snapshot(), @r#"
-    content-length: 645
+    content-length: 696
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
     vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
