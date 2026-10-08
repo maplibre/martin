@@ -182,19 +182,25 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
 }
 
 #[tokio::test]
-async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
+async fn a_fontstack_takes_each_glyph_from_the_first_font_that_has_it() {
     let mut martin = martin_with_font_dir().await;
 
     let regular = fontstack(&martin.get(&format!("/font/{REGULAR}/0-255")).await);
     let light = fontstack(&martin.get(&format!("/font/{LIGHT}/0-255")).await);
-    let stack = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
+    let regular_first = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
+    let light_first = fontstack(&martin.get(&format!("/font/{LIGHT},{REGULAR}/0-255")).await);
 
-    assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
-    assert_eq!(stack.range, "0-255");
     assert_eq!(
-        stack.glyphs.len(),
-        regular.glyphs.len() + light.glyphs.len()
+        regular_first.name,
+        "Overpass Mono Regular, Overpass Mono Light"
     );
+    assert_eq!(regular_first.range, "0-255");
+    assert_eq!(regular_first.glyphs, regular.glyphs);
+    assert_eq!(
+        light_first.name,
+        "Overpass Mono Light, Overpass Mono Regular"
+    );
+    assert_eq!(light_first.glyphs, light.glyphs);
 
     martin.stop().await;
 }
