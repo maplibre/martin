@@ -40,6 +40,10 @@
       "pattern": "^https://download.geofabrik.de"
     },
     {
+      "__comment__": "nav.tum.de times out on its API preview image (ETIMEDOUT, which markdown-link-check does not retry), which fails every docs build that includes the changelog entry embedding it",
+      "pattern": "^https://nav.tum.de"
+    },
+    {
       "__comment__": "DigitalOcean drops the checker's connection (socket hang up) on its product pages, which fails every docs build that links the managed Postgres recipe",
       "pattern": "^https://[a-z]+.digitalocean.com"
     }
@@ -53,5 +57,5 @@
   ],
   "retryCount": 10,
   "retryOn429": true,
-  "timeout": "3s"
+  "timeout": "30s"
 }
