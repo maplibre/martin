@@ -40,7 +40,8 @@ impl Mbtiles {
     /// so the writer has it to itself. It holds the write lock from the start, so other connections
     /// to the file wait. By default it commits every 65,536 tiles to bound the journal, so a failed
     /// write keeps the tiles of those earlier commits; set [`MbtilesBulkWriter::batch_size`] to `None`
-    /// for a write that is all or nothing.
+    /// for a write that is all or nothing. Into a file that holds no tiles yet, it writes with
+    /// `synchronous` off, as such a file is regenerated rather than recovered after an OS crash.
     ///
     /// Tiles are hashed with the file's own [`HashAlgorithm`]; the `agg_tiles_hash` metadata is left to
     /// the caller ([`Mbtiles::update_agg_tiles_hash`]). `write` runs synchronously on the calling
@@ -120,8 +121,14 @@ impl<'c> MbtilesBulkWriter<'c> {
         on_duplicate: CopyDuplicateMode,
     ) -> MbtResult<Self> {
         let synchronous = conn.pragma_query_value(None, "synchronous", |row| row.get(0))?;
-        // A bulk-written file is regenerated rather than recovered, so syncing each commit buys nothing.
-        conn.pragma_update(None, "synchronous", "OFF")?;
+        // A file written from empty is regenerated rather than recovered, so syncing its commits buys
+        // nothing. Tiles already there keep the connection's durability: without syncing, an OS crash
+        // during the write could corrupt them.
+        let sql = "SELECT EXISTS (SELECT 1 FROM tiles)";
+        let has_tiles: bool = conn.query_row(sql, [], |row| row.get(0))?;
+        if !has_tiles {
+            conn.pragma_update(None, "synchronous", "OFF")?;
+        }
         // The write lock comes first, so that what is read below holds for the whole write.
         if let Err(err) = conn.execute_batch("BEGIN IMMEDIATE") {
             let _ = conn.pragma_update(None, "synchronous", synchronous);
@@ -200,12 +207,19 @@ impl<'c> MbtilesBulkWriter<'c> {
             .batch_size
             .is_some_and(|size| self.pending >= size.get())
         {
-            self.conn.execute_batch("COMMIT; BEGIN IMMEDIATE")?;
-            self.pending = 0;
-            // Another connection may have written between the two.
-            if let Target::DedupId { blobs, .. } = &mut self.target {
-                blobs.next_id = blobs.next_id.max(next_blob_id(self.conn)?);
-            }
+            self.checkpoint()?;
+        }
+        Ok(())
+    }
+
+    /// Commits the tiles written so far and goes on in a new transaction, e.g. to bound by time how
+    /// much an interrupted write loses, as [`batch_size`](Self::batch_size) bounds it by tile count.
+    pub fn checkpoint(&mut self) -> MbtResult<()> {
+        self.conn.execute_batch("COMMIT; BEGIN IMMEDIATE")?;
+        self.pending = 0;
+        // Another connection may have written between the two.
+        if let Target::DedupId { blobs, .. } = &mut self.target {
+            blobs.next_id = blobs.next_id.max(next_blob_id(self.conn)?);
         }
         Ok(())
     }
@@ -685,6 +699,61 @@ mod tests {
         assert_eq!(tile_count(&mut conn).await, kept);
     }
 
+    /// A checkpoint commits what was written, and the write goes on as if it never happened.
+    #[rstest]
+    #[case::flat(MbtType::Flat)]
+    #[case::hash_normalized(MbtType::Normalized { hash_view: false, schema: NormalizedSchema::Hash })]
+    #[case::dedup_id(DEDUP_ID)]
+    #[actix_rt::test]
+    async fn checkpoints_commit_without_changing_the_result(#[case] mbt_type: MbtType) {
+        let tiles = tiles();
+        let checkpointed = |fail| {
+            let tiles = &tiles;
+            async move {
+                let (mbt, mut conn) = schema(mbt_type).await;
+                let result: Result<(), Failure> = mbt
+                    .bulk_write(&mut conn, mbt_type, CopyDuplicateMode::Abort, |writer| {
+                        for (i, (z, x, y, data, dedup)) in tiles.iter().enumerate() {
+                            if i == tiles.len() / 2 && fail {
+                                return Err(Failure::Upstream);
+                            }
+                            writer.write(TileCoord::new_unchecked(*z, *x, *y), data, *dedup)?;
+                            if i % 5 == 4 {
+                                writer.checkpoint()?;
+                            }
+                        }
+                        Ok(())
+                    })
+                    .await;
+                (result, conn)
+            }
+        };
+
+        let (result, mut conn) = checkpointed(false).await;
+        result.unwrap();
+        let (mbt, mut expected) = schema(mbt_type).await;
+        bulk_write(
+            &mbt,
+            &mut expected,
+            mbt_type,
+            CopyDuplicateMode::Abort,
+            &tiles,
+        )
+        .await
+        .unwrap();
+        assert_eq!(rows(&mut conn).await, rows(&mut expected).await);
+        if mbt_type != MbtType::Flat {
+            assert_eq!(
+                blob_count(&mut conn, mbt_type).await,
+                blob_count(&mut expected, mbt_type).await
+            );
+        }
+
+        let (result, mut conn) = checkpointed(true).await;
+        assert!(matches!(result, Err(Failure::Upstream)), "{result:?}");
+        assert_eq!(tile_count(&mut conn).await, tiles.len() / 2 / 5 * 5);
+    }
+
     #[rstest]
     #[case::flat(MbtType::Flat)]
     #[case::flat_with_hash(MbtType::FlatWithHash)]
@@ -826,6 +895,35 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(synchronous(&mut conn).await, before);
+    }
+
+    /// Only a file written from empty gives up syncing its commits.
+    #[actix_rt::test]
+    async fn keeps_syncing_a_file_that_has_tiles() {
+        let (mbt, mut conn) = schema(MbtType::Flat).await;
+        let before: i64 = query_scalar!("PRAGMA synchronous")
+            .fetch_one(&mut conn)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut during = Vec::<i64>::new();
+        for x in 0..2 {
+            mbt.bulk_write(
+                &mut conn,
+                MbtType::Flat,
+                CopyDuplicateMode::Abort,
+                |writer| {
+                    let synchronous = writer
+                        .conn
+                        .pragma_query_value(None, "synchronous", |row| row.get(0));
+                    during.push(synchronous?);
+                    writer.write(TileCoord::new_unchecked(1, x, 0), b"t", TileDedup::Unique)
+                },
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(during, [0, before]);
     }
 
     #[actix_rt::test]

@@ -17,7 +17,7 @@ This crate also has a small utility that allows users to interact with the `*.mb
 There are two ways to write tiles, and both work with every schema:
 
 * [`Mbtiles::insert_tiles`] is async and writes one batch per transaction. Each tile is a separate statement, and each statement goes through sqlx's worker thread. It suits small and incremental writes.
-* [`Mbtiles::bulk_write`] hands a closure a [`MbtilesBulkWriter`], which writes synchronously on the connection's raw `rusqlite` handle. It reuses its prepared statements, commits every 65,536 tiles (its `batch_size`), and turns off `synchronous` until it's done. It suits generating whole files. A [`TileDedup`] hint per tile tells it what it needs to hash:
+* [`Mbtiles::bulk_write`] hands a closure a [`MbtilesBulkWriter`], which writes synchronously on the connection's raw `rusqlite` handle. It reuses its prepared statements, commits every 65,536 tiles (its `batch_size`), and turns off `synchronous` until it's done when the file holds no tiles yet, since such a file is regenerated rather than recovered after an OS crash. It suits generating whole files. A [`TileDedup`] hint per tile tells it what it needs to hash:
   * `Unknown` compares bytes by their hash, like `insert_tiles`;
   * `Unique` skips the hash;
   * `Key(k)` marks tiles the caller already knows to be identical, so they're hashed and stored once. A key reused for different bytes fails the write.
@@ -31,7 +31,7 @@ The bulk writer is exclusive by design:
 * It takes the file's write lock up front, so other connections wait.
 
 Two things are left to the caller:
-* A failed write keeps the tiles of earlier periodic commits. Set `writer.batch_size = None` to make the write all or nothing; the journal then grows with the data until the single commit.
+* A failed write keeps the tiles of earlier periodic commits. Set `writer.batch_size = None` to make the write all or nothing; the journal then grows with the data until the single commit. `writer.checkpoint()` commits whenever you choose, e.g. to bound by time how much an interrupted write loses.
 * The closure runs on the calling thread, so call `bulk_write` from a blocking context, not from an async worker thread.
 
 ```rust,no_run
