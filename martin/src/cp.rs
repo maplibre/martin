@@ -31,10 +31,11 @@ use martin_tile_utils::{
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
-    is_empty_database,
+    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, MbtilesBulkWriter, TileDedup,
+    init_mbtiles_schema, is_empty_database,
 };
 use tilejson::Bounds;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
@@ -60,8 +61,6 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
-const BATCH_SIZE: usize = 1000;
-const INTERRUPT_DRAIN_TIMEOUT: Duration = Duration::from_secs(10);
 #[derive(clap::Args, Debug, PartialEq)]
 #[command(
     about = "Bulk copy tiles from any Martin-supported sources into an mbtiles file",
@@ -352,6 +351,8 @@ pub enum MartinCpError {
     Mbtiles(#[from] MbtilesError),
     #[error("No sources found")]
     NoSources,
+    #[error("The tile writer stopped before all tiles were copied")]
+    WriterStopped,
     #[error(
         "More than one source found, please specify source using --source.\nAvailable sources: {0}"
     )]
@@ -513,37 +514,51 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
     }
 }
 
-/// Consumer task: read tiles from the channel and write them to `MBTiles`.
+/// Consumer: writes the tiles from the channel to `MBTiles` until it closes, with the synchronous bulk
+/// writer on a blocking thread, which is several times faster than batches of `insert_tiles`.
 ///
 /// `conn` for sqlite is moved in and returned so the caller can update metadata afterward.
-async fn write_tiles_to_mbtiles(
-    mut rx: Receiver<TileXyz>,
+fn write_tiles_to_mbtiles(
+    rx: Receiver<TileXyz>,
     mbt: Mbtiles,
     mut conn: SqliteConnection,
     mbt_type: MbtType,
     on_duplicate: CopyDuplicateMode,
     progress: Arc<TileCopyProgress>,
-) -> Result<SqliteConnection, MbtilesError> {
+) -> JoinHandle<Result<SqliteConnection, MbtilesError>> {
+    tokio::task::spawn_blocking(move || {
+        let write = mbt.bulk_write(&mut conn, mbt_type, on_duplicate, |writer| {
+            write_tiles(rx, writer, &progress)
+        });
+        Handle::current().block_on(write)?;
+        Ok(conn)
+    })
+}
+
+fn write_tiles(
+    mut rx: Receiver<TileXyz>,
+    writer: &mut MbtilesBulkWriter<'_>,
+    progress: &TileCopyProgress,
+) -> Result<(), MbtilesError> {
     let mut last_saved = Instant::now();
     let mut last_reported = Instant::now();
-    let mut batch = Vec::with_capacity(BATCH_SIZE);
-    while let Some(tile) = rx.recv().await {
+    // This runs inside the runtime's `block_on`, where tokio's own blocking receive would panic. The
+    // whole write is one poll of that future, so tokio's cooperative budget never resets: once spent,
+    // a constrained receive would stay pending forever.
+    while let Some(tile) = futures::executor::block_on(tokio::task::unconstrained(rx.recv())) {
         debug!("Generated tile {tile:?}");
         if tile.data.is_empty() {
             // Empty tiles are counted but never written to disk.
             progress.increment_empty();
         } else {
-            batch.push((tile.xyz.z(), tile.xyz.x(), tile.xyz.y(), tile.data));
-            hotpath::gauge!("cp_batch_size").set(f64::from(
-                u32::try_from(batch.len()).expect("batch size should be <= 1000"),
-            ));
-            if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await?;
-                batch.clear();
-                last_saved = Instant::now();
-            }
+            // `martin cp` cannot tell which tiles repeat, so deduplicating schemas compare hashes.
+            writer.write(tile.xyz, &tile.data, TileDedup::Unknown)?;
             progress.increment_non_empty();
+        }
+        // Keeps what an interrupted copy loses to a minute of work, also when tiles come slowly.
+        if last_saved.elapsed() > SAVE_EVERY {
+            writer.checkpoint()?;
+            last_saved = Instant::now();
         }
         // Throttle on-screen progress updates.
         let done = progress.position();
@@ -554,12 +569,7 @@ async fn write_tiles_to_mbtiles(
             last_reported = Instant::now();
         }
     }
-    // Flush whatever is left once the channel closes (all senders dropped).
-    if !batch.is_empty() {
-        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-            .await?;
-    }
-    Ok(conn)
+    Ok(())
 }
 
 /// Fetches tiles concurrently and sends them to the consumer via `tx`.
@@ -607,10 +617,10 @@ async fn produce_tiles(
                             .expect("the empty tile set is only locked here")
                             .insert(xyz);
                     }
+                    // The writer only stops early on an error, which joining it reports.
                     tx.send(TileXyz { xyz, data })
                         .await
-                        .expect("The receive half of the channel is not closed");
-                    Ok(())
+                        .map_err(|_closed| MartinCpError::WriterStopped)
                 }
             })
             .await?;
@@ -629,31 +639,19 @@ async fn produce_tiles(
     Ok(())
 }
 
-/// Waits for the spawned consumer task to finish and return the `SQLite` connection.
+/// Waits for the consumer to write every queued tile and give back the `SQLite` connection.
+///
+/// It runs on a blocking thread, which cannot be aborted, so this always waits for it. After Ctrl+C
+/// that is still prompt: the producer is dropped, so only the tiles already queued are left.
 async fn join_consumer(
     consumer_task: JoinHandle<Result<SqliteConnection, MbtilesError>>,
-    interrupted: bool,
-) -> MartinCpResult<Option<SqliteConnection>> {
-    let join_result = if interrupted {
-        // Ctrl + c path
-        let abort = consumer_task.abort_handle();
-        if let Ok(join) = tokio::time::timeout(INTERRUPT_DRAIN_TIMEOUT, consumer_task).await {
-            join
-        } else {
-            abort.abort();
-            warn!("Timed out draining tiles after Ctrl+C, exiting");
-            return Ok(None);
-        }
-    } else {
-        // Normal path
-        consumer_task.await
-    };
-    let conn = join_result.map_err(|e| {
+) -> MartinCpResult<SqliteConnection> {
+    let conn = consumer_task.await.map_err(|e| {
         StartupError::from(std::io::Error::other(format!(
             "consumer task panicked: {e}"
         )))
     })??;
-    Ok(Some(conn))
+    Ok(conn)
 }
 
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
@@ -762,14 +760,14 @@ where
     // 4. Spawn the consumer: read tiles from the channel and write them to MBTiles.
     // Runs in the background so this task can do other work (step 5: fetch tiles and ctrl+c).
     let (tx, rx) = hotpath::channel!(channel::<TileXyz>(500), label = { "tile_copy" });
-    let consumer_task = tokio::spawn(write_tiles_to_mbtiles(
+    let consumer_task = write_tiles_to_mbtiles(
         rx,
         mbt.clone(),
         conn,
         mbt_type,
         on_duplicate,
         Arc::clone(&progress),
-    ));
+    );
 
     // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
     let prune_empty_subtrees = src
@@ -786,11 +784,8 @@ where
         prune_empty_subtrees,
     ));
     tokio::pin!(interrupt);
-    let interrupted = match select_future(produce, interrupt).await {
-        Either::Left((res, _)) => {
-            res?;
-            false
-        }
+    let produced = match select_future(produce, interrupt).await {
+        Either::Left((res, _)) => res.map(|()| false),
         Either::Right(((), produce)) => {
             warn!("Received Ctrl+C, cancelling active PostgreSQL queries...");
             #[cfg(feature = "postgres")]
@@ -800,19 +795,17 @@ where
             // Only after cancelling, so the queries are still registered for it.
             drop(produce);
             info!("Queries cancelled. Draining remaining queued tiles...");
-            true
+            Ok(true)
         }
     };
     // Dropping every sender closes the channel, which causes the consumer's
     // `rx.recv()` to return `None` and ends the loop
     drop(tx);
 
-    // 6. Wait for the spawned consumer to finish with a timeout on interrupt
-    let Some(reclaimed_conn) = join_consumer(consumer_task, interrupted).await? else {
-        // Interrupt drain timed out: consumer aborted, exit without metadata.
-        return Ok(());
-    };
-    conn = reclaimed_conn;
+    // 6. Wait for the consumer to write the queued tiles, also after a producer error, so that the
+    // writer never outlives the copy. Its own error comes first: it is why a producer stopped sending.
+    conn = join_consumer(consumer_task).await?;
+    let interrupted = produced?;
     progress.finish();
     if interrupted {
         info!("Interrupted, skipping metadata updates");
@@ -923,6 +916,7 @@ impl MartinCpError {
             | Self::Tile(_)
             | Self::Mbt(_)
             | Self::NoSources
+            | Self::WriterStopped
             | Self::MultipleSources(_)
             | Self::InvalidBoundingBox(..)
             | Self::InvertedBoundingBox(_)
@@ -942,7 +936,7 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
     use martin_core::tiles::BoxedSource;
-    use martin_core::tiles::testing::TestSource;
+    use martin_core::tiles::testing::{Behaviour, TestSource};
     use martin_tile_utils::{WEB_MERCATOR_QUAD, WORLD_CRS84_QUAD};
     use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
@@ -1175,6 +1169,41 @@ mod tests {
         );
     }
 
+    /// More tiles than tokio's cooperative budget (128) once made the blocking consumer spin forever.
+    #[test]
+    fn the_consumer_writes_more_tiles_than_a_coop_budget() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let copy = async {
+            let output_dir = tempfile::tempdir().unwrap();
+            let mbt = Mbtiles::new(output_dir.path().join("many.mbtiles")).unwrap();
+            let mut conn = mbt.open_or_new().await.unwrap();
+            init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+                .await
+                .unwrap();
+            let (tx, rx) = hotpath::channel!(channel::<TileXyz>(16), label = { "test" });
+            let progress = Arc::new(TileCopyProgress::new(1000));
+            let mode = CopyDuplicateMode::Abort;
+            let consumer =
+                write_tiles_to_mbtiles(rx, mbt.clone(), conn, MbtType::Flat, mode, progress);
+            for x in 0..1000 {
+                let xyz = TileCoord::new_unchecked(10, x, 0);
+                let data = TileData::from_static(b"tile");
+                tx.send(TileXyz { xyz, data }).await.unwrap();
+            }
+            drop(tx);
+            let mut conn = consumer.await.unwrap().unwrap();
+            mbt.summary(&mut conn).await.unwrap().tile_count
+        };
+        let copied =
+            rt.block_on(async { tokio::time::timeout(Duration::from_secs(10), copy).await });
+        // A stuck consumer thread must not keep the runtime, and so the test, from ending.
+        rt.shutdown_timeout(Duration::from_secs(1));
+        assert_eq!(copied.ok(), Some(1000), "the consumer hangs");
+    }
+
     #[tokio::test]
     async fn never_fetches_below_an_empty_tile() {
         // Copies z0..=2 of a source whose left half is empty above z0.
@@ -1239,23 +1268,50 @@ mod tests {
             ..Default::default()
         };
 
-        let started = std::time::Instant::now();
-        run_tile_copy_with_interrupt(args, state, async {
+        let copy = run_tile_copy_with_interrupt(args, state, async {
             // wait for starting get_tile
             while !fetch_started.load(Ordering::Acquire) {
                 tokio::task::yield_now().await;
             }
-        })
-        .await
-        .unwrap();
-        // The fetch still in flight is dropped, closing the channel, so draining it does not wait
-        // for its timeout.
-        assert!(
-            started.elapsed() < INTERRUPT_DRAIN_TIMEOUT / 2,
-            "{:?}",
-            started.elapsed()
-        );
+        });
+        // The fetch still in flight is dropped, closing the channel, so draining does not wait for
+        // it, which would be forever.
+        tokio::time::timeout(Duration::from_secs(5), copy)
+            .await
+            .expect("the drain waits for the blocked fetch")
+            .unwrap();
         // metadata should be none due to interruption
         assert!(read_metadata(&output_file, status).await.unwrap().is_none());
+    }
+
+    /// A failed copy still waits for the writer, and reports the writer's own error rather than that
+    /// of the producer it stopped.
+    #[tokio::test]
+    async fn reports_why_a_copy_failed() {
+        let output_dir = tempfile::tempdir().unwrap();
+        let copy = |file, source: TestSource, on_duplicate| {
+            let args = CopyArgs {
+                source: Some("test_source".to_owned()),
+                output_file: output_dir.path().join(file),
+                min_zoom: Some(0),
+                max_zoom: Some(1),
+                on_duplicate,
+                ..Default::default()
+            };
+            let state = test_state(vec![vec![source.boxed()]]);
+            run_tile_copy_with_interrupt(args, state, std::future::pending::<()>())
+        };
+        let tile = |byte| TestSource::new("test_source", TileData::from(vec![byte]));
+
+        let failing = tile(1).with_behaviour(Behaviour::Fail);
+        let result = copy("failed.mbtiles", failing, None).await;
+        assert!(matches!(result, Err(MartinCpError::Tile(_))), "{result:?}");
+
+        copy("dup.mbtiles", tile(1), None).await.unwrap();
+        let result = copy("dup.mbtiles", tile(2), Some(CopyDuplicateMode::Abort)).await;
+        assert!(
+            matches!(result, Err(MartinCpError::Mbtiles(_))),
+            "{result:?}"
+        );
     }
 }
