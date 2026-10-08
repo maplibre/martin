@@ -766,20 +766,29 @@ where
         .sources
         .iter()
         .all(|(s, _)| s.empty_tile_implies_empty_children());
-    let produce = produce_tiles(src, tiles, concurrency, tx.clone(), prune_empty_subtrees);
-    tokio::pin!(produce);
+    // Boxed, not pinned on the stack, so that an interrupt can drop it below: its unfinished fetches
+    // hold senders, which would keep the channel open, and the drain waiting, until this returns.
+    let produce = Box::pin(produce_tiles(
+        src,
+        tiles,
+        concurrency,
+        tx.clone(),
+        prune_empty_subtrees,
+    ));
     tokio::pin!(interrupt);
     let interrupted = match select_future(produce, interrupt).await {
         Either::Left((res, _)) => {
             res?;
             false
         }
-        Either::Right(((), _produce)) => {
+        Either::Right(((), produce)) => {
             warn!("Received Ctrl+C, cancelling active PostgreSQL queries...");
             #[cfg(feature = "postgres")]
             for registry in &registries {
                 registry.cancel_all().await;
             }
+            // Only after cancelling, so the queries are still registered for it.
+            drop(produce);
             info!("Queries cancelled. Draining remaining queued tiles...");
             true
         }
@@ -1219,6 +1228,7 @@ mod tests {
             ..Default::default()
         };
 
+        let started = std::time::Instant::now();
         run_tile_copy_with_interrupt(args, state, async {
             // wait for starting get_tile
             while !fetch_started.load(Ordering::Acquire) {
@@ -1227,6 +1237,13 @@ mod tests {
         })
         .await
         .unwrap();
+        // The fetch still in flight is dropped, closing the channel, so draining it does not wait
+        // for its timeout.
+        assert!(
+            started.elapsed() < INTERRUPT_DRAIN_TIMEOUT / 2,
+            "{:?}",
+            started.elapsed()
+        );
         // metadata should be none due to interruption
         assert!(read_metadata(&output_file, status).await.unwrap().is_none());
     }
