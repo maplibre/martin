@@ -8,7 +8,7 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
 use tilejson::TileJSON;
-use tracing::{trace, warn};
+use tracing::{instrument, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
@@ -87,6 +87,7 @@ impl PmtilesSource {
         Self::from_backend(cache, id, PmtBackend::File(backend), location, cache_zoom).await
     }
 
+    #[instrument(name = "pmtiles", skip_all, fields(source = %id))]
     async fn from_backend(
         cache: PmtCacheInstance,
         id: String,
@@ -212,6 +213,7 @@ impl Source for PmtilesSource {
         self.cache_zoom
     }
 
+    #[instrument(name = "pmtiles", skip_all, fields(source = %self.id))]
     async fn get_tile(
         &self,
         xyz: TileCoord,
