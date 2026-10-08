@@ -49,6 +49,30 @@ async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected
     assert!(log.contains(expected), "`--format {format}` said:\n{log}");
 }
 
+#[tokio::test]
+async fn refuses_a_bbox_whose_minimum_is_above_its_maximum() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+
+    let mut log = String::new();
+    for bbox in ["--bbox=170,-50,-170,-30", "--bbox=-10,40,10,30"] {
+        log += &MartinCp::new()
+            .env("RUST_LOG", "error")
+            .arg(&source)
+            .arg("--output-file")
+            .arg(dir.path().join("out.mbtiles"))
+            .arg("--max-zoom")
+            .arg("6")
+            .arg(bbox)
+            .run_expecting_failure()
+            .await;
+    }
+    insta::assert_snapshot!(log, @"
+    ERROR bounding box '170,-50,-170,-30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format, and split a box that crosses the antimeridian into two `--bbox` values.
+    ERROR bounding box '-10,40,10,30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format, and split a box that crosses the antimeridian into two `--bbox` values.
+    ");
+}
+
 #[rstest]
 #[case("mlt")]
 #[case("mlt1")]
