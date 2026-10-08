@@ -6,11 +6,12 @@ use std::sync::{Mutex, PoisonError};
 
 use martin_core::generate::props::KeyNames;
 use martin_tile_utils::{Encoding, Format, TileCoord};
+use mlt_core::PropKind;
 use mlt_core::encoder::EncoderConfig;
-use mlt_core::mvt::tile_layers_to_mvt;
-use mlt_core::{PropKind, TileLayer};
+use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
+use crate::assemble::AssembledLayer;
 use crate::group::{LayerRecordRef, TileRecords};
 use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, TileOrder};
 
@@ -97,11 +98,11 @@ impl LayerStats {
             .or_insert(kind);
     }
 
-    fn record(&mut self, zoom: u8, layer: &TileLayer) -> u64 {
-        let count = layer.features().len() as u64;
+    fn record(&mut self, zoom: u8, layer: &AssembledLayer<'_>, names: &KeyNames) -> u64 {
+        let count = layer.layer.feature_count() as u64;
         self.add_features(zoom, count);
-        for (name, &kind) in layer.property_names().iter().zip(layer.property_kinds()) {
-            self.add_field(name, kind);
+        for &(key, kind) in layer.columns {
+            self.add_field(names.name(key), kind);
         }
         count
     }
@@ -213,7 +214,8 @@ impl TileEncoder {
         zoom: u8,
         features: &mut Vec<(u8, u64)>,
     ) -> TileGenResult<Vec<u8>> {
-        let mut layers = Vec::new();
+        let mut mlt = Vec::new();
+        let mut mvt = MvtTileBuilder::new();
         let mut records: Vec<(Seq, &[u8])> = Vec::new();
         let mut all = tile.records().peekable();
         while let Some(&LayerRecordRef { layer, .. }) = all.peek() {
@@ -222,25 +224,20 @@ impl TileEncoder {
                 records.push((record.seq, record.bytes));
             }
             let info = &settings.layers[usize::from(layer)];
-            let assembled = self.assembler.assemble(
-                &info.name,
-                info.grid,
-                &settings.keys[usize::from(layer)],
-                &records,
-            )?;
-            let count = self.stats[usize::from(layer)].record(zoom, &assembled);
+            let names = &settings.keys[usize::from(layer)];
+            let assembled = self
+                .assembler
+                .assemble(&info.name, info.grid, names, &records)?;
+            let count = self.stats[usize::from(layer)].record(zoom, &assembled, names);
             features.push((layer, count));
-            layers.push((assembled, info.encoder));
+            match settings.format {
+                TileFormat::Mlt => mlt.extend(assembled.layer.encode(info.encoder)?),
+                TileFormat::Mvt => mvt = assembled.layer.write_mvt(mvt)?,
+            }
         }
         let data = match settings.format {
-            TileFormat::Mlt => {
-                let mut data = Vec::new();
-                for (layer, encoder) in layers {
-                    data.extend(layer.encode(encoder)?);
-                }
-                data
-            }
-            TileFormat::Mvt => tile_layers_to_mvt(layers.into_iter().map(|(layer, _)| layer))?,
+            TileFormat::Mlt => mlt,
+            TileFormat::Mvt => mvt.encode(),
         };
         Ok(martin_tile_utils::encode(data, settings.encoding)?)
     }
@@ -251,7 +248,7 @@ mod tests {
     use martin_core::generate::props::KeyInterner;
     use martin_tile_utils::decode_gzip;
     use mlt_core::fast_mvt::MvtReaderRef;
-    use mlt_core::{Decoder, Parser, PropValueRef};
+    use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
 
     use super::*;
     use crate::record::{EncodedProps, Geom, encode};
@@ -756,5 +753,13 @@ mod tests {
         empty.merge(&other);
 
         assert_eq!(empty, other);
+    }
+
+    #[test]
+    fn dedup_keys_require_equal_bytes() {
+        let index = DedupIndex::default();
+        let key = index.key(b"fill").unwrap();
+        assert_eq!(index.key(b"fill"), Some(key));
+        assert_ne!(index.key(b"other"), Some(key));
     }
 }
