@@ -265,6 +265,12 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 /// On Web Mercator a bbox is longitude and latitude and must stay on the tiled world.
 /// On any other grid it is in the grid's CRS units, and the grid itself clamps it.
 fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
+    if let Some(bb) = boxes
+        .iter()
+        .find(|bb| bb.left > bb.right || bb.bottom > bb.top)
+    {
+        return Err(MartinCpError::InvertedBoundingBox(*bb));
+    }
     if !grid.is_web_mercator() {
         return Ok(boxes);
     }
@@ -354,6 +360,10 @@ pub enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
+    #[error(
+        "bounding box '{0}' has a minimum greater than its maximum. Please check that your bounding box is in the `min_x,min_y,max_x,max_y` format, and on Web Mercator split a box that crosses the antimeridian into two `--bbox` values."
+    )]
+    InvertedBoundingBox(Bounds),
 }
 
 /// The tile bytes to copy, taken from the cheapest path the source offers.
@@ -915,6 +925,7 @@ impl MartinCpError {
             | Self::NoSources
             | Self::MultipleSources(_)
             | Self::InvalidBoundingBox(..)
+            | Self::InvertedBoundingBox(_)
             | Self::Args(_)
             | Self::Mbtiles(_)) => format!("{other}"),
         }
