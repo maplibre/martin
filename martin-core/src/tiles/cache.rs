@@ -19,7 +19,7 @@ pub const NO_TILE_CACHE: OptTileCache = None;
 pub enum TileCacheKey {
     /// A particular request shapes the bytes that would be served
     Dynamic {
-        /// Source the tile belongs to.
+        /// Source the tile belongs to, or the comma-separated sources of a composite.
         source_id: Box<str>,
         /// Tile coordinate.
         xyz: TileCoord,
@@ -90,7 +90,7 @@ impl CacheKey for TileCacheKey {
     const CACHE_NAME: &'static str = "tile";
 
     fn matches_source(&self, source_id: &str) -> bool {
-        self.source_id() == source_id
+        self.source_id().split(',').any(|s| s == source_id)
     }
 
     fn record_outcome(&self, hit: bool) {
