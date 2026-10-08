@@ -68,8 +68,8 @@ async fn refuses_a_bbox_whose_minimum_is_above_its_maximum() {
             .await;
     }
     insta::assert_snapshot!(log, @"
-    ERROR bounding box '170,-50,-170,-30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format, and split a box that crosses the antimeridian into two `--bbox` values.
-    ERROR bounding box '-10,40,10,30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format, and split a box that crosses the antimeridian into two `--bbox` values.
+    ERROR bounding box '170,-50,-170,-30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_x,min_y,max_x,max_y` format, and on Web Mercator split a box that crosses the antimeridian into two `--bbox` values.
+    ERROR bounding box '-10,40,10,30' has a minimum greater than its maximum. Please check that your bounding box is in the `min_x,min_y,max_x,max_y` format, and on Web Mercator split a box that crosses the antimeridian into two `--bbox` values.
     ");
 }
 

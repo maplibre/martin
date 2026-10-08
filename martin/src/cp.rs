@@ -361,7 +361,7 @@ pub enum MartinCpError {
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
     #[error(
-        "bounding box '{0}' has a minimum greater than its maximum. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format, and split a box that crosses the antimeridian into two `--bbox` values."
+        "bounding box '{0}' has a minimum greater than its maximum. Please check that your bounding box is in the `min_x,min_y,max_x,max_y` format, and on Web Mercator split a box that crosses the antimeridian into two `--bbox` values."
     )]
     InvertedBoundingBox(Bounds),
 }
