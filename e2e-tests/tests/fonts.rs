@@ -205,6 +205,37 @@ async fn a_fontstack_takes_each_glyph_from_the_first_font_that_has_it() {
     martin.stop().await;
 }
 
+#[tokio::test]
+async fn a_fontstack_takes_what_its_first_font_lacks_from_the_next() {
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .arg("--font")
+        .arg(fixture("fonts2/u+3320.ttf"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let fallback = fontstack(
+        &martin
+            .get("/font/DummyTestFont%20Regular/13056-13311")
+            .await,
+    );
+    let stack = fontstack(
+        &martin
+            .get(&format!(
+                "/font/{REGULAR},DummyTestFont%20Regular/13056-13311"
+            ))
+            .await,
+    );
+
+    let ids: Vec<u32> = fallback.glyphs.iter().map(|g| g.id).collect();
+    assert_eq!(ids, [0x3320]);
+    assert_eq!(stack.glyphs, fallback.glyphs);
+
+    martin.stop().await;
+}
+
 #[rstest]
 #[case::on_its_own("Nonexistent")]
 #[case::inside_a_fontstack("Overpass%20Mono%20Regular,Nonexistent")]
