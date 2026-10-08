@@ -9,6 +9,9 @@ pub use error::{Classify, ErrorKind};
 /// Generic resource cache shared by sprite, font, and tile caches.
 pub mod cache;
 
+#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+mod labeled_store;
+
 mod cache_zoom_range;
 pub use cache_zoom_range::CacheZoomRange;
 

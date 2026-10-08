@@ -5669,6 +5669,7 @@ dependencies = [
  "tokio",
  "tokio-postgres-rustls",
  "tracing",
+ "tracing-test",
  "url",
  "utoipa",
  "walkdir",

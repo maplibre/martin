@@ -11,6 +11,7 @@ use tilejson::TileJSON;
 use tracing::{trace, warn};
 
 use crate::CacheZoomRange;
+use crate::labeled_store::LabeledStore;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
@@ -58,7 +59,7 @@ impl PmtilesSource {
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         // Wrap in Arc so we can clone the store cheaply for try_reload.
-        let store: Arc<dyn ObjectStore> = Arc::from(store);
+        let store: Arc<dyn ObjectStore> = Arc::new(LabeledStore::new(store, id.clone()));
         let backend = ObjectStoreBackend::new(Box::new(Arc::clone(&store)), path.clone());
         let location = PmtLocation::ObjectStore { store, path };
         Self::from_backend(
