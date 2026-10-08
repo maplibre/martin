@@ -8,10 +8,9 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
 use tilejson::TileJSON;
-use tracing::{trace, warn};
+use tracing::{instrument, trace, warn};
 
 use crate::CacheZoomRange;
-use crate::labeled_store::LabeledStore;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
@@ -59,7 +58,7 @@ impl PmtilesSource {
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         // Wrap in Arc so we can clone the store cheaply for try_reload.
-        let store: Arc<dyn ObjectStore> = Arc::new(LabeledStore::new(store, id.clone()));
+        let store: Arc<dyn ObjectStore> = Arc::from(store);
         let backend = ObjectStoreBackend::new(Box::new(Arc::clone(&store)), path.clone());
         let location = PmtLocation::ObjectStore { store, path };
         Self::from_backend(
@@ -88,6 +87,7 @@ impl PmtilesSource {
         Self::from_backend(cache, id, PmtBackend::File(backend), location, cache_zoom).await
     }
 
+    #[instrument(name = "pmtiles", skip_all, fields(source = %id))]
     async fn from_backend(
         cache: PmtCacheInstance,
         id: String,
@@ -215,6 +215,7 @@ impl Source for PmtilesSource {
         self.cache_zoom
     }
 
+    #[instrument(name = "pmtiles", skip_all, fields(source = %self.id))]
     async fn get_tile(
         &self,
         xyz: TileCoord,

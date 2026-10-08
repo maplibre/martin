@@ -19,7 +19,6 @@ use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::instrument;
 
 use crate::CacheZoomRange;
-use crate::labeled_store::LabeledStore;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::cog::reader::{AsyncTiffMetadataReader, LocalFileCogReader};
@@ -68,7 +67,6 @@ impl CogSource {
         location: String,
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, CogError> {
-        let store: Arc<dyn ObjectStore> = Arc::new(LabeledStore::new(Box::new(store), id.clone()));
         let reader: Arc<dyn CogReader> =
             Arc::new(ObjectStoreCogReader::try_new(store, object_path, location).await?);
         Self::new_reader(id, reader, cache_zoom).await
