@@ -163,7 +163,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
     content-length: 916
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let mvt_etag = mvt.header("etag").expect("the mvt response has no etag");
     assert_eq!(
@@ -235,7 +235,7 @@ async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
     content-length: 678
     content-type: application/x-protobuf
     etag: "lDkxk7p2r2HsWFzhXDsD5A"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(proxied.header("etag"), direct.header("etag"));
     assert_eq!(proxied.body(), direct.body());
@@ -258,7 +258,7 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     content-length: 645
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     let direct = upstream.get("/table_source/0/0/0").await;

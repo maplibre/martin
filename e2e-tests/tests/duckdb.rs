@@ -152,7 +152,7 @@ duckdb:
     content-length: 138
     content-type: application/x-protobuf
     etag: "onJtfkQNRX7OcBJtdeL9MQ"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     insta::assert_snapshot!(tile.mvt_dump(), @r#"
     layer: 0
@@ -865,7 +865,7 @@ duckdb:
     content-length: 114
     content-type: application/vnd.maplibre-tile
     etag: "onJtfkQNRX7OcBJtdeL9MQ+mlt"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let mvt_etag = mvt.header("etag").expect("the mvt response has no etag");
     assert_eq!(

@@ -838,7 +838,7 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
     content-length: 78
     content-type: application/x-protobuf
     etag: [ETAG]
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     ");
     assert_eq!(compressed.mvt_dump(), expected);
 

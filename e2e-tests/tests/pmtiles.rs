@@ -83,7 +83,7 @@ async fn auto_configured_minimal() {
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
 
@@ -184,7 +184,7 @@ async fn a_raster_source_serves_png_tiles() {
     content-length: 24475
     content-type: image/png
     etag: "I1fhCKy04n2xAQpEk2ESig"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));
 
@@ -224,7 +224,7 @@ pmtiles:
     content-length: 18404
     content-type: image/png
     etag: "aKKkpu0hTRlf8joPaDt3Ug"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));
 
@@ -287,7 +287,7 @@ pmtiles:
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
 
@@ -349,7 +349,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     content-length: 10658
     content-type: image/webp
     etag: "YQCG8_HEN_sExq050B7MCQ"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
 
@@ -449,7 +449,7 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     content-length: 151
     content-type: application/x-protobuf
     etag: "6ytE8xWaxj7fMiMIkSSO6Q"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     insta::assert_snapshot!(tile.mvt_dump(), @r#"
     layer: 0
@@ -562,7 +562,7 @@ pmtiles:
     content-length: 215320
     content-type: application/x-protobuf
     etag: "5_Cffo9I87z38gagDXRhRA"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let layers = tile.mvt().layers;
     assert_eq!(layers.len(), 1);
