@@ -280,7 +280,9 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
             v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
-            v if v.starts_with(b"\xFF\x0A") => Some(Format::Jxl),
+            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, &[0x1]).is_err() => {
+                Some(Format::Jxl)
+            }
             v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => {
                 Some(Format::Jxl)
             }
