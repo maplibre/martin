@@ -3,9 +3,10 @@
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::{Display, Write as _};
 use std::sync::{PoisonError, RwLock};
 
-use mlt_core::{PropKind, PropValue};
+use mlt_core::{PropKind, PropValueRef};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyId(pub(crate) u32);
@@ -41,7 +42,7 @@ impl<S: AsRef<str>> Prop<S> {
     }
 }
 
-impl PropRef<'_> {
+impl<'a> PropRef<'a> {
     fn kind(self) -> PropKind {
         match self {
             Self::Bool(_) => PropKind::Bool,
@@ -52,37 +53,46 @@ impl PropRef<'_> {
         }
     }
 
-    /// The value in the column type a tile settled on (see [`TileColumns`]).
-    pub(crate) fn to_value(self, kind: PropKind) -> PropValue {
+    /// The value in the column type a tile settled on (see [`TileColumns`]), or `None` (null) for a
+    /// negative integer in an unsigned column. A string column gets other values as text, written into
+    /// `text`, which is reused from value to value.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "as mlt-core converts integers in float columns"
+    )]
+    pub(crate) fn to_value<'v>(
+        self,
+        kind: PropKind,
+        text: &'v mut String,
+    ) -> Option<PropValueRef<'v>>
+    where
+        'a: 'v,
+    {
         match (kind, self) {
-            (PropKind::Bool, Self::Bool(v)) => PropValue::Bool(Some(v)),
-            (PropKind::I64, Self::I64(v)) => PropValue::I64(Some(v)),
-            (PropKind::U64, Self::I64(v)) => PropValue::U64(u64::try_from(v).ok()),
-            (PropKind::F32, Self::F32(v)) => PropValue::F32(Some(v)),
-            (PropKind::F64, Self::F32(v)) => PropValue::F64(Some(f64::from(v))),
-            (PropKind::F64, Self::F64(v)) => PropValue::F64(Some(v)),
-            #[expect(
-                clippy::cast_precision_loss,
-                reason = "as mlt-core converts integers in float columns"
-            )]
-            (PropKind::F64, Self::I64(v)) => PropValue::F64(Some(v as f64)),
-            (_, other) => PropValue::Str(Some(other.to_text())),
-        }
-    }
-
-    fn to_text(self) -> String {
-        match self {
-            Self::Str(v) => v.to_owned(),
-            Self::Bool(v) => v.to_string(),
-            Self::I64(v) => v.to_string(),
-            Self::F32(v) => v.to_string(),
-            Self::F64(v) => v.to_string(),
+            (PropKind::Bool, Self::Bool(v)) => Some(PropValueRef::Bool(v)),
+            (PropKind::I64, Self::I64(v)) => Some(PropValueRef::I64(v)),
+            (PropKind::U64, Self::I64(v)) => u64::try_from(v).ok().map(PropValueRef::U64),
+            (PropKind::F32, Self::F32(v)) => Some(PropValueRef::F32(v)),
+            (PropKind::F64, Self::F32(v)) => Some(PropValueRef::F64(f64::from(v))),
+            (PropKind::F64, Self::F64(v)) => Some(PropValueRef::F64(v)),
+            (PropKind::F64, Self::I64(v)) => Some(PropValueRef::F64(v as f64)),
+            (_, Self::Str(v)) => Some(PropValueRef::Str(v)),
+            (_, Self::Bool(v)) => Some(as_text(text, v)),
+            (_, Self::I64(v)) => Some(as_text(text, v)),
+            (_, Self::F32(v)) => Some(as_text(text, v)),
+            (_, Self::F64(v)) => Some(as_text(text, v)),
         }
     }
 }
 
 fn index_u32(len: usize) -> u32 {
     u32::try_from(len).expect("fewer than 2^32 property keys or columns")
+}
+
+fn as_text(text: &mut String, value: impl Display) -> PropValueRef<'_> {
+    text.clear();
+    write!(text, "{value}").expect("writing to a String never fails");
+    PropValueRef::Str(text)
 }
 
 /// Property keys of one layer, shared by all workers. Keys the source declares up front get the first ids
@@ -233,20 +243,19 @@ impl TileColumns {
         column.has_negative |= matches!(value, PropRef::I64(v) if v < 0);
     }
 
-    /// Final `(key, kind)` per column in column order; the index maps keys to positions in it.
-    pub(crate) fn finish(&mut self, names: &KeyNames) -> Vec<(KeyId, PropKind)> {
+    /// Fills `schema` with the final `(key, kind)` per column in column order; the index maps keys to
+    /// positions in it.
+    pub(crate) fn finish(&mut self, names: &KeyNames, schema: &mut Vec<(KeyId, PropKind)>) {
         self.columns
             .sort_by(|a, b| names.column_order(a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
             self.slots[column.key.0 as usize] = index_u32(pos + 1);
         }
-        self.columns
-            .iter()
-            .map(|c| {
-                let unsigned = c.kind == PropKind::I64 && !c.has_negative;
-                (c.key, if unsigned { PropKind::U64 } else { c.kind })
-            })
-            .collect()
+        schema.clear();
+        schema.extend(self.columns.iter().map(|c| {
+            let unsigned = c.kind == PropKind::I64 && !c.has_negative;
+            (c.key, if unsigned { PropKind::U64 } else { c.kind })
+        }));
     }
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
@@ -283,11 +292,9 @@ mod tests {
         for key in [dynamic_b, KeyId(1), dynamic_a, KeyId(0)] {
             columns.add(key, PropRef::I64(1));
         }
-        let order: Vec<_> = columns
-            .finish(&names)
-            .iter()
-            .map(|(k, _)| names.name(*k).to_owned())
-            .collect();
+        let mut schema = Vec::new();
+        columns.finish(&names, &mut schema);
+        let order: Vec<_> = schema.iter().map(|(k, _)| names.name(*k)).collect();
         assert_eq!(order, ["zeta", "alpha", "a", "b"]);
     }
 
@@ -308,7 +315,9 @@ mod tests {
         ] {
             columns.add(KeyId(key), value);
         }
-        let kinds: Vec<_> = columns.finish(&names).into_iter().map(|(_, k)| k).collect();
+        let mut schema = Vec::new();
+        columns.finish(&names, &mut schema);
+        let kinds: Vec<_> = schema.into_iter().map(|(_, k)| k).collect();
         assert_eq!(
             kinds,
             [
@@ -319,18 +328,15 @@ mod tests {
                 PropKind::F64
             ]
         );
-        assert_eq!(
-            PropRef::I64(3).to_value(PropKind::F64),
-            PropValue::F64(Some(3.0))
-        );
-        assert_eq!(
-            PropRef::I64(1).to_value(PropKind::Str),
-            PropValue::Str(Some("1".to_owned()))
-        );
-        assert_eq!(
-            PropRef::F32(1.5).to_value(PropKind::F64),
-            PropValue::F64(Some(1.5))
-        );
+        let mut text = String::new();
+        let f64_of_int = PropRef::I64(3).to_value(PropKind::F64, &mut text);
+        assert_eq!(f64_of_int, Some(PropValueRef::F64(3.0)));
+        let f64_of_f32 = PropRef::F32(1.5).to_value(PropKind::F64, &mut text);
+        assert_eq!(f64_of_f32, Some(PropValueRef::F64(1.5)));
+        let negative_unsigned = PropRef::I64(-1).to_value(PropKind::U64, &mut text);
+        assert_eq!(negative_unsigned, None);
+        let text_of_int = PropRef::I64(1).to_value(PropKind::Str, &mut text);
+        assert_eq!(text_of_int, Some(PropValueRef::Str("1")));
     }
 
     #[test]
