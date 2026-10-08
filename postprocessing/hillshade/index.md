@@ -35,7 +35,7 @@ A normal map stores one [*surface normal*](<https://en.wikipedia.org/wiki/Normal
 >
 > **Elevation formats such as DEM and Terrarium are not supported.**
 >
-> Shading heights means differentiating them against meters-per-pixel at that latitude and zoom, and matching the source's own quantization - a separate feature rather than a decode step on this one. PRs welcome
+> Shading heights means differentiating them against meters-per-pixel at that latitude and zoom, and matching the source's own quantization - a separate feature rather than a decode step on this one. PRs welcome 😉
 
 ## Settings
 
