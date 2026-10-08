@@ -474,7 +474,9 @@ impl<'a> DynTileSource<'a> {
                 }
             };
             if dominated_by {
-                return Ok(HttpResponse::NotModified().finish());
+                return Ok(HttpResponse::NotModified()
+                    .insert_header((VARY, HeaderValue::from_static("accept-encoding")))
+                    .finish());
             }
         }
 
@@ -1089,6 +1091,10 @@ mod tests {
         assert_eq!(
             etag,
             expected_etag.map(|e| e.try_into_value().unwrap()).as_ref()
+        );
+        assert_eq!(
+            resp.headers().get(VARY),
+            Some(&HeaderValue::from_static("accept-encoding"))
         );
     }
 
