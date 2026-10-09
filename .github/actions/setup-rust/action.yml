@@ -19,8 +19,13 @@ inputs:
   cache:
     description: >-
       Restore the Rust build cache, and save it when running on main.
-      Opt-in because the repo shares a 10GB quota across all caches.
+      Opt-in because the repo shares a 50GB quota across all caches.
     default: "false"
+  cache-key:
+    description: >-
+      Extra key for the Rust build cache. Matrix jobs share their job id, so
+      entries that compile different code need a distinct key each.
+    default: ""
   coverage:
     description: >-
       Instrument the job with cargo-llvm-cov, so its tests record coverage.
@@ -56,7 +61,7 @@ runs:
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
-        key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
+        key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}${{ inputs.cache-key }}
     - if: inputs.tools != ''
       uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
       with: { tool: '${{ inputs.tools }}' }
