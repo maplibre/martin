@@ -677,14 +677,13 @@ jobs:
         image: postgis/postgis:17-3.5-alpine
         ports:
           - 5432/tcp
-        env: &postgis-env
-          POSTGRES_DB: test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          PGDATABASE: test
-          PGUSER: postgres
-          PGPASSWORD: postgres
         options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -696,8 +695,13 @@ jobs:
         image: postgis/postgis:18-3.6-alpine
         ports:
           - 5432/tcp
-        env: *postgis-env
         options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
