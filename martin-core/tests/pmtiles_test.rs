@@ -315,6 +315,50 @@ async fn tile_with_etag() {
 }
 
 #[tokio::test]
+async fn etag_survives_reopening_the_archive() {
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let first = create_source("png.pmtiles", "etag_reopen_a", test_cache_bytes(0)).await;
+    let second = create_source("png.pmtiles", "etag_reopen_b", test_cache_bytes(0)).await;
+
+    let a = first.get_tile_with_etag(coord, None).await.expect("First");
+    let b = second
+        .get_tile_with_etag(coord, None)
+        .await
+        .expect("Second");
+
+    assert_eq!(a.etag, b.etag, "The same archive must give the same etag");
+}
+
+#[tokio::test]
+async fn etag_differs_between_tiles_and_archives() {
+    let raster = create_source(
+        "stamen_toner__raster_CC-BY+ODbL_z3.pmtiles",
+        "etag_tiles",
+        test_cache_bytes(0),
+    )
+    .await;
+    let png = create_source("png.pmtiles", "etag_archives", test_cache_bytes(0)).await;
+    let origin = TileCoord::new_unchecked(0, 0, 0);
+
+    let a = raster.get_tile_with_etag(origin, None).await.expect("z0");
+    let b = raster
+        .get_tile_with_etag(TileCoord::new_unchecked(1, 0, 0), None)
+        .await
+        .expect("z1");
+    let c = png
+        .get_tile_with_etag(origin, None)
+        .await
+        .expect("other archive");
+
+    assert!(!a.data.is_empty() && !b.data.is_empty() && !c.data.is_empty());
+    assert_ne!(a.etag, b.etag, "Different tiles need different etags");
+    assert_ne!(
+        a.etag, c.etag,
+        "The same tile in another archive needs another etag"
+    );
+}
+
+#[tokio::test]
 async fn repeated_requests_return_same_etag() {
     let cache = test_cache_bytes(0);
     let source = create_source("png.pmtiles", "etag_consistency_test", cache).await;

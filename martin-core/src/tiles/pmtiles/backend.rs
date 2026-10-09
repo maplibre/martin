@@ -4,6 +4,7 @@ use std::fs::Metadata;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt as _;
 use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 use bytes::Bytes;
@@ -11,6 +12,7 @@ use derive_debug::Dbg;
 use pmtiles::{
     AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult,
 };
+use xxhash_rust::xxh3::{xxh3_64, xxh3_128_with_seed};
 
 /// Reads a local `PMTiles` file through a memory map.
 ///
@@ -81,5 +83,39 @@ impl AsyncBackend for PmtBackend {
             Self::File(backend) => backend.read(offset, length).await,
             Self::ObjectStore(backend) => backend.read(offset, length).await,
         }
+    }
+}
+
+/// Passes reads through to `B` and fingerprints the archive's header and root directory.
+#[derive(Debug)]
+pub(crate) struct Fingerprinted<B> {
+    inner: B,
+    fingerprint: Arc<OnceLock<u128>>,
+}
+
+impl<B> Fingerprinted<B> {
+    pub(crate) fn new(inner: B) -> Self {
+        Self {
+            inner,
+            fingerprint: Arc::default(),
+        }
+    }
+
+    /// The fingerprint, set by the reader's first read at offset 0.
+    pub(crate) fn fingerprint(&self) -> Arc<OnceLock<u128>> {
+        Arc::clone(&self.fingerprint)
+    }
+}
+
+impl<B: AsyncBackend + Sync + Send> AsyncBackend for Fingerprinted<B> {
+    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+        let response = self.inner.read(offset, length).await?;
+        if offset == 0 {
+            self.fingerprint.get_or_init(|| {
+                let version = response.data_version_string.as_deref().unwrap_or_default();
+                xxh3_128_with_seed(&response.bytes, xxh3_64(version.as_bytes()))
+            });
+        }
+        Ok(response)
     }
 }

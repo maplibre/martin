@@ -3,6 +3,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use compact_str::{CompactString, ToCompactString as _};
 use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
@@ -13,8 +16,8 @@ use tracing::{instrument, trace, warn};
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
-use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
-use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::pmtiles::backend::{Fingerprinted, PmtBackend, PmtFileBackend};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// Where a [`PmtilesSource`] reads from.
 #[derive(Clone)]
@@ -33,7 +36,10 @@ enum PmtLocation {
 pub struct PmtilesSource {
     id: String,
     #[dbg(skip)]
-    pmtiles: Arc<AsyncPmTilesReader<PmtBackend, PmtCacheInstance>>,
+    pmtiles: Arc<AsyncPmTilesReader<Fingerprinted<PmtBackend>, PmtCacheInstance>>,
+    /// The fingerprint of the archive's header and root directory.
+    #[dbg(skip)]
+    archive: Option<u128>,
     #[dbg(skip)]
     tilejson: TileJSON,
     #[dbg(skip)]
@@ -102,9 +108,12 @@ impl PmtilesSource {
             ),
             PmtLocation::ObjectStore { store, path } => (store.to_string(), path.clone()),
         };
+        let backend = Fingerprinted::new(backend);
+        let fingerprint = backend.fingerprint();
         let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
             .await
             .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_name.clone()))?;
+        let archive = fingerprint.get().copied();
 
         let hdr = &reader.get_header();
 
@@ -160,6 +169,7 @@ impl PmtilesSource {
         Ok(Self {
             id,
             pmtiles: Arc::new(reader),
+            archive,
             tilejson,
             tile_info: format,
             cache_zoom,
@@ -241,4 +251,31 @@ impl Source for PmtilesSource {
             Ok(TileData::new())
         }
     }
+
+    /// Derives the etag from the archive's fingerprint and the tile's coordinates.
+    async fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Tile> {
+        let data = self.get_tile(xyz, url_query).await?;
+        Ok(match self.archive {
+            Some(archive) if !data.is_empty() => {
+                Tile::new_with_etag(data, self.tile_info, tile_etag(archive, xyz))
+            }
+            _ => Tile::new_hash_etag(data, self.tile_info),
+        })
+    }
+}
+
+/// The etag of the tile at `xyz` in the archive fingerprinted as `archive`.
+fn tile_etag(archive: u128, xyz: TileCoord) -> CompactString {
+    let mut key = [0_u8; 25];
+    key[..16].copy_from_slice(&archive.to_le_bytes());
+    key[16] = xyz.z();
+    key[17..21].copy_from_slice(&xyz.x().to_le_bytes());
+    key[21..].copy_from_slice(&xyz.y().to_le_bytes());
+    URL_SAFE_NO_PAD
+        .encode(xxhash_rust::xxh3::xxh3_128(&key).to_ne_bytes())
+        .to_compact_string()
 }

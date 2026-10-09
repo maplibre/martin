@@ -82,7 +82,7 @@ async fn auto_configured_minimal() {
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 11586
     content-type: image/webp
-    etag: "wutUPc_mx5TO8aNmMnsK8A"
+    etag: "XVaNmYQ6nAXtaiQyNV2eKA"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
@@ -183,7 +183,7 @@ async fn a_raster_source_serves_png_tiles() {
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 24475
     content-type: image/png
-    etag: "I1fhCKy04n2xAQpEk2ESig"
+    etag: "s3P6T9dSjjkHxhsx3B99zg"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));
@@ -223,7 +223,7 @@ pmtiles:
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 18404
     content-type: image/png
-    etag: "aKKkpu0hTRlf8joPaDt3Ug"
+    etag: "lLQEUB-1Ahq15_PyWYRQQg"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));
@@ -286,7 +286,7 @@ pmtiles:
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 11586
     content-type: image/webp
-    etag: "wutUPc_mx5TO8aNmMnsK8A"
+    etag: "WH-pDogwpWKXT4msXTcuBQ"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
@@ -348,7 +348,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 10658
     content-type: image/webp
-    etag: "YQCG8_HEN_sExq050B7MCQ"
+    etag: "6nH4EQ0H7QJgxF35wYbMjg"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
@@ -448,7 +448,7 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     content-encoding: gzip
     content-length: 151
     content-type: application/x-protobuf
-    etag: "6ytE8xWaxj7fMiMIkSSO6Q"
+    etag: "8bB_gDjyQJEJAtLUmQgHTw"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     insta::assert_snapshot!(tile.mvt_dump(), @r#"
@@ -561,7 +561,7 @@ pmtiles:
     content-encoding: gzip
     content-length: 215320
     content-type: application/x-protobuf
-    etag: "5_Cffo9I87z38gagDXRhRA"
+    etag: "tEN9sMGZu_NpnGAWbWkbYA"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let layers = tile.mvt().layers;
