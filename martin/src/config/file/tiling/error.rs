@@ -18,6 +18,8 @@ pub enum TilingConfigError {
     EmptyStruct,
     #[error("`{0}` only applies to a whole attribute")]
     WholeAttributeOnly(&'static str),
+    #[error("`desc` only applies to a key of `sort_by`")]
+    DescOutsideSortBy,
     #[error("needs one of `value`, `from`, `coalesce`, `struct`, `match`, `lookup` or `expr`")]
     NoValue,
     #[error("pick one of `{}`", .0.join("`, `"))]

@@ -168,6 +168,8 @@ struct RawValue {
     maxzoom: Option<Zoom>,
     #[serde(default, rename = "where", skip_serializing_if = "Option::is_none")]
     r#where: Option<Condition>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    desc: bool,
 }
 
 impl RawValue {
@@ -201,6 +203,9 @@ impl RawValue {
     }
 
     fn into_value(self) -> Result<Value, TilingConfigError> {
+        if self.desc {
+            return Err(TilingConfigError::DescOutsideSortBy);
+        }
         let Self {
             value,
             from,
@@ -648,6 +653,164 @@ impl<'de> Deserialize<'de> for Attributes {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Computed(pub Value);
+
+impl<'de> Deserialize<'de> for Computed {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ComputedVisitor;
+
+        impl<'de> Visitor<'de> for ComputedVisitor {
+            type Value = Computed;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a property name or a map such as `{ expr: … }`")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Computed, A::Error> {
+                RawValue::deserialize(MapAccessDeserializer::new(map))?
+                    .into_nested_value()
+                    .map(Computed)
+                    .map_err(de::Error::custom)
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Computed, E> {
+                Value::copy_of(v).map(Computed).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_any(ComputedVisitor)
+    }
+}
+
+impl Serialize for Computed {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if let Some(from) = self.0.as_plain_copy() {
+            return from.serialize(serializer);
+        }
+        RawValue::from_value(&self.0).serialize(serializer)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SortKey {
+    pub value: Computed,
+    pub descending: bool,
+}
+
+impl<'de> Deserialize<'de> for SortKey {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct SortKeyVisitor;
+
+        impl<'de> Visitor<'de> for SortKeyVisitor {
+            type Value = SortKey;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a property name or a map such as `{ expr: …, desc: true }`")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<SortKey, A::Error> {
+                let mut raw = RawValue::deserialize(MapAccessDeserializer::new(map))?;
+                let descending = std::mem::take(&mut raw.desc);
+                let value = raw.into_nested_value().map_err(de::Error::custom)?;
+                Ok(SortKey {
+                    value: Computed(value),
+                    descending,
+                })
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<SortKey, E> {
+                let value = Value::copy_of(v).map(Computed).map_err(E::custom)?;
+                Ok(SortKey {
+                    value,
+                    descending: false,
+                })
+            }
+        }
+
+        deserializer.deserialize_any(SortKeyVisitor)
+    }
+}
+
+impl Serialize for SortKey {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if !self.descending {
+            return self.value.serialize(serializer);
+        }
+        RawValue {
+            desc: true,
+            ..RawValue::from_value(&self.value.0)
+        }
+        .serialize(serializer)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum IdPolicy {
+    #[default]
+    Keep,
+    Drop,
+    Expr(Expr),
+}
+
+impl IdPolicy {
+    #[must_use]
+    pub fn is_keep(&self) -> bool {
+        *self == Self::Keep
+    }
+}
+
+impl Serialize for IdPolicy {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Keep => serializer.serialize_str("keep"),
+            Self::Drop => serializer.serialize_str("drop"),
+            Self::Expr(expr) => single_entry_map(serializer, "expr", expr),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for IdPolicy {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        enum Word {
+            Keep,
+            Drop,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct ExprOnly {
+            expr: Expr,
+        }
+
+        struct IdVisitor;
+
+        impl<'de> Visitor<'de> for IdVisitor {
+            type Value = IdPolicy;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("`keep`, `drop` or `{ expr: … }`")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<IdPolicy, E> {
+                match Word::deserialize(de::IntoDeserializer::<E>::into_deserializer(v))? {
+                    Word::Keep => Ok(IdPolicy::Keep),
+                    Word::Drop => Ok(IdPolicy::Drop),
+                }
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<IdPolicy, A::Error> {
+                ExprOnly::deserialize(MapAccessDeserializer::new(map))
+                    .map(|e| IdPolicy::Expr(e.expr))
+            }
+        }
+
+        deserializer.deserialize_any(IdVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indexmap::IndexMap;
@@ -1082,6 +1245,14 @@ mod tests {
         insta::assert_snapshot!(
             rejection(r#"poi: { attributes: ["*"] }"#),
             @"error: line 1 column 21: `*` needs a prefix before it, such as `name:*`"
+        );
+    }
+
+    #[test]
+    fn an_attribute_cannot_be_a_sort_key() {
+        insta::assert_snapshot!(
+            rejection("poi: { attributes: { name: { from: name, desc: true } } }"),
+            @"error: line 1 column 28: `desc` only applies to a key of `sort_by`"
         );
     }
 }

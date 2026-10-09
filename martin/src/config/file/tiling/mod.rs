@@ -13,7 +13,8 @@ use primitives::checked_map_with;
 pub use primitives::{Expr, Finite, Literal, NonEmpty};
 use serde::{Deserialize, Deserializer, Serialize};
 pub use value::{
-    Attributes, Case, Cast, Columns, Lookup, Match, PropertySelector, Ref, Value, ValueSpec,
+    Attributes, Case, Cast, Columns, Computed, IdPolicy, Lookup, Match, PropertySelector, Ref,
+    SortKey, Value, ValueSpec,
 };
 pub use zoom::{Zoom, ZoomRange};
 
@@ -86,8 +87,14 @@ pub struct Layer {
     pub buffer: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub r#let: IndexMap<String, Computed>,
     #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
     pub attributes: Attributes,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<NonEmpty<SortKey>>,
+    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
+    pub id: IdPolicy,
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -196,6 +203,148 @@ mod tests {
     #[test]
     fn a_zero_extent_is_rejected() {
         insta::assert_snapshot!(rejection("roads: { extent: 0 }"), @"error: line 1 column 10: invalid value: integer `0`, expected a nonzero u32");
+    }
+
+    #[test]
+    fn computed_values_and_sort_order_are_parsed() {
+        let layers = parse(indoc! {r#"
+            building:
+              let:
+                class: { match: [ { if: { highway: motorway }, value: motorway }, { else: minor } ] }
+                height: { expr: "int(props.height)" }
+                kind: highway
+        "#});
+        let computed = &layers.get("building").expect("layer exists").r#let;
+        assert_eq!(
+            computed.keys().collect::<Vec<_>>(),
+            ["class", "height", "kind"]
+        );
+        assert_eq!(
+            computed["class"],
+            Computed(Value::Match(Match {
+                cases: NonEmpty::new(Case {
+                    when: Condition {
+                        properties: IndexMap::from([(
+                            "highway".to_owned(),
+                            PropertyTest::OneOf(NonEmpty::new(Literal::String(
+                                "motorway".to_owned()
+                            ))),
+                        )]),
+                        ..Condition::default()
+                    },
+                    then: Value::Literal(Literal::String("motorway".to_owned())),
+                }),
+                otherwise: Some(Box::new(Value::Literal(Literal::String(
+                    "minor".to_owned()
+                )))),
+            }))
+        );
+        assert_eq!(
+            computed["height"],
+            Computed(Value::Expr(
+                Expr::new("int(props.height)").expect("not blank")
+            ))
+        );
+        assert_eq!(
+            computed["kind"],
+            Computed(Value::Copy {
+                from: Ref::Property("highway".to_owned()),
+                otherwise: None,
+            })
+        );
+    }
+
+    #[test]
+    fn sort_keys_are_parsed_in_order() {
+        let layers = parse(indoc! {r#"
+            building:
+              sort_by: [ { expr: "props.z_order" }, { from: let.height, desc: true }, class ]
+        "#});
+        let keys = layers
+            .get("building")
+            .expect("layer exists")
+            .sort_by
+            .as_ref()
+            .expect("sort_by is set");
+        let expected = [
+            SortKey {
+                value: Computed(Value::Expr(Expr::new("props.z_order").expect("not blank"))),
+                descending: false,
+            },
+            SortKey {
+                value: Computed(Value::Copy {
+                    from: Ref::Let("height".to_owned()),
+                    otherwise: None,
+                }),
+                descending: true,
+            },
+            SortKey {
+                value: Computed(Value::Copy {
+                    from: Ref::Property("class".to_owned()),
+                    otherwise: None,
+                }),
+                descending: false,
+            },
+        ];
+        assert_eq!(keys.iter().cloned().collect::<Vec<_>>(), expected);
+    }
+
+    #[test]
+    fn an_id_is_kept_dropped_or_computed() {
+        let layers = parse(indoc! {"
+            omitted: {}
+            kept: { id: keep }
+            dropped: { id: drop }
+            computed: { id: { expr: 'props.osm_id * 10' } }
+        "});
+        let ids: Vec<_> = layers
+            .iter()
+            .map(|(name, l)| (name, l.id.clone()))
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                ("omitted", IdPolicy::Keep),
+                ("kept", IdPolicy::Keep),
+                ("dropped", IdPolicy::Drop),
+                (
+                    "computed",
+                    IdPolicy::Expr(Expr::new("props.osm_id * 10").expect("not blank"))
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_let_value_cannot_carry_a_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { let: { x: { from: a, minzoom: 4 } } }"),
+            @"error: line 1 column 20: `minzoom` only applies to a whole attribute"
+        );
+    }
+
+    #[test]
+    fn a_let_value_cannot_be_descending() {
+        insta::assert_snapshot!(
+            rejection("roads: { let: { x: { from: a, desc: true } } }"),
+            @"error: line 1 column 20: `desc` only applies to a key of `sort_by`"
+        );
+    }
+
+    #[test]
+    fn an_unknown_id_policy_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { id: none }"),
+            @"error: line 1 column 10: unknown variant `none`, expected one of keep, drop"
+        );
+    }
+
+    #[test]
+    fn an_empty_sort_by_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { sort_by: [] }"),
+            @"error: line 1 column 10: invalid length 0, expected at least one item"
+        );
     }
 }
 
@@ -455,6 +604,14 @@ mod proptests {
         ]
     }
 
+    fn id_policy() -> impl Strategy<Value = IdPolicy> + Clone {
+        prop_oneof![
+            Just(IdPolicy::Keep),
+            Just(IdPolicy::Drop),
+            expr().prop_map(IdPolicy::Expr)
+        ]
+    }
+
     fn layer() -> impl Strategy<Value = Layer> + Clone {
         let selection = (
             proptest::option::of(condition()),
@@ -467,7 +624,18 @@ mod proptests {
             proptest::option::of(any::<u32>()),
             proptest::option::of(any::<bool>()),
         );
-        (selection, tiling, attributes())
+        let output = (
+            map_of(name(), value().prop_map(Computed), 0..2),
+            attributes(),
+            proptest::option::of(non_empty((value(), any::<bool>()).prop_map(
+                |(v, descending)| SortKey {
+                    value: Computed(v),
+                    descending,
+                },
+            ))),
+            id_policy(),
+        );
+        (selection, tiling, output)
             .prop_filter("minzoom <= maxzoom", |((_, _, min, max), ..)| {
                 ZoomRange::new(*min, *max).is_ok()
             })
@@ -475,7 +643,7 @@ mod proptests {
                 |(
                     (r#where, geometry, minzoom, maxzoom),
                     (extent, buffer, clip_geom),
-                    attributes,
+                    (r#let, attributes, sort_by, id),
                 )| Layer {
                     r#where,
                     geometry,
@@ -484,7 +652,10 @@ mod proptests {
                     extent,
                     buffer,
                     clip_geom,
+                    r#let,
                     attributes,
+                    sort_by,
+                    id,
                     unrecognized: UnrecognizedValues::default(),
                 },
             )
