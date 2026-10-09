@@ -18,7 +18,10 @@ pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 use setting::fixed_zoom_range;
 pub use setting::{ByZoom, FromZoomSteps, Meters, PerFeature, PixelSetting, Pixels, ZoomSetting};
-pub use sources::Prefetch;
+pub use sources::{
+    Areas, CsvFiles, EngineFiles, EngineSource, GpkgFiles, Index, NoOptions, OsmPbf, OsmPbfFiles,
+    Prefetch, RelationTags, ShapefileFiles,
+};
 pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{
     Attributes, Case, Cast, Columns, Computed, IdPolicy, Lookup, Match, PropertySelector, Ref,

@@ -4,6 +4,8 @@ pub enum TilingConfigError {
     NoLayers,
     #[error("layer `{0}`: {1}")]
     InLayer(String, Box<Self>),
+    #[error("source `{0}`: {1}")]
+    InSource(String, Box<Self>),
     #[error(
         "table `{0}`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id`"
     )]
@@ -79,4 +81,9 @@ pub enum TilingConfigError {
     PixelAndMetreLength,
     #[error("`label_grid` needs a `limit`, a `rank_attribute`, or both")]
     LabelGridWithoutKeep,
+
+    #[error("`role` is listed twice")]
+    RoleTwice,
+    #[error("a relation type needs at least one tag besides `role`")]
+    RelationWithoutTags,
 }
