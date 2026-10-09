@@ -150,7 +150,23 @@ jobs:
       with:
         languages: ${{ matrix.language }}
         build-mode: none
+    - name: Restore the Rust extractor's cargo cache
+      if: matrix.language == 'rust'
+      id: cargo-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/codeql-cargo-target
+        key: codeql-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: codeql-rust-${{ runner.os }}-
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+      env:
+        CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ runner.temp }}/codeql-cargo-target
       with:
         category: "/language:${{matrix.language}}"
+    - name: Save the Rust extractor's cargo cache
+      if: matrix.language == 'rust' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/codeql-cargo-target
+        key: codeql-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
