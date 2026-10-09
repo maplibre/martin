@@ -133,6 +133,8 @@ impl MartinBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        #[cfg(windows)]
+        cmd.creation_flags(windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP);
         for (key, value) in &self.envs {
             cmd.env(key, value);
         }
@@ -263,8 +265,8 @@ impl Subprocess {
         Ok(())
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
-    /// the end, so the assertions on it see every line. Idempotent.
+    /// Stop martin with [`terminate`] and read its log to the end, so the assertions on it see
+    /// every line. Idempotent.
     async fn stop(&mut self) {
         if self.stopped {
             return;
@@ -276,13 +278,7 @@ impl Subprocess {
             .expect("failed to poll martin")
             .is_none()
         {
-            terminate(&self.child);
-            match timeout(STOP_TIMEOUT, self.child.wait()).await {
-                Ok(status) => {
-                    status.expect("failed to wait for martin");
-                }
-                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
-            }
+            terminate(&mut self.child).await;
         }
         self.drain_readers().await;
     }
@@ -499,7 +495,7 @@ impl Martin {
         }
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// Gracefully stop martin (`SIGTERM`, or Ctrl+Break on Windows) and read its log to
     /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
     /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
@@ -548,22 +544,40 @@ impl Drop for Martin {
     }
 }
 
-#[cfg(unix)]
-fn terminate(child: &Child) {
-    let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) else {
+/// Gracefully stop martin with [`ask_to_stop`], then kill it if it is still running after
+/// [`STOP_TIMEOUT`], or right away if it could not be asked.
+async fn terminate(child: &mut Child) {
+    if ask_to_stop(child)
+        && let Ok(status) = timeout(STOP_TIMEOUT, child.wait()).await
+    {
+        status.expect("failed to wait for martin");
         return;
-    };
-    // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
-    // process already exited) are handled by the caller's wait.
-    unsafe {
-        libc::kill(pid, libc::SIGTERM);
     }
+    child.kill().await.expect("failed to kill martin");
 }
 
-#[cfg(not(unix))]
-fn terminate(child: &Child) {
-    // No SIGTERM on this platform; the caller falls back to kill().
-    let _ = child;
+/// Send martin `SIGTERM`.
+#[cfg(unix)]
+fn ask_to_stop(child: &Child) -> bool {
+    if let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) {
+        // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
+        // process already exited) are handled by the caller's wait.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+    }
+    true
+}
+
+/// Send Ctrl+Break, the Windows counterpart of `SIGTERM`, to the process group
+/// [`MartinBuilder::start`] gives martin alone. Fails without a console to send it through.
+#[cfg(windows)]
+fn ask_to_stop(child: &Child) -> bool {
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, GenerateConsoleCtrlEvent};
+    child.id().is_some_and(|pid| {
+        // SAFETY: no pointers are passed; martin's pid is its process group id.
+        unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) != 0 }
+    })
 }
 
 /// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.

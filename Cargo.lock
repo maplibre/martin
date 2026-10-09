@@ -5618,6 +5618,7 @@ dependencies = [
  "actix-web",
  "actix-web-prom",
  "actix-web-static-files",
+ "approx",
  "async-trait",
  "aws-config",
  "aws-credential-types",
@@ -5810,6 +5811,7 @@ dependencies = [
  "test_each_file",
  "thiserror 2.0.21",
  "tokio",
+ "windows-sys 0.61.2",
  "wiremock",
 ]
 
