@@ -14,6 +14,7 @@ impl Prefetch {
 }
 
 #[cfg(test)]
+#[cfg(feature = "postgres")]
 mod tests {
     use std::collections::HashMap;
     use std::path::Path;
