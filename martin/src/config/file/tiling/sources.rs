@@ -241,7 +241,6 @@ pub type ShapefileFiles = EngineFiles<NoOptions>;
 pub type CsvFiles = EngineFiles<NoOptions>;
 
 #[cfg(test)]
-#[cfg(feature = "postgres")]
 mod tests {
     use std::collections::{HashMap, HashSet};
     use std::path::{Path, PathBuf};
