@@ -41,6 +41,10 @@ pub use hillshade::{
 
 pub mod process;
 
+#[cfg(feature = "unstable-generate")]
+#[doc(hidden)]
+pub mod tiling;
+
 #[cfg(feature = "_tiles")]
 mod tile_grids;
 #[cfg(feature = "_tiles")]
