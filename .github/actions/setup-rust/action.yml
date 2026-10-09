@@ -57,6 +57,9 @@ runs:
       env:
         COMPONENTS: ${{ inputs.components }}
       run: rustup component add $COMPONENTS
+    - if: inputs.toolchain != 'none'
+      shell: bash
+      run: echo "CARGO_PROFILE_DEV_DEBUG=0" >> "$GITHUB_ENV"
     - if: inputs.cache == 'true' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:
