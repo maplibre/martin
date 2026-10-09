@@ -1,7 +1,5 @@
-//! Graceful shutdown: on `SIGTERM`, requests in flight are answered before martin exits.
-
-// The harness can only send `SIGTERM` on Unix; elsewhere it kills martin.
-#![cfg(not(windows))]
+//! Graceful shutdown: on `SIGTERM` (Ctrl+Break on Windows), requests in flight are answered
+//! before martin exits.
 
 use std::time::Duration;
 
@@ -14,7 +12,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const UPSTREAM_DELAY: Duration = Duration::from_secs(2);
 
 /// An upstream answering every tile after [`UPSTREAM_DELAY`], so a request through martin is
-/// still in flight when the test sends `SIGTERM`.
+/// still in flight when the test stops martin.
 async fn slow_upstream() -> MockServer {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

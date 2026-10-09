@@ -371,8 +371,25 @@ pub fn new_server(
         .keep_alive(keep_alive)
         .shutdown_timeout(shutdown_timeout)
         .workers(worker_processes)
-        .run()
-        .err_into();
+        .run();
 
-    Ok((Box::pin(server), listen_addresses))
+    #[cfg(windows)]
+    tokio::spawn(stop_gracefully_on_ctrl_break(server.handle()));
+
+    Ok((Box::pin(server.err_into()), listen_addresses))
+}
+
+/// Stop the server gracefully on Ctrl+Break, the Windows counterpart of `SIGTERM`.
+/// actix only listens for Ctrl+C there, which it handles like `SIGINT` with a forced shutdown.
+#[cfg(windows)]
+async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
+    match tokio::signal::windows::ctrl_break() {
+        Ok(mut ctrl_break) => {
+            if ctrl_break.recv().await.is_some() {
+                tracing::info!("Ctrl+Break received; starting graceful shutdown");
+                server.stop(true).await;
+            }
+        }
+        Err(e) => tracing::warn!("Ctrl+Break will not stop martin gracefully: {e}"),
+    }
 }

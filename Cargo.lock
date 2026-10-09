@@ -5819,6 +5819,7 @@ dependencies = [
  "test_each_file",
  "thiserror 2.0.21",
  "tokio",
+ "windows-sys 0.61.2",
  "wiremock",
 ]
 

@@ -23,13 +23,12 @@ use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, BufReader};
 use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
 use crate::{binary_command, pg_ssl_args, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
-#[cfg(unix)]
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long [`Martin::wait_for_log`] and the catalog waits give the reload watcher to catch up.
 const WATCH_TIMEOUT: Duration = Duration::from_secs(30);
@@ -134,6 +133,8 @@ impl MartinBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        #[cfg(windows)]
+        cmd.creation_flags(windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP);
         for (key, value) in &self.envs {
             cmd.env(key, value);
         }
@@ -494,7 +495,7 @@ impl Martin {
         }
     }
 
-    /// Stop martin (gracefully with `SIGTERM` on Unix, killing it elsewhere) and read its log to
+    /// Gracefully stop martin (`SIGTERM`, or Ctrl+Break on Windows) and read its log to
     /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
     /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
@@ -543,28 +544,40 @@ impl Drop for Martin {
     }
 }
 
-/// Gracefully stop martin: `SIGTERM`, then `SIGKILL` after [`STOP_TIMEOUT`].
-#[cfg(unix)]
+/// Gracefully stop martin with [`ask_to_stop`], then kill it if it is still running after
+/// [`STOP_TIMEOUT`], or right away if it could not be asked.
 async fn terminate(child: &mut Child) {
+    if ask_to_stop(child)
+        && let Ok(status) = timeout(STOP_TIMEOUT, child.wait()).await
+    {
+        status.expect("failed to wait for martin");
+        return;
+    }
+    child.kill().await.expect("failed to kill martin");
+}
+
+/// Send martin `SIGTERM`.
+#[cfg(unix)]
+fn ask_to_stop(child: &Child) -> bool {
     if let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) {
         // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
-        // process already exited) are handled by the wait below.
+        // process already exited) are handled by the caller's wait.
         unsafe {
             libc::kill(pid, libc::SIGTERM);
         }
     }
-    match tokio::time::timeout(STOP_TIMEOUT, child.wait()).await {
-        Ok(status) => {
-            status.expect("failed to wait for martin");
-        }
-        Err(_timed_out) => child.kill().await.expect("failed to kill martin"),
-    }
+    true
 }
 
-/// Kill martin right away: without `SIGTERM` nothing asks it to stop, so it never exits on its own.
-#[cfg(not(unix))]
-async fn terminate(child: &mut Child) {
-    child.kill().await.expect("failed to kill martin");
+/// Send Ctrl+Break, the Windows counterpart of `SIGTERM`, to the process group
+/// [`MartinBuilder::start`] gives martin alone. Fails without a console to send it through.
+#[cfg(windows)]
+fn ask_to_stop(child: &Child) -> bool {
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, GenerateConsoleCtrlEvent};
+    child.id().is_some_and(|pid| {
+        // SAFETY: no pointers are passed; martin's pid is its process group id.
+        unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) != 0 }
+    })
 }
 
 /// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.
