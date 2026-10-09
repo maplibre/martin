@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-09
+
+### Added
+
+- [**breaking**] merge cargo features and make mlt always-on ([#3466](https://github.com/maplibre/martin/pull/3466))
+- *(rendering)* configurable tile size (256 or 512 px) ([#3457](https://github.com/maplibre/martin/pull/3457))
+- *(rendering)* keep several renderers per worker ([#3454](https://github.com/maplibre/martin/pull/3454))
+- *(rendering)* serve @{n}x pixel ratios on rendered tiles ([#3453](https://github.com/maplibre/martin/pull/3453))
+- *(rendering)* [**breaking**] serve rendered PNGs as indexed (palette) images ([#3456](https://github.com/maplibre/martin/pull/3456))
+- *(pmtiles)* tag object store log lines with the source id ([#3502](https://github.com/maplibre/martin/pull/3502))
+- [**breaking**] require x86-64-v3 CPU ([#3464](https://github.com/maplibre/martin/pull/3464))
+- *(mbtiles)* add MbtilesBulkWriter for fast synchronous bulk writes ([#3496](https://github.com/maplibre/martin/pull/3496))
+
+### Fixed
+
+- *(tiles)* keep caches from serving one client's encoding to everyone ([#3520](https://github.com/maplibre/martin/pull/3520))
+- *(tiles)* answer 304 when a proxy has weakened the tile's ETag ([#3521](https://github.com/maplibre/martin/pull/3521))
+- *(deps)* update dependency lucide-react to v1.53.0 ([#3504](https://github.com/maplibre/martin/pull/3504))
+- *(cp)* refuse an inverted --bbox instead of panicking ([#3497](https://github.com/maplibre/martin/pull/3497))
+- *(cp)* stop waiting out the drain timeout after Ctrl+C ([#3498](https://github.com/maplibre/martin/pull/3498))
+- *(deps)* update dependency maplibre-gl to v6.13.0 ([#3494](https://github.com/maplibre/martin/pull/3494))
+- fmt/lint ([#3491](https://github.com/maplibre/martin/pull/3491))
+- *(cp)* use the source bounds when --bbox is omitted ([#3489](https://github.com/maplibre/martin/pull/3489))
+- *(tile-utils)* stop detecting MLT tiles as MVT ([#3486](https://github.com/maplibre/martin/pull/3486))
+- *(deps)* update npm dependencies ([#3484](https://github.com/maplibre/martin/pull/3484))
+- *(deps)* update npm dependencies ([#3447](https://github.com/maplibre/martin/pull/3447))
+- *(fonts)* draw a font stack's shared characters from its first font ([#3524](https://github.com/maplibre/martin/pull/3524))
+- *(pmtiles)* don't crash when a served archive is rewritten in place ([#3487](https://github.com/maplibre/martin/pull/3487))
+- *(pmtiles)* reload a remote source whose leaf directories moved ([#3450](https://github.com/maplibre/martin/pull/3450))
+- *(tile-utils)* stop mistaking MLT tiles for JPEG XL ([#3522](https://github.com/maplibre/martin/pull/3522))
+
+### Other
+
+- *(cache)* stop recompressing composite tiles on every request ([#3523](https://github.com/maplibre/martin/pull/3523))
+- *(cp)* write tiles with the synchronous bulk writer ([#3500](https://github.com/maplibre/martin/pull/3500))
+- *(deps)* update rust crate mlt-core to 0.19.0 ([#3483](https://github.com/maplibre/martin/pull/3483))
+- *(deps)* bump the npm_and_yarn group across 1 directory with 1 update ([#3478](https://github.com/maplibre/martin/pull/3478))
+- *(deps)* autoupdate pre-commit ([#3476](https://github.com/maplibre/martin/pull/3476))
+- *(fonts)* serve cached glyph ranges without compressing them again ([#3472](https://github.com/maplibre/martin/pull/3472))
+- avoid per-request allocations in source resolution and Accept parsing ([#3468](https://github.com/maplibre/martin/pull/3468))
+- reduce allocations a bit ([#3467](https://github.com/maplibre/martin/pull/3467))
+- *(deps)* Update hotpath and enable hotpath-cloud ([#3461](https://github.com/maplibre/martin/pull/3461))
+- *(rendering)* encode rendered images off the actix workers ([#3460](https://github.com/maplibre/martin/pull/3460))
+- *(deps)* update github-actions ([#3449](https://github.com/maplibre/martin/pull/3449))
+- *(cog)* read local tiles without reopening the file ([#3477](https://github.com/maplibre/martin/pull/3477))
+- *(tile-utils)* size codec outputs exactly ([#3473](https://github.com/maplibre/martin/pull/3473))
+- *(mbtiles)* hash each inserted tile once ([#3474](https://github.com/maplibre/martin/pull/3474))
+
 ## [2.0.0-beta.2](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.1...martin-v2.0.0-beta.2) - 2026-10-01
 
 > [!IMPORTANT]
