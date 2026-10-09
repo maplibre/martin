@@ -11,8 +11,9 @@ on:
         default: true
       run-release-builds:
         description: >-
-          Build what only a release consumes: the aarch64 binaries and the
-          Debian package. Off for pull requests other than the release PR.
+          Build what only a release consumes: the aarch64, macOS and Windows
+          binaries and the Debian package. Off for pull requests other than
+          the release PR.
         type: boolean
         default: true
   workflow_dispatch:
@@ -22,7 +23,7 @@ on:
         type: boolean
         default: true
       run-release-builds:
-        description: Run the aarch64 builds and the Debian package build
+        description: Run the aarch64, macOS and Windows builds and the Debian package build
         type: boolean
         default: true
 
@@ -55,9 +56,7 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with:
           tools: 'just,nextest'
-          # The 10GB cache quota only has room for the Linux entry; a macOS entry
-          # gets evicted before the next run can restore it (see #3156).
-          cache: ${{ matrix.os == 'ubuntu-latest' }}
+          cache: true
           coverage: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Run the unit tests
         run: just test-packages-ci
@@ -137,8 +136,8 @@ jobs:
     permissions:
       contents: read
     # Depends on lint-rust not because it needs its output, but so the fan-out
-    # of partitions doesn't compete for the early pipeline slots (only ~10 run
-    # concurrently) before the cheaper clippy run has had a chance to fail fast.
+    # of partitions doesn't compete for the runner pool the whole org shares
+    # before the cheaper clippy run has had a chance to fail fast.
     needs:
       - lint-rust
     runs-on: ubuntu-latest
@@ -534,7 +533,7 @@ jobs:
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-pc-windows-msvc:
-    if: inputs.run-heavy
+    if: inputs.run-heavy && inputs.run-release-builds
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-pc-windows-msvc
@@ -599,7 +598,10 @@ jobs:
     permissions:
       contents: read
     needs: [ build-x86_64-pc-windows-msvc ]
-    if: inputs.run-heavy
+    if: |
+      !cancelled()
+      && inputs.run-heavy
+      && needs.build-x86_64-pc-windows-msvc.result != 'failure'
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -626,22 +628,30 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGSERVICE: ${{ steps.pg.outputs.service-name }}
-      - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: build-x86_64-pc-windows-msvc
-          path: target/
+      - name: Build the debug binaries
+        run: cargo build --package martin --package mbtiles
       # Windows runs the PostGIS that the setup action ships, which encodes geometry
       # differently than the one behind the snapshots, so the database tests that run here
       # are the ones asserting on what martin logs and publishes.
       - name: End-to-end tests
-        run: |
-          export MARTIN_BIN=target/martin.exe
-          export MBTILES_BIN=target/mbtiles.exe
+        run: &windows-e2e |
           cargo nextest run --package martin-e2e-tests
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+      - name: Download build artifact build-x86_64-pc-windows-msvc
+        if: inputs.run-release-builds
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: build-x86_64-pc-windows-msvc
+          path: target_releases/
+      - name: End-to-end tests against the release build
+        if: inputs.run-release-builds
+        run: *windows-e2e
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
+          MARTIN_BIN: target_releases/martin.exe
+          MBTILES_BIN: target_releases/mbtiles.exe
 
   test-svc-pg:
     name: Test against PostGIS variants
