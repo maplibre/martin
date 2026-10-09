@@ -1,6 +1,6 @@
 //! Graceful shutdown: on `SIGTERM`, requests in flight are answered before martin exits.
 
-// The harness can only send `SIGTERM` on Unix; elsewhere it kills martin after a timeout.
+// The harness can only send `SIGTERM` on Unix; elsewhere it kills martin.
 #![cfg(not(windows))]
 
 use std::time::Duration;

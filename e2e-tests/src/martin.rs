@@ -23,12 +23,13 @@ use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, BufReader};
 use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
-use tokio::time::{sleep, timeout};
+use tokio::time::sleep;
 
 use crate::{binary_command, pg_ssl_args, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
+#[cfg(unix)]
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long [`Martin::wait_for_log`] and the catalog waits give the reload watcher to catch up.
 const WATCH_TIMEOUT: Duration = Duration::from_secs(30);
@@ -263,8 +264,8 @@ impl Subprocess {
         Ok(())
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
-    /// the end, so the assertions on it see every line. Idempotent.
+    /// Stop martin with [`terminate`] and read its log to the end, so the assertions on it see
+    /// every line. Idempotent.
     async fn stop(&mut self) {
         if self.stopped {
             return;
@@ -276,13 +277,7 @@ impl Subprocess {
             .expect("failed to poll martin")
             .is_none()
         {
-            terminate(&self.child);
-            match timeout(STOP_TIMEOUT, self.child.wait()).await {
-                Ok(status) => {
-                    status.expect("failed to wait for martin");
-                }
-                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
-            }
+            terminate(&mut self.child).await;
         }
         self.drain_readers().await;
     }
@@ -499,7 +494,7 @@ impl Martin {
         }
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// Stop martin (gracefully with `SIGTERM` on Unix, killing it elsewhere) and read its log to
     /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
     /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
@@ -548,22 +543,28 @@ impl Drop for Martin {
     }
 }
 
+/// Gracefully stop martin: `SIGTERM`, then `SIGKILL` after [`STOP_TIMEOUT`].
 #[cfg(unix)]
-fn terminate(child: &Child) {
-    let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) else {
-        return;
-    };
-    // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
-    // process already exited) are handled by the caller's wait.
-    unsafe {
-        libc::kill(pid, libc::SIGTERM);
+async fn terminate(child: &mut Child) {
+    if let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) {
+        // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
+        // process already exited) are handled by the wait below.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+    }
+    match tokio::time::timeout(STOP_TIMEOUT, child.wait()).await {
+        Ok(status) => {
+            status.expect("failed to wait for martin");
+        }
+        Err(_timed_out) => child.kill().await.expect("failed to kill martin"),
     }
 }
 
+/// Kill martin right away: without `SIGTERM` nothing asks it to stop, so it never exits on its own.
 #[cfg(not(unix))]
-fn terminate(child: &Child) {
-    // No SIGTERM on this platform; the caller falls back to kill().
-    let _ = child;
+async fn terminate(child: &mut Child) {
+    child.kill().await.expect("failed to kill martin");
 }
 
 /// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.
