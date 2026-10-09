@@ -6,11 +6,11 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
@@ -143,13 +143,13 @@ pub struct PostgresConfig {
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Default `prefetch` for tables tiled by Martin's engine:
     /// a cache miss renders the N×N block around the tile and caches the neighbours (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prefetch: Option<tiling::Prefetch>,
     /// Associative arrays of table sources
     #[cfg_attr(
-        feature = "unstable-export",
+        feature = "unstable-generate",
         serde(default, deserialize_with = "deserialize_checked_tables")
     )]
     pub tables: Option<TableInfoSources>,
@@ -205,7 +205,7 @@ impl Default for PostgresConfig {
             retry_timeout: None,
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
-            #[cfg(feature = "unstable-export")]
+            #[cfg(feature = "unstable-generate")]
             prefetch: None,
             tables: None,
             functions: None,

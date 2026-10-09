@@ -2,25 +2,20 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use super::error::{MinzoomAboveMaxzoom, TileOpError};
 use super::primitives::{Expr, NonEmpty, checked_map};
 use super::setting::{ByZoom, Meters, Pixels};
 use super::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct TileOps {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merge_lines: Option<MergeLines>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merge_polygons: Option<MergePolygons>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merge_multi: Option<MergeMulti>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label_grid: Option<LabelGrid>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dedup_by: Option<NonEmpty<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<NonZeroU32>,
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -113,32 +108,27 @@ pub enum GridKeep {
     },
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Default, Serialize, Deserialize)]
 struct RawMergeLines {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     by: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     min_length: Option<ByZoom<Pixels>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     min_length_m: Option<ByZoom<Meters>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     simplify: Option<Pixels>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     except_where: Option<Expr>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<Zoom>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
 }
 
 impl TryFrom<RawMergeLines> for MergeLines {
-    type Error = TilingConfigError;
+    type Error = TileOpError;
 
-    fn try_from(raw: RawMergeLines) -> Result<Self, TilingConfigError> {
+    fn try_from(raw: RawMergeLines) -> Result<Self, TileOpError> {
         let min_length = match (raw.min_length, raw.min_length_m) {
-            (Some(_), Some(_)) => return Err(TilingConfigError::PixelAndMetreLength),
+            (Some(_), Some(_)) => return Err(TileOpError::PixelAndMetreLength),
             (Some(px), None) => Some(LineLength::Pixels(px)),
             (None, Some(m)) => Some(LineLength::Meters(m)),
             (None, None) => None,
@@ -174,26 +164,23 @@ impl From<&MergeLines> for RawMergeLines {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Default, Serialize, Deserialize)]
 struct RawMergePolygons {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     by: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     min_area: Option<ByZoom<Pixels>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     gap: Option<Pixels>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<Zoom>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
 }
 
 impl TryFrom<RawMergePolygons> for MergePolygons {
-    type Error = TilingConfigError;
+    type Error = MinzoomAboveMaxzoom;
 
-    fn try_from(raw: RawMergePolygons) -> Result<Self, TilingConfigError> {
+    fn try_from(raw: RawMergePolygons) -> Result<Self, MinzoomAboveMaxzoom> {
         Ok(Self {
             by: raw.by,
             min_area: raw.min_area,
@@ -217,20 +204,19 @@ impl From<&MergePolygons> for RawMergePolygons {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Default, Serialize, Deserialize)]
 struct RawZooms {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<Zoom>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
 }
 
 impl TryFrom<RawZooms> for MergeMulti {
-    type Error = TilingConfigError;
+    type Error = MinzoomAboveMaxzoom;
 
-    fn try_from(raw: RawZooms) -> Result<Self, TilingConfigError> {
+    fn try_from(raw: RawZooms) -> Result<Self, MinzoomAboveMaxzoom> {
         Ok(Self {
             zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
             unrecognized: raw.unrecognized,
@@ -238,25 +224,22 @@ impl TryFrom<RawZooms> for MergeMulti {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 struct RawLabelGrid {
     size: NonZeroU32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     limit: Option<NonZeroU32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     rank_attribute: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<Zoom>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
 }
 
 impl TryFrom<RawLabelGrid> for LabelGrid {
-    type Error = TilingConfigError;
+    type Error = TileOpError;
 
-    fn try_from(raw: RawLabelGrid) -> Result<Self, TilingConfigError> {
+    fn try_from(raw: RawLabelGrid) -> Result<Self, TileOpError> {
         let keep = match (raw.limit, raw.rank_attribute) {
             (Some(best), None) => GridKeep::Best(best),
             (None, Some(rank_attribute)) => GridKeep::All { rank_attribute },
@@ -264,7 +247,7 @@ impl TryFrom<RawLabelGrid> for LabelGrid {
                 best,
                 rank_attribute,
             },
-            (None, None) => return Err(TilingConfigError::LabelGridWithoutKeep),
+            (None, None) => return Err(TileOpError::LabelGridWithoutKeep),
         };
         Ok(Self {
             size: raw.size,

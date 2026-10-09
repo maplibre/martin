@@ -41,7 +41,7 @@ pub use hillshade::{
 
 pub mod process;
 
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 #[doc(hidden)]
 pub mod tiling;
 

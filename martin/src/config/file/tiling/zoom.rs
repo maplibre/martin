@@ -3,7 +3,7 @@ use std::fmt;
 use martin_tile_utils::MAX_ZOOM;
 use serde::{Deserialize, Deserializer, Serialize, de};
 
-use super::error::TilingConfigError;
+use super::error::MinzoomAboveMaxzoom;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Zoom(u8);
@@ -55,9 +55,9 @@ impl fmt::Debug for ZoomRange {
 }
 
 impl ZoomRange {
-    pub fn new(minzoom: Option<Zoom>, maxzoom: Option<Zoom>) -> Result<Self, TilingConfigError> {
+    pub fn new(minzoom: Option<Zoom>, maxzoom: Option<Zoom>) -> Result<Self, MinzoomAboveMaxzoom> {
         match (minzoom, maxzoom) {
-            (Some(min), Some(max)) if min > max => Err(TilingConfigError::MinzoomAboveMaxzoom {
+            (Some(min), Some(max)) if min > max => Err(MinzoomAboveMaxzoom {
                 min: min.get(),
                 max: max.get(),
             }),

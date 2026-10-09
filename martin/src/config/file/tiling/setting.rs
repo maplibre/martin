@@ -6,7 +6,7 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use super::error::{MinzoomAboveMaxzoom, ZoomStepsForZoom};
 use super::primitives::{Expr, Finite, forward_scalars};
 use super::zoom::{Zoom, ZoomRange};
 
@@ -82,17 +82,17 @@ impl<'de, U: Deserialize<'de>> Deserialize<'de> for ByZoom<U> {
 }
 
 pub trait FromZoomSteps: Sized + Serialize + for<'de> Deserialize<'de> {
-    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, TilingConfigError>;
+    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom>;
 }
 
 impl FromZoomSteps for Zoom {
-    fn from_zoom_steps(_: BTreeMap<Zoom, Pixels>) -> Result<Self, TilingConfigError> {
-        Err(TilingConfigError::ZoomStepsForZoom)
+    fn from_zoom_steps(_: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom> {
+        Err(ZoomStepsForZoom)
     }
 }
 
 impl FromZoomSteps for ByZoom<Pixels> {
-    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, TilingConfigError> {
+    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom> {
         Ok(Self::Steps(steps))
     }
 }
@@ -119,7 +119,7 @@ impl<T> PerFeature<T> {
 pub(super) fn fixed_zoom_range(
     minzoom: Option<&ZoomSetting>,
     maxzoom: Option<&ZoomSetting>,
-) -> Result<ZoomRange, TilingConfigError> {
+) -> Result<ZoomRange, MinzoomAboveMaxzoom> {
     let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
     ZoomRange::new(fixed(minzoom), fixed(maxzoom))
 }

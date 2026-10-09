@@ -6,7 +6,7 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use super::error::ValueError;
 use super::primitives::{Expr, Literal, NonEmpty, forward_scalars, single_entry_map};
 use super::zoom::{Zoom, ZoomRange};
 
@@ -31,28 +31,25 @@ impl ValueSpec {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawValue {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     value: Option<Literal>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     expr: Option<Expr>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<Zoom>,
 }
 
 impl TryFrom<RawValue> for ValueSpec {
-    type Error = TilingConfigError;
+    type Error = ValueError;
 
-    fn try_from(raw: RawValue) -> Result<Self, TilingConfigError> {
+    fn try_from(raw: RawValue) -> Result<Self, ValueError> {
         let value = match (raw.value, raw.expr) {
             (Some(literal), None) => Value::Literal(literal),
             (None, Some(expr)) => Value::Expr(expr),
-            (None, None) => return Err(TilingConfigError::NoValue),
-            (Some(_), Some(_)) => return Err(TilingConfigError::SeveralValues),
+            (None, None) => return Err(ValueError::NoValue),
+            (Some(_), Some(_)) => return Err(ValueError::SeveralValues),
         };
         Ok(Self {
             value,
@@ -146,11 +143,11 @@ pub enum PropertySelector {
 }
 
 impl PropertySelector {
-    fn parse(selector: &str) -> Result<Self, TilingConfigError> {
+    fn parse(selector: &str) -> Result<Self, ValueError> {
         match selector.strip_suffix('*') {
-            Some("") => Err(TilingConfigError::WildcardWithoutPrefix),
+            Some("") => Err(ValueError::WildcardWithoutPrefix),
             Some(prefix) => Ok(Self::Prefixed(prefix.to_owned())),
-            None if selector.is_empty() => Err(TilingConfigError::EmptyPropertyName),
+            None if selector.is_empty() => Err(ValueError::EmptyPropertyName),
             None => Ok(Self::Named(selector.to_owned())),
         }
     }
@@ -230,9 +227,7 @@ impl<'de> Deserialize<'de> for Attributes {
                     if let Some(prefix) = column.strip_suffix('*') {
                         let source: String = map.next_value()?;
                         if source != column || prefix.is_empty() {
-                            return Err(de::Error::custom(TilingConfigError::RenamedWildcard(
-                                column,
-                            )));
+                            return Err(de::Error::custom(ValueError::RenamedWildcard(column)));
                         }
                         copied_prefixes.push(prefix.to_owned());
                     } else {

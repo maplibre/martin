@@ -201,7 +201,7 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin/unstable-export,martin-e2e-tests/test-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
@@ -318,7 +318,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-export {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-generate {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -643,7 +643,7 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
 
 # Run Rust unit tests
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features martin/unstable-mlt-v2,martin/unstable-export,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
@@ -653,7 +653,7 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
     cargo nextest run --package martin-core
-    cargo nextest run --package martin --features unstable-mlt-v2,unstable-export
+    cargo nextest run --package martin --features unstable-mlt-v2,unstable-generate
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries

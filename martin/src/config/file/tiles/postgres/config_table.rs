@@ -8,7 +8,7 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
@@ -99,13 +99,13 @@ pub struct TableInfo {
 
     /// A cache miss renders the N×N block around the tile and caches the neighbours.
     /// Only applies with `layers` (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prefetch: Option<tiling::Prefetch>,
 
     /// Output layers, keyed by name. With `layers`, Martin's engine tiles the table instead of `ST_AsMVT` (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub layers: Option<Box<tiling::Layers>>,
@@ -160,7 +160,7 @@ pub struct TableInfo {
     pub discovered: DiscoveredTable,
 }
 
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<TableInfoSources>, D::Error> {

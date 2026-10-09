@@ -9,7 +9,7 @@ use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::Layers;
-use super::error::TilingConfigError;
+use super::error::{RelationTagsError, TilingConfigError};
 use super::primitives::{Expr, NonEmpty, checked_map_with};
 use super::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
@@ -107,13 +107,13 @@ impl<'de> Deserialize<'de> for RelationTags {
                     if name != ROLE {
                         tags.push(name);
                     } else if role {
-                        return Err(de::Error::custom(TilingConfigError::RoleTwice));
+                        return Err(de::Error::custom(RelationTagsError::RoleTwice));
                     } else {
                         role = true;
                     }
                 }
                 let tags = NonEmpty::try_from_vec(tags)
-                    .ok_or_else(|| de::Error::custom(TilingConfigError::RelationWithoutTags))?;
+                    .ok_or_else(|| de::Error::custom(RelationTagsError::RelationWithoutTags))?;
                 Ok(RelationTags { tags, role })
             }
         }
@@ -122,17 +122,17 @@ impl<'de> Deserialize<'de> for RelationTags {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OsmPbf {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub areas: Option<Areas>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub relations: IndexMap<String, RelationTags>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Gpkg {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tables: Option<NonEmpty<String>>,
 }
 
@@ -143,22 +143,16 @@ pub struct Gpkg {
 )]
 pub struct NoOptions {}
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EngineSource<K> {
     pub path: PathBuf,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maxzoom: Option<Zoom>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extent: Option<NonZeroU32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prefetch: Option<Prefetch>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layers: Option<Layers>,
     #[serde(flatten)]
     pub kind: K,
@@ -178,7 +172,7 @@ where
         |sources: BTreeMap<String, EngineSource<K>>| {
             for (id, source) in &sources {
                 ZoomRange::new(source.minzoom, source.maxzoom)
-                    .map_err(|e| TilingConfigError::InSource(id.clone(), Box::new(e)))?;
+                    .map_err(|e| TilingConfigError::InSource(id.clone(), e))?;
             }
             Ok::<_, TilingConfigError>(sources)
         },
@@ -193,6 +187,7 @@ impl<K> CollectUnrecognizedKeys for EngineSource<K> {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(bound(deserialize = "K: Deserialize<'de>"))]
 pub struct EngineFiles<K> {
@@ -208,13 +203,9 @@ pub struct EngineFiles<K> {
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub sources: BTreeMap<String, EngineSource<K>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prefetch: Option<Prefetch>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extent: Option<NonZeroU32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -243,7 +234,6 @@ mod tests {
     use indoc::indoc;
 
     use super::{Areas, Index, RelationTags};
-    use crate::config::file::tiling::Layers;
     use crate::config::file::tiling::primitives::{Expr, NonEmpty};
     use crate::config::file::tiling::zoom::Zoom;
     use crate::config::file::{CollectUnrecognizedKeys as _, Config, parse_config};
@@ -258,6 +248,7 @@ mod tests {
             .to_string()
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
     fn a_pg_table_with_layers_is_tiled_by_the_engine() {
         let config = parse(indoc! {"
@@ -284,12 +275,13 @@ mod tests {
         assert_eq!(pg.prefetch.unwrap().tiles_per_side(), 2);
         assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side(), 1);
         assert_eq!(tables["cities"].layers, None);
-        let expected: Layers =
+        let expected: super::Layers =
             serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
         assert_eq!(tables["roads"].layers.as_deref(), Some(&expected));
         assert!(config.get_unrecognized_keys().is_empty());
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
     fn a_pg_table_names_its_layer_one_way_only() {
         insta::assert_snapshot!(rejection(indoc! {"

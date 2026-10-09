@@ -5,7 +5,7 @@ use serde::de::value::SeqAccessDeserializer;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use super::error::{MinzoomAboveMaxzoom, RulesError};
 use super::primitives::{Expr, NonEmpty};
 use super::setting::{PixelSetting, ZoomSetting, fixed_zoom_range};
 use super::value::ValueSpec;
@@ -33,17 +33,14 @@ pub struct RuleSettings {
     pub unrecognized: UnrecognizedValues,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Default, Serialize, Deserialize)]
 struct RawRule {
-    #[serde(default, rename = "where", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "where")]
     when: Option<Expr>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     minzoom: Option<ZoomSetting>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     maxzoom: Option<ZoomSetting>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     simplify: Option<PixelSetting>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     min_size: Option<PixelSetting>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     attributes: IndexMap<String, ValueSpec>,
@@ -52,7 +49,7 @@ struct RawRule {
 }
 
 impl RawRule {
-    fn split(self) -> Result<(Option<Expr>, RuleSettings), TilingConfigError> {
+    fn split(self) -> Result<(Option<Expr>, RuleSettings), MinzoomAboveMaxzoom> {
         fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref())?;
         let settings = RuleSettings {
             minzoom: self.minzoom,
@@ -95,7 +92,7 @@ impl<'de> Deserialize<'de> for Rules {
                 let mut fallback = None;
                 for rule in raw {
                     if fallback.is_some() {
-                        return Err(de::Error::custom(TilingConfigError::CatchAllNotLast));
+                        return Err(de::Error::custom(RulesError::CatchAllNotLast));
                     }
                     match rule.split().map_err(de::Error::custom)? {
                         (Some(when), settings) => cases.push(Rule { when, settings }),
@@ -103,7 +100,7 @@ impl<'de> Deserialize<'de> for Rules {
                     }
                 }
                 let cases = NonEmpty::try_from_vec(cases)
-                    .ok_or_else(|| de::Error::custom(TilingConfigError::NoConditionalRule))?;
+                    .ok_or_else(|| de::Error::custom(RulesError::NoConditionalRule))?;
                 Ok(Rules { cases, fallback })
             }
         }

@@ -36,7 +36,7 @@ use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
-#[cfg(feature = "unstable-export")]
+#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
@@ -213,28 +213,28 @@ pub struct Config {
     pub geojson: FileConfig<GeoJsonConfig>,
 
     /// Publish OpenStreetMap PBF files as vector tile sources, tiled by Martin's engine (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub osm_pbf: Option<tiling::OsmPbfFiles>,
 
     /// Publish shapefiles as vector tile sources, tiled by Martin's engine (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub shapefile: Option<tiling::ShapefileFiles>,
 
     /// Publish `GeoPackage` tables as vector tile sources, tiled by Martin's engine (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub gpkg: Option<tiling::GpkgFiles>,
 
     /// Publish CSV files as vector tile sources, tiled by Martin's engine (unstable)
-    #[cfg(feature = "unstable-export")]
+    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

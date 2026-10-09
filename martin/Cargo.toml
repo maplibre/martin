@@ -148,7 +148,7 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-export = ["dep:cel", "dep:indexmap", "_tiles"]
+unstable-generate = ["dep:cel", "dep:indexmap", "_tiles"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
@@ -270,7 +270,6 @@ flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 martin-core = { workspace = true, features = ["_testing"] }
-proptest.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
