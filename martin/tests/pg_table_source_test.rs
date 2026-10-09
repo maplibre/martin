@@ -1,5 +1,6 @@
 #![cfg(feature = "test-pg")]
 
+use approx::assert_abs_diff_eq;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::parse_config;
@@ -204,20 +205,21 @@ async fn table_source() {
     ");
 
     let source3 = table(&mock, "points3857");
-    assert_yaml_snapshot!(source3, @"
+    assert_yaml_snapshot!(source3, {".bounds" => "[bounds]"}, @r#"
     schema: public
     table: points3857
     srid: 3857
     geometry_column: geom
-    bounds:
-      - -161.4059125851273
-      - -81.50727080755011
-      - 172.51550346797322
-      - 84.24401966908702
+    bounds: "[bounds]"
     geometry_type: POINT
     properties:
       gid: int4
-    ");
+    "#);
+    let bounds = source3.bounds.expect("points3857 has bounds");
+    assert_abs_diff_eq!(bounds.left, -161.405_912_585_127_3, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.bottom, -81.507_270_807_550_11, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.right, 172.515_503_467_973_22, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.top, 84.244_019_669_087_02, epsilon = 1e-9);
 }
 
 #[actix_rt::test]

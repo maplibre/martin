@@ -5618,6 +5618,7 @@ dependencies = [
  "actix-web",
  "actix-web-prom",
  "actix-web-static-files",
+ "approx",
  "async-trait",
  "aws-config",
  "aws-credential-types",
