@@ -448,7 +448,9 @@ mod tests {
                 ("name".to_owned(), ValueSpec::plain(expr("name"))),
                 (
                     "name_en".to_owned(),
-                    ValueSpec::plain(expr("feature['name:en'] != null ? feature['name:en'] : name")),
+                    ValueSpec::plain(expr(
+                        "feature['name:en'] != null ? feature['name:en'] : name",
+                    )),
                 ),
                 (
                     "rank".to_owned(),
