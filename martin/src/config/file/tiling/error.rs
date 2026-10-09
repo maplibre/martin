@@ -4,6 +4,10 @@ pub enum TilingConfigError {
     NoLayers,
     #[error("layer `{0}`: {1}")]
     InLayer(String, Box<Self>),
+    #[error(
+        "table `{0}`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id`"
+    )]
+    LayerIdWithLayers(String),
 
     #[error("minzoom {min} is above maxzoom {max}")]
     MinzoomAboveMaxzoom { min: u8, max: u8 },

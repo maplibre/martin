@@ -3,6 +3,7 @@ mod error;
 mod primitives;
 mod rule;
 mod setting;
+mod sources;
 mod tile;
 mod value;
 mod zoom;
@@ -12,12 +13,12 @@ use std::num::NonZeroU32;
 pub use condition::{Bound, Condition, GeometryType, NameMatch, PropertyTest, Range};
 pub use error::TilingConfigError;
 use indexmap::IndexMap;
-use primitives::checked_map_with;
-pub use primitives::{Expr, Finite, Literal, NonEmpty};
+pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 use setting::fixed_zoom_range;
 pub use setting::{ByZoom, FromZoomSteps, Meters, PerFeature, PixelSetting, Pixels, ZoomSetting};
+pub use sources::Prefetch;
 pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{
     Attributes, Case, Cast, Columns, Computed, IdPolicy, Lookup, Match, PropertySelector, Ref,
@@ -67,6 +68,10 @@ impl CollectUnrecognizedKeys for Layers {
                 .collect_unrecognized(&format!("{path}tile."), out);
         }
     }
+}
+
+impl CollectUnrecognizedKeys for Prefetch {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
 }
 
 impl Layers {
