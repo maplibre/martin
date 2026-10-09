@@ -48,7 +48,7 @@ export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 PGPARAMS := ''
 PGPORT := '5411'
 
-export DATABASE_URL := ('postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
+export DATABASE_URL := env('DATABASE_URL', 'postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
 export CARGO_TERM_COLOR := 'always'
 
 # Set the AWS region for testing pmtiles from S3
