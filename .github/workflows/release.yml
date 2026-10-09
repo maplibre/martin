@@ -287,6 +287,7 @@ jobs:
           uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
+          just update-lockfile
           git status --short
       - if: ${{ steps.generate.outcome == 'failure' }}
         name: Hand release-pr a clean tree
