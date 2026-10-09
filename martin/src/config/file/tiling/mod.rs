@@ -1,6 +1,7 @@
 mod condition;
 mod error;
 mod primitives;
+mod value;
 mod zoom;
 
 use std::num::NonZeroU32;
@@ -11,6 +12,9 @@ use indexmap::IndexMap;
 use primitives::checked_map_with;
 pub use primitives::{Expr, Finite, Literal, NonEmpty};
 use serde::{Deserialize, Deserializer, Serialize};
+pub use value::{
+    Attributes, Case, Cast, Columns, Lookup, Match, PropertySelector, Ref, Value, ValueSpec,
+};
 pub use zoom::{Zoom, ZoomRange};
 
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
@@ -82,6 +86,8 @@ pub struct Layer {
     pub buffer: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
+    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
+    pub attributes: Attributes,
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -199,7 +205,7 @@ mod proptests {
     use std::num::NonZeroU32;
 
     use indexmap::IndexMap;
-    use proptest::collection::vec;
+    use proptest::collection::{btree_set, vec};
     use proptest::prelude::*;
 
     use super::*;
@@ -255,8 +261,17 @@ mod proptests {
         "[a-z.() =<>'0-9]{1,12}".prop_filter_map("not blank", Expr::new)
     }
 
+    fn reference() -> impl Strategy<Value = Ref> + Clone {
+        prop_oneof![name().prop_map(Ref::Property), name().prop_map(Ref::Let)]
+    }
+
     fn zoom() -> impl Strategy<Value = Zoom> + Clone {
         (0..=30_u8).prop_map(|z| Zoom::new(z).expect("0..=30"))
+    }
+
+    fn zoom_range() -> impl Strategy<Value = ZoomRange> + Clone {
+        (proptest::option::of(zoom()), proptest::option::of(zoom()))
+            .prop_filter_map("min <= max", |(min, max)| ZoomRange::new(min, max).ok())
     }
 
     fn bound() -> impl Strategy<Value = Bound> + Clone {
@@ -335,6 +350,98 @@ mod proptests {
         })
     }
 
+    fn value() -> impl Strategy<Value = Value> + Clone {
+        let leaf = prop_oneof![
+            literal().prop_map(Value::Literal),
+            reference().prop_map(|from| Value::Copy {
+                from,
+                otherwise: None
+            }),
+            non_empty(reference()).prop_map(Value::Coalesce),
+            map_of(name(), reference(), 1..3).prop_map(Value::Struct),
+            expr().prop_map(Value::Expr),
+        ];
+        leaf.prop_recursive(2, 8, 2, |inner| {
+            prop_oneof![
+                (reference(), inner.clone()).prop_map(|(from, otherwise)| Value::Copy {
+                    from,
+                    otherwise: Some(Box::new(otherwise)),
+                }),
+                (
+                    non_empty(
+                        (condition(), inner.clone()).prop_map(|(when, then)| Case { when, then })
+                    ),
+                    proptest::option::of(inner.clone()),
+                )
+                    .prop_map(|(cases, otherwise)| Value::Match(Match {
+                        cases,
+                        otherwise: otherwise.map(Box::new),
+                    })),
+                (
+                    reference(),
+                    map_of(text(), inner.clone(), 1..3),
+                    proptest::option::of(inner)
+                )
+                    .prop_map(|(subject, table, otherwise)| Value::Lookup(
+                        Lookup {
+                            subject,
+                            table,
+                            otherwise: otherwise.map(Box::new),
+                        }
+                    )),
+            ]
+        })
+    }
+
+    fn cast() -> impl Strategy<Value = Cast> + Clone {
+        prop_oneof![
+            Just(Cast::Int),
+            Just(Cast::Float),
+            Just(Cast::String),
+            Just(Cast::Bool)
+        ]
+    }
+
+    fn value_spec() -> impl Strategy<Value = ValueSpec> + Clone {
+        (
+            value(),
+            proptest::option::of(cast()),
+            proptest::option::of(literal()),
+            zoom_range(),
+            proptest::option::of(condition()),
+        )
+            .prop_map(|(value, cast, null_if, zooms, r#where)| ValueSpec {
+                value,
+                cast,
+                null_if,
+                zooms,
+                r#where,
+            })
+    }
+
+    fn property_selector() -> impl Strategy<Value = PropertySelector> + Clone {
+        prop_oneof![
+            name().prop_map(PropertySelector::Named),
+            name().prop_map(PropertySelector::Prefixed),
+        ]
+    }
+
+    fn attributes() -> impl Strategy<Value = Attributes> + Clone {
+        prop_oneof![
+            Just(Attributes::AllProperties),
+            Just(Attributes::None),
+            non_empty(property_selector()).prop_map(Attributes::Properties),
+            (map_of(name(), value_spec(), 0..3), btree_set(name(), 0..3))
+                .prop_filter("non-empty", |(computed, prefixes)| {
+                    !computed.is_empty() || !prefixes.is_empty()
+                })
+                .prop_map(|(computed, prefixes)| Attributes::Columns(Columns {
+                    computed,
+                    copied_prefixes: prefixes.into_iter().collect(),
+                })),
+        ]
+    }
+
     fn output_geometry() -> impl Strategy<Value = OutputGeometry> + Clone {
         prop_oneof![
             Just(OutputGeometry::Point),
@@ -360,12 +467,16 @@ mod proptests {
             proptest::option::of(any::<u32>()),
             proptest::option::of(any::<bool>()),
         );
-        (selection, tiling)
+        (selection, tiling, attributes())
             .prop_filter("minzoom <= maxzoom", |((_, _, min, max), ..)| {
                 ZoomRange::new(*min, *max).is_ok()
             })
             .prop_map(
-                |((r#where, geometry, minzoom, maxzoom), (extent, buffer, clip_geom))| Layer {
+                |(
+                    (r#where, geometry, minzoom, maxzoom),
+                    (extent, buffer, clip_geom),
+                    attributes,
+                )| Layer {
                     r#where,
                     geometry,
                     minzoom,
@@ -373,6 +484,7 @@ mod proptests {
                     extent,
                     buffer,
                     clip_geom,
+                    attributes,
                     unrecognized: UnrecognizedValues::default(),
                 },
             )
