@@ -8,6 +8,8 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+#[cfg(feature = "unstable-export")]
+use crate::config::file::tiling;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
 };
@@ -95,6 +97,19 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
     pub geometry_type: Option<String>,
 
+    /// A cache miss renders the N×N block around the tile and caches the neighbours.
+    /// Only applies with `layers` (unstable)
+    #[cfg(feature = "unstable-export")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prefetch: Option<tiling::Prefetch>,
+
+    /// Output layers, keyed by name. With `layers`, Martin's engine tiles the table instead of `ST_AsMVT` (unstable)
+    #[cfg(feature = "unstable-export")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub layers: Option<Box<tiling::Layers>>,
+
     /// Zoom-level bounds for tile caching (overrides top-level cache).
     /// default: null (inherit from top-level default)
     /// Use `cache: disable` to disable caching for this source.
@@ -143,6 +158,29 @@ pub struct TableInfo {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub discovered: DiscoveredTable,
+}
+
+#[cfg(feature = "unstable-export")]
+pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<TableInfoSources>, D::Error> {
+    struct CheckedTables(TableInfoSources);
+
+    impl<'de> Deserialize<'de> for CheckedTables {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            tiling::checked_map_with(deserializer, |tables: TableInfoSources| {
+                if let Some(id) = tables
+                    .iter()
+                    .find_map(|(id, t)| (t.layer_id.is_some() && t.layers.is_some()).then_some(id))
+                {
+                    return Err(tiling::TilingConfigError::LayerIdWithLayers(id.clone()));
+                }
+                Ok(Self(tables))
+            })
+        }
+    }
+
+    Option::<CheckedTables>::deserialize(deserializer).map(|tables| tables.map(|t| t.0))
 }
 
 /// What discovery found out about a table, which the config never sets.
