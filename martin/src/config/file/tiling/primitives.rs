@@ -99,6 +99,16 @@ pub fn single_entry_map<S: Serializer>(
     map.end()
 }
 
+pub fn checked_map<'de, D, R, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    R: Deserialize<'de>,
+    T: TryFrom<R>,
+    T::Error: fmt::Display,
+{
+    checked_map_with(deserializer, T::try_from)
+}
+
 pub fn checked_map_with<'de, D, R, T, E>(
     deserializer: D,
     check: impl FnOnce(R) -> Result<T, E>,

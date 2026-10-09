@@ -70,4 +70,9 @@ pub enum TilingConfigError {
     CatchAllNotLast,
     #[error("`rules` needs at least one rule with a `where`")]
     NoConditionalRule,
+
+    #[error("pick one of `min_length` (pixels) or `min_length_m` (metres)")]
+    PixelAndMetreLength,
+    #[error("`label_grid` needs a `limit`, a `rank_attribute`, or both")]
+    LabelGridWithoutKeep,
 }

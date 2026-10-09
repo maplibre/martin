@@ -3,6 +3,7 @@ mod error;
 mod primitives;
 mod rule;
 mod setting;
+mod tile;
 mod value;
 mod zoom;
 
@@ -16,7 +17,8 @@ pub use primitives::{Expr, Finite, Literal, NonEmpty};
 pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 use setting::fixed_zoom_range;
-pub use setting::{ByZoom, FromZoomSteps, PerFeature, PixelSetting, Pixels, ZoomSetting};
+pub use setting::{ByZoom, FromZoomSteps, Meters, PerFeature, PixelSetting, Pixels, ZoomSetting};
+pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{
     Attributes, Case, Cast, Columns, Computed, IdPolicy, Lookup, Match, PropertySelector, Ref,
     SortKey, Value, ValueSpec,
@@ -60,6 +62,9 @@ impl CollectUnrecognizedKeys for Layers {
             layer
                 .rules
                 .collect_unrecognized(&format!("{path}rules."), out);
+            layer
+                .tile
+                .collect_unrecognized(&format!("{path}tile."), out);
         }
     }
 }
@@ -113,6 +118,8 @@ pub struct Layer {
     pub sort_by: Option<NonEmpty<SortKey>>,
     #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
     pub id: IdPolicy,
+    #[serde(default, skip_serializing_if = "TileOps::is_empty")]
+    pub tile: TileOps,
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -517,6 +524,10 @@ mod proptests {
         (0.0..1e6_f64).prop_map(|v| Pixels::new(v).expect("non-negative"))
     }
 
+    fn meters() -> impl Strategy<Value = Meters> + Clone {
+        (0.0..1e7_f64).prop_map(|v| Meters::new(v).expect("non-negative"))
+    }
+
     fn by_zoom<U: Clone + Debug>(
         unit: impl Strategy<Value = U> + Clone,
     ) -> impl Strategy<Value = ByZoom<U>> + Clone {
@@ -767,6 +778,83 @@ mod proptests {
             .prop_map(|(cases, fallback)| Rules { cases, fallback })
     }
 
+    fn tile_ops() -> impl Strategy<Value = TileOps> + Clone {
+        let merge_lines = (
+            vec(name(), 0..2),
+            proptest::option::of(prop_oneof![
+                by_zoom(pixels()).prop_map(LineLength::Pixels),
+                by_zoom(meters()).prop_map(LineLength::Meters),
+            ]),
+            proptest::option::of(pixels()),
+            proptest::option::of(condition()),
+            zoom_range(),
+        )
+            .prop_map(
+                |(by, min_length, simplify, except_where, zooms)| MergeLines {
+                    by,
+                    min_length,
+                    simplify,
+                    except_where,
+                    zooms,
+                    unrecognized: UnrecognizedValues::default(),
+                },
+            );
+        let merge_polygons = (
+            vec(name(), 0..2),
+            proptest::option::of(by_zoom(pixels())),
+            proptest::option::of(pixels()),
+            zoom_range(),
+        )
+            .prop_map(|(by, min_area, gap, zooms)| MergePolygons {
+                by,
+                min_area,
+                gap,
+                zooms,
+                unrecognized: UnrecognizedValues::default(),
+            });
+        let positive = (1..1000_u32).prop_map(|n| NonZeroU32::new(n).expect("1.."));
+        let label_grid = (
+            positive.clone(),
+            prop_oneof![
+                positive.clone().prop_map(GridKeep::Best),
+                name().prop_map(|rank_attribute| GridKeep::All { rank_attribute }),
+                (positive.clone(), name()).prop_map(|(best, rank_attribute)| GridKeep::Ranked {
+                    best,
+                    rank_attribute
+                }),
+            ],
+            zoom_range(),
+        )
+            .prop_map(|(size, keep, zooms)| LabelGrid {
+                size,
+                keep,
+                zooms,
+                unrecognized: UnrecognizedValues::default(),
+            });
+        (
+            proptest::option::of(merge_lines),
+            proptest::option::of(merge_polygons),
+            proptest::option::of(zoom_range().prop_map(|zooms| MergeMulti {
+                zooms,
+                unrecognized: UnrecognizedValues::default(),
+            })),
+            proptest::option::of(label_grid),
+            proptest::option::of(non_empty(name())),
+            proptest::option::of(positive),
+        )
+            .prop_map(
+                |(merge_lines, merge_polygons, merge_multi, label_grid, dedup_by, limit)| TileOps {
+                    merge_lines,
+                    merge_polygons,
+                    merge_multi,
+                    label_grid,
+                    dedup_by,
+                    limit,
+                    unrecognized: UnrecognizedValues::default(),
+                },
+            )
+    }
+
     fn output_geometry() -> impl Strategy<Value = OutputGeometry> + Clone {
         prop_oneof![
             Just(OutputGeometry::Point),
@@ -815,6 +903,7 @@ mod proptests {
                 },
             ))),
             id_policy(),
+            tile_ops(),
         );
         (selection, tiling, output)
             .prop_filter("fixed minzoom <= maxzoom", |((_, _, min, max), ..)| {
@@ -832,7 +921,7 @@ mod proptests {
                         min_size,
                         min_size_at_maxzoom,
                     ),
-                    (r#let, attributes, rules, sort_by, id),
+                    (r#let, attributes, rules, sort_by, id, tile),
                 )| Layer {
                     r#where,
                     geometry,
@@ -850,6 +939,7 @@ mod proptests {
                     rules,
                     sort_by,
                     id,
+                    tile,
                     unrecognized: UnrecognizedValues::default(),
                 },
             )

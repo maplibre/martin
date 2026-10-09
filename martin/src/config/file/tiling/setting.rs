@@ -40,6 +40,7 @@ macro_rules! measure {
 }
 
 measure!(Pixels, "a finite number of pixels, 0 or more");
+measure!(Meters, "a finite number of metres, 0 or more");
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ByZoom<U> {
