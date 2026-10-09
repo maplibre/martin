@@ -6,7 +6,7 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::{MinzoomAboveMaxzoom, ZoomStepsForZoom};
+use super::error::MinzoomAboveMaxzoom;
 use super::primitives::{Expr, Finite, forward_scalars};
 use super::zoom::{Zoom, ZoomRange};
 
@@ -28,10 +28,32 @@ macro_rules! measure {
 
         impl<'de> Deserialize<'de> for $name {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                let value = f64::deserialize(deserializer)?;
-                Self::new(value).ok_or_else(|| {
-                    de::Error::invalid_value(de::Unexpected::Float(value), &$expecting)
-                })
+                struct MeasureVisitor;
+
+                impl Visitor<'_> for MeasureVisitor {
+                    type Value = $name;
+
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        f.write_str($expecting)
+                    }
+
+                    #[expect(clippy::cast_precision_loss)]
+                    fn visit_u64<E: de::Error>(self, v: u64) -> Result<$name, E> {
+                        self.visit_f64(v as f64)
+                    }
+
+                    #[expect(clippy::cast_precision_loss)]
+                    fn visit_i64<E: de::Error>(self, v: i64) -> Result<$name, E> {
+                        self.visit_f64(v as f64)
+                    }
+
+                    fn visit_f64<E: de::Error>(self, v: f64) -> Result<$name, E> {
+                        $name::new(v)
+                            .ok_or_else(|| E::invalid_value(de::Unexpected::Float(v), &self))
+                    }
+                }
+
+                deserializer.deserialize_any(MeasureVisitor)
             }
         }
     };
@@ -81,22 +103,6 @@ impl<'de, U: Deserialize<'de>> Deserialize<'de> for ByZoom<U> {
     }
 }
 
-pub trait FromZoomSteps: Sized + Serialize + for<'de> Deserialize<'de> {
-    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom>;
-}
-
-impl FromZoomSteps for Zoom {
-    fn from_zoom_steps(_: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom> {
-        Err(ZoomStepsForZoom)
-    }
-}
-
-impl FromZoomSteps for ByZoom<Pixels> {
-    fn from_zoom_steps(steps: BTreeMap<Zoom, Pixels>) -> Result<Self, ZoomStepsForZoom> {
-        Ok(Self::Steps(steps))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum PerFeature<T> {
     Fixed(T),
@@ -104,7 +110,6 @@ pub enum PerFeature<T> {
 }
 
 pub type ZoomSetting = PerFeature<Zoom>;
-pub type PixelSetting = PerFeature<ByZoom<Pixels>>;
 
 impl<T> PerFeature<T> {
     #[must_use]
@@ -133,31 +138,21 @@ impl<T: Serialize> Serialize for PerFeature<T> {
     }
 }
 
-impl<'de, T: FromZoomSteps> Deserialize<'de> for PerFeature<T> {
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for PerFeature<T> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct PerFeatureVisitor<T>(PhantomData<T>);
 
-        impl<'de, T: FromZoomSteps> Visitor<'de> for PerFeatureVisitor<T> {
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for PerFeatureVisitor<T> {
             type Value = PerFeature<T>;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a number, zoom steps such as `{ 0: 2, 11: 0 }`, or an expression")
+                f.write_str("a number or an expression")
             }
 
             forward_scalars!(T => PerFeature::Fixed; visit_u64: u64, visit_i64: i64, visit_f64: f64);
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<PerFeature<T>, E> {
                 Expr::new(v).map(PerFeature::Expr).map_err(E::custom)
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<PerFeature<T>, A::Error> {
-                let steps = BTreeMap::<Zoom, Pixels>::deserialize(MapAccessDeserializer::new(map))?;
-                if steps.is_empty() {
-                    return Err(de::Error::invalid_length(0, &"at least one zoom step"));
-                }
-                T::from_zoom_steps(steps)
-                    .map(PerFeature::Fixed)
-                    .map_err(de::Error::custom)
             }
         }
 
@@ -169,7 +164,7 @@ impl<'de, T: FromZoomSteps> Deserialize<'de> for PerFeature<T> {
 mod tests {
     use indoc::indoc;
 
-    use super::{ByZoom, PerFeature, Pixels};
+    use super::{PerFeature, Pixels};
     use crate::config::file::tiling::tests::parse;
     use crate::config::file::tiling::{Expr, Zoom};
 
@@ -199,28 +194,30 @@ mod tests {
     }
 
     #[test]
-    fn pixel_settings_are_numbers_zoom_steps_or_vary_per_feature() {
+    fn pixel_settings_may_differ_at_maxzoom() {
         let layers = parse(indoc! {"
             transportation:
-              simplify: { 0: 2, 11: 0 }
+              simplify: 2
               simplify_at_maxzoom: 0.0625
-              min_size: \"route == 'ferry' ? (zoom < 10 ? 32.0 : 0.0) : 0.5\"
+              min_size: 0.5
               min_size_at_maxzoom: 0
         "});
         let layer = layers.get("transportation").expect("layer exists");
-        assert_eq!(
-            layer.simplify,
-            Some(PerFeature::Fixed(ByZoom::Steps(
-                [(zoom(0), px(2.0)), (zoom(11), px(0.0))].into()
-            )))
-        );
-        assert_eq!(layer.simplify_at_maxzoom, Some(px(0.0625)));
-        assert_eq!(
-            layer.min_size,
-            Some(PerFeature::Expr(
-                Expr::new("route == 'ferry' ? (zoom < 10 ? 32.0 : 0.0) : 0.5").expect("valid CEL")
-            ))
-        );
-        assert_eq!(layer.min_size_at_maxzoom, Some(px(0.0)));
+        assert_eq!(layer.simplify, Some(px(2.0)));
+        assert_eq!(layer.simplify_at_maxzoom(), Some(px(0.0625)));
+        assert_eq!(layer.min_size, Some(px(0.5)));
+        assert_eq!(layer.min_size_at_maxzoom(), Some(px(0.0)));
+    }
+
+    #[test]
+    fn pixel_settings_at_maxzoom_default_to_the_other_zooms() {
+        let layers = parse(indoc! {"
+            transportation:
+              simplify: 2
+              min_size: 0.5
+        "});
+        let layer = layers.get("transportation").expect("layer exists");
+        assert_eq!(layer.simplify_at_maxzoom(), Some(px(2.0)));
+        assert_eq!(layer.min_size_at_maxzoom(), Some(px(0.5)));
     }
 }

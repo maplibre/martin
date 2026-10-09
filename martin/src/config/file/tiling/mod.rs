@@ -10,14 +10,13 @@ use std::num::{NonZeroU8, NonZeroU32};
 
 pub use error::{
     InvalidExpr, MinzoomAboveMaxzoom, RulesError, TileOpError, TilingConfigError, ValueError,
-    ZoomStepsForZoom,
 };
 use indexmap::IndexMap;
 pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 use setting::fixed_zoom_range;
-pub use setting::{ByZoom, FromZoomSteps, Meters, PerFeature, PixelSetting, Pixels, ZoomSetting};
+pub use setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
 pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec};
 pub use zoom::{Zoom, ZoomRange};
@@ -106,10 +105,10 @@ pub struct Layer {
     pub extent: Option<NonZeroU32>,
     pub buffer: Option<u32>,
     pub clip_geom: Option<bool>,
-    pub simplify: Option<PixelSetting>,
-    pub simplify_at_maxzoom: Option<Pixels>,
-    pub min_size: Option<PixelSetting>,
-    pub min_size_at_maxzoom: Option<Pixels>,
+    pub simplify: Option<Pixels>,
+    simplify_at_maxzoom: Option<Pixels>,
+    pub min_size: Option<Pixels>,
+    min_size_at_maxzoom: Option<Pixels>,
     #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
     pub attributes: Attributes,
     pub rules: Option<Rules>,
@@ -123,6 +122,16 @@ pub struct Layer {
 }
 
 impl Layer {
+    #[must_use]
+    pub fn simplify_at_maxzoom(&self) -> Option<Pixels> {
+        self.simplify_at_maxzoom.or(self.simplify)
+    }
+
+    #[must_use]
+    pub fn min_size_at_maxzoom(&self) -> Option<Pixels> {
+        self.min_size_at_maxzoom.or(self.min_size)
+    }
+
     fn check(&self) -> Result<(), MinzoomAboveMaxzoom> {
         fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref()).map(|_| ())
     }
@@ -306,7 +315,7 @@ mod tests {
     fn minzoom_cannot_change_with_the_zoom() {
         insta::assert_snapshot!(
             rejection("roads: { minzoom: { 0: 2, 10: 4 } }"),
-            @"error: line 1 column 19: a zoom cannot change with the zoom"
+            @"error: line 1 column 19: invalid type: map, expected a number or an expression"
         );
     }
 
@@ -319,18 +328,34 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_simplify_is_rejected() {
+    fn simplify_cannot_change_with_the_zoom() {
         insta::assert_snapshot!(
-            rejection("roads: { simplify: {} }"),
-            @"error: line 1 column 20: invalid length 0, expected at least one zoom step"
+            rejection("roads: { simplify: { 0: 2, 11: 0 } }"),
+            @"error: line 1 column 20: invalid type: map, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
-    fn simplify_zoom_steps_cannot_exceed_the_deepest_zoom() {
+    fn min_size_cannot_change_with_the_zoom() {
         insta::assert_snapshot!(
-            rejection("roads: { simplify: { 0: 2, 31: 0 } }"),
-            @"error: line 1 column 28: invalid value: integer `31`, expected a zoom from 0 to 30"
+            rejection("roads: { min_size: { 0: 2, 11: 0 } }"),
+            @"error: line 1 column 20: invalid type: map, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn empty_zoom_steps_are_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { tile: { merge_polygons: { min_area: {} } } }"),
+            @"error: line 1 column 46: invalid length 0, expected at least one zoom step"
+        );
+    }
+
+    #[test]
+    fn zoom_steps_cannot_exceed_the_deepest_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { tile: { merge_polygons: { min_area: { 0: 2, 31: 0 } } } }"),
+            @"error: line 1 column 54: invalid value: integer `31`, expected a zoom from 0 to 30"
         );
     }
 

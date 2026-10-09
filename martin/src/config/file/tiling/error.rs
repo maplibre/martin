@@ -21,10 +21,6 @@ pub struct MinzoomAboveMaxzoom {
 }
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
-#[error("a zoom cannot change with the zoom")]
-pub struct ZoomStepsForZoom;
-
-#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum ValueError {
     #[error("a property name cannot be empty")]
     EmptyPropertyName,

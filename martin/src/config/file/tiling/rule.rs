@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::error::{MinzoomAboveMaxzoom, RulesError};
 use super::primitives::{Expr, NonEmpty};
-use super::setting::{PixelSetting, ZoomSetting, fixed_zoom_range};
+use super::setting::{Pixels, ZoomSetting, fixed_zoom_range};
 use super::value::ValueSpec;
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
@@ -27,8 +27,8 @@ pub struct Rule {
 pub struct RuleSettings {
     pub minzoom: Option<ZoomSetting>,
     pub maxzoom: Option<ZoomSetting>,
-    pub simplify: Option<PixelSetting>,
-    pub min_size: Option<PixelSetting>,
+    pub simplify: Option<Pixels>,
+    pub min_size: Option<Pixels>,
     pub attributes: IndexMap<String, ValueSpec>,
     pub unrecognized: UnrecognizedValues,
 }
@@ -40,8 +40,8 @@ struct RawRule {
     when: Option<Expr>,
     minzoom: Option<ZoomSetting>,
     maxzoom: Option<ZoomSetting>,
-    simplify: Option<PixelSetting>,
-    min_size: Option<PixelSetting>,
+    simplify: Option<Pixels>,
+    min_size: Option<Pixels>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     attributes: IndexMap<String, ValueSpec>,
     #[serde(flatten, skip_serializing)]
@@ -67,8 +67,8 @@ impl RawRule {
             when: when.cloned(),
             minzoom: settings.minzoom.clone(),
             maxzoom: settings.maxzoom.clone(),
-            simplify: settings.simplify.clone(),
-            min_size: settings.min_size.clone(),
+            simplify: settings.simplify,
+            min_size: settings.min_size,
             attributes: settings.attributes.clone(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -137,7 +137,7 @@ mod tests {
     use indoc::indoc;
 
     use super::{Rule, RuleSettings, Rules};
-    use crate::config::file::tiling::setting::{ByZoom, PerFeature, Pixels};
+    use crate::config::file::tiling::setting::{PerFeature, Pixels};
     use crate::config::file::tiling::tests::{parse, rejection};
     use crate::config::file::tiling::{Expr, Literal, NonEmpty, Value, Zoom};
 
@@ -160,7 +160,7 @@ mod tests {
               rules:
                 - where: \"amenity in ['university', 'college']\"
                   minzoom: 10
-                  min_size: { 0: 80, 13: 0 }
+                  min_size: 80
                 - where: \"railway in ['station', 'halt']\"
                   minzoom: 12
                   attributes: { class: { value: railway } }
@@ -198,13 +198,7 @@ mod tests {
             when: expr("amenity in ['university', 'college']"),
             settings: RuleSettings {
                 minzoom: Some(fixed_zoom(10)),
-                min_size: Some(PerFeature::Fixed(ByZoom::Steps(
-                    [
-                        (Zoom::new(0).unwrap(), px(80.0)),
-                        (Zoom::new(13).unwrap(), px(0.0)),
-                    ]
-                    .into(),
-                ))),
+                min_size: Some(px(80.0)),
                 ..RuleSettings::default()
             },
         };
