@@ -148,6 +148,7 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
+unstable-export = ["dep:cel", "dep:indexmap", "_tiles"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
@@ -186,6 +187,7 @@ async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
+cel = { workspace = true, optional = true }
 clap.workspace = true
 compact_str = { workspace = true, optional = true }
 cql2 = { workspace = true, optional = true }
@@ -200,6 +202,7 @@ geojson = { workspace = true, optional = true }
 hotpath = { workspace = true, features = ["tokio"] }
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
@@ -267,6 +270,7 @@ flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 martin-core = { workspace = true, features = ["_testing"] }
+proptest.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true

@@ -70,6 +70,8 @@ impl PostgresArgs {
                 retry_timeout: self.pg_retry_timeout,
                 reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
+                #[cfg(feature = "unstable-export")]
+                prefetch: None,
                 tables: None,
                 functions: None,
                 #[cfg(feature = "_tiles")]
