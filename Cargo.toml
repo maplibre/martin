@@ -128,6 +128,7 @@ humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
+indexmap = { version = "2", features = ["serde"] }
 indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
@@ -161,6 +162,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+proptest = "1"
 quantizr = "1.4"
 quote = "1"
 ratatui = "0.30.2"
