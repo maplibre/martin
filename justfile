@@ -762,6 +762,10 @@ update: fetch
     cargo +nightly -Z unstable-options update --breaking
     # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
     sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+    {{just}} update-lockfile
+
+# Update Cargo.lock to the latest compatible versions, keeping the crates banned in deny.toml pinned
+update-lockfile: fetch
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml

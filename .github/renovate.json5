@@ -9,10 +9,6 @@
   automerge: true,
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
-  lockFileMaintenance: {
-    enabled: true,
-    schedule: ['* * 1,15 * *'],
-  },
   packageRules: [
     {
       matchManagers: ['github-actions'],
