@@ -714,20 +714,23 @@ jobs:
             run: tests/fixtures/initdb.sh
             env:
               PGPORT: ${{ job.services['pg18-ssl'].ports[5432] }}
-      - name: Unit Tests postgis:12-3.5-alpine sslmode=disable
-        run: &unit-tests |
-          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-          just test-pg
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
-      - name: Unit Tests postgis:18-3.6-alpine sslmode=disable
-        run: *unit-tests
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
-      - name: Unit Tests postgis:18-3.6 sslmode=require
-        run: *unit-tests
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+      - name: Start the docker compose database once, so the parallel test runs don't race to create it
+        run: just start
+      - parallel:
+          - name: Unit Tests postgis:12-3.5-alpine sslmode=disable
+            run: &unit-tests |
+              echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+              just test-pg
+            env:
+              DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          - name: Unit Tests postgis:18-3.6-alpine sslmode=disable
+            run: *unit-tests
+            env:
+              DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          - name: Unit Tests postgis:18-3.6 sslmode=require
+            run: *unit-tests
+            env:
+              DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
       - uses: $/.github/actions/upload-coverage
         with: { suite: pg }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
