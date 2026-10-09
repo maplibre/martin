@@ -1,12 +1,15 @@
+mod condition;
 mod error;
 mod primitives;
 mod zoom;
 
 use std::num::NonZeroU32;
 
+pub use condition::{Bound, Condition, GeometryType, NameMatch, PropertyTest, Range};
 pub use error::TilingConfigError;
 use indexmap::IndexMap;
 use primitives::checked_map_with;
+pub use primitives::{Expr, Finite, Literal, NonEmpty};
 use serde::{Deserialize, Deserializer, Serialize};
 pub use zoom::{Zoom, ZoomRange};
 
@@ -66,6 +69,8 @@ impl Layers {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Layer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#where: Option<Condition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub geometry: Option<OutputGeometry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minzoom: Option<Zoom>,
@@ -106,11 +111,11 @@ mod tests {
 
     use super::*;
 
-    fn parse(yaml: &str) -> Layers {
+    pub(super) fn parse(yaml: &str) -> Layers {
         serde_saphyr::from_str(yaml).expect("parses")
     }
 
-    fn rejection(yaml: &str) -> String {
+    pub(super) fn rejection(yaml: &str) -> String {
         let err = serde_saphyr::from_str::<Layers>(yaml)
             .expect_err("must not parse")
             .to_string();
@@ -204,6 +209,27 @@ mod proptests {
         "[a-z][a-z0-9_:]{0,6}"
     }
 
+    fn text() -> impl Strategy<Value = String> + Clone {
+        prop_oneof![
+            "[a-zA-Z0-9 _:%.-]{0,8}",
+            Just("yes".to_owned()),
+            Just("no".to_owned()),
+            Just("true".to_owned()),
+            Just("null".to_owned()),
+            Just("~".to_owned()),
+            Just("1".to_owned()),
+            Just("0.5".to_owned()),
+            Just("let.class".to_owned()),
+            Just("name:*".to_owned()),
+        ]
+    }
+
+    fn non_empty<T: Debug>(
+        item: impl Strategy<Value = T> + Clone,
+    ) -> impl Strategy<Value = NonEmpty<T>> + Clone {
+        vec(item, 1..4).prop_map(|items| NonEmpty::try_from_vec(items).expect("1..4 items"))
+    }
+
     fn map_of<V: Debug>(
         key: impl Strategy<Value = String> + Clone,
         value: impl Strategy<Value = V> + Clone,
@@ -212,8 +238,101 @@ mod proptests {
         vec((key, value), size).prop_map(|entries| entries.into_iter().collect())
     }
 
+    fn finite() -> impl Strategy<Value = Finite> + Clone {
+        any::<f64>().prop_filter_map("finite", Finite::new)
+    }
+
+    fn literal() -> impl Strategy<Value = Literal> + Clone {
+        prop_oneof![
+            any::<bool>().prop_map(Literal::Bool),
+            any::<i64>().prop_map(Literal::Int),
+            finite().prop_map(Literal::Float),
+            text().prop_map(Literal::String),
+        ]
+    }
+
+    fn expr() -> impl Strategy<Value = Expr> + Clone {
+        "[a-z.() =<>'0-9]{1,12}".prop_filter_map("not blank", Expr::new)
+    }
+
     fn zoom() -> impl Strategy<Value = Zoom> + Clone {
         (0..=30_u8).prop_map(|z| Zoom::new(z).expect("0..=30"))
+    }
+
+    fn bound() -> impl Strategy<Value = Bound> + Clone {
+        (finite(), any::<bool>()).prop_map(|(value, inclusive)| Bound { value, inclusive })
+    }
+
+    fn range() -> impl Strategy<Value = Range> + Clone {
+        prop_oneof![
+            bound().prop_map(Range::From),
+            bound().prop_map(Range::To),
+            (bound(), bound()).prop_filter_map("non-empty", |(a, b)| {
+                let nonempty =
+                    a.value < b.value || (a.value == b.value && a.inclusive && b.inclusive);
+                nonempty.then_some(Range::Between(a, b))
+            }),
+        ]
+    }
+
+    fn property_test() -> impl Strategy<Value = PropertyTest> + Clone {
+        prop_oneof![
+            non_empty(literal()).prop_map(PropertyTest::OneOf),
+            text().prop_map(PropertyTest::Like),
+            range().prop_map(PropertyTest::Range),
+        ]
+    }
+
+    fn geometry_type() -> impl Strategy<Value = GeometryType> + Clone {
+        prop_oneof![
+            Just(GeometryType::Point),
+            Just(GeometryType::Line),
+            Just(GeometryType::Polygon),
+        ]
+    }
+
+    fn name_match() -> impl Strategy<Value = NameMatch> + Clone {
+        prop_oneof![
+            non_empty(name()).prop_map(NameMatch::OneOf),
+            text().prop_map(NameMatch::Like),
+        ]
+    }
+
+    fn condition() -> impl Strategy<Value = Condition> + Clone {
+        let leaf = (
+            map_of(name(), property_test(), 0..3),
+            proptest::option::of(non_empty(name())),
+            proptest::option::of(non_empty(name())),
+            proptest::option::of(expr()),
+            proptest::option::of(non_empty(geometry_type())),
+            proptest::option::of(name_match()),
+        )
+            .prop_map(
+                |(properties, has, missing, expr, geometry, source_layer)| Condition {
+                    properties,
+                    has,
+                    missing,
+                    expr,
+                    geometry,
+                    source_layer,
+                    ..Condition::default()
+                },
+            )
+            .prop_filter("non-empty", |c| *c != Condition::default());
+        leaf.prop_recursive(2, 8, 2, |inner| {
+            (
+                inner.clone(),
+                proptest::option::of(non_empty(inner.clone())),
+                proptest::option::of(non_empty(inner.clone())),
+                proptest::option::of(inner),
+            )
+                .prop_map(|(base, any, all, not)| Condition {
+                    any: any.or(base.any.clone()),
+                    all: all.or(base.all.clone()),
+                    not: not.map(Box::new).or(base.not.clone()),
+                    ..base
+                })
+        })
     }
 
     fn output_geometry() -> impl Strategy<Value = OutputGeometry> + Clone {
@@ -231,6 +350,7 @@ mod proptests {
 
     fn layer() -> impl Strategy<Value = Layer> + Clone {
         let selection = (
+            proptest::option::of(condition()),
             proptest::option::of(output_geometry()),
             proptest::option::of(zoom()),
             proptest::option::of(zoom()),
@@ -241,11 +361,12 @@ mod proptests {
             proptest::option::of(any::<bool>()),
         );
         (selection, tiling)
-            .prop_filter("minzoom <= maxzoom", |((_, min, max), ..)| {
+            .prop_filter("minzoom <= maxzoom", |((_, _, min, max), ..)| {
                 ZoomRange::new(*min, *max).is_ok()
             })
             .prop_map(
-                |((geometry, minzoom, maxzoom), (extent, buffer, clip_geom))| Layer {
+                |((r#where, geometry, minzoom, maxzoom), (extent, buffer, clip_geom))| Layer {
+                    r#where,
                     geometry,
                     minzoom,
                     maxzoom,
