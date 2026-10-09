@@ -2,6 +2,7 @@ mod error;
 mod primitives;
 mod rule;
 mod setting;
+mod sources;
 mod tile;
 mod value;
 mod zoom;
@@ -14,6 +15,10 @@ pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 pub use setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
+pub use sources::{
+    Areas, CsvFiles, EngineFiles, EngineSource, GpkgFiles, Index, NoOptions, OsmPbf, OsmPbfFiles,
+    RelationTags, ShapefileFiles,
+};
 pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec};
 pub use zoom::{Zoom, ZoomRange};
