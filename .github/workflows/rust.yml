@@ -11,9 +11,7 @@ on:
         default: true
       run-release-builds:
         description: >-
-          Build what only a release consumes: the aarch64, macOS and Windows
-          binaries and the Debian package. Off for pull requests other than
-          the release PR.
+          Build on all targets, including the aarch64, macOS and Windows bins and Debian package.
         type: boolean
         default: true
   workflow_dispatch:
