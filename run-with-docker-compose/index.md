@@ -5,7 +5,7 @@ You can use example [`docker-compose.yml`](<https://raw.githubusercontent.com/ma
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:2.0.0-beta.2
+    image: ghcr.io/maplibre/martin:2.0.0-beta.3
     restart: unless-stopped
     ports:
       - "3000:3000"
