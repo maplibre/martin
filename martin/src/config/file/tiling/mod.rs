@@ -1,6 +1,7 @@
 mod condition;
 mod error;
 mod primitives;
+mod rule;
 mod setting;
 mod value;
 mod zoom;
@@ -12,6 +13,7 @@ pub use error::TilingConfigError;
 use indexmap::IndexMap;
 use primitives::checked_map_with;
 pub use primitives::{Expr, Finite, Literal, NonEmpty};
+pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
 use setting::fixed_zoom_range;
 pub use setting::{ByZoom, FromZoomSteps, PerFeature, PixelSetting, Pixels, ZoomSetting};
@@ -55,6 +57,9 @@ impl CollectUnrecognizedKeys for Layers {
         for (name, layer) in &self.0 {
             let path = format!("{path}{name}.");
             layer.unrecognized.collect_unrecognized(&path, out);
+            layer
+                .rules
+                .collect_unrecognized(&format!("{path}rules."), out);
         }
     }
 }
@@ -102,6 +107,8 @@ pub struct Layer {
     pub r#let: IndexMap<String, Computed>,
     #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
     pub attributes: Attributes,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rules: Option<Rules>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sort_by: Option<NonEmpty<SortKey>>,
     #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
@@ -727,6 +734,39 @@ mod proptests {
         ]
     }
 
+    fn rule_settings() -> impl Strategy<Value = RuleSettings> + Clone {
+        (
+            proptest::option::of(per_feature(zoom())),
+            proptest::option::of(per_feature(zoom())),
+            proptest::option::of(per_feature(by_zoom(pixels()))),
+            proptest::option::of(per_feature(by_zoom(pixels()))),
+            map_of(name(), value_spec(), 0..2),
+        )
+            .prop_filter("fixed minzoom <= maxzoom", |(min, max, ..)| {
+                fixed_zooms_in_order(min.as_ref(), max.as_ref())
+            })
+            .prop_map(
+                |(minzoom, maxzoom, simplify, min_size, attributes)| RuleSettings {
+                    minzoom,
+                    maxzoom,
+                    simplify,
+                    min_size,
+                    attributes,
+                    unrecognized: UnrecognizedValues::default(),
+                },
+            )
+    }
+
+    fn rules() -> impl Strategy<Value = Rules> + Clone {
+        (
+            non_empty(
+                (condition(), rule_settings()).prop_map(|(when, settings)| Rule { when, settings }),
+            ),
+            proptest::option::of(rule_settings()),
+        )
+            .prop_map(|(cases, fallback)| Rules { cases, fallback })
+    }
+
     fn output_geometry() -> impl Strategy<Value = OutputGeometry> + Clone {
         prop_oneof![
             Just(OutputGeometry::Point),
@@ -767,6 +807,7 @@ mod proptests {
         let output = (
             map_of(name(), value().prop_map(Computed), 0..2),
             attributes(),
+            proptest::option::of(rules()),
             proptest::option::of(non_empty((value(), any::<bool>()).prop_map(
                 |(v, descending)| SortKey {
                     value: Computed(v),
@@ -791,7 +832,7 @@ mod proptests {
                         min_size,
                         min_size_at_maxzoom,
                     ),
-                    (r#let, attributes, sort_by, id),
+                    (r#let, attributes, rules, sort_by, id),
                 )| Layer {
                     r#where,
                     geometry,
@@ -806,6 +847,7 @@ mod proptests {
                     min_size_at_maxzoom,
                     r#let,
                     attributes,
+                    rules,
                     sort_by,
                     id,
                     unrecognized: UnrecognizedValues::default(),

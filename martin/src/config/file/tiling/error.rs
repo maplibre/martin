@@ -65,4 +65,9 @@ pub enum TilingConfigError {
     LikeWithRange,
     #[error("`{0}` repeats an end of the range that is already set")]
     RangeEndTwice(String),
+
+    #[error("a rule without `where` takes every feature, so it must be the last rule")]
+    CatchAllNotLast,
+    #[error("`rules` needs at least one rule with a `where`")]
+    NoConditionalRule,
 }
