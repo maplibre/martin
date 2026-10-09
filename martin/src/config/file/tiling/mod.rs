@@ -1,6 +1,7 @@
 mod condition;
 mod error;
 mod primitives;
+mod setting;
 mod value;
 mod zoom;
 
@@ -12,6 +13,8 @@ use indexmap::IndexMap;
 use primitives::checked_map_with;
 pub use primitives::{Expr, Finite, Literal, NonEmpty};
 use serde::{Deserialize, Deserializer, Serialize};
+use setting::fixed_zoom_range;
+pub use setting::{ByZoom, FromZoomSteps, PerFeature, PixelSetting, Pixels, ZoomSetting};
 pub use value::{
     Attributes, Case, Cast, Columns, Computed, IdPolicy, Lookup, Match, PropertySelector, Ref,
     SortKey, Value, ValueSpec,
@@ -78,15 +81,23 @@ pub struct Layer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub geometry: Option<OutputGeometry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub minzoom: Option<Zoom>,
+    pub minzoom: Option<ZoomSetting>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub maxzoom: Option<Zoom>,
+    pub maxzoom: Option<ZoomSetting>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extent: Option<NonZeroU32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clip_geom: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub simplify: Option<PixelSetting>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub simplify_at_maxzoom: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_size: Option<PixelSetting>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_size_at_maxzoom: Option<Pixels>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub r#let: IndexMap<String, Computed>,
     #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
@@ -101,7 +112,7 @@ pub struct Layer {
 
 impl Layer {
     fn check(&self) -> Result<(), TilingConfigError> {
-        ZoomRange::new(self.minzoom, self.maxzoom).map(|_| ())
+        fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref()).map(|_| ())
     }
 }
 
@@ -316,6 +327,78 @@ mod tests {
     }
 
     #[test]
+    fn minzoom_cannot_change_with_the_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { 0: 2, 10: 4 } }"),
+            @"error: line 1 column 19: a zoom cannot change with the zoom"
+        );
+    }
+
+    #[test]
+    fn an_empty_match_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { match: [] } }"),
+            @"error: line 1 column 28: `match` needs at least one `if` case"
+        );
+    }
+
+    #[test]
+    fn expr_and_lookup_cannot_be_mixed() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { expr: x, lookup: y } }"),
+            @"error: line 1 column 19: pick one of `match`, `lookup` or `expr`"
+        );
+    }
+
+    #[test]
+    fn a_lookup_needs_a_map() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { lookup: kind } }"),
+            @"error: line 1 column 19: `lookup` needs a `map`"
+        );
+    }
+
+    #[test]
+    fn else_needs_a_lookup() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { else: 4 } }"),
+            @"error: line 1 column 19: `else` goes with `lookup`; in a `match`, write it as its last case"
+        );
+    }
+
+    #[test]
+    fn a_negative_simplify_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: -1 }"),
+            @"error: line 1 column 10: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn an_empty_simplify_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: {} }"),
+            @"error: line 1 column 20: needs zoom steps such as `{ 0: 2, 11: 0 }`, or one of `match`, `lookup` or `expr`"
+        );
+    }
+
+    #[test]
+    fn simplify_zoom_steps_cannot_exceed_the_deepest_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: { 0: 2, 31: 0 } }"),
+            @"error: line 1 column 28: invalid value: integer `31`, expected a zoom from 0 to 30"
+        );
+    }
+
+    #[test]
+    fn simplify_zoom_steps_cannot_be_mixed_with_match() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: { 0: 2, match: [] } }"),
+            @"error: line 1 column 20: zoom steps cannot be mixed with `match`"
+        );
+    }
+
+    #[test]
     fn a_let_value_cannot_carry_a_zoom() {
         insta::assert_snapshot!(
             rejection("roads: { let: { x: { from: a, minzoom: 4 } } }"),
@@ -354,7 +437,7 @@ mod proptests {
     use std::num::NonZeroU32;
 
     use indexmap::IndexMap;
-    use proptest::collection::{btree_set, vec};
+    use proptest::collection::{btree_map, btree_set, vec};
     use proptest::prelude::*;
 
     use super::*;
@@ -421,6 +504,19 @@ mod proptests {
     fn zoom_range() -> impl Strategy<Value = ZoomRange> + Clone {
         (proptest::option::of(zoom()), proptest::option::of(zoom()))
             .prop_filter_map("min <= max", |(min, max)| ZoomRange::new(min, max).ok())
+    }
+
+    fn pixels() -> impl Strategy<Value = Pixels> + Clone {
+        (0.0..1e6_f64).prop_map(|v| Pixels::new(v).expect("non-negative"))
+    }
+
+    fn by_zoom<U: Clone + Debug>(
+        unit: impl Strategy<Value = U> + Clone,
+    ) -> impl Strategy<Value = ByZoom<U>> + Clone {
+        prop_oneof![
+            unit.clone().prop_map(ByZoom::Constant),
+            btree_map(zoom(), unit, 1..4).prop_map(ByZoom::Steps),
+        ]
     }
 
     fn bound() -> impl Strategy<Value = Bound> + Clone {
@@ -568,6 +664,46 @@ mod proptests {
             })
     }
 
+    fn per_feature<T: Clone + Debug + 'static>(
+        leaf: impl Strategy<Value = T> + Clone + 'static,
+    ) -> impl Strategy<Value = PerFeature<T>> + Clone {
+        prop_oneof![
+            leaf.prop_map(PerFeature::Fixed),
+            expr().prop_map(PerFeature::Expr)
+        ]
+        .prop_recursive(2, 8, 3, |inner| {
+            prop_oneof![
+                (
+                    non_empty(
+                        (condition(), inner.clone()).prop_map(|(when, then)| Case { when, then })
+                    ),
+                    proptest::option::of(inner.clone()),
+                )
+                    .prop_map(|(cases, otherwise)| PerFeature::Match(Match {
+                        cases,
+                        otherwise: otherwise.map(Box::new),
+                    })),
+                (
+                    reference(),
+                    map_of(text(), inner.clone(), 1..3),
+                    proptest::option::of(inner)
+                )
+                    .prop_map(|(subject, table, otherwise)| PerFeature::Lookup(
+                        Lookup {
+                            subject,
+                            table,
+                            otherwise: otherwise.map(Box::new),
+                        }
+                    )),
+            ]
+        })
+    }
+
+    fn fixed_zooms_in_order(min: Option<&ZoomSetting>, max: Option<&ZoomSetting>) -> bool {
+        let fixed = |z: Option<&ZoomSetting>| z.and_then(PerFeature::fixed).copied();
+        ZoomRange::new(fixed(min), fixed(max)).is_ok()
+    }
+
     fn property_selector() -> impl Strategy<Value = PropertySelector> + Clone {
         prop_oneof![
             name().prop_map(PropertySelector::Named),
@@ -616,13 +752,17 @@ mod proptests {
         let selection = (
             proptest::option::of(condition()),
             proptest::option::of(output_geometry()),
-            proptest::option::of(zoom()),
-            proptest::option::of(zoom()),
+            proptest::option::of(per_feature(zoom())),
+            proptest::option::of(per_feature(zoom())),
         );
         let tiling = (
             proptest::option::of((1..8192_u32).prop_map(|n| NonZeroU32::new(n).expect("1.."))),
             proptest::option::of(any::<u32>()),
             proptest::option::of(any::<bool>()),
+            proptest::option::of(per_feature(by_zoom(pixels()))),
+            proptest::option::of(pixels()),
+            proptest::option::of(per_feature(by_zoom(pixels()))),
+            proptest::option::of(pixels()),
         );
         let output = (
             map_of(name(), value().prop_map(Computed), 0..2),
@@ -636,13 +776,21 @@ mod proptests {
             id_policy(),
         );
         (selection, tiling, output)
-            .prop_filter("minzoom <= maxzoom", |((_, _, min, max), ..)| {
-                ZoomRange::new(*min, *max).is_ok()
+            .prop_filter("fixed minzoom <= maxzoom", |((_, _, min, max), ..)| {
+                fixed_zooms_in_order(min.as_ref(), max.as_ref())
             })
             .prop_map(
                 |(
                     (r#where, geometry, minzoom, maxzoom),
-                    (extent, buffer, clip_geom),
+                    (
+                        extent,
+                        buffer,
+                        clip_geom,
+                        simplify,
+                        simplify_at_maxzoom,
+                        min_size,
+                        min_size_at_maxzoom,
+                    ),
                     (r#let, attributes, sort_by, id),
                 )| Layer {
                     r#where,
@@ -652,6 +800,10 @@ mod proptests {
                     extent,
                     buffer,
                     clip_geom,
+                    simplify,
+                    simplify_at_maxzoom,
+                    min_size,
+                    min_size_at_maxzoom,
                     r#let,
                     attributes,
                     sort_by,

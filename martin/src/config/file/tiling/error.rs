@@ -7,6 +7,14 @@ pub enum TilingConfigError {
 
     #[error("minzoom {min} is above maxzoom {max}")]
     MinzoomAboveMaxzoom { min: u8, max: u8 },
+    #[error("a zoom cannot change with the zoom")]
+    ZoomStepsForZoom,
+    #[error("zoom steps cannot be mixed with `{0}`")]
+    ZoomStepsMixedWith(String),
+    #[error("needs zoom steps such as `{{ 0: 2, 11: 0 }}`, or one of `match`, `lookup` or `expr`")]
+    NoSetting,
+    #[error("pick one of `match`, `lookup` or `expr`")]
+    SeveralSettings,
 
     #[error("`let.` needs the name of a computed value after it")]
     EmptyLetName,
@@ -30,6 +38,8 @@ pub enum TilingConfigError {
     LookupWithoutMap,
     #[error("`map` needs at least one entry")]
     EmptyLookupMap,
+    #[error("`else` goes with `lookup`; in a `match`, write it as its last case")]
+    ElseWithoutLookup,
     #[error("`else` does not apply to `{0}`; it goes with `from` or `lookup`")]
     ElseNotApplicable(&'static str),
     #[error("`else` must be the last case")]
