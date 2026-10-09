@@ -79,10 +79,10 @@ async fn auto_configured_minimal() {
 
     let tile = martin.get("/webp2/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    insta::assert_snapshot!(tile.headers_snapshot_masking_etag(), @r#"
     content-length: 11586
     content-type: image/webp
-    etag: "XVaNmYQ6nAXtaiQyNV2eKA"
+    etag: [ETAG]
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (512, 512));
@@ -180,10 +180,10 @@ async fn a_raster_source_serves_png_tiles() {
         .get("/stamen_toner__raster_CC-BY-ODbL_z3/3/4/2")
         .await;
     assert_eq!(tile.status(), 200);
-    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    insta::assert_snapshot!(tile.headers_snapshot_masking_etag(), @r#"
     content-length: 24475
     content-type: image/png
-    etag: "s3P6T9dSjjkHxhsx3B99zg"
+    etag: [ETAG]
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));
@@ -220,10 +220,10 @@ pmtiles:
 
     let tile = martin.get("/pmt/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    insta::assert_snapshot!(tile.headers_snapshot_masking_etag(), @r#"
     content-length: 18404
     content-type: image/png
-    etag: "lLQEUB-1Ahq15_PyWYRQQg"
+    etag: [ETAG]
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(tile.image_size(), (256, 256));

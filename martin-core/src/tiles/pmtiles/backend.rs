@@ -39,6 +39,16 @@ impl PmtFileBackend {
             version,
         })
     }
+
+    /// A hash of the inode, modification time and size taken when the file was opened.
+    fn version_seed(&self) -> u64 {
+        let (inode, mtime, size) = self.version;
+        let mut key = [0_u8; 32];
+        key[..8].copy_from_slice(&inode.to_le_bytes());
+        key[8..24].copy_from_slice(&mtime.to_le_bytes());
+        key[24..].copy_from_slice(&size.to_le_bytes());
+        xxh3_64(&key)
+    }
 }
 
 impl AsyncBackend for PmtFileBackend {
@@ -77,6 +87,16 @@ pub(crate) enum PmtBackend {
     ObjectStore(ObjectStoreBackend),
 }
 
+impl PmtBackend {
+    /// The local file's version, or zero for an object store.
+    pub(crate) fn version_seed(&self) -> u64 {
+        match self {
+            Self::File(backend) => backend.version_seed(),
+            Self::ObjectStore(_) => 0,
+        }
+    }
+}
+
 impl AsyncBackend for PmtBackend {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
         match self {
@@ -90,13 +110,16 @@ impl AsyncBackend for PmtBackend {
 #[derive(Debug)]
 pub(crate) struct Fingerprinted<B> {
     inner: B,
+    seed: u64,
     fingerprint: Arc<OnceLock<u128>>,
 }
 
 impl<B> Fingerprinted<B> {
-    pub(crate) fn new(inner: B) -> Self {
+    /// Wraps `inner`, mixing `seed` into the fingerprint.
+    pub(crate) fn new(inner: B, seed: u64) -> Self {
         Self {
             inner,
+            seed,
             fingerprint: Arc::default(),
         }
     }
@@ -113,7 +136,7 @@ impl<B: AsyncBackend + Sync + Send> AsyncBackend for Fingerprinted<B> {
         if offset == 0 {
             self.fingerprint.get_or_init(|| {
                 let version = response.data_version_string.as_deref().unwrap_or_default();
-                xxh3_128_with_seed(&response.bytes, xxh3_64(version.as_bytes()))
+                xxh3_128_with_seed(&response.bytes, self.seed ^ xxh3_64(version.as_bytes()))
             });
         }
         Ok(response)

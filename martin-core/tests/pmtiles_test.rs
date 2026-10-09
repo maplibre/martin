@@ -843,6 +843,53 @@ async fn a_file_renamed_over_the_source_reloads_to_the_new_contents() {
 
 #[cfg(not(windows))]
 #[tokio::test]
+async fn a_same_length_rewrite_changes_the_etag() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("source.pmtiles");
+    std::fs::copy(fixtures_dir().join("png.pmtiles"), &path).expect("copy the archive");
+    let source = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "same_length".to_owned(),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+    let coord = TileCoord::new_unchecked(0, 0, 0);
+    let before = source
+        .get_tile_with_etag(coord, None)
+        .await
+        .expect("first read succeeds");
+
+    let mut bytes = std::fs::read(&path).expect("read the archive");
+    let start = bytes
+        .windows(before.data.len())
+        .position(|window| *window == before.data[..])
+        .expect("the tile's bytes are in the archive");
+    bytes[start + before.data.len() - 1] ^= 0xFF;
+    std::fs::write(&path, bytes).expect("rewrite the source in place");
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .expect("open the rewritten archive")
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(1))
+        .expect("move the modification time");
+
+    let reloaded = source
+        .try_reload()
+        .await
+        .expect("reload opens the rewritten file");
+    let after = reloaded
+        .get_tile_with_etag(coord, None)
+        .await
+        .expect("read after reload succeeds");
+
+    assert_ne!(before.data, after.data);
+    assert_ne!(before.etag, after.etag);
+}
+
+#[cfg(not(windows))]
+#[tokio::test]
 async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("source.pmtiles");
