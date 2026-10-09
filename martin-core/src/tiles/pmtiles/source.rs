@@ -108,8 +108,8 @@ impl PmtilesSource {
             ),
             PmtLocation::ObjectStore { store, path } => (store.to_string(), path.clone()),
         };
-        let seed = backend.version_seed();
-        let backend = Fingerprinted::new(backend, seed);
+        let file_version = backend.file_version();
+        let backend = Fingerprinted::new(backend, file_version);
         let fingerprint = backend.fingerprint();
         let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
             .await

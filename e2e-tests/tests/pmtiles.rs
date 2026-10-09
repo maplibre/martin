@@ -299,6 +299,52 @@ pmtiles:
     ");
 }
 
+#[tokio::test]
+async fn a_server_without_etags_keeps_tile_etags_tied_to_the_bytes() {
+    let statics = StaticFiles::serving(&[("png.pmtiles", fixture("pmtiles/png.pmtiles"))]).await;
+    statics.set_etags(false);
+    let config = format!(
+        "
+pmtiles:
+  allow_http: true
+  sources:
+    png: {}
+",
+        statics.url("png.pmtiles")
+    );
+    let mut martin = Martin::builder()
+        .config(&config)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let before = martin.get("/png/0/0/0").await;
+    assert_eq!(before.status(), 200);
+    martin.stop().await;
+
+    let mut bytes = fs::read(fixture("pmtiles/png.pmtiles")).expect("read the archive");
+    let start = bytes
+        .windows(before.body().len())
+        .position(|window| window == before.body())
+        .expect("the tile's bytes are in the archive");
+    bytes[start + before.body().len() - 1] ^= 0xFF;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let rewritten = dir.path().join("png.pmtiles");
+    fs::write(&rewritten, bytes).expect("write the rewritten archive");
+    statics.replace("png.pmtiles", &rewritten);
+
+    let mut martin = Martin::builder()
+        .config(&config)
+        .start()
+        .await
+        .expect("failed to restart martin");
+    let after = martin.get("/png/0/0/0").await;
+    assert_eq!(after.status(), 200);
+    martin.stop().await;
+
+    assert_ne!(before.body(), after.body());
+    assert_ne!(before.header("etag"), after.header("etag"));
+}
+
 /// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
 /// path-style addressing turns the bucket into the first path segment, and unsigned requests keep
 /// credentials out of it.

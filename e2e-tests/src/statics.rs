@@ -33,6 +33,8 @@ struct State {
     fail_gets: bool,
     /// When `Some`, object `GET`/`HEAD` requests must carry exactly this query string.
     required_query: Option<String>,
+    /// While `false`, responses carry no `ETag`.
+    etags: bool,
 }
 
 impl StaticFiles {
@@ -68,6 +70,7 @@ impl StaticFiles {
             files,
             fail_gets,
             required_query,
+            etags: true,
         }));
         let get_state = Arc::clone(&state);
         Mock::given(method("GET"))
@@ -88,6 +91,14 @@ impl StaticFiles {
             .write()
             .expect("a file map that is never poisoned")
             .fail_gets = failing;
+    }
+
+    /// Stops or resumes sending `ETag`s, as a server that sends no validators would.
+    pub fn set_etags(&self, sending: bool) {
+        self.state
+            .write()
+            .expect("a file map that is never poisoned")
+            .etags = sending;
     }
 
     /// Adds `path`, as if a new remote object was uploaded.
@@ -256,30 +267,35 @@ fn respond(state: &RwLock<State>, request: &Request) -> ResponseTemplate {
     let Some(body) = state.files.get(request.url.path().trim_start_matches('/')) else {
         return ResponseTemplate::new(404);
     };
-    let etag = format!("\"static-{:016x}\"", content_hash(body));
-    if request
-        .headers
-        .get("if-match")
-        .is_some_and(|value| value.to_str().ok() != Some(etag.as_str()))
+    let etag = state
+        .etags
+        .then(|| format!("\"static-{:016x}\"", content_hash(body)));
+    if let Some(etag) = &etag
+        && request
+            .headers
+            .get("if-match")
+            .is_some_and(|value| value.to_str().ok() != Some(etag.as_str()))
     {
         return ResponseTemplate::new(412);
     }
+    let with_etag = |response: ResponseTemplate| match &etag {
+        Some(etag) => response.insert_header("etag", etag.as_str()),
+        None => response,
+    };
     if request.method.as_str() == "HEAD" {
-        return ResponseTemplate::new(200)
-            .insert_header("content-length", body.len().to_string())
-            .insert_header("accept-ranges", "bytes")
-            .insert_header("etag", etag);
+        return with_etag(
+            ResponseTemplate::new(200)
+                .insert_header("content-length", body.len().to_string())
+                .insert_header("accept-ranges", "bytes"),
+        );
     }
     let Some(range) = request.headers.get("range") else {
-        return ResponseTemplate::new(200)
-            .insert_header("etag", etag)
-            .set_body_bytes(body.clone());
+        return with_etag(ResponseTemplate::new(200)).set_body_bytes(body.clone());
     };
     let range = range.to_str().expect("a range header that is not utf-8");
     let range = parse_range(range, body.len());
     let (start, end) = (*range.start(), *range.end());
-    ResponseTemplate::new(206)
-        .insert_header("etag", etag)
+    with_etag(ResponseTemplate::new(206))
         .insert_header(
             "content-range",
             format!("bytes {start}-{end}/{}", body.len()),

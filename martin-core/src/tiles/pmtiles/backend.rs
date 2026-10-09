@@ -8,6 +8,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use derive_debug::Dbg;
 use pmtiles::{
     AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult,
@@ -88,11 +89,11 @@ pub(crate) enum PmtBackend {
 }
 
 impl PmtBackend {
-    /// The local file's version, or zero for an object store.
-    pub(crate) fn version_seed(&self) -> u64 {
+    /// The local file's version, `None` for an object store.
+    pub(crate) fn file_version(&self) -> Option<u64> {
         match self {
-            Self::File(backend) => backend.version_seed(),
-            Self::ObjectStore(_) => 0,
+            Self::File(backend) => Some(backend.version_seed()),
+            Self::ObjectStore(_) => None,
         }
     }
 }
@@ -106,20 +107,20 @@ impl AsyncBackend for PmtBackend {
     }
 }
 
-/// Passes reads through to `B` and fingerprints the archive's header and root directory.
+/// Passes reads through to `B` and fingerprints a versioned archive's header and root directory.
 #[derive(Debug)]
 pub(crate) struct Fingerprinted<B> {
     inner: B,
-    seed: u64,
+    file_version: Option<u64>,
     fingerprint: Arc<OnceLock<u128>>,
 }
 
 impl<B> Fingerprinted<B> {
-    /// Wraps `inner`, mixing `seed` into the fingerprint.
-    pub(crate) fn new(inner: B, seed: u64) -> Self {
+    /// Wraps `inner`, taking a local file's version or else the store's.
+    pub(crate) fn new(inner: B, file_version: Option<u64>) -> Self {
         Self {
             inner,
-            seed,
+            file_version,
             fingerprint: Arc::default(),
         }
     }
@@ -133,12 +134,20 @@ impl<B> Fingerprinted<B> {
 impl<B: AsyncBackend + Sync + Send> AsyncBackend for Fingerprinted<B> {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
         let response = self.inner.read(offset, length).await?;
-        if offset == 0 {
-            self.fingerprint.get_or_init(|| {
-                let version = response.data_version_string.as_deref().unwrap_or_default();
-                xxh3_128_with_seed(&response.bytes, self.seed ^ xxh3_64(version.as_bytes()))
-            });
+        if offset == 0
+            && let Some(version) = self.file_version.or_else(|| store_version(&response))
+        {
+            self.fingerprint
+                .get_or_init(|| xxh3_128_with_seed(&response.bytes, version));
         }
         Ok(response)
     }
+}
+
+/// A hash of the version the object store reported, `None` when it has none.
+fn store_version(response: &BackendResponse) -> Option<u64> {
+    let version = response.data_version_string.as_deref()?;
+    let unknown_modification_time = DateTime::<Utc>::UNIX_EPOCH.to_rfc3339();
+    (!version.is_empty() && version != unknown_modification_time)
+        .then(|| xxh3_64(version.as_bytes()))
 }
