@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-09
+
+> [!NOTE]
+> This is the third beta of Martin 2.0. It has three breaking changes relative to [2.0.0-beta.2](#200-beta2---2026-10-01), listed below.
+> If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
+
+### Breaking changes
+
+- The prebuilt x86_64 binaries, Debian package and Docker images require an x86-64-v3 CPU (AVX2, BMI2, FMA; Intel Haswell or AMD Excavator, 2015 or newer) ([#3464](https://github.com/maplibre/martin/pull/3464)). See [migration](https://maplibre.org/martin/migration-guide/#x86_64-binaries-require-an-x86-64-v3-cpu).
+- Some cargo features were merged to save CI time and reduce complexity. `fonts`, `sprites` and `styles` are now `resources`, `hillshade`, `contour` and `geojson` are now `processing` while `mlt` is always on ([#3466](https://github.com/maplibre/martin/pull/3466)). Only builds that pass `--features` or `--no-default-features` need to change. See [migration](https://maplibre.org/martin/migration-guide/#cargo-features-were-merged).
+- Rendered PNG tiles and static images are indexed (palette) PNGs instead of RGBA, about a quarter of the size on basemap tiles ([#3456](https://github.com/maplibre/martin/pull/3456)).
+  Bytes and `ETag`s change once on upgrade. Set `styles.rendering.png_palette: false` for the previous output, or `png_palette: { max_colors: 64 }` to tune the palette (2 to 256, default 128).
+
+### Added
+
+- Rendered tiles answer `{y}@{n}x.{format}` for HiDPI clients such as Leaflet's `{r}`. `styles.rendering.max_pixel_ratio` (default 4) bounds `n` ([#3453](https://github.com/maplibre/martin/pull/3453)).
+- `styles.rendering.tile_size` renders 256 or 512 px tiles (default 512) ([#3457](https://github.com/maplibre/martin/pull/3457)).
+- Each tile worker keeps up to `styles.rendering.renderers_per_worker` renderers (default 8), so serving several styles no longer reloads a style on almost every request ([#3454](https://github.com/maplibre/martin/pull/3454)).
+  Every loaded renderer holds its own memory. Lower the value, or `max_pixel_ratio`, to save memory.
+- `martin cp` gets better performance via `MbtilesBulkWriter` ([#3496](https://github.com/maplibre/martin/pull/3496)).
+
+### Fixed
+
+- PMTiles object store log lines name the source they belong to ([#3502](https://github.com/maplibre/martin/pull/3502)).
+- `martin cp` without `--bbox` copies the source's bounds again instead of the whole world, as `--help` says. It has done the latter since 1.1.0 ([#3489](https://github.com/maplibre/martin/pull/3489)).
+- `martin cp` refuses an inverted `--bbox` with an error instead of panicking ([#3497](https://github.com/maplibre/martin/pull/3497)).
+- `martin cp` exits right after Ctrl+C instead of waiting out a 10 s drain timeout and losing the unsaved batch ([#3498](https://github.com/maplibre/martin/pull/3498)).
+- Tile responses send `Vary: Accept-Encoding`, so shared caches such as nginx no longer hand one client's encoding to everyone ([#3520](https://github.com/maplibre/martin/pull/3520)).
+- A tile request answers `304` when a proxy has weakened the `ETag` (`W/"..."`) ([#3521](https://github.com/maplibre/martin/pull/3521)).
+- A font stack takes each shared character from its first font. Before, MapLibre drew them in the last one ([#3524](https://github.com/maplibre/martin/pull/3524)).
+- MLT tiles are no longer detected as MVT, which broke the catalog, the web UI inspector and `Accept: application/vnd.maplibre-tile` ([#3486](https://github.com/maplibre/martin/pull/3486)), nor as JPEG XL, which stopped MBTiles files from loading ([#3522](https://github.com/maplibre/martin/pull/3522)).
+- Martin no longer crashes with SIGBUS, or serves the wrong bytes, when a served PMTiles archive is rewritten in place ([#3487](https://github.com/maplibre/martin/pull/3487)).
+- A remote PMTiles source whose leaf directories moved reloads instead of failing with `Invalid gzip header` ([#3450](https://github.com/maplibre/martin/pull/3450)).
+
+### Performance
+
+- Composite tiles (`/a,b/{z}/{x}/{y}`) are cached in the encoding the client receives instead of being merged and compressed on every request. CPU per request went from 2,504 µs to 72 µs on a Berlin extract. Each composite takes one more cache entry per encoding ([#3523](https://github.com/maplibre/martin/pull/3523)).
+- Font glyph ranges are cached compressed. CPU per request dropped from 553 µs to 38 µs for gzip, and bodies are smaller ([#3472](https://github.com/maplibre/martin/pull/3472)).
+- `martin cp` writes MBTiles with the bulk writer. Copying 349,525 PNG tiles into a dedup-id file went from 218 s to 76 s ([#3500](https://github.com/maplibre/martin/pull/3500)). MBTiles inserts also hash each tile once instead of three times ([#3474](https://github.com/maplibre/martin/pull/3474)).
+- Local COG tiles are read from one open file handle, which cut CPU per tile from 102 µs to 35 µs for JPEG COGs ([#3477](https://github.com/maplibre/martin/pull/3477)).
+- Decoded and re-encoded tiles carry no spare buffer capacity, which reduces tile cache memory by about 17% ([#3473](https://github.com/maplibre/martin/pull/3473)).
+- Rendered images are encoded off the actix workers ([#3460](https://github.com/maplibre/martin/pull/3460)), and source resolution and `Accept` parsing allocate less per request ([#3467](https://github.com/maplibre/martin/pull/3467), [#3468](https://github.com/maplibre/martin/pull/3468)).
+
+### Other
+
+- *(deps)* update `mlt-core` to 0.19.0, `hotpath` (with `hotpath-cloud` enabled), `lucide-react`, `maplibre-gl`, the frontend's npm dependencies and the GitHub Actions ([#3483](https://github.com/maplibre/martin/pull/3483), [#3461](https://github.com/maplibre/martin/pull/3461), [#3504](https://github.com/maplibre/martin/pull/3504), [#3494](https://github.com/maplibre/martin/pull/3494), [#3484](https://github.com/maplibre/martin/pull/3484), [#3478](https://github.com/maplibre/martin/pull/3478), [#3447](https://github.com/maplibre/martin/pull/3447), [#3449](https://github.com/maplibre/martin/pull/3449))
+- *(ci)* fmt, lint and pre-commit updates ([#3491](https://github.com/maplibre/martin/pull/3491), [#3476](https://github.com/maplibre/martin/pull/3476))
+
 ## [2.0.0-beta.2](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.1...martin-v2.0.0-beta.2) - 2026-10-01
 
 > [!IMPORTANT]
