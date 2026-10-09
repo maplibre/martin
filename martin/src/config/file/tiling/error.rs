@@ -8,6 +8,10 @@ pub enum TilingConfigError {
     InvalidExpr { expr: String, reason: String },
     #[error("minzoom {min} is above maxzoom {max}")]
     MinzoomAboveMaxzoom { min: u8, max: u8 },
+    #[error(
+        "table `{0}`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id`"
+    )]
+    LayerIdWithLayers(String),
     #[error("a property name cannot be empty")]
     EmptyPropertyName,
     #[error("`*` needs a prefix before it, such as `name:*`")]
