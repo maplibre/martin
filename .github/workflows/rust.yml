@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,nextest', coverage: true }
+        with: { tools: 'just,nextest', cache: true, coverage: true }
       - name: Run COG tests
         run: just test-cog
       - uses: $/.github/actions/upload-coverage
@@ -152,7 +152,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true, cache: true }
+        with: { rendering: true, cache: true, cache-key: 'partition-${{ strategy.job-index }}' }
       - run: just check --partition ${{ matrix.partition }}
   lint-rust-dependencies:
     name: Lint Rust dependencies
@@ -337,7 +337,7 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,nextest,sqlx-cli,fast-mvt' }
+        with: { tools: 'just,nextest,sqlx-cli,fast-mvt', cache: true }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -700,7 +700,7 @@ jobs:
       - name: Set up sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,nextest,fast-mvt', rendering: true, coverage: true }
+        with: { tools: 'just,nextest,fast-mvt', rendering: true, cache: true, coverage: true }
       - parallel:
           - name: Init pg12-alpine database
             run: tests/fixtures/initdb.sh
@@ -808,7 +808,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,nextest', coverage: true }
+        with: { tools: 'just,nextest', cache: true, coverage: true }
       - name: Unit Tests
         run: just test-s3
       - uses: $/.github/actions/upload-coverage
