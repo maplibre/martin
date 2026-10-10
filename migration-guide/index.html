@@ -1153,6 +1153,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#postgresql-sources-need-postgresql-15-and-postgis-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PostgreSQL sources need PostgreSQL 15 and PostGIS 3.5
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#postgresql-settings-come-from-the-command-line-or-the-configuration-file" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1338,7 +1349,7 @@
 <p>Use this guide to update an existing Martin setup after a major release. See the <a href="../changelog/">changelog</a> for other changes.</p>
 <h2 id="from-1x-to-20">From 1.x to 2.0</h2>
 <p>Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.</p>
-<p>Review <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">archive tile caching</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
+<p>Review the <a href="#postgresql-sources-need-postgresql-15-and-postgis-35">database versions</a>, <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">archive tile caching</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
 <h3 id="martin-cp-is-now-martin-cp"><code>martin-cp</code> is now <code>martin cp</code></h3>
 <p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands.
 The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary.
@@ -1372,6 +1383,31 @@ A server side rewritten archive may only show up on the visitor's next load due 
 </span></code></pre></div>
 <p>See <a href="../sources-tiles/">Tile Sources</a>.</p>
 </div>
+<h3 id="postgresql-sources-need-postgresql-15-and-postgis-35">PostgreSQL sources need PostgreSQL 15 and PostGIS 3.5</h3>
+<p>Martin 2.0 refuses to start against older databases, where 1.x accepted PostgreSQL 11 and PostGIS 3.0.
+Upgrade the database before upgrading Martin.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PostgreSQL</td>
+<td>11</td>
+<td>15</td>
+</tr>
+<tr>
+<td>PostGIS</td>
+<td>3.0</td>
+<td>3.5</td>
+</tr>
+</tbody>
+</table>
+<p>PostgreSQL 12, 13 and 14 are end-of-life, and PostGIS 3.5 fixes geometry that older versions hid on some zoom levels.</p>
 <h3 id="postgresql-settings-come-from-the-command-line-or-the-configuration-file">PostgreSQL settings come from the command line or the configuration file</h3>
 <p>Replace these environment variables with command-line options or configuration keys.</p>
 <table>
