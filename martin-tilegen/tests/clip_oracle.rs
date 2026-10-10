@@ -40,6 +40,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         id: None,
         geom,
         props: &EncodedProps::default(),
+        bands: &[],
         zooms: 0..=MAX_ZOOM,
         simplify: PixelThreshold::ZERO,
         min_size: PixelThreshold::ZERO,
