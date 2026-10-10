@@ -61,18 +61,25 @@ jobs:
       deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
       codeql-languages: ${{ steps.codeql.outputs.languages }}
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
-      run-release-builds: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-merge.outputs.merged == 'true' || startsWith(github.head_ref, 'release-plz-') }}
+      run-release-builds: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-pending.outputs.pending == 'true' || startsWith(github.head_ref, 'release-plz-') }}
     steps:
-      - name: Check whether this push merged the release PR
-        id: release-merge
+      - name: Checkout sources
         if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Check whether a crate version on main has not been released yet
+        id: release-pending
+        if: github.event_name == 'push'
         run: |
-          merged=$(gh api "repos/$GH_REPO/commits/$SHA/pulls" --jq 'any(.[]; .head.ref | startswith("release-plz-"))')
-          echo "merged=$merged" >> "$GITHUB_OUTPUT"
+          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | "\(.name)-v\(.version)"')
+          pending=false
+          for tag in $tags; do
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+              echo "$tag is not released yet"
+              pending=true
+            fi
+          done
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
