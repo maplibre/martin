@@ -80,6 +80,7 @@ async fn auto_configured_minimal() {
     let tile = martin.get("/webp2/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
@@ -181,6 +182,7 @@ async fn a_raster_source_serves_png_tiles() {
         .await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 24475
     content-type: image/png
     etag: "I1fhCKy04n2xAQpEk2ESig"
@@ -221,6 +223,7 @@ pmtiles:
     let tile = martin.get("/pmt/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 18404
     content-type: image/png
     etag: "aKKkpu0hTRlf8joPaDt3Ug"
@@ -284,6 +287,7 @@ pmtiles:
     let tile = martin.get("/pmt2/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
@@ -346,6 +350,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     let tile = martin.get("/s3/1/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 10658
     content-type: image/webp
     etag: "YQCG8_HEN_sExq050B7MCQ"
@@ -445,6 +450,7 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     let tile = martin.get("/cities/2/3/2").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 151
     content-type: application/x-protobuf
@@ -558,6 +564,7 @@ pmtiles:
     let tile = martin.get("/cb_2018_us_zcta510_500k/1/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 215320
     content-type: application/x-protobuf
