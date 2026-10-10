@@ -5877,6 +5877,7 @@ name = "martin-tilegen"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "cel",
  "criterion",
  "flume",
  "geo",

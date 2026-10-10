@@ -80,6 +80,9 @@ pub enum TileGenError {
     #[error(transparent)]
     Mlt(#[from] mlt_core::MltError),
 
+    #[error(transparent)]
+    Expr(#[from] crate::expr::ExprError),
+
     #[error("{0:?} compression cannot be used here")]
     UnsupportedEncoding(martin_tile_utils::Encoding),
 

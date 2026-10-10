@@ -19,6 +19,10 @@ name = "encode"
 harness = false
 
 [[bench]]
+name = "expr"
+harness = false
+
+[[bench]]
 name = "generate"
 harness = false
 
@@ -32,6 +36,7 @@ mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
 
 [dependencies]
+cel.workspace = true
 flume.workspace = true
 geo-types.workspace = true
 integer-encoding.workspace = true
