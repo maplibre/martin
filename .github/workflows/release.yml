@@ -267,6 +267,11 @@ jobs:
         continue-on-error: true
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Setup Node.js
+        continue-on-error: true
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24 } # the npm the sync-lockfiles autofix job uses; other npm versions shape lock files differently
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
       # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
