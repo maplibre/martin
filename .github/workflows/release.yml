@@ -256,7 +256,7 @@ jobs:
               echo "$tag has no draft release to publish, skipping"
               continue
             fi
-            if [[ "$tag" == martin-v* ]]; then
+            if [[ "$tag" == martin-v* || "$tag" == mbtiles-v* ]]; then
               gh release upload "$tag" target/files/* --clobber
             fi
             if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
