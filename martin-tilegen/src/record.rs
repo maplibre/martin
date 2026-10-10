@@ -1,5 +1,6 @@
 //! Temp format of one feature piece in one tile, every integer a varint:
-//! `kind | id + 1 | properties byte length | property count | properties | geometry`.
+//! `kind | id + 1 | [sort length | sort] | properties byte length | property count | properties | geometry`,
+//! where the bracketed `sort_by` key is only there when the kind byte has [`SORTED`] set.
 //! Properties come first and carry their byte length, so the per-tile schema pass reads them without
 //! touching vertices. Vertices are zigzag deltas from the previous vertex of the record, so tile-local
 //! coordinates mostly take one or two bytes.
@@ -60,6 +61,8 @@ const LINE: u8 = 1;
 const POLYGON: u8 = 2;
 const FILL: u8 = 3;
 const FILL_RANGE: u8 = 4;
+/// Flag on the kind byte: the record carries the feature's `sort_by` key.
+const SORTED: u8 = 0x80;
 
 const PROP_FALSE: u8 = 0;
 const PROP_TRUE: u8 = 1;
@@ -93,15 +96,27 @@ impl EncodedProps {
     }
 }
 
-pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Geom<'_>) {
-    out.push(match geom {
+/// `sort` is the feature's `sort_by` key, which orders the features of its layer in each tile.
+pub fn encode(
+    out: &mut Vec<u8>,
+    id: Option<u64>,
+    sort: Option<&[u8]>,
+    props: &EncodedProps,
+    geom: Geom<'_>,
+) {
+    let kind = match geom {
         Geom::Points(_) => POINT,
         Geom::Lines { .. } => LINE,
         Geom::Polygons { .. } => POLYGON,
         Geom::Fill => FILL,
         Geom::FillRange { .. } => FILL_RANGE,
-    });
+    };
+    out.push(if sort.is_some() { kind | SORTED } else { kind });
     put(out, id.map_or(0, |id| id.wrapping_add(1)));
+    if let Some(sort) = sort {
+        put(out, sort.len() as u64);
+        out.extend_from_slice(sort);
+    }
     put(out, props.bytes.len() as u64);
     put(out, props.count);
     out.extend_from_slice(&props.bytes);
@@ -186,6 +201,8 @@ fn write_vertices(out: &mut Vec<u8>, vertices: &[Vertex]) {
 pub struct Record<'a> {
     pub kind: GeomKind,
     pub id: Option<u64>,
+    /// The feature's `sort_by` key, if its layer has one.
+    pub sort: Option<&'a [u8]>,
     prop_count: u64,
     props: &'a [u8],
     geom: &'a [u8],
@@ -195,12 +212,22 @@ impl<'a> Record<'a> {
     pub fn decode(mut bytes: &'a [u8]) -> TileGenResult<Self> {
         let tag = take_byte(&mut bytes)?;
         let id = take::<u64>(&mut bytes)?.checked_sub(1);
+        let sort = if tag & SORTED == 0 {
+            None
+        } else {
+            let len = take_len(&mut bytes)?;
+            let (sort, rest) = bytes
+                .split_at_checked(len)
+                .ok_or(TileGenError::CorruptRecord)?;
+            bytes = rest;
+            Some(sort)
+        };
         let props_len = take_len(&mut bytes)?;
         let prop_count = take::<u64>(&mut bytes)?;
         let (props, mut geom) = bytes
             .split_at_checked(props_len)
             .ok_or(TileGenError::CorruptRecord)?;
-        let kind = match tag {
+        let kind = match tag & !SORTED {
             POINT => GeomKind::Point,
             LINE => GeomKind::Line,
             POLYGON => GeomKind::Polygon,
@@ -213,6 +240,7 @@ impl<'a> Record<'a> {
         Ok(Self {
             kind,
             id,
+            sort,
             prop_count,
             props,
             geom,
@@ -222,7 +250,10 @@ impl<'a> Record<'a> {
     /// Whether an encoded record is a fill or fill range, without decoding it.
     #[must_use]
     pub fn is_fill(bytes: &[u8]) -> bool {
-        matches!(bytes.first(), Some(&(FILL | FILL_RANGE)))
+        matches!(
+            bytes.first().map(|tag| tag & !SORTED),
+            Some(FILL | FILL_RANGE)
+        )
     }
 
     #[must_use]
@@ -384,11 +415,14 @@ mod tests {
     }
 
     fn round_trip(geom: Geom<'_>, expected: &GeomBuf) {
-        for id in [None, Some(0), Some(u64::MAX - 1)] {
+        let ids = [None, Some(0), Some(u64::MAX - 1)];
+        let sorts = [None, Some(&[][..]), Some(&[0, 0xFF, 7][..])];
+        for (id, sort) in ids.into_iter().flat_map(|id| sorts.map(|sort| (id, sort))) {
             let mut bytes = Vec::new();
-            encode(&mut bytes, id, &props(), geom);
+            encode(&mut bytes, id, sort, &props(), geom);
             let record = Record::decode(&bytes).unwrap();
             assert_eq!(record.id, id);
+            assert_eq!(record.sort, sort);
             assert_eq!(
                 record.props().collect::<TileGenResult<Vec<_>>>().unwrap(),
                 PROPS
@@ -428,13 +462,27 @@ mod tests {
         encode(
             &mut bytes,
             None,
+            Some(&[3]),
             &EncodedProps::default(),
             Geom::FillRange { end: 1 << 40 },
         );
-        assert_eq!(
-            Record::decode(&bytes).unwrap().kind,
-            GeomKind::FillRange { end: 1 << 40 }
-        );
+        let record = Record::decode(&bytes).unwrap();
+        assert_eq!(record.kind, GeomKind::FillRange { end: 1 << 40 });
+        assert_eq!(record.sort, Some(&[3][..]));
+        assert!(Record::is_fill(&bytes));
+    }
+
+    #[test]
+    fn the_sort_key_is_an_optional_field_after_the_id() {
+        let mut props = EncodedProps::default();
+        props.push(KeyId(2), PropRef::I64(-1));
+        let geom = Geom::Points(&[[3, -2]]);
+        let mut unsorted = Vec::new();
+        encode(&mut unsorted, Some(4), None, &props, geom);
+        assert_eq!(unsorted, [0, 5, 3, 1, 2, 2, 1, 1, 6, 3]);
+        let mut sorted = Vec::new();
+        encode(&mut sorted, Some(4), Some(&[9, 8]), &props, geom);
+        assert_eq!(sorted, [0x80, 5, 2, 9, 8, 3, 1, 2, 2, 1, 1, 6, 3]);
     }
 
     #[test]
@@ -446,6 +494,7 @@ mod tests {
             encode(
                 &mut bytes,
                 Some(1),
+                None,
                 &EncodedProps::default(),
                 Geom::Lines {
                     parts: &parts,
@@ -467,6 +516,7 @@ mod tests {
         encode(
             &mut bytes,
             Some(7),
+            Some(&[1, 2]),
             &props(),
             Geom::Polygons {
                 polygons: &[1],

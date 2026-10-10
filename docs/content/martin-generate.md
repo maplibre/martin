@@ -84,6 +84,7 @@ Each layer can set:
 | `attributes`                      | A list of properties, `[]` for none; `name:*` takes the columns starting with `name:`; or a map |
 | `id`                              | `keep` (default), `drop`, or `{ expr: ... }`                                                    |
 | `rules`                           | Settings for the features matching a condition                                                  |
+| `sort_by`                         | The draw order of the layer's features in each tile                                             |
 
 Only the properties some layer needs are read. A named attribute that is not a column is a key of
 the table's `jsonb` column; a prefix such as `name:*` only matches columns, not `jsonb` keys.
@@ -144,10 +145,26 @@ A rule can set `minzoom` and `maxzoom` (numbers or expressions), `simplify`, `mi
 `attributes`. Its `simplify` and `min_size` also apply at the max zoom. Its attributes replace the
 layer's attributes of the same name, at all zooms, and add the others.
 
+### Draw order
+
+Features keep their source order within a tile, unless the layer sets `sort_by`: a list of
+expressions, each a string or `{ expr: ..., desc: true }`, compared in turn. Features that compare
+equal keep their source order.
+
+```yaml
+layers:
+  buildings:
+    sort_by: ["z_order", { expr: "height", desc: true }]
+```
+
+Values order by type first: `null` (and failed expressions), booleans, integers, floating-point
+numbers, then strings. Convert mixed numbers with `double(...)` to compare them by value. `desc`
+reverses the whole order, so `null` comes last.
+
 ### Not supported yet
 
-These are rejected: `sort_by`, `geometry` other than `point`, `line` and `polygon`, and any `tile`
-operation. `prefetch` only applies to the tile server.
+These are rejected: `geometry` other than `point`, `line` and `polygon`, and any `tile` operation.
+`prefetch` only applies to the tile server.
 
 ## How it works
 
@@ -166,7 +183,7 @@ operation. `prefetch` only applies to the tile server.
 
 The output is deterministic: the same data and options produce the same file, whatever the number of
 threads. Features keep their source order within a tile, so a view's `ORDER BY` controls the draw
-order. Partitioned views are read in id order.
+order, unless the layer sets `sort_by`. Partitioned views are read in id order.
 
 ## Options
 

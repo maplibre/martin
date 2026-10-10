@@ -6,8 +6,8 @@ use std::ops::RangeInclusive;
 use indexmap::IndexMap;
 use martin_tilegen::expr::CompiledExpr;
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, TableDef, ValueDef,
-    ZoomDef,
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef,
+    ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold, TileGenError};
@@ -231,6 +231,15 @@ fn lower_layer(
             Attributes::Columns(columns) => computed(columns),
         },
         rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
+        sort_by: layer
+            .sort_by
+            .iter()
+            .flatten()
+            .map(|key| SortDef {
+                expr: key.expr.as_str().to_owned(),
+                descending: key.descending,
+            })
+            .collect(),
     }))
 }
 
@@ -326,8 +335,6 @@ fn unsupported(layer: &Layer) -> Option<String> {
     .find_map(|(op, set)| set.then_some(op));
     if let Some(geometry) = geometry {
         Some(format!("`geometry: {geometry}`"))
-    } else if layer.sort_by.is_some() {
-        Some("`sort_by`".to_owned())
     } else {
         tile_op.map(|op| format!("`tile: {op}`"))
     }
@@ -432,6 +439,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }
@@ -481,6 +489,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }
@@ -564,6 +573,7 @@ mod tests {
                     id: Drop,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -592,6 +602,7 @@ mod tests {
                     id: Keep,
                     attributes: None,
                     rules: [],
+                    sort_by: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -620,6 +631,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }
@@ -1124,11 +1136,52 @@ mod tests {
     }
 
     #[test]
+    fn sort_by_lowers_into_the_layer_and_reads_its_columns() {
+        let scan = lower(
+            indoc! {r#"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  name: text
+                  rank: int4
+                layers:
+                  roads:
+                    attributes: [name]
+                    sort_by: [class, { expr: "rank * 2", desc: true }]
+            "#},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!((&scan.table.columns, &scan.table.layers[0].sort_by), @r#"
+        (
+            [
+                "class",
+                "name",
+                "rank",
+            ],
+            [
+                SortDef {
+                    expr: "class",
+                    descending: false,
+                },
+                SortDef {
+                    expr: "rank * 2",
+                    descending: true,
+                },
+            ],
+        )
+        "#);
+    }
+
+    #[test]
     fn unsupported_settings_are_rejected() {
         let layers = [
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
-            "roads: { sort_by: rank }",
             "roads: { tile: { merge_lines: { by: [class] } } }",
             "roads: { tile: { limit: 100 } }",
         ];
@@ -1147,7 +1200,6 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by martin generate yet
         layer `roads`: `geometry: label_point` is not supported by martin generate yet
-        layer `roads`: `sort_by` is not supported by martin generate yet
         layer `roads`: `tile: merge_lines` is not supported by martin generate yet
         layer `roads`: `tile: limit` is not supported by martin generate yet
         ");

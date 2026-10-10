@@ -136,7 +136,7 @@ mod tests {
 
     fn record(geom: Geom<'_>) -> Vec<u8> {
         let mut bytes = Vec::new();
-        encode(&mut bytes, None, &EncodedProps::default(), geom);
+        encode(&mut bytes, None, None, &EncodedProps::default(), geom);
         bytes
     }
 
