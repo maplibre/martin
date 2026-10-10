@@ -302,6 +302,8 @@ mod postgres {
             .with_postgres()
             .arg("--default-srid")
             .arg("900913")
+            .arg("--auto-bounds")
+            .arg("calc")
             .arg("--output-file")
             .arg(output)
             .arg("--concurrency")

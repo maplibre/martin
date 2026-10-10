@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-09
 
 > [!NOTE]
-> This is the third beta of Martin 2.0. It has three breaking changes relative to [2.0.0-beta.2](#200-beta2---2026-10-01), listed below.
+> This is the third beta of Martin 2.0. It has three breaking changes relative to [2.0.0-beta.2](https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.2), listed below.
 > If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
 
 ### Breaking changes
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0-beta.1](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.0...martin-v2.0.0-beta.1) - 2026-09-30
 
 > [!NOTE]
-> This is the second beta of Martin 2.0. Nothing breaks relative to [2.0.0-beta.0](#200-beta0---2026-09-29).
+> This is the second beta of Martin 2.0. Nothing breaks relative to [2.0.0-beta.0](https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.0).
 > If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
 
 ### Added
