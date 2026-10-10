@@ -1,0 +1,131 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: "dump.join(\"\\n\")"
+---
+0/0/0
+layer ranked extent 4096
+  id=Some(16) geom=LINESTRING(2048 2048,2046 2041,2051 2035,2058 2036,2062 2042,2059 2048,2048 2037) props=[band=Str(Some("high")), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((2027 2039,2032 2032,2039 2027,2048 2025,2057 2027,2064 2032,2069 2039,2071 2048,2067 2056,2059 2059,2051 2056,2048 2048,2043 2057,2033 2059,2027 2055,2025 2048,2027 2039),(2037 2048,2048 2042,2059 2048,2048 2037,2037 2048)) props=[band=Str(Some("high")), number=U32(Some(17))]
+  id=Some(18) geom=MULTILINESTRING((2105 1991,2082 1991,2082 2014,2048 2014),(2048 2048,2058 2048,2067 2043,2071 2035,2071 2025)) props=[band=Str(Some("high")), number=U32(Some(18))]
+  id=Some(19) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(19))]
+  id=Some(20) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(20))]
+  id=Some(21) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(21))]
+  id=Some(22) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(22))]
+  id=Some(23) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(23))]
+  id=Some(24) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(24))]
+  id=Some(25) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(25))]
+  id=Some(26) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(26))]
+  id=Some(27) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(27))]
+  id=Some(28) geom=POINT(3673 1911) props=[band=Str(Some("high")), number=U32(Some(28))]
+
+1/0/0
+layer ranked extent 4096
+  id=Some(15) geom=LINESTRING(4132 -66,4134 -63,4136 -60,4139 -57,4141 -55,4144 -52,4147 -50,4150 -48,4153 -46,4156 -44,4159 -42,4162 -40) props=[band=Str(Some("mid")), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(4096 0,4092 -7,4092 -15,4095 -22,4101 -26,4109 -27,4116 -25,4122 -19,4123 -11,4119 0,4096 -23) props=[band=Str(Some("high")), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((4054 -17,4064 -32,4079 -42,4096 -46,4113 -42,4128 -32,4138 -17,4142 0,4140 9,4135 16,4127 21,4119 23,4110 21,4103 16,4098 9,4096 0,4093 11,4086 19,4075 23,4066 21,4055 14,4050 0,4054 -17),(4073 0,4096 -11,4119 0,4096 -23,4073 0)) props=[band=Str(Some("high")), number=U32(Some(17))]
+  id=Some(18) geom=LINESTRING(4096 0,4117 1,4133 -9,4142 -26,4142 -46) props=[band=Str(Some("high")), number=U32(Some(18))]
+  id=Some(2) geom=POINT(4050 -46) props=[band=Str(Some("low")), number=U32(Some(2))]
+  id=Some(4) geom=LINESTRING(4142 -46,4164 -68) props=[band=Str(Some("low")), number=U32(Some(4))]
+
+1/0/1
+layer ranked extent 4096
+  id=Some(15) geom=LINESTRING(4119 3982,4119 3986,4119 3989,4119 3993,4119 3997,4120 4000,4120 4004,4121 4007,4122 4011,4123 4014,4125 4018,4126 4021,4128 4024,4130 4027,4132 4030,4134 4033,4136 4036,4139 4039,4141 4041,4144 4044,4147 4046,4150 4048,4153 4050,4156 4052,4159 4054,4162 4056) props=[band=Str(Some("mid")), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(4096 4096,4092 4089,4092 4081,4095 4074,4101 4070,4109 4069,4116 4071,4122 4077,4123 4085,4119 4096,4096 4073) props=[band=Str(Some("high")), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((4054 4079,4064 4064,4079 4054,4096 4050,4113 4054,4128 4064,4138 4079,4142 4096,4140 4105,4135 4112,4127 4117,4119 4119,4110 4117,4103 4112,4098 4105,4096 4096,4093 4107,4086 4115,4075 4119,4066 4117,4055 4110,4050 4096,4054 4079),(4073 4096,4096 4085,4119 4096,4096 4073,4073 4096)) props=[band=Str(Some("high")), number=U32(Some(17))]
+  id=Some(18) geom=MULTILINESTRING((4164 4028,4096 4028),(4096 4096,4117 4097,4133 4087,4142 4070,4142 4050)) props=[band=Str(Some("high")), number=U32(Some(18))]
+  id=Some(2) geom=POINT(4050 4050) props=[band=Str(Some("low")), number=U32(Some(2))]
+  id=Some(4) geom=LINESTRING(4142 4050,4164 4028) props=[band=Str(Some("low")), number=U32(Some(4))]
+
+1/1/0
+layer ranked extent 4096
+  id=Some(15) geom=LINESTRING(36 -66,38 -63,40 -60,43 -57,45 -55,48 -52,51 -50,54 -48,57 -46,60 -44,63 -42,66 -40,70 -39,73 -38,77 -37,80 -36,84 -35,87 -35,91 -34,95 -34,98 -34,102 -34,106 -34,109 -35,113 -36,116 -37,120 -38,123 -39,127 -40,130 -42,133 -43,136 -45,139 -47,142 -49,145 -52,148 -54,150 -57,153 -59,155 -62,157 -65) props=[band=Str(Some("mid")), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(0 0,-4 -7,-4 -15,-1 -22,5 -26,13 -27,20 -25,26 -19,27 -11,23 0,0 -23) props=[band=Str(Some("high")), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((-42 -17,-32 -32,-17 -42,0 -46,17 -42,32 -32,42 -17,46 0,44 9,39 16,31 21,23 23,14 21,7 16,2 9,0 0,-3 11,-10 19,-21 23,-30 21,-41 14,-46 0,-42 -17),(-23 0,0 -11,23 0,0 -23,-23 0)) props=[band=Str(Some("high")), number=U32(Some(17))]
+  id=Some(18) geom=LINESTRING(0 0,21 1,37 -9,46 -26,46 -46) props=[band=Str(Some("high")), number=U32(Some(18))]
+  id=Some(2) geom=POINT(-46 -46) props=[band=Str(Some("low")), number=U32(Some(2))]
+  id=Some(4) geom=LINESTRING(46 -46,68 -68) props=[band=Str(Some("low")), number=U32(Some(4))]
+
+1/1/1
+layer ranked extent 4096
+  id=Some(10) geom=MULTIPOINT(228 3101,910 3380,455 3631,683 3867) props=[band=Str(Some("mid")), number=U32(Some(10))]
+  id=Some(11) geom=MULTILINESTRING((228 3867,455 3631,228 3101),(910 3101,683 3380,910 3631,683 3867)) props=[band=Str(Some("mid")), number=U32(Some(11))]
+  id=Some(12) geom=MULTIPOLYGON(((228 3101,1024 3101,683 3631,228 3101)),((114 3867,228 3631,910 3867,341 3982,114 3867))) props=[band=Str(Some("mid")), number=U32(Some(12))]
+  id=Some(13) geom=MULTIPOLYGON(((1024 3380,455 2947,910 3101,1024 3380)),((1024 3631,683 3982,228 3867,228 3380,455 3245,1024 3631),(455 3508,455 3751,683 3631,455 3508))) props=[band=Str(Some("mid")), number=U32(Some(13))]
+  id=Some(15) geom=LINESTRING(23 3982,23 3986,23 3989,23 3993,23 3997,24 4000,24 4004,25 4007,26 4011,27 4014,29 4018,30 4021,32 4024,34 4027,36 4030,38 4033,40 4036,43 4039,45 4041,48 4044,51 4046,54 4048,57 4050,60 4052,63 4054,66 4056,70 4057,73 4058,77 4059,80 4060,84 4061,87 4061,91 4062,95 4062,98 4062,102 4062,106 4062,109 4061,113 4060,116 4059,120 4058,123 4057,127 4056,130 4054,133 4053,136 4051,139 4049,142 4047,145 4044,148 4042,150 4039,153 4037,155 4034,157 4031,159 4028) props=[band=Str(Some("mid")), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(0 4096,-4 4089,-4 4081,-1 4074,5 4070,13 4069,20 4071,26 4077,27 4085,23 4096,0 4073) props=[band=Str(Some("high")), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((-42 4079,-32 4064,-17 4054,0 4050,17 4054,32 4064,42 4079,46 4096,44 4105,39 4112,31 4117,23 4119,14 4117,7 4112,2 4105,0 4096,-3 4107,-10 4115,-21 4119,-30 4117,-41 4110,-46 4096,-42 4079),(-23 4096,0 4085,23 4096,0 4073,-23 4096)) props=[band=Str(Some("high")), number=U32(Some(17))]
+  id=Some(18) geom=MULTILINESTRING((114 3982,68 3982,68 4028,0 4028),(0 4096,21 4097,37 4087,46 4070,46 4050)) props=[band=Str(Some("high")), number=U32(Some(18))]
+  id=Some(19) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(19))]
+  id=Some(2) geom=POINT(-46 4050) props=[band=Str(Some("low")), number=U32(Some(2))]
+  id=Some(20) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(20))]
+  id=Some(21) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(21))]
+  id=Some(22) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(22))]
+  id=Some(23) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(23))]
+  id=Some(24) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(24))]
+  id=Some(25) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(25))]
+  id=Some(26) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(26))]
+  id=Some(27) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(27))]
+  id=Some(28) geom=POINT(3250 3823) props=[band=Str(Some("high")), number=U32(Some(28))]
+  id=Some(4) geom=LINESTRING(46 4050,68 4028) props=[band=Str(Some("low")), number=U32(Some(4))]
+  id=Some(6) geom=LINESTRING(683 3867,228 3380,910 3101) props=[band=Str(Some("mid")), number=U32(Some(6))]
+  id=Some(7) geom=POLYGON((228 3631,455 3101,910 3101,683 3867,228 3631)) props=[band=Str(Some("mid")), number=U32(Some(7))]
+  id=Some(8) geom=POLYGON((228 3631,341 3101,1024 2947,796 3867,228 3631),(683 3631,796 3245,455 3380,683 3631)) props=[band=Str(Some("mid")), number=U32(Some(8))]
+  id=Some(9) geom=MULTIPOINT(228 3101,910 3380,455 3631,683 3867) props=[band=Str(Some("mid")), number=U32(Some(9))]
+
+2/1/1
+layer ranked extent 4096
+  id=Some(1) geom=POINT(4096 0) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(1))]
+  id=Some(16) geom=LINESTRING(4096 0,4088 -13,4087 -29,4094 -43,4106 -52,4122 -55,4137 -50,4147 -38,4151 -23,4148 -10,4142 0,4096 -46) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((4174 32,4159 42,4142 46,4124 42,4109 32,4099 17,4096 0,4095 11,4091 21,4084 31,4076 38,4066 43,4055 45,4046 45,4035 43,4023 37,4014 27,4007 13,4005 0,4007 -18,4012 -35,4020 -51,4032 -64,4045 -76,4160 -65,4174 32),(4050 0,4096 -23,4142 0,4096 -46,4050 0)) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(17))]
+  id=Some(18) geom=LINESTRING(4096 0,4117 4,4138 1,4157 -7,4171 -19) props=[band=Str(Some("high")), half=U32(Some(9)), number=U32(Some(18))]
+  id=Some(3) geom=LINESTRING(4096 0,4142 -46) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(3))]
+
+2/1/2
+layer ranked extent 4096
+  id=Some(1) geom=POINT(4096 4096) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(1))]
+  id=Some(15) geom=LINESTRING(4142 3868,4141 3875,4141 3883,4141 3890,4142 3897,4143 3905,4145 3912,4146 3919,4148 3926,4151 3933,4154 3939,4157 3946,4160 3952) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(4096 4096,4088 4083,4087 4067,4094 4053,4106 4044,4122 4041,4137 4046,4147 4058,4151 4073,4148 4086,4142 4096,4096 4050) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((4174 4128,4159 4138,4142 4142,4124 4138,4109 4128,4099 4113,4096 4096,4095 4107,4091 4117,4084 4127,4076 4134,4066 4139,4055 4141,4046 4141,4035 4139,4023 4133,4014 4123,4007 4109,4005 4096,4007 4078,4012 4061,4020 4045,4032 4032,4045 4020,4061 4012,4078 4007,4096 4005,4114 4007,4131 4012,4147 4020,4160 4032,4174 4128),(4050 4096,4096 4073,4142 4096,4096 4050,4050 4096)) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(17))]
+  id=Some(18) geom=MULTILINESTRING((4233 3959,4096 3959),(4096 4096,4117 4100,4138 4097,4157 4089,4171 4077)) props=[band=Str(Some("high")), half=U32(Some(9)), number=U32(Some(18))]
+  id=Some(2) geom=POINT(4005 4005) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(2))]
+  id=Some(3) geom=LINESTRING(4096 4096,4142 4050) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(3))]
+
+2/2/1
+layer ranked extent 4096
+  id=Some(1) geom=POINT(0 0) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(1))]
+  id=Some(16) geom=LINESTRING(0 0,-8 -13,-9 -29,-2 -43,10 -52,26 -55,41 -50,51 -38,55 -23,52 -10,46 0,0 -46) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((-76 -51,-64 -64,-51 -76,51 -76,64 -64,76 -51,84 -35,89 -18,91 0,88 17,78 32,63 42,46 46,28 42,13 32,3 17,0 0,-1 11,-5 21,-12 31,-20 38,-30 43,-41 45,-50 45,-61 43,-73 37,-76 -51),(-46 0,0 -23,46 0,0 -46,-46 0)) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(17))]
+  id=Some(18) geom=LINESTRING(0 0,21 4,42 1,61 -7,75 -19,87 -36,93 -52,95 -73) props=[band=Str(Some("high")), half=U32(Some(9)), number=U32(Some(18))]
+  id=Some(3) geom=LINESTRING(0 0,46 -46) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(3))]
+
+2/2/2
+layer ranked extent 4096
+  id=Some(1) geom=POINT(0 4096) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(1))]
+  id=Some(10) geom=MULTIPOINT(455 2107,1820 2664,910 3167,1365 3639) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(10))]
+  id=Some(11) geom=MULTILINESTRING((455 3639,910 3167,455 2107),(1820 2107,1365 2664,1820 3167,1365 3639)) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(11))]
+  id=Some(12) geom=MULTIPOLYGON(((455 2107,2048 2107,1365 3167,455 2107)),((228 3639,455 3167,1820 3639,683 3868,228 3639))) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(12))]
+  id=Some(13) geom=MULTIPOLYGON(((2048 2664,910 1798,1820 2107,2048 2664)),((2048 3167,1365 3868,455 3639,455 2664,910 2394,2048 3167),(910 2920,910 3405,1365 3167,910 2920))) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(13))]
+  id=Some(15) geom=LINESTRING(46 3868,45 3875,45 3883,45 3890,46 3897,47 3905,49 3912,50 3919,52 3926,55 3933,58 3939,61 3946,64 3952,68 3959,72 3965,76 3971,81 3976,86 3982,91 3987,96 3992,102 3996,108 4001,114 4005,120 4009,126 4012,133 4015,140 4018,146 4021,153 4023,160 4024,168 4026,175 4027,182 4028,189 4028,197 4028,204 4028,211 4027,218 4026,225 4025,233 4023,240 4021,246 4018,253 4016,260 4013,266 4009,272 4005,278 4001,284 3997,290 3992,295 3988,301 3982,305 3977,310 3971,314 3966,319 3960,319 3959) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(15))]
+  id=Some(16) geom=LINESTRING(0 4096,-8 4083,-9 4067,-2 4053,10 4044,26 4041,41 4046,51 4058,55 4073,52 4086,46 4096,0 4050) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(16))]
+  id=Some(17) geom=POLYGON((-76 4045,-64 4032,-51 4020,-35 4012,-18 4007,0 4005,18 4007,35 4012,51 4020,64 4032,76 4045,84 4061,89 4078,91 4096,88 4113,78 4128,63 4138,46 4142,28 4138,13 4128,3 4113,0 4096,-1 4107,-5 4117,-12 4127,-20 4134,-30 4139,-41 4141,-50 4141,-61 4139,-73 4133,-76 4045),(-46 4096,0 4073,46 4096,0 4050,-46 4096)) props=[band=Str(Some("high")), half=U32(Some(8)), number=U32(Some(17))]
+  id=Some(18) geom=MULTILINESTRING((228 3868,137 3868,137 3959,0 3959),(0 4096,21 4100,42 4097,61 4089,75 4077,87 4060,93 4044,95 4023,91 4005)) props=[band=Str(Some("high")), half=U32(Some(9)), number=U32(Some(18))]
+  id=Some(3) geom=LINESTRING(0 4096,46 4050) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(3))]
+  id=Some(4) geom=LINESTRING(91 4005,137 3959) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(4))]
+  id=Some(5) geom=POINT(1365 3639) props=[band=Str(Some("low")), half=U32(None), number=U32(Some(5))]
+  id=Some(6) geom=LINESTRING(1365 3639,455 2664,1820 2107) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(6))]
+  id=Some(7) geom=POLYGON((455 3167,910 2107,1820 2107,1365 3639,455 3167)) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(7))]
+  id=Some(8) geom=POLYGON((455 3167,683 2107,2048 1798,1593 3639,455 3167),(1365 3167,1593 2394,910 2664,1365 3167)) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(8))]
+  id=Some(9) geom=MULTIPOINT(455 2107,1820 2664,910 3167,1365 3639) props=[band=Str(Some("mid")), half=U32(None), number=U32(Some(9))]
+
+2/3/2
+layer ranked extent 4096
+  id=Some(19) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(9)), number=U32(Some(19))]
+  id=Some(20) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(10)), number=U32(Some(20))]
+  id=Some(21) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(10)), number=U32(Some(21))]
+  id=Some(22) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(11)), number=U32(Some(22))]
+  id=Some(23) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(11)), number=U32(Some(23))]
+  id=Some(24) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(12)), number=U32(Some(24))]
+  id=Some(25) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(12)), number=U32(Some(25))]
+  id=Some(26) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(13)), number=U32(Some(26))]
+  id=Some(27) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(13)), number=U32(Some(27))]
+  id=Some(28) geom=POINT(2405 3549) props=[band=Str(Some("high")), half=U32(Some(14)), number=U32(Some(28))]
