@@ -71,6 +71,12 @@ pub enum TileGenError {
     #[error("layer `{layer}`: attribute `{column}` is not a table column")]
     UnknownColumn { layer: String, column: String },
 
+    #[error("layer `{layer}`: {error}")]
+    LayerExpr {
+        layer: String,
+        error: crate::expr::ExprError,
+    },
+
     #[error("reading the source failed: {0}")]
     Source(Box<dyn std::error::Error + Send + Sync>),
 

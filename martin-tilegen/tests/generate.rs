@@ -6,14 +6,16 @@ use std::path::Path;
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
-use martin_tilegen::plan::{AttributesDef, GeometryType, IdDef, LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, TableDef, ValueDef,
+};
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
 use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
 };
 use martin_tilegen::{
-    GenerateConfig, LayerGrid, MbtilesSink, PixelThreshold, Progress, SortConfig, Summary,
-    TileFormat, TileGenResult, generate,
+    ExprErrors, GenerateConfig, LayerGrid, MbtilesSink, PixelThreshold, Progress, SortConfig,
+    Summary, TileFormat, TileGenResult, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::EncoderConfig;
@@ -498,5 +500,365 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
     assert!(
         parallel_rows == rows,
         "output must not depend on the thread count"
+    );
+}
+
+#[test]
+fn a_where_filter_picks_the_features_of_each_layer() {
+    let point = |id, class: &str, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![
+            (KeyId::from(0), Prop::Str(class.to_owned())),
+            (KeyId::from(1), Prop::I64(rank)),
+        ],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, "primary", 5),
+                point(2, "service", 1),
+                point(3, "primary", 1),
+                point(4, "secondary", 4),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["class".to_owned(), "rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![
+            LayerDef {
+                filter: Some("class == 'primary'".to_owned()),
+                ..LayerDef::new("primary", 0..=0, GRID)
+            },
+            LayerDef {
+                filter: Some("rank >= 4".to_owned()),
+                ..LayerDef::new("ranked", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let layers: Vec<_> = decode(&row.3)
+        .into_iter()
+        .map(|layer| {
+            let ids: Vec<_> = layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("{} {ids:?}", layer.name())
+        })
+        .collect();
+    assert_eq!(
+        layers,
+        ["primary [Some(1), Some(3)]", "ranked [Some(1), Some(4)]"]
+    );
+}
+
+#[test]
+fn zoom_expressions_set_each_features_zooms() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 10), point(2, 2), point(3, 0), point(4, -1)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            minzoom_expr: Some("rank >= 10 ? 0 : (rank > 0 ? 3 - rank : 20)".to_owned()),
+            maxzoom_expr: Some("rank < 0 ? 0 : (rank == 10 ? 1 : null)".to_owned()),
+            ..LayerDef::new("places", 1..=4, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let ids: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("z{} {ids:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            "z1 [Some(1), Some(2)]",
+            "z2 [Some(2)]",
+            "z3 [Some(2)]",
+            "z4 [Some(2), Some(3)]",
+        ]
+    );
+}
+
+#[test]
+fn computed_attributes_appear_at_their_own_zooms() {
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                props: vec![
+                    (KeyId::from(0), Prop::Str("Rhein".to_owned())),
+                    (KeyId::from(1), Prop::Str("Rhine".to_owned())),
+                    (KeyId::from(2), Prop::Str("river".to_owned())),
+                    (KeyId::from(3), Prop::I64(7)),
+                ],
+            }],
+        }],
+    };
+    let attr = |name: &str, value, zooms| ComputedAttr {
+        name: name.to_owned(),
+        value,
+        zooms,
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            "name".to_owned(),
+            "name:en".to_owned(),
+            "class".to_owned(),
+            "rank".to_owned(),
+        ],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    attr("kind", ValueDef::Expr("class".to_owned()), 0..=30),
+                    attr("label", ValueDef::Expr("name".to_owned()), 2..=30),
+                    attr("big", ValueDef::Expr("rank * 2 > 10".to_owned()), 0..=2),
+                    attr(
+                        "source",
+                        ValueDef::Literal(Prop::Str("osm".to_owned())),
+                        0..=30,
+                    ),
+                    attr("missing", ValueDef::Expr("null".to_owned()), 0..=30),
+                ],
+                prefixes: vec!["name:".to_owned()],
+            },
+            ..LayerDef::new("water", 0..=3, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let layer = &decode(&row.3)[0];
+            let props: Vec<_> = layer
+                .property_names()
+                .iter()
+                .zip(layer.features()[0].properties())
+                .map(|(name, value)| format!("{name}={value:?}"))
+                .collect();
+            format!("z{} {}", row.0, props.join(" "))
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            r#"z0 kind=Str(Some("river")) big=Bool(Some(true)) source=Str(Some("osm")) name:en=Str(Some("Rhine"))"#,
+            r#"z1 kind=Str(Some("river")) big=Bool(Some(true)) source=Str(Some("osm")) name:en=Str(Some("Rhine"))"#,
+            r#"z2 kind=Str(Some("river")) label=Str(Some("Rhein")) big=Bool(Some(true)) source=Str(Some("osm")) name:en=Str(Some("Rhine"))"#,
+            r#"z3 kind=Str(Some("river")) label=Str(Some("Rhein")) source=Str(Some("osm")) name:en=Str(Some("Rhine"))"#,
+        ]
+    );
+}
+
+#[test]
+fn an_id_expression_sets_the_feature_id() {
+    let point = |id, gid| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(gid))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 7), point(2, -3), point(3, 0)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["gid".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            id: IdDef::Expr("gid == 0 ? null : gid * 10".to_owned()),
+            ..LayerDef::new("places", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let ids: Vec<_> = decode(&rows[0].3)[0]
+        .features()
+        .iter()
+        .map(mlt_core::TileFeature::id)
+        .collect();
+    assert_eq!(ids, [Some(70), None, None]);
+}
+
+#[test]
+fn failing_expressions_count_as_null_and_are_counted() {
+    let point = |id, props| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props,
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, vec![(KeyId::from(0), Prop::I64(4))]),
+                point(2, vec![(KeyId::from(0), Prop::I64(0))]),
+                point(3, vec![(KeyId::from(0), Prop::Str("x".to_owned()))]),
+                point(4, vec![]),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["lanes".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            filter: Some("lanes != 1".to_owned()),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "width".to_owned(),
+                    value: ValueDef::Expr("8 / lanes".to_owned()),
+                    zooms: 0..=30,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 2);
+    let layer = &decode(&rows[0].3)[0];
+    let features: Vec<_> = layer
+        .features()
+        .iter()
+        .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+        .collect();
+    assert_eq!(layer.property_names(), ["width"]);
+    assert_eq!(
+        features,
+        [
+            "Some(1) [U32(Some(2))]",
+            "Some(2) [U32(None)]",
+            "Some(3) [U32(None)]",
+            "Some(4) [U32(None)]",
+        ]
+    );
+    assert_eq!(
+        summary.expr_errors,
+        [ExprErrors {
+            layer: "roads".to_owned(),
+            expr: "8 / lanes".to_owned(),
+            errors: 3,
+        }]
+    );
+}
+
+#[test]
+fn expressions_read_keys_the_source_interns_as_it_goes() {
+    struct Tags;
+
+    impl FeatureSource for Tags {
+        fn partitions(&self) -> u32 {
+            1
+        }
+
+        fn read(
+            &self,
+            partition: u32,
+            keys: &[KeyInterner],
+            emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
+        ) -> TileGenResult<()> {
+            let features = (0..4u64)
+                .map(|i| SourceFeature {
+                    id: Some(i),
+                    geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                    props: vec![
+                        (KeyId::from(0), Prop::Str(format!("place {i}"))),
+                        (keys[0].intern(&format!("tag{}", i % 2)), Prop::Bool(true)),
+                    ],
+                })
+                .collect();
+            emit(FeatureBatch {
+                table: 0,
+                partition,
+                first_row: 0,
+                crs: Crs::Wgs84,
+                features,
+            })
+        }
+    }
+
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["name".to_owned()],
+        dynamic_props: true,
+        layers: vec![LayerDef {
+            filter: Some("tag1 == true".to_owned()),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "tagged".to_owned(),
+                    value: ValueDef::Expr("'tag1' in feature".to_owned()),
+                    zooms: 0..=30,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("places", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&Tags, &plan, dir.path(), 1);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let layer = &decode(&rows[0].3)[0];
+    let features: Vec<_> = layer
+        .features()
+        .iter()
+        .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+        .collect();
+    assert_eq!(layer.property_names(), ["tagged"]);
+    assert_eq!(
+        features,
+        ["Some(1) [Bool(Some(true))]", "Some(3) [Bool(Some(true))]"]
     );
 }

@@ -243,3 +243,69 @@ async fn one_table_feeds_two_layers() {
     2/3/2 points ["gid"] ids {"POINT": 10}
     "#);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_layer_filters_features_and_computes_attributes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let mut info = table_info(&specs, "table_source");
+    info.id_column = Some("gid".to_owned());
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {r#"
+            late:
+              maxzoom: 0
+              where: "gid > 20"
+              attributes:
+                parity: "gid % 2 == 0 ? 'even' : 'odd'"
+                gid: gid
+        "#})
+        .unwrap(),
+    ));
+    let options = ScanOptions {
+        partitions_per_table: 2,
+        min_blocks: 1,
+    };
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        options,
+        2,
+    )
+    .await;
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let raw = decode_gzip(&row.3).unwrap();
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = Parser::default()
+        .parse_layers(&raw)
+        .unwrap()
+        .into_iter()
+        .map(|layer| {
+            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+            let features: Vec<_> = layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                .collect();
+            format!(
+                "{} {:?}\n{}",
+                layer.name(),
+                layer.property_names(),
+                features.join("\n")
+            )
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @r#"
+    late ["parity", "gid"]
+    Some(21) [Str(Some("odd")), U32(Some(21))]
+    Some(22) [Str(Some("even")), U32(Some(22))]
+    Some(23) [Str(Some("odd")), U32(Some(23))]
+    Some(24) [Str(Some("even")), U32(Some(24))]
+    Some(25) [Str(Some("odd")), U32(Some(25))]
+    Some(26) [Str(Some("even")), U32(Some(26))]
+    Some(27) [Str(Some("odd")), U32(Some(27))]
+    Some(28) [Str(Some("even")), U32(Some(28))]
+    "#);
+}

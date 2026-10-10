@@ -51,6 +51,7 @@ tempfile.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, optional = true, features = ["rt"] }
+tracing.workspace = true
 xxhash-rust.workspace = true
 
 [dev-dependencies]

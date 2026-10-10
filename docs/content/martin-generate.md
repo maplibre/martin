@@ -45,7 +45,7 @@ Layer names must be unique across all sources.
 ## Several layers from one table
 
 A table source with `layers` is scanned once and feeds each layer, named by its key and written in
-this order. This is unstable and may change.
+this order. Layers and their settings are unstable and may change.
 
 ```yaml
 postgres:
@@ -73,24 +73,55 @@ postgres:
 
 Each layer can set:
 
-| Key                               | Meaning                                                                               |
-|-----------------------------------|---------------------------------------------------------------------------------------|
-| `minzoom`, `maxzoom`              | A number; narrows the table's zooms and `--min-zoom`/`--max-zoom`                     |
-| `extent`, `buffer`, `clip_geom`   | Override the table's                                                                  |
-| `simplify`, `simplify_at_maxzoom` | Pixels; default 0.1, and 1/16 at the layer's max zoom                                 |
-| `min_size`, `min_size_at_maxzoom` | Pixels; lines and polygons smaller than this are dropped; default 1, and 1/16         |
-| `geometry`                        | `point`, `line` or `polygon`: only features of that type                              |
-| `attributes`                      | A list of properties, `[]` for none; `name:*` takes the columns starting with `name:` |
-| `id`                              | `keep` (default) or `drop`                                                            |
+| Key                               | Meaning                                                                                         |
+|-----------------------------------|-------------------------------------------------------------------------------------------------|
+| `minzoom`, `maxzoom`              | A number, which narrows the table's zooms and `--min-zoom`/`--max-zoom`, or an expression       |
+| `extent`, `buffer`, `clip_geom`   | Override the table's                                                                            |
+| `simplify`, `simplify_at_maxzoom` | Pixels; default 0.1, and 1/16 at the layer's max zoom                                           |
+| `min_size`, `min_size_at_maxzoom` | Pixels; lines and polygons smaller than this are dropped; default 1, and 1/16                   |
+| `geometry`                        | `point`, `line` or `polygon`: only features of that type                                        |
+| `where`                           | An expression: only features for which it is `true`                                             |
+| `attributes`                      | A list of properties, `[]` for none; `name:*` takes the columns starting with `name:`; or a map |
+| `id`                              | `keep` (default), `drop`, or `{ expr: ... }`                                                    |
 
 Only the properties some layer needs are read. A named attribute that is not a column is a key of
 the table's `jsonb` column; a prefix such as `name:*` only matches columns, not `jsonb` keys.
 A layer whose zooms are all outside the generated zooms is skipped with a warning.
 
-These are not supported by `martin generate` yet and are rejected: `where`, `minzoom` or
-`maxzoom` expressions, `rules`, `sort_by`, `id: { expr: ... }`, a map of computed `attributes`,
-`geometry` other than `point`, `line` and `polygon`, and any `tile` operation. `prefetch` only
-applies to the tile server.
+### Expressions
+
+Expressions are [CEL](https://cel.dev) over the feature's properties, such as `rank > 5` or
+`feature['name:en']` for a name that is not an identifier.
+An expression that fails on a feature, for example by dividing by zero, counts as `null` there;
+the first failure of each expression is logged, and the run ends with how often each one failed.
+
+A `minzoom` or `maxzoom` expression gives each feature its own zooms, within the layer's; `null`
+keeps the layer's. An `id` expression is the feature id when it is a non-negative integer, and
+leaves the feature without one otherwise.
+
+```yaml
+layers:
+  places:
+    where: "population > 1000"
+    minzoom: "population > 1000000 ? 2 : 8"
+    id: { expr: "osm_id * 10" }
+    attributes:
+      kind: class
+      label: { expr: "name", minzoom: 10 }
+      source: { value: osm }
+      rank: 3
+      "name:*": "name:*"
+```
+
+A map of `attributes` names each output attribute: a string is an expression (`class` copies the
+column), `{ value: ... }`, a number or a boolean is a literal, and `{ expr: ..., minzoom: ...,
+maxzoom: ... }` only appears at those zooms. An expression that is `null` leaves the attribute out.
+`"name:*": "name:*"` copies the columns starting with `name:`.
+
+### Not supported yet
+
+These are rejected: `rules`, `sort_by`, `geometry` other than `point`, `line` and `polygon`, and
+any `tile` operation. `prefetch` only applies to the tile server.
 
 ## How it works
 

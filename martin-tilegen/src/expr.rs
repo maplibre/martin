@@ -159,6 +159,23 @@ impl CompiledExpr {
         self.needs_all_keys
     }
 
+    /// The property this expression only reads, unchanged: a bare identifier or `feature['k']`.
+    pub(crate) fn as_property(&self) -> Option<&str> {
+        let name = if let Expr::Ident(name) = &self.expr.expr {
+            name.as_str()
+        } else if let Expr::Call(call) = &self.expr.expr
+            && call.func_name == operators::INDEX
+            && let [feature, key] = call.args.as_slice()
+            && matches!(&feature.expr, Expr::Ident(name) if name == FEATURE)
+            && let Expr::Literal(LiteralValue::String(key)) = &key.expr
+        {
+            key.inner()
+        } else {
+            return None;
+        };
+        self.columns.contains(name).then_some(name)
+    }
+
     pub fn eval<'v, S>(&self, feature: &'v FeatureView<'_, S>) -> Result<ExprValue<'v>, EvalError>
     where
         S: AsRef<str> + Debug + Send + Sync,
