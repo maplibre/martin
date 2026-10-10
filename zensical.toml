@@ -107,6 +107,7 @@ nav = [
         {"Using PostgreSQL with SSL Certificates" = "pg-ssl-certificates.md"}
     ]},
     {"Bulk Tile Generation" = "martin-cp.md"},
+    {"Generating Tilesets from Tables" = "martin-generate.md"},
     {"Working with MBTiles archives" = [
         "mbtiles/index.md",
         {"MBTiles Schemas" = "mbtiles-schema.md"},
@@ -464,6 +465,7 @@ Configuration = [
 ]
 Tools = [
   { "martin-cp.md" = "Generating tiles in bulk with martin-cp" },
+  { "martin-generate.md" = "Generating a whole tileset from PostgreSQL tables with martin generate" },
   { "mbtiles/index.md" = "Working with MBTiles archives using the mbtiles CLI" },
   { "mbtiles-schema.md" = "The flat, flat-with-hash and normalized MBTiles schemas" },
   { "mbtiles-meta.md" = "Reading and writing MBTiles metadata" },
