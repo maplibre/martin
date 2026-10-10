@@ -171,7 +171,7 @@ jobs:
       target: aarch64-unknown-linux-musl
       os: ubuntu-latest
       musl: true
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
     uses: $/.github/workflows/build-binary.yml
@@ -179,7 +179,7 @@ jobs:
       target: x86_64-unknown-linux-musl
       os: ubuntu-latest
       musl: true
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl-legacycpu:
     if: inputs.run-release-builds
@@ -189,7 +189,7 @@ jobs:
       os: ubuntu-latest
       musl: true
       legacy_cpu: true
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   docker-legacycpu:
     name: Publish the legacycpu Docker image
@@ -199,7 +199,7 @@ jobs:
     if: |
       !cancelled()
       && needs.build-x86_64-unknown-linux-musl-legacycpu.result == 'success'
-      && (github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')))
+      && (github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')))
     permissions:
       id-token: write
       attestations: write
@@ -479,7 +479,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
       - name: Login to GitHub Docker registry
-        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
+        if: github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         # https://github.com/docker/login-action
         with:
@@ -489,7 +489,7 @@ jobs:
 
       - name: Push the Docker image
         id: docker_push
-        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
+        if: github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           provenance: mode=max
@@ -504,7 +504,7 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
       - name: Attest
-        if: github.event_name == 'push' || github.event_name == 'release'
+        if: github.event_name == 'schedule' || github.event_name == 'release'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         id: attest
         with:
@@ -518,7 +518,7 @@ jobs:
     with:
       target: aarch64-apple-darwin
       os: macos-latest # M-series CPU
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-debian-x86_64:
     if: inputs.run-release-builds
@@ -528,7 +528,7 @@ jobs:
       # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
       # TODO: update to ubuntu-latest again once debian 13 launches
       os: ubuntu-22.04
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-pc-windows-msvc:
     if: inputs.run-heavy && inputs.run-release-builds
@@ -536,14 +536,14 @@ jobs:
     with:
       target: x86_64-pc-windows-msvc
       os: windows-latest
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-gnu:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-gnu
       os: ubuntu-latest
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-aarch64-unknown-linux-gnu:
     if: inputs.run-release-builds
@@ -551,7 +551,7 @@ jobs:
     with:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   # `-full` builds (adds rendering) for the `-full` image and Linux-gnu tarballs.
   build-x86_64-unknown-linux-gnu-full:
@@ -560,7 +560,7 @@ jobs:
       target: x86_64-unknown-linux-gnu
       os: ubuntu-latest
       full: true
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-aarch64-unknown-linux-gnu-full:
     if: inputs.run-release-builds
@@ -569,7 +569,7 @@ jobs:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
       full: true
-      release_mode: ${{ github.event_name != 'pull_request' }}
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   test-aws-lambda:
     name: Test AWS Lambda

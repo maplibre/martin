@@ -198,7 +198,7 @@ jobs:
     needs: [ package ]
     if: |
       always()
-      && needs.package.result == 'success'
+      && (needs.package.result == 'success' || needs.package.result == 'skipped')
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
