@@ -1,6 +1,6 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
-use geo_types::{Coord, LineString};
+use geo_types::{Coord, LineString, Polygon};
 
 use crate::props::{KeyId, KeyInterner, Prop};
 use crate::{TileGenError, TileGenResult};
@@ -16,6 +16,7 @@ pub enum Crs {
 pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
+    Polygons(Vec<Polygon<f64>>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

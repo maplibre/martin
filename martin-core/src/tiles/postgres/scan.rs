@@ -155,12 +155,12 @@ fn feature(
         GeoGeometry::MultiPoint(mp) => Geometry::Points(mp.0.into_iter().map(|p| p.0).collect()),
         GeoGeometry::LineString(ls) => Geometry::Lines(vec![ls]),
         GeoGeometry::MultiLineString(mls) => Geometry::Lines(mls.0),
-        GeoGeometry::Line(_)
-        | GeoGeometry::Polygon(_)
-        | GeoGeometry::MultiPolygon(_)
-        | GeoGeometry::GeometryCollection(_)
-        | GeoGeometry::Rect(_)
-        | GeoGeometry::Triangle(_) => return Ok(None),
+        GeoGeometry::Polygon(polygon) => Geometry::Polygons(vec![polygon]),
+        GeoGeometry::MultiPolygon(mp) => Geometry::Polygons(mp.0),
+        GeoGeometry::Line(line) => Geometry::Lines(vec![line.into()]),
+        GeoGeometry::Rect(rect) => Geometry::Polygons(vec![rect.to_polygon()]),
+        GeoGeometry::Triangle(triangle) => Geometry::Polygons(vec![triangle.to_polygon()]),
+        GeoGeometry::GeometryCollection(_) => return Ok(None),
     };
 
     let (id, column) = if layout.has_id {
