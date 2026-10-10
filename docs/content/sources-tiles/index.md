@@ -47,5 +47,5 @@ A composite tile request uses the per-source value only when every requested sou
 
     When no `cache_control` is configured, PMTiles and MBTiles tiles set `max-age=0, stale-while-revalidate=86400`.
     Therefore, a returning visitor's browser draws tiles it has cached right away and checks them with the server in the background.
-    A rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached and the check in the background suggests that the tiles martin offers have changed.
+    A serverside rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached on the client and the `stale-while-revalidate`-check in the background suggests that the tiles martin offers are stale.
     Set `cache_control: no-cache` if browsers should check every tile before drawing it.
