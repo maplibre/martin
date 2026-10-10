@@ -315,6 +315,12 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
             "Skipped feature-zooms whose geometry the slicer could not handle"
         );
     }
+    for failed in &summary.expr_errors {
+        warn!(
+            "Layer `{}`: `{}` failed {} times and was taken as null",
+            failed.layer, failed.expr, failed.errors
+        );
+    }
     Ok(())
 }
 

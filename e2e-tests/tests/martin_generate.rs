@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump,
-    temp_dir, tile_listing,
+    mlt_layers, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -489,6 +489,58 @@ async fn one_table_feeds_several_layers() {
     let metadata = metadata_listing(&output).await;
     insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
         insta::assert_snapshot!("layers_metadata", metadata);
+    });
+}
+
+#[tokio::test]
+async fn layer_expressions_filter_features_and_compute_attributes() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        "
+postgres:
+  connection_string: ${DATABASE_URL}
+  auto_publish: false
+  tables:
+    table_source:
+      schema: public
+      table: table_source
+      srid: 4326
+      geometry_column: geom
+      geometry_type: GEOMETRY
+      id_column: gid
+      properties:
+        gid: int4
+      layers:
+        even:
+          where: 'gid % 2 == 0'
+          minzoom: 'gid > 8 ? 2 : 0'
+          id: 'gid * 100'
+          attributes:
+            number: gid
+            size: { expr: \"gid > 5 ? 'big' : 'small'\", minzoom: 2 }
+            ratio: '12 / (gid - 4)'
+            source: { value: fixture }
+",
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("expressions.mbtiles");
+    let log = generate(&config, &output).run().await;
+    assert!(
+        log.contains("Layer `even`: `12 / (gid - 4)` failed"),
+        "{log}"
+    );
+    MbtilesCli::new("validate").arg(&output).run().await;
+    let dump: Vec<String> = tiles(&output)
+        .await
+        .iter()
+        .map(|(z, x, y, data)| format!("{z}/{x}/{y}\n{}", mlt_dump(&mlt_layers(data))))
+        .collect();
+    insta::assert_snapshot!("expressions_tiles", dump.join("\n"));
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+        insta::assert_snapshot!("expressions_metadata", metadata);
     });
 }
 
