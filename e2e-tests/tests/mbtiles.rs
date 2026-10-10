@@ -372,6 +372,7 @@ async fn reload_adds_and_updates_a_source() {
     let tile = martin.get("/world_cities/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 1107
     content-type: application/x-protobuf

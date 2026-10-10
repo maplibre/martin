@@ -80,6 +80,7 @@ async fn auto_configured_minimal() {
     let tile = martin.get("/webp2/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
@@ -181,6 +182,7 @@ async fn a_raster_source_serves_png_tiles() {
         .await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 24475
     content-type: image/png
     etag: "I1fhCKy04n2xAQpEk2ESig"

@@ -30,15 +30,6 @@ impl CacheControlHeader {
     pub(crate) fn header_value(&self) -> HeaderValue {
         self.0.clone()
     }
-
-    /// What `PMTiles` and `MBTiles` tiles carry when no `cache_control` is configured.
-    #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
-    #[must_use]
-    pub(crate) fn archive_default() -> Self {
-        Self(HeaderValue::from_static(
-            "max-age=0, stale-while-revalidate=86400",
-        ))
-    }
 }
 
 impl fmt::Display for CacheControlHeader {
@@ -176,6 +167,17 @@ impl SrvConfig {
         self.cache_control
             .as_ref()
             .map(CacheControlHeader::header_value)
+    }
+
+    /// What `PMTiles` and `MBTiles` tiles carry when no `cache_control` is configured.
+    #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+    #[must_use]
+    pub(crate) fn archive_cache_control(&self) -> Option<CacheControlHeader> {
+        self.cache_control.is_none().then(|| {
+            CacheControlHeader(HeaderValue::from_static(
+                "max-age=0, stale-while-revalidate=86400",
+            ))
+        })
     }
 
     /// The URL path prefix under which Martin is publicly served, derived from

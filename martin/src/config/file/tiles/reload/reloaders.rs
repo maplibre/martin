@@ -57,6 +57,12 @@ impl TileReloaders {
             ..Default::default()
         };
 
+        #[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
+        let archive_process = ProcessConfig {
+            cache_control: config.srv.archive_cache_control(),
+            ..global_process.clone()
+        };
+
         #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
         let tile_grids = TileGrids::resolve(&config.tile_grids)?;
 
@@ -66,7 +72,7 @@ impl TileReloaders {
             resolver.clone(),
             &config.mbtiles,
             config.cache.policy(),
-            &global_process,
+            &archive_process,
             &tile_grids,
         );
         #[cfg(feature = "unstable-cog")]
@@ -97,7 +103,7 @@ impl TileReloaders {
             resolver.clone(),
             &config.pmtiles,
             config.cache.policy(),
-            &global_process,
+            &archive_process,
             &tile_grids,
         );
         #[cfg(feature = "mbtiles")]

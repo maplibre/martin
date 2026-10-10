@@ -1,6 +1,6 @@
 //! The `cache_control` server setting and its per-source overrides.
 
-use martin_e2e_tests::{Martin, StartError, mbtiles_fixture};
+use martin_e2e_tests::{Martin, StartError, WatchedDir, fixture, mbtiles_fixture};
 
 const CONFIG: &str = "
 cache_control: public, max-age=3600
@@ -91,6 +91,36 @@ mbtiles:
     let response = martin.get("/pmt").await;
     assert_eq!(response.status(), 200);
     assert_eq!(response.header("cache-control"), None);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_watched_archive_keeps_the_archive_default_when_added_and_updated() {
+    let watched = WatchedDir::new();
+    let mut martin = Martin::builder()
+        .arg(watched.dir())
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    watched.install(fixture("pmtiles/png.pmtiles"), "png.pmtiles");
+    martin.wait_for_source("png").await;
+    let added = martin.get("/png/0/0/0").await;
+    assert_eq!(added.status(), 200);
+    assert_eq!(
+        added.header("cache-control"),
+        Some("max-age=0, stale-while-revalidate=86400")
+    );
+
+    watched.touch("png.pmtiles");
+    martin.wait_for_log("Updated source source.id=png").await;
+    let updated = martin.get("/png/0/0/0").await;
+    assert_eq!(updated.status(), 200);
+    assert_eq!(
+        updated.header("cache-control"),
+        Some("max-age=0, stale-while-revalidate=86400")
+    );
 
     martin.stop().await;
 }
