@@ -92,7 +92,7 @@ pub fn lower_table(
         .filter(|&(column, jsonb)| {
             layers.iter().any(|layer| match &layer.attributes {
                 AttributesDef::All => true,
-                AttributesDef::None => false,
+                AttributesDef::None | AttributesDef::Computed { .. } => false,
                 AttributesDef::Columns(keys) if jsonb => keys
                     .iter()
                     .any(|key| !static_columns.contains(&key.as_str())),
@@ -159,6 +159,9 @@ fn lower_layer(
         bounds: defaults.bounds,
         order: defaults.order,
         geometry: layer.geometry.and_then(|g| geometry_type(g).ok()),
+        filter: None,
+        minzoom_expr: None,
+        maxzoom_expr: None,
         id: match layer.id {
             IdPolicy::Keep | IdPolicy::Expr(_) => IdDef::Keep,
             IdPolicy::Drop => IdDef::Drop,

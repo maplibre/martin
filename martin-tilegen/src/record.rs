@@ -81,6 +81,12 @@ impl EncodedProps {
         self.bytes.clear();
     }
 
+    pub(crate) fn copy_from(&mut self, other: &Self) {
+        self.count = other.count;
+        self.bytes.clear();
+        self.bytes.extend_from_slice(&other.bytes);
+    }
+
     pub fn push(&mut self, key: KeyId, value: PropRef<'_>) {
         self.count += 1;
         write_prop(&mut self.bytes, key, value);
