@@ -123,7 +123,7 @@ pub(crate) fn features_from_rows(
 }
 
 /// The feature id in the row's second column, following `ST_AsMVT`.
-fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
+pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
     let value = property(row, 1, "reading a tile feature's id")?;
     let PostgresProperty::Value(PropValue::I64(value)) = value else {
@@ -136,7 +136,11 @@ fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
-fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
+pub(super) fn property(
+    row: &Row,
+    idx: usize,
+    context: &'static str,
+) -> PostgresResult<PostgresProperty> {
     let column = &row.columns()[idx];
     let read = |e| PgError(e, context);
     let Some(prop_type) = PropType::of(column.type_().name()) else {
