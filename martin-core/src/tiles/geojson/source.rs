@@ -217,8 +217,8 @@ fn encode_features(
     extent: MvtExtent,
     features: Vec<PreparedFeature<i32>>,
 ) -> Result<TileData, GeoJsonError> {
-    let mut layer = MvtTileBuilder::with_capacity(1)
-        .layer_with_capacity(layer_name, features.len())
+    let mut layer = MvtTileBuilder::new()
+        .layer(layer_name)
         .map_err(GeoJsonError::MvtError)?;
     layer.extent(extent);
     for f in features {

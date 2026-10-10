@@ -1,11 +1,9 @@
 //! Builds one layer of one tile from the records the merge yields for it.
 
-use mlt_core::geo_types::{
-    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-};
-use mlt_core::{PropertyKey, TileLayer};
+use mlt_core::geo_types::Coord;
+use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropertyKey};
 
-use crate::props::{KeyNames, TileColumns};
+use crate::props::{KeyId, KeyNames, TileColumns};
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
@@ -16,12 +14,23 @@ pub struct LayerGrid {
     pub buffer: u32,
 }
 
-/// Reusable per-worker scratch for [`LayerAssembler::assemble`].
+/// Reusable per-worker scratch for [`LayerAssembler::assemble`]; its [`LayerWriter`] keeps its
+/// buffers from layer to layer, so assembling stops allocating once it has held the largest layer.
 #[derive(Default)]
 pub struct LayerAssembler {
     columns: TileColumns,
+    schema: Vec<(KeyId, PropKind)>,
     geom: GeomBuf,
     keys: Vec<PropertyKey>,
+    text: String,
+    writer: Option<LayerWriter>,
+}
+
+/// A layer [`LayerAssembler::assemble`] built, valid until it assembles the next one.
+pub struct AssembledLayer<'a> {
+    pub layer: &'a LayerWriter,
+    /// `(key, kind)` per property column, in column order.
+    pub columns: &'a [(KeyId, PropKind)],
 }
 
 impl LayerAssembler {
@@ -34,24 +43,37 @@ impl LayerAssembler {
         grid: LayerGrid,
         names: &KeyNames,
         records: &[(Seq, &[u8])],
-    ) -> TileGenResult<TileLayer> {
+    ) -> TileGenResult<AssembledLayer<'_>> {
+        let Self {
+            columns,
+            schema,
+            geom,
+            keys,
+            text,
+            writer,
+        } = self;
         let decoded = records
             .iter()
             .map(|&(seq, bytes)| Ok((seq, Record::decode(bytes)?)))
             .collect::<TileGenResult<Vec<_>>>()?;
 
-        self.columns.clear();
+        columns.clear();
         for (_, record) in &decoded {
             for prop in record.props() {
                 let (key, value) = prop?;
-                self.columns.add(key, value);
+                columns.add(key, value);
             }
         }
-        let mut builder = TileLayer::builder(name, grid.extent)?;
-        self.keys.clear();
-        let schema = self.columns.finish(names);
-        for &(key, kind) in &schema {
-            self.keys.push(builder.add_property(names.name(key), kind)?);
+        columns.finish(names, schema);
+        let layer = if let Some(layer) = writer {
+            layer.reset(name, grid.extent)?;
+            layer
+        } else {
+            writer.insert(LayerWriter::new(name, grid.extent)?)
+        };
+        keys.clear();
+        for &(key, kind) in schema.iter() {
+            keys.push(layer.add_property(names.name(key), kind)?);
         }
 
         let mut rest = decoded.as_slice();
@@ -63,28 +85,32 @@ impl LayerAssembler {
             let (pieces, tail) = rest.split_at(len);
             rest = tail;
 
-            self.geom.clear();
+            geom.clear();
             for (_, piece) in pieces {
                 match piece.kind {
-                    GeomKind::Fill | GeomKind::FillRange { .. } => {
-                        push_square(&mut self.geom, grid);
-                    }
+                    GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
                     GeomKind::Point | GeomKind::Line | GeomKind::Polygon => {
-                        piece.append_geometry(&mut self.geom)?;
+                        piece.append_geometry(geom)?;
                     }
                 }
             }
-            let mut feature = builder.feature(to_geometry(first.kind, &self.geom));
+            let mut feature = layer.feature(geometry_type(first.kind, geom));
             feature.id(first.id);
+            write_geometry(&mut feature, first.kind, geom)?;
             for prop in first.props() {
                 let (key, value) = prop?;
-                if let Some(pos) = self.columns.position(key) {
-                    feature.property(self.keys[pos], value.to_value(schema[pos].1))?;
+                if let Some(pos) = columns.position(key)
+                    && let Some(value) = value.to_value(schema[pos].1, text)
+                {
+                    feature.property(keys[pos], value)?;
                 }
             }
             feature.finish()?;
         }
-        Ok(builder.finish())
+        Ok(AssembledLayer {
+            layer,
+            columns: schema,
+        })
     }
 }
 
@@ -100,56 +126,68 @@ fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
         .extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
 }
 
-fn to_geometry(kind: GeomKind, geom: &GeomBuf) -> Geometry<i32> {
-    let coord = |&[x, y]: &Vertex| Coord { x, y };
-    let line = |vertices: &[Vertex]| LineString(vertices.iter().map(coord).collect());
+/// A single geometry unless the feature's pieces made several of them.
+fn geometry_type(kind: GeomKind, geom: &GeomBuf) -> GeometryType {
+    match kind {
+        GeomKind::Point if geom.vertices.len() == 1 => GeometryType::Point,
+        GeomKind::Point => GeometryType::MultiPoint,
+        GeomKind::Line if geom.parts.len() == 1 => GeometryType::LineString,
+        GeomKind::Line => GeometryType::MultiLineString,
+        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. }
+            if geom.polygons.len() == 1 =>
+        {
+            GeometryType::Polygon
+        }
+        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => {
+            GeometryType::MultiPolygon
+        }
+    }
+}
+
+fn coords(part: &[Vertex]) -> impl Iterator<Item = Coord<i32>> + '_ {
+    part.iter().map(|&[x, y]| Coord { x, y })
+}
+
+fn write_geometry(
+    feature: &mut FeatureWriter<'_>,
+    kind: GeomKind,
+    geom: &GeomBuf,
+) -> MltResult<()> {
     let mut vertices = geom.vertices.as_slice();
-    let mut next_part = |len: u32| {
+    let mut parts = geom.parts.iter().map(|&len| {
         let (part, rest) = vertices.split_at(len as usize);
         vertices = rest;
         part
-    };
+    });
     match kind {
-        GeomKind::Point => match geom.vertices.as_slice() {
-            [single] => Point(coord(single)).into(),
-            all => MultiPoint(all.iter().map(|v| Point(coord(v))).collect()).into(),
-        },
+        GeomKind::Point => {
+            feature.points(coords(&geom.vertices))?;
+        }
         GeomKind::Line => {
-            let mut lines: Vec<_> = geom.parts.iter().map(|&len| line(next_part(len))).collect();
-            if lines.len() == 1 {
-                lines.swap_remove(0).into()
-            } else {
-                MultiLineString(lines).into()
+            for line in parts {
+                feature.line(coords(line))?;
             }
         }
         GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => {
-            let mut rings = geom.parts.iter();
-            let mut polygons: Vec<_> = geom
-                .polygons
-                .iter()
-                .map(|&count| {
-                    let mut ring = || {
-                        rings
-                            .next()
-                            .map_or_else(|| LineString(Vec::new()), |&len| line(next_part(len)))
-                    };
-                    let exterior = ring();
-                    Polygon::new(exterior, (1..count).map(|_| ring()).collect())
-                })
-                .collect();
-            if polygons.len() == 1 {
-                polygons.swap_remove(0).into()
-            } else {
-                MultiPolygon(polygons).into()
+            for &rings in &geom.polygons {
+                let mut rings = parts.by_ref().take(rings as usize);
+                if let Some(exterior) = rings.next() {
+                    feature.exterior_ring(coords(exterior))?;
+                }
+                for hole in rings {
+                    feature.hole(coords(hole))?;
+                }
             }
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use mlt_core::encoder::EncoderConfig;
-    use mlt_core::{Decoder, Parser, PropValue};
+    use mlt_core::geo_types::{Geometry, LineString, MultiLineString, Point};
+    use mlt_core::{Decoder, Parser, PropValue, TileLayer};
 
     use super::*;
     use crate::props::{KeyInterner, PropRef};
@@ -231,10 +269,9 @@ mod tests {
         ];
         let names = interner.freeze();
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
-        let layer = LayerAssembler::default()
-            .assemble("roads", GRID, &names, &records)
-            .unwrap();
-        let decoded = decode_mlt(&layer.encode(EncoderConfig::default()).unwrap());
+        let mut scratch = LayerAssembler::default();
+        let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
+        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
 
         assert_eq!(decoded.name(), "roads");
         assert_eq!(decoded.property_names(), ["name", "height", "extra"]);
@@ -273,10 +310,12 @@ mod tests {
             },
         );
         let names = interner.freeze();
-        let layer = LayerAssembler::default()
+        let mut scratch = LayerAssembler::default();
+        let assembled = scratch
             .assemble("water", GRID, &names, &[(Seq::default(), &bytes)])
             .unwrap();
-        let Geometry::MultiPolygon(multi) = layer.features()[0].geometry() else {
+        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let Geometry::MultiPolygon(multi) = decoded.features()[0].geometry() else {
             panic!("two polygons")
         };
         assert_eq!(multi.0.len(), 2);

@@ -19,7 +19,7 @@ mod sort;
 pub mod source;
 mod tile;
 
-pub use assemble::{LayerAssembler, LayerGrid};
+pub use assemble::{AssembledLayer, LayerAssembler, LayerGrid};
 pub use encode::{
     DedupIndex, EncodeSettings, FeatureOrder, LayerInfo, LayerStats, TileEncoder, TileFormat,
 };
