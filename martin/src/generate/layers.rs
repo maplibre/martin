@@ -175,6 +175,7 @@ fn lower_layer(
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
+        rules: Vec::new(),
     }))
 }
 
@@ -351,6 +352,7 @@ mod tests {
                     maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
+                    rules: [],
                 },
             ],
         }
@@ -400,6 +402,7 @@ mod tests {
                     maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
+                    rules: [],
                 },
             ],
         }
@@ -486,6 +489,7 @@ mod tests {
                     maxzoom_expr: None,
                     id: Drop,
                     attributes: All,
+                    rules: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -512,6 +516,7 @@ mod tests {
                     maxzoom_expr: None,
                     id: Keep,
                     attributes: None,
+                    rules: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -538,6 +543,7 @@ mod tests {
                     maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
+                    rules: [],
                 },
             ],
         }
