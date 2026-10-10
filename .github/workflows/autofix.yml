@@ -3,6 +3,8 @@ name: autofix.ci # See https://autofix.ci/security why this name
 on:
   pull_request:
     types: [labeled, opened, synchronize, reopened]
+  push:
+    branches: [ main ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,6 +13,33 @@ concurrency:
 permissions: {}
 
 jobs:
+  changes:
+    name: Decide which jobs this change can affect
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            rust:
+              - '.github/workflows/autofix.yml'
+              - '.github/actions/setup-rust/**'
+              - 'justfile'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - '**/*.rs'
+              - 'schemas/**'
+              - 'docs/content/files/generated_config.md'
+              - 'martin/martin-ui/src/lib/types.gen.ts'
+
   fmt-toml:
     name: Format Cargo.toml
     runs-on: ubuntu-latest
@@ -63,25 +92,25 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
+    needs: changes
     if: |
-      github.event.action == 'opened' ||
-      github.event.action == 'synchronize' ||
-      github.event.action == 'reopened'
+      needs.changes.outputs.rust == 'true' && (
+        github.event_name == 'push' ||
+        github.event.action == 'opened' ||
+        github.event.action == 'synchronize' ||
+        github.event.action == 'reopened'
+      )
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Setup Rust
-        run: rustup update stable && rustup default stable
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-      - uses: $/.github/actions/setup-rust
-        with: { toolchain: none }
       # `just gen-schemas` builds with `rendering` so the OpenAPI doc covers
       # the static-render routes - that pulls in maplibre-native, whose C++
       # build needs the rendering toolchain installed.
-      - name: Install rendering dependencies
-        run: just install-dependencies
+      - uses: $/.github/actions/setup-rust
+        with: { rendering: true, cache: true }
       - run: just gen-schemas
       # Run pre-commit so the generated JSON conforms to the repo's formatter
       # rules (trailing newline, etc.) - same tiebreaker the bless job uses.
@@ -90,7 +119,8 @@ jobs:
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - run: uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts
         continue-on-error: true
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
+      - if: github.event_name == 'pull_request'
+        uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
         with: {commit-message: "chore: regenerate config + OpenAPI schemas + UI types"}
 
   bless:
