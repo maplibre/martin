@@ -60,7 +60,7 @@ This means that an returning visitor's browser can now use tiles which are assum
     ```yaml
     cache_control: no-cache
     ```
-    
+
     See [Tile Sources](sources-tiles/index.md).
 
 ### PostgreSQL settings come from the command line or the configuration file
