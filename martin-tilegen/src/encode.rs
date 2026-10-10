@@ -294,13 +294,19 @@ mod tests {
             encoded.push(interner.intern(key), value);
         }
         let mut bytes = Vec::new();
-        encode(&mut bytes, Some(row), &encoded, Geom::Points(&[[0, 0]]));
+        encode(
+            &mut bytes,
+            Some(row),
+            None,
+            &encoded,
+            Geom::Points(&[[0, 0]]),
+        );
         bytes
     }
 
     fn fill() -> Vec<u8> {
         let mut bytes = Vec::new();
-        encode(&mut bytes, None, &EncodedProps::default(), Geom::Fill);
+        encode(&mut bytes, None, None, &EncodedProps::default(), Geom::Fill);
         bytes
     }
 

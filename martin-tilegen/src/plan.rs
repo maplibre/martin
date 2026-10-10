@@ -95,6 +95,9 @@ pub struct LayerDef {
     pub attributes: AttributesDef,
     /// The first rule a feature matches overrides the layer's settings for it.
     pub rules: Vec<RuleDef>,
+    /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
+    /// Turns off the sort trials of `encoder`.
+    pub sort_by: Vec<SortDef>,
 }
 
 impl LayerDef {
@@ -117,6 +120,7 @@ impl LayerDef {
             id: IdDef::Keep,
             attributes: AttributesDef::All,
             rules: Vec::new(),
+            sort_by: Vec::new(),
         }
     }
 }
@@ -132,6 +136,13 @@ pub struct RuleDef {
     /// These replace the layer's attributes of the same name and add the others; each one replaces the
     /// layer's at every zoom, even outside its own zooms.
     pub attributes: Vec<ComputedAttr>,
+}
+
+/// `null`, and a failed evaluation, sort before any value; `descending` reverses that too.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SortDef {
+    pub expr: String,
+    pub descending: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -247,6 +258,8 @@ pub(crate) struct PlannedLayer {
     pub(crate) copy: Vec<Option<KeyId>>,
     pub(crate) attrs: PlannedAttrs,
     pub(crate) rules: Vec<PlannedRule>,
+    /// An index into [`Plan::exprs`], and whether it is descending, per `sort_by` key.
+    pub(crate) sort_by: Vec<(usize, bool)>,
 }
 
 #[derive(Debug, Default)]
@@ -520,6 +533,14 @@ fn plan_layer(
         .iter()
         .map(|rule| plan_rule(&def, rule, compiler, &mut keys, &attrs))
         .collect::<Result<_, PlanError>>()?;
+    let sort_by = def
+        .sort_by
+        .iter()
+        .map(|key| {
+            let expr = compiler.compile(&key.expr)?;
+            Ok((compiler.add(&key.expr, expr), key.descending))
+        })
+        .collect::<Result<_, PlanError>>()?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
         PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -535,7 +556,14 @@ fn plan_layer(
         info: LayerInfo {
             name: def.name,
             grid: def.grid,
-            encoder: def.encoder,
+            encoder: if def.sort_by.is_empty() {
+                def.encoder
+            } else {
+                def.encoder
+                    .with_id_sort(false)
+                    .with_spatial_morton_sort(false)
+                    .with_spatial_hilbert_sort(false)
+            },
         },
         zooms: def.zooms,
         simplify: def.simplify,
@@ -550,6 +578,7 @@ fn plan_layer(
         copy,
         attrs,
         rules,
+        sort_by,
     })
 }
 
