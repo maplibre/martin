@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1](https://github.com/maplibre/martin/compare/martin-core-v0.13.0...martin-core-v0.13.1) - 2026-10-10
+
+### Other
+
+- updated the following local packages: mbtiles
+
 ## [0.13.0](https://github.com/maplibre/martin/compare/martin-core-v0.12.2...martin-core-v0.13.0) - 2026-10-09
 
 ### Added

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.4](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.3...martin-v2.0.0-beta.4) - 2026-10-10
+
+### Added
+
+- *(config)* tile PostgreSQL tables with the engine when they declare layers ([#3548](https://github.com/maplibre/martin/pull/3548))
+- *(config)* parse the tiling layer schema with CEL expressions behind unstable-generate ([#3547](https://github.com/maplibre/martin/pull/3547))
+
+### Other
+
+- fix changelog anchors and fail the docs build on warnings ([#3561](https://github.com/maplibre/martin/pull/3561))
+- *(postgres)* compute exact bounds in the tests that assert them ([#3562](https://github.com/maplibre/martin/pull/3562))
+- default archive tiles to stale-while-revalidate ([#3552](https://github.com/maplibre/martin/pull/3552))
+- cut the Windows and PostGIS test time ([#3528](https://github.com/maplibre/martin/pull/3528))
+- update Cargo.lock dependencies
+
 ## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-09
 
 > [!NOTE]
