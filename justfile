@@ -392,7 +392,7 @@ docs:
 
 # Build martin documentation
 docs-build:
-    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build --strict
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
