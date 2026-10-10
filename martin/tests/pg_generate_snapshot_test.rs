@@ -4,7 +4,8 @@
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
-use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
+use martin::generate::layers::{LowerOptions, lower_table};
+use martin::generate::postgres::{PgScanSource, ScanOptions};
 use martin_core::tiles::postgres::PostgresPool;
 use martin_tilegen::props::KeyInterner;
 use martin_tilegen::source::{FeatureBatch, FeatureSource as _};
@@ -45,16 +46,16 @@ async fn source_over_new_table(name: &str, partitions: u32) -> (PostgresPool, Pg
     };
     let mut info = info.clone();
     info.id_column = Some("id".to_owned());
-    let layer = ScanLayer {
-        name: name.to_owned(),
-        info,
+    let options = LowerOptions {
         zooms: 0..=6,
+        bbox: None,
     };
-    let options = ScanOptions {
+    let table = lower_table(name, info, &options).unwrap().unwrap();
+    let scan = ScanOptions {
         partitions_per_table: partitions,
         min_blocks: 1,
     };
-    let source = PgScanSource::new(builder.pool().clone(), vec![layer], options)
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], scan)
         .await
         .unwrap();
     (builder.pool().clone(), source)
