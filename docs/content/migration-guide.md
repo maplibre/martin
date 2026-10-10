@@ -52,6 +52,7 @@ See [Terminal dashboard](run-with-cli.md#terminal-dashboard).
 When no `cache_control` is configured, PMTiles and MBTiles tiles have `max-age=0, stale-while-revalidate=86400` by default.
 1.x sent no `Cache-Control` header for them.
 This means that a returning visitor's browser can now use tiles which are assumed to be static and only checks them with the server in the background.
+A serverside rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached on the client and the `stale-while-revalidate`-check in the background suggests that the tiles martin offers are stale.
 
 !!! tip "Set `cache_control: no-cache` for browsers to check before drawing it"
 
