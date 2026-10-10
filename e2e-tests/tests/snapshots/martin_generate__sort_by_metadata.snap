@@ -1,0 +1,23 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: metadata
+---
+agg_tiles_hash = CAC1DEC1A9930DCBF823942BADC7AF07
+format = mlt
+generator = martin generate v[VERSION]
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "number": "Number"
+      },
+      "id": "sorted",
+      "maxzoom": 1,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 1
+minzoom = 0
+name = sorted
