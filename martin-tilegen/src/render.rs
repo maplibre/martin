@@ -22,6 +22,8 @@ pub struct Feature<'a> {
     pub props: &'a EncodedProps,
     /// From each zoom on, ascending, these replace `props`.
     pub bands: &'a [(u8, EncodedProps)],
+    /// The `sort_by` key of the feature in its layer, if the layer has one.
+    pub sort: Option<&'a [u8]>,
     /// Rendered only where these meet the layer's zooms.
     pub zooms: RangeInclusive<u8>,
     /// RDP tolerance.
@@ -179,6 +181,7 @@ impl Renderer {
             id: feature.id,
             props: feature.props,
             bands: feature.bands,
+            sort: feature.sort,
             simplify: feature.simplify,
             min_size: feature.min_size,
         };
@@ -636,6 +639,7 @@ struct Ctx<'a> {
     id: Option<u64>,
     props: &'a EncodedProps,
     bands: &'a [(u8, EncodedProps)],
+    sort: Option<&'a [u8]>,
     simplify: PixelThreshold,
     min_size: PixelThreshold,
 }
@@ -676,7 +680,7 @@ impl Ctx<'_> {
         out.push_with(
             SortKey::new(tile_id, LayerId::new(self.layer.index), self.seq),
             |buf| {
-                encode(buf, self.id, props, geom);
+                encode(buf, self.id, self.sort, props, geom);
             },
         )
     }
@@ -857,6 +861,7 @@ mod tests {
                 geom,
                 props: &EncodedProps::default(),
                 bands: &[],
+                sort: None,
                 zooms: layer.zooms.clone(),
                 simplify: PixelThreshold::PLANETILER_SIMPLIFY,
                 min_size: PixelThreshold::PLANETILER_MIN_SIZE,
@@ -926,6 +931,7 @@ mod tests {
             geom: FeatureGeom::Polygons(polygons),
             props: &EncodedProps::default(),
             bands: &[],
+            sort: None,
             zooms: layer.zooms.clone(),
             simplify: PixelThreshold::PLANETILER_SIMPLIFY,
             min_size: PixelThreshold::PLANETILER_MIN_SIZE,
@@ -1019,6 +1025,7 @@ mod tests {
                 geom: FeatureGeom::Lines(&[LineString::from(zigzag)]),
                 props: &EncodedProps::default(),
                 bands: &[],
+                sort: None,
                 zooms: 0..=8,
                 simplify: PixelThreshold::PLANETILER_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
@@ -1119,6 +1126,7 @@ mod tests {
                 geom: FeatureGeom::Polygons(std::slice::from_ref(&polygon)),
                 props: &EncodedProps::default(),
                 bands: &[],
+                sort: None,
                 zooms: 4..=4,
                 simplify: PixelThreshold::PLANETILER_SIMPLIFY,
                 min_size: PixelThreshold::PLANETILER_MIN_SIZE,
@@ -1158,6 +1166,7 @@ mod tests {
                 geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
                 props: &EncodedProps::default(),
                 bands: &[],
+                sort: None,
                 zooms: 1..=1,
                 simplify: PixelThreshold::PLANETILER_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
@@ -1243,6 +1252,7 @@ mod tests {
             id: Some(7),
             props: &EncodedProps::default(),
             bands: &[],
+            sort: None,
             simplify: PixelThreshold::PLANETILER_SIMPLIFY,
             min_size: PixelThreshold::PLANETILER_MIN_SIZE,
         };

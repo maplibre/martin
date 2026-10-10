@@ -7,8 +7,8 @@ use std::path::Path;
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, RuleDef, TableDef, ValueDef,
-    ZoomDef,
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, RuleDef, SortDef, TableDef,
+    ValueDef, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
 use martin_tilegen::source::{
@@ -1266,5 +1266,327 @@ fn a_failing_rule_condition_does_not_match_and_is_counted() {
             expr: "8 / lanes >= 2".to_owned(),
             errors: 2,
         }]
+    );
+}
+
+#[test]
+fn sort_by_orders_each_layer_ascending_or_descending() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, 5),
+                point(2, -3),
+                point(3, 5),
+                point(4, 12),
+                point(5, 0),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![
+            LayerDef {
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: false,
+                }],
+                ..LayerDef::new("ascending", 0..=0, GRID)
+            },
+            LayerDef {
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: true,
+                }],
+                ..LayerDef::new("descending", 0..=0, GRID)
+            },
+            LayerDef::new("source", 0..=0, GRID),
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 2);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let layers: Vec<_> = decode(&rows[0].3)
+        .iter()
+        .map(|layer| {
+            let ids: Vec<_> = layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("{} {ids:?}", layer.name())
+        })
+        .collect();
+    assert_eq!(
+        layers,
+        [
+            "ascending [Some(2), Some(5), Some(1), Some(3), Some(4)]",
+            "descending [Some(4), Some(1), Some(3), Some(5), Some(2)]",
+            "source [Some(1), Some(2), Some(3), Some(4), Some(5)]",
+        ]
+    );
+}
+
+#[test]
+fn sort_by_compares_its_keys_in_order() {
+    let point = |id, class: &str, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![
+            (KeyId::from(0), Prop::Str(class.to_owned())),
+            (KeyId::from(1), Prop::I64(rank)),
+        ],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, "road", 1),
+                point(2, "path", 1),
+                point(3, "road", 7),
+                point(4, "path", 3),
+                point(5, "road", 1),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["class".to_owned(), "rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            sort_by: vec![
+                SortDef {
+                    expr: "class".to_owned(),
+                    descending: false,
+                },
+                SortDef {
+                    expr: "rank".to_owned(),
+                    descending: true,
+                },
+            ],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let ids: Vec<_> = decode(&rows[0].3)[0]
+        .features()
+        .iter()
+        .map(mlt_core::TileFeature::id)
+        .collect();
+    assert_eq!(ids, [Some(4), Some(2), Some(3), Some(1), Some(5)]);
+}
+
+#[test]
+fn null_and_failing_sort_keys_sort_first() {
+    let point = |id, props| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props,
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, vec![(KeyId::from(0), Prop::I64(4))]),
+                point(2, vec![(KeyId::from(0), Prop::I64(0))]),
+                point(3, vec![(KeyId::from(0), Prop::I64(8))]),
+                point(4, vec![(KeyId::from(0), Prop::I64(-1))]),
+                point(5, vec![]),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["lanes".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            sort_by: vec![SortDef {
+                expr: "lanes < 0 ? null : 8 / lanes".to_owned(),
+                descending: false,
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    let ids: Vec<_> = decode(&rows[0].3)[0]
+        .features()
+        .iter()
+        .map(mlt_core::TileFeature::id)
+        .collect();
+    assert_eq!(ids, [Some(2), Some(4), Some(5), Some(3), Some(1)]);
+    assert_eq!(
+        summary.expr_errors,
+        [ExprErrors {
+            layer: "roads".to_owned(),
+            expr: "lanes < 0 ? null : 8 / lanes".to_owned(),
+            errors: 2,
+        }]
+    );
+}
+
+#[test]
+fn sorted_features_stay_whole_in_the_tiles_they_span() {
+    let rect = |w: f64, s: f64, e: f64, n: f64| {
+        LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)])
+    };
+    let feature = |id, geometry, rank| SourceFeature {
+        id: Some(id),
+        geometry,
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                feature(
+                    1,
+                    Geometry::Polygons(vec![Polygon::new(
+                        rect(-170.0, -80.0, 170.0, 80.0),
+                        vec![],
+                    )]),
+                    3,
+                ),
+                feature(
+                    2,
+                    Geometry::Lines(vec![LineString::from(vec![(170.0, 10.0), (190.0, 10.0)])]),
+                    2,
+                ),
+                feature(3, Geometry::Points(vec![Coord { x: -45.0, y: -30.0 }]), 1),
+                feature(4, Geometry::Points(vec![Coord { x: -45.0, y: -30.0 }]), 3),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: false,
+            }],
+            ..LayerDef::new("shapes", 0..=2, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 2);
+    let tiles: Vec<_> = rows
+        .iter()
+        .filter(|row| matches!((row.0, row.1, row.2), (0, 0, 0) | (2, 1, 1)))
+        .map(|row| {
+            let features: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(|f| {
+                    let fill = matches!(
+                        f.geometry(),
+                        geo_types::Geometry::Polygon(p)
+                            if p.exterior().0.first() == Some(&Coord { x: -64, y: -64 })
+                    );
+                    let geometry = format!("{:?}", f.geometry());
+                    let kind = if fill {
+                        "FILL"
+                    } else {
+                        geometry.split('(').next().unwrap()
+                    };
+                    format!("{}:{kind}", f.id().unwrap())
+                })
+                .collect();
+            format!("z{}/{}/{} {}", row.0, row.1, row.2, features.join(" "))
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            "z0/0/0 3:POINT 2:MULTILINESTRING 1:POLYGON 4:POINT",
+            "z2/1/1 3:POINT 1:FILL 4:POINT",
+        ]
+    );
+}
+
+#[test]
+fn sort_by_applies_whichever_rule_a_feature_matches() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 2), point(2, 9), point(3, 1), point(4, 7)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            attributes: AttributesDef::None,
+            rules: vec![
+                RuleDef {
+                    when: Some("rank > 5".to_owned()),
+                    attributes: vec![ComputedAttr {
+                        name: "kind".to_owned(),
+                        value: ValueDef::Literal(Prop::Str("major".to_owned())),
+                        zooms: 0..=30,
+                    }],
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    minzoom: Some(ZoomDef::Fixed(1)),
+                    ..RuleDef::default()
+                },
+            ],
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: true,
+            }],
+            ..LayerDef::new("places", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let features: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                .collect();
+            format!("z{} {features:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            r#"z0 ["Some(2) [Str(Some(\"major\"))]", "Some(4) [Str(Some(\"major\"))]"]"#,
+            r#"z1 ["Some(2) [Str(Some(\"major\"))]", "Some(4) [Str(Some(\"major\"))]", "Some(1) [Str(None)]", "Some(3) [Str(None)]"]"#,
+        ]
     );
 }

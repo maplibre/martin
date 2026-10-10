@@ -274,7 +274,7 @@ mod tests {
             let mut props = EncodedProps::default();
             props.push(interner.intern("kind"), PropRef::Str("park"));
             let mut bytes = Vec::new();
-            encode(&mut bytes, Some(row), &props, geom);
+            encode(&mut bytes, Some(row), None, &props, geom);
             tile.push_record(layer, Seq::new(0, row).unwrap(), &bytes);
         }
         tile

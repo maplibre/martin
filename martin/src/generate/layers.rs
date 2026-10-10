@@ -231,6 +231,7 @@ fn lower_layer(
             Attributes::Columns(columns) => computed(columns),
         },
         rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
+        sort_by: Vec::new(),
     }))
 }
 
@@ -432,6 +433,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }
@@ -481,6 +483,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }
@@ -564,6 +567,7 @@ mod tests {
                     id: Drop,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -592,6 +596,7 @@ mod tests {
                     id: Keep,
                     attributes: None,
                     rules: [],
+                    sort_by: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -620,6 +625,7 @@ mod tests {
                     id: Keep,
                     attributes: All,
                     rules: [],
+                    sort_by: [],
                 },
             ],
         }

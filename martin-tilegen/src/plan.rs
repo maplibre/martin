@@ -48,6 +48,9 @@ pub struct LayerDef {
     pub attributes: AttributesDef,
     /// The first rule a feature matches overrides the layer's settings for it.
     pub rules: Vec<RuleDef>,
+    /// Orders the layer's features in each tile, ties in source order; empty keeps source order. Forces
+    /// [`FeatureOrder::Source`].
+    pub sort_by: Vec<SortDef>,
 }
 
 impl LayerDef {
@@ -71,6 +74,7 @@ impl LayerDef {
             id: IdDef::Keep,
             attributes: AttributesDef::All,
             rules: Vec::new(),
+            sort_by: Vec::new(),
         }
     }
 
@@ -101,6 +105,7 @@ impl LayerDef {
             .chain(id)
             .chain(value_exprs(computed))
             .chain(rules)
+            .chain(self.sort_by.iter().map(|key| &key.expr))
             .map(String::as_str)
     }
 }
@@ -123,6 +128,13 @@ pub struct RuleDef {
     /// These replace the layer's attributes of the same name and add the others; each one replaces the
     /// layer's at every zoom, even outside its own zooms.
     pub attributes: Vec<ComputedAttr>,
+}
+
+/// `null`, and a failed evaluation, sort before any value; `descending` reverses that too.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SortDef {
+    pub expr: String,
+    pub descending: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -237,6 +249,8 @@ pub(crate) struct PlannedLayer {
     pub(crate) copy: Vec<Option<KeyId>>,
     pub(crate) attrs: PlannedAttrs,
     pub(crate) rules: Vec<PlannedRule>,
+    /// An index into [`Plan::exprs`], and whether it is descending, per `sort_by` key.
+    pub(crate) sort_by: Vec<(usize, bool)>,
 }
 
 #[derive(Debug, Default)]
@@ -417,6 +431,14 @@ fn plan_layer(
         .iter()
         .map(|rule| plan_rule(&def, rule, compiler, &mut keys, &attrs))
         .collect::<TileGenResult<_>>()?;
+    let sort_by = def
+        .sort_by
+        .iter()
+        .map(|key| {
+            let expr = compiler.compile(&key.expr)?;
+            Ok((compiler.add(&key.expr, expr), key.descending))
+        })
+        .collect::<TileGenResult<_>>()?;
     let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid)?;
     render.clip = def.clip;
     render.bounds = def.bounds.map(crate::render::unit_bounds);
@@ -425,7 +447,11 @@ fn plan_layer(
         info: LayerInfo {
             name: def.name,
             grid: def.grid,
-            order: def.order,
+            order: if def.sort_by.is_empty() {
+                def.order
+            } else {
+                FeatureOrder::Source
+            },
         },
         zooms: def.zooms,
         simplify: def.simplify,
@@ -440,6 +466,7 @@ fn plan_layer(
         copy,
         attrs,
         rules,
+        sort_by,
     })
 }
 
@@ -1046,6 +1073,45 @@ mod tests {
             err.to_string(),
             "layer `roads`: attribute `big` is listed more than once"
         );
+    }
+
+    #[test]
+    fn sort_keys_come_last_and_keep_source_order() {
+        let plan = Plan::new(vec![TableDef {
+            columns: vec!["rank".to_owned()],
+            dynamic_props: false,
+            layers: vec![
+                LayerDef {
+                    order: FeatureOrder::Auto,
+                    filter: Some("rank > 0".to_owned()),
+                    rules: vec![RuleDef {
+                        when: Some("rank > 5".to_owned()),
+                        ..RuleDef::default()
+                    }],
+                    sort_by: vec![
+                        SortDef {
+                            expr: "rank".to_owned(),
+                            descending: true,
+                        },
+                        SortDef {
+                            expr: "-rank".to_owned(),
+                            descending: false,
+                        },
+                    ],
+                    ..LayerDef::new("sorted", 0..=14, GRID)
+                },
+                LayerDef {
+                    order: FeatureOrder::Auto,
+                    ..LayerDef::new("unsorted", 0..=14, GRID)
+                },
+            ],
+        }])
+        .unwrap();
+        let exprs: Vec<_> = plan.exprs.iter().map(|e| e.source.as_str()).collect();
+        assert_eq!(exprs, ["rank > 0", "rank > 5", "rank", "-rank"]);
+        assert_eq!(plan.layers[0].sort_by, [(2, true), (3, false)]);
+        assert_eq!(plan.layers[0].info.order, FeatureOrder::Source);
+        assert_eq!(plan.layers[1].info.order, FeatureOrder::Auto);
     }
 
     #[test]
