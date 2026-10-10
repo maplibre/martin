@@ -47,20 +47,21 @@ See [Terminal dashboard](run-with-cli.md#terminal-dashboard).
 !!! note "Reverse proxies and containers"
     Martin checks the TCP peer address, ignoring forwarded headers. A proxy connecting over loopback exposes the web UI to its clients unless you set `--webui disable`. With Docker bridge networking, connections from the host are not loopback. Use `--webui enable-for-all` to expose the UI as described in [Running with Docker](run-with-docker.md).
 
-### PMTiles and MBTiles tiles carry a `Cache-Control` header by default
+### PMTiles and MBTiles tiles attach the `Cache-Control` header by default
 
-When no `cache_control` is configured, PMTiles and MBTiles tiles now carry `max-age=0, stale-while-revalidate=86400`.
-1.x sent no `Cache-Control` header with them.
-A returning visitor's browser now draws the tiles it has cached right away and checks them with the server in the background.
-A rewritten archive shows up on the visitor's next load.
-A top-level or per-source `cache_control` replaces this default.
-Set `cache_control: no-cache` to have browsers check every tile before drawing it, as with 1.x.
+When no `cache_control` is configured, PMTiles and MBTiles tiles have `max-age=0, stale-while-revalidate=86400` by default.
+1.x sent no `Cache-Control` header for them.
+This means that an returning visitor's browser can now use tiles which are assumed to be static and only checks them with the server in the background.
 
-```yaml
-cache_control: no-cache
-```
+!!! tip "Set `cache_control: no-cache` for browsers to check before drawing it"
 
-See [Tile Sources](sources-tiles/index.md).
+    A top-level or per-source `cache_control` replaces this default.
+
+    ```yaml
+    cache_control: no-cache
+    ```
+    
+    See [Tile Sources](sources-tiles/index.md).
 
 ### PostgreSQL settings come from the command line or the configuration file
 
