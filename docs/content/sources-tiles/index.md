@@ -42,3 +42,7 @@ DuckDB / GeoParquet sources do not currently support postprocessing.
 
 Tile sources also accept a per-source `cache_control` configuration key that sets the `Cache-Control` response header for that source's tiles, overriding the top-level `cache_control` default.
 A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.
+When no `cache_control` is configured at all, PMTiles and MBTiles tiles carry `max-age=0, stale-while-revalidate=86400`.
+A returning visitor's browser then draws the tiles it has cached right away and checks them with the server in the background.
+A rewritten archive shows up on the visitor's next load.
+Set `cache_control: no-cache` if browsers should check every tile before drawing it.

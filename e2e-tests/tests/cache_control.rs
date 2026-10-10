@@ -60,20 +60,35 @@ async fn the_health_endpoint_keeps_its_no_cache_policy() {
 }
 
 #[tokio::test]
-async fn no_cache_control_is_sent_unless_configured() {
+async fn archive_tiles_are_revalidated_in_the_background_unless_configured() {
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let cities = cities.to_str().expect("fixture path is valid utf-8");
     let mut martin = Martin::builder()
-        .config(
+        .config(&format!(
             "
 pmtiles:
   sources:
     pmt: tests/fixtures/pmtiles/png.pmtiles
-",
-        )
+mbtiles:
+  sources:
+    cities: {cities}
+"
+        ))
         .start()
         .await
         .expect("failed to start martin");
 
-    let response = martin.get("/pmt/0/0/0").await;
+    for path in ["/pmt/0/0/0", "/cities/0/0/0"] {
+        let response = martin.get(path).await;
+        assert_eq!(response.status(), 200, "GET {path}");
+        assert_eq!(
+            response.header("cache-control"),
+            Some("max-age=0, stale-while-revalidate=86400"),
+            "GET {path}"
+        );
+    }
+    let response = martin.get("/pmt").await;
     assert_eq!(response.status(), 200);
     assert_eq!(response.header("cache-control"), None);
 

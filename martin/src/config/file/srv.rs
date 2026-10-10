@@ -30,6 +30,15 @@ impl CacheControlHeader {
     pub(crate) fn header_value(&self) -> HeaderValue {
         self.0.clone()
     }
+
+    /// What `PMTiles` and `MBTiles` tiles carry when no `cache_control` is configured.
+    #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+    #[must_use]
+    pub(crate) fn archive_default() -> Self {
+        Self(HeaderValue::from_static(
+            "max-age=0, stale-while-revalidate=86400",
+        ))
+    }
 }
 
 impl fmt::Display for CacheControlHeader {
@@ -116,6 +125,7 @@ pub struct SrvConfig {
     /// The value is used for responses that do not define a more specific cache policy.
     /// For example: `public, max-age=3600`.
     /// Endpoints with an explicit policy, such as the health check, keep their own header.
+    /// When unset, `PMTiles` and `MBTiles` tiles carry `max-age=0, stale-while-revalidate=86400`.
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
     /// Control access to Martin's web UI. \[default: enable\]

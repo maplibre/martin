@@ -21,6 +21,8 @@ use super::{Config, ServerState, init_aws_lc_tls, parse_base_path};
 #[cfg(feature = "_tiles")]
 use super::{ResolutionResult, TileSourceWarning};
 use crate::StartupResult;
+#[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+use crate::config::file::CacheControlHeader;
 #[cfg(any(
     feature = "postgres",
     feature = "pmtiles",
@@ -525,13 +527,19 @@ impl Config {
         ))]
         {
             let global = self.global_process_config();
+            #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+            let archive_cache_control = self
+                .srv
+                .cache_control
+                .is_none()
+                .then(CacheControlHeader::archive_default);
 
             #[cfg(feature = "pmtiles")]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| {
                 ProcessConfig {
                     convert_to_mlt: c.convert_to_mlt.clone(),
                     convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: None,
+                    cache_control: archive_cache_control.clone(),
                     #[cfg(feature = "processing")]
                     convert_to_hillshade: None,
                     #[cfg(feature = "processing")]
@@ -544,7 +552,7 @@ impl Config {
                 ProcessConfig {
                     convert_to_mlt: c.convert_to_mlt.clone(),
                     convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: None,
+                    cache_control: archive_cache_control.clone(),
                     #[cfg(feature = "processing")]
                     convert_to_hillshade: None,
                     #[cfg(feature = "processing")]
