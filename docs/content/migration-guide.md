@@ -14,7 +14,7 @@ Use this guide to update an existing Martin setup after a major release. See the
 
 Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.
 
-Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-carry-a-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
+Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
 
 ### `martin-cp` is now `martin cp`
 
@@ -51,7 +51,7 @@ See [Terminal dashboard](run-with-cli.md#terminal-dashboard).
 
 When no `cache_control` is configured, PMTiles and MBTiles tiles have `max-age=0, stale-while-revalidate=86400` by default.
 1.x sent no `Cache-Control` header for them.
-This means that an returning visitor's browser can now use tiles which are assumed to be static and only checks them with the server in the background.
+This means that a returning visitor's browser can now use tiles which are assumed to be static and only checks them with the server in the background.
 
 !!! tip "Set `cache_control: no-cache` for browsers to check before drawing it"
 
