@@ -17,7 +17,10 @@ use tracing::warn;
 
 use crate::expr::{ExprKeys, ExprRef, FeatureView, Filter, PropSlots, Role, Zoom};
 use crate::pipeline::{self, BatchSender, spawn_named};
-use crate::plan::{AttributesDef, Plan, PlannedAttr, PlannedId, PlannedLayer, PlannedValue};
+use crate::plan::{
+    AttributesDef, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedRule,
+    PlannedValue, PlannedZoom,
+};
 use crate::record::EncodedProps;
 use crate::{
     DedupIndex, EncodeSettings, Feature, FeatureGeom, LayerInfo, LayerStats, Renderer, Seq,
@@ -452,7 +455,10 @@ fn output_key(
     let resolved = table.name(key).and_then(|name| match &layer.attributes {
         AttributesDef::All => Some(output.intern(&name)),
         AttributesDef::None | AttributesDef::Computed { .. } => None,
-        AttributesDef::Columns(_) => output.get(&name),
+        AttributesDef::Columns(selected) => selected
+            .contains(&name)
+            .then(|| output.get(&name))
+            .flatten(),
     });
     cache[slot] = DynamicKey::Resolved(resolved);
     resolved
@@ -522,48 +528,69 @@ impl Run<'_> {
         self.eval(&expr, view, errors).unwrap_or(false)
     }
 
-    /// The layer's zooms for this feature, or `None` when it filters the feature out.
-    fn feature_zooms(
+    /// The layer's zooms for this feature and the first rule it matches, or `None` when the layer
+    /// filters the feature out.
+    fn feature_zooms<'p>(
         &self,
-        layer: &PlannedLayer,
+        layer: &'p PlannedLayer,
         view: &FeatureView<'_, String>,
         errors: &mut [u64],
-    ) -> Option<RangeInclusive<u8>> {
+    ) -> Option<(RangeInclusive<u8>, Option<&'p PlannedRule>)> {
         if let Some(filter) = &layer.filter
             && !self.holds(*filter, view, errors)
         {
             return None;
         }
-        let mut zoom = |expr: Option<&ExprRef<Zoom>>| self.eval(expr?, view, errors);
-        let min = zoom(layer.minzoom.as_ref()).unwrap_or(*layer.zooms.start());
-        let max = zoom(layer.maxzoom.as_ref()).unwrap_or(*layer.zooms.end());
-        (min <= max).then_some(min..=max)
+        let rule = layer.rules.iter().find(|rule| {
+            rule.when
+                .as_ref()
+                .is_none_or(|when| self.holds(*when, view, errors))
+        });
+        let mut zoom = |rule: Option<&PlannedZoom>, expr: Option<&ExprRef<Zoom>>| {
+            let mut eval = |expr| self.eval(expr, view, errors);
+            match rule {
+                Some(PlannedZoom::Fixed(zoom)) => Some(*zoom),
+                Some(PlannedZoom::Expr(rule)) => eval(rule).or_else(|| eval(expr?)),
+                None => eval(expr?),
+            }
+        };
+        let min = zoom(
+            rule.and_then(|r| r.minzoom.as_ref()),
+            layer.minzoom.as_ref(),
+        )
+        .unwrap_or(*layer.zooms.start());
+        let max = zoom(
+            rule.and_then(|r| r.maxzoom.as_ref()),
+            layer.maxzoom.as_ref(),
+        )
+        .unwrap_or(*layer.zooms.end());
+        (min <= max).then_some((min..=max, rule))
     }
 
-    /// Adds the computed attributes to `props`, and fills `bands` if the layer has zoom bands.
+    /// Adds the computed attributes to `props`, and fills `bands` if they have zoom bands.
     fn computed(
         &self,
-        layer: &PlannedLayer,
+        attrs: &PlannedAttrs,
         feature: &[(KeyId, Prop)],
         view: Option<&FeatureView<'_, String>>,
         errors: &mut [u64],
         props: &mut EncodedProps,
         bands: &mut Vec<(u8, EncodedProps)>,
     ) {
-        for attr in &layer.computed {
+        for attr in &attrs.computed {
             if let Some(value) = self.attr(attr, feature, view, errors) {
                 props.push(attr.key, value.as_ref());
             }
         }
-        if layer.bands.is_empty() {
+        if attrs.bands.is_empty() {
             return;
         }
-        bands.resize_with(layer.bands.len(), Default::default);
-        for (band, &from) in bands.iter_mut().zip(&layer.bands) {
+        bands.resize_with(attrs.bands.len(), Default::default);
+        for (band, &from) in bands.iter_mut().zip(&attrs.bands) {
             band.0 = from;
             band.1.copy_from(props);
         }
-        for attr in &layer.banded {
+        for attr in &attrs.banded {
             let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
@@ -637,28 +664,33 @@ fn render_batch(
             if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
                 continue;
             }
-            let zooms = match view {
+            let (zooms, rule) = match view {
                 Some(view) => match run.feature_zooms(layer, view, errors) {
-                    Some(zooms) => zooms,
+                    Some(matched) => matched,
                     None => continue,
                 },
-                None => layer.zooms.clone(),
+                None => (layer.zooms.clone(), None),
             };
+            let attrs = rule
+                .and_then(|rule| rule.attrs.as_ref())
+                .unwrap_or(&layer.attrs);
             props.clear();
             for (key, value) in &feature.props {
                 let output = (&keys.tables[table], &keys.layers[index]);
-                if let Some(key) = output_key(&mut dynamic[index], layer, output, *key) {
+                if let Some(key) = output_key(&mut dynamic[index], layer, output, *key)
+                    && (attrs.overrides.is_empty() || attrs.overrides.binary_search(&key).is_err())
+                {
                     props.push(key, value.as_ref());
                 }
             }
-            run.computed(layer, &feature.props, view, errors, props, bands);
+            run.computed(attrs, &feature.props, view, errors, props, bands);
             let id = match layer.id {
                 PlannedId::Keep => feature.id,
                 PlannedId::Drop => None,
                 PlannedId::Expr(expr) => view.and_then(|view| run.eval(&expr, view, errors)),
             };
             let (props, bands): (&EncodedProps, &[(u8, EncodedProps)]) = match bands.split_first() {
-                Some((first, rest)) if !layer.bands.is_empty() => (&first.1, rest),
+                Some((first, rest)) if !attrs.bands.is_empty() => (&first.1, rest),
                 _ => (props, &[]),
             };
             renderer.render(
@@ -671,8 +703,8 @@ fn render_batch(
                     props,
                     bands,
                     zooms,
-                    simplify: layer.simplify,
-                    min_size: layer.min_size,
+                    simplify: rule.map_or(layer.simplify, |rule| rule.simplify),
+                    min_size: rule.map_or(layer.min_size, |rule| rule.min_size),
                 },
                 buffer,
             )?;
