@@ -46,6 +46,8 @@ pub struct LayerDef {
     pub maxzoom_expr: Option<String>,
     pub id: IdDef,
     pub attributes: AttributesDef,
+    /// The first rule a feature matches overrides the layer's settings for it.
+    pub rules: Vec<RuleDef>,
 }
 
 impl LayerDef {
@@ -68,6 +70,7 @@ impl LayerDef {
             maxzoom_expr: None,
             id: IdDef::Keep,
             attributes: AttributesDef::All,
+            rules: Vec::new(),
         }
     }
 
@@ -81,16 +84,53 @@ impl LayerDef {
             AttributesDef::Computed { attributes, .. } => attributes.as_slice(),
             AttributesDef::All | AttributesDef::None | AttributesDef::Columns(_) => &[],
         };
+        let rules = self.rules.iter().flat_map(|rule| {
+            let zooms = [&rule.minzoom, &rule.maxzoom].map(|zoom| match zoom {
+                Some(ZoomDef::Expr(expr)) => Some(expr),
+                Some(ZoomDef::Fixed(_)) | None => None,
+            });
+            [rule.when.as_ref()]
+                .into_iter()
+                .chain(zooms)
+                .flatten()
+                .chain(value_exprs(&rule.attributes))
+        });
         [&self.filter, &self.minzoom_expr, &self.maxzoom_expr]
             .into_iter()
             .flatten()
             .chain(id)
-            .chain(computed.iter().filter_map(|attr| match &attr.value {
-                ValueDef::Expr(expr) => Some(expr),
-                ValueDef::Literal(_) => None,
-            }))
+            .chain(value_exprs(computed))
+            .chain(rules)
             .map(String::as_str)
     }
+}
+
+fn value_exprs(attributes: &[ComputedAttr]) -> impl Iterator<Item = &String> {
+    attributes.iter().filter_map(|attr| match &attr.value {
+        ValueDef::Expr(expr) => Some(expr),
+        ValueDef::Literal(_) => None,
+    })
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RuleDef {
+    /// `None` takes every feature, so the rules after it never apply.
+    pub when: Option<String>,
+    pub minzoom: Option<ZoomDef>,
+    pub maxzoom: Option<ZoomDef>,
+    pub simplify: Option<PixelThreshold>,
+    pub min_size: Option<PixelThreshold>,
+    /// These replace the layer's attributes of the same name and add the others; each one replaces the
+    /// layer's at every zoom, even outside its own zooms.
+    pub attributes: Vec<ComputedAttr>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ZoomDef {
+    /// Clamped into the layer's zooms.
+    Fixed(u8),
+    /// Per feature, clamped into the layer's zooms; `null` keeps the layer's.
+    Expr(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -191,10 +231,18 @@ pub(crate) struct PlannedLayer {
     pub(crate) maxzoom: Option<usize>,
     pub(crate) id: PlannedId,
     pub(crate) attributes: AttributesDef,
-    /// The output layer's known keys.
+    /// The output layer's known keys, including those only rules add.
     pub(crate) keys: Vec<String>,
     /// Output key by table column.
     pub(crate) copy: Vec<Option<KeyId>>,
+    pub(crate) attrs: PlannedAttrs,
+    pub(crate) rules: Vec<PlannedRule>,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct PlannedAttrs {
+    /// Sorted output keys that copied properties may not take, as these attributes replace them.
+    pub(crate) overrides: Vec<KeyId>,
     /// Computed attributes present at every zoom of the layer.
     pub(crate) computed: Vec<PlannedAttr>,
     /// Computed attributes present at some zooms only.
@@ -204,20 +252,38 @@ pub(crate) struct PlannedLayer {
 }
 
 #[derive(Debug)]
+pub(crate) struct PlannedRule {
+    /// Index into [`Plan::exprs`]; `None` matches every feature.
+    pub(crate) when: Option<usize>,
+    pub(crate) minzoom: Option<PlannedZoom>,
+    pub(crate) maxzoom: Option<PlannedZoom>,
+    pub(crate) simplify: PixelThreshold,
+    pub(crate) min_size: PixelThreshold,
+    /// `None` keeps the layer's.
+    pub(crate) attrs: Option<PlannedAttrs>,
+}
+
+#[derive(Debug)]
+pub(crate) enum PlannedZoom {
+    Fixed(u8),
+    Expr(usize),
+}
+
+#[derive(Debug)]
 pub(crate) enum PlannedId {
     Keep,
     Drop,
     Expr(usize),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct PlannedAttr {
     pub(crate) key: KeyId,
     pub(crate) value: PlannedValue,
     pub(crate) zooms: RangeInclusive<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum PlannedValue {
     Literal(Prop),
     Expr(usize),
@@ -240,7 +306,9 @@ impl Plan {
             let start = layers.len();
             let first_expr = exprs.len();
             let mut reads = BTreeSet::new();
+            let mut rules = false;
             for def in table.layers {
+                rules |= !def.rules.is_empty();
                 if !names.insert(def.name.clone()) {
                     return Err(TileGenError::DuplicateLayer(def.name));
                 }
@@ -269,7 +337,7 @@ impl Plan {
                 columns: table.columns,
                 dynamic_props: table.dynamic_props,
                 layers: start..layers.len(),
-                evaluates: exprs.len() > first_expr,
+                evaluates: rules || exprs.len() > first_expr,
             });
         }
         Ok(Self {
@@ -325,19 +393,14 @@ fn plan_layer(
     def: LayerDef,
     compiler: &mut Compiler<'_>,
 ) -> TileGenResult<PlannedLayer> {
-    let (keys, mut copy) = layer_keys(&def, compiler.columns, compiler.dynamic_props)?;
+    let (mut keys, mut copy) = layer_keys(&def, compiler.columns, compiler.dynamic_props)?;
     let (computed, banded) = plan_computed(&def, compiler, &mut copy)?;
-    let mut bands: Vec<u8> = banded
-        .iter()
-        .flat_map(|attr| [*attr.zooms.start(), attr.zooms.end().saturating_add(1)])
-        .chain([*def.zooms.start()])
-        .filter(|zoom| def.zooms.contains(zoom))
-        .collect();
-    bands.sort_unstable();
-    bands.dedup();
-    if banded.is_empty() {
-        bands.clear();
-    }
+    let attrs = PlannedAttrs {
+        overrides: Vec::new(),
+        bands: zoom_bands(&banded, &def.zooms),
+        computed,
+        banded,
+    };
     let filter = compiler.plan(def.filter.as_ref())?;
     let minzoom = compiler.plan(def.minzoom_expr.as_ref())?;
     let maxzoom = compiler.plan(def.maxzoom_expr.as_ref())?;
@@ -349,6 +412,11 @@ fn plan_layer(
             PlannedId::Expr(compiler.add(source, expr))
         }
     };
+    let rules = def
+        .rules
+        .iter()
+        .map(|rule| plan_rule(&def, rule, compiler, &mut keys, &attrs))
+        .collect::<TileGenResult<_>>()?;
     let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid)?;
     render.clip = def.clip;
     render.bounds = def.bounds.map(crate::render::unit_bounds);
@@ -370,9 +438,143 @@ fn plan_layer(
         attributes: def.attributes,
         keys,
         copy,
-        computed,
-        banded,
-        bands,
+        attrs,
+        rules,
+    })
+}
+
+/// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
+fn zoom_bands(banded: &[PlannedAttr], zooms: &RangeInclusive<u8>) -> Vec<u8> {
+    if banded.is_empty() {
+        return Vec::new();
+    }
+    let mut bands: Vec<u8> = banded
+        .iter()
+        .flat_map(|attr| [*attr.zooms.start(), attr.zooms.end().saturating_add(1)])
+        .chain([*zooms.start()])
+        .filter(|zoom| zooms.contains(zoom))
+        .collect();
+    bands.sort_unstable();
+    bands.dedup();
+    bands
+}
+
+/// The attribute's zooms within the layer's, if any.
+fn attr_zooms(attr: &ComputedAttr, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
+    let lo = (*attr.zooms.start()).max(*zooms.start());
+    let hi = (*attr.zooms.end()).min(*zooms.end());
+    (lo <= hi).then_some(lo..=hi)
+}
+
+fn check_duplicates<'a>(
+    layer: &str,
+    keys: impl IntoIterator<Item = &'a String>,
+) -> TileGenResult<()> {
+    let mut seen = HashSet::new();
+    for key in keys {
+        if !seen.insert(key) {
+            return Err(TileGenError::DuplicateAttribute {
+                layer: layer.to_owned(),
+                key: key.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// A rule's attributes are planned with the layer's they keep, and add their names to `keys`.
+fn plan_rule(
+    def: &LayerDef,
+    rule: &RuleDef,
+    compiler: &mut Compiler<'_>,
+    keys: &mut Vec<String>,
+    layer: &PlannedAttrs,
+) -> TileGenResult<PlannedRule> {
+    let when = compiler.plan(rule.when.as_ref())?;
+    let minzoom = plan_zoom(rule.minzoom.as_ref(), &def.zooms, compiler)?;
+    let maxzoom = plan_zoom(rule.maxzoom.as_ref(), &def.zooms, compiler)?;
+    let attrs = if rule.attributes.is_empty() {
+        None
+    } else {
+        check_duplicates(&def.name, rule.attributes.iter().map(|attr| &attr.name))?;
+        let (mut overrides, mut computed, mut banded) = (Vec::new(), Vec::new(), Vec::new());
+        for attr in &rule.attributes {
+            let pos = keys
+                .iter()
+                .position(|key| *key == attr.name)
+                .unwrap_or_else(|| {
+                    keys.push(attr.name.clone());
+                    keys.len() - 1
+                });
+            let key = key_id(pos);
+            overrides.push(key);
+            let Some(zooms) = attr_zooms(attr, &def.zooms) else {
+                continue;
+            };
+            let everywhere = zooms == def.zooms;
+            let planned = PlannedAttr {
+                key,
+                value: plan_value(&attr.value, compiler)?,
+                zooms,
+            };
+            if everywhere {
+                computed.push(planned);
+            } else {
+                banded.push(planned);
+            }
+        }
+        overrides.sort_unstable();
+        let kept = |attrs: &[PlannedAttr]| -> Vec<PlannedAttr> {
+            attrs
+                .iter()
+                .filter(|attr| overrides.binary_search(&attr.key).is_err())
+                .cloned()
+                .collect()
+        };
+        let (mut layer_computed, mut layer_banded) = (kept(&layer.computed), kept(&layer.banded));
+        layer_computed.append(&mut computed);
+        layer_banded.append(&mut banded);
+        Some(PlannedAttrs {
+            overrides,
+            bands: zoom_bands(&layer_banded, &def.zooms),
+            computed: layer_computed,
+            banded: layer_banded,
+        })
+    };
+    Ok(PlannedRule {
+        when,
+        minzoom,
+        maxzoom,
+        simplify: rule.simplify.unwrap_or(def.simplify),
+        min_size: rule.min_size.unwrap_or(def.min_size),
+        attrs,
+    })
+}
+
+fn plan_zoom(
+    zoom: Option<&ZoomDef>,
+    zooms: &RangeInclusive<u8>,
+    compiler: &mut Compiler<'_>,
+) -> TileGenResult<Option<PlannedZoom>> {
+    Ok(match zoom {
+        None => None,
+        Some(ZoomDef::Fixed(zoom)) => Some(PlannedZoom::Fixed(
+            (*zoom).clamp(*zooms.start(), *zooms.end()),
+        )),
+        Some(ZoomDef::Expr(source)) => {
+            let expr = compiler.compile(source)?;
+            Some(PlannedZoom::Expr(compiler.add(source, expr)))
+        }
+    })
+}
+
+fn plan_value(value: &ValueDef, compiler: &mut Compiler<'_>) -> TileGenResult<PlannedValue> {
+    Ok(match value {
+        ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
+        ValueDef::Expr(source) => {
+            let expr = compiler.compile(source)?;
+            PlannedValue::Expr(compiler.add(source, expr))
+        }
     })
 }
 
@@ -382,23 +584,11 @@ fn layer_keys(
     columns: &[String],
     dynamic_props: bool,
 ) -> TileGenResult<(Vec<String>, Vec<Option<KeyId>>)> {
-    let check_duplicates = |keys: &mut dyn Iterator<Item = &String>| {
-        let mut seen = HashSet::new();
-        for key in keys {
-            if !seen.insert(key) {
-                return Err(TileGenError::DuplicateAttribute {
-                    layer: def.name.clone(),
-                    key: key.clone(),
-                });
-            }
-        }
-        Ok(())
-    };
     let (keys, copied_from) = match &def.attributes {
         AttributesDef::All => (columns.to_vec(), 0),
         AttributesDef::None => (Vec::new(), 0),
         AttributesDef::Columns(keys) => {
-            check_duplicates(&mut keys.iter())?;
+            check_duplicates(&def.name, keys)?;
             if !dynamic_props && let Some(key) = keys.iter().find(|key| !columns.contains(key)) {
                 return Err(TileGenError::UnknownColumn {
                     layer: def.name.clone(),
@@ -411,7 +601,7 @@ fn layer_keys(
             attributes,
             prefixes,
         } => {
-            check_duplicates(&mut attributes.iter().map(|attr| &attr.name))?;
+            check_duplicates(&def.name, attributes.iter().map(|attr| &attr.name))?;
             let mut keys: Vec<String> = attributes.iter().map(|attr| attr.name.clone()).collect();
             keys.extend(
                 columns
@@ -448,12 +638,10 @@ fn plan_computed(
     };
     let zooms = &def.zooms;
     for (pos, attr) in attributes.iter().enumerate() {
-        let lo = (*attr.zooms.start()).max(*zooms.start());
-        let hi = (*attr.zooms.end()).min(*zooms.end());
-        if lo > hi {
+        let Some(attr_zooms) = attr_zooms(attr, zooms) else {
             continue;
-        }
-        let everywhere = lo == *zooms.start() && hi == *zooms.end();
+        };
+        let everywhere = attr_zooms == *zooms;
         let value = match &attr.value {
             ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
             ValueDef::Expr(source) => {
@@ -472,7 +660,7 @@ fn plan_computed(
         let planned = PlannedAttr {
             key: key_id(pos),
             value,
-            zooms: lo..=hi,
+            zooms: attr_zooms,
         };
         if everywhere {
             computed.push(planned);
@@ -655,13 +843,13 @@ mod tests {
         }])
         .unwrap();
         let banded = &plan.layers[0];
-        assert_eq!(banded.bands, [2, 5, 8, 9]);
-        assert_eq!(banded.computed.len(), 1);
-        assert_eq!(banded.banded.len(), 2);
+        assert_eq!(banded.attrs.bands, [2, 5, 8, 9]);
+        assert_eq!(banded.attrs.computed.len(), 1);
+        assert_eq!(banded.attrs.banded.len(), 2);
         let flat = &plan.layers[1];
-        assert_eq!(flat.bands, [] as [u8; 0]);
-        assert_eq!(flat.computed.len(), 1);
-        assert_eq!(flat.banded.len(), 0);
+        assert_eq!(flat.attrs.bands, [] as [u8; 0]);
+        assert_eq!(flat.attrs.computed.len(), 1);
+        assert_eq!(flat.attrs.banded.len(), 0);
         assert!(plan.tables[0].evaluates);
     }
 
@@ -691,8 +879,8 @@ mod tests {
         .unwrap();
         let layer = &plan.layers[0];
         assert_eq!(layer.copy, [Some(KeyId(0)), Some(KeyId(1)), None]);
-        assert_eq!(layer.computed.len(), 1);
-        assert_eq!(layer.banded.len(), 1);
+        assert_eq!(layer.attrs.computed.len(), 1);
+        assert_eq!(layer.attrs.banded.len(), 1);
         assert_eq!(plan.exprs.len(), 2);
     }
 
@@ -722,6 +910,142 @@ mod tests {
         assert_eq!(layer.keys, ["name:en", "name:de"]);
         assert_eq!(layer.copy, [Some(KeyId(1)), None, None]);
         assert!(!plan.tables[0].evaluates);
+    }
+
+    #[test]
+    fn each_rule_plans_its_own_attribute_set() {
+        let attr = |name: &str, expr: &str, zooms| ComputedAttr {
+            name: name.to_owned(),
+            value: ValueDef::Expr(expr.to_owned()),
+            zooms,
+        };
+        let plan = Plan::new(vec![TableDef {
+            columns: vec!["class".to_owned(), "name".to_owned(), "rank".to_owned()],
+            dynamic_props: false,
+            layers: vec![LayerDef {
+                attributes: AttributesDef::Computed {
+                    attributes: vec![
+                        attr("kind", "class", 0..=30),
+                        attr("label", "name + '!'", 0..=30),
+                        attr("rank", "rank", 6..=30),
+                    ],
+                    prefixes: vec![],
+                },
+                rules: vec![
+                    RuleDef {
+                        when: Some("rank > 5".to_owned()),
+                        minzoom: Some(ZoomDef::Fixed(1)),
+                        maxzoom: Some(ZoomDef::Fixed(20)),
+                        attributes: vec![
+                            attr("kind", "'major'", 0..=30),
+                            attr("big", "true", 4..=30),
+                        ],
+                        ..RuleDef::default()
+                    },
+                    RuleDef {
+                        when: Some("rank > 2".to_owned()),
+                        minzoom: Some(ZoomDef::Expr("rank".to_owned())),
+                        ..RuleDef::default()
+                    },
+                    RuleDef {
+                        attributes: vec![attr("label", "name", 0..=30)],
+                        ..RuleDef::default()
+                    },
+                ],
+                ..LayerDef::new("roads", 2..=10, GRID)
+            }],
+        }])
+        .unwrap();
+        let layer = &plan.layers[0];
+        assert_eq!(layer.keys, ["kind", "label", "rank", "big"]);
+        assert_eq!(layer.copy, [Some(KeyId(0)), None, None]);
+        let keys = |attrs: &[PlannedAttr]| -> Vec<u32> { attrs.iter().map(|a| a.key.0).collect() };
+        assert_eq!(keys(&layer.attrs.computed), [1]);
+        assert_eq!(keys(&layer.attrs.banded), [2]);
+        assert_eq!(layer.attrs.bands, [2, 6]);
+
+        let [major, ranked, rest] = layer.rules.as_slice() else {
+            panic!("three rules");
+        };
+        assert!(matches!(major.minzoom, Some(PlannedZoom::Fixed(2))));
+        assert!(matches!(major.maxzoom, Some(PlannedZoom::Fixed(10))));
+        let major = major.attrs.as_ref().unwrap();
+        assert_eq!(major.overrides, [KeyId(0), KeyId(3)]);
+        assert_eq!(keys(&major.computed), [1, 0]);
+        assert_eq!(keys(&major.banded), [2, 3]);
+        assert_eq!(major.bands, [2, 4, 6]);
+
+        assert!(matches!(ranked.minzoom, Some(PlannedZoom::Expr(_))));
+        assert!(ranked.attrs.is_none());
+
+        assert_eq!(rest.when, None);
+        let rest = rest.attrs.as_ref().unwrap();
+        assert_eq!(rest.overrides, [KeyId(1)]);
+        assert_eq!(keys(&rest.computed), [1]);
+        assert_eq!(keys(&rest.banded), [2]);
+        assert_eq!(rest.bands, [2, 6]);
+        let exprs: Vec<_> = plan.exprs.iter().map(|e| e.source.as_str()).collect();
+        assert_eq!(
+            exprs,
+            [
+                "name + '!'",
+                "rank",
+                "rank > 5",
+                "'major'",
+                "true",
+                "rank > 2",
+                "rank",
+                "name"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_rule_without_expressions_still_evaluates_the_table() {
+        let plan = Plan::new(vec![TableDef {
+            columns: vec![],
+            dynamic_props: false,
+            layers: vec![LayerDef {
+                rules: vec![RuleDef {
+                    simplify: Some(PixelThreshold::ZERO),
+                    ..RuleDef::default()
+                }],
+                ..LayerDef::new("roads", 0..=14, GRID)
+            }],
+        }])
+        .unwrap();
+        assert!(plan.tables[0].evaluates);
+        assert_eq!(plan.layers[0].rules[0].simplify, PixelThreshold::ZERO);
+        assert_eq!(
+            plan.layers[0].rules[0].min_size,
+            PixelThreshold::PLANETILER_MIN_SIZE
+        );
+    }
+
+    #[test]
+    fn rejects_a_rule_repeating_an_attribute() {
+        let attr = |name: &str| ComputedAttr {
+            name: name.to_owned(),
+            value: ValueDef::Literal(Prop::Bool(true)),
+            zooms: 0..=30,
+        };
+        let err = Plan::new(vec![TableDef {
+            columns: vec![],
+            dynamic_props: false,
+            layers: vec![LayerDef {
+                rules: vec![RuleDef {
+                    when: Some("true".to_owned()),
+                    attributes: vec![attr("big"), attr("big")],
+                    ..RuleDef::default()
+                }],
+                ..LayerDef::new("roads", 0..=14, GRID)
+            }],
+        }])
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "layer `roads`: attribute `big` is listed more than once"
+        );
     }
 
     #[test]

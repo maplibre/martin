@@ -1,0 +1,25 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: metadata
+---
+agg_tiles_hash = 4616B540BC4BF04DF28D594BC871E559
+format = mlt
+generator = martin generate v[VERSION]
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "band": "String",
+        "half": "Number",
+        "number": "Number"
+      },
+      "id": "ranked",
+      "maxzoom": 2,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 2
+minzoom = 0
+name = rules

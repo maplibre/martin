@@ -83,6 +83,7 @@ Each layer can set:
 | `where`                           | An expression: only features for which it is `true`                                             |
 | `attributes`                      | A list of properties, `[]` for none; `name:*` takes the columns starting with `name:`; or a map |
 | `id`                              | `keep` (default), `drop`, or `{ expr: ... }`                                                    |
+| `rules`                           | Settings for the features matching a condition                                                  |
 
 Only the properties some layer needs are read. A named attribute that is not a column is a key of
 the table's `jsonb` column; a prefix such as `name:*` only matches columns, not `jsonb` keys.
@@ -118,10 +119,35 @@ column), `{ value: ... }`, a number or a boolean is a literal, and `{ expr: ...,
 maxzoom: ... }` only appears at those zooms. An expression that is `null` leaves the attribute out.
 `"name:*": "name:*"` copies the columns starting with `name:`.
 
+### Rules
+
+`rules` is a list; the first rule whose `where` holds for a feature applies to it, and a last rule
+without `where` takes every other feature. A feature that matches no rule keeps the layer's settings.
+
+```yaml
+layers:
+  roads:
+    attributes:
+      kind: class
+    rules:
+      - where: "class == 'motorway'"
+        minzoom: 4
+        attributes:
+          kind: { value: major }
+      - where: "class == 'path'"
+        minzoom: 12
+        simplify: 0
+      - minzoom: 8
+```
+
+A rule can set `minzoom` and `maxzoom` (numbers or expressions), `simplify`, `min_size`, and
+`attributes`. Its `simplify` and `min_size` also apply at the max zoom. Its attributes replace the
+layer's attributes of the same name, at all zooms, and add the others.
+
 ### Not supported yet
 
-These are rejected: `rules`, `sort_by`, `geometry` other than `point`, `line` and `polygon`, and
-any `tile` operation. `prefetch` only applies to the tile server.
+These are rejected: `sort_by`, `geometry` other than `point`, `line` and `polygon`, and any `tile`
+operation. `prefetch` only applies to the tile server.
 
 ## How it works
 
