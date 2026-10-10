@@ -8,6 +8,8 @@ pub enum TilingConfigError {
     InvalidExpr { expr: String, reason: String },
     #[error("minzoom {min} is above maxzoom {max}")]
     MinzoomAboveMaxzoom { min: u8, max: u8 },
+    #[error("source `{id}`: minzoom {min} is above maxzoom {max}")]
+    SourceMinzoomAboveMaxzoom { id: String, min: u8, max: u8 },
     #[error(
         "table `{0}`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id`"
     )]
@@ -30,4 +32,8 @@ pub enum TilingConfigError {
     PixelAndMetreLength,
     #[error("`label_grid` needs a `limit`, a `rank_attribute`, or both")]
     LabelGridWithoutKeep,
+    #[error("`role` is listed twice")]
+    RoleTwice,
+    #[error("a relation type needs at least one tag besides `role`")]
+    RelationWithoutTags,
 }
