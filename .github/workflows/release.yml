@@ -271,7 +271,7 @@ jobs:
         name: Setup Node.js
         continue-on-error: true
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: 24 } # the npm the sync-lockfiles autofix job uses; other npm versions shape lock files differently
+        with: { node-version: 24 }
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
       # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
