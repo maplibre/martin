@@ -6,7 +6,7 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::InvalidExpr;
+use super::error::TilingConfigError;
 
 macro_rules! forward_scalars {
     ($target:ty => $wrap:expr; $($visit:ident: $scalar:ty),+ $(,)?) => {
@@ -231,7 +231,7 @@ impl<'de> Deserialize<'de> for Literal {
 pub struct Expr(String);
 
 impl Expr {
-    pub fn new(source: impl Into<String>) -> Result<Self, InvalidExpr> {
+    pub fn new(source: impl Into<String>) -> Result<Self, TilingConfigError> {
         let source = source.into();
         match cel::Program::compile(&source) {
             Ok(_) => Ok(Self(source)),
@@ -240,7 +240,7 @@ impl Expr {
                     .errors
                     .first()
                     .map_or_else(|| errors.to_string(), |e| e.msg.clone());
-                Err(InvalidExpr {
+                Err(TilingConfigError::InvalidExpr {
                     expr: source,
                     reason,
                 })

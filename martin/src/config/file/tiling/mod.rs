@@ -8,14 +8,11 @@ mod zoom;
 
 use std::num::{NonZeroU8, NonZeroU32};
 
-pub use error::{
-    InvalidExpr, MinzoomAboveMaxzoom, RulesError, TileOpError, TilingConfigError, ValueError,
-};
+pub use error::TilingConfigError;
 use indexmap::IndexMap;
 pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
-use setting::fixed_zoom_range;
 pub use setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
 pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
 pub use value::{Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec};
@@ -34,9 +31,7 @@ impl TryFrom<IndexMap<String, Layer>> for Layers {
             return Err(TilingConfigError::NoLayers);
         }
         for (name, layer) in &layers {
-            layer
-                .check()
-                .map_err(|e| TilingConfigError::InLayer(name.clone(), e))?;
+            layer.check(name)?;
         }
         Ok(Self(layers))
     }
@@ -132,8 +127,18 @@ impl Layer {
         self.min_size_at_maxzoom.or(self.min_size)
     }
 
-    fn check(&self) -> Result<(), MinzoomAboveMaxzoom> {
-        fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref()).map(|_| ())
+    fn check(&self, name: &str) -> Result<(), TilingConfigError> {
+        let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
+        match (fixed(self.minzoom.as_ref()), fixed(self.maxzoom.as_ref())) {
+            (Some(min), Some(max)) if min > max => {
+                Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
+                    layer: name.to_owned(),
+                    min: min.get(),
+                    max: max.get(),
+                })
+            }
+            _ => Ok(()),
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::{MinzoomAboveMaxzoom, TileOpError};
+use super::error::TilingConfigError;
 use super::primitives::{Expr, NonEmpty, checked_map};
 use super::setting::{ByZoom, Meters, Pixels};
 use super::zoom::{Zoom, ZoomRange};
@@ -124,11 +124,11 @@ struct RawMergeLines {
 }
 
 impl TryFrom<RawMergeLines> for MergeLines {
-    type Error = TileOpError;
+    type Error = TilingConfigError;
 
-    fn try_from(raw: RawMergeLines) -> Result<Self, TileOpError> {
+    fn try_from(raw: RawMergeLines) -> Result<Self, TilingConfigError> {
         let min_length = match (raw.min_length, raw.min_length_m) {
-            (Some(_), Some(_)) => return Err(TileOpError::PixelAndMetreLength),
+            (Some(_), Some(_)) => return Err(TilingConfigError::PixelAndMetreLength),
             (Some(px), None) => Some(LineLength::Pixels(px)),
             (None, Some(m)) => Some(LineLength::Meters(m)),
             (None, None) => None,
@@ -178,9 +178,9 @@ struct RawMergePolygons {
 }
 
 impl TryFrom<RawMergePolygons> for MergePolygons {
-    type Error = MinzoomAboveMaxzoom;
+    type Error = TilingConfigError;
 
-    fn try_from(raw: RawMergePolygons) -> Result<Self, MinzoomAboveMaxzoom> {
+    fn try_from(raw: RawMergePolygons) -> Result<Self, TilingConfigError> {
         Ok(Self {
             by: raw.by,
             min_area: raw.min_area,
@@ -214,9 +214,9 @@ struct RawZooms {
 }
 
 impl TryFrom<RawZooms> for MergeMulti {
-    type Error = MinzoomAboveMaxzoom;
+    type Error = TilingConfigError;
 
-    fn try_from(raw: RawZooms) -> Result<Self, MinzoomAboveMaxzoom> {
+    fn try_from(raw: RawZooms) -> Result<Self, TilingConfigError> {
         Ok(Self {
             zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
             unrecognized: raw.unrecognized,
@@ -237,9 +237,9 @@ struct RawLabelGrid {
 }
 
 impl TryFrom<RawLabelGrid> for LabelGrid {
-    type Error = TileOpError;
+    type Error = TilingConfigError;
 
-    fn try_from(raw: RawLabelGrid) -> Result<Self, TileOpError> {
+    fn try_from(raw: RawLabelGrid) -> Result<Self, TilingConfigError> {
         let keep = match (raw.limit, raw.rank_attribute) {
             (Some(best), None) => GridKeep::Best(best),
             (None, Some(rank_attribute)) => GridKeep::All { rank_attribute },
@@ -247,7 +247,7 @@ impl TryFrom<RawLabelGrid> for LabelGrid {
                 best,
                 rank_attribute,
             },
-            (None, None) => return Err(TileOpError::LabelGridWithoutKeep),
+            (None, None) => return Err(TilingConfigError::LabelGridWithoutKeep),
         };
         Ok(Self {
             size: raw.size,

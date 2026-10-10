@@ -6,7 +6,7 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::MinzoomAboveMaxzoom;
+use super::error::TilingConfigError;
 use super::primitives::{Expr, Finite, forward_scalars};
 use super::zoom::{Zoom, ZoomRange};
 
@@ -124,7 +124,7 @@ impl<T> PerFeature<T> {
 pub(super) fn fixed_zoom_range(
     minzoom: Option<&ZoomSetting>,
     maxzoom: Option<&ZoomSetting>,
-) -> Result<ZoomRange, MinzoomAboveMaxzoom> {
+) -> Result<ZoomRange, TilingConfigError> {
     let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
     ZoomRange::new(fixed(minzoom), fixed(maxzoom))
 }

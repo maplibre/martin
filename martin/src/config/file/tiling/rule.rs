@@ -5,7 +5,7 @@ use serde::de::value::SeqAccessDeserializer;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::{MinzoomAboveMaxzoom, RulesError};
+use super::error::TilingConfigError;
 use super::primitives::{Expr, NonEmpty};
 use super::setting::{Pixels, ZoomSetting, fixed_zoom_range};
 use super::value::ValueSpec;
@@ -49,7 +49,7 @@ struct RawRule {
 }
 
 impl RawRule {
-    fn split(self) -> Result<(Option<Expr>, RuleSettings), MinzoomAboveMaxzoom> {
+    fn split(self) -> Result<(Option<Expr>, RuleSettings), TilingConfigError> {
         fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref())?;
         let settings = RuleSettings {
             minzoom: self.minzoom,
@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for Rules {
                 let mut fallback = None;
                 for rule in raw {
                     if fallback.is_some() {
-                        return Err(de::Error::custom(RulesError::CatchAllNotLast));
+                        return Err(de::Error::custom(TilingConfigError::CatchAllNotLast));
                     }
                     match rule.split().map_err(de::Error::custom)? {
                         (Some(when), settings) => cases.push(Rule { when, settings }),
@@ -100,7 +100,7 @@ impl<'de> Deserialize<'de> for Rules {
                     }
                 }
                 let cases = NonEmpty::try_from_vec(cases)
-                    .ok_or_else(|| de::Error::custom(RulesError::NoConditionalRule))?;
+                    .ok_or_else(|| de::Error::custom(TilingConfigError::NoConditionalRule))?;
                 Ok(Rules { cases, fallback })
             }
         }
