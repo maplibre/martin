@@ -46,6 +46,8 @@ pub struct Feature<'a> {
     pub id: Option<u64>,
     pub geom: FeatureGeom<'a>,
     pub props: &'a EncodedProps,
+    /// From each zoom on, ascending, these replace `props`.
+    pub bands: &'a [(u8, EncodedProps)],
     /// Rendered only where these meet the layer's zooms.
     pub zooms: RangeInclusive<u8>,
     /// RDP tolerance.
@@ -736,8 +738,13 @@ impl Ctx<'_> {
         )
     }
 
-    fn props_at(&self, _zoom: u8) -> &EncodedProps {
-        self.feature.props
+    fn props_at(&self, zoom: u8) -> &EncodedProps {
+        self.feature
+            .bands
+            .iter()
+            .rev()
+            .find(|(from, _)| *from <= zoom)
+            .map_or(self.feature.props, |(_, props)| props)
     }
 }
 
@@ -898,6 +905,7 @@ mod tests {
                 id: Some(1),
                 geom,
                 props: &EncodedProps::default(),
+                bands: &[],
                 zooms: layer.zooms.clone(),
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::DEFAULT_MIN_SIZE,
@@ -966,6 +974,7 @@ mod tests {
             id: Some(1),
             geom: FeatureGeom::Polygons(polygons),
             props: &EncodedProps::default(),
+            bands: &[],
             zooms: layer.zooms.clone(),
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
@@ -1033,6 +1042,7 @@ mod tests {
                 id: Some(1),
                 geom: FeatureGeom::Lines(&[LineString::from(zigzag)]),
                 props: &EncodedProps::default(),
+                bands: &[],
                 zooms: 0..=8,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
@@ -1119,6 +1129,7 @@ mod tests {
                 id: Some(1),
                 geom: FeatureGeom::Polygons(std::slice::from_ref(&polygon)),
                 props: &EncodedProps::default(),
+                bands: &[],
                 zooms: 4..=4,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::DEFAULT_MIN_SIZE,
@@ -1157,6 +1168,7 @@ mod tests {
                 id: Some(1),
                 geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
                 props: &EncodedProps::default(),
+                bands: &[],
                 zooms: 1..=1,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
@@ -1232,6 +1244,7 @@ mod tests {
                     id: Some(42),
                     geom: FeatureGeom::Points(&[coord! { x: 0.5, y: f64::NAN }]),
                     props: &EncodedProps::default(),
+                    bands: &[],
                     zooms: 0..=2,
                     simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                     min_size: PixelThreshold::DEFAULT_MIN_SIZE,
@@ -1308,6 +1321,7 @@ mod tests {
             id: Some(7),
             geom: FeatureGeom::Points(&[]),
             props: &EncodedProps::default(),
+            bands: &[],
             zooms: 0..=u8::MAX,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
