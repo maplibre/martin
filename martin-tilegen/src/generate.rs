@@ -401,6 +401,8 @@ struct Worker {
     props: EncodedProps,
     /// The props of each zoom band of the current layer, if it has bands.
     bands: Vec<(u8, EncodedProps)>,
+    /// The `sort_by` key of the current feature in the current layer.
+    sort: Vec<u8>,
     /// Output key of each table key interned after the declared columns, by layer; filled lazily.
     dynamic: Vec<Vec<DynamicKey>>,
     slots: PropSlots,
@@ -416,6 +418,7 @@ impl Worker {
             renderer: Renderer::default(),
             props: EncodedProps::default(),
             bands: Vec::new(),
+            sort: Vec::new(),
             dynamic: vec![Vec::new(); plan.layers.len()],
             slots: PropSlots::default(),
             names: keys.names.clone(),
@@ -602,6 +605,29 @@ impl Run<'_> {
         }
     }
 
+    /// The layer's `sort_by` keys, concatenated; a failed one sorts as `null`.
+    fn sort_key(
+        &self,
+        layer: &PlannedLayer,
+        view: &FeatureView<'_, String>,
+        errors: &mut [u64],
+        out: &mut Vec<u8>,
+    ) {
+        out.clear();
+        for &(expr, descending) in &layer.sort_by {
+            if self
+                .eval(expr, view, errors, |v| {
+                    v.encode_sort(descending, out).map(Some)
+                })
+                .is_none()
+            {
+                ExprValue::Null
+                    .encode_sort(descending, out)
+                    .expect("null has a sort key");
+            }
+        }
+    }
+
     fn attr<'v>(
         &self,
         attr: &'v PlannedAttr,
@@ -644,6 +670,7 @@ fn render_batch(
         renderer,
         props,
         bands,
+        sort,
         dynamic,
         slots,
         names,
@@ -689,6 +716,13 @@ fn render_batch(
                 PlannedId::Drop => None,
                 PlannedId::Expr(expr) => view.and_then(|view| run.eval(&expr, view, errors)),
             };
+            let sort_key = match view {
+                Some(view) if !layer.sort_by.is_empty() => {
+                    run.sort_key(layer, view, errors, sort);
+                    Some(sort.as_slice())
+                }
+                _ => None,
+            };
             let (props, bands): (&EncodedProps, &[(u8, EncodedProps)]) = match bands.split_first() {
                 Some((first, rest)) if !attrs.bands.is_empty() => (&first.1, rest),
                 _ => (props, &[]),
@@ -702,6 +736,7 @@ fn render_batch(
                     geom,
                     props,
                     bands,
+                    sort: sort_key,
                     zooms,
                     simplify: rule.map_or(layer.simplify, |rule| rule.simplify),
                     min_size: rule.map_or(layer.min_size, |rule| rule.min_size),

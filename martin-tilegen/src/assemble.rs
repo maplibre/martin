@@ -27,8 +27,9 @@ pub struct LayerAssembler {
     columns: TileColumns,
     schema: Vec<(KeyId, PropKind)>,
     geom: GeomBuf,
+    /// Each feature's records, as a range of the decoded records.
+    features: Vec<Range<usize>>,
     keys: Vec<PropertyKey>,
-    groups: Vec<Range<usize>>,
     text: String,
     texts: Vec<Range<usize>>,
 }
@@ -43,7 +44,8 @@ pub struct AssembledLayer<'a> {
 impl LayerAssembler {
     /// `records` are one layer's records in one tile, in merge (seq) order. Consecutive records of the same
     /// feature are its pieces in this tile (multi-part geometry, or a wrapped antimeridian twin) and become
-    /// one multi-geometry feature; their properties are identical, so the first record's are used.
+    /// one multi-geometry feature; their properties and sort keys are identical, so the first record's are
+    /// used. Features with a sort key are then stably sorted by it.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
@@ -55,8 +57,8 @@ impl LayerAssembler {
             columns,
             schema,
             geom,
+            features,
             keys,
-            groups,
             text,
             texts,
         } = self;
@@ -74,21 +76,25 @@ impl LayerAssembler {
         }
         columns.finish(names, schema);
 
-        groups.clear();
-        let mut start = 0;
+        features.clear();
+        let (mut start, mut sorted) = (0, false);
         while let Some((seq, first)) = decoded.get(start) {
             let len = decoded[start..]
                 .iter()
                 .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
                 .count();
-            groups.push(start..start + len);
+            features.push(start..start + len);
             start += len;
+            sorted |= first.sort.is_some();
+        }
+        if sorted {
+            features.sort_by(|a, b| decoded[a.start].1.sort.cmp(&decoded[b.start].1.sort));
         }
 
         text.clear();
         texts.clear();
-        for group in groups.iter() {
-            for prop in decoded[group.start].1.props() {
+        for range in features.iter() {
+            for prop in decoded[range.start].1.props() {
                 let (key, value) = prop?;
                 if let Some(pos) = columns.position(key)
                     && schema[pos].1 == PropKind::Str
@@ -109,10 +115,11 @@ impl LayerAssembler {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
 
-        for group in groups.iter() {
-            let first = &decoded[group.start].1;
+        for range in features.iter() {
+            let pieces = &decoded[range.clone()];
+            let first = &pieces[0].1;
             geom.clear();
-            for (_, piece) in &decoded[group.clone()] {
+            for (_, piece) in pieces {
                 match piece.kind {
                     GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
                     GeomKind::Point | GeomKind::Line | GeomKind::Polygon => {
@@ -279,7 +286,7 @@ mod tests {
             encoded.push(interner.intern(name), value);
         }
         let mut bytes = Vec::new();
-        encode(&mut bytes, id, &encoded, geom);
+        encode(&mut bytes, id, None, &encoded, geom);
         bytes
     }
 
@@ -376,6 +383,56 @@ mod tests {
             panic!("fill is a polygon")
         };
         assert_eq!(square.exterior().0.first(), Some(&Coord { x: -64, y: -64 }));
+    }
+
+    #[test]
+    fn sort_keys_reorder_whole_features_and_keep_ties_in_seq_order() {
+        let interner = KeyInterner::new::<&str>([]);
+        let names = interner.freeze();
+        let line = |id, sort: &[u8], x| {
+            let mut bytes = Vec::new();
+            encode(
+                &mut bytes,
+                Some(id),
+                Some(sort),
+                &EncodedProps::default(),
+                Geom::Lines {
+                    parts: &[2],
+                    vertices: &[[x, 0], [x, 10]],
+                },
+            );
+            bytes
+        };
+        let seq = |row| Seq::new(0, row).unwrap();
+        let records = [
+            (seq(1), line(1, &[2], 0)),
+            (seq(2), line(2, &[1, 5], 10)),
+            (seq(2), line(2, &[1, 5], 20)),
+            (seq(3), line(3, &[1], 30)),
+            (seq(4), line(4, &[1, 5], 40)),
+        ];
+        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let mut scratch = LayerAssembler::default();
+        let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
+        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let features: Vec<_> = decoded
+            .features()
+            .iter()
+            .map(|f| (f.id(), f.geometry().clone()))
+            .collect();
+        let line = |x| LineString::from(vec![(x, 0), (x, 10)]);
+        assert_eq!(
+            features,
+            [
+                (Some(3), Geometry::LineString(line(30))),
+                (
+                    Some(2),
+                    Geometry::MultiLineString(MultiLineString(vec![line(10), line(20)]))
+                ),
+                (Some(4), Geometry::LineString(line(40))),
+                (Some(1), Geometry::LineString(line(0))),
+            ]
+        );
     }
 
     #[test]
