@@ -27,8 +27,8 @@ use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 /// `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
 /// See <https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788>
 const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
-/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const MINIMUM_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
+/// `PostgreSQL` 12 and 13 are end-of-life.
+const MINIMUM_POSTGRES_VERSION: Version = Version::new(14, 0, 0);
 /// Pause between two attempts at the first connection.
 const RETRY_INTERVAL: Duration = Duration::from_millis(500);
 /// How long the first connection may take before Martin says it is still retrying.
@@ -495,7 +495,7 @@ mod tests {
 
     use super::*;
 
-    async fn start_postgres_12_with_postgis_3_5_container()
+    async fn start_postgres_14_with_postgis_3_5_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -503,7 +503,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("12-3.5") // purposely very old and stable
+                .with_tag("14-3.5") // purposely very old and stable
                 .start()
                 .await
         })
@@ -519,7 +519,7 @@ mod tests {
 
     #[tokio::test]
     async fn parse_version() {
-        let node = start_postgres_12_with_postgis_3_5_container().await;
+        let node = start_postgres_14_with_postgis_3_5_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())
@@ -546,8 +546,8 @@ mod tests {
         let pg_version = get_postgres_version(&conn)
             .await
             .expect("postgres version can be retrieved");
-        assert_eq!(pg_version.major, 12);
-        assert!(pg_version.minor >= 22); // we don't want to break this testcase just because postgis updates that image
+        assert_eq!(pg_version.major, 14);
+        assert!(pg_version.minor >= 18); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
 
         let postgis_version = get_postgis_version(&conn)
@@ -609,7 +609,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("12-3.5")
+                .with_tag("14-3.5")
                 .with_copy_to(
                     "/certs/server.crt".to_owned(),
                     certs.server_cert_pem.clone().into_bytes(),
