@@ -27,7 +27,7 @@ use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 /// `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
 /// See <https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788>
 const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
-/// `PostgreSQL` 12, 13 and 14 are end-of-life.
+/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://www.postgresql.org/support/versioning/)
 const MINIMUM_POSTGRES_VERSION: Version = Version::new(15, 0, 0);
 /// Pause between two attempts at the first connection.
 const RETRY_INTERVAL: Duration = Duration::from_millis(500);
