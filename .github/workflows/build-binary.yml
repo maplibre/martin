@@ -31,6 +31,10 @@ on:
         required: false
         type: boolean
         default: true
+      pgo:
+        description: 'Apply PGO (and BOLT on x86) to the Docker binaries.'
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -40,7 +44,7 @@ jobs:
   build:
     name: Build ${{ inputs.target }}
     runs-on: ${{ inputs.os }}
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.pgo && 180 || 90 }}
     permissions:
       contents: read
     env:
@@ -48,6 +52,18 @@ jobs:
       # or empty for PR debug builds to reduce CI build time.
       RELEASE_MODE: ${{ inputs.release_mode && '1' || '' }}
       LEGACY_CPU: ${{ inputs.legacy_cpu && '1' || '' }}
+    services:
+      postgres:
+        # Multiarch PostGIS for native x86 and ARM profiling.
+        image: ${{ inputs.pgo && 'ghcr.io/baosystems/postgis:18-3.6@sha256:8784f86b3e0e046859c96ea25eb8b10f0b801fd891b99a82b82f28ac4a643db8' || '' }}
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432/tcp]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
@@ -64,6 +80,39 @@ jobs:
         with: { version: '0.15.1', use-cache: false }
       - name: Rust Versions
         run: rustc --version && cargo --version
+      - name: Install PGO tooling
+        if: inputs.pgo
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with: { tool: oha@1.16.0 }
+      - name: Install cargo-pgo and LLVM tooling
+        if: inputs.pgo
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-pgo --version 0.3.0 --locked
+          sudo apt-get update
+          sudo apt-get install -y sqlite3 postgresql-client
+          if [[ "$TARGET" == x86_64-unknown-linux-gnu ]]; then
+            llvm_major=$(rustc -vV | sed -n 's/^LLVM version: \([0-9]*\).*/\1/p')
+            source /etc/os-release
+            curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /usr/share/keyrings/llvm.asc > /dev/null
+            echo "deb [signed-by=/usr/share/keyrings/llvm.asc] https://apt.llvm.org/$VERSION_CODENAME/ llvm-toolchain-$VERSION_CODENAME-$llvm_major main" | sudo tee /etc/apt/sources.list.d/llvm.list
+            sudo apt-get update
+            sudo apt-get install -y "bolt-$llvm_major"
+            sudo ln -s "/usr/bin/llvm-bolt-$llvm_major" /usr/local/bin/llvm-bolt
+            sudo ln -s "/usr/bin/merge-fdata-$llvm_major" /usr/local/bin/merge-fdata
+            sudo ln -s "/usr/lib/llvm-$llvm_major/lib/libbolt_rt_instr.a" /usr/local/lib/libbolt_rt_instr.a
+          fi
+      - name: Initialize profiling database
+        if: inputs.pgo
+        env:
+          PGDATABASE: test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: ${{ job.services.postgres.ports['5432'] }}
+        run: tests/fixtures/initdb.sh
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
@@ -72,10 +121,55 @@ jobs:
         run: just install-dependencies
 
       - name: Build ${{ inputs.target }}
-        if: ${{ !inputs.musl && !inputs.full }}
+        if: ${{ !inputs.musl && !inputs.full && !inputs.pgo }}
         env:
           TARGET: ${{ inputs.target }}
         run: just build-release "$TARGET"
+      - name: Build optimized ${{ inputs.target }}
+        if: inputs.pgo
+        env:
+          TARGET: ${{ inputs.target }}
+          DATABASE_URL: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/test
+        run: |
+          set -euo pipefail
+          just fetch prepare-mbtiles
+          target_dir="${CARGO_TARGET_DIR:-target}"
+          binary="$target_dir/$TARGET/release/martin"
+          export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
+          if [[ "$TARGET" == x86_64-unknown-linux-gnu && -z "${LEGACY_CPU:-}" ]]; then
+              export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
+          fi
+          train() {
+              "$1" --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
+              server=$!
+              trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
+              for _attempt in {1..60}; do
+                  kill -0 "$server"
+                  if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
+                  sleep 1
+              done
+              curl -fsS http://localhost:3000/health > /dev/null
+              just bench-http 20000 20000
+              kill -TERM "$server"
+              wait "$server"
+              trap - EXIT
+          }
+          cargo build --release --target "$TARGET" --package mbtiles --locked
+          cargo pgo build -- --target "$TARGET" --package martin --bin martin --locked
+          train "$binary"
+          # BOLT rejects ARM Cortex-A53 linker veneers; keep the ARM image on PGO.
+          if [[ "$TARGET" == x86_64-unknown-linux-gnu ]]; then
+              cargo pgo bolt build --with-pgo -- --target "$TARGET" --package martin --bin martin --locked
+              train "$binary-bolt-instrumented"
+              cargo pgo bolt optimize --with-pgo -- --target "$TARGET" --package martin --bin martin --locked
+              binary="$binary-bolt-optimized"
+          else
+              cargo pgo optimize -- --target "$TARGET" --package martin --bin martin --locked
+          fi
+          mkdir -p target_releases
+          cp "$binary" target_releases/martin
+          cp "$target_dir/$TARGET/release/mbtiles" target_releases/mbtiles
+          strip target_releases/martin target_releases/mbtiles
       - name: Build ${{ inputs.target }} (full)
         if: ${{ inputs.full }}
         env:
@@ -87,6 +181,7 @@ jobs:
           TARGET: ${{ inputs.target }}
         run: just build-release-musl "$TARGET"
       - name: Move ${{ inputs.target }} artefacts to the target_releases directory
+        if: ${{ !inputs.pgo }}
         env:
           TARGET: ${{ inputs.target }}
         run: just move-artifacts "$TARGET"
