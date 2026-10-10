@@ -673,8 +673,8 @@ jobs:
     # server cert copied out of the service container into PGSSLROOTCERT.
     services:
       # These must match the versions of postgres used in the docker-compose.yml
-      pg12-alpine:
-        image: postgis/postgis:17-3.5-alpine
+      pg15-alpine:
+        image: postgis/postgis:15-3.5-alpine
         ports:
           - 5432/tcp
         options: >-
@@ -689,7 +689,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:17-3.5-alpine
+          postgis/postgis:15-3.5-alpine
           -c "exec docker-entrypoint.sh postgres -c max_connections=200"
       pg18-alpine:
         image: postgis/postgis:18-3.6-alpine
@@ -724,10 +724,10 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest,fast-mvt', rendering: true, cache: true, coverage: true }
       - parallel:
-          - name: Init pg12-alpine database
+          - name: Init pg15-alpine database
             run: tests/fixtures/initdb.sh
             env:
-              PGPORT: ${{ job.services['pg12-alpine'].ports[5432] }}
+              PGPORT: ${{ job.services['pg15-alpine'].ports[5432] }}
           - name: Init pg18-alpine database
             run: tests/fixtures/initdb.sh
             env:
@@ -739,12 +739,12 @@ jobs:
       - name: Start the docker compose database once, so the parallel test runs don't race to create it
         run: just start
       - parallel:
-          - name: Unit Tests postgis:17-3.5-alpine sslmode=disable
+          - name: Unit Tests postgis:15-3.5-alpine sslmode=disable
             run: &unit-tests |
               echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
               just test-pg
             env:
-              DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+              DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg15-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
           - name: Unit Tests postgis:18-3.6-alpine sslmode=disable
             run: *unit-tests
             env:
@@ -772,13 +772,13 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-      - name: Release binary tests postgis:17-3.5-alpine sslmode=disable
+      - name: Release binary tests postgis:15-3.5-alpine sslmode=disable
         run: &release-config-tests |
           export MARTIN_BIN=target_releases/martin
           export MBTILES_BIN=target_releases/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg15-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
       - name: Release binary tests postgis:18-3.6-alpine sslmode=disable
         run: *release-config-tests
         env:
@@ -802,14 +802,14 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
           AWS_REGION: eu-central-1
-      - name: Debian package tests postgis:17-3.5-alpine sslmode=disable
+      - name: Debian package tests postgis:15-3.5-alpine sslmode=disable
         if: inputs.run-release-builds
         run: &debian-config-tests |
           export MARTIN_BIN=/usr/bin/martin
           export MBTILES_BIN=/usr/bin/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg12-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg15-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
       - name: Debian package tests postgis:18-3.6-alpine sslmode=disable
         if: inputs.run-release-builds
         run: *debian-config-tests

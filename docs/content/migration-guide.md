@@ -14,7 +14,7 @@ Use this guide to update an existing Martin setup after a major release. See the
 
 Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.
 
-Review [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
+Review the [database versions](#postgresql-sources-need-postgresql-15-and-postgis-35), [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
 
 ### `martin-cp` is now `martin cp`
 
@@ -63,6 +63,18 @@ A server side rewritten archive may only show up on the visitor's next load due 
     ```
 
     See [Tile Sources](sources-tiles/index.md).
+
+### PostgreSQL sources need PostgreSQL 15 and PostGIS 3.5
+
+Martin 2.0 refuses to start against older databases, where 1.x accepted PostgreSQL 11 and PostGIS 3.0.
+Upgrade the database before upgrading Martin.
+
+| Requirement | 1.x | 2.0 |
+| ----------- | --- | --- |
+| PostgreSQL  | 11  | 15  |
+| PostGIS     | 3.0 | 3.5 |
+
+PostgreSQL 12, 13 and 14 are end-of-life, and PostGIS 3.5 fixes geometry that older versions hid on some zoom levels.
 
 ### PostgreSQL settings come from the command line or the configuration file
 
