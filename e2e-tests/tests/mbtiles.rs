@@ -65,6 +65,7 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
     let tile = martin.get("/geography-class-jpg/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
@@ -108,6 +109,7 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
     let tile = martin.get("/geography-class-png/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 9
     content-type: image/png
     etag: "AsEwc3Kp5v5Qd7xgb4RDuA"
@@ -169,6 +171,7 @@ async fn an_mvt_source_serves_a_decodable_tile() {
     let tile = martin.get("/world_cities/2/3/1").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 263
     content-type: application/x-protobuf
@@ -272,6 +275,7 @@ async fn a_normalized_source_serves_its_tilejson() {
     let tile = martin.get("/normalized-dedup-id/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
@@ -368,6 +372,7 @@ async fn reload_adds_and_updates_a_source() {
     let tile = martin.get("/world_cities/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 1107
     content-type: application/x-protobuf
