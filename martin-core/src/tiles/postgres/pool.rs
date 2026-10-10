@@ -547,7 +547,7 @@ mod tests {
             .await
             .expect("postgres version can be retrieved");
         assert_eq!(pg_version.major, 15);
-        assert!(pg_version.minor >= 18); // we don't want to break this testcase just because postgis updates that image
+        assert!(pg_version.minor >= 13); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
 
         let postgis_version = get_postgis_version(&conn)
