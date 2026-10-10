@@ -1,0 +1,19 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: tile_listing(&output).await
+---
+0/0/0 651 bytes
+1/0/0 214 bytes
+1/0/1 330 bytes
+1/1/0 330 bytes
+1/1/1 966 bytes
+2/1/1 42 bytes
+2/1/2 161 bytes
+2/2/1 142 bytes
+2/2/2 497 bytes
+2/3/2 64 bytes
+3/3/3 42 bytes
+3/3/4 161 bytes
+3/4/3 150 bytes
+3/4/4 522 bytes
+3/7/4 64 bytes

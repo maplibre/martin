@@ -36,7 +36,8 @@ async fn generates_a_valid_tileset() {
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
-                  layer_id: mixed
+                  layers:
+                    mixed: {}
         "},
     )
     .expect("failed to write the config");
@@ -113,7 +114,8 @@ async fn generates_pmtiles_with_the_same_tiles() {
                   geometry_type: GEOMETRY
                   properties:
                     gid: int4
-                  layer_id: mixed
+                  layers:
+                    mixed: {}
         "},
     )
     .expect("failed to write the config");
@@ -425,6 +427,68 @@ async fn help_lists_the_options() {
         Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
         whole tilesets.
         ");
+    });
+}
+
+#[tokio::test]
+async fn one_table_feeds_several_layers() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    shapes:
+                      maxzoom: 1
+                      attributes: []
+                      id: drop
+                    points:
+                      minzoom: 1
+                      geometry: point
+                    lines:
+                      geometry: line
+                      buffer: 0
+                      simplify: 0
+                    detail:
+                      minzoom: 10
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("layers.mbtiles");
+    let log = MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    assert!(
+        log.contains("Skipping layer `detail` of source `table_source`"),
+        "{log}"
+    );
+    MbtilesCli::new("validate").arg(&output).run().await;
+    insta::assert_snapshot!("layers_tiles", tile_listing(&output).await);
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+        insta::assert_snapshot!("layers_metadata", metadata);
     });
 }
 

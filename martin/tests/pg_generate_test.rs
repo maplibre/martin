@@ -1,17 +1,23 @@
 #![cfg(all(feature = "test-pg", feature = "unstable-generate"))]
 #![expect(clippy::panic, clippy::unwrap_used)]
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
-use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
+use indoc::indoc;
+use martin::config::file::postgres::{
+    PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo,
+};
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
-use martin::generate::postgres::{PgScanSource, ScanLayer};
+use martin::generate::layers::{LowerOptions, lower_table};
+use martin::generate::postgres::{PgScanSource, ScanTable};
 use martin_core::generate::source::FeatureSource as _;
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, open_scan_connection};
-use martin_tile_utils::Encoding;
+use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
+use mlt_core::{Decoder, Parser};
 
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
@@ -24,7 +30,7 @@ const TABLES: [&str; 5] = [
     "MixPoints",
 ];
 
-async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
+async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     let mut config = PostgresConfig {
         connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
         ..PostgresConfig::default()
@@ -39,26 +45,31 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
     .await
     .unwrap();
     let (specs, _) = builder.discover().await.unwrap();
-    let layers = TABLES
-        .iter()
-        .map(|&name| {
-            let Some(SourceSpec::Table(info)) = specs.get(name) else {
-                panic!("no table source {name}")
-            };
-            ScanLayer {
-                name: name.to_owned(),
-                info: info.clone(),
-                zooms: 0..=6,
-                bbox: None,
-            }
-        })
-        .collect();
-    (builder, layers)
+    (builder, specs.into_iter().collect())
 }
 
-async fn run(dir: &Path, threads: usize) -> (u32, u64, Vec<Row>) {
-    let (builder, layers) = discover().await;
-    let source = PgScanSource::new(builder.pool().clone(), layers).unwrap();
+fn table_info(specs: &BTreeMap<String, SourceSpec>, name: &str) -> TableInfo {
+    let Some(SourceSpec::Table(info)) = specs.get(name) else {
+        panic!("no table source {name}")
+    };
+    info.clone()
+}
+
+fn lower(name: &str, info: TableInfo) -> ScanTable {
+    let options = LowerOptions {
+        zooms: 0..=6,
+        bbox: None,
+    };
+    lower_table(name, info, &options).unwrap().unwrap()
+}
+
+async fn run(
+    builder: &PostgresAutoDiscoveryBuilder,
+    tables: Vec<ScanTable>,
+    dir: &Path,
+    threads: usize,
+) -> (u32, u64, Vec<Row>) {
+    let source = PgScanSource::new(builder.pool().clone(), tables).unwrap();
     let partitions = source.partitions();
     let path = dir.join(format!("out-{threads}.mbtiles"));
     let sort_dir = dir.to_path_buf();
@@ -107,17 +118,99 @@ async fn run(dir: &Path, threads: usize) -> (u32, u64, Vec<Row>) {
 #[tokio::test(flavor = "multi_thread")]
 async fn render_threads_do_not_change_the_output() {
     let dir = tempfile::tempdir().unwrap();
-    let (partitions, features, rows) = run(dir.path(), 1).await;
+    let (builder, specs) = discover().await;
+    let tables = || {
+        TABLES
+            .iter()
+            .map(|&name| lower(name, table_info(&specs, name)))
+            .collect::<Vec<_>>()
+    };
+    let (partitions, features, rows) = run(&builder, tables(), dir.path(), 1).await;
     assert_eq!(partitions, 5);
     assert!(features > 0);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 6));
-    let (threaded_partitions, threaded_features, threaded_rows) = run(dir.path(), 4).await;
+    let (threaded_partitions, threaded_features, threaded_rows) =
+        run(&builder, tables(), dir.path(), 4).await;
     assert_eq!(threaded_partitions, partitions);
     assert_eq!(threaded_features, features);
     assert!(
         threaded_rows == rows,
         "render threads must not change the output"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn one_table_feeds_two_layers() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let mut info = table_info(&specs, "table_source");
+    info.id_column = Some("gid".to_owned());
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            overview:
+              maxzoom: 1
+              attributes: []
+              id: drop
+            points:
+              minzoom: 1
+              maxzoom: 2
+              geometry: point
+        "})
+        .unwrap(),
+    ));
+    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 1).await;
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = rows
+        .iter()
+        .flat_map(|row| {
+            let raw = decode_gzip(&row.3).unwrap();
+            Parser::default()
+                .parse_layers(&raw)
+                .unwrap()
+                .into_iter()
+                .map(|layer| {
+                    let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+                    let mut kinds = BTreeMap::<String, usize>::new();
+                    for feature in layer.features() {
+                        let geometry = format!("{:?}", feature.geometry());
+                        let kind = geometry.split('(').next().unwrap_or_default().to_owned();
+                        *kinds.entry(kind).or_default() += 1;
+                    }
+                    let ids = if layer.features().iter().all(|f| f.id().is_some()) {
+                        "ids"
+                    } else if layer.features().iter().all(|f| f.id().is_none()) {
+                        "no ids"
+                    } else {
+                        "some ids"
+                    };
+                    format!(
+                        "{}/{}/{} {} {:?} {ids} {kinds:?}",
+                        row.0,
+                        row.1,
+                        row.2,
+                        layer.name(),
+                        layer.property_names(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @r#"
+    0/0/0 overview [] no ids {"LINESTRING": 3, "MULTILINESTRING": 2, "MULTIPOINT": 2, "MULTIPOLYGON": 2, "POINT": 13, "POLYGON": 3}
+    1/0/0 overview [] no ids {"LINESTRING": 5, "POINT": 2, "POLYGON": 1}
+    1/0/0 points ["gid"] ids {"POINT": 2}
+    1/0/1 overview [] no ids {"LINESTRING": 4, "MULTILINESTRING": 1, "POINT": 2, "POLYGON": 1}
+    1/0/1 points ["gid"] ids {"POINT": 2}
+    1/1/0 overview [] no ids {"LINESTRING": 5, "POINT": 2, "POLYGON": 1}
+    1/1/0 points ["gid"] ids {"POINT": 2}
+    1/1/1 overview [] no ids {"LINESTRING": 5, "MULTILINESTRING": 2, "MULTIPOINT": 2, "MULTIPOLYGON": 2, "POINT": 13, "POLYGON": 3}
+    1/1/1 points ["gid"] ids {"MULTIPOINT": 2, "POINT": 13}
+    2/1/1 points ["gid"] ids {"POINT": 1}
+    2/1/2 points ["gid"] ids {"POINT": 2}
+    2/2/1 points ["gid"] ids {"POINT": 1}
+    2/2/2 points ["gid"] ids {"MULTIPOINT": 2, "POINT": 2}
+    2/3/2 points ["gid"] ids {"POINT": 10}
+    "#);
 }
 
 #[tokio::test]
