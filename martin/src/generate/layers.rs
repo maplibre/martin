@@ -3,9 +3,11 @@
 use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 
+use indexmap::IndexMap;
 use martin_tilegen::expr::CompiledExpr;
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, TableDef, ValueDef,
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, TableDef, ValueDef,
+    ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold, TileGenError};
@@ -15,8 +17,8 @@ use super::postgres::ScanTable;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, Columns, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels,
-    PropertySelector, Value, Zoom, ZoomSetting,
+    Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels,
+    PropertySelector, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
 };
 
 const DEFAULT_EXTENT: u32 = 4096;
@@ -228,8 +230,40 @@ fn lower_layer(
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
-        rules: Vec::new(),
+        rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
     }))
+}
+
+/// The rules in order, then the catch-all; a rule's `simplify` and `min_size` also apply at the max zoom.
+fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
+    let lower = |when: Option<&Expr>, settings: &RuleSettings| {
+        let zoom = |zoom: Option<&ZoomSetting>| {
+            zoom.map(|zoom| match zoom {
+                PerFeature::Fixed(zoom) => ZoomDef::Fixed(zoom.get()),
+                PerFeature::Expr(expr) => ZoomDef::Expr(expr.as_str().to_owned()),
+            })
+        };
+        let threshold = |pixels: Option<Pixels>| {
+            pixels.map(|pixels| PixelThreshold {
+                below_max_zoom: pixels.get(),
+                at_max_zoom: pixels.get(),
+            })
+        };
+        RuleDef {
+            when: when.map(|expr| expr.as_str().to_owned()),
+            minzoom: zoom(settings.minzoom.as_ref()),
+            maxzoom: zoom(settings.maxzoom.as_ref()),
+            simplify: threshold(settings.simplify),
+            min_size: threshold(settings.min_size),
+            attributes: computed_attrs(&settings.attributes),
+        }
+    };
+    rules
+        .cases
+        .iter()
+        .map(|rule| lower(Some(&rule.when), &rule.settings))
+        .chain(rules.fallback.iter().map(|settings| lower(None, settings)))
+        .collect()
 }
 
 fn zoom_expr(zoom: Option<&ZoomSetting>) -> Option<String> {
@@ -240,8 +274,14 @@ fn zoom_expr(zoom: Option<&ZoomSetting>) -> Option<String> {
 }
 
 fn computed(columns: &Columns) -> AttributesDef {
-    let attributes = columns
-        .computed
+    AttributesDef::Computed {
+        attributes: computed_attrs(&columns.computed),
+        prefixes: columns.copied_prefixes.clone(),
+    }
+}
+
+fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr> {
+    attributes
         .iter()
         .map(|(name, spec)| ComputedAttr {
             name: name.clone(),
@@ -255,11 +295,7 @@ fn computed(columns: &Columns) -> AttributesDef {
             zooms: spec.zooms.minzoom().map_or(0, Zoom::get)
                 ..=spec.zooms.maxzoom().map_or(MAX_ZOOM, Zoom::get),
         })
-        .collect();
-    AttributesDef::Computed {
-        attributes,
-        prefixes: columns.copied_prefixes.clone(),
-    }
+        .collect()
 }
 
 fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str> {
@@ -290,8 +326,6 @@ fn unsupported(layer: &Layer) -> Option<String> {
     .find_map(|(op, set)| set.then_some(op));
     if let Some(geometry) = geometry {
         Some(format!("`geometry: {geometry}`"))
-    } else if layer.rules.is_some() {
-        Some("`rules`".to_owned())
     } else if layer.sort_by.is_some() {
         Some("`sort_by`".to_owned())
     } else {
@@ -981,11 +1015,119 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
+    fn rules_lower_into_the_layer() {
+        let scan = lower(
+            indoc! {r#"
+                schema: public
+                table: places
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  name: text
+                  rank: int4
+                  population: int8
+                layers:
+                  places:
+                    attributes:
+                      kind: class
+                    rules:
+                      - where: "class == 'city'"
+                        minzoom: 2
+                        maxzoom: "population > 1000000 ? 14 : 10"
+                        simplify: 2
+                        attributes:
+                          kind: { value: city }
+                          label: { expr: name, minzoom: 6 }
+                      - where: "rank > 3"
+                        min_size: 4
+                      - minzoom: "rank"
+            "#},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
+        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "name", "population", "rank" FROM "public"."places" WHERE "geom" IS NOT NULL"#);
+        insta::assert_debug_snapshot!(scan.table.layers[0].rules, @r#"
+        [
+            RuleDef {
+                when: Some(
+                    "class == 'city'",
+                ),
+                minzoom: Some(
+                    Fixed(
+                        2,
+                    ),
+                ),
+                maxzoom: Some(
+                    Expr(
+                        "population > 1000000 ? 14 : 10",
+                    ),
+                ),
+                simplify: Some(
+                    PixelThreshold {
+                        below_max_zoom: 2.0,
+                        at_max_zoom: 2.0,
+                    },
+                ),
+                min_size: None,
+                attributes: [
+                    ComputedAttr {
+                        name: "kind",
+                        value: Literal(
+                            Str(
+                                "city",
+                            ),
+                        ),
+                        zooms: 0..=27,
+                    },
+                    ComputedAttr {
+                        name: "label",
+                        value: Expr(
+                            "name",
+                        ),
+                        zooms: 6..=27,
+                    },
+                ],
+            },
+            RuleDef {
+                when: Some(
+                    "rank > 3",
+                ),
+                minzoom: None,
+                maxzoom: None,
+                simplify: None,
+                min_size: Some(
+                    PixelThreshold {
+                        below_max_zoom: 4.0,
+                        at_max_zoom: 4.0,
+                    },
+                ),
+                attributes: [],
+            },
+            RuleDef {
+                when: None,
+                minzoom: Some(
+                    Expr(
+                        "rank",
+                    ),
+                ),
+                maxzoom: None,
+                simplify: None,
+                min_size: None,
+                attributes: [],
+            },
+        ]
+        "#);
+    }
+
+    #[test]
     fn unsupported_settings_are_rejected() {
         let layers = [
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
-            "roads: { rules: [ { where: \"class == 'primary'\", minzoom: 4 } ] }",
             "roads: { sort_by: rank }",
             "roads: { tile: { merge_lines: { by: [class] } } }",
             "roads: { tile: { limit: 100 } }",
@@ -1005,7 +1147,6 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by martin generate yet
         layer `roads`: `geometry: label_point` is not supported by martin generate yet
-        layer `roads`: `rules` is not supported by martin generate yet
         layer `roads`: `sort_by` is not supported by martin generate yet
         layer `roads`: `tile: merge_lines` is not supported by martin generate yet
         layer `roads`: `tile: limit` is not supported by martin generate yet

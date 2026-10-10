@@ -309,3 +309,88 @@ async fn a_layer_filters_features_and_computes_attributes() {
     Some(28) [Str(Some("even")), U32(Some(28))]
     "#);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn rules_pick_settings_by_gid_range() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let mut info = table_info(&specs, "table_source");
+    info.id_column = Some("gid".to_owned());
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {r#"
+            ranked:
+              maxzoom: 1
+              where: "gid > 20"
+              attributes:
+                band: { value: low }
+              rules:
+                - where: "gid > 26"
+                  attributes:
+                    band: { value: high }
+                - where: "gid > 23"
+                  minzoom: 1
+                  attributes:
+                    band: { value: mid }
+                    gid: gid
+        "#})
+        .unwrap(),
+    ));
+    let options = ScanOptions {
+        partitions_per_table: 2,
+        min_blocks: 1,
+    };
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        options,
+        2,
+    )
+    .await;
+    let mut decoder = Decoder::default();
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let raw = decode_gzip(&row.3).unwrap();
+            let layers: Vec<_> = Parser::default()
+                .parse_layers(&raw)
+                .unwrap()
+                .into_iter()
+                .map(|layer| {
+                    let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+                    let features: Vec<_> = layer
+                        .features()
+                        .iter()
+                        .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                        .collect();
+                    format!(
+                        "{} {:?}\n{}",
+                        layer.name(),
+                        layer.property_names(),
+                        features.join("\n")
+                    )
+                })
+                .collect();
+            format!("{}/{}/{}\n{}", row.0, row.1, row.2, layers.join("\n"))
+        })
+        .collect();
+    insta::assert_snapshot!(tiles.join("\n"), @r#"
+    0/0/0
+    ranked ["band"]
+    Some(21) [Str(Some("low"))]
+    Some(22) [Str(Some("low"))]
+    Some(23) [Str(Some("low"))]
+    Some(27) [Str(Some("high"))]
+    Some(28) [Str(Some("high"))]
+    1/1/1
+    ranked ["band", "gid"]
+    Some(21) [Str(Some("low")), U32(None)]
+    Some(22) [Str(Some("low")), U32(None)]
+    Some(23) [Str(Some("low")), U32(None)]
+    Some(24) [Str(Some("mid")), U32(Some(24))]
+    Some(25) [Str(Some("mid")), U32(Some(25))]
+    Some(26) [Str(Some("mid")), U32(Some(26))]
+    Some(27) [Str(Some("high")), U32(None)]
+    Some(28) [Str(Some("high")), U32(None)]
+    "#);
+}
