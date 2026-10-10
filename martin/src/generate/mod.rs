@@ -210,6 +210,12 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
             summary.slice_errors
         );
     }
+    for failed in &summary.expr_errors {
+        warn!(
+            "Layer `{}`: `{}` failed {} times and was taken as null",
+            failed.layer, failed.expr, failed.errors
+        );
+    }
     Ok(())
 }
 

@@ -1,0 +1,111 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: "dump.join(\"\\n\")"
+---
+0/0/0
+layer even extent 4096
+  id=Some(200) geom=POINT(2025 2025) props=[number=U32(Some(2)), ratio=I32(Some(-6)), source=Str(Some("fixture"))]
+  id=Some(600) geom=LINESTRING(2389 1934,2162 1690,2503 1551) props=[number=U32(Some(6)), ratio=I32(Some(6)), source=Str(Some("fixture"))]
+  id=Some(800) geom=POLYGON((2162 1816,2219 1551,2560 1473,2446 1934,2162 1816),(2389 1816,2446 1622,2276 1690,2389 1816)) props=[number=U32(Some(8)), ratio=I32(Some(3)), source=Str(Some("fixture"))]
+
+1/0/0
+layer even extent 4096
+  id=Some(200) geom=POINT(4050 -46) props=[number=U32(Some(2)), ratio=I32(Some(-6)), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(4142 -46,4164 -68) props=[number=U32(Some(4)), ratio=I32(None), source=Str(Some("fixture"))]
+
+1/0/1
+layer even extent 4096
+  id=Some(200) geom=POINT(4050 4050) props=[number=U32(Some(2)), ratio=I32(Some(-6)), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(4142 4050,4164 4028) props=[number=U32(Some(4)), ratio=I32(None), source=Str(Some("fixture"))]
+
+1/1/0
+layer even extent 4096
+  id=Some(200) geom=POINT(-46 -46) props=[number=U32(Some(2)), ratio=I32(Some(-6)), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(46 -46,68 -68) props=[number=U32(Some(4)), ratio=I32(None), source=Str(Some("fixture"))]
+
+1/1/1
+layer even extent 4096
+  id=Some(200) geom=POINT(-46 4050) props=[number=U32(Some(2)), ratio=I32(Some(-6)), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(46 4050,68 4028) props=[number=U32(Some(4)), ratio=I32(None), source=Str(Some("fixture"))]
+  id=Some(600) geom=LINESTRING(683 3867,228 3380,910 3101) props=[number=U32(Some(6)), ratio=I32(Some(6)), source=Str(Some("fixture"))]
+  id=Some(800) geom=POLYGON((228 3631,341 3101,1024 2947,796 3867,228 3631),(683 3631,796 3245,455 3380,683 3631)) props=[number=U32(Some(8)), ratio=I32(Some(3)), source=Str(Some("fixture"))]
+
+2/1/1
+layer even extent 4096
+  id=Some(1600) geom=LINESTRING(4096 0,4088 -13,4087 -29,4094 -43,4106 -52,4122 -55,4137 -50,4147 -38,4151 -23,4148 -10,4142 0,4096 -46) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=LINESTRING(4096 0,4117 4,4138 1,4157 -7,4171 -19) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+2/1/2
+layer even extent 4096
+  id=Some(1600) geom=LINESTRING(4096 4096,4088 4083,4087 4067,4094 4053,4106 4044,4122 4041,4137 4046,4147 4058,4151 4073,4148 4086,4142 4096,4096 4050) props=[number=U32(Some(16)), ratio=I32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=MULTILINESTRING((4233 3959,4096 3959),(4096 4096,4117 4100,4138 4097,4157 4089,4171 4077)) props=[number=U32(Some(18)), ratio=I32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(200) geom=POINT(4005 4005) props=[number=U32(Some(2)), ratio=I32(Some(-6)), size=Str(Some("small")), source=Str(Some("fixture"))]
+
+2/2/1
+layer even extent 4096
+  id=Some(1600) geom=LINESTRING(0 0,-8 -13,-9 -29,-2 -43,10 -52,26 -55,41 -50,51 -38,55 -23,52 -10,46 0,0 -46) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=LINESTRING(0 0,21 4,42 1,61 -7,75 -19,87 -36,93 -52,95 -73) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+2/2/2
+layer even extent 4096
+  id=Some(1000) geom=MULTIPOINT(455 2107,1820 2664,910 3167,1365 3639) props=[number=U32(Some(10)), ratio=U32(Some(2)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1200) geom=MULTIPOLYGON(((455 2107,2048 2107,1365 3167,455 2107)),((228 3639,455 3167,1820 3639,683 3868,228 3639))) props=[number=U32(Some(12)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1600) geom=LINESTRING(0 4096,-8 4083,-9 4067,-2 4053,10 4044,26 4041,41 4046,51 4058,55 4073,52 4086,46 4096,0 4050) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=MULTILINESTRING((228 3868,137 3868,137 3959,0 3959),(0 4096,21 4100,42 4097,61 4089,75 4077,87 4060,93 4044,95 4023,91 4005)) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(91 4005,137 3959) props=[number=U32(Some(4)), ratio=U32(None), size=Str(Some("small")), source=Str(Some("fixture"))]
+  id=Some(600) geom=LINESTRING(1365 3639,455 2664,1820 2107) props=[number=U32(Some(6)), ratio=U32(Some(6)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(800) geom=POLYGON((455 3167,683 2107,2048 1798,1593 3639,455 3167),(1365 3167,1593 2394,910 2664,1365 3167)) props=[number=U32(Some(8)), ratio=U32(Some(3)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+2/3/2
+layer even extent 4096
+  id=Some(2000) geom=POINT(2405 3549) props=[number=U32(Some(20)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2200) geom=POINT(2405 3549) props=[number=U32(Some(22)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2400) geom=POINT(2405 3549) props=[number=U32(Some(24)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2600) geom=POINT(2405 3549) props=[number=U32(Some(26)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2800) geom=POINT(2405 3549) props=[number=U32(Some(28)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/3/3
+layer even extent 4096
+  id=Some(1600) geom=MULTILINESTRING((4096 0,4086 -12,4080 -27,4077 -42,4078 -58,4083 -73),(4187 0,4096 -91)) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=LINESTRING(4096 0,4117 5,4138 7,4159 6,4180 2) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/3/4
+layer even extent 4096
+  id=Some(1600) geom=MULTILINESTRING((4096 4096,4086 4084,4080 4069,4077 4054,4078 4038,4083 4023,4092 4010,4103 3999,4117 3991,4132 3987,4148 3986,4163 3990),(4187 4096,4096 4005)) props=[number=U32(Some(16)), ratio=I32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=MULTILINESTRING((4369 3823,4096 3823),(4096 4096,4117 4101,4138 4103,4159 4102,4180 4098)) props=[number=U32(Some(18)), ratio=I32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(200) geom=POINT(3914 3914) props=[number=U32(Some(2)), ratio=I32(Some(-6)), size=Str(Some("small")), source=Str(Some("fixture"))]
+
+3/4/3
+layer even extent 4096
+  id=Some(1600) geom=MULTILINESTRING((0 0,-10 -12,-16 -27,-19 -42,-18 -58,-13 -73),(102 -76,108 -61,110 -46,109 -33,105 -21,99 -10,91 0,0 -91)) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=LINESTRING(0 0,21 5,42 7,63 6,84 2,103 -5,122 -15,139 -27,149 -37,163 -53,174 -71) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/4/4
+layer even extent 4096
+  id=Some(1000) geom=MULTIPOINT(910 117,3641 1231,1820 2237,2731 3181) props=[number=U32(Some(10)), ratio=U32(Some(2)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1200) geom=MULTIPOLYGON(((910 117,4096 117,2731 2237,910 117)),((455 3181,910 2237,3641 3181,1365 3640,455 3181))) props=[number=U32(Some(12)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1600) geom=LINESTRING(0 4096,-10 4084,-16 4069,-19 4054,-18 4038,-13 4023,-4 4010,7 3999,21 3991,36 3987,52 3986,67 3990,81 3997,93 4007,102 4020,108 4035,110 4050,109 4063,105 4075,99 4086,91 4096,0 4005) props=[number=U32(Some(16)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(1800) geom=MULTILINESTRING((455 3640,273 3640,273 3823,0 3823),(0 4096,21 4101,42 4103,63 4102,84 4098,103 4091,122 4081,139 4069,149 4059,163 4043,174 4025,182 4005,186 3991,189 3970,189 3949,186 3928,182 3914)) props=[number=U32(Some(18)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(400) geom=LINESTRING(182 3914,273 3823) props=[number=U32(Some(4)), ratio=U32(None), size=Str(Some("small")), source=Str(Some("fixture"))]
+  id=Some(600) geom=LINESTRING(2731 3181,910 1231,3641 117) props=[number=U32(Some(6)), ratio=U32(Some(6)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(800) geom=POLYGON((910 2237,1365 117,4096 -501,3186 3181,910 2237),(2731 2237,3186 691,1820 1231,2731 2237)) props=[number=U32(Some(8)), ratio=U32(Some(3)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/4/5
+layer even extent 4096
+  id=Some(800) geom=POLYGON((1365 4213,4096 3595,3186 7277,1365 4213)) props=[number=U32(Some(8)), ratio=U32(Some(3)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/5/4
+layer even extent 4096
+  id=Some(1200) geom=POLYGON((-3186 117,0 117,-1365 2237,-3186 117)) props=[number=U32(Some(12)), ratio=U32(Some(1)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/5/5
+layer even extent 4096
+  id=Some(800) geom=POLYGON((-2731 4213,0 3595,-910 7277,-2731 4213)) props=[number=U32(Some(8)), ratio=U32(Some(3)), size=Str(Some("big")), source=Str(Some("fixture"))]
+
+3/7/4
+layer even extent 4096
+  id=Some(2000) geom=POINT(714 3002) props=[number=U32(Some(20)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2200) geom=POINT(714 3002) props=[number=U32(Some(22)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2400) geom=POINT(714 3002) props=[number=U32(Some(24)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2600) geom=POINT(714 3002) props=[number=U32(Some(26)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
+  id=Some(2800) geom=POINT(714 3002) props=[number=U32(Some(28)), ratio=U32(Some(0)), size=Str(Some("big")), source=Str(Some("fixture"))]
