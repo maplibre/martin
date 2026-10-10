@@ -116,6 +116,7 @@ pub struct SrvConfig {
     /// The value is used for responses that do not define a more specific cache policy.
     /// For example: `public, max-age=3600`.
     /// Endpoints with an explicit policy, such as the health check, keep their own header.
+    /// When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
     /// Control access to Martin's web UI. \[default: enable\]
@@ -166,6 +167,17 @@ impl SrvConfig {
         self.cache_control
             .as_ref()
             .map(CacheControlHeader::header_value)
+    }
+
+    /// What `PMTiles` and `MBTiles` tiles carry when no `cache_control` is configured.
+    #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+    #[must_use]
+    pub(crate) fn archive_cache_control(&self) -> Option<CacheControlHeader> {
+        self.cache_control.is_none().then(|| {
+            CacheControlHeader(HeaderValue::from_static(
+                "max-age=0, stale-while-revalidate=86400",
+            ))
+        })
     }
 
     /// The URL path prefix under which Martin is publicly served, derived from
