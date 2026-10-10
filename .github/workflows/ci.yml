@@ -7,9 +7,11 @@ on:
   release:
     types: [ published ]
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'release' }}
 
 defaults:
@@ -20,8 +22,29 @@ permissions:
   contents: read
 
 jobs:
+  nightly-due:
+    name: Decide whether main moved since the last nightly
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+    outputs:
+      due: ${{ steps.due.outputs.due }}
+    steps:
+      - id: due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          last=$(gh run list --workflow ci.yml --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [[ "$last" == "$SHA" ]]; then echo due=false; else echo due=true; fi >> "$GITHUB_OUTPUT"
+
   changes:
     name: Decide which suites this change can affect
+    needs: nightly-due
+    if: ${{ !cancelled() && needs.nightly-due.outputs.due != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -38,8 +61,18 @@ jobs:
       deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
       codeql-languages: ${{ steps.codeql.outputs.languages }}
       run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
-      run-release-builds: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-') }}
+      run-release-builds: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-merge.outputs.merged == 'true' || startsWith(github.head_ref, 'release-plz-') }}
     steps:
+      - name: Check whether this push merged the release PR
+        id: release-merge
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          merged=$(gh api "repos/$GH_REPO/commits/$SHA/pulls" --jq 'any(.[]; .head.ref | startswith("release-plz-"))')
+          echo "merged=$merged" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
@@ -187,7 +220,7 @@ jobs:
       && github.event_name != 'pull_request'
     uses: $/.github/workflows/release.yml
     with:
-      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' && needs.changes.outputs.run-release-builds == 'true' }}
     secrets:
       GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
       RELEASE_PLZ_APP_ID: ${{ secrets.RELEASE_PLZ_APP_ID }}
