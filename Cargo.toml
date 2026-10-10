@@ -223,6 +223,9 @@ zune-jpegxl = "0.5"
 # Until https://github.com/nyurik/map-tile-toolkit/pull/22 (on top of #23) is released:
 # `PolygonSlicerAll` and the exact line walk, needed by martin-tilegen
 map-tile-toolkit = { git = "https://github.com/nyurik/map-tile-toolkit", branch = "line-walk" }
+# Until https://github.com/stadiamaps/pmtiles-rs/pull/142 is released: caller-driven dedup and late
+# header values for the PMTiles sink
+pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "writer-dedup-hint" }
 
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
