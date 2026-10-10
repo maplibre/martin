@@ -335,6 +335,9 @@ fn render_batch(
         let seq = Seq::new(batch.partition, row)?;
         for index in layers.clone() {
             let layer = &plan.layers[index];
+            if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+                continue;
+            }
             worker.props.clear();
             for (key, value) in &feature.props {
                 let output = (&keys.tables[table], &keys.layers[index]);
