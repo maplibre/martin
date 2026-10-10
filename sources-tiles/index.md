@@ -33,3 +33,9 @@ The choice depends on your specific use case and requirements.
 Most vector tile sources support optional [postprocessing](<https://maplibre.org/martin/postprocessing/index.md>) (format conversion) via the `convert_to_mlt` and `convert_to_mvt` configuration keys. DuckDB / GeoParquet sources do not currently support postprocessing.
 
 Tile sources also accept a per-source `cache_control` configuration key that sets the `Cache-Control` response header for that source's tiles, overriding the top-level `cache_control` default. A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.
+
+> [!TIP]
+>
+> **`cache_control` handling**
+>
+> When no `cache_control` is configured, PMTiles and MBTiles tiles set `max-age=0, stale-while-revalidate=86400`. Therefore, a returning visitor's browser draws tiles it has cached right away and checks them with the server in the background. A server side rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached on the client and the `stale-while-revalidate`-check in the background suggests that the tiles martin offers are stale. Set `cache_control: no-cache` if browsers should check every tile before drawing it.

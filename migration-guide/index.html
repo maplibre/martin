@@ -1142,6 +1142,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PMTiles and MBTiles tiles attach the <code>Cache-Control</code> header by default
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#postgresql-settings-come-from-the-command-line-or-the-configuration-file" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1327,7 +1338,7 @@
 <p>Use this guide to update an existing Martin setup after a major release. See the <a href="../changelog/">changelog</a> for other changes.</p>
 <h2 id="from-1x-to-20">From 1.x to 2.0</h2>
 <p>Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.</p>
-<p>Review <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
+<p>Review <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">archive tile caching</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
 <h3 id="martin-cp-is-now-martin-cp"><code>martin-cp</code> is now <code>martin cp</code></h3>
 <p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands.
 The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary.
@@ -1348,6 +1359,18 @@ Use <code>RUST_LOG</code> to control logging.</p>
 <div class="admonition note">
 <p class="admonition-title">Reverse proxies and containers</p>
 <p>Martin checks the TCP peer address, ignoring forwarded headers. A proxy connecting over loopback exposes the web UI to its clients unless you set <code>--webui disable</code>. With Docker bridge networking, connections from the host are not loopback. Use <code>--webui enable-for-all</code> to expose the UI as described in <a href="../run-with-docker/">Running with Docker</a>.</p>
+</div>
+<h3 id="pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">PMTiles and MBTiles tiles attach the <code>Cache-Control</code> header by default</h3>
+<p>When no <code>cache_control</code> is configured, PMTiles and MBTiles tiles have <code>max-age=0, stale-while-revalidate=86400</code> by default.
+1.x sent no <code>Cache-Control</code> header for them.
+This means that a returning visitor's browser can now use tiles which are assumed to be static and only checks them with the server in the background.
+A server side rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached on the client and the <code>stale-while-revalidate</code>-check in the background suggests that the tiles martin offers are stale.</p>
+<div class="admonition tip">
+<p class="admonition-title">Set <code>cache_control: no-cache</code> for browsers to check before drawing it</p>
+<p>A top-level or per-source <code>cache_control</code> replaces this default.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">cache_control</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no-cache</span>
+</span></code></pre></div>
+<p>See <a href="../sources-tiles/">Tile Sources</a>.</p>
 </div>
 <h3 id="postgresql-settings-come-from-the-command-line-or-the-configuration-file">PostgreSQL settings come from the command line or the configuration file</h3>
 <p>Replace these environment variables with command-line options or configuration keys.</p>
@@ -1388,31 +1411,31 @@ Use <code>RUST_LOG</code> to control logging.</p>
 </tbody>
 </table>
 <p>Martin ignores the old variables. Starting with only <code>DATABASE_URL</code> exported fails with <code>No tile sources found</code>. On grids with a coordinate reference system, auto-discovered tables with SRID 0 are skipped with a warning unless you set <code>default_srid</code>. Simple grids use SRID 0 and need no fallback. Client certificates previously supplied through <code>PGSSLCERT</code> are not sent unless you configure them explicitly.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@localhost/db
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>martin
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># 2.0</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>martin<span class="w"> </span>postgres://postgres@localhost/db
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@localhost/db
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>martin
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># 2.0</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>martin<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
 <p>To keep using an environment variable, reference it in the configuration file. See <a href="../config-file/">Configuration</a> for the substitution syntax.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL}</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL}</span>
 </span></code></pre></div>
 <p>With Docker, pass the connection string after the image name or pass the variable to a mounted configuration file.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@postgres.example.org/db<span class="w"> </span>ghcr.io/maplibre/martin
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 2.0</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>postgres://postgres@postgres.example.org/db
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 2.0, keeping the variable</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span>DATABASE_URL<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/config.yaml:/config.yaml"</span><span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>--config<span class="w"> </span>/config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://postgres@postgres.example.org/db<span class="w"> </span>ghcr.io/maplibre/martin
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>postgres://postgres@postgres.example.org/db
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># 2.0, keeping the variable</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span>-e<span class="w"> </span>DATABASE_URL<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/config.yaml:/config.yaml"</span><span class="w"> </span>ghcr.io/maplibre/martin<span class="w"> </span>--config<span class="w"> </span>/config.yaml
 </span></code></pre></div>
 <p>See <a href="../env-vars/">Environment Variables</a> and <a href="../pg-connections/#ssl-connections">SSL Connections</a>.</p>
 <h3 id="default-values-in-the-configuration-file-use-var-default">Default values in the configuration file use <code>${VAR:-default}</code></h3>
 <p>Replace <code>${VAR:default}</code> with <code>${VAR:-default}</code>. The old syntax fails at startup with a substitution error.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:postgres://postgres@localhost/db}</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># 2.0</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:-postgres://postgres@localhost/db}</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:postgres://postgres@localhost/db}</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${DATABASE_URL:-postgres://postgres@localhost/db}</span>
 </span></code></pre></div>
 <h3 id="cache-sizes-have-one-spelling">Cache sizes have one spelling</h3>
 <p>Replace the old cache keys below. Martin reports them as unrecognized and ignores their values, so a cache can fall back to its default size. Most migrated silently in 1.x unless both spellings were set. <code>pmtiles.dir_cache_size_mb</code> was already ignored with a deprecation warning.</p>
@@ -1450,16 +1473,16 @@ Use <code>RUST_LOG</code> to control logging.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">directory_cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># 2.0</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">cache</span><span class="p">:</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">directory_cache</span><span class="p">:</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">directory_cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># 2.0</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nt">cache</span><span class="p">:</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nt">directory_cache</span><span class="p">:</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="nt">size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 </span></code></pre></div>
 <p>See the <code>cache</code> section of the <a href="../config-file/#full-configuration">full configuration</a>.</p>
 <h3 id="object-storage-options-use-their-object_store-names">Object storage options use their <code>object_store</code> names</h3>
@@ -1487,19 +1510,19 @@ Use <code>RUST_LOG</code> to control logging.</p>
 </tbody>
 </table>
 <p>The standard <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> and <code>AWS_REGION</code> variables still work.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">skip_signature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://public-bucket/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">skip_signature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://public-bucket/tiles.pmtiles</span>
 </span></code></pre></div>
 <p>A public bucket previously accessed with <code>AWS_SKIP_CREDENTIALS=1</code> can now fail during instance credential lookup outside AWS. The error does not name the removed variable. Set <code>skip_signature: true</code> for unsigned requests. This requires a configuration file, including when replacing a command such as <code>martin s3://public-bucket/tiles.pmtiles</code>.</p>
 <p>See <a href="../sources-pmtiles/#remote-files-and-prefixes">Remote files and prefixes</a>.</p>
 <h3 id="plain-http-sources-must-opt-in">Plain <code>http://</code> sources must opt in</h3>
 <p>Set <code>allow_http: true</code> in the configuration file for PMTiles or COG sources using <code>http://</code>. It now defaults to <code>false</code>, so plain HTTP sources are refused at startup with an error naming the option. HTTPS URLs are unaffected.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://tiles.internal/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://tiles.internal/tiles.pmtiles</span>
 </span></code></pre></div>
 <p>The bare command <code>martin http://tiles.internal/tiles.pmtiles</code> needs a configuration file to enable <code>allow_http</code>.</p>
 <p>See <a href="../sources-pmtiles/#https">HTTP(S)</a>.</p>
@@ -1541,10 +1564,10 @@ On older CPUs they fail with an illegal instruction error. aarch64 builds are un
 </tbody>
 </table>
 <p>Both are enabled by default, so default builds, release binaries and Docker images are unchanged. <code>metrics</code>, <code>webui</code>, <code>tui</code>, <code>lambda</code> and the source features <code>postgres</code>, <code>pmtiles</code>, <code>mbtiles</code> and <code>passthrough</code> keep their names.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># 2.0</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,resources
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,resources
 </span></code></pre></div>
 <h3 id="for-users-of-the-crates">For users of the crates</h3>
 <ul>
