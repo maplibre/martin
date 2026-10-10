@@ -4,6 +4,7 @@
 mod assemble;
 mod encode;
 mod error;
+pub mod expr;
 mod generate;
 mod group;
 mod key;
