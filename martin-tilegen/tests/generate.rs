@@ -7,7 +7,8 @@ use std::path::Path;
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, TableDef, ValueDef,
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, RuleDef, TableDef, ValueDef,
+    ZoomDef,
 };
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
 use martin_tilegen::source::{
@@ -860,5 +861,410 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
     assert_eq!(
         features,
         ["Some(1) [Bool(Some(true))]", "Some(3) [Bool(Some(true))]"]
+    );
+}
+
+#[test]
+fn the_first_matching_rule_wins() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 12), point(2, 7), point(3, 3), point(4, 0)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            rules: vec![
+                RuleDef {
+                    when: Some("rank >= 10".to_owned()),
+                    minzoom: Some(ZoomDef::Fixed(0)),
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    when: Some("rank >= 5".to_owned()),
+                    minzoom: Some(ZoomDef::Fixed(1)),
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    when: Some("rank >= 1".to_owned()),
+                    minzoom: Some(ZoomDef::Fixed(2)),
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    when: None,
+                    minzoom: Some(ZoomDef::Fixed(3)),
+                    ..RuleDef::default()
+                },
+            ],
+            ..LayerDef::new("places", 0..=3, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let ids: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("z{} {ids:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            "z0 [Some(1)]",
+            "z1 [Some(1), Some(2)]",
+            "z2 [Some(1), Some(2), Some(3)]",
+            "z3 [Some(1), Some(2), Some(3), Some(4)]",
+        ]
+    );
+}
+
+#[test]
+fn a_feature_matching_no_rule_keeps_the_layer_settings() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 9), point(2, 1)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            minzoom_expr: Some("2".to_owned()),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "kind".to_owned(),
+                    value: ValueDef::Literal(Prop::Str("layer".to_owned())),
+                    zooms: 0..=30,
+                }],
+                prefixes: vec![],
+            },
+            rules: vec![RuleDef {
+                when: Some("rank > 5".to_owned()),
+                minzoom: Some(ZoomDef::Fixed(0)),
+                attributes: vec![ComputedAttr {
+                    name: "kind".to_owned(),
+                    value: ValueDef::Literal(Prop::Str("rule".to_owned())),
+                    zooms: 0..=30,
+                }],
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("places", 0..=2, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let features: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                .collect();
+            format!("z{} {features:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            r#"z0 ["Some(1) [Str(Some(\"rule\"))]"]"#,
+            r#"z1 ["Some(1) [Str(Some(\"rule\"))]"]"#,
+            r#"z2 ["Some(1) [Str(Some(\"rule\"))]", "Some(2) [Str(Some(\"layer\"))]"]"#,
+        ]
+    );
+}
+
+#[test]
+fn rule_zooms_are_fixed_or_per_feature() {
+    let point = |id, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 12), point(2, 2), point(3, 3), point(4, 0)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            maxzoom_expr: Some("3".to_owned()),
+            rules: vec![
+                RuleDef {
+                    when: Some("rank >= 10".to_owned()),
+                    minzoom: Some(ZoomDef::Fixed(0)),
+                    maxzoom: Some(ZoomDef::Fixed(2)),
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    when: Some("rank > 0".to_owned()),
+                    minzoom: Some(ZoomDef::Expr("rank".to_owned())),
+                    maxzoom: Some(ZoomDef::Expr("rank > 2 ? null : 2".to_owned())),
+                    ..RuleDef::default()
+                },
+            ],
+            ..LayerDef::new("places", 1..=4, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    assert_eq!(summary.expr_errors, [] as [ExprErrors; 0]);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let ids: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("z{} {ids:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            "z1 [Some(1), Some(4)]",
+            "z2 [Some(1), Some(2), Some(4)]",
+            "z3 [Some(3), Some(4)]",
+        ]
+    );
+}
+
+#[test]
+fn a_rule_sets_its_own_simplify() {
+    let zigzag: Vec<_> = (0..21u32)
+        .map(|i| (10.0 + f64::from(i), if i % 2 == 0 { 10.0 } else { 10.5 }))
+        .collect();
+    let line = |id, class: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Lines(vec![LineString::from(zigzag.clone())]),
+        props: vec![(KeyId::from(0), Prop::Str(class.to_owned()))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![line(1, "detailed"), line(2, "smooth")],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["class".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            simplify: PixelThreshold::ZERO,
+            min_size: PixelThreshold::ZERO,
+            rules: vec![RuleDef {
+                when: Some("class == 'smooth'".to_owned()),
+                simplify: Some(PixelThreshold {
+                    below_max_zoom: 2.0,
+                    at_max_zoom: 2.0,
+                }),
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("roads", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let features: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(|f| {
+                    let geo_types::Geometry::LineString(line) = f.geometry() else {
+                        panic!("unexpected {:?}", f.geometry());
+                    };
+                    (f.id(), line.0.len())
+                })
+                .collect();
+            format!("z{} {features:?}", row.0)
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            "z0 [(Some(1), 21), (Some(2), 2)]",
+            "z1 [(Some(1), 21), (Some(2), 2)]",
+        ]
+    );
+}
+
+#[test]
+fn rule_attributes_replace_and_add_to_the_layers() {
+    let point = |id, name: &str, class: &str, rank| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![
+            (KeyId::from(0), Prop::Str(name.to_owned())),
+            (KeyId::from(1), Prop::Str(class.to_owned())),
+            (KeyId::from(2), Prop::I64(rank)),
+        ],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, "Rhein", "river", 7),
+                point(2, "Bodensee", "lake", 9),
+            ],
+        }],
+    };
+    let attr = |name: &str, value, zooms| ComputedAttr {
+        name: name.to_owned(),
+        value,
+        zooms,
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["name".to_owned(), "class".to_owned(), "rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    attr("kind", ValueDef::Expr("class".to_owned()), 0..=30),
+                    attr("label", ValueDef::Expr("name".to_owned()), 0..=30),
+                ],
+                prefixes: vec![],
+            },
+            rules: vec![RuleDef {
+                when: Some("class == 'river'".to_owned()),
+                attributes: vec![
+                    attr(
+                        "kind",
+                        ValueDef::Literal(Prop::Str("waterway".to_owned())),
+                        0..=30,
+                    ),
+                    attr("big", ValueDef::Expr("rank * 2 > 10".to_owned()), 0..=1),
+                ],
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("water", 0..=2, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let layer = &decode(&row.3)[0];
+            let features: Vec<_> = layer
+                .features()
+                .iter()
+                .map(|f| {
+                    let props: Vec<_> = layer
+                        .property_names()
+                        .iter()
+                        .zip(f.properties())
+                        .map(|(name, value)| format!("{name}={value:?}"))
+                        .collect();
+                    format!("{:?} {}", f.id(), props.join(" "))
+                })
+                .collect();
+            format!("z{} {}", row.0, features.join(", "))
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [
+            r#"z0 Some(1) kind=Str(Some("waterway")) label=Str(Some("Rhein")) big=Bool(Some(true)), Some(2) kind=Str(Some("lake")) label=Str(Some("Bodensee")) big=Bool(None)"#,
+            r#"z1 Some(1) kind=Str(Some("waterway")) label=Str(Some("Rhein")) big=Bool(Some(true)), Some(2) kind=Str(Some("lake")) label=Str(Some("Bodensee")) big=Bool(None)"#,
+            r#"z2 Some(1) kind=Str(Some("waterway")) label=Str(Some("Rhein")), Some(2) kind=Str(Some("lake")) label=Str(Some("Bodensee"))"#,
+        ]
+    );
+}
+
+#[test]
+fn a_failing_rule_condition_does_not_match_and_is_counted() {
+    let point = |id, lanes| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::from(0), Prop::I64(lanes))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, 4), point(2, 0), point(3, 0)],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["lanes".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            minzoom_expr: Some("1".to_owned()),
+            rules: vec![RuleDef {
+                when: Some("8 / lanes >= 2".to_owned()),
+                minzoom: Some(ZoomDef::Fixed(0)),
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("roads", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 2);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let ids: Vec<_> = decode(&row.3)[0]
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("z{} {ids:?}", row.0)
+        })
+        .collect();
+    assert_eq!(tiles, ["z0 [Some(1)]", "z1 [Some(1), Some(2), Some(3)]"]);
+    assert_eq!(
+        summary.expr_errors,
+        [ExprErrors {
+            layer: "roads".to_owned(),
+            expr: "8 / lanes >= 2".to_owned(),
+            errors: 2,
+        }]
     );
 }
