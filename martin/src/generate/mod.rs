@@ -1,5 +1,6 @@
 //! `martin generate`: bulk tile generation from whole-table scans.
 
+pub mod layers;
 pub mod postgres;
 
 use std::collections::{BTreeMap, HashSet};
@@ -19,7 +20,8 @@ use mlt_core::encoder::EncoderConfig;
 use tilejson::{Bounds, tilejson};
 use tracing::{info, warn};
 
-use self::postgres::{PgScanSource, ScanLayer, ScanOptions};
+use self::layers::{LowerOptions, lower_table};
+use self::postgres::{PgScanSource, ScanOptions, ScanTable};
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
@@ -104,12 +106,16 @@ pub enum GenerateError {
     FunctionSource(String),
     #[error("Source `{0}` uses tile grid `{1}`; `martin generate` supports Web Mercator only")]
     UnsupportedGrid(String, String),
+    #[error("layer `{layer}`: {what} is not supported by martin generate yet")]
+    Unsupported { layer: String, what: String },
     #[error("Sources come from more than one database; generate them separately")]
     MultipleDatabases,
     #[error("No table sources to generate")]
     NoSources,
     #[error("Source `{0}` has no zoom between {1} and {2}")]
     NoZooms(String, u8, u8),
+    #[error("No layer has a zoom between {0} and {1}")]
+    NoLayers(u8, u8),
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
     #[error("Background task failed: {0}")]
@@ -148,7 +154,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     .merge_into_config(&mut config)?;
     config.finalize().await?;
 
-    let (pool, layers) = select_sources(&config, &options).await?;
+    let (pool, tables) = select_sources(&config, &options).await?;
     let threads = options
         .threads
         .or_else(|| std::thread::available_parallelism().ok())
@@ -156,7 +162,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     let partitions = u32::try_from(threads * 4).unwrap_or(u32::MAX);
     let source = PgScanSource::new(
         pool,
-        layers,
+        tables,
         ScanOptions {
             partitions_per_table: partitions,
             min_blocks: 256,
@@ -284,11 +290,11 @@ fn metadata(options: &GenerateArgs) -> tilejson::TileJSON {
     metadata
 }
 
-/// Discovers the table sources and picks the requested ones, each as one layer.
+/// Discovers the table sources and lowers the requested ones.
 async fn select_sources(
     config: &Config,
     options: &GenerateArgs,
-) -> GenerateResult<(PostgresPool, Vec<ScanLayer>)> {
+) -> GenerateResult<(PostgresPool, Vec<ScanTable>)> {
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
     let grids = TileGrids::resolve(&config.tile_grids)?;
     let mut pools = Vec::new();
@@ -317,7 +323,11 @@ async fn select_sources(
         options.sources.clone()
     };
 
-    let mut layers = Vec::with_capacity(requested.len());
+    let lower = LowerOptions {
+        zooms: options.min_zoom..=options.max_zoom,
+        bbox: options.bbox.map(|b| [b.left, b.bottom, b.right, b.top]),
+    };
+    let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;
     for id in requested {
         let Some((info, pool_idx)) = tables.get(&id) else {
@@ -339,26 +349,13 @@ async fn select_sources(
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
             return Err(GenerateError::MultipleDatabases);
         }
-        let name = info.layer_id.clone().unwrap_or_else(|| id.clone());
-        let min = info.minzoom.unwrap_or(0).max(options.min_zoom);
-        let max = info.maxzoom.unwrap_or(u8::MAX).min(options.max_zoom);
-        if min > max {
-            return Err(GenerateError::NoZooms(
-                id,
-                options.min_zoom,
-                options.max_zoom,
-            ));
-        }
-        let bbox = options.bbox.map(|b| [b.left, b.bottom, b.right, b.top]);
-        layers.push(ScanLayer {
-            name,
-            info: info.clone(),
-            zooms: min..=max,
-            bbox,
-        });
+        scans.extend(lower_table(&id, info.clone(), &lower)?);
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;
-    Ok((pools.swap_remove(pool), layers))
+    if scans.is_empty() {
+        return Err(GenerateError::NoLayers(options.min_zoom, options.max_zoom));
+    }
+    Ok((pools.swap_remove(pool), scans))
 }
 
 async fn report(progress: Arc<Progress>) {

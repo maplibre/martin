@@ -1,6 +1,5 @@
 //! The `PostgreSQL` source of `martin generate`: whole-table scans split into partitions.
 
-use std::ops::RangeInclusive;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use martin_core::tiles::postgres::{
@@ -10,23 +9,18 @@ use martin_core::tiles::postgres::{
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
 use martin_tilegen::props::KeyInterner;
 use martin_tilegen::source::{FeatureBatch, FeatureReader, FeatureSource};
-use martin_tilegen::{LayerGrid, TileGenError, TileGenResult};
+use martin_tilegen::{LayerGrid, TileGenResult};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::postgres::resolver::scan_sql;
 
 const TID_RANGE_SCAN_VERSION: i32 = 140_000;
-const DEFAULT_EXTENT: u32 = 4096;
-const DEFAULT_BUFFER: u32 = 64;
 
 #[derive(Clone, Debug)]
-pub struct ScanLayer {
-    pub name: String,
+pub struct ScanTable {
     pub info: TableInfo,
-    pub zooms: RangeInclusive<u8>,
-    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]` to generate, if not the whole world.
-    pub bbox: Option<[f64; 4]>,
+    pub table: TableDef,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -61,55 +55,31 @@ impl PgScanSource {
     ///
     /// # Errors
     ///
-    /// Fails on more than 256 layers, an invalid filter, an invalid plan, or a failing planning query.
+    /// Fails on an invalid plan, an invalid filter, or a failing planning query.
     pub async fn new(
         pool: PostgresPool,
-        layers: Vec<ScanLayer>,
+        tables: Vec<ScanTable>,
         options: ScanOptions,
     ) -> TileGenResult<Self> {
-        let count = layers.len();
+        let plan = Plan::new(tables.iter().map(|t| t.table.clone()).collect())?;
         let tid_ranges = server_version_num(&pool).await? >= TID_RANGE_SCAN_VERSION;
-        let mut defs = Vec::with_capacity(count);
-        let mut tables = Vec::with_capacity(count);
+        let mut scans = Vec::with_capacity(tables.len());
         let mut partitions = Vec::new();
-        for (layer, scan) in layers.into_iter().enumerate() {
-            let index =
-                u16::try_from(layer).map_err(|_too_many| TileGenError::TooManyLayers(count))?;
-            let grid = LayerGrid {
-                extent: scan
-                    .info
-                    .extent
-                    .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
-                buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
-            };
+        for (index, scan) in tables.into_iter().enumerate() {
             let sql = scan_sql(
                 &scan.info,
-                scan.bbox.map(|b| widen(b, grid, *scan.zooms.end())),
+                &scan.table.columns,
+                scan_bbox(&scan.table.layers),
             )?;
-            for condition in plan(&pool, &scan.info, options, tid_ranges).await? {
+            for condition in plan_partitions(&pool, &scan.info, options, tid_ranges).await? {
                 partitions.push(Partition {
-                    table: layer,
+                    table: index,
                     condition,
                 });
             }
-            let dynamic_props = scan
-                .info
-                .properties
-                .iter()
-                .flatten()
-                .any(|(column, label)| scan.info.column_type(column).unwrap_or(label) == "jsonb");
-            defs.push(TableDef {
-                columns: sql.properties.clone(),
-                dynamic_props,
-                layers: vec![LayerDef {
-                    clip: scan.info.clip_geom.unwrap_or(true),
-                    bounds: scan.bbox,
-                    ..LayerDef::new(scan.name, scan.zooms, grid)
-                }],
-            });
-            tables.push(Table {
+            scans.push(Table {
                 layout: ScanLayout {
-                    table: index,
+                    table: u16::try_from(index).expect("the plan has fewer than 2^16 tables"),
                     crs: sql.crs,
                     has_id: sql.has_id,
                     properties: sql.properties.len(),
@@ -120,8 +90,8 @@ impl PgScanSource {
         Ok(Self {
             runtime: tokio::runtime::Handle::current(),
             pool,
-            plan: Plan::new(defs)?,
-            tables,
+            plan,
+            tables: scans,
             partitions,
             skipped: AtomicU64::new(0),
         })
@@ -218,6 +188,22 @@ impl Drop for SnapshotReader<'_> {
     }
 }
 
+/// The union of the layers' bounds, each grown by its buffer; `None` if any layer is unbounded.
+fn scan_bbox(layers: &[LayerDef]) -> Option<[f64; 4]> {
+    layers
+        .iter()
+        .map(|layer| {
+            layer
+                .bounds
+                .map(|b| widen(b, layer.grid, *layer.zooms.end()))
+        })
+        .reduce(|a, b| {
+            let ([w1, s1, e1, n1], [w2, s2, e2, n2]) = (a?, b?);
+            Some([w1.min(w2), s1.min(s2), e1.max(e2), n1.max(n2)])
+        })
+        .flatten()
+}
+
 /// Grows a bbox by the tile buffer at `max_zoom`, so tiles at its edge still get their buffer contents.
 fn widen([west, south, east, north]: [f64; 4], grid: LayerGrid, max_zoom: u8) -> [f64; 4] {
     let margin =
@@ -232,7 +218,7 @@ fn widen([west, south, east, north]: [f64; 4], grid: LayerGrid, max_zoom: u8) ->
 
 /// Splits a table into page ranges, a view or foreign table with an integer id into id ranges, and
 /// anything else into one scan. Each condition starts with ` AND`.
-async fn plan(
+async fn plan_partitions(
     pool: &PostgresPool,
     info: &TableInfo,
     options: ScanOptions,

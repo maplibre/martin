@@ -6,7 +6,7 @@ use std::path::Path;
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
-use martin_tilegen::plan::{AttributesDef, IdDef, LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{AttributesDef, GeometryType, IdDef, LayerDef, Plan, TableDef};
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
 use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
@@ -328,6 +328,88 @@ fn one_table_feeds_layers_with_their_own_settings() {
             r#"z1 overview ["class"] [(None, 2)]"#,
             r#"z2 detail ["name", "class", "lanes"] [(Some(10), 21), (Some(11), 2)]"#,
             r#"z3 detail ["name", "class", "lanes"] [(Some(10), 21), (Some(11), 2)]"#,
+        ]
+    );
+}
+
+#[test]
+fn a_layer_takes_only_features_of_its_geometry_type() {
+    let feature = |id, geometry| SourceFeature {
+        id: Some(id),
+        geometry,
+        props: vec![],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                feature(1, Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }])),
+                feature(
+                    2,
+                    Geometry::Lines(vec![LineString::from(vec![(10.0, 10.0), (30.0, 20.0)])]),
+                ),
+                feature(
+                    3,
+                    Geometry::Polygons(vec![Polygon::new(
+                        LineString::from(vec![
+                            (10.0, 10.0),
+                            (30.0, 10.0),
+                            (30.0, 30.0),
+                            (10.0, 10.0),
+                        ]),
+                        vec![],
+                    )]),
+                ),
+                feature(4, Geometry::Points(vec![Coord { x: 20.0, y: 20.0 }])),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        dynamic_props: false,
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Point),
+                ..LayerDef::new("points", 0..=0, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=0, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=0, GRID)
+            },
+            LayerDef::new("everything", 0..=0, GRID),
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let layers: Vec<_> = decode(&row.3)
+        .into_iter()
+        .map(|layer| {
+            let ids: Vec<_> = layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect();
+            format!("{} {ids:?}", layer.name())
+        })
+        .collect();
+    assert_eq!(
+        layers,
+        [
+            "points [Some(1), Some(4)]",
+            "lines [Some(2)]",
+            "polygons [Some(3)]",
+            "everything [Some(1), Some(2), Some(3), Some(4)]",
         ]
     );
 }

@@ -42,6 +42,56 @@ Sources are configured exactly as for the tile server, with the same connection 
 `id_column`, `filter` and `clip_geom` of each table source apply. Function sources cannot be scanned.
 Layer names must be unique across all sources.
 
+## Several layers from one table
+
+A table source with `layers` is scanned once and feeds each layer, named by its key and written in
+this order. This is unstable and may change.
+
+```yaml
+postgres:
+  tables:
+    roads:
+      schema: public
+      table: roads
+      srid: 4326
+      geometry_column: geom
+      id_column: osm_id
+      properties:
+        class: text
+        name: text
+        "name:de": text
+      layers:
+        roads:
+          geometry: line
+          attributes: [class]
+        road_labels:
+          minzoom: 10
+          simplify: 2
+          attributes: [name, "name:*"]
+          id: drop
+```
+
+Each layer can set:
+
+| Key                               | Meaning                                                                               |
+|-----------------------------------|---------------------------------------------------------------------------------------|
+| `minzoom`, `maxzoom`              | A number; narrows the table's zooms and `--min-zoom`/`--max-zoom`                     |
+| `extent`, `buffer`, `clip_geom`   | Override the table's                                                                  |
+| `simplify`, `simplify_at_maxzoom` | Pixels; default 0.1, and 1/16 at the layer's max zoom                                 |
+| `min_size`, `min_size_at_maxzoom` | Pixels; lines and polygons smaller than this are dropped; default 1, and 1/16         |
+| `geometry`                        | `point`, `line` or `polygon`: only features of that type                              |
+| `attributes`                      | A list of properties, `[]` for none; `name:*` takes the columns starting with `name:` |
+| `id`                              | `keep` (default) or `drop`                                                            |
+
+Only the properties some layer needs are read. A named attribute that is not a column is a key of
+the table's `jsonb` column; a prefix such as `name:*` only matches columns, not `jsonb` keys.
+A layer whose zooms are all outside the generated zooms is skipped with a warning.
+
+These are not supported by `martin generate` yet and are rejected: `where`, `minzoom` or
+`maxzoom` expressions, `rules`, `sort_by`, `id: { expr: ... }`, a map of computed `attributes`,
+`geometry` other than `point`, `line` and `polygon`, and any `tile` operation. `prefetch` only
+applies to the tile server.
+
 ## How it works
 
 1. Each table is split into partitions that are scanned in parallel: page (`ctid`) ranges for tables
