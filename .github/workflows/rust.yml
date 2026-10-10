@@ -285,7 +285,7 @@ jobs:
           - variant: base
             suffix: ''
             flavor: ''
-            extra_packages: ''
+            extra_packages: libfreetype6
             description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
           - variant: full
             suffix: '-full'
@@ -544,6 +544,7 @@ jobs:
       target: x86_64-unknown-linux-gnu
       os: ubuntu-latest
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+      pgo: ${{ github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')) }}
 
   build-aarch64-unknown-linux-gnu:
     if: inputs.run-release-builds
@@ -552,6 +553,7 @@ jobs:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+      pgo: ${{ github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')) }}
 
   # `-full` builds (adds rendering) for the `-full` image and Linux-gnu tarballs.
   build-x86_64-unknown-linux-gnu-full:
