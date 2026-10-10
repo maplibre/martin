@@ -212,7 +212,7 @@ mod e2e {
     use crate::config::file::{CachePolicy, OnInvalid, TileGrids};
     use crate::config::primitives::IdResolver;
     use crate::test_support::pg::{
-        connection_string, seed, start_postgres_14_with_postgis_3_5_container,
+        connection_string, seed, start_postgres_15_with_postgis_3_5_container,
     };
 
     /// A [`Trigger`] the test drives in lockstep. Each `next()` first acks that the previous cycle
@@ -295,7 +295,7 @@ mod e2e {
 
     #[tokio::test]
     async fn init_then_reload_reflects_create_alter_drop_in_catalog() {
-        let container = start_postgres_14_with_postgis_3_5_container().await;
+        let container = start_postgres_15_with_postgis_3_5_container().await;
         let connstr = connection_string(&container).await;
 
         seed(

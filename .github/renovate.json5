@@ -79,7 +79,7 @@
       minimumReleaseAge: '0 days',
     },
     {
-      // Test setup intentionally pins Postgres 14 with PostGIS 3.5 (oldest versions we support).
+      // Test setup intentionally pins Postgres 15 with PostGIS 3.5 (oldest versions we support).
       matchDatasources: ['docker'],
       matchPackageNames: ['postgis/postgis'],
       matchCurrentValue: '/^14-3\\.5/',
