@@ -142,6 +142,14 @@ impl PostgresArgs {
                 c.max_feature_count = max_feature_count;
             }
         }
+        if let Some(value) = try_id_sort {
+            info!(
+                "Overriding try_id_sort to {value} on all Postgres connections because of a CLI parameter"
+            );
+            for c in pg_config.iter_mut() {
+                c.try_id_sort = try_id_sort;
+            }
+        }
         if let Some(ref value) = ca_root_file {
             info!(
                 "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
