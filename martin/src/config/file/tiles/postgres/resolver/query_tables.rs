@@ -354,7 +354,13 @@ impl TableQuerySql {
             table: escape_identifier(&info.table),
             filter: row_filter(info, "AND")?,
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
-            order_clause: try_id_sort.map_or(String::new(), |v| if v && !escaped_id_column.is_empty() { format!("ORDER BY {} ASC NULLS LAST", escaped_id_column) } else { String::new() }),
+            order_clause: try_id_sort.map_or(String::new(), |v| {
+                if v && !escaped_id_column.is_empty() {
+                    format!("ORDER BY {} ASC NULLS LAST", escaped_id_column)
+                } else {
+                    String::new()
+                }
+            }),
             extent,
             buffer,
             clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
