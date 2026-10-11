@@ -142,3 +142,7 @@ DO $do$ BEGIN
     $$::json || '$tj$';
 END $do$;
 ```
+
+## Layers
+
+A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses them so far.

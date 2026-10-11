@@ -2238,6 +2238,10 @@ DO $do$ BEGIN
 END $do$;
 ```
 
+## Layers
+
+A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses them so far.
+
 # PostgreSQL Function Sources
 
 A Function Source is a database function which can be used to query [vector tiles](<https://github.com/mapbox/vector-tile-spec>). When started, Martin will look for the functions with a suitable signature.
@@ -2503,6 +2507,309 @@ END $do$;
 #### Serving compressed tiles from PostgreSQL functions
 
 A function may return tiles that are already gzip or zlib compressed. Martin detects the compression of every tile the function returns. Clients that accept that encoding receive the bytes unchanged, and clients that do not receive the decompressed tile.
+
+# Table Source Layers
+
+> [!WARNING]
+>
+> **Not released or fully implemented**
+>
+> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+>
+> ```bash
+> cargo build --package martin --bin martin --features unstable-generate
+> ```
+>
+> Not implemented yet:
+>
+> - [ ] Rendering points, lines and polygons, with fill ranges for covered tiles
+> - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
+> - [ ] Planning tables into layers and running a whole generation end to end
+> - [ ] The PostgreSQL source with partitioned whole-table scans
+> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Layers with CEL expressions, `rules` and `sort_by`
+> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+> - [ ] `prefetch`
+
+`layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses it so far, and the tile server ignores it.
+
+A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
+
+```yaml
+postgres:
+  tables:
+    roads:
+      schema: public
+      table: roads
+      srid: 4326
+      geometry_column: geom
+      id_column: osm_id
+      properties:
+        class: text
+        name: text
+        "name:de": text
+      layers:
+        roads:
+          geometry: line
+          attributes: [class]
+        road_labels:
+          minzoom: 10
+          simplify: 2
+          attributes: [name, "name:*"]
+          id: drop
+```
+
+Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one table come in the order they are listed. Tables come in the order of `--source`, or ordered by source id without it. Layer names must be unique across all sources, and a run holds at most 256 layers.
+
+## Layer keys
+
+| Key | Meaning | Details |
+| --- | --- | --- |
+| `minzoom`, `maxzoom` | A number, or an expression for each feature's own zoom | [Zooms](<#zooms>) |
+| `extent`, `buffer` | Override the table source's |  |
+| `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons | [Simplification](<#simplification-and-minimum-size>) |
+| `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped | [Simplification](<#simplification-and-minimum-size>) |
+| `geometry` | `point`, `line` or `polygon`: only features of that type | [Features](<#features>) |
+| `where` | An expression: only features for which it is `true` | [Features](<#features>) |
+| `attributes` | Which properties to write, and under which names | [Attributes](<#attributes>) |
+| `id` | `keep` (default), `drop`, or `{ expr: ... }` | [Feature ids](<#feature-ids>) |
+| `rules` | Different zooms, simplification and attributes for some features | [Rules](<#rules>) |
+| `sort_by` | The draw order of the layer's features in each tile | [Draw order](<#draw-order>) |
+
+`extent` and `buffer` default to the table source's, then to 4096 and 64. `buffer` must be less than half the `extent`.
+
+## Properties
+
+A layer can only use the table source's `properties`, both as attributes and in expressions. An auto-published table has all of its columns as properties, but a table source in the configuration file only has the properties it lists. The `id_column` is not a property. To use it in an expression, list it under `properties` as well.
+
+When the table has a `jsonb` property, a name that is not a column is read as a key of it. Otherwise, an unknown name fails the run. A prefix such as `name:*` only matches columns, not `jsonb` keys.
+
+Only the columns that some layer uses are read.
+
+## Zooms
+
+Zooms narrow from the run down to each feature: every level can raise the lowest zoom and lower the highest, never widen what the level above allows.
+
+1. `--min-zoom` and `--max-zoom` set the run's zooms. A table source's `minzoom` and `maxzoom` narrow them. A table source left with no zoom fails the run.
+2. A layer's `minzoom` and `maxzoom` numbers narrow the table source's. A layer left with no zoom is skipped with a warning.
+3. A `minzoom` or `maxzoom` expression gives each feature its own zooms within the layer's. Its result is clamped to the layer's zooms, and `null` keeps the layer's bound. A feature whose `minzoom` ends up above its `maxzoom` is left out of the layer.
+4. An attribute with `minzoom` or `maxzoom` is only written at those zooms of the feature.
+
+A [rule](<#rules>) can set `minzoom` and `maxzoom` too. For the features it takes, they replace the layer's expressions.
+
+The highest zoom is 27.
+
+## Simplification and minimum size
+
+Lines and polygons are simplified at each zoom, and dropped once they are smaller than `min_size`. Both are in pixels of a 256-pixel tile, whatever the `extent`.
+
+| Key | Below the layer's max zoom | At the layer's max zoom |
+| --- | --- | --- |
+| `simplify` | `simplify`, default 0.1 | `simplify_at_maxzoom`, default `simplify` or 1/16 |
+| `min_size` | `min_size`, default 1 | `min_size_at_maxzoom`, default `min_size` or 1/16 |
+
+The layer's max zoom is its highest zoom after narrowing, not the highest zoom of a single feature. A rule's `simplify` and `min_size` apply at every zoom, including the max zoom.
+
+## Features
+
+A feature belongs to a layer when all of these hold:
+
+1. the table source's `filter`, which the database applies while reading,
+2. the layer's `geometry` type, if set,
+3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
+
+A rule's `where` does not filter features: it only picks the rule.
+
+## Attributes
+
+Without `attributes`, a layer writes all of the table source's properties. `[]` writes none.
+
+A list copies those properties as they are. A map names each output attribute:
+
+- a string is an expression, so `kind: class` writes the column `class` as `kind`,
+- `{ value: ... }`, a number or a boolean is a literal,
+- `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms.
+
+In both, `name:*` copies the columns starting with `name:`, written `"name:*": "name:*"` in a map. An expression that is `null` leaves the attribute out.
+
+## Feature ids
+
+`id: keep` writes the `id_column` as the feature id, `id: drop` writes none, and `id: { expr: ... }` computes it. A computed id is only written when it is an integer of zero or more.
+
+## Rules
+
+`rules` is a list. The first rule whose `where` holds for a feature applies to it, and a last rule without `where` takes every other feature. A feature that matches no rule keeps the layer's settings.
+
+```yaml
+postgres:
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      properties:
+        class: text
+      layers:
+        roads:
+          attributes:
+            kind: class
+          rules:
+            - where: "class == 'motorway'"
+              minzoom: 4
+              attributes:
+                kind: { value: major }
+            - where: "class == 'path'"
+              minzoom: 12
+              simplify: 0
+            - minzoom: 8
+```
+
+A rule can set:
+
+- `minzoom` and `maxzoom`, numbers or expressions. They replace the layer's zoom expressions and are clamped to the layer's zooms. A rule's expression that is `null` falls back to the layer's.
+- `simplify` and `min_size`, at every zoom.
+- `attributes`, as a map without `*` prefixes. They replace the layer's attributes of the same name, at all zooms, and add the others.
+
+## Draw order
+
+Without `sort_by`, the features of a layer keep the order the source reads them in.
+
+- A table is read in its physical order.
+- A view or foreign table with an integer `id_column` is read by that id, which overrides the view's `ORDER BY`.
+- Any other view is read in its own order.
+
+`sort_by` is a list of expressions, each a string or `{ expr: ..., desc: true }`, compared in turn. Features that compare equal keep the order they are read in.
+
+```yaml
+postgres:
+  tables:
+    buildings:
+      schema: public
+      table: buildings
+      geometry_column: geom
+      properties:
+        z_order: int4
+        height: float8
+      layers:
+        buildings:
+          sort_by: ["z_order", { expr: "height", desc: true }]
+```
+
+Values order by type first: `null` (and failed evaluations), booleans, integers, floating-point numbers, then strings. Any integer sorts before any floating-point number, so convert mixed numbers with `double(...)` to compare them by value. `desc` reverses the whole order, so `null` comes last.
+
+## Expressions
+
+Expressions are written in [CEL](<https://cel.dev>), the Common Expression Language. CEL looks like the conditions of C, Java or JavaScript, but it has no statements, loops or side effects. Every expression returns one value, and it always finishes.
+
+A property is read by its name, such as `rank > 5`, or with `feature['name:en']` when the name is not an identifier. A missing property is `null`. Strings take single or double quotes, so quote the whole expression in YAML, for example `where: "kind == 'park'"`.
+
+```text
+7 / 2              // 3, integer division rounds toward zero
+-7 / 2             // -3
+7 % 3              // 1
+7.0 / 2.0          // 3.5
+2 * 1.5            // fails, integers and doubles do not mix in arithmetic
+double(2) * 1.5    // 3.0
+```
+
+```text
+3 >= 2 && 'a' != 'b'           // true
+!(1 > 2) || false              // true
+1 < 2.5                        // true, comparisons do mix integers and doubles
+'park' in ['park', 'forest']   // true
+```
+
+```text
+population > 1000000 ? 2 : 8      // 2 for a city of 5 million, else 8
+height > 0 ? height : 'unknown'   // the two branches can have different types
+1 ? 2 : 3                         // fails, the condition must be a boolean
+```
+
+When an attribute gets different types in one tile, such as numbers and strings, all its values in that tile are written as strings.
+
+```text
+int(2.7)        // 2
+int('12')       // 12
+double('1.5')   // 1.5
+string(5)       // '5'
+```
+
+```text
+'Main' + ' St'                      // 'Main St'
+size('Straße')                      // 6
+'Main St'.startsWith('Main')        // true
+'Main St'.endsWith('St')            // true
+'Main St'.contains('n S')           // true
+'Main St'.lowerAscii()              // 'main st'
+' Main St '.trim()                  // 'Main St'
+'Main St'.replace('St', 'Street')   // 'Main Street'
+'Main St'.substring(0, 4)           // 'Main'
+'Main St'.indexOf('St')             // 5
+```
+
+```text
+'shop;cafe'.split(';')                          // ['shop', 'cafe']
+['shop', 'cafe'].join(', ')                     // 'shop, cafe'
+'shop;cafe'.split(';').exists(k, k == 'shop')   // true
+[1, 2, 3].all(x, x > 0)                         // true
+[1, 2, 3].map(x, x * 2)                         // [2, 4, 6]
+[1, 2, 3].filter(x, x > 1)                      // [2, 3]
+[10, 20][1]                                     // 20
+{'a': 1}['a']                                   // 1
+```
+
+```text
+coalesce(feature['name:en'], name)   // the English name, else the name
+coalesce(null, null)                 // null
+```
+
+Martin adds these functions to CEL:
+
+- `coalesce(a, b, ...)` returns its first argument that is not `null`.
+
+Regular expressions (`matches`) and timestamps are not available.
+
+| Expression | Result |
+| --- | --- |
+| `where` | A boolean, where `null` counts as `false` |
+| `minzoom`, `maxzoom` | An integer, clamped to the layer's zooms, or `null` for the layer's |
+| `id` | A non-negative integer, else the feature has no id |
+| attribute | Any value, where `null` leaves the attribute out |
+| `sort_by` | Any value, see [draw order](<#draw-order>) |
+
+An expression that fails on a feature, for example by dividing by zero or by returning a string where a zoom is needed, counts as `null` there. The first failure of each expression is logged, and the run ends with how often each one failed.
+
+```yaml
+postgres:
+  tables:
+    places:
+      schema: public
+      table: places
+      geometry_column: geom
+      properties:
+        osm_id: int8
+        class: text
+        name: text
+        "name:en": text
+        population: int8
+      layers:
+        places:
+          where: "population > 1000"
+          minzoom: "population > 1000000 ? 2 : 8"
+          id: { expr: "osm_id * 10" }
+          attributes:
+            kind: class
+            label: { expr: "coalesce(feature['name:en'], name)", minzoom: 10 }
+            source: { value: osm }
+            rank: 3
+```
+
+## Validation
+
+- **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, or `layer_id` together with `layers`. Unknown keys are warned about.
+- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet.
 
 # Cloud Optimized GeoTIFF File Sources
 
@@ -5717,6 +6024,126 @@ Use RUST_LOG_FORMAT environment variable to control output format: json, full, c
 See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.
 ```
 
+# Generating Tilesets
+
+> [!WARNING]
+>
+> **Not released or fully implemented**
+>
+> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+>
+> ```bash
+> cargo build --package martin --bin martin --features unstable-generate
+> ```
+>
+> Not implemented yet:
+>
+> - [ ] Rendering points, lines and polygons, with fill ranges for covered tiles
+> - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
+> - [ ] Planning tables into layers and running a whole generation end to end
+> - [ ] The PostgreSQL source with partitioned whole-table scans
+> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Layers with CEL expressions, `rules` and `sort_by`
+> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+> - [ ] `prefetch`
+
+`martin generate` builds a whole tileset in one pass. [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) asks the source for each tile separately. `martin generate` instead reads each source once, renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the source.
+
+It renders points, lines and polygons. Geometry collections are skipped and counted.
+
+## Usage
+
+```bash
+martin generate --output-file tileset.mbtiles \
+                --source roads                \
+                --source shops                \
+                --max-zoom 14                 \
+                postgres://postgres@localhost:5432/db
+```
+
+This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 to 14. Without `--source`, every source is rendered. Sources come from the same connection strings or [configuration file](<https://maplibre.org/martin/config-file/index.md>) as for the tile server.
+
+Only table sources can be rendered, not function sources. All of them must come from one PostgreSQL connection.
+
+Each source becomes one layer, named by its `layer_id` or its source id. A source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) feeds several layers from one read instead, each with its own features, zooms, attributes and draw order.
+
+The same data and options give the same tiles, however many threads are used.
+
+## Configuration file
+
+The configuration file only describes the sources. The options of a run are command-line arguments, and the file has no section for `martin generate`.
+
+```bash
+martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
+```
+
+```yaml
+postgres:
+  connection_string: postgres://postgres@localhost:5432/db
+  tables:
+    shops:
+      schema: public
+      table: shops
+      geometry_column: geom
+      id_column: osm_id
+      minzoom: 12
+      properties:
+        name: text
+        shop: text
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      properties:
+        class: text
+        name: text
+      layers:
+        roads:
+          attributes: [class]
+        road_labels:
+          minzoom: 10
+          where: "name != null"
+          attributes: [name]
+```
+
+Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `martin generate` uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--output-file` |  | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty |
+| `--source` | all sources | A source id, repeatable |
+| `--format` | `mlt` | `mlt` or `mvt` |
+| `--encoding` | `gzip` | `gzip`, `zstd`, `br`, `zlib` (MBTiles only) or `none` |
+| `--min-zoom` | `0` | Lowest zoom, raised by a source's `minzoom` |
+| `--max-zoom` | `14` | Highest zoom, lowered by a source's `maxzoom` |
+| `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat` |
+| `--memory` | `2GiB` | Memory for sorting, split over the threads |
+| `--temp-dir` | system temp dir | Where sorted runs go, repeatable to spread them over several disks |
+| `--threads` | CPU count | Worker threads |
+
+The tile server's [configuration and PostgreSQL arguments](<https://maplibre.org/martin/run-with-cli/index.md>) also apply, such as `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
+
+`--bbox` filters features, which `martin cp` does not. A low-zoom tile at the edge of the box only holds the features near the box, not everything the tile covers.
+
+The highest zoom is 27. The tile grid can lower it further, since `extent × 2^zoom` must not exceed `2^30`. With the default extent of 4096, that is zoom 18.
+
+A failed or interrupted run removes the output file. Temporary files are always removed.
+
+## Sizing a run
+
+- `--memory` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so with many threads the total can exceed `--memory`. More memory means fewer, longer sorted runs. Up to 256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads and writes the temporary data one more time.
+- The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows with the zoom range and is usually several times the size of the input. Merging more than 256 runs needs room for one more copy.
+- `--temp-dir` takes the sorted runs in turn. Directories on separate disks spread the I/O.
+- `--threads` sets the number of render workers and encoders.
+
+Tables are read over at most one connection per thread, and no more than the pool's `pool_size`.
+
+[Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) explains how a run reads, sorts, encodes and writes the tiles, and what bounds its memory.
+
 # Working with MBTiles archives
 
 Martin includes `mbtiles` utility to interact with the [`*.mbtiles` files](<https://maplibre.org/martin/mbtiles-schema/index.md>) from the command line. It allows users to [examine](<https://maplibre.org/martin/mbtiles-meta/index.md>), [copy](<https://maplibre.org/martin/mbtiles-copy/index.md>), [validate](<https://maplibre.org/martin/mbtiles-validation/index.md>) or [compare and apply diffs between them](<https://maplibre.org/martin/mbtiles-diff/index.md>).
@@ -6570,9 +6997,9 @@ Martin can be used as a standalone server, or as a library in your own Rust appl
 
 If you are missing a part of Martin functionality in the [public `martin` API](<https://docs.rs/martin>), we would love to hear from you. Please open an issue on our GitHub repository or directly open a pull request.
 
-# Architecture
+# Serving Architecture
 
-This document provides a high-level overview of Martin's architecture, describing its major components, how they interact, and the rationale behind key design decisions.
+How the Martin tile server is put together and how it answers requests. [Source Architecture](<https://maplibre.org/martin/architecture-sources/index.md>) covers how each kind of source works and how sources reload at runtime, and [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) covers `martin generate`.
 
 ## Overview
 
@@ -6629,13 +7056,11 @@ graph TB
     Cache -.->|Cached Tiles/Resources| Client
 ```
 
-## Core Components
+## Crates
 
-Martin's architecture is organized into four main Rust crates, each with distinct responsibilities:
+Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:
 
 **Purpose**: The main tile server binary and HTTP service layer.
-
-**Location**: `/martin`
 
 **Key Responsibilities**:
 
@@ -6646,24 +7071,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Runtime source reloading (filesystem watch / polling) without a restart
 - Serving the Web UI for tile inspection
 
-**Main Modules**:
-
-- `src/bin/martin.rs` - Server and `martin cp` entry point
-- `src/cp.rs` - Bulk tile copying (`martin cp`)
-- `src/srv/` - HTTP service handlers
-- `server.rs` - Main server setup and routing
-- `tiles/` - Tile serving endpoints
-- `fonts.rs` - Font glyph serving
-- `sprites.rs` - Sprite serving
-- `styles.rs` - Style serving
-- `src/config/` - Configuration management
-- `args/` - CLI argument parsing
-- `file/` - Config file parsing
-- `martin-ui/` - React-based web interface
-
 **Purpose**: Core abstractions and implementations for tile sources and supporting resources.
-
-**Location**: `/martin-core`
 
 **Key Responsibilities**:
 
@@ -6675,23 +7083,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Sprite, font, and style resource generation
 - Tile format handling (MVT protocol buffers)
 
-**Main Modules**:
-
-- `src/tiles/` - Tile source implementations
-- `postgres/` - PostGIS table and function sources
-- `mbtiles/` - MBTiles file source
-- `pmtiles/` - PMTiles file source
-- `cog/` - Cloud Optimized GeoTIFF source
-- `duckdb/` - DuckDB / GeoParquet tile source
-- `catalog.rs` - Source registry and management
-- `src/resources/` - Supporting resources
-- `sprites/` - SVG sprite generation
-- `fonts/` - Font glyph generation
-- `styles/` - MapLibre style handling
-
 **Purpose**: MBTiles format support and manipulation tools.
-
-**Location**: `/mbtiles`
 
 **Key Responsibilities**:
 
@@ -6702,15 +7094,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Diff/patch operations between MBTiles files
 - Schema management
 
-**Main Modules**:
-
-- `src/lib.rs` - Core MBTiles library
-- `src/bin/mbtiles.rs` - CLI tool
-- `sql/` - SQL schema and migrations
-
 **Purpose**: Low-level tile manipulation and conversion utilities.
-
-**Location**: `/martin-tile-utils`
 
 **Key Responsibilities**:
 
@@ -6719,7 +7103,18 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Tile format utilities
 - Bounding box calculations
 
-## Data Flow
+**Purpose**: The bulk tile generation engine behind `martin generate`.
+
+**Key Responsibilities**:
+
+- Compiling layers and their CEL expressions into a plan
+- Rendering every feature at every zoom into tile pieces
+- Sorting the pieces on disk by tile, and merging them back
+- Encoding tiles in parallel and writing them in archive order
+
+See [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>).
+
+## Requests and startup
 
 ```
 sequenceDiagram
@@ -6813,114 +7208,119 @@ sequenceDiagram
     Server-->>Client: PBF response
 ```
 
-## Key Design Decisions
+## Deployment
 
-🧠 This section provides **background and context**, not required knowledge. You don't need to understand or remember all of this to use or contribute to Martin. Read it when you're curious **why** certain choices were made.
+Martin supports multiple deployment patterns:
 
-**Why Rust**
+- Single binary with embedded WebUI
+- Direct PostgreSQL connection
+- Local file serving
+- Suitable for small to medium deployments
 
-Martin is written in Rust to balance high performance with strong safety guarantees.
+- Docker image with all dependencies
+- Configuration via environment variables
+- Health check endpoints
+- Suitable for Kubernetes and container orchestrators
 
-- Near-C performance without manual memory management
-- Memory safety (no null pointers or buffer overflows)
-- Safe concurrency without data races
-- Zero-cost abstractions that compile to efficient code
+- Lambda adapter for Actix-Web
+- Cold start optimization
+- Stateless operation
+- Suitable for sporadic traffic
 
-**Actix-Web as the chosen web framework**
+- NGINX or Apache fronting Martin
+- Additional caching layer
+- SSL termination
+- Load balancing across multiple Martin instances
 
-It offers a fast, production-ready async HTTP stack.
+## Performance
 
-- High-performance async request handling
-- Mature middleware ecosystem
-- Built-in compression and caching headers
-- Easy Prometheus metrics integration
+- **Bottleneck**: Complex geometry queries on large tables
+- **Optimization**: Spatial indexes (GIST), connection pooling, query tuning
 
-**Async-first architecture**
+- **Bottleneck**: MVT encoding CPU time
+- **Optimization**: Tile caching, pre-generated MBTiles for static data
 
-Allows Martin to handle many concurrent requests efficiently.
+- **Bottleneck**: High tile request rate
+- **Optimization**: Async I/O, connection keep-alive, compression
 
-- Handles hundreds of thousands of concurrent connections
-- Avoids blocking database queries
-- Enables efficient file and network I/O
-- Keeps thread usage low under load
+- **Bottleneck**: Large tile cache size
+- **Optimization**: LRU eviction, configurable cache size, streaming responses
 
-**Specific crates splitting**
+- Increase CPU for faster tile generation
+- Increase memory for larger tile cache
+- Faster disk I/O for file sources
 
-The codebase is split into crates with clear responsibilities
+- Run multiple Martin instances behind load balancer
+- Each instance maintains its own cache
+- Shared PostgreSQL database with connection pooling
+- CDN for tile distribution
 
-- **martin-core** - reusable core logic and tile sources
-- **mbtiles** - standalone MBTiles tooling
-- **martin** - HTTP server, configuration, and runtime wiring
-- **martin-tile-utils** - shared low-level tile utilities
+## Security
 
-This makes it easier to:
+- All tile coordinates validated (z/x/y bounds)
+- SQL injection prevention through parameterized queries
+- Path traversal prevention for file sources
+- URL parsing with strict validation
 
-- Embed Martin as a library in other Rust projects
-- Use MBTiles tools independently
-- Maintain clear API boundaries and versioning
+- Read-only database user recommended
+- Connection string security (avoid logging)
+- SSL/TLS support for PostgreSQL connections
+- Certificate validation for secure connections
 
-**Why connection pooling**
+- CORS configuration for cross-origin requests
+- Rate limiting (via reverse proxy)
+- Authentication/authorization (via reverse proxy)
+- HTTPS termination (via reverse proxy)
 
-Reuse database connections instead of reconnecting per request
+## Extending Martin
 
-- Uses `deadpool-postgres`
-- Avoids per-request connection overhead
-- Configurable pool sizing
-- Automatic connection health checks
+To add a new tile source type:
 
-**In-Memory Tile Caching**
+1. Implement the `Source` trait in `martin-core`
+2. Add configuration parsing in `martin`
+3. Register source in the catalog
+4. Add integration tests
 
-Avoid regenerating frequently requested tiles.
+Example source types that could be added:
 
-- Fast LRU cache with optional TTLs
-- Automatic eviction of least-used entries
-- Configurable memory limits (default: 512 MB)
-- Thread-safe concurrent access
-- Significant performance improvements for repeated requests
+- Vector tile rendering from raster data
+- Integration with other spatial databases
 
-**Automatic Source Discovery**
+To add new resource endpoints:
 
-Martin tries to work out of the box with minimal configuration. It can currently automatically detect:
+1. Implement resource generator in `martin-core`
+2. Add an HTTP handler in `martin`
+3. Add configuration support
+4. Update catalog/discovery
 
-- PostgreSQL tables with geometry columns
-- PostgreSQL functions that return MVT
-- MBTiles and PMTiles files in configured directories
+Martin doesn't include built-in auth, but supports:
 
-This keeps common setups close to zero-config.
+- Reverse proxy authentication (recommended)
+- Custom Actix-Web middleware
+- Token-based access control via proxy
 
-**Multi-Protocol Tile Support**
+## Monitoring
 
-Different workloads benefit from different storage models. This lets operators pick the best format for their use case:
+These are the current monitoring and observability options:
 
-Dynamic tiles generated from live data. Best for frequently changing datasets.
+Martin exposes Prometheus metrics via `/_/metrics`:
 
-Pre-generated tile archives. Simple and fast for static datasets.
+- HTTP request counters and histograms
 
-Single-file, cloud-native archives optimized for HTTP range requests.
+If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
 
-Direct tile serving from Cloud Optimized GeoTIFFs.
+We allow health checks via `/health` and `/catalog` endpoints:
 
-On-the-fly vector tiles from GeoParquet via DuckDB. Best for semi-static parquet datasets without a pre-generated archive.
+- `/health` - Basic health check (HTTP 200)
+- `/catalog` - Source availability check
 
-**Why generate resources (sprites, fonts) dynamically**
+- logging via `env_logger`
+- Configurable log levels
+- Request/response logging
 
-Sprites, fonts, and styles are created on demand.
+# Source Architecture
 
-- No pre-processing step required
-- Simpler deployments (just provide source files)
-- URL-based customization
-- Less storage overhead
-
-**Why layered configuration**
-
-Martin supports multiple configuration sources.
-
-- CLI flags for quick testing and overrides
-- Environment variables for containerized deployments
-- Config files for larger or more complex setups
-- Clear precedence between configuration layers
-
-## Component Interactions
+How each kind of source is discovered, loaded and asked for tiles, and how the catalog follows changes without a restart. See [Serving Architecture](<https://maplibre.org/martin/architecture/index.md>) for how the server uses them.
 
 ```
 graph TB
@@ -7006,7 +7406,7 @@ graph TB
     Rect --> Query --> Clip --> Encode
 ```
 
-**Load time** (`GeoJsonSource::new` in `martin-core/src/tiles/geojson/`):
+**Load time** (`GeoJsonSource::new`):
 
 1. The entire file is read into memory and parsed with the `geojson` crate; each feature's geometry becomes a `geo_types::Geometry<f64>`.
 2. Every geometry is reprojected once from WGS84 to Web Mercator, so all per-tile work stays in Mercator.
@@ -7051,7 +7451,7 @@ graph TB
     XYZ --> SQL --> MVT
 ```
 
-**GeoParquet load time** (`DuckDBSource` in `martin-core/src/tiles/duckdb/`, resolver in `martin/src/config/file/tiles/duckdb/`):
+**GeoParquet load time** (`DuckDBSource`):
 
 1. Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the `spatial` extension; remote `http(s)` URLs also load `httpfs`.
 2. Columns are discovered with `DESCRIBE SELECT * FROM read_parquet(...)`. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.
@@ -7079,13 +7479,11 @@ graph TB
 
 DuckDB sources do not currently hot-reload.
 
-\== Runtime Source Reloading
+## Reloading sources
 
-````text
-After startup, Martin keeps the catalog in sync with its sources without a restart.
-One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
+After startup, Martin keeps the catalog in sync with its sources without a restart. One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
 
-```mermaid
+```
 graph LR
     Trigger["Trigger<br/>(when)"] -->|fires| Driver[Reload Driver]
     Driver -->|discover| Discovery["Discovery<br/>(what should exist)"]
@@ -7097,150 +7495,171 @@ graph LR
 
 The traits are:
 
-- **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing).
-  Returns one `(Version, Args)` per source id.
-  `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
-  `Args` is the kind-specific payload used to build the source on demand.
-- **`Trigger`** - decides **when to reconcile**.
-  `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
-- **`Sink`** - where the diff is **applied**.
-  `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
+- **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing). Returns one `(Version, Args)` per source id. `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update. `Args` is the kind-specific payload used to build the source on demand.
+- **`Trigger`** - decides **when to reconcile**. `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
+- **`Sink`** - where the diff is **applied**. `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
 
 They interact in this loop:
 
-1. **Init or seed**.
-   PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
-   `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
-2. **Reconcile**.
-   On each Trigger, re-run Discovery.
-   Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
-   Build only the changed ids.
-   Apply through the Sink.
-3. **Commit / retain**.
-   Advance the baseline only on a successful apply.
-   A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
+1. **Init or seed**. PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving. `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
+2. **Reconcile**. On each Trigger, re-run Discovery. Diff the new `Version`s against the baseline into a `ReloadAdvisory`. Build only the changed ids. Apply through the Sink.
+3. **Commit / retain**. Advance the baseline only on a successful apply. A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
 
-Each kind has at least one Reload Driver instance.
-Adding reload support for a new kind means writing one `Discovery` adapter.
-The loop, triggers, and sink are reused.
-````
+Each kind has at least one Reload Driver instance. Adding reload support for a new kind means writing one `Discovery` adapter. The loop, triggers, and sink are reused.
 
-## Deployment Patterns
+# Generation Architecture
 
-Martin supports multiple deployment patterns:
+> [!WARNING]
+>
+> **Not released or fully implemented**
+>
+> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+>
+> ```bash
+> cargo build --package martin --bin martin --features unstable-generate
+> ```
+>
+> Not implemented yet:
+>
+> - [ ] Rendering points, lines and polygons, with fill ranges for covered tiles
+> - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
+> - [ ] Planning tables into layers and running a whole generation end to end
+> - [ ] The PostgreSQL source with partitioned whole-table scans
+> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Layers with CEL expressions, `rules` and `sort_by`
+> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+> - [ ] `prefetch`
 
-- Single binary with embedded WebUI
-- Direct PostgreSQL connection
-- Local file serving
-- Suitable for small to medium deployments
+`martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
-- Docker image with all dependencies
-- Configuration via environment variables
-- Health check endpoints
-- Suitable for Kubernetes and container orchestrators
+We implement this via two traits:
 
-- Lambda adapter for Actix-Web
-- Cold start optimization
-- Stateless operation
-- Suitable for sporadic traffic
+- a `FeatureSource` streams features from partitions that can be read in parallel, and
+- a `TileSink` writes finished tiles in the order it asks for.
 
-- NGINX or Apache fronting Martin
-- Additional caching layer
-- SSL termination
-- Load balancing across multiple Martin instances
+Another database or file format is another `FeatureSource`, and another archive format is another `TileSink`.
 
-## Performance Characteristics
+## Phase 1: read and render
 
-- **Bottleneck**: Complex geometry queries on large tables
-- **Optimization**: Spatial indexes (GIST), connection pooling, query tuning
+### Partitions
 
-- **Bottleneck**: MVT encoding CPU time
-- **Optimization**: Tile caching, pre-generated MBTiles for static data
+A `FeatureSource` declares how many partitions it has, and streams one partition when asked. Readers read different partitions at the same time, at most one reader per thread. In return, a source promises two things:
 
-- **Bottleneck**: High tile request rate
-- **Optimization**: Async I/O, connection keep-alive, compression
+- **Stable order**: reading the partitions in order, each in its own row order, is the same as one scan of every feature. That is what makes the output independent of the thread timing, see [the sort key](<#sort-key>).
+- **Consistent data**: every partition is read from the same state of the data, even if it changes during the run.
 
-- **Bottleneck**: Large tile cache size
-- **Optimization**: LRU eviction, configurable cache size, streaming responses
+How a source splits its data is up to the source. A file can split by byte range or row group, a database by key range.
 
-- Increase CPU for faster tile generation
-- Increase memory for larger tile cache
-- Faster disk I/O for file sources
+The PostgreSQL source splits each table by what the relation allows:
 
-- Run multiple Martin instances behind load balancer
-- Each instance maintains its own cache
-- Shared PostgreSQL database with connection pooling
-- CDN for tile distribution
+| Relation | Partitions |
+| --- | --- |
+| Tables and materialized views | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), at least 256 pages each. The last range is open, so rows added since are still read |
+| Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids |
+| Anything else | One scan |
 
-## Security considerations
+Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There are no more readers than the pool's `pool_size`.
 
-- All tile coordinates validated (z/x/y bounds)
-- SQL injection prevention through parameterized queries
-- Path traversal prevention for file sources
-- URL parsing with strict validation
+### Feature queue
 
-- Read-only database user recommended
-- Connection string security (avoid logging)
-- SSL/TLS support for PostgreSQL connections
-- Certificate validation for secure connections
+Readers claim the next partition from a shared counter and stream it as batches of up to 1024 features. The batches go into one queue that holds at most `threads × 2` batches, and every render worker takes the next batch from it. When the workers fall behind, the queue fills and the readers wait, which in turn stops reading from the source. Memory does not grow with the source, and fast readers never race ahead of slow rendering.
 
-- CORS configuration for cross-origin requests
-- Rate limiting (via reverse proxy)
-- Authentication/authorization (via reverse proxy)
-- HTTPS termination (via reverse proxy)
+Because any worker can take any batch, a slow partition or a feature-heavy area never stalls the other workers.
 
-## Extensibility Points
+### Rendering
 
-To add a new tile source type:
+A render worker takes each feature through every layer its source feeds:
 
-1. Implement the `Source` trait in `martin-core`
-2. Add configuration parsing in `martin`
-3. Register source in the catalog
-4. Add integration tests
+1. The layer's filters decide whether the feature belongs to the layer, and its rules which settings apply.
+2. The feature is projected to Web Mercator once, then rendered from its highest zoom down. At each zoom a line or polygon is simplified, and dropped once it is smaller than the minimum size, which also ends the lower zooms, since a feature only shrinks with the zoom. Points are rendered at every zoom.
+3. The geometry is sliced into the tiles it touches, keeping its own vertices. No new vertices are cut at tile edges. A polygon ring that leaves a tile is closed by corners just outside the tile's buffer, where renderers clip it away. A feature that keeps clear of every neighbor tile's buffer, as most do at most zooms, skips the slicer entirely.
+4. Each piece is stored as a record. Its vertices are stored as offsets from the previous vertex, which usually fit in one or two bytes.
 
-Example source types that could be added:
+The tiles a polygon covers entirely become **fill ranges** instead of one record per tile. A fill range is one record that stands for a contiguous run of tile ids in the archive's tile order, which is a column of tiles in MBTiles order or an aligned quadtree cell in Hilbert order. A huge polygon such as an ocean or a country then costs time and space in proportion to its outline, not its area.
 
-- Vector tile rendering from raster data
-- Integration with other spatial databases
+### Sort key
 
-To add new resource endpoints:
+Every record is sorted by a 16-byte key:
 
-1. Implement resource generator in `martin-core`
-2. Add HTTP handler in `martin/src/srv/`
-3. Add configuration support
-4. Update catalog/discovery
+Sorting by this key puts the pieces of each tile next to each other, in the order the archive writes its tiles. Inside a tile, it puts the layers in their configured order, and inside a layer, it keeps the features in source order. The `Seq` part is the feature's partition and row, which do not depend on how the partitions were spread over threads. The tiles are therefore the same whatever the number of threads and their timing.
 
-Martin doesn't include built-in auth, but supports:
+A layer's `sort_by` value is not part of the key. It travels in the record, and the encoder orders each layer's features by it, keeping the `Seq` order of equal values.
 
-- Reverse proxy authentication (recommended)
-- Custom Actix-Web middleware
-- Token-based access control via proxy
+### External sort
 
-## Operations considerations
+Each render worker owns a sort buffer of `--memory / threads` bytes, at least 16 MiB and at most 4 GiB. Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset, length) is kept beside them. The budget counts the index twice, because the radix sort needs a second copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
 
-These are the current monitoring and observability options:
+1. It radix-sorts the index by key, without moving the records. If the records arrived in increasing `Seq`, as with a single reader, sorting by tile and layer is enough, since the radix sort is stable.
+2. It writes the records in key order to a new temporary file, a **sorted run**, as key, length and record, repeated.
+3. It clears the buffer and goes on rendering.
 
-Martin exposes Prometheus metrics via `/_/metrics`:
+Runs go round-robin to the `--temp-dir` directories. They are anonymous temporary files, which the operating system removes when the process ends, even when it is killed.
 
-- HTTP request counters and histograms
+When every worker has spilled its last buffer, phase 1 ends.
 
-If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
+## Phase 2: merge, encode and write
 
-We allow health checks via `/health` and `/catalog` endpoints:
+### Merge
 
-- `/health` - Basic health check (HTTP 200)
-- `/catalog` - Source availability check
+A loser-tree merge reads all runs at once, each through a 256 KiB buffer, and streams their records in key order. Only the pieces of one feature in one tile can have equal keys. They come from one worker, and keep the order it pushed them in. Up to 256 runs are merged at once. With more, groups of 256 are first merged in parallel into longer runs, until 256 or fewer remain.
 
-- logging via `env_logger`
-- Configurable log levels
-- Request/response logging
+### Grouping
 
-## Related Documentation
+The grouper collects the merged records of one tile at a time. A fill range is kept aside while it still covers upcoming tiles, and added to each of them, so a fill range costs one record however many tiles it covers. The grouper hands tiles on in batches of 256.
 
-- [Development Guide](<https://maplibre.org/martin/development/index.md>) - Contributing to Martin
-- [Configuration](<https://maplibre.org/martin/config-file/index.md>) - Detailed configuration options
-- [API Documentation](<https://maplibre.org/martin/using/index.md>) - HTTP API reference
-- [Sources Documentation](<https://maplibre.org/martin/sources-tiles/index.md>) - Tile source configuration
+### Parallel encoding, ordered writing
+
+Encoding is the expensive part of phase 2, so it runs on all threads, but the archive must receive the tiles in order. The ordered pipeline does both, with a bounded number of batches in flight:
+
+- For each batch of 256 tiles, the grouper first puts an empty result **slot** into the **order queue**, then hands the batch to the work queue. The order queue holds `threads × 4` slots. When it is full, the grouper waits.
+- Encoders take batches from the work queue in any order, finish them in any order, and put each result into its batch's slot.
+- The writer takes slots from the order queue in batch order and waits for each slot's result. A result that arrives early waits in its slot until the writer gets to it.
+
+When one batch is slow, for example a dense city at a high zoom, the other encoders go on with later batches until the order queue is full, and then wait. Memory stays bounded however slow one batch is, and the archive still sees every tile in order.
+
+### Repeated tiles
+
+Each encoder assembles the tile's layers from its records, encodes them as MLT or MVT, and compresses the result. It also avoids work and storage for repeated tiles:
+
+- A tile with the same records as the encoder's previous tile reuses its bytes without encoding. Neighboring tiles in the archive order are often identical, for example the inside of a large polygon.
+- A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all encoders. The index only hands out a key for bytes equal to the first tile with that hash.
+
+The archive stores tiles with the same dedup key once. Other identical tiles are stored separately.
+
+### Tile order
+
+The archive decides the tile order, and the whole pipeline produces tiles in that order, so the writer never sorts or buffers:
+
+| Archive | Tile order | Why |
+| --- | --- | --- |
+| MBTiles | Zoom, column, then bottom-up TMS row | The primary key of the `tiles` table, so inserts append to its B-tree instead of splitting pages. Always the deduplicated (`normalized`) schema |
+| PMTiles | Hilbert tile id | A clustered archive, written as a stream. Tiles with a dedup key share their bytes |
+
+The tileset's metadata, including the zooms, the format and each layer's fields, is only complete after the last tile, so the archive stores it last.
+
+## Memory and disk
+
+Every queue and buffer has a bound that does not depend on the size of the input:
+
+| What | Bound |
+| --- | --- |
+| Feature queue | `threads × 2` batches of up to 1024 features |
+| Sort buffers | `--memory` in total, records plus index, but at least 16 MiB per worker |
+| Run file writers | 1 MiB of write buffer for each run being written |
+| Merge | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge |
+| Encode window | `threads × 4` batches of 256 tiles, plus the one being written |
+| Dedup index | One copy of each distinct tile that got a dedup key |
+
+Intermediate merges, with more than 256 runs, run several 64 MiB merges at once. On disk, a feature has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another copy of the runs it merges.
+
+## Errors
+
+- In phase 1, an error stops every reader from claiming another partition and every worker from taking another batch. The run reports that error, not the hand-offs it interrupted.
+- In phase 2, an error of the grouper or an encoder travels to the writer in batch order, as an error in place of a batch. The archive stops there and never finishes a partial tileset. When the writer fails, the grouper's next hand-off fails, and the writer's error is reported.
+- Expressions never fail a run, see [Expressions](<https://maplibre.org/martin/sources-pg-layers/#expressions>). Features the slicer cannot handle at a zoom are skipped at that zoom and counted.
+- A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted runs are removed by the operating system in every case.
 
 # Optional
 

@@ -1,0 +1,2099 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="How martin generate scans, renders, sorts, encodes and writes a tileset">
+      
+      
+        <meta name="author" content="Maplibre Contributors">
+      
+      
+        <link rel="canonical" href="https://maplibre.org/martin/architecture-generate/">
+      
+      
+        <link rel="prev" href="../architecture-sources/">
+      
+      
+        <link rel="next" href="../migration-guide/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/favicon.ico">
+      <meta name="generator" content="zensical-0.0.69">
+    
+    
+      
+        <title>Generation - Martin Tile Server Documentation</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e15858d4.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b27955a4.min.css">
+      
+      
+  
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+    
+      
+      
+    
+  
+  
+  <style>:root{--md-admonition-icon--abstract:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2.5%201.75v11.5c0%20.138.112.25.25.25h3.17a.75.75%200%200%201%200%201.5H2.75A1.75%201.75%200%200%201%201%2013.25V1.75C1%20.784%201.784%200%202.75%200h8.5C12.216%200%2013%20.784%2013%201.75v7.736a.75.75%200%200%201-1.5%200V1.75a.25.25%200%200%200-.25-.25h-8.5a.25.25%200%200%200-.25.25m13.274%209.537zl-4.557%204.45a.75.75%200%200%201-1.055-.008l-1.943-1.95a.75.75%200%200%201%201.062-1.058l1.419%201.425%204.026-3.932a.75.75%200%201%201%201.048%201.074M4.75%204h4.5a.75.75%200%200%201%200%201.5h-4.5a.75.75%200%200%201%200-1.5M4%207.75A.75.75%200%200%201%204.75%207h2a.75.75%200%200%201%200%201.5h-2A.75.75%200%200%201%204%207.75%22/%3E%3C/svg%3E');--md-admonition-icon--bug:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M4.72.22a.75.75%200%200%201%201.06%200l1%20.999a3.5%203.5%200%200%201%202.441%200l.999-1a.748.748%200%200%201%201.265.332.75.75%200%200%201-.205.729l-.775.776c.616.63.995%201.493.995%202.444v.327q0%20.15-.025.292c.408.14.764.392%201.029.722l1.968-.787a.75.75%200%200%201%20.556%201.392L13%207.258V9h2.25a.75.75%200%200%201%200%201.5H13v.5q-.002.615-.141%201.186l2.17.868a.75.75%200%200%201-.557%201.392l-2.184-.873A5%205%200%200%201%208%2016a5%205%200%200%201-4.288-2.427l-2.183.873a.75.75%200%200%201-.558-1.392l2.17-.868A5%205%200%200%201%203%2011v-.5H.75a.75.75%200%200%201%200-1.5H3V7.258L.971%206.446a.75.75%200%200%201%20.558-1.392l1.967.787c.265-.33.62-.583%201.03-.722a1.7%201.7%200%200%201-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72%201.28a.75.75%200%200%201%200-1.06m.53%206.28a.75.75%200%200%200-.75.75V11a3.5%203.5%200%201%200%207%200V7.25a.75.75%200%200%200-.75-.75ZM6.173%205h3.654A.17.17%200%200%200%2010%204.827V4.5a2%202%200%201%200-4%200v.327c0%20.096.077.173.173.173%22/%3E%3C/svg%3E');--md-admonition-icon--danger:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M9.504.43a1.516%201.516%200%200%201%202.437%201.713L10.415%205.5h2.123c1.57%200%202.346%201.909%201.22%203.004l-7.34%207.142a1.25%201.25%200%200%201-.871.354h-.302a1.25%201.25%200%200%201-1.157-1.723L5.633%2010.5H3.462c-1.57%200-2.346-1.909-1.22-3.004zm1.047%201.074L3.286%208.571A.25.25%200%200%200%203.462%209H6.75a.75.75%200%200%201%20.694%201.034l-1.713%204.188%206.982-6.793A.25.25%200%200%200%2012.538%207H9.25a.75.75%200%200%201-.683-1.06l2.008-4.418.003-.006-.004-.009-.006-.006-.008-.001q-.005%200-.009.004%22/%3E%3C/svg%3E');--md-admonition-icon--example:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M5%205.782V2.5h-.25a.75.75%200%200%201%200-1.5h6.5a.75.75%200%200%201%200%201.5H11v3.282l3.666%205.76C15.619%2013.04%2014.543%2015%2012.767%2015H3.233c-1.776%200-2.852-1.96-1.899-3.458Zm-2.4%206.565a.75.75%200%200%200%20.633%201.153h9.534a.75.75%200%200%200%20.633-1.153L12.225%2010.5h-8.45ZM9.5%202.5h-3V6c0%20.143-.04.283-.117.403L4.73%209h6.54L9.617%206.403A.75.75%200%200%201%209.5%206Z%22/%3E%3C/svg%3E');--md-admonition-icon--failure:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2.344%202.343za8%208%200%200%201%2011.314%2011.314A8.002%208.002%200%200%201%20.234%2010.089a8%208%200%200%201%202.11-7.746m1.06%2010.253a6.5%206.5%200%201%200%209.108-9.275%206.5%206.5%200%200%200-9.108%209.275M6.03%204.97%208%206.94l1.97-1.97a.749.749%200%200%201%201.275.326.75.75%200%200%201-.215.734L9.06%208l1.97%201.97a.749.749%200%200%201-.326%201.275.75.75%200%200%201-.734-.215L8%209.06l-1.97%201.97a.749.749%200%200%201-1.275-.326.75.75%200%200%201%20.215-.734L6.94%208%204.97%206.03a.75.75%200%200%201%20.018-1.042.75.75%200%200%201%201.042-.018%22/%3E%3C/svg%3E');--md-admonition-icon--info:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208m8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13M6.5%207.75A.75.75%200%200%201%207.25%207h1a.75.75%200%200%201%20.75.75v2.75h.25a.75.75%200%200%201%200%201.5h-2a.75.75%200%200%201%200-1.5h.25v-2h-.25a.75.75%200%200%201-.75-.75M8%206a1%201%200%201%201%200-2%201%201%200%200%201%200%202%22/%3E%3C/svg%3E');--md-admonition-icon--note:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M1%207.775V2.75C1%201.784%201.784%201%202.75%201h5.025c.464%200%20.91.184%201.238.513l6.25%206.25a1.75%201.75%200%200%201%200%202.474l-5.026%205.026a1.75%201.75%200%200%201-2.474%200l-6.25-6.25A1.75%201.75%200%200%201%201%207.775m1.5%200c0%20.066.026.13.073.177l6.25%206.25a.25.25%200%200%200%20.354%200l5.025-5.025a.25.25%200%200%200%200-.354l-6.25-6.25a.25.25%200%200%200-.177-.073H2.75a.25.25%200%200%200-.25.25ZM6%205a1%201%200%201%201%200%202%201%201%200%200%201%200-2%22/%3E%3C/svg%3E');--md-admonition-icon--question:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M0%208a8%208%200%201%201%2016%200A8%208%200%200%201%200%208m8-6.5a6.5%206.5%200%201%200%200%2013%206.5%206.5%200%200%200%200-13M6.92%206.085h.001a.749.749%200%201%201-1.342-.67c.169-.339.436-.701.849-.977C6.845%204.16%207.369%204%208%204a2.76%202.76%200%200%201%201.637.525c.503.377.863.965.863%201.725%200%20.448-.115.83-.329%201.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6%206%200%200%200-.26.16%201%201%200%200%200-.276.245.75.75%200%200%201-1.248-.832c.184-.264.42-.489.692-.661q.154-.1.313-.195l.007-.004c.1-.061.182-.11.258-.161a1%201%200%200%200%20.277-.245C8.96%206.514%209%206.427%209%206.25a.61.61%200%200%200-.262-.525A1.27%201.27%200%200%200%208%205.5c-.369%200-.595.09-.74.187a1%201%200%200%200-.34.398M9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200%22/%3E%3C/svg%3E');--md-admonition-icon--quote:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M1.75%202.5h10.5a.75.75%200%200%201%200%201.5H1.75a.75.75%200%200%201%200-1.5m4%205h8.5a.75.75%200%200%201%200%201.5h-8.5a.75.75%200%200%201%200-1.5m0%205h8.5a.75.75%200%200%201%200%201.5h-8.5a.75.75%200%200%201%200-1.5M2.5%207.75v6a.75.75%200%200%201-1.5%200v-6a.75.75%200%200%201%201.5%200%22/%3E%3C/svg%3E');--md-admonition-icon--success:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M13.78%204.22a.75.75%200%200%201%200%201.06l-7.25%207.25a.75.75%200%200%201-1.06%200L2.22%209.28a.75.75%200%200%201%20.018-1.042.75.75%200%200%201%201.042-.018L6%2010.94l6.72-6.72a.75.75%200%200%201%201.06%200%22/%3E%3C/svg%3E');--md-admonition-icon--tip:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M3.499.75a.75.75%200%200%201%201.5%200v.996C5.9%202.903%206.793%203.65%207.662%204.376l.24.202c-.036-.694.055-1.422.426-2.163C9.1.873%2010.794-.045%2012.622.26%2014.408.558%2016%201.94%2016%204.25c0%201.278-.954%202.575-2.44%202.734l.146.508.065.22c.203.701.412%201.455.476%202.226.142%201.707-.4%203.03-1.487%203.898C11.714%2014.671%2010.27%2015%208.75%2015h-6a.75.75%200%200%201%200-1.5h1.376a4.5%204.5%200%200%201-.563-1.191%203.84%203.84%200%200%201-.05-2.063%204.65%204.65%200%200%201-2.025-.293.75.75%200%200%201%20.525-1.406c1.357.507%202.376-.006%202.698-.318l.009-.01a.747.747%200%200%201%201.06%200%20.75.75%200%200%201-.012%201.074c-.912.92-.992%201.835-.768%202.586.221.74.745%201.337%201.196%201.621H8.75c1.343%200%202.398-.296%203.074-.836.635-.507%201.036-1.31.928-2.602-.05-.603-.216-1.224-.422-1.93l-.064-.221c-.12-.407-.246-.84-.353-1.29a2.4%202.4%200%200%201-.507-.441%203.1%203.1%200%200%201-.633-1.248.75.75%200%200%201%201.455-.364c.046.185.144.436.31.627.146.168.353.305.712.305.738%200%201.25-.615%201.25-1.25%200-1.47-.95-2.315-2.123-2.51-1.172-.196-2.227.387-2.706%201.345-.46.92-.27%201.774.019%203.062l.042.19.01.05c.348.443.666.949.94%201.553a.75.75%200%201%201-1.365.62c-.553-1.217-1.32-1.94-2.3-2.768L6.7%205.527c-.814-.68-1.75-1.462-2.692-2.619a3.7%203.7%200%200%200-1.023.88c-.406.495-.663%201.036-.722%201.508.116.122.306.21.591.239.388.038.797-.06%201.032-.19a.75.75%200%200%201%20.728%201.31c-.515.287-1.23.439-1.906.373-.682-.067-1.473-.38-1.879-1.193L.75%205.677V5.5c0-.984.48-1.94%201.077-2.664.46-.559%201.05-1.055%201.673-1.353z%22/%3E%3C/svg%3E');--md-admonition-icon--warning:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M6.457%201.047c.659-1.234%202.427-1.234%203.086%200l6.082%2011.378A1.75%201.75%200%200%201%2014.082%2015H1.918a1.75%201.75%200%200%201-1.543-2.575Zm1.763.707a.25.25%200%200%200-.44%200L1.698%2013.132a.25.25%200%200%200%20.22.368h12.164a.25.25%200%200%200%20.22-.368Zm.53%203.996v2.5a.75.75%200%200%201-1.5%200v-2.5a.75.75%200%200%201%201.5%200M9%2011a1%201%200%201%201-2%200%201%201%200%200%201%202%200%22/%3E%3C/svg%3E');}</style>
+
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website" />
+<meta property="og:title" content="Generation - Martin Tile Server Documentation" />
+<meta property="og:description" content="How martin generate scans, renders, sorts, encodes and writes a tileset" />
+<meta property="og:image" content="https://maplibre.org/martin/assets/images/social/architecture-generate.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://maplibre.org/martin/architecture-generate/" />
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:title" content="Generation - Martin Tile Server Documentation" />
+<meta property="twitter:description" content="How martin generate scans, renders, sorts, encodes and writes a tileset" />
+<meta property="twitter:image" content="https://maplibre.org/martin/assets/images/social/architecture-generate.png" />
+</head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="Martin Tile Server Documentation">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Martin Tile Server Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Generation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/maplibre/martin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="./.." class="md-tabs__link">
+        
+  
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quick-start/" class="md-tabs__link">
+          
+  
+  Quick Start
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../run/" class="md-tabs__link">
+          
+  
+  Running
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../config-file/" class="md-tabs__link">
+          
+  
+  Configuration File
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../using/" class="md-tabs__link">
+        
+  
+  Available API Endpoints
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../using-guides/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../development/" class="md-tabs__link">
+          
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../migration-guide/" class="md-tabs__link">
+        
+  
+  Migration Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="Martin Tile Server Documentation">
+
+    </a>
+    Martin Tile Server Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/maplibre/martin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Introduction
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../quick-start/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m13.13 22.19-1.63-3.83c1.57-.58 3.04-1.36 4.4-2.27zM5.64 12.5l-3.83-1.63 6.1-2.77C7 9.46 6.22 10.93 5.64 12.5M21.61 2.39S16.66.269 11 5.93c-2.19 2.19-3.5 4.6-4.35 6.71-.28.75-.09 1.57.46 2.13l2.13 2.12c.55.56 1.37.74 2.12.46A19.1 19.1 0 0 0 18.07 13c5.66-5.66 3.54-10.61 3.54-10.61m-7.07 7.07c-.78-.78-.78-2.05 0-2.83s2.05-.78 2.83 0c.77.78.78 2.05 0 2.83s-2.05.78-2.83 0m-5.66 7.07-1.41-1.41zM6.24 22l3.64-3.64c-.34-.09-.67-.24-.97-.45L4.83 22zM2 22h1.41l4.77-4.76-1.42-1.41L2 20.59zm0-2.83 4.09-4.08c-.21-.3-.36-.62-.45-.97L2 17.76z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Quick Start
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../run/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 16.5v-9l6 4.5M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Running
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../config-file/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h6.68a7 7 0 0 1-.68-3 7 7 0 0 1 7-7 7 7 0 0 1 1 .08V8l-6-6zm7 1.5L18.5 9H13zM18 14a.26.26 0 0 0-.26.21l-.19 1.32c-.3.13-.59.29-.85.47l-1.24-.5c-.11 0-.24 0-.31.13l-1 1.73c-.06.11-.04.24.06.32l1.06.82a4.2 4.2 0 0 0 0 1l-1.06.82a.26.26 0 0 0-.06.32l1 1.73c.06.13.19.13.31.13l1.24-.5c.26.18.54.35.85.47l.19 1.32c.02.12.12.21.26.21h2c.11 0 .22-.09.24-.21l.19-1.32c.3-.13.57-.29.84-.47l1.23.5c.13 0 .26 0 .33-.13l1-1.73a.26.26 0 0 0-.06-.32l-1.07-.82c.02-.17.04-.33.04-.5s-.01-.33-.04-.5l1.06-.82a.26.26 0 0 0 .06-.32l-1-1.73c-.06-.13-.19-.13-.32-.13l-1.23.5c-.27-.18-.54-.35-.85-.47l-.19-1.32A.236.236 0 0 0 20 14zm1 3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5c-.84 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration File
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../using/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 7H5a2 2 0 0 0-2 2v8h2v-4h2v4h2V9a2 2 0 0 0-2-2m0 4H5V9h2m7-2h-4v10h2v-4h2a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2m0 4h-2V9h2m6 0v6h1v2h-4v-2h1V9h-1V7h4v2Z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Available API Endpoints
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+  
+    <a href="../using-guides/" class="md-nav__link">
+      
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19 2-5 4.5v11l5-4.5zM6.5 5C4.55 5 2.45 5.4 1 6.5v14.66c0 .25.25.5.5.5.1 0 .15-.07.25-.07 1.35-.65 3.3-1.09 4.75-1.09 1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.31 4.75 1.06.1.05.15.03.25.03.25 0 .5-.25.5-.5V6.5c-.6-.45-1.25-.75-2-1V19c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V6.5C10.55 5.4 8.45 5 6.5 5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../development/" class="md-nav__link ">
+              
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Development
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Development
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-involved/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 5.5A3.5 3.5 0 0 1 15.5 9a3.5 3.5 0 0 1-3.5 3.5A3.5 3.5 0 0 1 8.5 9 3.5 3.5 0 0 1 12 5.5M5 8c.56 0 1.08.15 1.53.42-.15 1.43.27 2.85 1.13 3.96C7.16 13.34 6.16 14 5 14a3 3 0 0 1-3-3 3 3 0 0 1 3-3m14 0a3 3 0 0 1 3 3 3 3 0 0 1-3 3c-1.16 0-2.16-.66-2.66-1.62a5.54 5.54 0 0 0 1.13-3.96c.45-.27.97-.42 1.53-.42M5.5 18.25c0-2.07 2.91-3.75 6.5-3.75s6.5 1.68 6.5 3.75V20h-13zM0 20v-1.5c0-1.39 1.89-2.56 4.45-2.9-.59.68-.95 1.62-.95 2.65V20zm24 0h-3.5v-1.75c0-1.03-.36-1.97-.95-2.65 2.56.34 4.45 1.51 4.45 2.9z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting involved
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m21.71 20.29-1.42 1.42a1 1 0 0 1-1.41 0L7 9.85A3.8 3.8 0 0 1 6 10a4 4 0 0 1-3.78-5.3l2.54 2.54.53-.53 1.42-1.42.53-.53L4.7 2.22A4 4 0 0 1 10 6a3.8 3.8 0 0 1-.15 1l11.86 11.88a1 1 0 0 1 0 1.41M2.29 18.88a1 1 0 0 0 0 1.41l1.42 1.42a1 1 0 0 0 1.41 0l5.47-5.46-2.83-2.83M20 2l-4 2v2l-2.17 2.17 2 2L18 8h2l2-4Z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Provided Tools
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../martin-as-a-library/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Martin as a library
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_8_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Architecture
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2v6h2v3H5c-1.11 0-2 .89-2 2v3H1v6h6v-6H5v-3h6v3H9v6h6v-6h-2v-3h6v3h-2v6h6v-6h-2v-3c0-1.11-.89-2-2-2h-6V8h2V2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Serving
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture-sources/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4-3.58 4-8 4-8-1.79-8-4m8.08 11H12c-4.42 0-8-1.79-8-4v3c0 2.21 3.58 4 8 4h.29a7.4 7.4 0 0 1-.29-2c0-.34.03-.67.08-1M20 12.08V9c0 2.21-3.58 4-8 4s-8-1.79-8-4v3c0 2.21 3.58 4 8 4h.69c1.13-2.37 3.53-4 6.31-4 .34 0 .67.03 1 .08m3.8 8.32c.1 0 .1.1 0 .2l-1 1.7c-.1.1-.2.1-.3.1l-1.2-.4c-.3.2-.5.3-.8.5l-.2 1.3c0 .1-.1.2-.2.2h-2c-.1 0-.2-.1-.3-.2l-.2-1.3c-.3-.1-.6-.3-.8-.5l-1.2.5c-.1 0-.2 0-.3-.1l-1-1.7c-.1-.1 0-.2.1-.3l1.1-.8v-1l-1.1-.8c-.1-.1-.1-.2-.1-.3l1-1.7c.1-.1.2-.1.3-.1l1.2.5c.3-.2.5-.3.8-.5l.2-1.3c0-.1.1-.2.3-.2h2c.1 0 .2.1.2.2l.2 1.3c.3.1.6.3.9.5l1.2-.5c.1 0 .3 0 .3.1l1 1.7c.1.1 0 .2-.1.3l-1.1.8v1zM20.5 19c0-.8-.7-1.5-1.5-1.5s-1.5.7-1.5 1.5.7 1.5 1.5 1.5 1.5-.7 1.5-1.5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Sources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2v6h2v3H5c-1.11 0-2 .89-2 2v3H1v6h6v-6H5v-3h6v3H9v6h6v-6h-2v-3h6v3h-2v6h6v-6h-2v-3c0-1.11-.89-2-2-2h-6V8h2V2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generation
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2v6h2v3H5c-1.11 0-2 .89-2 2v3H1v6h6v-6H5v-3h6v3H9v6h6v-6h-2v-3h6v3h-2v6h6v-6h-2v-3c0-1.11-.89-2-2-2h-6V8h2V2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generation
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-read-and-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Phase 1: read and render
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 1: read and render">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#partitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Partitions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feature-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Feature queue
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rendering
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sort-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sort key
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-sort" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        External sort
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-merge-encode-and-write" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Phase 2: merge, encode and write
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 2: merge, encode and write">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Merge
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grouping" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Grouping
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-encoding-ordered-writing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Parallel encoding, ordered writing
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#repeated-tiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Repeated tiles
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tile-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tile order
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-and-disk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Memory and disk
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration-guide/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.887 6.887 0 0 0 0 9.8c2.73 2.7 7.15 2.7 9.88 0 1.36-1.35 2.04-2.92 2.04-4.9h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0 1 12.65 0L21 3zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Migration Guide
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="./.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../development/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../architecture/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+                  
+
+  
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/architecture-generate.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="generation-architecture">Generation Architecture</h1>
+<div class="admonition warning">
+<p class="admonition-title">Not released or fully implemented</p>
+<p><code>martin generate</code> is not in any release yet, and parts of what these pages describe are not
+implemented yet.
+It is only built with the <code>unstable-generate</code> feature:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--package<span class="w"> </span>martin<span class="w"> </span>--bin<span class="w"> </span>martin<span class="w"> </span>--features<span class="w"> </span>unstable-generate
+</span></code></pre></div>
+<p>Not implemented yet:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Rendering points, lines and polygons, with fill ranges for covered tiles</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Tile grouping, MLT and MVT encoding, compression and deduplication</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Planning tables into layers and running a whole generation end to end</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The <code>martin generate</code> command and PMTiles output</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> other than <code>point</code>, <code>line</code> and <code>polygon</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>tile</code> operations (<code>merge_lines</code>, <code>merge_polygons</code>, <code>merge_multi</code>, <code>label_grid</code>, <code>dedup_by</code>, <code>limit</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>prefetch</code></li>
+</ul>
+</div>
+<p><code>martin generate</code> turns whole sources into a tileset in two phases. First, every feature is read once and
+rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into
+tiles, encoded, and written in the order the archive stores them. Every step hands its work to the
+next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.</p>
+<p><svg id="gen-overview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" width="100%" role="img" aria-label="martin generate in two phases: read and render into sorted runs, then merge, encode and write tiles in order"><title>martin generate in two phases: read and render into sorted runs, then merge, encode and write tiles in order</title><style>#gen-overview{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-overview .fg{fill:var(--md-default-fg-color,#000000de)}#gen-overview .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-overview .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-overview .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-overview .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-overview text{dominant-baseline:central}#gen-overview .t{font-weight:600}#gen-overview .s{font-size:11px}#gen-overview .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-overview .motion{display:none}}#gen-overview .b-read{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-overview .f-read{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-read{stroke:var(--md-primary-fg-color,#673ab7)}#gen-overview .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-overview .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-overview .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-overview .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-overview .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-overview .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-overview .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-overview .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-overview .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-overview .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-overview .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}</style><text class="fg t" x="12" y="14" text-anchor="start">phase 1: read and render</text><text class="fg t" x="12" y="236" text-anchor="start">phase 2: merge, encode, write</text><path class="line" d="M10 214 H950" stroke-dasharray="6 5"/><text class="muted s" x="480" y="214" text-anchor="middle" style="paint-order:stroke;stroke:var(--md-default-bg-color,#fff);stroke-width:6px"> every sort buffer spilled: phase 2 starts </text><path class="b-read" d="M20 44 a55.0 8 0 0 0 110 0 v134 a55.0 8 0 0 1 -110 0 Z"/><path class="b-read" d="M20 44 a55.0 8 0 0 1 110 0 a55.0 8 0 0 1 -110 0"/><text class="fg t" x="75" y="62" text-anchor="middle">PostgreSQL</text><rect class="line" x="38" y="77" width="74" height="14" rx="3"/><text class="muted s" x="75" y="84" text-anchor="middle">partition 0</text><rect class="line" x="38" y="95" width="74" height="14" rx="3"/><text class="muted s" x="75" y="102" text-anchor="middle">partition 1</text><rect class="line" x="38" y="113" width="74" height="14" rx="3"/><text class="muted s" x="75" y="120" text-anchor="middle">partition 2</text><rect class="line" x="38" y="131" width="74" height="14" rx="3"/><text class="muted s" x="75" y="138" text-anchor="middle">partition 3</text><rect class="line" x="38" y="149" width="74" height="14" rx="3"/><text class="muted s" x="75" y="156" text-anchor="middle">partition 4</text><text class="muted s" x="75" y="196" text-anchor="middle">page or id ranges</text><rect class="b-read" x="165" y="54" width="110" height="32" rx="6"/><text class="fg t" x="220.0" y="70.0" text-anchor="middle">reader</text><rect class="b-read" x="165" y="95" width="110" height="32" rx="6"/><text class="fg t" x="220.0" y="111.0" text-anchor="middle">reader</text><rect class="b-read" x="165" y="136" width="110" height="32" rx="6"/><text class="fg t" x="220.0" y="152.0" text-anchor="middle">reader</text><text class="muted s" x="220" y="196" text-anchor="middle">one shared snapshot</text><path class="arrow" d="M130 111 L163 111"/><path class="head" d="M163.0 111.0 L155.0 107.0 L155.0 115.0 Z"/><rect class="line" x="320" y="99" width="18" height="24" rx="3"/><rect class="line" x="341" y="99" width="18" height="24" rx="3"/><rect class="line" x="362" y="99" width="18" height="24" rx="3"/><rect class="line" x="383" y="99" width="18" height="24" rx="3"/><rect class="line" x="404" y="99" width="18" height="24" rx="3"/><rect class="line" x="425" y="99" width="18" height="24" rx="3"/><text class="fg t" x="381" y="81" text-anchor="middle">feature batches</text><text class="muted s" x="381" y="141" text-anchor="middle">bounded: threads × 2</text><path class="arrow" d="M275 70 L300 70 L300 111 L316 111"/><path class="arrow" d="M275 111 L300 111 L300 111 L316 111"/><path class="head" d="M316.0 111.0 L308.0 107.0 L308.0 115.0 Z"/><path class="arrow" d="M275 152 L300 152 L300 111 L316 111"/><rect class="b-render" x="490" y="54" width="120" height="32" rx="6"/><text class="fg t" x="550.0" y="70.0" text-anchor="middle">render worker</text><path class="arrow" d="M446 111 L470 111 L470 70 L488 70"/><path class="head" d="M488.0 70.0 L480.0 66.0 L480.0 74.0 Z"/><rect class="b-render" x="490" y="95" width="120" height="32" rx="6"/><text class="fg t" x="550.0" y="111.0" text-anchor="middle">render worker</text><path class="arrow" d="M446 111 L470 111 L470 111 L488 111"/><path class="head" d="M488.0 111.0 L480.0 107.0 L480.0 115.0 Z"/><rect class="b-render" x="490" y="136" width="120" height="32" rx="6"/><text class="fg t" x="550.0" y="152.0" text-anchor="middle">render worker</text><path class="arrow" d="M446 111 L470 111 L470 152 L488 152"/><path class="head" d="M488.0 152.0 L480.0 148.0 L480.0 156.0 Z"/><text class="muted s" x="550" y="196" text-anchor="middle">every zoom, into tile pieces</text><rect class="line" x="630" y="61" width="80" height="18" rx="3"/><rect class="line" x="630" y="102" width="80" height="18" rx="3"/><rect class="line" x="630" y="143" width="80" height="18" rx="3"/><text class="fg t" x="670.0" y="40" text-anchor="middle">sort buffers</text><text class="muted s" x="670.0" y="196" text-anchor="middle">radix sort, then spill</text><rect class="b-sort" x="760" y="36" width="180" height="150" rx="6"/><text class="fg t" x="850" y="52" text-anchor="middle">temp dirs: sorted runs</text><rect class="b-sort" x="20" y="248" width="120" height="146" rx="6"/><rect class="line" x="32" y="255" width="96" height="14" rx="3"/><rect class="line" x="32" y="277" width="96" height="14" rx="3"/><rect class="line" x="32" y="299" width="96" height="14" rx="3"/><rect class="line" x="32" y="321" width="96" height="14" rx="3"/><rect class="line" x="32" y="343" width="96" height="14" rx="3"/><rect class="line" x="32" y="365" width="96" height="14" rx="3"/><text class="muted s" x="80" y="408" text-anchor="middle">sorted runs</text><rect class="b-sort" x="172" y="285" width="126" height="56" rx="6"/><text class="fg t" x="235.0" y="305.0" text-anchor="middle">merge</text><text class="muted s" x="235.0" y="322.0" text-anchor="middle">loser tree, ≤ 256 runs</text><path class="arrow" d="M140 262 L160 262 L160 313 L170 313"/><path class="head" d="M170.0 313.0 L162.0 309.0 L162.0 317.0 Z"/><path class="arrow" d="M140 284 L160 284 L160 313 L170 313"/><path class="arrow" d="M140 306 L160 306 L160 313 L170 313"/><path class="arrow" d="M140 328 L160 328 L160 313 L170 313"/><path class="arrow" d="M140 350 L160 350 L160 313 L170 313"/><path class="arrow" d="M140 372 L160 372 L160 313 L170 313"/><rect class="b-sort" x="325" y="285" width="110" height="56" rx="6"/><text class="fg t" x="380.0" y="305.0" text-anchor="middle">group by tile</text><text class="muted s" x="380.0" y="322.0" text-anchor="middle">expand fill ranges</text><path class="arrow" d="M298 313 L323 313"/><path class="head" d="M323.0 313.0 L315.0 309.0 L315.0 317.0 Z"/><rect class="line" x="470" y="301" width="20" height="24" rx="3"/><rect class="line" x="494" y="301" width="20" height="24" rx="3"/><rect class="line" x="518" y="301" width="20" height="24" rx="3"/><rect class="line" x="542" y="301" width="20" height="24" rx="3"/><text class="fg t" x="516" y="278" text-anchor="middle">encode window</text><text class="muted s" x="516" y="348" text-anchor="middle">≤ threads × 4 batches</text><path class="arrow" d="M435 313 L466 313"/><path class="head" d="M466.0 313.0 L458.0 309.0 L458.0 317.0 Z"/><rect class="b-encode" x="605" y="254" width="110" height="32" rx="6"/><text class="fg t" x="660.0" y="270.0" text-anchor="middle">encoder</text><path class="arrow" d="M566 313 L585 313 L585 270 L603 270"/><path class="head" d="M603.0 270.0 L595.0 266.0 L595.0 274.0 Z"/><rect class="b-encode" x="605" y="297" width="110" height="32" rx="6"/><text class="fg t" x="660.0" y="313.0" text-anchor="middle">encoder</text><path class="arrow" d="M566 313 L585 313 L585 313 L603 313"/><path class="head" d="M603.0 313.0 L595.0 309.0 L595.0 317.0 Z"/><rect class="b-encode" x="605" y="340" width="110" height="32" rx="6"/><text class="fg t" x="660.0" y="356.0" text-anchor="middle">encoder</text><path class="arrow" d="M566 313 L585 313 L585 356 L603 356"/><path class="head" d="M603.0 356.0 L595.0 352.0 L595.0 360.0 Z"/><text class="muted s" x="660" y="396" text-anchor="middle">MLT / MVT, compress, dedup</text><rect class="b-write" x="750" y="285" width="90" height="56" rx="6"/><text class="fg t" x="795.0" y="305.0" text-anchor="middle">writer</text><text class="muted s" x="795.0" y="322.0" text-anchor="middle">in tile order</text><path class="arrow" d="M715 270 L732 270 L732 313 L748 313"/><path class="arrow" d="M715 313 L732 313 L732 313 L748 313"/><path class="head" d="M748.0 313.0 L740.0 309.0 L740.0 317.0 Z"/><path class="arrow" d="M715 356 L732 356 L732 313 L748 313"/><path class="b-write" d="M870 278 a35.0 8 0 0 0 70 0 v74 a35.0 8 0 0 1 -70 0 Z"/><path class="b-write" d="M870 278 a35.0 8 0 0 1 70 0 a35.0 8 0 0 1 -70 0"/><text class="fg s" x="905" y="318" text-anchor="middle">archive</text><text class="muted s" x="905" y="378" text-anchor="middle">MBTiles / PMTiles</text><path class="arrow" d="M840 313 L868 313"/><path class="head" d="M868.0 313.0 L860.0 309.0 L860.0 317.0 Z"/><g class="motion"><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 84;112 84;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.0111;0.0228;0.0463;0.0517;0.0604;0.0666;0.0897;0.0968;0.1055;0.1397;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0111;0.1397" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 102;112 102;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.0267;0.0382;0.0617;0.067;0.067;0.0732;0.0963;0.1033;0.1121;0.1463;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0267;0.1463" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 120;112 120;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.0422;0.0555;0.079;0.0843;0.0931;0.0993;0.1223;0.1294;0.1294;0.1636;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0422;0.1636" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 138;112 138;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.0578;0.0762;0.0997;0.105;0.1138;0.12;0.1431;0.1501;0.1501;0.1843;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0578;0.1843" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 156;112 156;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.0733;0.0882;0.1117;0.117;0.117;0.1232;0.1463;0.1534;0.1621;0.1963;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0733;0.1963" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 84;112 84;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.0889;0.1073;0.1308;0.1362;0.1449;0.1511;0.1742;0.1812;0.19;0.2242;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0889;0.2242" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 102;112 102;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.1044;0.1177;0.1412;0.1465;0.1553;0.1615;0.1846;0.1916;0.2004;0.2346;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1044;0.2346" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 120;112 120;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.12;0.1315;0.155;0.1603;0.1603;0.1665;0.1896;0.1967;0.1967;0.2308;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.12;0.2308" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 138;112 138;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.1356;0.1473;0.1708;0.1761;0.1849;0.1911;0.2141;0.2212;0.23;0.2641;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1356;0.2641" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 156;112 156;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.1511;0.1727;0.1962;0.2015;0.2103;0.2165;0.2396;0.2466;0.2554;0.2896;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1511;0.2896" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 84;112 84;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.1667;0.1794;0.2029;0.2082;0.2082;0.2144;0.2375;0.2445;0.2533;0.2875;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1667;0.2875" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 102;112 102;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.1822;0.1978;0.2213;0.2266;0.2354;0.2416;0.2647;0.2717;0.2717;0.3059;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1822;0.3059" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 120;112 120;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.1978;0.2133;0.2369;0.2422;0.251;0.2572;0.2802;0.2873;0.2873;0.3215;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1978;0.3215" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 138;112 138;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.2133;0.226;0.2495;0.2549;0.2549;0.2611;0.2842;0.2912;0.3;0.3342;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2133;0.3342" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 156;112 156;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.2289;0.2402;0.2638;0.2691;0.2779;0.284;0.3071;0.3142;0.3229;0.3571;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2289;0.3571" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 84;112 84;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 152;630 152;630 152" keyTimes="0;0.2444;0.2562;0.2797;0.285;0.2938;0.3;0.323;0.3301;0.3388;0.373;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2444;0.373" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 102;112 102;165 111;275 111;300 111;300 111;329 111;437 111;470 111;470 111;630 111;630 111" keyTimes="0;0.26;0.2715;0.295;0.3003;0.3003;0.3065;0.3296;0.3367;0.3367;0.3708;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.26;0.3708" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 120;112 120;165 152;275 152;300 152;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.2756;0.2888;0.3123;0.3176;0.3264;0.3326;0.3557;0.3627;0.3715;0.4057;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2756;0.4057" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-read" r="5"><animateTransform attributeName="transform" type="translate" values="112 138;112 138;165 70;275 70;300 70;300 111;329 111;437 111;470 111;470 70;630 70;630 70" keyTimes="0;0.2911;0.3095;0.333;0.3384;0.3471;0.3533;0.3764;0.3835;0.3922;0.4264;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2911;0.4264" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="f-render" x="630" y="61" height="18" rx="3" width="0" opacity=".6"><animate attributeName="width" values="0;16;32;48;64;80;0;16;32;0" keyTimes="0;0.1397;0.1963;0.2641;0.2896;0.3342;0.3536;0.4057;0.4264;0.4667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="f-render" x="630" y="102" height="18" rx="3" width="0" opacity=".6"><animate attributeName="width" values="0;16;32;48;64;80;0;16;0" keyTimes="0;0.1636;0.1843;0.2308;0.3059;0.3215;0.3409;0.3708;0.4733" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="f-render" x="630" y="143" height="18" rx="3" width="0" opacity=".6"><animate attributeName="width" values="0;16;32;48;64;80;16;0;0" keyTimes="0;0.1463;0.2242;0.2346;0.2875;0.3571;0.373;0.3766;0.48" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><g><animateTransform attributeName="transform" type="translate" values="650 104;650 104;780 70;780 70" keyTimes="0;0.3215;0.3492;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.3215;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 0</text></g><g><animateTransform attributeName="transform" type="translate" values="650 63;650 63;832 70;832 70" keyTimes="0;0.3342;0.3619;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.3342;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 1</text></g><g><animateTransform attributeName="transform" type="translate" values="650 145;650 145;884 70;884 70" keyTimes="0;0.3571;0.3849;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.3571;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 2</text></g><g><animateTransform attributeName="transform" type="translate" values="650 63;650 63;780 94;780 94" keyTimes="0;0.45;0.4778;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.45;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 3</text></g><g><animateTransform attributeName="transform" type="translate" values="650 104;650 104;832 94;832 94" keyTimes="0;0.4567;0.4844;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4567;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 4</text></g><g><animateTransform attributeName="transform" type="translate" values="650 145;650 145;884 94;884 94" keyTimes="0;0.4633;0.4911;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4633;0.5222" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/><rect class="b-sort" width="40" height="16" rx="3" style="fill-opacity:.55"/><text class="fg mono" x="20" y="8" text-anchor="middle">run 5</text></g><rect class="b-sort" x="32" y="255" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.9444;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="b-sort" x="32" y="277" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.9333;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="b-sort" x="32" y="299" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.9222;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="b-sort" x="32" y="321" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.9111;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="b-sort" x="32" y="343" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.9;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="b-sort" x="32" y="365" height="14" rx="3" style="fill-opacity:.55" width="96"><animate attributeName="width" values="96;96;4;4" keyTimes="0;0.5;0.8889;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;0.9667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 262;128 262;160 262;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.5167;0.5226;0.532;0.5357;0.5561;0.5626;0.583;0.5913;0.6054;0.6107;0.6187;0.6224;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5167;0.6224" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.6502;0.6533;0.6613;0.6646;0.6813;0.6887;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6502;0.6887" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 284;128 284;160 284;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.5333;0.5393;0.5446;0.5483;0.5687;0.5752;0.5956;0.6039;0.618;0.6233;0.6313;0.635;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5333;0.635" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.6767;0.6798;0.6878;0.6911;0.7078;0.7152;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6767;0.7152" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 306;128 306;160 306;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.55;0.5559;0.5572;0.5609;0.5813;0.5878;0.6081;0.6165;0.6306;0.6359;0.6439;0.6476;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.55;0.6476" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7031;0.7063;0.7143;0.7176;0.7343;0.7417;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7031;0.7417" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 328;128 328;160 328;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.5667;0.5726;0.5754;0.5791;0.5994;0.6059;0.6263;0.6346;0.6487;0.6541;0.6541;0.6578;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5667;0.6578" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.6856;0.6887;0.6887;0.692;0.7087;0.7161;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6856;0.7161" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 350;128 350;160 350;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.5833;0.5893;0.5961;0.5998;0.6202;0.6267;0.647;0.6554;0.6694;0.6748;0.6748;0.6785;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5833;0.6785" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7202;0.7233;0.7233;0.7267;0.7433;0.7507;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7202;0.7507" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 372;128 372;160 372;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.6;0.6059;0.6169;0.6206;0.6409;0.6474;0.6678;0.6761;0.6902;0.6956;0.7035;0.7072;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6;0.7072" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7628;0.7659;0.7739;0.7772;0.7939;0.8013;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7628;0.8013" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 262;128 262;160 262;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.6167;0.6226;0.632;0.6357;0.6561;0.6626;0.683;0.6913;0.7054;0.7107;0.7187;0.7224;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6167;0.7224" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7502;0.7533;0.7613;0.7646;0.7813;0.7887;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7502;0.7887" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 284;128 284;160 284;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.6333;0.6393;0.6446;0.6483;0.6687;0.6752;0.6956;0.7039;0.718;0.7233;0.7313;0.735;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6333;0.735" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7767;0.7798;0.7878;0.7911;0.8078;0.8152;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7767;0.8152" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 306;128 306;160 306;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.65;0.6559;0.6572;0.6609;0.6813;0.6878;0.7081;0.7165;0.7306;0.7359;0.7439;0.7476;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.65;0.7476" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8031;0.8063;0.8143;0.8176;0.8343;0.8417;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8031;0.8417" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 328;128 328;160 328;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.6667;0.6726;0.6754;0.6791;0.6994;0.7059;0.7263;0.7346;0.7487;0.7541;0.7541;0.7578;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6667;0.7578" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.7856;0.7887;0.7887;0.792;0.8087;0.8161;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7856;0.8161" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 350;128 350;160 350;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.6833;0.6893;0.6961;0.6998;0.7202;0.7267;0.747;0.7554;0.7694;0.7748;0.7748;0.7785;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6833;0.7785" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8202;0.8233;0.8233;0.8267;0.8433;0.8507;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8202;0.8507" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 372;128 372;160 372;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.7;0.7059;0.7169;0.7206;0.7409;0.7474;0.7678;0.7761;0.7902;0.7956;0.8035;0.8072;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7;0.8072" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8628;0.8659;0.8739;0.8772;0.8939;0.9013;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8628;0.9013" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 262;128 262;160 262;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.7167;0.7226;0.732;0.7357;0.7561;0.7626;0.783;0.7913;0.8054;0.8107;0.8187;0.8224;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7167;0.8224" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8502;0.8533;0.8613;0.8646;0.8813;0.8887;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8502;0.8887" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 284;128 284;160 284;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.7333;0.7393;0.7446;0.7483;0.7687;0.7752;0.7956;0.8039;0.818;0.8233;0.8313;0.835;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7333;0.835" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8767;0.8798;0.8878;0.8911;0.9078;0.9152;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8767;0.9152" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 306;128 306;160 306;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.75;0.7559;0.7572;0.7609;0.7813;0.7878;0.8081;0.8165;0.8306;0.8359;0.8439;0.8476;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.75;0.8476" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 356;715 356;732 356;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.9031;0.9063;0.9143;0.9176;0.9343;0.9417;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.9031;0.9417" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 328;128 328;160 328;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.7667;0.7726;0.7754;0.7791;0.7994;0.8059;0.8263;0.8346;0.8487;0.8541;0.8541;0.8578;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7667;0.8578" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.8856;0.8887;0.8887;0.892;0.9087;0.9161;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8856;0.9161" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 350;128 350;160 350;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 313;605 313;605 313" keyTimes="0;0.7833;0.7893;0.7961;0.7998;0.8202;0.8267;0.847;0.8554;0.8694;0.8748;0.8748;0.8785;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7833;0.8785" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 313;715 313;732 313;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.9202;0.9233;0.9233;0.9267;0.9433;0.9507;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.9202;0.9507" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 372;128 372;160 372;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.8;0.8059;0.8169;0.8206;0.8409;0.8474;0.8678;0.8761;0.8902;0.8956;0.9035;0.9072;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8;0.9072" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 262;128 262;160 262;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 270;605 270;605 270" keyTimes="0;0.8167;0.8226;0.832;0.8357;0.8561;0.8626;0.883;0.8913;0.9054;0.9107;0.9187;0.9224;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8167;0.9224" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-write" r="4.5"><animateTransform attributeName="transform" type="translate" values="715 270;715 270;732 270;732 313;750 313;840 313;880 313;880 313" keyTimes="0;0.9502;0.9533;0.9613;0.9646;0.9813;0.9887;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.9502;0.9887" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 284;128 284;160 284;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.8333;0.8393;0.8446;0.8483;0.8687;0.8752;0.8956;0.9039;0.918;0.9233;0.9313;0.935;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8333;0.935" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><circle class="f-sort" r="4.5"><animateTransform attributeName="transform" type="translate" values="128 306;128 306;160 306;160 313;180 313;290 313;325 313;435 313;480 313;556 313;585 313;585 356;605 356;605 356" keyTimes="0;0.85;0.8559;0.8572;0.8609;0.8813;0.8878;0.9081;0.9165;0.9306;0.9359;0.9439;0.9476;1" dur="18.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.85;0.9476" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></circle><text class="muted s" x="950" y="14" text-anchor="end">when workers fall behind, the bounded queue stalls the readers<animate attributeName="opacity" values="1;0" keyTimes="0;0.1667" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="muted s" x="950" y="14" text-anchor="end">each worker renders every zoom of each feature into its own sort buffer, spilling sorted runs<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1667;0.4889" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="muted s" x="950" y="14" text-anchor="end">after the last spill, one merge streams every run back in tile order<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4889;0.6944" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="muted s" x="950" y="14" text-anchor="end">tiles are encoded in parallel and written in the order the archive stores them<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6944;1" dur="18.0s" calcMode="discrete" repeatCount="indefinite"/></text></g></svg></p>
+<p>We implement this via two traits:</p>
+<ul>
+<li>a <code>FeatureSource</code> streams features from partitions that can be read in parallel, and</li>
+<li>a <code>TileSink</code> writes finished tiles in the order it asks for.</li>
+</ul>
+<p>Another database or file format is another <code>FeatureSource</code>, and another archive format is another <code>TileSink</code>.</p>
+<h2 id="phase-1-read-and-render">Phase 1: read and render</h2>
+<h3 id="partitions">Partitions</h3>
+<p>A <code>FeatureSource</code> declares how many partitions it has, and streams one partition when asked. Readers
+read different partitions at the same time, at most one reader per thread. In return, a source promises
+two things:</p>
+<ul>
+<li><strong>Stable order</strong>: reading the partitions in order, each in its own row order, is the same as one scan
+  of every feature. That is what makes the output independent of the thread timing, see
+  <a href="#sort-key">the sort key</a>.</li>
+<li><strong>Consistent data</strong>: every partition is read from the same state of the data, even if it changes during
+  the run.</li>
+</ul>
+<p>How a source splits its data is up to the source. A file can split by byte range or row group, a
+database by key range.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">PostgreSQL</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>The PostgreSQL source splits each table by what the relation allows:</p>
+<table>
+<thead>
+<tr>
+<th>Relation</th>
+<th>Partitions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tables and materialized views</td>
+<td>Page ranges (<code>ctid &gt;= '(start,0)' AND ctid &lt; '(end,0)'</code>), at least 256 pages each. The last range is open, so rows added since are still read</td>
+</tr>
+<tr>
+<td>Anything else with an integer <code>id_column</code></td>
+<td>Id ranges, each read <code>ORDER BY</code> the id. The last range also takes <code>NULL</code> ids</td>
+</tr>
+<tr>
+<td>Anything else</td>
+<td>One scan</td>
+</tr>
+</tbody>
+</table>
+<p>Partitions are numbered table by table in physical order. For consistent data, one connection exports a
+snapshot (<code>pg_export_snapshot()</code>), and every reader imports it in a <code>REPEATABLE READ</code> transaction before
+reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on
+these connections, so each partition is read in its own order, at the pace the generator asks for. There
+are no more readers than the pool's <code>pool_size</code>.</p>
+</div>
+</div>
+</div>
+<h3 id="feature-queue">Feature queue</h3>
+<p>Readers claim the next partition from a shared counter and stream it as batches of up to 1024 features.
+The batches go into one queue that holds at most <code>threads × 2</code> batches, and every render worker takes
+the next batch from it. When the workers fall behind, the queue fills and the readers wait, which in turn
+stops reading from the source. Memory does not grow with the source, and fast readers never race
+ahead of slow rendering.</p>
+<p>Because any worker can take any batch, a slow partition or a feature-heavy area never stalls the other
+workers.</p>
+<h3 id="rendering">Rendering</h3>
+<p>A render worker takes each feature through every layer its source feeds:</p>
+<ol>
+<li>The layer's filters decide whether the feature belongs to the layer, and its rules which settings
+   apply.</li>
+<li>The feature is projected to Web Mercator once, then rendered from its highest zoom down. At each zoom
+   a line or polygon is simplified, and dropped once it is smaller than the minimum size, which also
+   ends the lower zooms, since a feature only shrinks with the zoom. Points are rendered at every zoom.</li>
+<li>The geometry is sliced into the tiles it touches, keeping its own vertices. No new vertices are cut at
+   tile edges. A polygon ring that leaves a tile is closed by corners just outside the tile's buffer,
+   where renderers clip it away. A feature that keeps clear of every neighbor tile's buffer, as most do
+   at most zooms, skips the slicer entirely.</li>
+<li>Each piece is stored as a record. Its vertices are stored as offsets from the previous vertex, which
+   usually fit in one or two bytes.</li>
+</ol>
+<p>The tiles a polygon covers entirely become <strong>fill ranges</strong> instead of one record per tile. A fill range
+is one record that stands for a contiguous run of tile ids in the archive's tile order, which is a column
+of tiles in MBTiles order or an aligned quadtree cell in Hilbert order. A huge polygon such as an ocean
+or a country then costs time and space in proportion to its outline, not its area.</p>
+<h3 id="sort-key">Sort key</h3>
+<p>Every record is sorted by a 16-byte key:</p>
+<p><svg id="gen-sort-key" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 190" width="100%" role="img" aria-label="The 16-byte sort key: tile id and layer in the first word, partition and row in the second"><title>The 16-byte sort key: tile id and layer in the first word, partition and row in the second</title><style>#gen-sort-key{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-sort-key .fg{fill:var(--md-default-fg-color,#000000de)}#gen-sort-key .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-sort-key .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-sort-key .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-sort-key .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-sort-key text{dominant-baseline:central}#gen-sort-key .t{font-weight:600}#gen-sort-key .s{font-size:11px}#gen-sort-key .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-sort-key .motion{display:none}}#gen-sort-key .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-sort-key .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-sort-key .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-sort-key .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-sort-key .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-sort-key .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-sort-key .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-sort-key .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-sort-key .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-sort-key .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-sort-key .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-sort-key .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-sort-key .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-sort-key .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-sort-key .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-sort-key .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-sort-key .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-sort-key .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}</style><rect class="b-sort" x="40.0" y="40" width="385.0" height="44" rx="4"/><text class="fg t" x="232.5" y="55" text-anchor="middle">tile id</text><text class="muted s" x="232.5" y="71" text-anchor="middle">56 bits, position in the archive's tile order</text><rect class="b-render" x="425.0" y="40" width="55.0" height="44" rx="4"/><text class="fg t" x="452.5" y="55" text-anchor="middle">layer</text><text class="muted s" x="452.5" y="71" text-anchor="middle">8 bits</text><rect class="b-read" x="480.0" y="40" width="165.0" height="44" rx="4"/><text class="fg t" x="562.5" y="55" text-anchor="middle">partition</text><text class="muted s" x="562.5" y="71" text-anchor="middle">24 bits</text><rect class="b-read" x="645.0" y="40" width="275.0" height="44" rx="4"/><text class="fg t" x="782.5" y="55" text-anchor="middle">row</text><text class="muted s" x="782.5" y="71" text-anchor="middle">40 bits, row within the partition</text><path class="line" d="M480.0 34 V90" stroke-dasharray="3 3"/><text class="fg t s" x="40" y="118" text-anchor="start">1. sorted by tile id</text><text class="muted s" x="190" y="118" text-anchor="start">the pieces of one tile are adjacent, in the archive's tile order</text><text class="fg t s" x="40" y="140" text-anchor="start">2. sorted by layer</text><text class="muted s" x="190" y="140" text-anchor="start">inside a tile, layers come in their configured order</text><text class="fg t s" x="40" y="162" text-anchor="start">3. sorted by Seq</text><text class="muted s" x="190" y="162" text-anchor="start">inside a layer, features keep source order, whatever the number of threads</text></svg></p>
+<p>Sorting by this key puts the pieces of each tile next to each other, in the order the archive writes
+its tiles. Inside a tile, it puts the layers in their configured order, and inside a layer, it keeps the
+features in source order. The <code>Seq</code> part is the feature's partition and row, which do not depend on
+how the partitions were spread over threads. The tiles are therefore the same whatever the number of
+threads and their timing.</p>
+<p>A layer's <code>sort_by</code> value is not part of the key. It travels in the record, and the encoder orders each
+layer's features by it, keeping the <code>Seq</code> order of equal values.</p>
+<h3 id="external-sort">External sort</h3>
+<p>Each render worker owns a sort buffer of <code>--memory / threads</code> bytes, at least 16 MiB and at most 4 GiB.
+Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset,
+length) is kept beside them. The budget counts the index twice, because the radix sort needs a second
+copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:</p>
+<ol>
+<li>It radix-sorts the index by key, without moving the records. If the records arrived in increasing
+   <code>Seq</code>, as with a single reader, sorting by tile and layer is enough, since the radix sort is stable.</li>
+<li>It writes the records in key order to a new temporary file, a <strong>sorted run</strong>, as key, length and
+   record, repeated.</li>
+<li>It clears the buffer and goes on rendering.</li>
+</ol>
+<p>Runs go round-robin to the <code>--temp-dir</code> directories. They are anonymous temporary files, which the
+operating system removes when the process ends, even when it is killed.</p>
+<p>When every worker has spilled its last buffer, phase 1 ends.</p>
+<h2 id="phase-2-merge-encode-and-write">Phase 2: merge, encode and write</h2>
+<h3 id="merge">Merge</h3>
+<p>A loser-tree merge reads all runs at once, each through a 256 KiB buffer, and streams their records
+in key order. Only the pieces of one feature in one tile can have equal keys. They come from one worker,
+and keep the order it pushed them in. Up to 256 runs are merged at once. With more, groups of 256 are first merged in
+parallel into longer runs, until 256 or fewer remain.</p>
+<h3 id="grouping">Grouping</h3>
+<p>The grouper collects the merged records of one tile at a time. A fill range is kept aside while it still
+covers upcoming tiles, and added to each of them, so a fill range costs one record however many tiles it
+covers. The grouper hands tiles on in batches of 256.</p>
+<h3 id="parallel-encoding-ordered-writing">Parallel encoding, ordered writing</h3>
+<p>Encoding is the expensive part of phase 2, so it runs on all threads, but the archive must receive the
+tiles in order. The ordered pipeline does both, with a bounded number of batches in flight:</p>
+<p><svg id="gen-ordered" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" width="100%" role="img" aria-label="Ordered parallel encoding: a bounded queue of result slots, in batch order, limits the batches in flight and restores their order"><title>Ordered parallel encoding: a bounded queue of result slots, in batch order, limits the batches in flight and restores their order</title><style>#gen-ordered{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-ordered .fg{fill:var(--md-default-fg-color,#000000de)}#gen-ordered .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-ordered .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-ordered .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-ordered .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-ordered text{dominant-baseline:central}#gen-ordered .t{font-weight:600}#gen-ordered .s{font-size:11px}#gen-ordered .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-ordered .motion{display:none}}#gen-ordered .b-read{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-ordered .f-read{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-read{stroke:var(--md-primary-fg-color,#673ab7)}#gen-ordered .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-ordered .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-ordered .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-ordered .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-ordered .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-ordered .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-ordered .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-ordered .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-ordered .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-ordered .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-ordered .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}</style><path class="arrow" d="M140 120 L190 120"/><path class="head" d="M190.0 120.0 L182.0 116.0 L182.0 124.0 Z"/><path class="arrow" d="M310 120 L370 55"/><path class="head" d="M370.0 55.0 L361.6 58.2 L367.5 63.6 Z"/><path class="arrow" d="M310 120 L370 120"/><path class="head" d="M370.0 120.0 L362.0 116.0 L362.0 124.0 Z"/><path class="arrow" d="M310 120 L370 185"/><path class="head" d="M370.0 185.0 L367.5 176.4 L361.6 181.8 Z"/><path class="arrow" d="M520 55 L560 55"/><path class="head" d="M560.0 55.0 L552.0 51.0 L552.0 59.0 Z"/><path class="arrow" d="M520 120 L560 120"/><path class="head" d="M560.0 120.0 L552.0 116.0 L552.0 124.0 Z"/><path class="arrow" d="M520 185 L560 185"/><path class="head" d="M560.0 185.0 L552.0 181.0 L552.0 189.0 Z"/><path class="arrow" d="M680 120 L740 120"/><path class="head" d="M740.0 120.0 L732.0 116.0 L732.0 124.0 Z"/><path class="arrow" d="M840 120 L878 120"/><path class="head" d="M878.0 120.0 L870.0 116.0 L870.0 124.0 Z"/><path class="arrow" d="M80 165 L80 290 L620 290 L620 223" stroke-dasharray="4 4"/><path class="head" d="M620.0 215.0 L616.0 223.0 L624.0 223.0 Z"/><text class="muted s" x="350" y="302" text-anchor="middle">for each batch, the grouper first queues an empty slot, in batch order</text><rect class="b-sort" x="20" y="75" width="120" height="90" rx="6"/><text class="fg t" x="80" y="91" text-anchor="middle">grouper</text><text class="muted s" x="80" y="107" text-anchor="middle">256 tiles per batch</text><rect class="line" x="56" y="129" width="48" height="26" rx="4" stroke-dasharray="3 3"/><rect class="b-encode" x="190" y="75" width="120" height="90" rx="6"/><text class="fg t" x="250" y="91" text-anchor="middle">work queue</text><text class="muted s" x="250" y="107" text-anchor="middle">numbered #0, #1, …</text><rect class="b-encode" x="370" y="30" width="150" height="50" rx="6"/><text class="fg t" x="382" y="47" text-anchor="start">encoder 1</text><rect class="line" x="382" y="63" width="70" height="6" rx="3"/><rect class="b-encode" x="370" y="95" width="150" height="50" rx="6"/><text class="fg t" x="382" y="112" text-anchor="start">encoder 2</text><rect class="line" x="382" y="128" width="70" height="6" rx="3"/><rect class="b-encode" x="370" y="160" width="150" height="50" rx="6"/><text class="fg t" x="382" y="177" text-anchor="start">encoder 3</text><rect class="line" x="382" y="193" width="70" height="6" rx="3"/><rect class="b-write" x="560" y="25" width="120" height="190" rx="6"/><text class="fg t s" x="620" y="36" text-anchor="middle">order queue</text><rect class="line" x="595" y="47" width="50" height="26" rx="4" stroke-dasharray="3 3"/><rect class="line" x="595" y="87" width="50" height="26" rx="4" stroke-dasharray="3 3"/><rect class="line" x="595" y="127" width="50" height="26" rx="4" stroke-dasharray="3 3"/><rect class="line" x="595" y="167" width="50" height="26" rx="4" stroke-dasharray="3 3"/><rect class="b-write" x="740" y="75" width="100" height="90" rx="6"/><text class="fg t" x="790" y="91" text-anchor="middle">writer</text><path class="b-write" d="M885 98 a30 8 0 0 0 60 0 v44 a30 8 0 0 1 -60 0 Z"/><path class="b-write" d="M885 98 a30 8 0 0 1 60 0 a30 8 0 0 1 -60 0"/><text class="fg s" x="915" y="162" text-anchor="middle">archive</text><g class="motion"><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.0231;0.0306;0.0486;0.0531;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0231;0.0531" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="47" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0531;0.4462" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.0462;0.0537;0.0717;0.0762;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0462;0.0762" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="87" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0762;0.5077" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.0692;0.0767;0.0947;0.0992;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0692;0.0992" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="127" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0992;0.5692" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.0923;0.0998;0.1178;0.1223;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0923;0.1223" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="167" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1223;0.6308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.5231;0.5306;0.5486;0.5531;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5231;0.5531" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="47" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5531;0.7308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.5846;0.5921;0.6101;0.6146;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5846;0.6146" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="87" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6146;0.7923" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><circle class="f-sort" r="5"><animateTransform attributeName="transform" type="translate" values="80 165;80 165;80 290;620 290;620 215;620 215" keyTimes="0;0.6462;0.6537;0.6717;0.6762;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6462;0.6762" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle><rect class="b-sort" x="595" y="127" width="50" height="26" rx="4"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6762;0.8538" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="63" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.0923;0.3846;0.3854;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="128" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.1154;0.2;0.2008;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="193" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.1385;0.2462;0.2469;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="128" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.2385;0.3231;0.3238;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="63" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.5846;0.6692;0.67;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="128" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.6462;0.7154;0.7162;1" dur="13.0s" repeatCount="indefinite"/></rect><rect class="f-encode" x="382" y="193" width="0" height="6" rx="3"><animate attributeName="width" values="0;0;70;0;0" keyTimes="0;0.7077;0.7692;0.77;1" dur="13.0s" repeatCount="indefinite"/></rect><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 55;488 55;620 60;620 60;790 142;790 142;915 120;915 120" keyTimes="0;0.0231;0.0538;0.0615;0.0923;0.3846;0.4154;0.4154;0.4462;0.4769;0.5077;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.023;0.0346;0.5077;0.5308;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#0</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0231;0.4462" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 120;488 120;620 100;620 100;790 142;790 142;915 120;915 120" keyTimes="0;0.0462;0.0769;0.0846;0.1154;0.2;0.2308;0.4769;0.5077;0.5385;0.5692;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0461;0.0577;0.5692;0.5923;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#1</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0462;0.5077" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 185;488 185;620 140;620 140;790 142;790 142;915 120;915 120" keyTimes="0;0.0692;0.1;0.1077;0.1385;0.2462;0.2769;0.5385;0.5692;0.6;0.6308;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0692;0.0808;0.6308;0.6538;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#2</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0692;0.5692" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 120;488 120;620 180;620 180;790 142;790 142;915 120;915 120" keyTimes="0;0.0923;0.1231;0.2077;0.2385;0.3231;0.3538;0.6;0.6308;0.6615;0.6923;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0922;0.1038;0.6923;0.7154;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#3</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.0923;0.6308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 55;488 55;620 60;620 60;790 142;790 142;915 120;915 120" keyTimes="0;0.5231;0.5538;0.5539;0.5846;0.6692;0.7;0.7;0.7308;0.7615;0.7923;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1153;0.1269;0.7923;0.8154;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#4</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5231;0.7308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 120;488 120;620 100;620 100;790 142;790 142;915 120;915 120" keyTimes="0;0.5846;0.6154;0.6154;0.6462;0.7154;0.7462;0.7615;0.7923;0.8231;0.8538;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5307;0.5423;0.8538;0.8769;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#5</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5846;0.7923" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="80 142;80 142;250 142;250 142;488 185;488 185;620 140;620 140;790 142;790 142;915 120;915 120" keyTimes="0;0.6462;0.6769;0.6769;0.7077;0.7692;0.8;0.8231;0.8538;0.8846;0.9154;1" dur="13.0s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5922;0.6038;0.9154;0.9385;1" dur="13.0s" repeatCount="indefinite"/><rect class="b-sort" x="-23" y="-12" width="46" height="24" rx="4" style="fill-opacity:.9"/><text class="fg t" x="0" y="0" text-anchor="middle" style="fill:#fff">#6</text><circle class="f-sort" cx="23" cy="-12" r="5" style="stroke:#fff;stroke-width:1.5"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6462;0.8538" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></circle></g><text class="mono muted" x="790" y="108" text-anchor="middle">next = #0<animate attributeName="opacity" values="1;0" keyTimes="0;0.4462" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #1<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4462;0.5077" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #2<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5077;0.5692" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #3<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5692;0.6308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #4<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.6308;0.7308" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #5<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7308;0.7923" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #6<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.7923;0.8538" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="mono muted" x="790" y="108" text-anchor="middle">next = #7<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8538;1" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><rect x="16" y="71" width="128" height="98" rx="8" fill="none" class="k-alert" stroke-width="2" stroke-dasharray="5 3"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1308;0.4462" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></rect><text class="fg s" x="480" y="12" text-anchor="middle">the grouper queues a slot for each batch it hands out: #0…#3<animate attributeName="opacity" values="1;0" keyTimes="0;0.1154" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="fg s" x="480" y="12" text-anchor="middle">every slot is taken, so the grouper holds #4 back<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.1154;0.2" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="fg s" x="480" y="12" text-anchor="middle">#1, #2 and #3 finish first and wait in their slots for #0<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.2;0.4154" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="fg s" x="480" y="12" text-anchor="middle">#0 arrives, and the writer takes #0…#3 in order, freeing their slots<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4154;0.5231" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="fg s" x="480" y="12" text-anchor="middle">each freed slot lets the grouper hand out one more batch<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5231;0.8231" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text><text class="fg s" x="480" y="12" text-anchor="middle">however slow one batch is, at most four batches are in flight<animate attributeName="opacity" values="0;1;0" keyTimes="0;0.8231;1" dur="13.0s" calcMode="discrete" repeatCount="indefinite"/></text></g></svg></p>
+<ul>
+<li>For each batch of 256 tiles, the grouper first puts an empty result <strong>slot</strong> into the <strong>order queue</strong>,
+  then hands the batch to the work queue. The order queue holds <code>threads × 4</code> slots. When it is full,
+  the grouper waits.</li>
+<li>Encoders take batches from the work queue in any order, finish them in any order, and put each result
+  into its batch's slot.</li>
+<li>The writer takes slots from the order queue in batch order and waits for each slot's result. A result
+  that arrives early waits in its slot until the writer gets to it.</li>
+</ul>
+<p>When one batch is slow, for example a dense city at a high zoom, the other encoders go on with later
+batches until the order queue is full, and then wait. Memory stays bounded however slow one batch is,
+and the archive still sees every tile in order.</p>
+<h3 id="repeated-tiles">Repeated tiles</h3>
+<p>Each encoder assembles the tile's layers from its records, encodes them as MLT or MVT, and compresses
+the result. It also avoids work and storage for repeated tiles:</p>
+<ul>
+<li>A tile with the same records as the encoder's previous tile reuses its bytes without encoding.
+  Neighboring tiles in the archive order are often identical, for example the inside of a large
+  polygon.</li>
+<li>A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all
+  encoders. The index only hands out a key for bytes equal to the first tile with that hash.</li>
+</ul>
+<p>The archive stores tiles with the same dedup key once. Other identical tiles are stored separately.</p>
+<h3 id="tile-order">Tile order</h3>
+<p>The archive decides the tile order, and the whole pipeline produces tiles in that order, so the writer
+never sorts or buffers:</p>
+<table>
+<thead>
+<tr>
+<th>Archive</th>
+<th>Tile order</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MBTiles</td>
+<td>Zoom, column, then bottom-up TMS row</td>
+<td>The primary key of the <code>tiles</code> table, so inserts append to its B-tree instead of splitting pages. Always the deduplicated (<code>normalized</code>) schema</td>
+</tr>
+<tr>
+<td>PMTiles</td>
+<td>Hilbert tile id</td>
+<td>A clustered archive, written as a stream. Tiles with a dedup key share their bytes</td>
+</tr>
+</tbody>
+</table>
+<p>The tileset's metadata, including the zooms, the format and each layer's fields, is only complete after the
+last tile, so the archive stores it last.</p>
+<h2 id="memory-and-disk">Memory and disk</h2>
+<p>Every queue and buffer has a bound that does not depend on the size of the input:</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature queue</td>
+<td><code>threads × 2</code> batches of up to 1024 features</td>
+</tr>
+<tr>
+<td>Sort buffers</td>
+<td><code>--memory</code> in total, records plus index, but at least 16 MiB per worker</td>
+</tr>
+<tr>
+<td>Run file writers</td>
+<td>1 MiB of write buffer for each run being written</td>
+</tr>
+<tr>
+<td>Merge</td>
+<td>256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge</td>
+</tr>
+<tr>
+<td>Encode window</td>
+<td><code>threads × 4</code> batches of 256 tiles, plus the one being written</td>
+</tr>
+<tr>
+<td>Dedup index</td>
+<td>One copy of each distinct tile that got a dedup key</td>
+</tr>
+</tbody>
+</table>
+<p>Intermediate merges, with more than 256 runs, run several 64 MiB merges at once. On disk, a feature has
+a record in every tile it touches, at every zoom, and an intermediate merge needs room for another copy
+of the runs it merges.</p>
+<h2 id="errors">Errors</h2>
+<ul>
+<li>In phase 1, an error stops every reader from claiming another partition and every worker from taking
+  another batch. The run reports that error, not the hand-offs it interrupted.</li>
+<li>In phase 2, an error of the grouper or an encoder travels to the writer in batch order, as an error in
+  place of a batch. The archive stops there and never finishes a partial tileset. When the writer fails,
+  the grouper's next hand-off fails, and the writer's error is reported.</li>
+<li>Expressions never fail a run, see <a href="../sources-pg-layers/#expressions">Expressions</a>. Features the
+  slicer cannot handle at a zoom are skipped at that zoom and counted.</li>
+<li>A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted
+  runs are removed by the operating system in every case.</li>
+</ul>
+
+
+  <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <span class="md-tag">development</span>
+      
+    
+      
+      
+      
+      
+        <span class="md-tag">tooling</span>
+      
+    
+  </nav>
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../architecture-sources/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Sources">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Sources
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../migration-guide/" class="md-footer__link md-footer__link--next" aria-label="Next: Migration Guide">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Migration Guide
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 MapLibre Contributors
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/maplibre/martin" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      
+<div class="md-progress" data-md-component="progress" role="progressbar" aria-label="Loading"></div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8b1c90bd.min.js"></script>
+      
+        <script src="../javascripts/keys.js"></script>
+      
+    
+  </body>
+</html>

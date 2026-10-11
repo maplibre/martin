@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Components, data flow and design decisions of the tile server">
+        <meta name="description" content="How the tile server is put together and how it answers requests">
       
       
         <meta name="author" content="Maplibre Contributors">
@@ -18,7 +18,7 @@
         <link rel="prev" href="../martin-as-a-library/">
       
       
-        <link rel="next" href="../migration-guide/">
+        <link rel="next" href="../architecture-sources/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Architecture - Martin Tile Server Documentation</title>
+        <title>Serving - Martin Tile Server Documentation</title>
       
     
     
@@ -132,16 +132,16 @@
     
     
   <meta property="og:type" content="website" />
-<meta property="og:title" content="Architecture - Martin Tile Server Documentation" />
-<meta property="og:description" content="Components, data flow and design decisions of the tile server" />
+<meta property="og:title" content="Serving - Martin Tile Server Documentation" />
+<meta property="og:description" content="How the tile server is put together and how it answers requests" />
 <meta property="og:image" content="https://maplibre.org/martin/assets/images/social/architecture.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:url" content="https://maplibre.org/martin/architecture/" />
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:title" content="Architecture - Martin Tile Server Documentation" />
-<meta property="twitter:description" content="Components, data flow and design decisions of the tile server" />
+<meta property="twitter:title" content="Serving - Martin Tile Server Documentation" />
+<meta property="twitter:description" content="How the tile server is put together and how it answers requests" />
 <meta property="twitter:image" content="https://maplibre.org/martin/assets/images/social/architecture.png" />
 </head>
   
@@ -194,7 +194,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architecture
+              Serving
             
           </span>
         </div>
@@ -444,6 +444,8 @@
       
         
           
+        
+      
         
       
         
@@ -910,6 +912,8 @@
       
         
       
+        
+      
     
     
     
@@ -1136,6 +1140,72 @@
   
   
   
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_8_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Architecture
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
     <li class="md-nav__item md-nav__item--active">
       
       
@@ -1153,7 +1223,7 @@
   <span class="md-ellipsis">
     
   
-  Architecture
+  Serving
 
     
   </span>
@@ -1172,7 +1242,7 @@
   <span class="md-ellipsis">
     
   
-  Architecture
+  Serving
 
     
   </span>
@@ -1209,10 +1279,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-components" class="md-nav__link">
+  <a href="#crates" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Core Components
+        Crates
       </span>
     </span>
   </a>
@@ -1220,10 +1290,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
+  <a href="#requests-and-startup" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Data Flow
+        Requests and startup
       </span>
     </span>
   </a>
@@ -1231,10 +1301,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-design-decisions" class="md-nav__link">
+  <a href="#deployment" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Key Design Decisions
+        Deployment
       </span>
     </span>
   </a>
@@ -1242,10 +1312,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#component-interactions" class="md-nav__link">
+  <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Component Interactions
+        Performance
       </span>
     </span>
   </a>
@@ -1253,10 +1323,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#deployment-patterns" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Deployment Patterns
+        Security
       </span>
     </span>
   </a>
@@ -1264,10 +1334,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
+  <a href="#extending-martin" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Performance Characteristics
+        Extending Martin
       </span>
     </span>
   </a>
@@ -1275,43 +1345,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#security-considerations" class="md-nav__link">
+  <a href="#monitoring" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Security considerations
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#extensibility-points" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Extensibility Points
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operations-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Operations considerations
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#related-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Related Documentation
+        Monitoring
       </span>
     </span>
   </a>
@@ -1321,6 +1358,73 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture-sources/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4-3.58 4-8 4-8-1.79-8-4m8.08 11H12c-4.42 0-8-1.79-8-4v3c0 2.21 3.58 4 8 4h.29a7.4 7.4 0 0 1-.29-2c0-.34.03-.67.08-1M20 12.08V9c0 2.21-3.58 4-8 4s-8-1.79-8-4v3c0 2.21 3.58 4 8 4h.69c1.13-2.37 3.53-4 6.31-4 .34 0 .67.03 1 .08m3.8 8.32c.1 0 .1.1 0 .2l-1 1.7c-.1.1-.2.1-.3.1l-1.2-.4c-.3.2-.5.3-.8.5l-.2 1.3c0 .1-.1.2-.2.2h-2c-.1 0-.2-.1-.3-.2l-.2-1.3c-.3-.1-.6-.3-.8-.5l-1.2.5c-.1 0-.2 0-.3-.1l-1-1.7c-.1-.1 0-.2.1-.3l1.1-.8v-1l-1.1-.8c-.1-.1-.1-.2-.1-.3l1-1.7c.1-.1.2-.1.3-.1l1.2.5c.3-.2.5-.3.8-.5l.2-1.3c0-.1.1-.2.3-.2h2c.1 0 .2.1.2.2l.2 1.3c.3.1.6.3.9.5l1.2-.5c.1 0 .3 0 .3.1l1 1.7c.1.1 0 .2-.1.3l-1.1.8v1zM20.5 19c0-.8-.7-1.5-1.5-1.5s-1.5.7-1.5 1.5.7 1.5 1.5 1.5 1.5-.7 1.5-1.5"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Sources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture-generate/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2v6h2v3H5c-1.11 0-2 .89-2 2v3H1v6h6v-6H5v-3h6v3H9v6h6v-6h-2v-3h6v3h-2v6h6v-6h-2v-3c0-1.11-.89-2-2-2h-6V8h2V2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Generation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -1463,6 +1567,36 @@
   
 
       
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="././" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
     </ol>
   </nav>
 
@@ -1481,8 +1615,10 @@
   
 
 
-<h1 id="architecture">Architecture</h1>
-<p>This document provides a high-level overview of Martin's architecture, describing its major components, how they interact, and the rationale behind key design decisions.</p>
+<h1 id="serving-architecture">Serving Architecture</h1>
+<p>How the Martin tile server is put together and how it answers requests.
+<a href="../architecture-sources/">Source Architecture</a> covers how each kind of source works and how sources reload at runtime,
+and <a href="../architecture-generate/">Generation Architecture</a> covers <code>martin generate</code>.</p>
 <h2 id="overview">Overview</h2>
 <p>Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources.
 It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.</p>
@@ -1534,13 +1670,12 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
     DuckDB --&gt; HTTP
 
     Cache -.-&gt;|Cached Tiles/Resources| Client</code></pre>
-<h2 id="core-components">Core Components</h2>
-<p>Martin's architecture is organized into four main Rust crates, each with distinct responsibilities:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">martin (Martin Server)</label><label for="__tabbed_1_2">martin-core (Library)</label><label for="__tabbed_1_3">mbtiles (Library and CLI)</label><label for="__tabbed_1_4">martin-tile-utils</label></div>
+<h2 id="crates">Crates</h2>
+<p>Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">martin</label><label for="__tabbed_1_2">martin-core</label><label for="__tabbed_1_3">mbtiles</label><label for="__tabbed_1_4">martin-tile-utils</label><label for="__tabbed_1_5">martin-tilegen</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><strong>Purpose</strong>: The main tile server binary and HTTP service layer.</p>
-<p><strong>Location</strong>: <code>/martin</code></p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>HTTP server using Actix-Web framework</li>
@@ -1550,25 +1685,9 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>Runtime source reloading (filesystem watch / polling) without a restart</li>
 <li>Serving the Web UI for tile inspection</li>
 </ul>
-<p><strong>Main Modules</strong>:</p>
-<ul>
-<li><code>src/bin/martin.rs</code> - Server and <code>martin cp</code> entry point</li>
-<li><code>src/cp.rs</code> - Bulk tile copying (<code>martin cp</code>)</li>
-<li><code>src/srv/</code> - HTTP service handlers</li>
-<li><code>server.rs</code> - Main server setup and routing</li>
-<li><code>tiles/</code> - Tile serving endpoints</li>
-<li><code>fonts.rs</code> - Font glyph serving</li>
-<li><code>sprites.rs</code> - Sprite serving</li>
-<li><code>styles.rs</code> - Style serving</li>
-<li><code>src/config/</code> - Configuration management</li>
-<li><code>args/</code> - CLI argument parsing</li>
-<li><code>file/</code> - Config file parsing</li>
-<li><code>martin-ui/</code> - React-based web interface</li>
-</ul>
 </div>
 <div class="tabbed-block">
 <p><strong>Purpose</strong>: Core abstractions and implementations for tile sources and supporting resources.</p>
-<p><strong>Location</strong>: <code>/martin-core</code></p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>Abstract tile source traits and implementations</li>
@@ -1579,24 +1698,9 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>Sprite, font, and style resource generation</li>
 <li>Tile format handling (MVT protocol buffers)</li>
 </ul>
-<p><strong>Main Modules</strong>:</p>
-<ul>
-<li><code>src/tiles/</code> - Tile source implementations</li>
-<li><code>postgres/</code> - PostGIS table and function sources</li>
-<li><code>mbtiles/</code> - MBTiles file source</li>
-<li><code>pmtiles/</code> - PMTiles file source</li>
-<li><code>cog/</code> - Cloud Optimized GeoTIFF source</li>
-<li><code>duckdb/</code> - DuckDB / GeoParquet tile source</li>
-<li><code>catalog.rs</code> - Source registry and management</li>
-<li><code>src/resources/</code> - Supporting resources</li>
-<li><code>sprites/</code> - SVG sprite generation</li>
-<li><code>fonts/</code> - Font glyph generation</li>
-<li><code>styles/</code> - MapLibre style handling</li>
-</ul>
 </div>
 <div class="tabbed-block">
 <p><strong>Purpose</strong>: MBTiles format support and manipulation tools.</p>
-<p><strong>Location</strong>: <code>/mbtiles</code></p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>SQLite-based MBTiles reading and writing</li>
@@ -1606,16 +1710,9 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>Diff/patch operations between MBTiles files</li>
 <li>Schema management</li>
 </ul>
-<p><strong>Main Modules</strong>:</p>
-<ul>
-<li><code>src/lib.rs</code> - Core MBTiles library</li>
-<li><code>src/bin/mbtiles.rs</code> - CLI tool</li>
-<li><code>sql/</code> - SQL schema and migrations</li>
-</ul>
 </div>
 <div class="tabbed-block">
 <p><strong>Purpose</strong>: Low-level tile manipulation and conversion utilities.</p>
-<p><strong>Location</strong>: <code>/martin-tile-utils</code></p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>Tile coordinate system conversions</li>
@@ -1624,10 +1721,21 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>Bounding box calculations</li>
 </ul>
 </div>
+<div class="tabbed-block">
+<p><strong>Purpose</strong>: The bulk tile generation engine behind <code>martin generate</code>.</p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>Compiling layers and their CEL expressions into a plan</li>
+<li>Rendering every feature at every zoom into tile pieces</li>
+<li>Sorting the pieces on disk by tile, and merging them back</li>
+<li>Encoding tiles in parallel and writing them in archive order</li>
+</ul>
+<p>See <a href="../architecture-generate/">Generation Architecture</a>.</p>
 </div>
 </div>
-<h2 id="data-flow">Data Flow</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Tile Request Flows</label><label for="__tabbed_2_2">Configuration and Initialization Flow</label><label for="__tabbed_2_3">Resource Generation Flow</label></div>
+</div>
+<h2 id="requests-and-startup">Requests and startup</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Tile requests</label><label for="__tabbed_2_2">Startup</label><label for="__tabbed_2_3">Sprites and fonts</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <pre class="mermaid"><code>sequenceDiagram
@@ -1720,335 +1828,9 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 </div>
 </div>
 </div>
-<h2 id="key-design-decisions">Key Design Decisions</h2>
-<p>🧠 This section provides <strong>background and context</strong>, not required knowledge.
-You don't need to understand or remember all of this to use or contribute to Martin.
-Read it when you're curious <strong>why</strong> certain choices were made.</p>
-<details>
-<summary>Why Rust</summary>
-<p>Martin is written in Rust to balance high performance with strong safety guarantees.</p>
-<ul>
-<li>Near-C performance without manual memory management</li>
-<li>Memory safety (no null pointers or buffer overflows)</li>
-<li>Safe concurrency without data races</li>
-<li>Zero-cost abstractions that compile to efficient code</li>
-</ul>
-</details>
-<details>
-<summary>Actix-Web as the chosen web framework</summary>
-<p>It offers a fast, production-ready async HTTP stack.</p>
-<ul>
-<li>High-performance async request handling</li>
-<li>Mature middleware ecosystem</li>
-<li>Built-in compression and caching headers</li>
-<li>Easy Prometheus metrics integration</li>
-</ul>
-</details>
-<details>
-<summary>Async-first architecture</summary>
-<p>Allows Martin to handle many concurrent requests efficiently.</p>
-<ul>
-<li>Handles hundreds of thousands of concurrent connections</li>
-<li>Avoids blocking database queries</li>
-<li>Enables efficient file and network I/O</li>
-<li>Keeps thread usage low under load</li>
-</ul>
-</details>
-<details>
-<summary>Specific crates splitting</summary>
-<p>The codebase is split into crates with clear responsibilities</p>
-<ul>
-<li><strong>martin-core</strong> - reusable core logic and tile sources</li>
-<li><strong>mbtiles</strong> - standalone MBTiles tooling</li>
-<li><strong>martin</strong> - HTTP server, configuration, and runtime wiring</li>
-<li><strong>martin-tile-utils</strong> - shared low-level tile utilities</li>
-</ul>
-<p>This makes it easier to:</p>
-<ul>
-<li>Embed Martin as a library in other Rust projects</li>
-<li>Use MBTiles tools independently</li>
-<li>Maintain clear API boundaries and versioning</li>
-</ul>
-</details>
-<details>
-<summary>Why connection pooling</summary>
-<p>Reuse database connections instead of reconnecting per request</p>
-<ul>
-<li>Uses <code>deadpool-postgres</code></li>
-<li>Avoids per-request connection overhead</li>
-<li>Configurable pool sizing</li>
-<li>Automatic connection health checks</li>
-</ul>
-</details>
-<details>
-<summary>In-Memory Tile Caching</summary>
-<p>Avoid regenerating frequently requested tiles.</p>
-<ul>
-<li>Fast LRU cache with optional TTLs</li>
-<li>Automatic eviction of least-used entries</li>
-<li>Configurable memory limits (default: 512 MB)</li>
-<li>Thread-safe concurrent access</li>
-<li>Significant performance improvements for repeated requests</li>
-</ul>
-</details>
-<details>
-<summary>Automatic Source Discovery</summary>
-<p>Martin tries to work out of the box with minimal configuration.
-It can currently automatically detect:</p>
-<ul>
-<li>PostgreSQL tables with geometry columns</li>
-<li>PostgreSQL functions that return MVT</li>
-<li>MBTiles and PMTiles files in configured directories</li>
-</ul>
-<p>This keeps common setups close to zero-config.</p>
-</details>
-<details>
-<summary>Multi-Protocol Tile Support</summary>
-<p>Different workloads benefit from different storage models.
-This lets operators pick the best format for their use case:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:5"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">PostgreSQL</label><label for="__tabbed_3_2">MBTiles</label><label for="__tabbed_3_3">PMTiles</label><label for="__tabbed_3_4">COG</label><label for="__tabbed_3_5">DuckDB</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p>Dynamic tiles generated from live data.
-  Best for frequently changing datasets.</p>
-</div>
-<div class="tabbed-block">
-<p>Pre-generated tile archives.
-Simple and fast for static datasets.</p>
-</div>
-<div class="tabbed-block">
-<p>Single-file, cloud-native archives optimized for HTTP range requests.</p>
-</div>
-<div class="tabbed-block">
-<p>Direct tile serving from Cloud Optimized GeoTIFFs.</p>
-</div>
-<div class="tabbed-block">
-<p>On-the-fly vector tiles from GeoParquet via DuckDB.
-Best for semi-static parquet datasets without a pre-generated archive.</p>
-</div>
-</div>
-</div>
-</details>
-<details>
-<summary>Why generate resources (sprites, fonts) dynamically</summary>
-<p>Sprites, fonts, and styles are created on demand.</p>
-<ul>
-<li>No pre-processing step required</li>
-<li>Simpler deployments (just provide source files)</li>
-<li>URL-based customization</li>
-<li>Less storage overhead</li>
-</ul>
-</details>
-<details>
-<summary>Why layered configuration</summary>
-<p>Martin supports multiple configuration sources.</p>
-<ul>
-<li>CLI flags for quick testing and overrides</li>
-<li>Environment variables for containerized deployments</li>
-<li>Config files for larger or more complex setups</li>
-<li>Clear precedence between configuration layers</li>
-</ul>
-</details>
-<h2 id="component-interactions">Component Interactions</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PostgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label><label for="__tabbed_4_4">DuckDB / GeoParquet Integration</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<pre class="mermaid"><code>graph TB
-    Martin[Martin Server]
-    Pool[Connection Pool&lt;br/&gt;deadpool-postgres]
-
-    subgraph PostgreSQL
-        Tables[Tables with&lt;br/&gt;Geometry Columns]
-        Functions[MVT Functions]
-        PostGIS[PostGIS Extension]
-    end
-
-    Martin --&gt; Pool
-    Pool --&gt; Tables
-    Pool --&gt; Functions
-    Tables --&gt; PostGIS
-    Functions --&gt; PostGIS</code></pre>
-<p><strong>How it works</strong>:</p>
-<ol>
-<li>Martin connects to PostgreSQL using connection string</li>
-<li>Queries <code>geometry_columns</code> view to discover tables</li>
-<li>Queries <code>pg_proc</code> to discover MVT-returning functions</li>
-<li>Publishes them through the Reload Driver, which re-runs discovery every <code>reload_interval</code></li>
-<li>Maintains connection pool for efficient query execution</li>
-<li>Generates tile SQL queries with bbox parameters</li>
-<li>Returns results as MVT tiles</li>
-</ol>
-</div>
-<div class="tabbed-block">
-<pre class="mermaid"><code>graph TB
-    Martin[Martin Server]
-
-    subgraph "Local Files"
-        MBT[MBTiles&lt;br/&gt;SQLite]
-        PMT[PMTiles&lt;br/&gt;Binary Format]
-        COG[GeoTIFF&lt;br/&gt;Cloud Optimized]
-    end
-
-    subgraph "Remote Files"
-        S3MBT[S3/Azure/GCP&lt;br/&gt;MBTiles]
-        S3PMT[S3/Azure/GCP&lt;br/&gt;PMTiles]
-        S3COG[S3/Azure/GCP&lt;br/&gt;GeoTIFF]
-    end
-
-    Martin --&gt; MBT
-    Martin --&gt; PMT
-    Martin --&gt; COG
-    Martin --&gt; S3MBT
-    Martin --&gt; S3PMT
-    Martin --&gt; S3COG</code></pre>
-<p><strong>How it works</strong>:</p>
-<ol>
-<li>Martin scans configured directories for tile files</li>
-<li>Opens MBTiles with SQLite (using <code>sqlx</code>)</li>
-<li>Opens PMTiles with custom parser (HTTP range requests for remote)</li>
-<li>Opens COG with TIFF parser (HTTP range requests for remote)</li>
-<li>Uses <code>object_store</code> crate for S3/Azure/GCP access</li>
-<li>Serves tiles directly from file format</li>
-</ol>
-</div>
-<div class="tabbed-block">
-<p>Unlike the other file sources, GeoJSON files hold raw geometry rather than pre-baked tiles.
-Martin loads the whole file once, reprojects and indexes it in memory, then clips and encodes an MVT tile on every request.</p>
-<pre class="mermaid"><code>graph TB
-    subgraph Load["Load time (once per source)"]
-        File[".geojson / .json file"]
-        Parse["Parse (geojson crate)&lt;br/&gt;-&gt; geo_types::Geometry"]
-        Reproject["Reproject WGS84 -&gt; WebMercator"]
-        RTree["Packed Hilbert R-tree&lt;br/&gt;(geo_index)"]
-    end
-
-    subgraph Request["Per tile request"]
-        Rect["Tile Rect + buffer&lt;br/&gt;(WebMercator bbox)"]
-        Query["R-tree candidate lookup"]
-        Clip["Parallel clip + transform&lt;br/&gt;(geo, rayon)"]
-        Encode["MVT encode&lt;br/&gt;(fast-mvt)"]
-    end
-
-    File --&gt; Parse --&gt; Reproject --&gt; RTree
-    RTree -.-&gt;|in-memory features| Query
-    Rect --&gt; Query --&gt; Clip --&gt; Encode</code></pre>
-<p><strong>Load time</strong> (<code>GeoJsonSource::new</code> in <code>martin-core/src/tiles/geojson/</code>):</p>
-<ol>
-<li>The entire file is read into memory and parsed with the <code>geojson</code> crate; each feature's geometry becomes a <code>geo_types::Geometry&lt;f64&gt;</code>.</li>
-<li>Every geometry is reprojected once from WGS84 to Web Mercator, so all per-tile work stays in Mercator.</li>
-<li>A packed Hilbert R-tree (<code>geo_index</code>) is built over the feature bounding boxes for fast spatial lookup, and the union of all boxes becomes the TileJSON <code>bounds</code>.</li>
-<li>Features (Mercator geometry + JSON properties) are held in memory for the lifetime of the source.</li>
-</ol>
-<p><strong>Per request</strong> (<code>GeoJsonSource::get_tile</code>):</p>
-<ol>
-<li>The requested <code>z/x/y</code> is converted to a Web Mercator tile <code>Rect</code>, grown outward by the configurable <code>buffer</code> (as a <code>buffer / extent</code> fraction) so geometry near the edge survives clipping.</li>
-<li>The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (<code>204 No Content</code>).</li>
-<li>Candidates are clipped in parallel (<code>rayon</code>): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (<code>extent</code> units, y flipped for MVT).</li>
-<li>Surviving features are encoded into a single MVT layer named after the source id (<code>fast-mvt</code>); properties are mapped to MVT values (JSON arrays/objects serialized to strings, nulls dropped).</li>
-<li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
-</ol>
-<p><strong>Configuration</strong> (<code>GeoJsonConfig</code>, both <code>.json</code> and <code>.geojson</code> extensions are discovered):</p>
-<ul>
-<li><code>extent</code> (default <code>4096</code>) - side length of the MVT integer coordinate grid a tile is encoded into.
-  A <code>NonZeroU32</code>, so <code>0</code> is rejected at parse time.</li>
-<li><code>buffer</code> (default <code>64</code>, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighboring tiles.</li>
-</ul>
-<p>Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed <code>.geojson</code>/<code>.json</code> files.</p>
-</div>
-<div class="tabbed-block">
-<p>Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles. Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.</p>
-<pre class="mermaid"><code>graph TB
-    subgraph Load["Load time (once per source)"]
-        File["GeoParquet file or remote URL"]
-        Pool["DuckDBPool&lt;br/&gt;in-memory + spatial"]
-        Describe["DESCRIBE read_parquet"]
-        CRS["ST_CRS / configured SRID"]
-        Bounds["auto_bounds&lt;br/&gt;ST_Extent_Approx / ST_Extent"]
-    end
-
-    subgraph Request["Per tile request"]
-        XYZ["z / x / y"]
-        SQL["ST_Transform + ST_AsMVTGeom"]
-        MVT["ST_AsMVT"]
-    end
-
-    File --&gt; Pool --&gt; Describe --&gt; CRS --&gt; Bounds
-    Pool -.-&gt;|pooled connection| SQL
-    XYZ --&gt; SQL --&gt; MVT</code></pre>
-<p><strong>GeoParquet load time</strong> (<code>DuckDBSource</code> in <code>martin-core/src/tiles/duckdb/</code>, resolver in <code>martin/src/config/file/tiles/duckdb/</code>):</p>
-<ol>
-<li>Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the <code>spatial</code> extension; remote <code>http(s)</code> URLs also load <code>httpfs</code>.</li>
-<li>Columns are discovered with <code>DESCRIBE SELECT * FROM read_parquet(...)</code>. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.</li>
-<li>SRID is taken from config, or from <code>ST_CRS</code> on the first non-null geometry (EPSG and <code>OGC:CRS84</code> only).</li>
-<li>TileJSON bounds are computed according to <code>auto_bounds</code> (<code>quick</code>, <code>calc</code>, or <code>skip</code>).</li>
-<li>An MVT SQL query is built once and executed per tile with <code>z</code>, <code>x</code>, <code>y</code> parameters.</li>
-</ol>
-<p><strong>GeoParquet requests</strong> (<code>DuckDBSource::get_tile</code>):</p>
-<ol>
-<li>A connection is taken from the pool and the tile query runs on a blocking thread.</li>
-<li>Geometry is stamped with the source CRS, transformed to Web Mercator (<code>EPSG:3857</code>), filtered to the tile envelope (expanded by <code>buffer</code>), clipped with <code>ST_AsMVTGeom</code>, and encoded with <code>ST_AsMVT</code>.</li>
-<li>Non-geometry columns become MVT feature properties. <code>id_column</code>, if set, becomes the MVT feature id.</li>
-<li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
-</ol>
-<p><strong>Database files</strong> are opened read-only. Each <code>database</code> entry creates one connection pool shared by its table and macro sources. Geometry tables use the same MVT generation path as GeoParquet; <code>(z, x, y)</code> table macros return ready-made tiles.</p>
-<p><strong>Configuration</strong> (<code>DuckDbConfig</code>; requires <code>--features=unstable-duckdb</code>):</p>
-<p><code>martin data.parquet</code> and <code>martin tiles.duckdb</code> use the default settings. The database command publishes geometry tables and <code>(z, x, y)</code> tile macros. Use a <a href="../config-file/">configuration file</a> for remote GeoParquet or custom settings:</p>
-<ul>
-<li><code>pool_size</code> (default <code>4</code>) - connection pool size per GeoParquet source or database entry.</li>
-<li><code>auto_bounds</code> (default <code>quick</code>) - how TileJSON bounds are computed.</li>
-<li>Per-source <code>geoparquet</code> path or URL, plus optional <code>layer_id</code>, <code>geometry_column</code>, <code>srid</code>, <code>extent</code>, <code>buffer</code>, and <code>clip_geom</code>.</li>
-<li><code>database</code> file path, with optional <code>auto_publish</code>, <code>tables</code>, and <code>macros</code> to control which sources are published. See <a href="../sources-duckdb/#database-sources">DuckDB database sources</a>.</li>
-</ul>
-<p>DuckDB sources do not currently hot-reload.</p>
-</div>
-</div>
-</div>
-<p>== Runtime Source Reloading</p>
-<div class="language-text highlight"><pre><span></span><code>After startup, Martin keeps the catalog in sync with its sources without a restart.
-One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
-
-```mermaid
-graph LR
-    Trigger["Trigger&lt;br/&gt;(when)"] --&gt;|fires| Driver[Reload Driver]
-    Driver --&gt;|discover| Discovery["Discovery&lt;br/&gt;(what should exist)"]
-    Discovery --&gt;|"(Version, Args) per id"| Driver
-    Driver --&gt;|"diff vs baseline, build changed"| Advisory["ReloadAdvisory&lt;br/&gt;add / update / remove"]
-    Advisory --&gt;|apply| Sink["Sink&lt;br/&gt;(where)"]
-    Sink --&gt; Catalog[("Catalog&lt;br/&gt;TileSourceManager")]
-```
-
-The traits are:
-
-- **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing).
-  Returns one `(Version, Args)` per source id.
-  `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
-  `Args` is the kind-specific payload used to build the source on demand.
-- **`Trigger`** - decides **when to reconcile**.
-  `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
-- **`Sink`** - where the diff is **applied**.
-  `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
-
-They interact in this loop:
-
-1. **Init or seed**.
-   PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
-   `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
-2. **Reconcile**.
-   On each Trigger, re-run Discovery.
-   Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
-   Build only the changed ids.
-   Apply through the Sink.
-3. **Commit / retain**.
-   Advance the baseline only on a successful apply.
-   A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
-
-Each kind has at least one Reload Driver instance.
-Adding reload support for a new kind means writing one `Discovery` adapter.
-The loop, triggers, and sink are reused.
-</code></pre></div>
-<h2 id="deployment-patterns">Deployment Patterns</h2>
+<h2 id="deployment">Deployment</h2>
 <p>Martin supports multiple deployment patterns:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:4"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Standalone Server</label><label for="__tabbed_5_2">Container Deployment</label><label for="__tabbed_5_3">Serverless (AWS Lambda)</label><label for="__tabbed_5_4">Behind Reverse Proxy</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Standalone</label><label for="__tabbed_3_2">Containers</label><label for="__tabbed_3_3">AWS Lambda</label><label for="__tabbed_3_4">Reverse proxy</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <ul>
@@ -2084,8 +1866,8 @@ The loop, triggers, and sink are reused.
 </div>
 </div>
 </div>
-<h2 id="performance-characteristics">Performance Characteristics</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="6:4"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><input id="__tabbed_6_3" name="__tabbed_6" type="radio" /><input id="__tabbed_6_4" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">PostgreSQL Queries</label><label for="__tabbed_6_2">Tile Encoding</label><label for="__tabbed_6_3">Network (I/O)</label><label for="__tabbed_6_4">Memory</label></div>
+<h2 id="performance">Performance</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:4"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><input id="__tabbed_4_4" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PostgreSQL queries</label><label for="__tabbed_4_2">Tile encoding</label><label for="__tabbed_4_3">Network</label><label for="__tabbed_4_4">Memory</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <ul>
@@ -2115,7 +1897,7 @@ The loop, triggers, and sink are reused.
 </div>
 <!-- New Tab Group -->
 
-<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Vertical Scaling</label><label for="__tabbed_7_2">Horizontal Scaling</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Vertical scaling</label><label for="__tabbed_5_2">Horizontal scaling</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <ul>
@@ -2134,8 +1916,8 @@ The loop, triggers, and sink are reused.
 </div>
 </div>
 </div>
-<h2 id="security-considerations">Security considerations</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="8:3"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><input id="__tabbed_8_3" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Input Validation</label><label for="__tabbed_8_2">Database Access</label><label for="__tabbed_8_3">Network Security</label></div>
+<h2 id="security">Security</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:3"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><input id="__tabbed_6_3" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Input validation</label><label for="__tabbed_6_2">Database access</label><label for="__tabbed_6_3">Network security</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <ul>
@@ -2163,8 +1945,8 @@ The loop, triggers, and sink are reused.
 </div>
 </div>
 </div>
-<h2 id="extensibility-points">Extensibility Points</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="9:3"><input checked="checked" id="__tabbed_9_1" name="__tabbed_9" type="radio" /><input id="__tabbed_9_2" name="__tabbed_9" type="radio" /><input id="__tabbed_9_3" name="__tabbed_9" type="radio" /><div class="tabbed-labels"><label for="__tabbed_9_1">Adding New Tile Sources</label><label for="__tabbed_9_2">Adding New Resource Types</label><label for="__tabbed_9_3">Custom Authentication/Authorization</label></div>
+<h2 id="extending-martin">Extending Martin</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:3"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><input id="__tabbed_7_3" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">A new tile source</label><label for="__tabbed_7_2">A new resource type</label><label for="__tabbed_7_3">Authentication</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>To add a new tile source type:</p>
@@ -2184,7 +1966,7 @@ The loop, triggers, and sink are reused.
 <p>To add new resource endpoints:</p>
 <ol>
 <li>Implement resource generator in <code>martin-core</code></li>
-<li>Add HTTP handler in <code>martin/src/srv/</code></li>
+<li>Add an HTTP handler in <code>martin</code></li>
 <li>Add configuration support</li>
 <li>Update catalog/discovery</li>
 </ol>
@@ -2199,9 +1981,9 @@ The loop, triggers, and sink are reused.
 </div>
 </div>
 </div>
-<h2 id="operations-considerations">Operations considerations</h2>
+<h2 id="monitoring">Monitoring</h2>
 <p>These are the current monitoring and observability options:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="10:3"><input checked="checked" id="__tabbed_10_1" name="__tabbed_10" type="radio" /><input id="__tabbed_10_2" name="__tabbed_10" type="radio" /><input id="__tabbed_10_3" name="__tabbed_10" type="radio" /><div class="tabbed-labels"><label for="__tabbed_10_1">Metrics</label><label for="__tabbed_10_2">Health Checks</label><label for="__tabbed_10_3">Logging</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="8:3"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><input id="__tabbed_8_3" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Metrics</label><label for="__tabbed_8_2">Health checks</label><label for="__tabbed_8_3">Logging</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>Martin exposes Prometheus metrics via <code>/_/metrics</code>:</p>
@@ -2226,13 +2008,6 @@ The loop, triggers, and sink are reused.
 </div>
 </div>
 </div>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="../development/">Development Guide</a> - Contributing to Martin</li>
-<li><a href="../config-file/">Configuration</a> - Detailed configuration options</li>
-<li><a href="../using/">API Documentation</a> - HTTP API reference</li>
-<li><a href="../sources-tiles/">Sources Documentation</a> - Tile source configuration</li>
-</ul>
 
 
   <nav class="md-tags" >
@@ -2303,13 +2078,13 @@ The loop, triggers, and sink are reused.
         
         
           
-          <a href="../migration-guide/" class="md-footer__link md-footer__link--next" aria-label="Next: Migration Guide">
+          <a href="../architecture-sources/" class="md-footer__link md-footer__link--next" aria-label="Next: Sources">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Migration Guide
+                Sources
               </div>
             </div>
             <div class="md-footer__button md-icon">

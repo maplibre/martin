@@ -4,6 +4,12 @@
         <loc>https://maplibre.org/martin/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/architecture-generate/</loc>
+      </url>
+      <url>
+        <loc>https://maplibre.org/martin/architecture-sources/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/architecture/</loc>
       </url>
       <url>
@@ -32,6 +38,9 @@
       </url>
       <url>
         <loc>https://maplibre.org/martin/martin-cp/</loc>
+      </url>
+      <url>
+        <loc>https://maplibre.org/martin/martin-generate/</loc>
       </url>
       <url>
         <loc>https://maplibre.org/martin/mbtiles-copy/</loc>
@@ -146,6 +155,9 @@
       </url>
       <url>
         <loc>https://maplibre.org/martin/sources-pg-functions/</loc>
+      </url>
+      <url>
+        <loc>https://maplibre.org/martin/sources-pg-layers/</loc>
       </url>
       <url>
         <loc>https://maplibre.org/martin/sources-pg-tables/</loc>
