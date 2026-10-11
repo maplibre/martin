@@ -95,6 +95,7 @@ pub fn run<I: Send, O: Send, S: Send, W: Send>(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
 
     use super::*;
@@ -124,6 +125,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(out, (0..500).map(|i| i * 10).collect::<Vec<_>>());
+        assert_eq!(counts.len(), 4);
         assert_eq!(counts.iter().sum::<usize>(), 500);
     }
 
@@ -183,10 +185,18 @@ mod tests {
 
     #[test]
     fn writer_error_stops_the_producer() {
+        let sent = AtomicUsize::new(0);
+        let produce = |submit: &BatchSender<usize, usize>| {
+            (0..1_000_000).try_for_each(|i| {
+                sent.fetch_add(1, Ordering::Relaxed);
+                submit.send(i)
+            })
+        };
+
         let err = run(
             2,
             2,
-            produce_n(1_000_000),
+            produce,
             || (),
             |(), i| Ok(i),
             |results| {
@@ -195,6 +205,8 @@ mod tests {
             },
         )
         .unwrap_err();
+
         assert!(matches!(err, TileGenError::InvalidTileId(1)));
+        assert!(sent.into_inner() < 1_000_000);
     }
 }

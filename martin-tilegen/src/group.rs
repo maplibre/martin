@@ -130,6 +130,8 @@ impl TileGrouper {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::record::{EncodedProps, Geom, encode};
     use crate::{LayerId, SortConfig, Sorter, TileId};
@@ -140,30 +142,25 @@ mod tests {
         bytes
     }
 
-    fn group(input: &[(u64, u8, u64, Vec<u8>)]) -> Vec<(u64, Vec<(u8, u64)>)> {
-        let dir = tempfile::tempdir().unwrap();
-        let sorter = Sorter::new(SortConfig {
-            temp_dirs: vec![dir.path().to_path_buf()],
+    fn sorter(dir: &Path) -> Sorter {
+        Sorter::new(SortConfig {
+            temp_dirs: vec![dir.to_path_buf()],
             buffer_bytes: 1 << 20,
             max_fan_in: 4,
             read_buffer_bytes: 4096,
         })
-        .unwrap();
-        let mut buffer = sorter.buffer();
-        for (tile, layer, row, bytes) in input {
-            buffer
-                .push(
-                    SortKey::new(
-                        TileId::new(*tile).unwrap(),
-                        LayerId::new(*layer),
-                        Seq::new(0, *row).unwrap(),
-                    ),
-                    bytes,
-                )
-                .unwrap();
-        }
-        buffer.finish().unwrap();
-        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        .unwrap()
+    }
+
+    fn key(tile: u64, layer: u8, row: u64) -> SortKey {
+        SortKey::new(
+            TileId::new(tile).unwrap(),
+            LayerId::new(layer),
+            Seq::new(0, row).unwrap(),
+        )
+    }
+
+    fn drain(mut grouper: TileGrouper) -> Vec<(u64, Vec<(u8, u64)>)> {
         let mut tile = TileRecords::default();
         let mut out = Vec::new();
         while grouper.next_tile(&mut tile).unwrap() {
@@ -176,40 +173,186 @@ mod tests {
     }
 
     #[test]
-    fn groups_by_tile_and_expands_fill_ranges() {
+    fn no_records_yield_no_tiles() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        sorter.buffer().finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        let none: [(u64, Vec<(u8, u64)>); 0] = [];
+        assert_eq!(tiles, none);
+    }
+
+    #[test]
+    fn records_are_grouped_by_tile_sorted_by_layer_then_seq() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
         let point = record(Geom::Points(&[[1, 1]]));
-        let fill = record(Geom::FillRange { end: 6 });
-        let tiles = group(&[
-            (1, 0, 5, point.clone()),
-            (2, 1, 3, fill),
-            (2, 0, 9, point.clone()),
-            (4, 1, 1, point.clone()),
-            (9, 0, 2, point),
-        ]);
+        let mut buffer = sorter.buffer();
+        buffer.push(key(9, 0, 2), &point).unwrap();
+        buffer.push(key(1, 1, 7), &point).unwrap();
+        buffer.push(key(1, 0, 8), &point).unwrap();
+        buffer.push(key(1, 0, 5), &point).unwrap();
+        buffer.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        assert_eq!(
+            tiles,
+            [(1, vec![(0, 5), (0, 8), (1, 7)]), (9, vec![(0, 2)])]
+        );
+    }
+
+    #[test]
+    fn fill_range_covers_every_tile_up_to_its_exclusive_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let mut buffer = sorter.buffer();
+        buffer
+            .push(key(2, 1, 3), &record(Geom::FillRange { end: 6 }))
+            .unwrap();
+        buffer.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
         assert_eq!(
             tiles,
             [
-                (1, vec![(0, 5)]),
-                (2, vec![(0, 9), (1, 3)]),
+                (2, vec![(1, 3)]),
                 (3, vec![(1, 3)]),
-                (4, vec![(1, 1), (1, 3)]),
+                (4, vec![(1, 3)]),
                 (5, vec![(1, 3)]),
-                (9, vec![(0, 2)]),
             ]
         );
     }
 
     #[test]
-    fn fill_only_tiles_compare_equal_across_seq() {
+    fn fill_range_ending_at_its_own_tile_covers_only_that_tile() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let mut buffer = sorter.buffer();
+        buffer
+            .push(key(2, 0, 1), &record(Geom::FillRange { end: 2 }))
+            .unwrap();
+        buffer
+            .push(key(4, 0, 2), &record(Geom::Points(&[[0, 0]])))
+            .unwrap();
+        buffer.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        assert_eq!(tiles, [(2, vec![(0, 1)]), (4, vec![(0, 2)])]);
+    }
+
+    #[test]
+    fn fill_range_is_merged_with_the_records_of_the_tiles_it_covers() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut buffer = sorter.buffer();
+        buffer
+            .push(key(2, 1, 3), &record(Geom::FillRange { end: 5 }))
+            .unwrap();
+        buffer.push(key(2, 0, 9), &point).unwrap();
+        buffer.push(key(4, 1, 1), &point).unwrap();
+        buffer.push(key(7, 0, 2), &point).unwrap();
+        buffer.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        assert_eq!(
+            tiles,
+            [
+                (2, vec![(0, 9), (1, 3)]),
+                (3, vec![(1, 3)]),
+                (4, vec![(1, 1), (1, 3)]),
+                (7, vec![(0, 2)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn next_tile_overwrites_the_previous_tile_in_the_buffer() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut buffer = sorter.buffer();
+        buffer.push(key(1, 0, 1), &point).unwrap();
+        buffer.push(key(1, 0, 2), &point).unwrap();
+        buffer.push(key(2, 0, 3), &point).unwrap();
+        buffer.finish().unwrap();
+        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let mut tile = TileRecords::default();
+
+        assert!(grouper.next_tile(&mut tile).unwrap());
+        assert_eq!(tile.records().count(), 2);
+        assert!(grouper.next_tile(&mut tile).unwrap());
+
+        assert_eq!(tile.tile_id, 2);
+        assert_eq!(tile.records().count(), 1);
+        assert!(!grouper.next_tile(&mut tile).unwrap());
+    }
+
+    #[test]
+    fn same_content_ignores_seq() {
         let fill = record(Geom::Fill);
-        let mut a = TileRecords::default();
-        let mut b = TileRecords::default();
+        let mut a = TileRecords::new(1);
         a.push_record(0, Seq::new(0, 1).unwrap(), &fill);
+        let mut b = TileRecords::new(2);
         b.push_record(0, Seq::new(0, 2).unwrap(), &fill);
+
         assert!(a.same_content(&b));
-        assert!(a.is_fill_only());
-        b.push_record(1, Seq::default(), &record(Geom::Points(&[[0, 0]])));
+    }
+
+    #[test]
+    fn same_content_differs_on_bytes() {
+        let mut a = TileRecords::new(1);
+        a.push_record(0, Seq::default(), &record(Geom::Points(&[[0, 0]])));
+        let mut b = TileRecords::new(1);
+        b.push_record(0, Seq::default(), &record(Geom::Points(&[[1, 1]])));
+
         assert!(!a.same_content(&b));
-        assert!(!b.is_fill_only());
+    }
+
+    #[test]
+    fn same_content_differs_on_layer() {
+        let fill = record(Geom::Fill);
+        let mut a = TileRecords::new(1);
+        a.push_record(0, Seq::default(), &fill);
+        let mut b = TileRecords::new(1);
+        b.push_record(1, Seq::default(), &fill);
+
+        assert!(!a.same_content(&b));
+    }
+
+    #[test]
+    fn same_content_differs_on_record_count() {
+        let fill = record(Geom::Fill);
+        let mut a = TileRecords::new(1);
+        a.push_record(0, Seq::default(), &fill);
+        let mut b = TileRecords::new(1);
+        b.push_record(0, Seq::default(), &fill);
+        b.push_record(0, Seq::new(0, 1).unwrap(), &fill);
+
+        assert!(!a.same_content(&b));
+    }
+
+    #[test]
+    fn fills_and_fill_ranges_make_a_fill_only_tile() {
+        let mut tile = TileRecords::new(1);
+        tile.push_record(0, Seq::default(), &record(Geom::Fill));
+        tile.push_record(1, Seq::default(), &record(Geom::FillRange { end: 9 }));
+
+        assert!(tile.is_fill_only());
+    }
+
+    #[test]
+    fn a_feature_makes_a_tile_not_fill_only() {
+        let mut tile = TileRecords::new(1);
+        tile.push_record(0, Seq::default(), &record(Geom::Fill));
+        tile.push_record(1, Seq::default(), &record(Geom::Points(&[[0, 0]])));
+
+        assert!(!tile.is_fill_only());
     }
 }

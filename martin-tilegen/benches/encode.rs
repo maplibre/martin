@@ -81,7 +81,7 @@ fn tiles() -> (Vec<TileRecords>, KeyNames) {
 fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
     let (tiles, names) = tiles();
     let keys = [names];
-    let mlt = TileFormat::Mlt(EncoderConfig::default());
+    let mlt = TileFormat::Mlt;
     let mut group = c.benchmark_group("encode");
     group
         .throughput(Throughput::Elements(TILES))
@@ -97,6 +97,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
                 extent: 4096,
                 buffer: 64,
             },
+            encoder: EncoderConfig::default(),
         }];
         let settings = EncodeSettings {
             layers: &layers,

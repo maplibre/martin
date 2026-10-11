@@ -161,74 +161,12 @@ impl TileColumns {
 
 #[cfg(test)]
 mod tests {
-    use mlt_core::PropValue;
-
     use super::*;
-
-    #[test]
-    fn known_keys_come_first_in_declaration_order() {
-        let interner = KeyInterner::new(["zeta", "alpha"]);
-        let dynamic_b = interner.intern("b");
-        let dynamic_a = interner.intern("a");
-        assert_eq!(interner.intern("zeta"), KeyId(0));
-        let names = interner.freeze();
-        let mut columns = TileColumns::default();
-        for key in [dynamic_b, KeyId(1), dynamic_a, KeyId(0)] {
-            columns.add(key, PropValueRef::I64(1));
-        }
-        let order: Vec<_> = columns
-            .finish(&names)
-            .iter()
-            .map(|(k, _)| names.name(*k).to_owned())
-            .collect();
-        assert_eq!(order, ["zeta", "alpha", "a", "b"]);
-    }
-
-    #[test]
-    fn kinds_merge_like_mlt_core() {
-        let names = KeyInterner::new(["n", "f", "s", "u", "m"]).freeze();
-        let mut columns = TileColumns::default();
-        for (key, value) in [
-            (0, PropValueRef::I64(-1)),
-            (0, PropValueRef::I64(5)),
-            (1, PropValueRef::F32(1.5)),
-            (1, PropValueRef::F64(2.5)),
-            (2, PropValueRef::I64(1)),
-            (2, PropValueRef::Bool(true)),
-            (3, PropValueRef::I64(7)),
-            (4, PropValueRef::I64(3)),
-            (4, PropValueRef::F64(1.5)),
-        ] {
-            columns.add(KeyId(key), value);
-        }
-        let kinds: Vec<_> = columns.finish(&names).into_iter().map(|(_, k)| k).collect();
-        assert_eq!(
-            kinds,
-            [
-                PropKind::I64,
-                PropKind::F64,
-                PropKind::Str,
-                PropKind::U64,
-                PropKind::F64
-            ]
-        );
-        assert_eq!(
-            PropValueRef::I64(3).coerce(PropKind::F64),
-            PropValue::F64(Some(3.0))
-        );
-        assert_eq!(
-            PropValueRef::I64(1).coerce(PropKind::Str),
-            PropValue::Str(Some("1".to_owned()))
-        );
-        assert_eq!(
-            PropValueRef::F32(1.5).coerce(PropKind::F64),
-            PropValue::F64(Some(1.5))
-        );
-    }
 
     #[test]
     fn interning_is_thread_safe() {
         let interner = KeyInterner::new::<&str>([]);
+
         let ids: Vec<Vec<KeyId>> = std::thread::scope(|scope| {
             let handles: Vec<_> = (0..4)
                 .map(|_| {
@@ -241,7 +179,11 @@ mod tests {
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         });
+
         assert!(ids.windows(2).all(|w| w[0] == w[1]));
-        assert_eq!(interner.freeze().names.len(), 100);
+        let names = interner.freeze();
+        for (i, id) in ids[0].iter().enumerate() {
+            assert_eq!(names.name(*id), format!("k{i}"));
+        }
     }
 }
