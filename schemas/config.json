@@ -1563,6 +1563,10 @@
           "description": "Tile grid the sources of this connection are served in, unless a source names its own \\[default: `WebMercatorQuad`\\]\n\nOne of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.",
           "examples": ["WebMercatorQuad"],
           "type": ["string", "null"]
+        },
+        "try_id_sort": {
+          "description": "Try sorting features by their feature ID in ascending order. \\[default: false\\]",
+          "type": ["boolean", "null"]
         }
       },
       "type": "object"

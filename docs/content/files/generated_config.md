@@ -515,6 +515,8 @@ postgres:
   #
   # One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
   tile_grid: WebMercatorQuad
+  # Try sorting features by their feature ID in ascending order. [default: false]
+  try_id_sort: null
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.
