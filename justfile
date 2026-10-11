@@ -267,7 +267,7 @@ pgo-build target: fetch prepare-mbtiles
     cargo build --release --target "$target" --package mbtiles --locked
     cargo pgo build -- --target "$target" --package martin --bin martin --locked
     {{just}} pgo-train "$binary"
-    # BOLT rejects ARM Cortex-A53 linker veneers; keep the ARM image on PGO.
+    # BOLT rejects ARM Cortex-A53 linker veneers. Keep the ARM image on PGO.
     if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
         cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked
         {{just}} pgo-train "$binary-bolt-instrumented"
