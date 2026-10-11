@@ -24,29 +24,6 @@ pub enum TileFormat {
 pub struct LayerInfo {
     pub name: String,
     pub grid: LayerGrid,
-    pub order: FeatureOrder,
-}
-
-/// How a layer's features are ordered inside a tile.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum FeatureOrder {
-    /// Source order, i.e. draw order. Also the cheapest: the MLT encoder tries no other orders.
-    #[default]
-    Source,
-    /// MLT may sort by feature id when that is smaller.
-    Id,
-    /// MLT tries its sort orders and keeps the smallest result.
-    Auto,
-}
-
-impl FeatureOrder {
-    fn apply(self, config: EncoderConfig) -> EncoderConfig {
-        let spatial = self == Self::Auto;
-        config
-            .with_id_sort(self != Self::Source && config.attempt_id_sort())
-            .with_spatial_morton_sort(spatial && config.attempt_spatial_morton_sort())
-            .with_spatial_hilbert_sort(spatial && config.attempt_spatial_hilbert_sort())
-    }
 }
 
 /// Everything that is the same for every tile of a run.
@@ -227,7 +204,6 @@ impl TileEncoder {
         features: &mut Vec<(u8, u64)>,
     ) -> TileGenResult<Vec<u8>> {
         let mut layers = Vec::new();
-        let mut orders = Vec::new();
         let mut records: Vec<(Seq, &[u8])> = Vec::new();
         let mut all = tile.records().peekable();
         while let Some(&(layer, _, _)) = all.peek() {
@@ -245,13 +221,12 @@ impl TileEncoder {
             let count = self.stats[usize::from(layer)].record(zoom, &assembled);
             features.push((layer, count));
             layers.push(assembled);
-            orders.push(info.order);
         }
         let data = match settings.format {
             TileFormat::Mlt(config) => {
                 let mut data = Vec::new();
-                for (layer, order) in layers.into_iter().zip(orders) {
-                    data.extend(layer.encode(order.apply(config))?);
+                for layer in layers {
+                    data.extend(layer.encode(config)?);
                 }
                 data
             }
@@ -304,7 +279,6 @@ mod tests {
                     extent: 4096,
                     buffer: 64,
                 },
-                order: FeatureOrder::Source,
             })
             .to_vec()
     }

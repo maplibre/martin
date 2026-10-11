@@ -2,6 +2,7 @@
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
 use std::cmp::Ordering;
+use std::num::NonZeroU32;
 
 use lasso::{Key as _, RodeoResolver, Spur, ThreadedRodeo};
 use mlt_core::{PropKind, PropValueRef};
@@ -17,6 +18,22 @@ impl KeyId {
 
 fn index_u32(len: usize) -> u32 {
     u32::try_from(len).expect("fewer than 2^32 property keys or columns")
+}
+
+/// Position of a key's column among the columns of one layer in one tile (!= [`KeyId`] the key for the whole layer).
+/// 
+/// `None` while no feature of the tile carries the key.
+#[derive(Clone, Copy, Default)]
+struct ColumnIndex(Option<NonZeroU32>);
+
+impl ColumnIndex {
+    fn new(position: usize) -> Self {
+        Self(NonZeroU32::new(index_u32(position + 1)))
+    }
+
+    fn get(self) -> Option<usize> {
+        self.0.map(|n| n.get() as usize - 1)
+    }
 }
 
 /// Property keys of one layer, shared by all workers. Keys the source declares up front get the first ids
@@ -76,8 +93,7 @@ impl KeyNames {
 /// The columns of one layer in one tile, built from the values its features carry. Reused across tiles.
 #[derive(Default)]
 pub(crate) struct TileColumns {
-    /// Column position + 1 by key id (0 = absent); key ids are small and dense, so this beats hashing.
-    slots: Vec<u32>,
+    column_of_key: Vec<ColumnIndex>,
     columns: Vec<Column>,
 }
 
@@ -90,31 +106,31 @@ struct Column {
 impl TileColumns {
     pub(crate) fn clear(&mut self) {
         for column in &self.columns {
-            self.slots[column.key.0 as usize] = 0;
+            self.column_of_key[column.key.0 as usize] = ColumnIndex::default();
         }
         self.columns.clear();
     }
 
-    fn slot(&mut self, key: KeyId) -> &mut u32 {
+    fn column_index_mut(&mut self, key: KeyId) -> &mut ColumnIndex {
         let idx = key.0 as usize;
-        if idx >= self.slots.len() {
-            self.slots.resize(idx + 1, 0);
+        if idx >= self.column_of_key.len() {
+            self.column_of_key.resize(idx + 1, ColumnIndex::default());
         }
-        &mut self.slots[idx]
+        &mut self.column_of_key[idx]
     }
 
     pub(crate) fn add(&mut self, key: KeyId, value: PropValueRef<'_>) {
-        let slot = *self.slot(key);
-        let idx = if slot == 0 {
+        let idx = if let Some(idx) = self.column_index_mut(key).get() {
+            idx
+        } else {
             self.columns.push(Column {
                 key,
                 kind: value.kind(),
                 has_negative: false,
             });
-            *self.slot(key) = index_u32(self.columns.len());
-            self.columns.len() - 1
-        } else {
-            slot as usize - 1
+            let idx = self.columns.len() - 1;
+            *self.column_index_mut(key) = ColumnIndex::new(idx);
+            idx
         };
         let column = &mut self.columns[idx];
         column.kind = column.kind.merge(value.kind());
@@ -126,7 +142,7 @@ impl TileColumns {
         self.columns
             .sort_by(|a, b| names.column_order(a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
-            self.slots[column.key.0 as usize] = index_u32(pos + 1);
+            self.column_of_key[column.key.0 as usize] = ColumnIndex::new(pos);
         }
         self.columns
             .iter()
@@ -139,8 +155,7 @@ impl TileColumns {
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
     pub(crate) fn position(&self, key: KeyId) -> Option<usize> {
-        let slot = *self.slots.get(key.0 as usize)?;
-        (slot != 0).then(|| slot as usize - 1)
+        self.column_of_key.get(key.0 as usize)?.get()
     }
 }
 

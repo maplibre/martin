@@ -19,8 +19,8 @@ use martin_tile_utils::Encoding;
 use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::record::{EncodedProps, Geom, encode};
 use martin_tilegen::{
-    DedupIndex, EncodeSettings, FeatureOrder, LayerGrid, LayerInfo, Seq, TileEncoder, TileFormat,
-    TileOrder, TileRecords,
+    DedupIndex, EncodeSettings, LayerGrid, LayerInfo, Seq, TileEncoder, TileFormat, TileOrder,
+    TileRecords,
 };
 use mlt_core::PropValueRef;
 use mlt_core::encoder::EncoderConfig;
@@ -86,21 +86,10 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
     group
         .throughput(Throughput::Elements(TILES))
         .sample_size(10);
-    for (name, format, order, encoding) in [
-        (
-            "mlt_source",
-            mlt,
-            FeatureOrder::Source,
-            Encoding::Uncompressed,
-        ),
-        ("mlt_auto", mlt, FeatureOrder::Auto, Encoding::Uncompressed),
-        (
-            "mvt_source",
-            TileFormat::Mvt,
-            FeatureOrder::Source,
-            Encoding::Uncompressed,
-        ),
-        ("mlt_source_gzip", mlt, FeatureOrder::Source, Encoding::Gzip),
+    for (name, format, encoding) in [
+        ("mlt", mlt, Encoding::Uncompressed),
+        ("mvt", TileFormat::Mvt, Encoding::Uncompressed),
+        ("mlt_gzip", mlt, Encoding::Gzip),
     ] {
         let layers = [LayerInfo {
             name: "buildings".to_owned(),
@@ -108,7 +97,6 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
                 extent: 4096,
                 buffer: 64,
             },
-            order,
         }];
         let settings = EncodeSettings {
             layers: &layers,

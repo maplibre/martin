@@ -94,26 +94,30 @@ pub fn encode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::Encoding;
 
     type Decode = fn(&[u8]) -> std::io::Result<Vec<u8>>;
 
-    #[test]
-    fn encode_round_trips_every_encoding() {
-        let data = b"tile bytes tile bytes tile bytes".to_vec();
-        let cases: [(Encoding, Decode); 4] = [
-            (Encoding::Gzip, decode_gzip),
-            (Encoding::Zlib, decode_zlib),
-            (Encoding::Brotli, decode_brotli),
-            (Encoding::Zstd, decode_zstd),
-        ];
-        for (encoding, decode) in cases {
-            let encoded = encode(data.clone(), encoding).unwrap();
-            assert_ne!(encoded, data, "{encoding:?}");
-            assert_eq!(decode(&encoded).unwrap(), data, "{encoding:?}");
-        }
-        assert_eq!(encode(data.clone(), Encoding::Uncompressed).unwrap(), data);
-        assert_eq!(encode(data.clone(), Encoding::Internal).unwrap(), data);
+    const DATA: &[u8] = b"tile bytes tile bytes tile bytes";
+
+    #[rstest]
+    #[case::gzip(Encoding::Gzip, decode_gzip)]
+    #[case::zlib(Encoding::Zlib, decode_zlib)]
+    #[case::brotli(Encoding::Brotli, decode_brotli)]
+    #[case::zstd(Encoding::Zstd, decode_zstd)]
+    fn encode_round_trips(#[case] encoding: Encoding, #[case] decode: Decode) {
+        let encoded = encode(DATA.to_vec(), encoding).unwrap();
+        assert_ne!(encoded, DATA);
+        assert_eq!(decode(&encoded).unwrap(), DATA);
+    }
+
+    #[rstest]
+    #[case::uncompressed(Encoding::Uncompressed)]
+    #[case::internal(Encoding::Internal)]
+    fn encode_passes_through(#[case] encoding: Encoding) {
+        assert_eq!(encode(DATA.to_vec(), encoding).unwrap(), DATA);
     }
 }

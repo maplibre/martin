@@ -14,9 +14,7 @@ mod sort_key;
 mod tile;
 
 pub use assemble::{LayerAssembler, LayerGrid};
-pub use encode::{
-    DedupIndex, EncodeSettings, FeatureOrder, LayerInfo, LayerStats, TileEncoder, TileFormat,
-};
+pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
 pub use error::{TileGenError, TileGenResult};
 pub use group::{TileGrouper, TileRecords};
 #[cfg(feature = "mbtiles")]
