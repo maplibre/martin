@@ -9,7 +9,7 @@ pub const MAX_ZOOM: u8 = 27;
 /// A tile's position in a [`TileOrder`]; always small enough to leave the low byte of a
 /// [`SortKey`](crate::SortKey) free for the layer.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TileId(u64);
+pub struct TileId(pub(crate) u64);
 
 impl TileId {
     pub fn new(id: u64) -> TileGenResult<Self> {
@@ -17,10 +17,6 @@ impl TileId {
             return Err(TileGenError::InvalidTileId(id));
         }
         Ok(Self(id))
-    }
-
-    pub(crate) const fn from_key_bits(id: u64) -> Self {
-        Self(id)
     }
 
     #[must_use]

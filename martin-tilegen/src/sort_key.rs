@@ -18,6 +18,8 @@ impl LayerId {
 
 /// Position of a feature in its source. Partitions are numbered in source order, so ordering by
 /// `(partition, row)` reproduces the source's own row order however the scan was split.
+///
+/// Bits 63..40 hold the partition, bits 39..0 the row.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Seq(u64);
 
@@ -48,6 +50,8 @@ impl Seq {
 /// Sort key of one spilled record: tile (in the sink's [`TileOrder`](crate::TileOrder)), then layer,
 /// then [`Seq`]. Two words rather than a `u128`, so a sort index entry stays 24 bytes instead of
 /// padding to 32.
+///
+/// `tile_layer` holds the [`TileId`] in bits 63..8 and the [`LayerId`] in bits 7..0; `seq` is the [`Seq`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SortKey {
     tile_layer: u64,
@@ -60,14 +64,14 @@ impl SortKey {
     #[must_use]
     pub const fn new(tile: TileId, layer: LayerId, seq: Seq) -> Self {
         Self {
-            tile_layer: tile.value() << 8 | layer.0 as u64,
+            tile_layer: tile.0 << 8 | layer.0 as u64,
             seq: seq.0,
         }
     }
 
     #[must_use]
     pub const fn tile_id(self) -> TileId {
-        TileId::from_key_bits(self.tile_layer >> 8)
+        TileId(self.tile_layer >> 8)
     }
 
     #[must_use]

@@ -2,11 +2,11 @@
 #![forbid(unsafe_code)]
 
 mod error;
-mod key;
 mod sort;
+mod sort_key;
 mod tile;
 
 pub use error::{TileGenError, TileGenResult};
-pub use key::{LayerId, Seq, SortKey};
 pub use sort::{Merger, SortBuffer, SortConfig, Sorter};
+pub use sort_key::{LayerId, Seq, SortKey};
 pub use tile::{MAX_ZOOM, TileId, TileOrder};
