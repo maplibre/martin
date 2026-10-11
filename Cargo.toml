@@ -139,6 +139,7 @@ itertools = "0.15"
 json-patch = "4"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
+lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
 maplibre_native = "0.10.0"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.3" }
