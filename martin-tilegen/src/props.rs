@@ -21,7 +21,7 @@ fn index_u32(len: usize) -> u32 {
 }
 
 /// Position of a key's column among the columns of one layer in one tile (!= [`KeyId`] the key for the whole layer).
-/// 
+///
 /// `None` while no feature of the tile carries the key.
 #[derive(Clone, Copy, Default)]
 struct ColumnIndex(Option<NonZeroU32>);
