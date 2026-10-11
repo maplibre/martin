@@ -136,20 +136,19 @@ A rule's `where` does not filter features: it only picks the rule.
 
 Without `attributes`, a layer writes all of the table source's properties. `[]` writes none.
 
-A list copies those properties as they are, and `name:*` copies the columns starting with `name:`.
-A map names each output attribute:
+A list copies those properties as they are. A map names each output attribute:
 
 - a string is an expression, so `kind: class` writes the column `class` as `kind`,
 - `{ value: ... }`, a number or a boolean is a literal,
-- `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms,
-- `"name:*": "name:*"` copies the columns starting with `name:`.
+- `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms.
 
+In both, `name:*` copies the columns starting with `name:`, written `"name:*": "name:*"` in a map.
 An expression that is `null` leaves the attribute out.
 
 ## Feature ids
 
 `id: keep` writes the `id_column` as the feature id, `id: drop` writes none, and `id: { expr: ... }`
-computes it. A computed id that is not a non-negative integer leaves the feature without an id.
+computes it. A computed id is only written when it is an integer of zero or more.
 
 ## Rules
 
@@ -190,11 +189,14 @@ A rule can set:
 
 ## Draw order
 
-Without `sort_by`, the features of a layer keep the order they are read in:
+Without `sort_by`, the features of a layer keep the order the source reads them in.
 
-- a table in its physical order,
-- a view or foreign table with an integer `id_column` by that id, which overrides the view's `ORDER BY`,
-- any other view in its own order.
+=== "PostgreSQL"
+
+    - A table is read in its physical order.
+    - A view or foreign table with an integer `id_column` is read by that id, which overrides the view's
+      `ORDER BY`.
+    - Any other view is read in its own order.
 
 `sort_by` is a list of expressions, each a string or `{ expr: ..., desc: true }`, compared in turn.
 Features that compare equal keep the order they are read in.
@@ -220,10 +222,94 @@ with `double(...)` to compare them by value. `desc` reverses the whole order, so
 
 ## Expressions
 
-Expressions are [CEL](https://cel.dev) over the feature's properties, such as `rank > 5`, or
-`feature['name:en']` for a name that is not an identifier. A missing property is `null`.
-Besides the CEL standard library and its string functions, `coalesce(a, b, ...)` returns its first
-argument that is not `null`.
+Expressions are written in [CEL](https://cel.dev), the Common Expression Language. CEL looks like
+the conditions of C, Java or JavaScript, but it has no statements, loops or side effects. Every
+expression returns one value, and it always finishes.
+
+A property is read by its name, such as `rank > 5`, or with `feature['name:en']` when the name is not
+an identifier. A missing property is `null`. Strings take single or double quotes, so quote the whole
+expression in YAML, for example `where: "kind == 'park'"`.
+
+=== "Arithmetic"
+
+    ```text
+    7 / 2              // 3, integer division rounds toward zero
+    -7 / 2             // -3
+    7 % 3              // 1
+    7.0 / 2.0          // 3.5
+    2 * 1.5            // fails, integers and doubles do not mix in arithmetic
+    double(2) * 1.5    // 3.0
+    ```
+
+=== "Comparison and logic"
+
+    ```text
+    3 >= 2 && 'a' != 'b'           // true
+    !(1 > 2) || false              // true
+    1 < 2.5                        // true, comparisons do mix integers and doubles
+    'park' in ['park', 'forest']   // true
+    ```
+
+=== "Choice"
+
+    ```text
+    population > 1000000 ? 2 : 8      // 2 for a city of 5 million, else 8
+    height > 0 ? height : 'unknown'   // the two branches can have different types
+    1 ? 2 : 3                         // fails, the condition must be a boolean
+    ```
+
+    When an attribute gets different types in one tile, such as numbers and strings, all its values in
+    that tile are written as strings.
+
+=== "Conversion"
+
+    ```text
+    int(2.7)        // 2
+    int('12')       // 12
+    double('1.5')   // 1.5
+    string(5)       // '5'
+    ```
+
+=== "Strings"
+
+    ```text
+    'Main' + ' St'                      // 'Main St'
+    size('Straße')                      // 6
+    'Main St'.startsWith('Main')        // true
+    'Main St'.endsWith('St')            // true
+    'Main St'.contains('n S')           // true
+    'Main St'.lowerAscii()              // 'main st'
+    ' Main St '.trim()                  // 'Main St'
+    'Main St'.replace('St', 'Street')   // 'Main Street'
+    'Main St'.substring(0, 4)           // 'Main'
+    'Main St'.indexOf('St')             // 5
+    ```
+
+=== "Lists and maps"
+
+    ```text
+    'shop;cafe'.split(';')                          // ['shop', 'cafe']
+    ['shop', 'cafe'].join(', ')                     // 'shop, cafe'
+    'shop;cafe'.split(';').exists(k, k == 'shop')   // true
+    [1, 2, 3].all(x, x > 0)                         // true
+    [1, 2, 3].map(x, x * 2)                         // [2, 4, 6]
+    [1, 2, 3].filter(x, x > 1)                      // [2, 3]
+    [10, 20][1]                                     // 20
+    {'a': 1}['a']                                   // 1
+    ```
+
+=== "null"
+
+    ```text
+    coalesce(feature['name:en'], name)   // the English name, else the name
+    coalesce(null, null)                 // null
+    ```
+
+Martin adds these functions to CEL:
+
+- `coalesce(a, b, ...)` returns its first argument that is not `null`.
+
+Regular expressions (`matches`) and timestamps are not available.
 
 | Expression           | Result                                                              |
 |----------------------|---------------------------------------------------------------------|

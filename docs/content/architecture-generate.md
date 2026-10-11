@@ -115,13 +115,11 @@ layer's features by it, keeping the `Seq` order of equal values.
 
 Each render worker owns a sort buffer of `--memory / threads` bytes, at least 16 MiB and at most 4 GiB.
 Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset,
-length) is kept beside them. When the records and the index reach the budget, which counts the index
-twice for the radix sort's scratch copy, the worker spills the buffer:
+length) is kept beside them. The budget counts the index twice, because the radix sort needs a second
+copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
 
-1. It radix-sorts the index by key, without moving the records. Batches of several readers arrive
-   interleaved, so the sort usually compares both words of the key. When every record of the buffer
-   was pushed in increasing `Seq`, as with a single reader, it only needs the first word, because a
-   stable radix sort keeps the `Seq` order of equal tiles and layers.
+1. It radix-sorts the index by key, without moving the records. If the records arrived in increasing
+   `Seq`, as with a single reader, sorting by tile and layer is enough, since the radix sort is stable.
 2. It writes the records in key order to a new temporary file, a **sorted run**, as key, length and
    record, repeated.
 3. It clears the buffer and goes on rendering.
@@ -153,14 +151,16 @@ tiles in order. The ordered pipeline does both, with a bounded number of batches
 
 --8<-- "images/generate/ordered.svg"
 
-- The grouper needs a **credit** to hand a batch out. There are `threads × 4` credits, so at most that
-  many batches, of 256 tiles each, are between the grouper and the writer at any time.
-- Encoders take batches from the work queue in any order and finish them in any order.
-- The writer takes results in batch order. A result that arrives early waits in the **reorder buffer**
-  until every earlier batch has been taken. Taking a batch returns its credit.
+- For each batch of 256 tiles, the grouper first puts an empty result **slot** into the **order queue**,
+  then hands the batch to the work queue. The order queue holds `threads × 4` slots. When it is full,
+  the grouper waits.
+- Encoders take batches from the work queue in any order, finish them in any order, and put each result
+  into its batch's slot.
+- The writer takes slots from the order queue in batch order and waits for each slot's result. A result
+  that arrives early waits in its slot until the writer gets to it.
 
 When one batch is slow, for example a dense city at a high zoom, the other encoders go on with later
-batches until the credits run out, and then wait. Memory stays bounded however slow one batch is,
+batches until the order queue is full, and then wait. Memory stays bounded however slow one batch is,
 and the archive still sees every tile in order.
 
 ### Repeated tiles
@@ -199,7 +199,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | Sort buffers     | `--memory` in total, records plus index, but at least 16 MiB per worker   |
 | Run file writers | 1 MiB of write buffer for each run being written                          |
 | Merge            | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge     |
-| Encode window    | `threads × 4` batches of 256 tiles, including those in the reorder buffer |
+| Encode window    | `threads × 4` batches of 256 tiles, plus the one being written            |
 | Dedup index      | One copy of each distinct tile that got a dedup key                       |
 
 Intermediate merges, with more than 256 runs, run several 64 MiB merges at once. On disk, a feature has
