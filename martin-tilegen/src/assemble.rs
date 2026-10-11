@@ -5,7 +5,7 @@ use mlt_core::geo_types::{
 };
 use mlt_core::{PropertyKey, TileLayer};
 
-use crate::props::{KeyNames, TileColumns};
+use crate::props::{KeyNames, TileColumns, to_value};
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
@@ -79,7 +79,7 @@ impl LayerAssembler {
             for prop in first.props() {
                 let (key, value) = prop?;
                 if let Some(pos) = self.columns.position(key) {
-                    feature.property(self.keys[pos], value.to_value(schema[pos].1))?;
+                    feature.property(self.keys[pos], to_value(value, schema[pos].1))?;
                 }
             }
             feature.finish()?;
@@ -149,10 +149,10 @@ fn to_geometry(kind: GeomKind, geom: &GeomBuf) -> Geometry<i32> {
 #[cfg(test)]
 mod tests {
     use mlt_core::encoder::EncoderConfig;
-    use mlt_core::{Decoder, Parser, PropValue};
+    use mlt_core::{Decoder, Parser, PropValue, PropValueRef};
 
     use super::*;
-    use crate::props::{KeyInterner, PropRef};
+    use crate::props::KeyInterner;
     use crate::record::{EncodedProps, Geom, encode};
 
     const GRID: LayerGrid = LayerGrid {
@@ -162,7 +162,7 @@ mod tests {
 
     fn record(
         id: Option<u64>,
-        props: &[(&str, PropRef<'_>)],
+        props: &[(&str, PropValueRef<'_>)],
         interner: &KeyInterner,
         geom: Geom<'_>,
     ) -> Vec<u8> {
@@ -195,7 +195,10 @@ mod tests {
                 seq(1),
                 record(
                     Some(10),
-                    &[("name", PropRef::Str("a")), ("height", PropRef::I64(3))],
+                    &[
+                        ("name", PropValueRef::Str("a")),
+                        ("height", PropValueRef::I64(3)),
+                    ],
                     &interner,
                     Geom::Points(&[[5, 6]]),
                 ),
@@ -204,7 +207,10 @@ mod tests {
                 seq(2),
                 record(
                     Some(11),
-                    &[("name", PropRef::Str("b")), ("extra", PropRef::Bool(true))],
+                    &[
+                        ("name", PropValueRef::Str("b")),
+                        ("extra", PropValueRef::Bool(true)),
+                    ],
                     &interner,
                     Geom::Lines {
                         parts: &[2],
@@ -216,7 +222,10 @@ mod tests {
                 seq(2),
                 record(
                     Some(11),
-                    &[("name", PropRef::Str("b")), ("extra", PropRef::Bool(true))],
+                    &[
+                        ("name", PropValueRef::Str("b")),
+                        ("extra", PropValueRef::Bool(true)),
+                    ],
                     &interner,
                     Geom::Lines {
                         parts: &[2],
@@ -226,7 +235,12 @@ mod tests {
             ),
             (
                 seq(3),
-                record(None, &[("height", PropRef::I64(-1))], &interner, Geom::Fill),
+                record(
+                    None,
+                    &[("height", PropValueRef::I64(-1))],
+                    &interner,
+                    Geom::Fill,
+                ),
             ),
         ];
         let names = interner.freeze();

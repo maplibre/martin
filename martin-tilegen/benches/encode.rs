@@ -16,12 +16,13 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::Encoding;
-use martin_tilegen::props::{KeyInterner, KeyNames, PropRef};
+use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::record::{EncodedProps, Geom, encode};
 use martin_tilegen::{
     DedupIndex, EncodeSettings, FeatureOrder, LayerGrid, LayerInfo, Seq, TileEncoder, TileFormat,
     TileOrder, TileRecords,
 };
+use mlt_core::PropValueRef;
 use mlt_core::encoder::EncoderConfig;
 
 const TILES: u64 = 100;
@@ -50,10 +51,13 @@ fn tiles() -> (Vec<TileRecords>, KeyNames) {
                 props.clear();
                 props.push(
                     interner.intern("name"),
-                    PropRef::Str(["Main St", "Oak Ave", "Elm Rd"][f as usize % 3]),
+                    PropValueRef::Str(["Main St", "Oak Ave", "Elm Rd"][f as usize % 3]),
                 );
-                props.push(interner.intern("height"), PropRef::I64((f % 40) as i64));
-                props.push(interner.intern("kind"), PropRef::Str("building"));
+                props.push(
+                    interner.intern("height"),
+                    PropValueRef::I64((f % 40) as i64),
+                );
+                props.push(interner.intern("kind"), PropValueRef::Str("building"));
                 bytes.clear();
                 encode(
                     &mut bytes,
