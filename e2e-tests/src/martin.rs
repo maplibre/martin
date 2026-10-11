@@ -1068,8 +1068,8 @@ mod tests {
 
         use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-        let mut layer = MvtTileBuilder::with_capacity(1)
-            .layer_with_capacity("contour", 1)
+        let mut layer = MvtTileBuilder::new()
+            .layer("contour")
             .expect("failed to open a layer");
         layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
         let geometry = Geometry::LineString(LineString::from(line.to_vec()));

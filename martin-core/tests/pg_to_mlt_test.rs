@@ -306,7 +306,7 @@ mod documents {
             "arr": [1.5, 2],
         });
         let layer = encode(vec![feature(vec![("doc", doc(document))])], v2());
-        assert!(layer.property_names().is_empty());
+        assert_eq!(layer.property_names(), [] as [String; 0]);
         assert_eq!(layer.nested_names(), ["doc"]);
         assert_eq!(
             layer.nested_kinds(),
@@ -381,8 +381,8 @@ mod documents {
             feature(vec![("empty", PostgresProperty::Json(None))]),
         ];
         let layer = encode(features, v2());
-        assert!(layer.nested_names().is_empty());
-        assert!(layer.property_names().is_empty());
+        assert_eq!(layer.nested_names(), [] as [String; 0]);
+        assert_eq!(layer.property_names(), [] as [String; 0]);
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod documents {
             feature(vec![("doc", doc(json!("x")))]),
         ];
         let layer = encode(features, v2());
-        assert!(layer.nested_names().is_empty());
+        assert_eq!(layer.nested_names(), [] as [String; 0]);
         assert_eq!(
             properties(&layer),
             [
@@ -547,7 +547,7 @@ mod m_values {
         let encoded = encode_features_as_mlt(tile(features), EncoderConfig::default())
             .expect("a measured tile still encodes as v1");
         let [layer] = decode(&encoded.data).try_into().expect("one layer");
-        assert!(layer.m_value_names().is_empty());
+        assert_eq!(layer.m_value_names(), [] as [String; 0]);
     }
 
     #[test]

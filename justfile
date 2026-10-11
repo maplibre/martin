@@ -234,11 +234,15 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-build-release target: fetch
+# Pass true as the second argument for optimized native Linux Docker binaries.
+build-release target pgo='false': fetch
     #!/usr/bin/env bash
     set -euo pipefail
+    pgo={{quote(pgo)}}
     # on debian we need to build a deb package
-    if [[ "{{target}}" == "debian-x86_64" ]]; then
+    if [[ "$pgo" == true ]]; then
+        {{just}} pgo-build {{quote(target)}}
+    elif [[ "{{target}}" == "debian-x86_64" ]]; then
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
@@ -246,6 +250,78 @@ build-release target: fetch
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Install PGO tooling on native Ubuntu/Debian hosts. x86 BOLT matches Rust's LLVM.
+[linux]
+pgo-install target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    rustup component add llvm-tools-preview
+    cargo install cargo-pgo --version 0.3.0 --locked
+    sudo apt-get update
+    sudo apt-get install -y sqlite3 postgresql-client
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        llvm_major=$(rustc -vV | sed -n 's/^LLVM version: \([0-9]*\).*/\1/p')
+        source /etc/os-release
+        curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /usr/share/keyrings/llvm.asc > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/llvm.asc] https://apt.llvm.org/$VERSION_CODENAME/ llvm-toolchain-$VERSION_CODENAME-$llvm_major main" | sudo tee /etc/apt/sources.list.d/llvm.list
+        sudo apt-get update
+        sudo apt-get install -y "bolt-$llvm_major"
+        sudo ln -sf "/usr/bin/llvm-bolt-$llvm_major" /usr/local/bin/llvm-bolt
+        sudo ln -sf "/usr/bin/merge-fdata-$llvm_major" /usr/local/bin/merge-fdata
+        sudo ln -sf "/usr/lib/llvm-$llvm_major/lib/libbolt_rt_instr.a" /usr/local/lib/libbolt_rt_instr.a
+    fi
+
+# Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
+# Run `just pgo-install <target>` first and provide an initialized DATABASE_URL.
+[linux]
+pgo-build target: fetch prepare-mbtiles
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    binary="$target_dir/$target/release/martin"
+    export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
+    if [[ "$target" == x86_64-unknown-linux-gnu && -z "${LEGACY_CPU:-}" ]]; then
+        export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
+    fi
+    cargo build --release --target "$target" --package mbtiles --locked
+    cargo pgo build -- --target "$target" --package martin --bin martin --locked
+    {{just}} pgo-train "$binary"
+    # BOLT rejects ARM Cortex-A53 linker veneers. Keep the ARM image on PGO.
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked
+        {{just}} pgo-train "$binary-bolt-instrumented"
+        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked
+        binary="$binary-bolt-optimized"
+    else
+        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked
+    fi
+    mkdir -p target_releases
+    cp "$binary" target_releases/martin
+    cp "$target_dir/$target/release/mbtiles" target_releases/mbtiles
+    strip target_releases/martin target_releases/mbtiles
+
+# Train an instrumented Martin binary using the existing HTTP benchmark fixtures.
+[linux]
+pgo-train binary:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    {{quote(binary)}} --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
+    server=$!
+    trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
+    for _attempt in {1..60}; do
+        kill -0 "$server"
+        if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
+        sleep 1
+    done
+    curl -fsS http://localhost:3000/health > /dev/null
+    {{just}} bench-http 20000 20000
+    kill -TERM "$server"
+    wait "$server"
+    trap - EXIT
 
 # Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
 build-release-full target: fetch

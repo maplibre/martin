@@ -433,7 +433,7 @@ cog:
     let tile_url = "/remote/19/85424/194685";
     let original = martin.get(tile_url).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     // While the object is unchanged, each poll costs one `HEAD` and no rebuild: the number of
     // tile `GET`s stays at what the initial load made, while polls keep arriving.
@@ -479,7 +479,7 @@ cog:
 
     let reloaded = martin.get(tile_url).await;
     assert_eq!(reloaded.status(), 204);
-    assert!(reloaded.body().is_empty());
+    assert_eq!(reloaded.body(), b"");
     martin.stop().await;
 }
 
@@ -516,7 +516,7 @@ cog:
     let first_tile = "/first/19/85424/194685";
     let original = martin.get(first_tile).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     statics.replace(
         first_key,

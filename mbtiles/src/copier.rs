@@ -95,7 +95,7 @@ struct MbtileCopierInt {
 impl MbtilesCopier {
     #[hotpath::measure]
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        MbtileCopierInt::new(self)?.run().await
+        Box::pin(MbtileCopierInt::new(self)?.run()).await
     }
 
     pub(crate) fn dst_type(&self) -> Option<MbtType> {
