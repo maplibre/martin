@@ -9,19 +9,7 @@ tags:
 
 # Table Source Layers
 
-!!! warning "Not released, not fully implemented"
-    `martin generate` is not in any release yet, and parts of what these pages describe are not
-    implemented yet. It is only built with the `unstable-generate` feature:
-
-    ```bash
-    cargo build --package martin --bin martin --features unstable-generate
-    ```
-
-    Not supported yet:
-
-    - [ ] `geometry` other than `point`, `line` and `polygon`, rejected naming the layer
-    - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`), rejected naming the layer
-    - [ ] `prefetch`, which is ignored
+--8<-- "generate-unstable.md"
 
 `layers` is a key of a [PostgreSQL table source](sources-pg-tables.md). It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes

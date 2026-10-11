@@ -10,13 +10,7 @@ tags:
 
 # Generating Tilesets from Tables
 
-!!! warning "Not released, not fully implemented"
-    `martin generate` is not in any release yet, and parts of what these pages describe are not
-    implemented yet. It is only built with the `unstable-generate` feature:
-
-    ```bash
-    cargo build --package martin --bin martin --features unstable-generate
-    ```
+--8<-- "generate-unstable.md"
 
 `martin generate` builds a whole tileset from PostgreSQL tables and views in one pass.
 Unlike [`martin cp`](martin-cp.md), which asks the source for every tile (one `ST_AsMVT` query per tile),

@@ -8,14 +8,7 @@ tags:
 
 # Generation Architecture
 
-!!! warning "Not released or fully implemented"
-    `martin generate` is not in any release yet, and parts of what these pages describe are not
-    implemented yet.
-    It is only built with the `unstable-generate` feature:
-
-    ```bash
-    cargo build --package martin --bin martin --features unstable-generate
-    ```
+--8<-- "generate-unstable.md"
 
 `martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and
 rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into
