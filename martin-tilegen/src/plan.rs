@@ -250,6 +250,7 @@ pub(crate) struct PlannedAttr {
 #[derive(Debug)]
 pub(crate) enum PlannedValue {
     Literal(Prop),
+    Column(KeyId),
     Expr(usize),
 }
 
@@ -473,7 +474,8 @@ fn layer_keys(
 }
 
 /// Computed attributes present at every zoom of the layer, and at some zooms only. One that only reads
-/// a column, at every zoom, is a copy of the column instead, if nothing else copies it.
+/// a column takes the column as it is: at every zoom, it is a copy of the column, if nothing else
+/// copies it.
 fn plan_computed(
     def: &LayerDef,
     compiler: &mut Compiler<'_>,
@@ -495,15 +497,17 @@ fn plan_computed(
             ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
             ValueDef::Expr(source) => {
                 let expr = compiler.compile(source)?;
-                let renamed = expr
+                let column = expr
                     .as_property()
-                    .and_then(|name| compiler.columns.iter().position(|c| c == name))
-                    .filter(|&column| everywhere && copy[column].is_none());
-                if let Some(column) = renamed {
-                    copy[column] = Some(key_id(pos));
-                    continue;
+                    .and_then(|name| compiler.columns.iter().position(|c| c == name));
+                match column {
+                    Some(column) if everywhere && copy[column].is_none() => {
+                        copy[column] = Some(key_id(pos));
+                        continue;
+                    }
+                    Some(column) => PlannedValue::Column(key_id(column)),
+                    None => PlannedValue::Expr(compiler.add(source, expr)),
                 }
-                PlannedValue::Expr(compiler.add(source, expr))
             }
         };
         let planned = PlannedAttr {
