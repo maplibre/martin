@@ -1,8 +1,10 @@
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::time::Duration;
 
 use martin_core::tiles::postgres::RetryTimeout;
-use martin_tile_utils::TileInfo;
+use martin_tile_utils::{MAX_ZOOM, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
@@ -14,7 +16,7 @@ use crate::config::args::BoundsCalcType;
 use crate::config::file::tiling;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
+    ConfigurationLivecycleHooks, TileGrids, UnrecognizedKeys, UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -298,10 +300,11 @@ pub struct PostgresCfgPublishTables {
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
-    /// Buffer distance in tile coordinate space to optionally clip geometries,
+    /// Buffer distance in tile coordinate space, either fixed or a map of inclusive `z<min>-z<max>` ranges.
+    /// Unspecified zooms use 64. Overlapping or reversed ranges are invalid.
     /// optional, default to 64
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
-    pub buffer: Option<u32>,
+    pub buffer: Option<BufferConfig>,
     /// Tile extent in tile coordinate space, optional, default to 4096
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: Option<NonZeroU32>,
@@ -394,6 +397,180 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
         }
 
         Ok(())
+    }
+}
+
+pub(crate) const DEFAULT_BUFFER: u32 = 64;
+
+/// A fixed buffer or non-overlapping inclusive zoom ranges; unspecified zooms use 64.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "BufferInput")]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "unstable-schemas", schemars(with = "BufferInput"))]
+pub struct BufferConfig(BufferInput);
+
+#[serde_with::serde_as]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+enum BufferInput {
+    Fixed(u32),
+    ByZoom(
+        #[serde_as(as = "serde_with::MapPreventDuplicates<_, _>")]
+        #[cfg_attr(feature = "unstable-schemas", schemars(with = "BTreeMap<String, u32>", transform = buffer_ranges_schema))]
+        BTreeMap<String, u32>,
+    ),
+}
+
+impl TryFrom<BufferInput> for BufferConfig {
+    type Error = String;
+
+    fn try_from(input: BufferInput) -> Result<Self, Self::Error> {
+        if let BufferInput::ByZoom(values) = &input {
+            let mut ranges = values
+                .keys()
+                .map(|key| parse_range(key))
+                .collect::<Result<Vec<_>, _>>()?;
+            ranges.sort_unstable();
+            for pair in ranges.windows(2) {
+                let (min, max) = pair[0];
+                let (next_min, next_max) = pair[1];
+                if next_min <= max {
+                    return Err(format!(
+                        "overlapping buffer ranges z{min}-z{max} and z{next_min}-z{next_max}"
+                    ));
+                }
+            }
+        }
+        Ok(Self(input))
+    }
+}
+
+impl From<u32> for BufferConfig {
+    fn from(buffer: u32) -> Self {
+        Self(BufferInput::Fixed(buffer))
+    }
+}
+
+impl BufferConfig {
+    pub(crate) fn is_zoom_dependent(&self) -> bool {
+        matches!(self.0, BufferInput::ByZoom(_))
+    }
+
+    /// Render each fragment with the same buffer selection using the request's zoom ($1).
+    pub(crate) fn sql_expression(&self, render: impl Fn(u32) -> String) -> String {
+        match &self.0 {
+            BufferInput::Fixed(buffer) => render(*buffer),
+            BufferInput::ByZoom(values) if values.is_empty() => render(DEFAULT_BUFFER),
+            BufferInput::ByZoom(values) => {
+                let mut ranges: Vec<_> = values
+                    .iter()
+                    .map(|(key, buffer)| {
+                        let (min, max) = parse_range(key)
+                            .expect("buffer ranges were validated during deserialization");
+                        (min, max, *buffer)
+                    })
+                    .collect();
+                ranges.sort_unstable();
+                let mut sql = String::from("(CASE");
+                for (min, max, buffer) in ranges {
+                    write!(
+                        sql,
+                        " WHEN $1 BETWEEN {min} AND {max} THEN {}",
+                        render(buffer)
+                    )
+                    .expect("writing to a String cannot fail");
+                }
+                write!(sql, " ELSE {} END)", render(DEFAULT_BUFFER))
+                    .expect("writing to a String cannot fail");
+                sql
+            }
+        }
+    }
+}
+
+fn parse_range(value: &str) -> Result<(u8, u8), String> {
+    let invalid = || {
+        format!(
+            "invalid buffer range {value:?}: expected z<min>-z<max> with 0 <= min <= max <= {MAX_ZOOM}"
+        )
+    };
+    let (min, max) = value
+        .strip_prefix('z')
+        .and_then(|s| s.split_once("-z"))
+        .ok_or_else(invalid)?;
+    let min = min.parse::<u8>().map_err(|_error| invalid())?;
+    let max = max.parse::<u8>().map_err(|_error| invalid())?;
+    if min > max || max > MAX_ZOOM || format!("z{min}-z{max}") != value {
+        return Err(invalid());
+    }
+    Ok((min, max))
+}
+
+impl CollectUnrecognizedKeys for BufferConfig {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+}
+
+#[cfg(feature = "unstable-schemas")]
+fn buffer_ranges_schema(schema: &mut schemars::Schema) {
+    schema.insert(
+        "propertyNames".to_owned(),
+        serde_json::json!({
+            "pattern": "^z([0-9]|[12][0-9]|30)-z([0-9]|[12][0-9]|30)$"
+        }),
+    );
+}
+
+#[cfg(test)]
+mod buffer_tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case("64")]
+    #[case("4294967295")]
+    #[case("{}")]
+    #[case("{z10-z14: 128, z0-z4: 0, z5-z9: 32}")]
+    fn settings_roundtrip(#[case] yaml: &str) {
+        let config: BufferConfig = serde_saphyr::from_str(yaml).unwrap();
+        let saved = serde_saphyr::to_string(&config).unwrap();
+        assert_eq!(config, serde_saphyr::from_str(&saved).unwrap());
+    }
+
+    #[rstest]
+    #[case("-1")]
+    #[case("1.5")]
+    #[case("4294967296")]
+    #[case("{z4-z0: 0}")]
+    #[case("{z0-z31: 0}")]
+    #[case("{z0-z4: -1}")]
+    #[case("{z0-z4: 0, z4-z5: 64}")]
+    #[case("{z0-z14: 0, z5-z9: 64}")]
+    #[case("{z00-z4: 0}")]
+    #[case("{z+0-z4: 0}")]
+    #[case("{z0: 0}")]
+    #[case("{z0-z4: 0, z0-z4: 64}")]
+    fn invalid_settings_are_rejected(#[case] yaml: &str) {
+        serde_saphyr::from_str::<BufferConfig>(yaml).unwrap_err();
+    }
+
+    #[test]
+    fn overlap_errors_name_both_ranges() {
+        let error = serde_saphyr::from_str::<BufferConfig>("{z4-z8: 0, z0-z4: 64}")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("z0-z4"), "{error}");
+        assert!(error.contains("z4-z8"), "{error}");
+    }
+
+    #[test]
+    fn ranges_are_sorted_numerically_and_missing_zooms_use_64() {
+        let config: BufferConfig = serde_saphyr::from_str("{z10-z14: 128, z0-z4: 0}").unwrap();
+        assert_eq!(
+            config.sql_expression(|b| b.to_string()),
+            "(CASE WHEN $1 BETWEEN 0 AND 4 THEN 0 WHEN $1 BETWEEN 10 AND 14 THEN 128 ELSE 64 END)"
+        );
     }
 }
 
@@ -664,7 +841,7 @@ mod tests {
                             maxzoom: Some(30),
                             bounds: Some([-180, -90, 180, 90].into()),
                             extent: NonZeroU32::new(2048),
-                            buffer: Some(10),
+                            buffer: Some(10.into()),
                             clip_geom: Some(false),
                             filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),

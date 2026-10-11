@@ -17,13 +17,14 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
+use crate::config::file::postgres::{
+    BufferConfig, DEFAULT_BUFFER, DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo,
+};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
 
 const DEFAULT_EXTENT: u32 = 4096;
-const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
@@ -239,8 +240,11 @@ pub async fn table_to_query(
         PostgresSqlInfo::new(
             sql.mvt_query(),
             false,
-            // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
-            true,
+            // Zoom-dependent buffers can expose features in children of an empty tile.
+            !info
+                .buffer
+                .as_ref()
+                .is_some_and(BufferConfig::is_zoom_dependent),
             info.format_id(),
             false,
         )
@@ -281,7 +285,8 @@ struct TableQuerySql {
     filter: String,
     limit_clause: String,
     extent: u32,
-    buffer: u32,
+    buffer: String,
+    buffer_far: String,
     clip_geom: bool,
 }
 
@@ -320,8 +325,8 @@ impl TableQuerySql {
         };
 
         let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
-        let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
-        let margin = f64::from(buffer) / f64::from(extent);
+        let default_buffer = DEFAULT_BUFFER.into();
+        let buffer = info.buffer.as_ref().unwrap_or(&default_buffer);
         let geometry_column = escape_identifier(&info.geometry_column);
         // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
         let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
@@ -330,10 +335,37 @@ impl TableQuerySql {
             format!("{geometry_column}::geometry")
         };
         let GridSql {
-            geometry,
+            geometry: tile_geometry,
             envelope,
-            bbox_search,
-        } = grid_sql(grid, info.srid, &geometry, buffer, margin, table_wrap);
+            ..
+        } = grid_sql(
+            grid,
+            info.srid,
+            &geometry,
+            DEFAULT_BUFFER,
+            f64::from(DEFAULT_BUFFER) / f64::from(extent),
+            table_wrap,
+        );
+        let bbox_search = buffer.sql_expression(|value| {
+            grid_sql(
+                grid,
+                info.srid,
+                &geometry,
+                value,
+                f64::from(value) / f64::from(extent),
+                table_wrap,
+            )
+            .bbox_search
+        });
+        let buffer_far =
+            buffer.sql_expression(|value| (u64::from(extent) + u64::from(value)).to_string());
+        let buffer_sql = buffer.sql_expression(|value| value.to_string());
+        // A large value in any branch promotes CASE to bigint; PostGIS requires integer.
+        let buffer = if buffer.is_zoom_dependent() {
+            format!("{buffer_sql}::integer")
+        } else {
+            buffer_sql
+        };
 
         Ok(Self {
             layer_id: escape_literal(info.layer_id.as_deref().unwrap_or(id)),
@@ -341,7 +373,7 @@ impl TableQuerySql {
             id_field,
             properties,
             row_properties,
-            geometry,
+            geometry: tile_geometry,
             envelope,
             bbox_search,
             geometry_column,
@@ -351,6 +383,7 @@ impl TableQuerySql {
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
             extent,
             buffer,
+            buffer_far,
             clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
         })
     }
@@ -444,6 +477,7 @@ WHERE "__martin_geom" IS NOT NULL;
             envelope,
             extent,
             buffer,
+            buffer_far,
             clip_geom,
             geometry_column,
             ..
@@ -456,8 +490,9 @@ WHERE "__martin_geom" IS NOT NULL;
         )"
         );
         let clipped = if *clip_geom {
-            let far = u64::from(*extent) + u64::from(*buffer);
-            format!("ST_ClipByBox2D({scaled}, ST_MakeEnvelope(-{buffer}, -{buffer}, {far}, {far}))")
+            format!(
+                "ST_ClipByBox2D({scaled}, ST_MakeEnvelope(-{buffer}, -{buffer}, {buffer_far}, {buffer_far}))"
+            )
         } else {
             scaled
         };

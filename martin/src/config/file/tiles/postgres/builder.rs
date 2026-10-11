@@ -18,7 +18,7 @@ use crate::config::file::postgres::utils::{
     find_info, find_kv_ignore_case, find_schema_info, normalize_key,
 };
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish,
+    BufferConfig, DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish,
     PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
 use crate::config::file::{
@@ -73,7 +73,7 @@ pub struct PostgresAutoDiscoveryBuilderTables {
     source_id_format: String,
     id_columns: Option<Vec<String>>,
     clip_geom: Option<bool>,
-    buffer: Option<u32>,
+    buffer: Option<BufferConfig>,
     extent: Option<NonZeroU32>,
 }
 
@@ -709,7 +709,7 @@ fn update_auto_fields(
         inf.clip_geom = auto_tables.clip_geom;
     }
     if inf.buffer.is_none() {
-        inf.buffer = auto_tables.buffer;
+        inf.buffer.clone_from(&auto_tables.buffer);
     }
     if inf.extent.is_none() {
         inf.extent = auto_tables.extent;
@@ -800,7 +800,7 @@ fn calc_auto(
                     .to_owned(),
                 id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
-                buffer: v.buffer,
+                buffer: v.buffer.clone(),
                 extent: v.extent,
             }
         } else {
@@ -871,6 +871,155 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 /// A comparator for sorting tuples by first element
 fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
+}
+
+#[cfg(test)]
+mod buffer_tests {
+    use super::*;
+
+    #[test]
+    fn auto_publish_buffer_is_inherited_unless_a_table_sets_its_own() {
+        let config: PostgresConfig =
+            serde_saphyr::from_str("auto_publish: {tables: {buffer: {z0-z4: 0, z5-z14: 32}}}")
+                .unwrap();
+        let (auto, _) = calc_auto(&config);
+        let auto = auto.unwrap();
+        for yaml in ["null", "128", "{z5-z9: 16}"] {
+            let own: Option<BufferConfig> = serde_saphyr::from_str(yaml).unwrap();
+            let mut table = TableInfo {
+                buffer: own.clone(),
+                ..Default::default()
+            };
+            update_auto_fields("table", &mut table, &auto);
+            assert_eq!(table.buffer, own.or_else(|| auto.buffer.clone()));
+            let saved = serde_saphyr::to_string(&table).unwrap();
+            assert_eq!(table, serde_saphyr::from_str(&saved).unwrap());
+        }
+    }
+
+    #[cfg(feature = "test-pg")]
+    #[tokio::test]
+    async fn zoom_buffers_select_and_clip_the_same_features_in_every_query() {
+        use martin_tile_utils::{NZTM2000_QUAD, SIMPLE_CRS, TileCoord, TileGrid};
+
+        use crate::test_support::pg::{builder_for, seed};
+
+        let (mut builder, _container, connstr) = builder_for("auto_bounds: skip").await;
+        seed(&connstr, "CREATE TABLE buffer_features (geom geometry)").await;
+        let simple = PgTileGrid::new(
+            TileGrid::new("floor", SIMPLE_CRS, [0.0, 1000.0], 1000.0).unwrap(),
+            0,
+        );
+
+        for (grid, srid) in [
+            (PgTileGrid::web_mercator(), 3857),
+            (PgTileGrid::web_mercator(), 4326),
+            (simple, 0),
+            (PgTileGrid::new(NZTM2000_QUAD, 2193), 2193),
+        ] {
+            let grid_id = grid.grid().id().to_owned();
+            builder.tile_grids.insert(grid_id.clone(), grid.clone());
+            let mut info = TableInfo {
+                tile_grid: Some(grid_id),
+                schema: "public".to_owned(),
+                table: "buffer_features".to_owned(),
+                geometry_column: "geom".to_owned(),
+                srid,
+                // An unused large buffer must not change the SQL type at other zooms.
+                buffer: Some(
+                    serde_saphyr::from_str("{z0-z4: 0, z5-z14: 128, z16-z16: 4294967295}").unwrap(),
+                ),
+                ..Default::default()
+            };
+            for zoom in [0, 4, 5, 14, 15, 30] {
+                // At zoom 0, crossing the world edge in 3857 wraps longitude in 4326.
+                if srid == 4326 && zoom == 0 {
+                    continue;
+                }
+                let xyz = TileCoord::new_checked(zoom, 0, 0).unwrap();
+                seed_buffer_features(&builder.pool, &grid, srid, zoom).await;
+
+                let (source, _) = builder
+                    .instantiate("features", SourceSpec::Table(info.clone()))
+                    .await
+                    .unwrap();
+                assert!(!source.empty_tile_implies_empty_children());
+                let (fixed_buffer, expected) = match zoom {
+                    0..=4 => (0, 0),
+                    5..=14 => (128, 4),
+                    _ => (64, 3),
+                };
+                let tile = source.get_tile(xyz, None).await.unwrap();
+                assert_eq!(tile.is_empty(), expected == 0, "srid={srid} z={zoom}");
+                if zoom == 4 {
+                    let child = TileCoord::new_checked(5, 1, 1).unwrap();
+                    assert!(
+                        !source.get_tile(child, None).await.unwrap().is_empty(),
+                        "an empty parent can have a nonempty child: srid={srid}"
+                    );
+                }
+                let original = info.buffer.replace(fixed_buffer.into());
+                let (fixed, _) = builder
+                    .instantiate("features", SourceSpec::Table(info.clone()))
+                    .await
+                    .unwrap();
+                assert!(fixed.empty_tile_implies_empty_children());
+                assert_eq!(tile, fixed.get_tile(xyz, None).await.unwrap());
+                for keep_measures in [false, true] {
+                    let features = source
+                        .get_tile_features(xyz, None, keep_measures)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(
+                        features.features.len(),
+                        expected,
+                        "srid={srid} z={zoom} measured={keep_measures}"
+                    );
+                    assert_eq!(
+                        Some(features.clone()),
+                        fixed
+                            .get_tile_features(xyz, None, keep_measures)
+                            .await
+                            .unwrap()
+                    );
+                    // The polygon fits entirely inside the 128-unit buffer, retaining M.
+                    if keep_measures && fixed_buffer == 128 {
+                        assert!(features.features.iter().any(|f| f.m_values.is_some()));
+                    }
+                }
+                info.buffer = original;
+            }
+        }
+    }
+
+    #[cfg(feature = "test-pg")]
+    async fn seed_buffer_features(pool: &PostgresPool, grid: &PgTileGrid, srid: i32, zoom: u8) {
+        let conn = pool.get().await.unwrap();
+        let [left, bottom, right, top] = grid.grid().bounds();
+        let envelope = format!(
+            "ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope({left}, {bottom}, {right}, {top}, {}))",
+            grid.srid()
+        );
+        conn.batch_execute("TRUNCATE buffer_features")
+            .await
+            .unwrap();
+        // A point, line and measured polygon intersect the 64-unit buffer; a second point needs 96.
+        let (transform_start, transform_end) = if srid == grid.srid() {
+            (String::new(), String::new())
+        } else {
+            ("ST_Transform(".to_owned(), format!(", {srid})"))
+        };
+        conn.execute(&format!(
+        "INSERT INTO buffer_features
+         SELECT {transform_start}ST_Affine(ST_GeomFromText(wkt, {}),
+             (ST_XMax(e)-ST_XMin(e))/4096, 0, 0, -(ST_YMax(e)-ST_YMin(e))/4096,
+             ST_XMin(e), ST_YMax(e)){transform_end}
+         FROM (SELECT {envelope} AS e) AS tile,
+         (VALUES ('POINT(4128 2048)'), ('POINT(4192 2048)'), ('LINESTRING(4128 2000,4128 2100)'),
+             ('POLYGON M((4112 2000 1,4192 2000 2,4192 2100 3,4112 2100 4,4112 2000 1))')) AS shapes(wkt)", grid.srid()),
+        &[&i32::from(zoom), &0i32, &0i32]).await.unwrap();
+    }
 }
 
 #[cfg(all(test, feature = "test-pg"))]

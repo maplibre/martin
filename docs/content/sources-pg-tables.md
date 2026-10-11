@@ -80,6 +80,23 @@ postgres:
 --8<-- "cql2-filter.md"
     The literal reaches PostGIS without an SRID, and PostGIS refuses to compare geometries whose SRIDs differ, so give the literal the column's SRID with `st_setsrid`.
 
+## Buffer by zoom level
+
+A table's `buffer` and `auto_publish.tables.buffer` accept a fixed non-negative integer
+(`buffer: 64`) or a map of inclusive zoom ranges:
+
+```yaml
+buffer:
+  z0-z4: 0
+  z5-z14: 64
+```
+
+Keys must use `z<min>-z<max>` with `0 <= min <= max <= 30`; use `z5-z5` for one zoom.
+Invalid or overlapping ranges and negative or non-integer buffers are rejected.
+Omitted settings, missing zooms, and an empty map use `64`.
+A table's own setting replaces the automatic publishing setting entirely; maps are not merged.
+With a buffer map, an empty parent does not imply empty children because their buffers can differ.
+
 ## Postprocessing
 
 Table sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.

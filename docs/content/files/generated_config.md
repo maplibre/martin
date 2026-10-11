@@ -406,7 +406,8 @@ postgres:
     # setting it to false. Setting one to true disables the other one as well.
     # E.g. `tables: false` enables just the functions auto-discovery.
     tables:
-      # Buffer distance in tile coordinate space to optionally clip geometries,
+      # Buffer distance in tile coordinate space, either fixed or a map of inclusive `z<min>-z<max>` ranges.
+      # Unspecified zooms use 64. Overlapping or reversed ranges are invalid.
       # optional, default to 64
       buffer: 64
       # Controls if geometries should be clipped or encoded as is [default: true]

@@ -116,7 +116,7 @@ mod tests {
             minzoom: Some(0),
             maxzoom: Some(14),
             extent: NonZeroU32::new(4096),
-            buffer: Some(64),
+            buffer: Some(64.into()),
             clip_geom: Some(true),
             geometry_type: Some("LINESTRING".to_owned()),
             properties: Some(BTreeMap::from([("name".to_owned(), "text".to_owned())])),
@@ -150,7 +150,7 @@ mod tests {
     #[case::minzoom(|t: &mut TableInfo|t.minzoom = Some(2))]
     #[case::maxzoom(|t: &mut TableInfo|t.maxzoom = Some(18))]
     #[case::extent(|t: &mut TableInfo|t.extent = NonZeroU32::new(2048))]
-    #[case::buffer(|t: &mut TableInfo|t.buffer = Some(128))]
+    #[case::buffer(|t: &mut TableInfo|t.buffer = Some(128.into()))]
     #[case::clip_geom(|t: &mut TableInfo|t.clip_geom = Some(false))]
     #[case::filter(|t: &mut TableInfo|t.filter = Some("gid > 2".to_owned()))]
     #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_owned()))]

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
-use super::PostgresInfo;
+use super::{BufferConfig, PostgresInfo};
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
@@ -82,9 +82,10 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: Option<NonZeroU32>,
 
-    /// Buffer distance in tile coordinate space to optionally clip geometries
+    /// Buffer distance in tile coordinate space, either fixed or a map of inclusive `z<min>-z<max>` ranges.
+    /// Unspecified zooms use 64. Overlapping or reversed ranges are invalid.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
-    pub buffer: Option<u32>,
+    pub buffer: Option<BufferConfig>,
 
     /// Boolean to control if geometries should be clipped or encoded as is
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]

@@ -107,6 +107,27 @@
         }
       ]
     },
+    "BufferConfig": {
+      "anyOf": [
+        {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "additionalProperties": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "propertyNames": {
+            "pattern": "^z([0-9]|[12][0-9]|30)-z([0-9]|[12][0-9]|30)$"
+          },
+          "type": "object"
+        }
+      ],
+      "description": "A fixed buffer or non-overlapping inclusive zoom ranges; unspecified zooms use 64."
+    },
     "CachePolicy": {
       "description": "Cache configuration for a tile source. Currently holds zoom-level bounds;\nmay be extended with additional cache settings in the future.\n\nAccepts either a struct with zoom bounds or the string `\"disable\"` to disable caching:\n```yaml\ncache: disable\n```\n\n```yaml\ncache:\n  minzoom: 0\n  maxzoom: 10\n```",
       "properties": {
@@ -1418,11 +1439,16 @@
     "PostgresCfgPublishTables": {
       "properties": {
         "buffer": {
-          "description": "Buffer distance in tile coordinate space to optionally clip geometries,\noptional, default to 64",
-          "examples": [64],
-          "format": "uint32",
-          "minimum": 0,
-          "type": ["integer", "null"]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BufferConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Buffer distance in tile coordinate space, either fixed or a map of inclusive `z<min>-z<max>` ranges.\nUnspecified zooms use 64. Overlapping or reversed ranges are invalid.\noptional, default to 64",
+          "examples": [64]
         },
         "clip_geom": {
           "description": "Controls if geometries should be clipped or encoded as is \\[default: true\\]",
@@ -1585,11 +1611,16 @@
           "type": ["array", "null"]
         },
         "buffer": {
-          "description": "Buffer distance in tile coordinate space to optionally clip geometries",
-          "examples": [64],
-          "format": "uint32",
-          "minimum": 0,
-          "type": ["integer", "null"]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BufferConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Buffer distance in tile coordinate space, either fixed or a map of inclusive `z<min>-z<max>` ranges.\nUnspecified zooms use 64. Overlapping or reversed ranges are invalid.",
+          "examples": [64]
         },
         "cache": {
           "anyOf": [
