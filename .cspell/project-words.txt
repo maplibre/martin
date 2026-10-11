@@ -19,6 +19,7 @@ circularstring
 clippy
 configtest
 csscolorparser
+ctid
 currval
 curvepolygon
 dbname
@@ -114,6 +115,7 @@ plpgsql
 pmtiles
 postgis
 qgis
+quadtree
 queryless
 reproject
 reprojected
@@ -143,6 +145,7 @@ subtransaction
 sugla
 superyachts
 thiserror
+tilegen
 tilejson
 tilelive
 tileserver
