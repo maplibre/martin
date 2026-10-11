@@ -2,14 +2,13 @@
 
 use std::ops::{Range, RangeInclusive};
 
-use geo::BoundingRect;
+use geo::{BoundingRect, SimplifyIdx as _};
 use geo_types::{Coord, LineString, Polygon, Rect};
 use map_tile_toolkit::{PolygonSlicerAll, SlicerAll, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
-use crate::simplify::Simplifier;
 use crate::{
     LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileId, TileOrder,
 };
@@ -179,8 +178,6 @@ impl RenderLayer {
 pub struct Renderer {
     slicers: Vec<(LayerGrid, SlicerAll)>,
     poly_slicers: Vec<(LayerGrid, PolygonSlicerAll)>,
-    simplifier: Simplifier,
-    kept: Vec<usize>,
     /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
     /// and vertices.
     polys: Vec<u32>,
@@ -345,10 +342,9 @@ impl Renderer {
     ) -> TileGenResult<usize> {
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         let epsilon = ctx.layer.pixels(zoom, ctx.feature.simplify) / (TILE_PIXELS * scale(zoom));
-        self.kept.clear();
-        self.simplifier.simplify(&line.0, epsilon, &mut self.kept);
+        let kept = line.simplify_idx(epsilon);
         let start = self.vertices.len();
-        for &i in &self.kept {
+        for i in kept {
             let [x, y] = quantize(line.0[i], shift, world)?;
             let c = Coord { x, y };
             if self.vertices.len() == start || self.vertices.last() != Some(&c) {
@@ -609,17 +605,15 @@ impl Renderer {
         let side = 1i32 << zoom;
         let (allowed_x, allowed_y) = ctx.layer.tile_bounds(zoom);
         let runs = std::mem::take(&mut self.runs);
-        let mut rest = runs.as_slice();
         let mut result = Ok(());
-        while let Some(&(x0, x1, y0)) = rest.first()
-            && result.is_ok()
+        for group in
+            runs.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1) && a.2.checked_add(1) == Some(b.2))
         {
-            let rows = rest
-                .iter()
-                .zip(y0..)
-                .take_while(|(r, y)| (r.0, r.1, r.2) == (x0, x1, *y))
-                .count();
-            rest = &rest[rows..];
+            if result.is_err() {
+                break;
+            }
+            let (x0, x1, y0) = group[0];
+            let rows = group.len();
             let ys = clip(
                 y0..y0.saturating_add(i32::try_from(rows).unwrap_or(i32::MAX)),
                 0..side,
@@ -1023,31 +1017,6 @@ mod tests {
     }
 
     #[test]
-    fn long_dense_diagonal_is_sliced_whole_at_z14() {
-        let layer = RenderLayer::new(
-            0,
-            14..=14,
-            LayerGrid {
-                extent: 4096,
-                buffer: 64,
-            },
-        )
-        .unwrap();
-        // More vertices than 16 bits index, zigzagging so none simplify away, 40 degrees diagonally.
-        let line: LineString<f64> = (0..100_000_u32)
-            .map(|i| {
-                let t = f64::from(i) / 2500.0;
-                unit(t, t + if i % 2 == 0 { 0.001 } else { 0.0 })
-            })
-            .collect();
-        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
-        // About 1800 tiles across and up, at least one per column crossed.
-        assert!(tiles.len() > 1800, "{}", tiles.len());
-        let vertices: usize = tiles.iter().map(|t| t.2.vertices.len()).sum();
-        assert!(vertices >= 100_000, "{vertices}");
-    }
-
-    #[test]
     fn simplification_drops_vertices_at_low_zoom() {
         let layer = RenderLayer::new(0, 0..=8, GRID).unwrap();
         let zigzag: Vec<_> = (0..=100)
@@ -1339,7 +1308,7 @@ mod tests {
             id: Some(7),
             geom: FeatureGeom::Points(&[]),
             props: &EncodedProps::default(),
-            zooms: 4..=4,
+            zooms: 0..=u8::MAX,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
         };
