@@ -12,7 +12,6 @@ pub mod project;
 mod props;
 pub mod record;
 mod render;
-mod simplify;
 mod sink;
 mod sort;
 mod sort_key;
