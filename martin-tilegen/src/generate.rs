@@ -543,13 +543,14 @@ impl Run<'_> {
     fn computed(
         &self,
         layer: &PlannedLayer,
+        feature: &[(KeyId, Prop)],
         view: Option<&FeatureView<'_, String>>,
         errors: &mut [u64],
         props: &mut EncodedProps,
         bands: &mut Vec<(u8, EncodedProps)>,
     ) {
         for attr in &layer.computed {
-            if let Some(value) = self.attr(attr, view, errors) {
+            if let Some(value) = self.attr(attr, feature, view, errors) {
                 props.push(attr.key, value.as_ref());
             }
         }
@@ -562,7 +563,7 @@ impl Run<'_> {
             band.1.copy_from(props);
         }
         for attr in &layer.banded {
-            let Some(value) = self.attr(attr, view, errors) else {
+            let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
             for (from, band) in bands.iter_mut() {
@@ -576,17 +577,23 @@ impl Run<'_> {
     fn attr<'v>(
         &self,
         attr: &'v PlannedAttr,
+        feature: &'v [(KeyId, Prop)],
         view: Option<&'v FeatureView<'_, String>>,
         errors: &mut [u64],
     ) -> Option<Prop<Cow<'v, str>>> {
+        let borrowed = |value: &'v Prop| match value {
+            Prop::Bool(v) => Prop::Bool(*v),
+            Prop::I64(v) => Prop::I64(*v),
+            Prop::F32(v) => Prop::F32(*v),
+            Prop::F64(v) => Prop::F64(*v),
+            Prop::Str(v) => Prop::Str(Cow::Borrowed(v.as_str())),
+        };
         match &attr.value {
-            PlannedValue::Literal(value) => Some(match value {
-                Prop::Bool(v) => Prop::Bool(*v),
-                Prop::I64(v) => Prop::I64(*v),
-                Prop::F32(v) => Prop::F32(*v),
-                Prop::F64(v) => Prop::F64(*v),
-                Prop::Str(v) => Prop::Str(Cow::Borrowed(v.as_str())),
-            }),
+            PlannedValue::Literal(value) => Some(borrowed(value)),
+            PlannedValue::Column(key) => feature
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, value)| borrowed(value)),
             PlannedValue::Expr(expr) => self.eval(*expr, view?, errors, expr::to_prop),
         }
     }
@@ -643,7 +650,7 @@ fn render_batch(
                     props.push(key, value.as_ref());
                 }
             }
-            run.computed(layer, view, errors, props, bands);
+            run.computed(layer, &feature.props, view, errors, props, bands);
             let id = match layer.id {
                 PlannedId::Keep => feature.id,
                 PlannedId::Drop => None,
