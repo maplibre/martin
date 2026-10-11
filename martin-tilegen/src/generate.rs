@@ -39,7 +39,6 @@ pub struct Summary {
     pub tiles: u64,
     /// Feature-zooms the slicer could not handle and skipped.
     pub slice_errors: u64,
-    pub layers: Vec<LayerStats>,
 }
 
 /// Live counters another thread can report while a generation runs.
@@ -147,7 +146,6 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         features: totals.features,
         tiles,
         slice_errors: totals.slice_errors,
-        layers,
     })
 }
 
