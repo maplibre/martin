@@ -716,8 +716,7 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
         .await
         .expect("failed to start martin");
 
-    let overlay = std::fs::read(scenario)
-        .unwrap_or_else(|e| panic!("failed to read {}: {e}", scenario.display()));
+    let overlay = std::fs::read(scenario).expect("failed to read the overlay scenario");
     let response = martin
         .post_json(
             &format!("/style/maplibre_demo/static/{camera}.png"),

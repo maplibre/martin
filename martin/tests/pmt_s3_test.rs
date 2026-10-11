@@ -38,10 +38,10 @@ const STAMEN_FIXTURE: &[u8] =
 struct RustFsImage;
 
 impl Image for RustFsImage {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "rustfs/rustfs"
     }
-    fn tag(&self) -> &str {
+    fn tag(&self) -> &'static str {
         "1.0.0"
     }
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -82,9 +82,15 @@ async fn start_s3() -> (ContainerAsync<RustFsImage>, String) {
                 .with_cmd_ready_condition(CmdWaitFor::exit()),
         )
         .await
-        .unwrap();
-    let host = container.get_host().await.unwrap();
-    let port = container.get_host_port_ipv4(9000).await.unwrap();
+        .expect("failed to create the bucket directory");
+    let host = container
+        .get_host()
+        .await
+        .expect("RustFS container has no host");
+    let port = container
+        .get_host_port_ipv4(9000)
+        .await
+        .expect("RustFS container does not expose port 9000");
     let endpoint = format!("http://{host}:{port}");
     (container, endpoint)
 }

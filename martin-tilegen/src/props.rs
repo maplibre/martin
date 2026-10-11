@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use lasso::{Key as _, RodeoResolver, Spur, ThreadedRodeo};
-use mlt_core::{PropKind, PropValue};
+use mlt_core::{PropKind, PropValueRef};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyId(pub(crate) u32);
@@ -13,55 +13,6 @@ pub struct KeyId(pub(crate) u32);
 impl KeyId {
     fn spur(self) -> Spur {
         Spur::try_from_usize(self.0 as usize).expect("key ids come from a Spur")
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PropRef<'a> {
-    Bool(bool),
-    I64(i64),
-    F32(f32),
-    F64(f64),
-    Str(&'a str),
-}
-
-impl PropRef<'_> {
-    fn kind(self) -> PropKind {
-        match self {
-            Self::Bool(_) => PropKind::Bool,
-            Self::I64(_) => PropKind::I64,
-            Self::F32(_) => PropKind::F32,
-            Self::F64(_) => PropKind::F64,
-            Self::Str(_) => PropKind::Str,
-        }
-    }
-
-    /// The value in the column type a tile settled on (see [`TileColumns`]).
-    pub(crate) fn to_value(self, kind: PropKind) -> PropValue {
-        match (kind, self) {
-            (PropKind::Bool, Self::Bool(v)) => PropValue::Bool(Some(v)),
-            (PropKind::I64, Self::I64(v)) => PropValue::I64(Some(v)),
-            (PropKind::U64, Self::I64(v)) => PropValue::U64(u64::try_from(v).ok()),
-            (PropKind::F32, Self::F32(v)) => PropValue::F32(Some(v)),
-            (PropKind::F64, Self::F32(v)) => PropValue::F64(Some(f64::from(v))),
-            (PropKind::F64, Self::F64(v)) => PropValue::F64(Some(v)),
-            #[expect(
-                clippy::cast_precision_loss,
-                reason = "as mlt-core converts integers in float columns"
-            )]
-            (PropKind::F64, Self::I64(v)) => PropValue::F64(Some(v as f64)),
-            (_, other) => PropValue::Str(Some(other.to_text())),
-        }
-    }
-
-    fn to_text(self) -> String {
-        match self {
-            Self::Str(v) => v.to_owned(),
-            Self::Bool(v) => v.to_string(),
-            Self::I64(v) => v.to_string(),
-            Self::F32(v) => v.to_string(),
-            Self::F64(v) => v.to_string(),
-        }
     }
 }
 
@@ -142,7 +93,7 @@ impl TileColumns {
         self.columns.clear();
     }
 
-    pub(crate) fn add(&mut self, key: KeyId, value: PropRef<'_>) {
+    pub(crate) fn add(&mut self, key: KeyId, value: PropValueRef<'_>) {
         let idx = *self.index.entry(key).or_insert_with(|| {
             self.columns.push(Column {
                 key,
@@ -152,8 +103,8 @@ impl TileColumns {
             self.columns.len() - 1
         });
         let column = &mut self.columns[idx];
-        column.kind = widen(column.kind, value.kind());
-        column.has_negative |= matches!(value, PropRef::I64(v) if v < 0);
+        column.kind = column.kind.merge(value.kind());
+        column.has_negative |= matches!(value, PropValueRef::I64(v) if v < 0);
     }
 
     /// Final `(key, kind)` per column in column order; the index maps keys to positions in it.
@@ -178,20 +129,10 @@ impl TileColumns {
     }
 }
 
-/// Matches mlt-core's inference for dynamically typed input: numbers mixing integers and floats widen
-/// to `F64`, any other mix becomes a string column.
-pub(crate) fn widen(a: PropKind, b: PropKind) -> PropKind {
-    use PropKind::{F32, F64, I64, Str, U64};
-    match (a, b) {
-        _ if a == b => a,
-        (I64 | U64, I64 | U64) => I64,
-        (F32 | F64 | I64 | U64, F32 | F64 | I64 | U64) => F64,
-        _ => Str,
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use mlt_core::PropValue;
+
     use super::*;
 
     #[test]
@@ -203,7 +144,7 @@ mod tests {
         let names = interner.freeze();
         let mut columns = TileColumns::default();
         for key in [dynamic_b, KeyId(1), dynamic_a, KeyId(0)] {
-            columns.add(key, PropRef::I64(1));
+            columns.add(key, PropValueRef::I64(1));
         }
         let order: Vec<_> = columns
             .finish(&names)
@@ -214,19 +155,19 @@ mod tests {
     }
 
     #[test]
-    fn kinds_widen_like_mlt_core() {
+    fn kinds_merge_like_mlt_core() {
         let names = KeyInterner::new(["n", "f", "s", "u", "m"]).freeze();
         let mut columns = TileColumns::default();
         for (key, value) in [
-            (0, PropRef::I64(-1)),
-            (0, PropRef::I64(5)),
-            (1, PropRef::F32(1.5)),
-            (1, PropRef::F64(2.5)),
-            (2, PropRef::I64(1)),
-            (2, PropRef::Bool(true)),
-            (3, PropRef::I64(7)),
-            (4, PropRef::I64(3)),
-            (4, PropRef::F64(1.5)),
+            (0, PropValueRef::I64(-1)),
+            (0, PropValueRef::I64(5)),
+            (1, PropValueRef::F32(1.5)),
+            (1, PropValueRef::F64(2.5)),
+            (2, PropValueRef::I64(1)),
+            (2, PropValueRef::Bool(true)),
+            (3, PropValueRef::I64(7)),
+            (4, PropValueRef::I64(3)),
+            (4, PropValueRef::F64(1.5)),
         ] {
             columns.add(KeyId(key), value);
         }
@@ -242,15 +183,15 @@ mod tests {
             ]
         );
         assert_eq!(
-            PropRef::I64(3).to_value(PropKind::F64),
+            PropValueRef::I64(3).coerce(PropKind::F64),
             PropValue::F64(Some(3.0))
         );
         assert_eq!(
-            PropRef::I64(1).to_value(PropKind::Str),
+            PropValueRef::I64(1).coerce(PropKind::Str),
             PropValue::Str(Some("1".to_owned()))
         );
         assert_eq!(
-            PropRef::F32(1.5).to_value(PropKind::F64),
+            PropValueRef::F32(1.5).coerce(PropKind::F64),
             PropValue::F64(Some(1.5))
         );
     }

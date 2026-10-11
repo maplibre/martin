@@ -6,7 +6,9 @@
 
 use integer_encoding::{VarInt, VarIntReader as _, VarIntWriter as _};
 
-use crate::props::{KeyId, PropRef};
+use mlt_core::PropValueRef;
+
+use crate::props::KeyId;
 use crate::{TileGenError, TileGenResult};
 
 pub type Vertex = [i32; 2];
@@ -67,6 +69,7 @@ const PROP_I64: u8 = 2;
 const PROP_F32: u8 = 3;
 const PROP_F64: u8 = 4;
 const PROP_STR: u8 = 5;
+const PROP_U64: u8 = 6;
 
 /// A feature's properties, encoded once and copied into every record of the feature.
 #[derive(Debug, Default)]
@@ -81,7 +84,7 @@ impl EncodedProps {
         self.bytes.clear();
     }
 
-    pub fn push(&mut self, key: KeyId, value: PropRef<'_>) {
+    pub fn push(&mut self, key: KeyId, value: PropValueRef<'_>) {
         self.count += 1;
         write_prop(&mut self.bytes, key, value);
     }
@@ -136,23 +139,33 @@ pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Ge
     }
 }
 
-fn write_prop(out: &mut Vec<u8>, key: KeyId, value: PropRef<'_>) {
+fn write_i64(out: &mut Vec<u8>, v: i64) {
+    out.push(PROP_I64);
+    put(out, v);
+}
+
+fn write_prop(out: &mut Vec<u8>, key: KeyId, value: PropValueRef<'_>) {
     put(out, u64::from(key.0));
     match value {
-        PropRef::Bool(v) => out.push(if v { PROP_TRUE } else { PROP_FALSE }),
-        PropRef::I64(v) => {
-            out.push(PROP_I64);
+        PropValueRef::Bool(v) => out.push(if v { PROP_TRUE } else { PROP_FALSE }),
+        PropValueRef::I8(v) => write_i64(out, v.into()),
+        PropValueRef::U8(v) => write_i64(out, v.into()),
+        PropValueRef::I32(v) => write_i64(out, v.into()),
+        PropValueRef::U32(v) => write_i64(out, v.into()),
+        PropValueRef::I64(v) => write_i64(out, v),
+        PropValueRef::U64(v) => {
+            out.push(PROP_U64);
             put(out, v);
         }
-        PropRef::F32(v) => {
+        PropValueRef::F32(v) => {
             out.push(PROP_F32);
             out.extend_from_slice(&v.to_le_bytes());
         }
-        PropRef::F64(v) => {
+        PropValueRef::F64(v) => {
             out.push(PROP_F64);
             out.extend_from_slice(&v.to_le_bytes());
         }
-        PropRef::Str(v) => {
+        PropValueRef::Str(v) => {
             out.push(PROP_STR);
             put(out, v.len() as u64);
             out.extend_from_slice(v.as_bytes());
@@ -278,7 +291,7 @@ pub struct Props<'a> {
 }
 
 impl<'a> Iterator for Props<'a> {
-    type Item = TileGenResult<(KeyId, PropRef<'a>)>;
+    type Item = TileGenResult<(KeyId, PropValueRef<'a>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.remaining == 0 {
@@ -289,22 +302,25 @@ impl<'a> Iterator for Props<'a> {
     }
 }
 
-fn read_prop<'a>(bytes: &mut &'a [u8]) -> TileGenResult<(KeyId, PropRef<'a>)> {
+fn read_prop<'a>(bytes: &mut &'a [u8]) -> TileGenResult<(KeyId, PropValueRef<'a>)> {
     let key =
         KeyId(u32::try_from(take::<u64>(bytes)?).map_err(|_overflow| TileGenError::CorruptRecord)?);
     let value = match take_byte(bytes)? {
-        PROP_FALSE => PropRef::Bool(false),
-        PROP_TRUE => PropRef::Bool(true),
-        PROP_I64 => PropRef::I64(take::<i64>(bytes)?),
-        PROP_F32 => PropRef::F32(f32::from_le_bytes(take_array(bytes)?)),
-        PROP_F64 => PropRef::F64(f64::from_le_bytes(take_array(bytes)?)),
+        PROP_FALSE => PropValueRef::Bool(false),
+        PROP_TRUE => PropValueRef::Bool(true),
+        PROP_I64 => PropValueRef::I64(take::<i64>(bytes)?),
+        PROP_U64 => PropValueRef::U64(take::<u64>(bytes)?),
+        PROP_F32 => PropValueRef::F32(f32::from_le_bytes(take_array(bytes)?)),
+        PROP_F64 => PropValueRef::F64(f64::from_le_bytes(take_array(bytes)?)),
         PROP_STR => {
             let len = take_len(bytes)?;
             let (text, rest) = bytes
                 .split_at_checked(len)
                 .ok_or(TileGenError::CorruptRecord)?;
             *bytes = rest;
-            PropRef::Str(std::str::from_utf8(text).map_err(|_invalid| TileGenError::CorruptRecord)?)
+            PropValueRef::Str(
+                std::str::from_utf8(text).map_err(|_invalid| TileGenError::CorruptRecord)?,
+            )
         }
         _ => return Err(TileGenError::CorruptRecord),
     };
@@ -355,12 +371,13 @@ fn take_array<const N: usize>(bytes: &mut &[u8]) -> TileGenResult<[u8; N]> {
 mod tests {
     use super::*;
 
-    const PROPS: [(KeyId, PropRef<'static>); 5] = [
-        (KeyId(0), PropRef::Bool(true)),
-        (KeyId(3), PropRef::I64(-42)),
-        (KeyId(1), PropRef::F32(1.5)),
-        (KeyId(2), PropRef::F64(-2.25)),
-        (KeyId(9), PropRef::Str("héllo")),
+    const PROPS: [(KeyId, PropValueRef<'static>); 6] = [
+        (KeyId(0), PropValueRef::Bool(true)),
+        (KeyId(3), PropValueRef::I64(-42)),
+        (KeyId(4), PropValueRef::U64(u64::MAX)),
+        (KeyId(1), PropValueRef::F32(1.5)),
+        (KeyId(2), PropValueRef::F64(-2.25)),
+        (KeyId(9), PropValueRef::Str("héllo")),
     ];
 
     fn props() -> EncodedProps {
