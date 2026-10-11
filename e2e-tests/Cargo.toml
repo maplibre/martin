@@ -30,7 +30,7 @@ image-compare.workspace = true
 jxl-oxide.workspace = true
 martin-tile-utils.workspace = true
 mlt-core.workspace = true
-pmtiles = { workspace = true, features = ["write"] }
+pmtiles = { workspace = true, features = ["tilejson", "object-store", "mmap-async-tokio", "write"] }
 regex.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
