@@ -264,17 +264,17 @@ impl TileEncoder {
 #[cfg(test)]
 mod tests {
     use martin_tile_utils::{TileCoord, decode_gzip};
-    use mlt_core::{Decoder, Parser};
+    use mlt_core::{Decoder, Parser, PropValueRef};
 
     use super::*;
-    use crate::props::{KeyInterner, PropRef};
+    use crate::props::KeyInterner;
     use crate::record::{EncodedProps, Geom, encode};
 
     fn tile(tile_id: u64, records: &[(u8, u64, Geom<'_>)], interner: &KeyInterner) -> TileRecords {
         let mut tile = TileRecords::new(tile_id);
         for &(layer, row, geom) in records {
             let mut props = EncodedProps::default();
-            props.push(interner.intern("kind"), PropRef::Str("park"));
+            props.push(interner.intern("kind"), PropValueRef::Str("park"));
             let mut bytes = Vec::new();
             encode(&mut bytes, Some(row), &props, geom);
             tile.push_record(layer, Seq::new(0, row).unwrap(), &bytes);
