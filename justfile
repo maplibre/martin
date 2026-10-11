@@ -234,11 +234,15 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-build-release target: fetch
+# Pass true as the second argument for optimized native Linux Docker binaries.
+build-release target pgo='false': fetch
     #!/usr/bin/env bash
     set -euo pipefail
+    pgo={{quote(pgo)}}
     # on debian we need to build a deb package
-    if [[ "{{target}}" == "debian-x86_64" ]]; then
+    if [[ "$pgo" == true ]]; then
+        {{just}} pgo-build {{quote(target)}}
+    elif [[ "{{target}}" == "debian-x86_64" ]]; then
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
@@ -246,6 +250,56 @@ build-release target: fetch
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
+# Requires cargo-pgo, llvm-tools-preview, BOLT on x86, and an initialized DATABASE_URL.
+[linux]
+pgo-build target: fetch prepare-mbtiles
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    binary="$target_dir/$target/release/martin"
+    export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
+    if [[ "$target" == x86_64-unknown-linux-gnu && -z "${LEGACY_CPU:-}" ]]; then
+        export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
+    fi
+    cargo build --release --target "$target" --package mbtiles --locked
+    cargo pgo build -- --target "$target" --package martin --bin martin --locked
+    {{just}} pgo-train "$binary"
+    # BOLT rejects ARM Cortex-A53 linker veneers; keep the ARM image on PGO.
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked
+        {{just}} pgo-train "$binary-bolt-instrumented"
+        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked
+        binary="$binary-bolt-optimized"
+    else
+        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked
+    fi
+    mkdir -p target_releases
+    cp "$binary" target_releases/martin
+    cp "$target_dir/$target/release/mbtiles" target_releases/mbtiles
+    strip target_releases/martin target_releases/mbtiles
+
+# Train an instrumented Martin binary using the existing HTTP benchmark fixtures.
+[linux]
+pgo-train binary:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    {{quote(binary)}} --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
+    server=$!
+    trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
+    for _attempt in {1..60}; do
+        kill -0 "$server"
+        if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
+        sleep 1
+    done
+    curl -fsS http://localhost:3000/health > /dev/null
+    {{just}} bench-http 20000 20000
+    kill -TERM "$server"
+    wait "$server"
+    trap - EXIT
 
 # Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
 build-release-full target: fetch

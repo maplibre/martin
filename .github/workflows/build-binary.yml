@@ -121,55 +121,11 @@ jobs:
         run: just install-dependencies
 
       - name: Build ${{ inputs.target }}
-        if: ${{ !inputs.musl && !inputs.full && !inputs.pgo }}
-        env:
-          TARGET: ${{ inputs.target }}
-        run: just build-release "$TARGET"
-      - name: Build optimized ${{ inputs.target }}
-        if: inputs.pgo
+        if: ${{ !inputs.musl && !inputs.full }}
         env:
           TARGET: ${{ inputs.target }}
           DATABASE_URL: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/test
-        run: |
-          set -euo pipefail
-          just fetch prepare-mbtiles
-          target_dir="${CARGO_TARGET_DIR:-target}"
-          binary="$target_dir/$TARGET/release/martin"
-          export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
-          if [[ "$TARGET" == x86_64-unknown-linux-gnu && -z "${LEGACY_CPU:-}" ]]; then
-              export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
-          fi
-          train() {
-              "$1" --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
-              server=$!
-              trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
-              for _attempt in {1..60}; do
-                  kill -0 "$server"
-                  if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
-                  sleep 1
-              done
-              curl -fsS http://localhost:3000/health > /dev/null
-              just bench-http 20000 20000
-              kill -TERM "$server"
-              wait "$server"
-              trap - EXIT
-          }
-          cargo build --release --target "$TARGET" --package mbtiles --locked
-          cargo pgo build -- --target "$TARGET" --package martin --bin martin --locked
-          train "$binary"
-          # BOLT rejects ARM Cortex-A53 linker veneers; keep the ARM image on PGO.
-          if [[ "$TARGET" == x86_64-unknown-linux-gnu ]]; then
-              cargo pgo bolt build --with-pgo -- --target "$TARGET" --package martin --bin martin --locked
-              train "$binary-bolt-instrumented"
-              cargo pgo bolt optimize --with-pgo -- --target "$TARGET" --package martin --bin martin --locked
-              binary="$binary-bolt-optimized"
-          else
-              cargo pgo optimize -- --target "$TARGET" --package martin --bin martin --locked
-          fi
-          mkdir -p target_releases
-          cp "$binary" target_releases/martin
-          cp "$target_dir/$TARGET/release/mbtiles" target_releases/mbtiles
-          strip target_releases/martin target_releases/mbtiles
+        run: just build-release "$TARGET" "${{ inputs.pgo }}"
       - name: Build ${{ inputs.target }} (full)
         if: ${{ inputs.full }}
         env:
