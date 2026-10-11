@@ -16,7 +16,7 @@ mod tile;
 pub use assemble::{LayerAssembler, LayerGrid};
 pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
 pub use error::{TileGenError, TileGenResult};
-pub use group::{TileGrouper, TileRecords};
+pub use group::{LayerRecordRef, TileGrouper, TileRecords};
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
 pub use sink::{EncodedTile, TileSink};

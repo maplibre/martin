@@ -10,7 +10,7 @@ use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{PropKind, TileLayer};
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::group::TileRecords;
+use crate::group::{LayerRecordRef, TileRecords};
 use crate::props::KeyNames;
 use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, TileOrder};
 
@@ -207,10 +207,10 @@ impl TileEncoder {
         let mut layers = Vec::new();
         let mut records: Vec<(Seq, &[u8])> = Vec::new();
         let mut all = tile.records().peekable();
-        while let Some(&(layer, _, _)) = all.peek() {
+        while let Some(&LayerRecordRef { layer, .. }) = all.peek() {
             records.clear();
-            while let Some((_, seq, bytes)) = all.next_if(|&(l, _, _)| l == layer) {
-                records.push((seq, bytes));
+            while let Some(record) = all.next_if(|record| record.layer == layer) {
+                records.push((record.seq, record.bytes));
             }
             let info = &settings.layers[usize::from(layer)];
             let assembled = self.assembler.assemble(

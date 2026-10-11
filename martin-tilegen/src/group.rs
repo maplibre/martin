@@ -5,12 +5,27 @@ use std::ops::Range;
 use crate::record::{GeomKind, Record};
 use crate::{Merger, Seq, SortKey, TileGenResult};
 
+/// One record of a tile, borrowed from its buffer.
+#[derive(Clone, Copy, Debug)]
+pub struct LayerRecordRef<'a> {
+    pub layer: u8,
+    pub seq: Seq,
+    pub bytes: &'a [u8],
+}
+
+#[derive(Clone, Debug)]
+struct RecordSlot {
+    layer: u8,
+    seq: Seq,
+    range: Range<usize>,
+}
+
 /// All records of one tile, sorted by `(layer, seq)`.
 #[derive(Clone, Debug, Default)]
 pub struct TileRecords {
     pub tile_id: u64,
     data: Vec<u8>,
-    records: Vec<(u8, Seq, Range<usize>)>,
+    records: Vec<RecordSlot>,
 }
 
 impl TileRecords {
@@ -25,14 +40,20 @@ impl TileRecords {
     pub fn push_record(&mut self, layer: u8, seq: Seq, bytes: &[u8]) {
         let start = self.data.len();
         self.data.extend_from_slice(bytes);
-        self.records.push((layer, seq, start..self.data.len()));
+        self.records.push(RecordSlot {
+            layer,
+            seq,
+            range: start..self.data.len(),
+        });
     }
 
-    /// `(layer, seq, record)` in tile order.
-    pub fn records(&self) -> impl Iterator<Item = (u8, Seq, &[u8])> {
-        self.records
-            .iter()
-            .map(|(layer, seq, range)| (*layer, *seq, &self.data[range.clone()]))
+    /// The records in tile order.
+    pub fn records(&self) -> impl Iterator<Item = LayerRecordRef<'_>> {
+        self.records.iter().map(|slot| LayerRecordRef {
+            layer: slot.layer,
+            seq: slot.seq,
+            bytes: &self.data[slot.range.clone()],
+        })
     }
 
     /// Whether both tiles hold the same records, ignoring seq: then they encode to the same bytes.
@@ -42,13 +63,13 @@ impl TileRecords {
             && self
                 .records()
                 .zip(other.records())
-                .all(|((la, _, a), (lb, _, b))| la == lb && a == b)
+                .all(|(a, b)| a.layer == b.layer && a.bytes == b.bytes)
     }
 
     /// A tile made only of fill records repeats across a polygon's interior, so it is worth deduplicating.
     #[must_use]
     pub fn is_fill_only(&self) -> bool {
-        self.records().all(|(_, _, bytes)| Record::is_fill(bytes))
+        self.records().all(|record| Record::is_fill(record.bytes))
     }
 }
 
@@ -112,7 +133,7 @@ impl TileGrouper {
         for fill in &self.active {
             tile.push_record(fill.layer, fill.seq, &fill.record);
         }
-        tile.records.sort_by_key(|&(layer, seq, _)| (layer, seq));
+        tile.records.sort_by_key(|slot| (slot.layer, slot.seq));
         self.position = tile_id + 1;
         self.active.retain(|fill| fill.end > self.position);
         Ok(true)
@@ -166,7 +187,7 @@ mod tests {
         while grouper.next_tile(&mut tile).unwrap() {
             out.push((
                 tile.tile_id,
-                tile.records().map(|(l, s, _)| (l, s.row())).collect(),
+                tile.records().map(|r| (r.layer, r.seq.row())).collect(),
             ));
         }
         out
