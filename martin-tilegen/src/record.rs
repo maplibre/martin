@@ -1,19 +1,35 @@
-//! Temp format of one feature piece in one tile, every integer a varint:
-//! `kind | id + 1 | properties byte length | property count | properties | geometry`.
-//! Properties come first and carry their byte length, so the per-tile schema pass reads them without
-//! touching vertices. Vertices are zigzag deltas from the previous vertex of the record, so tile-local
-//! coordinates mostly take one or two bytes.
+//! Temp format of one feature piece in one tile, in [wincode] with varint integers: a [`Header`],
+//! then the geometry of its kind. The header carries the properties as one length-prefixed blob, so
+//! the per-tile schema pass reads them without touching vertices.
 
-use integer_encoding::{VarInt, VarIntReader as _, VarIntWriter as _};
+#![expect(
+    clippy::mem_forget,
+    reason = "the wincode SchemaRead derive forgets its drop guard"
+)]
 
 use mlt_core::PropValueRef;
+use wincode::config::{Configuration, PREALLOCATION_SIZE_LIMIT_DISABLED};
+use wincode::len::BincodeLen;
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::props::KeyId;
 use crate::{TileGenError, TileGenResult};
 
 pub type Vertex = [i32; 2];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) type Config = Configuration<
+    true,
+    PREALLOCATION_SIZE_LIMIT_DISABLED,
+    BincodeLen,
+    wincode::int_encoding::LittleEndian,
+    wincode::int_encoding::VarInt,
+>;
+
+pub(crate) const CONFIG: Config = Configuration::default()
+    .with_varint_encoding()
+    .disable_preallocation_size_limit();
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, SchemaWrite, SchemaRead)]
 pub enum GeomKind {
     Point,
     Line,
@@ -57,135 +73,70 @@ pub enum Geom<'a> {
     },
 }
 
-const POINT: u8 = 0;
-const LINE: u8 = 1;
-const POLYGON: u8 = 2;
-const FILL: u8 = 3;
-const FILL_RANGE: u8 = 4;
+#[derive(SchemaWrite, SchemaRead)]
+enum Prop<'a> {
+    Bool(bool),
+    I64(i64),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Str(&'a str),
+}
 
-const PROP_FALSE: u8 = 0;
-const PROP_TRUE: u8 = 1;
-const PROP_I64: u8 = 2;
-const PROP_F32: u8 = 3;
-const PROP_F64: u8 = 4;
-const PROP_STR: u8 = 5;
-const PROP_U64: u8 = 6;
+#[derive(SchemaWrite, SchemaRead)]
+struct Header<'a> {
+    kind: GeomKind,
+    id: Option<u64>,
+    props: &'a [u8],
+}
 
 /// A feature's properties, encoded once and copied into every record of the feature.
 #[derive(Debug, Default)]
 pub struct EncodedProps {
-    count: u64,
     bytes: Vec<u8>,
 }
 
 impl EncodedProps {
     pub fn clear(&mut self) {
-        self.count = 0;
         self.bytes.clear();
     }
 
     pub fn push(&mut self, key: KeyId, value: PropValueRef<'_>) {
-        self.count += 1;
-        write_prop(&mut self.bytes, key, value);
+        let value = match value {
+            PropValueRef::Bool(v) => Prop::Bool(v),
+            PropValueRef::I8(v) => Prop::I64(v.into()),
+            PropValueRef::U8(v) => Prop::I64(v.into()),
+            PropValueRef::I32(v) => Prop::I64(v.into()),
+            PropValueRef::U32(v) => Prop::I64(v.into()),
+            PropValueRef::I64(v) => Prop::I64(v),
+            PropValueRef::U64(v) => Prop::U64(v),
+            PropValueRef::F32(v) => Prop::F32(v),
+            PropValueRef::F64(v) => Prop::F64(v),
+            PropValueRef::Str(v) => Prop::Str(v),
+        };
+        put(&mut self.bytes, &(key.0, value));
     }
 }
 
 pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Geom<'_>) {
-    out.push(match geom {
-        Geom::Points(_) => POINT,
-        Geom::Lines { .. } => LINE,
-        Geom::Polygons { .. } => POLYGON,
-        Geom::Fill => FILL,
-        Geom::FillRange { .. } => FILL_RANGE,
-    });
-    put(out, id.map_or(0, |id| id.wrapping_add(1)));
-    put(out, props.bytes.len() as u64);
-    put(out, props.count);
-    out.extend_from_slice(&props.bytes);
+    let kind = match geom {
+        Geom::Points(_) => GeomKind::Point,
+        Geom::Lines { .. } => GeomKind::Line,
+        Geom::Polygons { .. } => GeomKind::Polygon,
+        Geom::Fill => GeomKind::Fill,
+        Geom::FillRange { end } => GeomKind::FillRange { end },
+    };
+    let props = &props.bytes;
+    put(out, &Header { kind, id, props });
     match geom {
-        Geom::Points(vertices) => {
-            put(out, vertices.len() as u64);
-            write_vertices(out, vertices);
-        }
-        Geom::Lines { parts, vertices } => {
-            debug_assert_eq!(
-                parts.iter().map(|&n| n as usize).sum::<usize>(),
-                vertices.len()
-            );
-            write_lengths(out, parts);
-            write_vertices(out, vertices);
-        }
+        Geom::Points(vertices) => put(out, vertices),
+        Geom::Lines { parts, vertices } => put(out, &(parts, vertices)),
         Geom::Polygons {
             polygons,
             rings,
             vertices,
-        } => {
-            debug_assert_eq!(
-                polygons.iter().map(|&n| n as usize).sum::<usize>(),
-                rings.len()
-            );
-            debug_assert_eq!(
-                rings.iter().map(|&n| n as usize).sum::<usize>(),
-                vertices.len()
-            );
-            write_lengths(out, polygons);
-            for &n in rings {
-                put(out, u64::from(n));
-            }
-            write_vertices(out, vertices);
-        }
-        Geom::Fill => {}
-        Geom::FillRange { end } => put(out, end),
-    }
-}
-
-fn write_i64(out: &mut Vec<u8>, v: i64) {
-    out.push(PROP_I64);
-    put(out, v);
-}
-
-fn write_prop(out: &mut Vec<u8>, key: KeyId, value: PropValueRef<'_>) {
-    put(out, u64::from(key.0));
-    match value {
-        PropValueRef::Bool(v) => out.push(if v { PROP_TRUE } else { PROP_FALSE }),
-        PropValueRef::I8(v) => write_i64(out, v.into()),
-        PropValueRef::U8(v) => write_i64(out, v.into()),
-        PropValueRef::I32(v) => write_i64(out, v.into()),
-        PropValueRef::U32(v) => write_i64(out, v.into()),
-        PropValueRef::I64(v) => write_i64(out, v),
-        PropValueRef::U64(v) => {
-            out.push(PROP_U64);
-            put(out, v);
-        }
-        PropValueRef::F32(v) => {
-            out.push(PROP_F32);
-            out.extend_from_slice(&v.to_le_bytes());
-        }
-        PropValueRef::F64(v) => {
-            out.push(PROP_F64);
-            out.extend_from_slice(&v.to_le_bytes());
-        }
-        PropValueRef::Str(v) => {
-            out.push(PROP_STR);
-            put(out, v.len() as u64);
-            out.extend_from_slice(v.as_bytes());
-        }
-    }
-}
-
-fn write_lengths(out: &mut Vec<u8>, lens: &[u32]) {
-    put(out, lens.len() as u64);
-    for &n in lens {
-        put(out, u64::from(n));
-    }
-}
-
-fn write_vertices(out: &mut Vec<u8>, vertices: &[Vertex]) {
-    let mut prev = [0, 0];
-    for &[x, y] in vertices {
-        put(out, i64::from(x) - i64::from(prev[0]));
-        put(out, i64::from(y) - i64::from(prev[1]));
-        prev = [x, y];
+        } => put(out, &(polygons, rings, vertices)),
+        Geom::Fill | Geom::FillRange { .. } => {}
     }
 }
 
@@ -193,80 +144,54 @@ fn write_vertices(out: &mut Vec<u8>, vertices: &[Vertex]) {
 pub struct Record<'a> {
     pub kind: GeomKind,
     pub id: Option<u64>,
-    prop_count: u64,
     props: &'a [u8],
     geom: &'a [u8],
 }
 
 impl<'a> Record<'a> {
     pub fn decode(mut bytes: &'a [u8]) -> TileGenResult<Self> {
-        let tag = take_byte(&mut bytes)?;
-        let id = take::<u64>(&mut bytes)?.checked_sub(1);
-        let props_len = take_len(&mut bytes)?;
-        let prop_count = take::<u64>(&mut bytes)?;
-        let (props, mut geom) = bytes
-            .split_at_checked(props_len)
-            .ok_or(TileGenError::CorruptRecord)?;
-        let kind = match tag {
-            POINT => GeomKind::Point,
-            LINE => GeomKind::Line,
-            POLYGON => GeomKind::Polygon,
-            FILL => GeomKind::Fill,
-            FILL_RANGE => GeomKind::FillRange {
-                end: take::<u64>(&mut geom)?,
-            },
-            _ => return Err(TileGenError::CorruptRecord),
-        };
+        let Header { kind, id, props } = take(&mut bytes)?;
         Ok(Self {
             kind,
             id,
-            prop_count,
             props,
-            geom,
+            geom: bytes,
         })
     }
 
-    /// Whether an encoded record is a fill or fill range, without decoding it.
+    /// Whether an encoded record is a fill or fill range, without decoding the rest of it.
     #[must_use]
-    pub fn is_fill(bytes: &[u8]) -> bool {
-        matches!(bytes.first(), Some(&(FILL | FILL_RANGE)))
+    pub fn is_fill(mut bytes: &[u8]) -> bool {
+        matches!(
+            take(&mut bytes),
+            Ok(GeomKind::Fill | GeomKind::FillRange { .. })
+        )
     }
 
     #[must_use]
     pub fn props(&self) -> Props<'a> {
-        Props {
-            bytes: self.props,
-            remaining: self.prop_count,
-        }
+        Props { bytes: self.props }
     }
 
     /// Appends the geometry, so the pieces of one feature can be collected into one multi-geometry.
     pub fn append_geometry(&self, out: &mut GeomBuf) -> TileGenResult<()> {
         let mut bytes = self.geom;
-        let vertices = match self.kind {
-            GeomKind::Point => take::<u64>(&mut bytes)?,
+        let vertices: Vec<Vertex> = match self.kind {
+            GeomKind::Point => take(&mut bytes)?,
             GeomKind::Line => {
-                let parts = take::<u64>(&mut bytes)?;
-                take_lengths(&mut bytes, parts, &mut out.parts)?
+                let (parts, vertices): (Vec<u32>, _) = take(&mut bytes)?;
+                out.parts.extend(parts);
+                vertices
             }
             GeomKind::Polygon => {
-                let polygons = take::<u64>(&mut bytes)?;
-                let rings = take_lengths(&mut bytes, polygons, &mut out.polygons)?;
-                take_lengths(&mut bytes, rings, &mut out.parts)?
+                let (polygons, rings, vertices): (Vec<u32>, Vec<u32>, _) = take(&mut bytes)?;
+                out.polygons.extend(polygons);
+                out.parts.extend(rings);
+                vertices
             }
-            GeomKind::Fill | GeomKind::FillRange { .. } => 0,
+            GeomKind::Fill | GeomKind::FillRange { .. } => Vec::new(),
         };
-        out.vertices
-            .reserve(usize::try_from(vertices).map_err(|_overflow| TileGenError::CorruptRecord)?);
-        let mut prev = [0i64, 0];
-        for _ in 0..vertices {
-            prev[0] += take::<i64>(&mut bytes)?;
-            prev[1] += take::<i64>(&mut bytes)?;
-            let [Ok(x), Ok(y)] = prev.map(i32::try_from) else {
-                return Err(TileGenError::CorruptRecord);
-            };
-            out.vertices.push([x, y]);
-        }
+        out.vertices.extend(vertices);
         if bytes.is_empty() {
             Ok(())
         } else {
@@ -293,84 +218,35 @@ impl GeomBuf {
 
 pub struct Props<'a> {
     bytes: &'a [u8],
-    remaining: u64,
 }
 
 impl<'a> Iterator for Props<'a> {
     type Item = TileGenResult<(KeyId, PropValueRef<'a>)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
+        if self.bytes.is_empty() {
             return None;
         }
-        self.remaining -= 1;
-        Some(read_prop(&mut self.bytes))
+        Some(take(&mut self.bytes).map(|(key, value)| {
+            let value = match value {
+                Prop::Bool(v) => PropValueRef::Bool(v),
+                Prop::I64(v) => PropValueRef::I64(v),
+                Prop::U64(v) => PropValueRef::U64(v),
+                Prop::F32(v) => PropValueRef::F32(v),
+                Prop::F64(v) => PropValueRef::F64(v),
+                Prop::Str(v) => PropValueRef::Str(v),
+            };
+            (KeyId(key), value)
+        }))
     }
 }
 
-fn read_prop<'a>(bytes: &mut &'a [u8]) -> TileGenResult<(KeyId, PropValueRef<'a>)> {
-    let key =
-        KeyId(u32::try_from(take::<u64>(bytes)?).map_err(|_overflow| TileGenError::CorruptRecord)?);
-    let value = match take_byte(bytes)? {
-        PROP_FALSE => PropValueRef::Bool(false),
-        PROP_TRUE => PropValueRef::Bool(true),
-        PROP_I64 => PropValueRef::I64(take::<i64>(bytes)?),
-        PROP_U64 => PropValueRef::U64(take::<u64>(bytes)?),
-        PROP_F32 => PropValueRef::F32(f32::from_le_bytes(take_array(bytes)?)),
-        PROP_F64 => PropValueRef::F64(f64::from_le_bytes(take_array(bytes)?)),
-        PROP_STR => {
-            let len = take_len(bytes)?;
-            let (text, rest) = bytes
-                .split_at_checked(len)
-                .ok_or(TileGenError::CorruptRecord)?;
-            *bytes = rest;
-            PropValueRef::Str(
-                std::str::from_utf8(text).map_err(|_invalid| TileGenError::CorruptRecord)?,
-            )
-        }
-        _ => return Err(TileGenError::CorruptRecord),
-    };
-    Ok((key, value))
+fn put<T: SchemaWrite<Config, Src = T> + ?Sized>(out: &mut Vec<u8>, value: &T) {
+    wincode::config::serialize_into(out, value, CONFIG).expect("writing to a Vec cannot fail");
 }
 
-/// Reads `count` lengths into `out`, returning their sum.
-fn take_lengths(bytes: &mut &[u8], count: u64, out: &mut Vec<u32>) -> TileGenResult<u64> {
-    let mut total = 0u64;
-    for _ in 0..count {
-        let len = take::<u64>(bytes)?;
-        out.push(u32::try_from(len).map_err(|_overflow| TileGenError::CorruptRecord)?);
-        total += len;
-    }
-    Ok(total)
-}
-
-fn put(out: &mut Vec<u8>, value: impl VarInt) {
-    out.write_varint(value)
-        .expect("writing to a Vec cannot fail");
-}
-
-fn take<T: VarInt>(bytes: &mut &[u8]) -> TileGenResult<T> {
-    bytes
-        .read_varint()
-        .map_err(|_truncated| TileGenError::CorruptRecord)
-}
-
-fn take_len(bytes: &mut &[u8]) -> TileGenResult<usize> {
-    take(bytes)
-}
-
-fn take_byte(bytes: &mut &[u8]) -> TileGenResult<u8> {
-    let (&byte, rest) = bytes.split_first().ok_or(TileGenError::CorruptRecord)?;
-    *bytes = rest;
-    Ok(byte)
-}
-
-fn take_array<const N: usize>(bytes: &mut &[u8]) -> TileGenResult<[u8; N]> {
-    let (array, rest) = bytes
-        .split_first_chunk()
-        .ok_or(TileGenError::CorruptRecord)?;
-    *bytes = rest;
-    Ok(*array)
+fn take<'a, T: SchemaRead<'a, Config, Dst = T>>(bytes: &mut &'a [u8]) -> TileGenResult<T> {
+    T::get(bytes).map_err(|_corrupt| TileGenError::CorruptRecord)
 }
 
 #[cfg(test)]

@@ -1,3 +1,10 @@
+#![expect(
+    clippy::mem_forget,
+    reason = "the wincode SchemaRead derive forgets its drop guard"
+)]
+
+use wincode::{SchemaRead, SchemaWrite};
+
 use crate::tile::TileId;
 use crate::{TileGenError, TileGenResult};
 
@@ -52,15 +59,15 @@ impl Seq {
 /// padding to 32.
 ///
 /// `tile_layer` holds the [`TileId`] in bits 63..8 and the [`LayerId`] in bits 7..0; `seq` is the [`Seq`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, SchemaWrite, SchemaRead,
+)]
 pub struct SortKey {
     tile_layer: u64,
     seq: u64,
 }
 
 impl SortKey {
-    pub const ENCODED_LEN: usize = 2 * size_of::<u64>();
-
     #[must_use]
     pub const fn new(tile: TileId, layer: LayerId, seq: Seq) -> Self {
         Self {
@@ -87,28 +94,6 @@ impl SortKey {
 
     pub(crate) const fn words(self) -> (u64, u64) {
         (self.tile_layer, self.seq)
-    }
-
-    /// Little-endian, so encoding is a plain copy on common targets; runs compare decoded keys, never bytes.
-    #[must_use]
-    pub fn to_bytes(self) -> [u8; Self::ENCODED_LEN] {
-        let mut bytes = [0; Self::ENCODED_LEN];
-        bytes[..8].copy_from_slice(&self.seq.to_le_bytes());
-        bytes[8..].copy_from_slice(&self.tile_layer.to_le_bytes());
-        bytes
-    }
-
-    #[must_use]
-    pub fn from_bytes(bytes: [u8; Self::ENCODED_LEN]) -> Self {
-        let word = |at: usize| {
-            let mut word = [0; 8];
-            word.copy_from_slice(&bytes[at..at + 8]);
-            u64::from_le_bytes(word)
-        };
-        Self {
-            seq: word(0),
-            tile_layer: word(8),
-        }
     }
 }
 
@@ -145,7 +130,6 @@ mod tests {
                 ),
                 (tile_id, layer, partition, row)
             );
-            assert_eq!(SortKey::from_bytes(k.to_bytes()), k);
         }
     }
 

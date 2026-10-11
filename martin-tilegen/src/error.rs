@@ -40,6 +40,12 @@ pub enum TileGenError {
     #[error("I/O failed: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("writing a temp file failed: {0}")]
+    TempWrite(#[from] wincode::WriteError),
+
+    #[error("reading a temp file failed: {0}")]
+    TempRead(#[from] wincode::ReadError),
+
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
     Mbtiles(#[from] mbtiles::MbtError),
