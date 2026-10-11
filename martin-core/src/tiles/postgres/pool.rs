@@ -481,7 +481,8 @@ mod version_parsing_tests {
     }
 }
 
-#[cfg(all(test, feature = "test-pg"))]
+#[cfg(test)]
+#[cfg(feature = "test-pg")]
 mod tests {
     use std::time::Duration;
 
@@ -489,9 +490,11 @@ mod tests {
     use deadpool_postgres::tokio_postgres::Config;
     use deadpool_postgres::tokio_postgres::error::SqlState;
     use postgres::NoTls;
+    use rustls::crypto::aws_lc_rs::default_provider;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::ImageExt as _;
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+    use tokio::sync::oneshot;
 
     use super::*;
 
@@ -637,9 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_ca_skips_hostname_check_but_verify_full_enforces_it() {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .ok();
+        default_provider().install_default().ok();
 
         let certs = generate_tls_certs_with_mismatched_hostname();
         let node = start_postgres_with_tls(&certs).await;
@@ -686,7 +687,7 @@ mod tests {
             .unwrap();
 
         let pool_for_sleep_task = pool.clone();
-        let (registered_tx, registered_rx) = tokio::sync::oneshot::channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
         let sleep_task = tokio::spawn(async move {
             let conn = pool_for_sleep_task.get().await.unwrap();
             let _guard = pool_for_sleep_task

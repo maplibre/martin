@@ -28,6 +28,8 @@ use serde::Deserialize;
 use tracing::error;
 use tracing::{debug, warn};
 
+#[cfg(feature = "unstable-schemas")]
+use crate::srv::overlay_body::StaticStyleOverlay;
 use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::ImageFormatRequest;
@@ -315,7 +317,7 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         path = "/style/{style_id}/static/{camera}/{size}.{format}",
         params(StaticImagePath),
         request_body(
-            content = crate::srv::overlay_body::StaticStyleOverlay,
+            content = StaticStyleOverlay,
             content_type = "application/json",
             description = "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
         ),

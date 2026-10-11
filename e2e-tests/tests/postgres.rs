@@ -1068,6 +1068,7 @@ async fn a_queryless_and_a_jsonb_variant_route_by_the_query_string() {
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of both variants")]
 async fn a_json_and_a_jsonb_variant_are_two_sources() {
     let mut martin = martin_with_postgres().await;
 
@@ -1190,6 +1191,7 @@ async fn a_json_and_a_jsonb_variant_are_two_sources() {
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of three variants")]
 async fn the_comments_of_three_variants_land_where_their_source_is() {
     let mut martin = martin_with_postgres().await;
 
@@ -1390,6 +1392,10 @@ async fn the_same_function_name_in_two_schemas_keeps_each_comment() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "inline config and snapshots of every variant"
+)]
 async fn a_configured_function_names_a_further_variant_by_its_signature() {
     let mut martin = Martin::builder()
         .with_postgres()

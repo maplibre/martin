@@ -5,7 +5,7 @@ use mlt_core::geo_types::{
 };
 use mlt_core::{PropertyKey, TileLayer};
 
-use crate::props::{KeyNames, TileColumns, to_value};
+use crate::props::{KeyNames, TileColumns};
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
@@ -79,7 +79,7 @@ impl LayerAssembler {
             for prop in first.props() {
                 let (key, value) = prop?;
                 if let Some(pos) = self.columns.position(key) {
-                    feature.property(self.keys[pos], to_value(value, schema[pos].1))?;
+                    feature.property(self.keys[pos], value.coerce(schema[pos].1))?;
                 }
             }
             feature.finish()?;
