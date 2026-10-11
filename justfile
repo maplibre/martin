@@ -251,8 +251,30 @@ build-release target pgo='false': fetch
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
 
+# Install PGO tooling on native Ubuntu/Debian hosts. x86 BOLT matches Rust's LLVM.
+[linux]
+pgo-install target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    rustup component add llvm-tools-preview
+    cargo install cargo-pgo --version 0.3.0 --locked
+    sudo apt-get update
+    sudo apt-get install -y sqlite3 postgresql-client
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        llvm_major=$(rustc -vV | sed -n 's/^LLVM version: \([0-9]*\).*/\1/p')
+        source /etc/os-release
+        curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /usr/share/keyrings/llvm.asc > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/llvm.asc] https://apt.llvm.org/$VERSION_CODENAME/ llvm-toolchain-$VERSION_CODENAME-$llvm_major main" | sudo tee /etc/apt/sources.list.d/llvm.list
+        sudo apt-get update
+        sudo apt-get install -y "bolt-$llvm_major"
+        sudo ln -sf "/usr/bin/llvm-bolt-$llvm_major" /usr/local/bin/llvm-bolt
+        sudo ln -sf "/usr/bin/merge-fdata-$llvm_major" /usr/local/bin/merge-fdata
+        sudo ln -sf "/usr/lib/llvm-$llvm_major/lib/libbolt_rt_instr.a" /usr/local/lib/libbolt_rt_instr.a
+    fi
+
 # Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
-# Requires cargo-pgo, llvm-tools-preview, BOLT on x86, and an initialized DATABASE_URL.
+# Run `just pgo-install <target>` first and provide an initialized DATABASE_URL.
 [linux]
 pgo-build target: fetch prepare-mbtiles
     #!/usr/bin/env bash
