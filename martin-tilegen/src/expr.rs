@@ -16,6 +16,7 @@ use cel::common::types::{
 };
 use cel::common::value::{CowVal, Val};
 use cel::context::VariableResolver;
+use cel::objects::ValueType;
 use cel::{Context, Env, ExecutionError, FunctionContext, Value, extensions};
 use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::PropValueRef;
@@ -90,24 +91,6 @@ pub enum ExprError {
     UnknownProperty { expr: String, name: String },
 }
 
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-pub enum EvalError {
-    #[error(transparent)]
-    Cel(Box<ExecutionError>),
-
-    #[error("expected {expected}, got {got}")]
-    Type {
-        expected: &'static str,
-        got: &'static str,
-    },
-}
-
-impl From<ExecutionError> for EvalError {
-    fn from(error: ExecutionError) -> Self {
-        Self::Cel(Box::new(error))
-    }
-}
-
 #[derive(Debug)]
 pub struct CompiledExpr {
     expr: IdedExpr,
@@ -159,16 +142,14 @@ impl CompiledExpr {
         self.needs_all_keys
     }
 
-    pub fn eval<'v, S>(&self, feature: &'v FeatureView<'_, S>) -> Result<ExprValue<'v>, EvalError>
+    pub fn eval<'v, S>(&self, feature: &'v FeatureView<'_, S>) -> Result<Value, ExecutionError>
     where
         S: AsRef<str> + Debug + Send + Sync,
     {
         let root: &Context<'_, 'v> = &SHARED.root;
         let mut scope = root.new_inner_scope();
         scope.set_variable_resolver(feature);
-        Ok(ExprValue::from_val(
-            Value::resolve_val(&self.expr, &scope)?.as_ref(),
-        ))
+        Value::resolve(&self.expr, &scope)
     }
 }
 
@@ -549,18 +530,6 @@ impl<S: AsRef<str> + Debug + Send + Sync> VariableResolver for FeatureView<'_, S
     }
 }
 
-/// The result of an evaluation. Strings read from the feature stay borrowed.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExprValue<'a> {
-    Null,
-    Bool(bool),
-    Int(i64),
-    UInt(u64),
-    Double(f64),
-    Str(Cow<'a, str>),
-    Other(&'static str),
-}
-
 const TAG_NULL: u8 = 0;
 const TAG_BOOL: u8 = 1;
 const TAG_NEGATIVE: u8 = 2;
@@ -568,172 +537,150 @@ const TAG_NON_NEGATIVE: u8 = 3;
 const TAG_DOUBLE: u8 = 4;
 const TAG_STRING: u8 = 5;
 
-impl<'a> ExprValue<'a> {
-    fn from_val(val: &(dyn Val + 'a)) -> Self {
-        let kind = val.get_type().kind();
-        match kind {
-            Kind::NullType => Self::Null,
-            Kind::Boolean => val
-                .downcast_ref::<CelBool>()
-                .map_or(Self::Other("bool"), |v| Self::Bool(*v.inner())),
-            Kind::Int => val
-                .downcast_ref::<CelInt>()
-                .map_or(Self::Other("int"), |v| Self::Int(*v.inner())),
-            Kind::UInt => val
-                .downcast_ref::<CelUInt>()
-                .map_or(Self::Other("uint"), |v| Self::UInt(*v.inner())),
-            Kind::Double => val
-                .downcast_ref::<CelDouble>()
-                .map_or(Self::Other("double"), |v| Self::Double(*v.inner())),
-            Kind::String => val
-                .downcast_ref::<CelString>()
-                .map_or(Self::Other("string"), |v| {
-                    Self::Str(
-                        v.as_borrowed()
-                            .map_or_else(|| Cow::Owned(v.inner().to_owned()), Cow::Borrowed),
-                    )
-                }),
-            Kind::List => Self::Other("list"),
-            Kind::Map => Self::Other("map"),
-            Kind::Bytes => Self::Other("bytes"),
-            Kind::Type => Self::Other("type"),
-            Kind::Unspecified
-            | Kind::Error
-            | Kind::Dyn
-            | Kind::Any
-            | Kind::Duration
-            | Kind::Opaque
-            | Kind::Struct
-            | Kind::Timestamp
-            | Kind::TypeParam
-            | Kind::Unknown => Self::Other("value"),
+fn mismatch(value: &Value, want: &str) -> ExecutionError {
+    ExecutionError::UnexpectedType {
+        got: value.type_of().to_string(),
+        want: want.to_owned(),
+    }
+}
+
+/// A filter result: `null` is `false`.
+pub fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
+    match value {
+        Value::Null => Ok(false),
+        Value::Bool(v) => Ok(*v),
+        other @ (Value::List(_)
+        | Value::Map(_)
+        | Value::Function(..)
+        | Value::Int(_)
+        | Value::UInt(_)
+        | Value::Float(_)
+        | Value::String(_)
+        | Value::Bytes(_)
+        | Value::Opaque(_)
+        | Value::Struct(_)) => Err(other.error_expected_type(ValueType::Bool)),
+    }
+}
+
+/// A zoom level, clamped into `range`.
+pub fn to_zoom(value: &Value, range: RangeInclusive<u8>) -> Result<Option<u8>, ExecutionError> {
+    let (lo, hi) = (*range.start(), *range.end());
+    match *value {
+        Value::Null => Ok(None),
+        Value::Int(v) => Ok(Some(
+            u8::try_from(v.clamp(i64::from(lo), i64::from(hi))).unwrap_or(hi),
+        )),
+        Value::UInt(v) => Ok(Some(
+            u8::try_from(v.clamp(u64::from(lo), u64::from(hi))).unwrap_or(hi),
+        )),
+        ref other @ (Value::List(_)
+        | Value::Map(_)
+        | Value::Function(..)
+        | Value::Float(_)
+        | Value::String(_)
+        | Value::Bytes(_)
+        | Value::Bool(_)
+        | Value::Opaque(_)
+        | Value::Struct(_)) => Err(other.error_expected_type(ValueType::Int)),
+    }
+}
+
+/// A property value; `null` leaves the property out.
+pub fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, ExecutionError> {
+    Ok(Some(match value {
+        Value::Null => return Ok(None),
+        Value::Bool(v) => Prop::Bool(v),
+        Value::Int(v) => Prop::I64(v),
+        Value::UInt(v) => {
+            i64::try_from(v).map_or_else(|_| Prop::Str(v.to_string().into()), Prop::I64)
         }
-    }
+        Value::Float(v) => Prop::F64(v),
+        Value::String(v) => Prop::Str(Arc::unwrap_or_clone(v).into()),
+        other @ (Value::List(_)
+        | Value::Map(_)
+        | Value::Function(..)
+        | Value::Bytes(_)
+        | Value::Opaque(_)
+        | Value::Struct(_)) => return Err(mismatch(&other, "a scalar")),
+    }))
+}
 
-    #[must_use]
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            Self::Null => "null",
-            Self::Bool(_) => "bool",
-            Self::Int(_) => "int",
-            Self::UInt(_) => "uint",
-            Self::Double(_) => "double",
-            Self::Str(_) => "string",
-            Self::Other(name) => name,
+/// A feature id: only a non-negative integer is one.
+#[must_use]
+pub fn to_id(value: &Value) -> Option<u64> {
+    match *value {
+        Value::Int(v) => u64::try_from(v).ok(),
+        Value::UInt(v) => Some(v),
+        Value::Null
+        | Value::Bool(_)
+        | Value::Float(_)
+        | Value::String(_)
+        | Value::Bytes(_)
+        | Value::List(_)
+        | Value::Map(_)
+        | Value::Function(..)
+        | Value::Opaque(_)
+        | Value::Struct(_) => None,
+    }
+}
+
+/// Appends a key whose byte order is this value's order: by type (null, bool, int, double,
+/// string), then by value. `descending` reverses it.
+pub fn encode_sort(
+    value: &Value,
+    descending: bool,
+    out: &mut Vec<u8>,
+) -> Result<(), ExecutionError> {
+    let start = out.len();
+    match value {
+        Value::Null => out.push(TAG_NULL),
+        Value::Bool(v) => out.extend([TAG_BOOL, u8::from(*v)]),
+        Value::Int(v) if *v < 0 => {
+            out.push(TAG_NEGATIVE);
+            out.extend((u64::from_ne_bytes(v.to_ne_bytes()) ^ (1 << 63)).to_be_bytes());
         }
-    }
-
-    fn mismatch(&self, expected: &'static str) -> EvalError {
-        EvalError::Type {
-            expected,
-            got: self.type_name(),
+        Value::Int(v) => {
+            out.push(TAG_NON_NEGATIVE);
+            out.extend(v.to_be_bytes());
         }
-    }
-
-    /// A filter result: `null` is `false`.
-    pub fn into_filter(self) -> Result<bool, EvalError> {
-        match self {
-            Self::Null => Ok(false),
-            Self::Bool(v) => Ok(v),
-            other @ (Self::Int(_)
-            | Self::UInt(_)
-            | Self::Double(_)
-            | Self::Str(_)
-            | Self::Other(_)) => Err(other.mismatch("bool")),
+        Value::UInt(v) => {
+            out.push(TAG_NON_NEGATIVE);
+            out.extend(v.to_be_bytes());
         }
-    }
-
-    /// A zoom level, clamped into `range`.
-    pub fn into_zoom(self, range: RangeInclusive<u8>) -> Result<Option<u8>, EvalError> {
-        let (lo, hi) = (*range.start(), *range.end());
-        match self {
-            Self::Null => Ok(None),
-            Self::Int(v) => Ok(Some(
-                u8::try_from(v.clamp(i64::from(lo), i64::from(hi))).unwrap_or(hi),
-            )),
-            Self::UInt(v) => Ok(Some(
-                u8::try_from(v.clamp(u64::from(lo), u64::from(hi))).unwrap_or(hi),
-            )),
-            other @ (Self::Bool(_) | Self::Double(_) | Self::Str(_) | Self::Other(_)) => {
-                Err(other.mismatch("int"))
-            }
+        Value::Float(v) => {
+            let bits = v.to_bits();
+            let bits = if bits >> 63 == 1 {
+                !bits
+            } else {
+                bits | (1 << 63)
+            };
+            out.push(TAG_DOUBLE);
+            out.extend(bits.to_be_bytes());
         }
-    }
-
-    /// A property value; `null` leaves the property out.
-    pub fn into_prop(self) -> Result<Option<Prop<Cow<'a, str>>>, EvalError> {
-        Ok(Some(match self {
-            Self::Null => return Ok(None),
-            Self::Bool(v) => Prop::Bool(v),
-            Self::Int(v) => Prop::I64(v),
-            Self::UInt(v) => {
-                i64::try_from(v).map_or_else(|_| Prop::Str(v.to_string().into()), Prop::I64)
-            }
-            Self::Double(v) => Prop::F64(v),
-            Self::Str(v) => Prop::Str(v),
-            other @ Self::Other(_) => return Err(other.mismatch("a scalar")),
-        }))
-    }
-
-    /// A feature id: only a non-negative integer is one.
-    #[must_use]
-    pub fn to_id(&self) -> Option<u64> {
-        match *self {
-            Self::Int(v) => u64::try_from(v).ok(),
-            Self::UInt(v) => Some(v),
-            Self::Null | Self::Bool(_) | Self::Double(_) | Self::Str(_) | Self::Other(_) => None,
-        }
-    }
-
-    /// Appends a key whose byte order is this value's order: by type (null, bool, int, double,
-    /// string), then by value. `descending` reverses it.
-    pub fn encode_sort(&self, descending: bool, out: &mut Vec<u8>) -> Result<(), EvalError> {
-        let start = out.len();
-        match self {
-            Self::Null => out.push(TAG_NULL),
-            Self::Bool(v) => out.extend([TAG_BOOL, u8::from(*v)]),
-            Self::Int(v) if *v < 0 => {
-                out.push(TAG_NEGATIVE);
-                out.extend((u64::from_ne_bytes(v.to_ne_bytes()) ^ (1 << 63)).to_be_bytes());
-            }
-            Self::Int(v) => {
-                out.push(TAG_NON_NEGATIVE);
-                out.extend(v.to_be_bytes());
-            }
-            Self::UInt(v) => {
-                out.push(TAG_NON_NEGATIVE);
-                out.extend(v.to_be_bytes());
-            }
-            Self::Double(v) => {
-                let bits = v.to_bits();
-                let bits = if bits >> 63 == 1 {
-                    !bits
+        Value::String(v) => {
+            out.push(TAG_STRING);
+            for &b in v.as_bytes() {
+                if b == 0 {
+                    out.extend([0, 0xFF]);
                 } else {
-                    bits | (1 << 63)
-                };
-                out.push(TAG_DOUBLE);
-                out.extend(bits.to_be_bytes());
-            }
-            Self::Str(v) => {
-                out.push(TAG_STRING);
-                for &b in v.as_bytes() {
-                    if b == 0 {
-                        out.extend([0, 0xFF]);
-                    } else {
-                        out.push(b);
-                    }
+                    out.push(b);
                 }
-                out.extend([0, 0]);
             }
-            Self::Other(_) => return Err(self.mismatch("a scalar")),
+            out.extend([0, 0]);
         }
-        if descending {
-            for b in &mut out[start..] {
-                *b = !*b;
-            }
-        }
-        Ok(())
+        other @ (Value::List(_)
+        | Value::Map(_)
+        | Value::Function(..)
+        | Value::Bytes(_)
+        | Value::Opaque(_)
+        | Value::Struct(_)) => return Err(mismatch(other, "a scalar")),
     }
+    if descending {
+        for b in &mut out[start..] {
+            *b = !*b;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -743,15 +690,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_bare_name_reads_the_property_borrowed() {
+    fn a_bare_name_reads_the_property() {
         let expr = CompiledExpr::compile("name", &["name", "population"], false).unwrap();
         let keys = ExprKeys::columns(&["name", "population"]);
         let props = vec![(KeyId::new(0), Prop::Str("Berlin".to_owned()))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        let value = expr.eval(&view).unwrap();
-        assert_eq!(value, ExprValue::Str(Cow::Borrowed("Berlin")));
-        assert!(matches!(value, ExprValue::Str(Cow::Borrowed(_))));
+        assert_eq!(expr.eval(&view).unwrap(), Value::from("Berlin"));
     }
 
     #[test]
@@ -761,7 +706,7 @@ mod tests {
         let props = vec![(KeyId::new(1), Prop::<String>::I64(5))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Null);
+        assert_eq!(expr.eval(&view).unwrap(), Value::Null);
     }
 
     #[test]
@@ -775,7 +720,7 @@ mod tests {
         ];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Str("Munich".into()));
+        assert_eq!(expr.eval(&view).unwrap(), Value::from("Munich"));
     }
 
     #[test]
@@ -786,15 +731,15 @@ mod tests {
         let props: Vec<(KeyId, Prop)> = vec![];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Bool(true));
+        assert_eq!(expr.eval(&view).unwrap(), Value::Bool(true));
     }
 
     #[rstest]
-    #[case::first_present("coalesce(feature['name:en'], name)", ExprValue::Str("Munich".into()))]
-    #[case::skips_null("coalesce(feature['name:de'], name)", ExprValue::Str("München".into()))]
-    #[case::all_null("coalesce(feature['name:de'], null)", ExprValue::Null)]
-    #[case::literal_fallback("coalesce(population, 0)", ExprValue::Int(0))]
-    fn coalesce_returns_the_first_non_null(#[case] source: &str, #[case] expected: ExprValue) {
+    #[case::first_present("coalesce(feature['name:en'], name)", Value::from("Munich"))]
+    #[case::skips_null("coalesce(feature['name:de'], name)", Value::from("München"))]
+    #[case::all_null("coalesce(feature['name:de'], null)", Value::Null)]
+    #[case::literal_fallback("coalesce(population, 0)", Value::Int(0))]
+    fn coalesce_returns_the_first_non_null(#[case] source: &str, #[case] expected: Value) {
         let columns = ["name", "name:en", "name:de", "population"];
         let expr = CompiledExpr::compile(source, &columns, false).unwrap();
         let keys = ExprKeys::columns(&columns);
@@ -818,18 +763,18 @@ mod tests {
         let props = vec![(KeyId::new(0), Prop::Str("Berlin".to_owned()))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Bool(expected));
+        assert_eq!(expr.eval(&view).unwrap(), Value::Bool(expected));
     }
 
     #[rstest]
-    #[case::select("feature.name.upperAscii()", ExprValue::Str("BERLIN ".into()))]
-    #[case::strings_extension("name.replace('l', 'L').trim()", ExprValue::Str("BerLin".into()))]
-    #[case::comparison("population >= 1000000 && name.startsWith('B')", ExprValue::Bool(true))]
-    #[case::f32_is_double("area > 1.0", ExprValue::Bool(true))]
-    #[case::conversion("int(population / 1000)", ExprValue::Int(3645))]
-    #[case::comprehension("[1, 2].exists(x, x == rank)", ExprValue::Bool(true))]
-    #[case::ternary("population > 1000000 ? 'city' : 'town'", ExprValue::Str("city".into()))]
-    fn expressions_evaluate_over_the_view(#[case] source: &str, #[case] expected: ExprValue) {
+    #[case::select("feature.name.upperAscii()", Value::from("BERLIN "))]
+    #[case::strings_extension("name.replace('l', 'L').trim()", Value::from("BerLin"))]
+    #[case::comparison("population >= 1000000 && name.startsWith('B')", Value::Bool(true))]
+    #[case::f32_is_double("area > 1.0", Value::Bool(true))]
+    #[case::conversion("int(population / 1000)", Value::Int(3645))]
+    #[case::comprehension("[1, 2].exists(x, x == rank)", Value::Bool(true))]
+    #[case::ternary("population > 1000000 ? 'city' : 'town'", Value::from("city"))]
+    fn expressions_evaluate_over_the_view(#[case] source: &str, #[case] expected: Value) {
         let columns = ["name", "population", "area", "rank"];
         let expr = CompiledExpr::compile(source, &columns, false).unwrap();
         let keys = ExprKeys::columns(&columns);
@@ -851,10 +796,10 @@ mod tests {
         let mut slots = PropSlots::default();
         let first = vec![(KeyId::new(0), Prop::Str("Berlin".to_owned()))];
         let view = slots.bind(&keys, &first);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Str("Berlin".into()));
+        assert_eq!(expr.eval(&view).unwrap(), Value::from("Berlin"));
         let second = vec![(KeyId::new(1), Prop::Str("A 100".to_owned()))];
         let view = slots.bind(&keys, &second);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Str("A 100".into()));
+        assert_eq!(expr.eval(&view).unwrap(), Value::from("A 100"));
     }
 
     #[test]
@@ -866,7 +811,7 @@ mod tests {
         let props = vec![(KeyId::new(7), Prop::Str("primary".to_owned()))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), ExprValue::Bool(true));
+        assert_eq!(expr.eval(&view).unwrap(), Value::Bool(true));
     }
 
     #[test]
@@ -876,7 +821,10 @@ mod tests {
         let props = vec![(KeyId::new(0), Prop::Str("Berlin".to_owned()))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert!(matches!(expr.eval(&view), Err(EvalError::Cel(_))));
+        assert!(matches!(
+            expr.eval(&view),
+            Err(ExecutionError::UnsupportedBinaryOperator("add", _, _))
+        ));
     }
 
     #[rstest]
@@ -938,41 +886,41 @@ mod tests {
     }
 
     #[rstest]
-    #[case::null(ExprValue::Null, Ok(false))]
-    #[case::t(ExprValue::Bool(true), Ok(true))]
-    #[case::f(ExprValue::Bool(false), Ok(false))]
-    #[case::int(ExprValue::Int(1), Err(EvalError::Type { expected: "bool", got: "int" }))]
-    #[case::string(ExprValue::Str("yes".into()), Err(EvalError::Type { expected: "bool", got: "string" }))]
-    fn filter_coercion(#[case] value: ExprValue, #[case] expected: Result<bool, EvalError>) {
-        assert_eq!(value.into_filter(), expected);
+    #[case::null(Value::Null, Ok(false))]
+    #[case::t(Value::Bool(true), Ok(true))]
+    #[case::f(Value::Bool(false), Ok(false))]
+    #[case::int(Value::Int(1), Err(ExecutionError::UnexpectedType { got: "int".to_owned(), want: "bool".to_owned() }))]
+    #[case::string(Value::from("yes"), Err(ExecutionError::UnexpectedType { got: "string".to_owned(), want: "bool".to_owned() }))]
+    fn filter_coercion(#[case] value: Value, #[case] expected: Result<bool, ExecutionError>) {
+        assert_eq!(to_filter(&value), expected);
     }
 
     #[rstest]
-    #[case::null(ExprValue::Null, Ok(None))]
-    #[case::inside(ExprValue::Int(7), Ok(Some(7)))]
-    #[case::below(ExprValue::Int(-3), Ok(Some(2)))]
-    #[case::above(ExprValue::Int(99), Ok(Some(14)))]
-    #[case::uint(ExprValue::UInt(u64::MAX), Ok(Some(14)))]
-    #[case::double(ExprValue::Double(5.0), Err(EvalError::Type { expected: "int", got: "double" }))]
-    fn zoom_coercion(#[case] value: ExprValue, #[case] expected: Result<Option<u8>, EvalError>) {
-        assert_eq!(value.into_zoom(2..=14), expected);
+    #[case::null(Value::Null, Ok(None))]
+    #[case::inside(Value::Int(7), Ok(Some(7)))]
+    #[case::below(Value::Int(-3), Ok(Some(2)))]
+    #[case::above(Value::Int(99), Ok(Some(14)))]
+    #[case::uint(Value::UInt(u64::MAX), Ok(Some(14)))]
+    #[case::double(Value::Float(5.0), Err(ExecutionError::UnexpectedType { got: "float".to_owned(), want: "int".to_owned() }))]
+    fn zoom_coercion(#[case] value: Value, #[case] expected: Result<Option<u8>, ExecutionError>) {
+        assert_eq!(to_zoom(&value, 2..=14), expected);
     }
 
     #[rstest]
-    #[case::null(ExprValue::Null, Ok(None))]
-    #[case::string(ExprValue::Str("a".into()), Ok(Some(Prop::Str("a".into()))))]
-    #[case::int(ExprValue::Int(-4), Ok(Some(Prop::I64(-4))))]
-    #[case::small_uint(ExprValue::UInt(4), Ok(Some(Prop::I64(4))))]
-    #[case::big_uint(ExprValue::UInt(u64::MAX), Ok(Some(Prop::Str("18446744073709551615".into()))))]
-    #[case::double(ExprValue::Double(1.5), Ok(Some(Prop::F64(1.5))))]
-    #[case::bool(ExprValue::Bool(true), Ok(Some(Prop::Bool(true))))]
-    #[case::list(ExprValue::Other("list"), Err(EvalError::Type { expected: "a scalar", got: "list" }))]
-    #[case::map(ExprValue::Other("map"), Err(EvalError::Type { expected: "a scalar", got: "map" }))]
+    #[case::null(Value::Null, Ok(None))]
+    #[case::string(Value::from("a"), Ok(Some(Prop::Str("a".into()))))]
+    #[case::int(Value::Int(-4), Ok(Some(Prop::I64(-4))))]
+    #[case::small_uint(Value::UInt(4), Ok(Some(Prop::I64(4))))]
+    #[case::big_uint(Value::UInt(u64::MAX), Ok(Some(Prop::Str("18446744073709551615".into()))))]
+    #[case::double(Value::Float(1.5), Ok(Some(Prop::F64(1.5))))]
+    #[case::bool(Value::Bool(true), Ok(Some(Prop::Bool(true))))]
+    #[case::list(Value::from(vec![1]), Err(ExecutionError::UnexpectedType { got: "list".to_owned(), want: "a scalar".to_owned() }))]
+    #[case::map(Value::from(std::collections::HashMap::from([("k", 1)])), Err(ExecutionError::UnexpectedType { got: "map".to_owned(), want: "a scalar".to_owned() }))]
     fn prop_coercion(
-        #[case] value: ExprValue,
-        #[case] expected: Result<Option<Prop<Cow<'static, str>>>, EvalError>,
+        #[case] value: Value,
+        #[case] expected: Result<Option<Prop<Cow<'static, str>>>, ExecutionError>,
     ) {
-        assert_eq!(value.into_prop(), expected);
+        assert_eq!(to_prop(value), expected);
     }
 
     #[test]
@@ -982,66 +930,64 @@ mod tests {
         let props: Vec<(KeyId, Prop)> = vec![];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        let value = expr.eval(&view).unwrap();
-        assert_eq!(value, ExprValue::Other("list"));
         assert_eq!(
-            value.into_prop(),
-            Err(EvalError::Type {
-                expected: "a scalar",
-                got: "list"
+            to_prop(expr.eval(&view).unwrap()),
+            Err(ExecutionError::UnexpectedType {
+                got: "list".to_owned(),
+                want: "a scalar".to_owned()
             })
         );
     }
 
     #[rstest]
-    #[case::int(ExprValue::Int(42), Some(42))]
-    #[case::zero(ExprValue::Int(0), Some(0))]
-    #[case::negative(ExprValue::Int(-1), None)]
-    #[case::uint(ExprValue::UInt(u64::MAX), Some(u64::MAX))]
-    #[case::double(ExprValue::Double(3.0), None)]
-    #[case::string(ExprValue::Str("42".into()), None)]
-    #[case::null(ExprValue::Null, None)]
-    fn id_coercion(#[case] value: ExprValue, #[case] expected: Option<u64>) {
-        assert_eq!(value.to_id(), expected);
+    #[case::int(Value::Int(42), Some(42))]
+    #[case::zero(Value::Int(0), Some(0))]
+    #[case::negative(Value::Int(-1), None)]
+    #[case::uint(Value::UInt(u64::MAX), Some(u64::MAX))]
+    #[case::double(Value::Float(3.0), None)]
+    #[case::string(Value::from("42"), None)]
+    #[case::null(Value::Null, None)]
+    fn id_coercion(#[case] value: Value, #[case] expected: Option<u64>) {
+        assert_eq!(to_id(&value), expected);
     }
 
     #[test]
     fn sort_keys_order_like_their_values() {
         let ascending = [
-            ExprValue::Null,
-            ExprValue::Bool(false),
-            ExprValue::Bool(true),
-            ExprValue::Int(i64::MIN),
-            ExprValue::Int(-256),
-            ExprValue::Int(-1),
-            ExprValue::Int(0),
-            ExprValue::UInt(1),
-            ExprValue::Int(255),
-            ExprValue::UInt(256),
-            ExprValue::Int(i64::MAX),
-            ExprValue::UInt(u64::MAX),
-            ExprValue::Double(f64::NEG_INFINITY),
-            ExprValue::Double(-1e10),
-            ExprValue::Double(-1.5),
-            ExprValue::Double(-0.0),
-            ExprValue::Double(0.0),
-            ExprValue::Double(1e-300),
-            ExprValue::Double(2.5),
-            ExprValue::Double(f64::INFINITY),
-            ExprValue::Str("".into()),
-            ExprValue::Str("a".into()),
-            ExprValue::Str("a\0".into()),
-            ExprValue::Str("a\0b".into()),
-            ExprValue::Str("a\x01".into()),
-            ExprValue::Str("ab".into()),
-            ExprValue::Str("b".into()),
-            ExprValue::Str("é".into()),
+            Value::Null,
+            Value::Bool(false),
+            Value::Bool(true),
+            Value::Int(i64::MIN),
+            Value::Int(-256),
+            Value::Int(-1),
+            Value::Int(0),
+            Value::UInt(1),
+            Value::Int(255),
+            Value::UInt(256),
+            Value::Int(i64::MAX),
+            Value::UInt(u64::MAX),
+            Value::Float(f64::NEG_INFINITY),
+            Value::Float(-1e10),
+            Value::Float(-1.5),
+            Value::Float(-0.0),
+            Value::Float(0.0),
+            Value::Float(1e-300),
+            Value::Float(2.5),
+            Value::Float(f64::INFINITY),
+            Value::from(""),
+            Value::from("a"),
+            Value::from("a\0"),
+            Value::from("a\0b"),
+            Value::from("a\x01"),
+            Value::from("ab"),
+            Value::from("b"),
+            Value::from("é"),
         ];
         let keys: Vec<Vec<u8>> = ascending
             .iter()
             .map(|v| {
                 let mut key = Vec::new();
-                v.encode_sort(false, &mut key).unwrap();
+                encode_sort(v, false, &mut key).unwrap();
                 key
             })
             .collect();
@@ -1052,7 +998,7 @@ mod tests {
             .iter()
             .map(|v| {
                 let mut key = vec![9];
-                v.encode_sort(true, &mut key).unwrap();
+                encode_sort(v, true, &mut key).unwrap();
                 key
             })
             .collect();
@@ -1071,10 +1017,10 @@ mod tests {
     fn a_list_has_no_sort_key() {
         let mut key = Vec::new();
         assert_eq!(
-            ExprValue::Other("list").encode_sort(false, &mut key),
-            Err(EvalError::Type {
-                expected: "a scalar",
-                got: "list"
+            encode_sort(&Value::from(vec![1]), false, &mut key),
+            Err(ExecutionError::UnexpectedType {
+                got: "list".to_owned(),
+                want: "a scalar".to_owned()
             })
         );
         assert_eq!(key, Vec::<u8>::new());
