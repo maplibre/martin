@@ -69,9 +69,9 @@ pub struct GenerateArgs {
     /// are written. Unlike `martin cp`, low-zoom tiles are not filled with data from outside the box.
     #[arg(long)]
     pub bbox: Option<Bounds>,
-    /// Memory for sorting, split over the threads, e.g. `8GiB`.
-    #[arg(long, default_value = "2GiB", value_parser = parse_size)]
-    pub memory: u64,
+    /// Memory for sorting (in MB), split over the threads.
+    #[arg(long, default_value_t = 2048)]
+    pub memory_mb: u64,
     /// Directories for temporary sorted runs, used round-robin. Defaults to the system temp directory.
     #[arg(long)]
     pub temp_dir: Vec<PathBuf>,
@@ -232,7 +232,7 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
         options.temp_dir.clone()
     };
     let per_thread =
-        (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+        (options.memory_mb.saturating_mul(1 << 20) / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
     GenerateConfig {
         threads,
         sort: SortConfig {
@@ -377,45 +377,4 @@ fn remove_output(path: &Path) {
 fn parse_encoding(value: &str) -> Result<Encoding, String> {
     Encoding::parse(value)
         .ok_or_else(|| format!("unknown encoding `{value}`; use gzip, zstd, br, zlib or none"))
-}
-
-/// A byte count with an optional `K`, `M`, `G` or `T` suffix (powers of 1024), e.g. `512MiB` or `8G`.
-fn parse_size(value: &str) -> Result<u64, String> {
-    let value = value.trim();
-    let digits = value
-        .find(|c: char| !c.is_ascii_digit())
-        .unwrap_or(value.len());
-    let (number, unit) = value.split_at(digits);
-    let number: u64 = number.parse().map_err(|e| format!("`{value}`: {e}"))?;
-    let shift = match unit
-        .trim()
-        .to_ascii_lowercase()
-        .trim_end_matches("ib")
-        .trim_end_matches('b')
-    {
-        "" => 0,
-        "k" => 10,
-        "m" => 20,
-        "g" => 30,
-        "t" => 40,
-        _ => return Err(format!("`{value}`: unknown size unit `{unit}`")),
-    };
-    number
-        .checked_mul(1 << shift)
-        .ok_or_else(|| format!("`{value}` is too large"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sizes() {
-        assert_eq!(parse_size("1024"), Ok(1024));
-        assert_eq!(parse_size("2GiB"), Ok(2 << 30));
-        assert_eq!(parse_size("512 MB"), Ok(512 << 20));
-        assert_eq!(parse_size("8g"), Ok(8 << 30));
-        parse_size("1x").unwrap_err();
-        parse_size("GiB").unwrap_err();
-    }
 }
