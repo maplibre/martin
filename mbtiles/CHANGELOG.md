@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1](https://github.com/maplibre/martin/compare/mbtiles-v0.21.0...mbtiles-v0.21.1) - 2026-10-11
+
+### Other
+
+- *(mbtiles)* make mbtiles installable with cargo-binstall ([#3570](https://github.com/maplibre/martin/pull/3570))
+
 ## [0.21.0](https://github.com/maplibre/martin/compare/mbtiles-v0.20.2...mbtiles-v0.21.0) - 2026-10-09
 
 ### Added
