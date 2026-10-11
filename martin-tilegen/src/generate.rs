@@ -617,13 +617,11 @@ impl Run<'_> {
         for &(expr, descending) in &layer.sort_by {
             if self
                 .eval(expr, view, errors, |v| {
-                    v.encode_sort(descending, out).map(Some)
+                    expr::encode_sort(&v, descending, out).map(Some)
                 })
                 .is_none()
             {
-                ExprValue::Null
-                    .encode_sort(descending, out)
-                    .expect("null has a sort key");
+                expr::encode_sort(&Value::Null, descending, out).expect("null has a sort key");
             }
         }
     }
