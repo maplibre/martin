@@ -211,8 +211,8 @@ tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 walkdir = "2.5.0"
-wiremock = "0.6"
 wincode = "0.6.2"
+wiremock = "0.6"
 wkb = "0.9.2"
 xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 zstd = "0.14"
