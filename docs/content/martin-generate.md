@@ -85,7 +85,7 @@ postgres:
 ```
 
 Of a [table source](sources-pg-tables.md), `martin generate` uses `schema`, `table`, `geometry_column`,
-`srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`,
+`srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`,
 `layer_id` and [`layers`](sources-pg-layers.md). Settings that only affect serving, such as caching, are
 ignored.
 

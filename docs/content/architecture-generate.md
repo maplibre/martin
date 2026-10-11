@@ -1,5 +1,5 @@
 ---
-description: How martin generate scans, renders, sorts, encodes and writes a tileset, and how its queues bound memory
+description: How martin generate scans, renders, sorts, encodes and writes a tileset
 icon: material/sitemap
 tags:
   - development
@@ -8,62 +8,68 @@ tags:
 
 # Generation Architecture
 
-!!! warning "Not released, not fully implemented"
+!!! warning "Not released or fully implemented"
     `martin generate` is not in any release yet, and parts of what these pages describe are not
-    implemented yet. It is only built with the `unstable-generate` feature:
+    implemented yet.
+    It is only built with the `unstable-generate` feature:
 
     ```bash
     cargo build --package martin --bin martin --features unstable-generate
     ```
 
-`martin generate` turns whole tables into a tileset in two phases. First, every feature is read once and
+`martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and
 rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into
 tiles, encoded, and written in the order the archive stores them. Every step hands its work to the
 next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
 --8<-- "images/generate/overview.svg"
 
-The work is split over three crates:
+We implement this via two traits:
 
-| Crate            | Part                                                                                                                                  |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| `martin`         | The command line, lowering table sources and their layers into a plan, the PostgreSQL source and its partitions                       |
-| `martin-core`    | Snapshot connections, table size and id bounds, and the row decoding of a scan                                                        |
-| `martin-tilegen` | The engine: plan, rendering, external sort, the ordered pipeline, encoding and the archive writers. It knows nothing about PostgreSQL |
+- a `FeatureSource` streams features from partitions that can be read in parallel, and
+- a `TileSink` writes finished tiles in the order it asks for.
 
-The engine meets the rest through two traits: a `FeatureSource` streams features from partitions that
-can be read in parallel, and a `TileSink` writes finished tiles in the order it asks for.
-Another database or file format is another `FeatureSource`, and another archive format is another
-`TileSink`.
+Another database or file format is another `FeatureSource`, and another archive format is another `TileSink`.
 
 ## Phase 1: read and render
 
 ### Partitions
 
-Each table is split into partitions that are read independently, up to four per thread:
+A `FeatureSource` declares how many partitions it has, and streams one partition when asked. Readers
+read different partitions at the same time, at most one reader per thread. In return, a source promises
+two things:
 
-| Relation                                  | Partitions                                                                                                                                    |
-|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| Tables and materialized views             | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), at least 256 pages each. The last range is open, so rows added since are still read |
-| Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids                                                                  |
-| Anything else                             | One scan                                                                                                                                      |
+- **Stable order**: reading the partitions in order, each in its own row order, is the same as one scan
+  of every feature. That is what makes the output independent of the thread timing, see
+  [the sort key](#sort-key).
+- **Consistent data**: every partition is read from the same state of the data, even if it changes during
+  the run.
 
-Partitions are numbered table by table in physical order, so reading them in order, each in its own row
-order, is the same as one scan of each table. That is what makes the output independent of the thread
-timing, see [the sort key](#sort-key).
+How a source splits its data is up to the source. A file can split by byte range or row group, a
+database by key range.
 
-All readers see the same data: one connection exports a snapshot (`pg_export_snapshot()`), and every
-reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own
-parallel workers and synchronized scans are turned off on these connections, so each partition is read
-in its own order, at the pace the generator asks for. There is at most one reader per thread, and no
-more than the pool's `pool_size`.
+=== "PostgreSQL"
+
+    The PostgreSQL source splits each table by what the relation allows:
+
+    | Relation                                  | Partitions                                                                                                                                    |
+    |-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+    | Tables and materialized views             | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), at least 256 pages each. The last range is open, so rows added since are still read |
+    | Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids                                                                  |
+    | Anything else                             | One scan                                                                                                                                      |
+
+    Partitions are numbered table by table in physical order. For consistent data, one connection exports a
+    snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before
+    reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on
+    these connections, so each partition is read in its own order, at the pace the generator asks for. There
+    are no more readers than the pool's `pool_size`.
 
 ### Feature queue
 
 Readers claim the next partition from a shared counter and stream it as batches of up to 1024 features.
 The batches go into one queue that holds at most `threads × 2` batches, and every render worker takes
 the next batch from it. When the workers fall behind, the queue fills and the readers wait, which in turn
-stops reading from the database: memory does not grow with the table, and fast readers never race
+stops reading from the source. Memory does not grow with the source, and fast readers never race
 ahead of slow rendering.
 
 Because any worker can take any batch, a slow partition or a feature-heavy area never stalls the other
@@ -71,25 +77,24 @@ workers.
 
 ### Rendering
 
-A render worker takes each feature through every layer its table feeds:
+A render worker takes each feature through every layer its source feeds:
 
-1. The layer's `geometry` and `where` decide whether the feature belongs to the layer, and its `rules`
-   which settings apply, as [Table Source Layers](sources-pg-layers.md) describes.
+1. The layer's filters decide whether the feature belongs to the layer, and its rules which settings
+   apply.
 2. The feature is projected to Web Mercator once, then rendered from its highest zoom down. At each zoom
    a line or polygon is simplified, and dropped once it is smaller than the minimum size, which also
    ends the lower zooms, since a feature only shrinks with the zoom. Points are rendered at every zoom.
 3. The geometry is sliced into the tiles it touches, keeping its own vertices. No new vertices are cut at
-   tile edges: a polygon ring that leaves a tile is closed by corners just outside the tile's buffer,
+   tile edges. A polygon ring that leaves a tile is closed by corners just outside the tile's buffer,
    where renderers clip it away. A feature that keeps clear of every neighbor tile's buffer, as most do
-   at most zooms, skips the slicer entirely. A layer with `clip_geom: false` writes the whole feature
-   into every tile it touches.
-4. Each piece becomes a compact record: its kind, id, `sort_by` key, properties, then its vertices as
-   tile-local deltas, mostly one or two bytes each.
+   at most zooms, skips the slicer entirely.
+4. Each piece is stored as a record. Its vertices are stored as offsets from the previous vertex, which
+   usually fit in one or two bytes.
 
-In a clipped layer, the tiles a polygon covers entirely become **fill ranges** instead of one record per tile: one record
-that stands for a contiguous run of tile ids in the archive's tile order, a column of tiles in MBTiles
-order or an aligned quadtree cell in Hilbert order. A huge polygon such as an ocean or a country then
-costs time and space in proportion to its outline, not its area.
+The tiles a polygon covers entirely become **fill ranges** instead of one record per tile. A fill range
+is one record that stands for a contiguous run of tile ids in the archive's tile order, which is a column
+of tiles in MBTiles order or an aligned quadtree cell in Hilbert order. A huge polygon such as an ocean
+or a country then costs time and space in proportion to its outline, not its area.
 
 ### Sort key
 
@@ -99,11 +104,11 @@ Every record is sorted by a 16-byte key:
 
 Sorting by this key puts the pieces of each tile next to each other, in the order the archive writes
 its tiles. Inside a tile, it puts the layers in their configured order, and inside a layer, it keeps the
-features in source order. The `Seq` part
-is the feature's partition and row: it is the same however the partitions were spread over threads,
-so the tiles are the same whatever the number of threads and their timing.
+features in source order. The `Seq` part is the feature's partition and row, which do not depend on
+how the partitions were spread over threads. The tiles are therefore the same whatever the number of
+threads and their timing.
 
-A layer's `sort_by` value is not part of the key: it travels in the record, and the encoder orders each
+A layer's `sort_by` value is not part of the key. It travels in the record, and the encoder orders each
 layer's features by it, keeping the `Seq` order of equal values.
 
 ### External sort
@@ -176,10 +181,10 @@ The archive stores tiles with the same dedup key once. Other identical tiles are
 The archive decides the tile order, and the whole pipeline produces tiles in that order, so the writer
 never sorts or buffers:
 
-| Archive | Tile order                           | Why                                                                                                                                          |
-|---------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| MBTiles | Zoom, column, then bottom-up TMS row | The primary key of the `tiles` table: inserts append to its B-tree instead of splitting pages. Always the deduplicated (`normalized`) schema |
-| PMTiles | Hilbert tile id                      | A clustered archive, written as a stream. Tiles with a dedup key share their bytes                                                           |
+| Archive | Tile order                           | Why                                                                                                                                             |
+|---------|--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| MBTiles | Zoom, column, then bottom-up TMS row | The primary key of the `tiles` table, so inserts append to its B-tree instead of splitting pages. Always the deduplicated (`normalized`) schema |
+| PMTiles | Hilbert tile id                      | A clustered archive, written as a stream. Tiles with a dedup key share their bytes                                                              |
 
 The tileset's metadata, including the zooms, the format and each layer's fields, is only complete after the
 last tile, so the archive stores it last.
@@ -193,7 +198,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | Feature queue    | `threads × 2` batches of up to 1024 features                              |
 | Sort buffers     | `--memory` in total, records plus index, but at least 16 MiB per worker   |
 | Run file writers | 1 MiB of write buffer for each run being written                          |
-| Merge            | 256 KiB of read buffer per run, at most 256 runs: 64 MiB per merge        |
+| Merge            | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge     |
 | Encode window    | `threads × 4` batches of 256 tiles, including those in the reorder buffer |
 | Dedup index      | One copy of each distinct tile that got a dedup key                       |
 
