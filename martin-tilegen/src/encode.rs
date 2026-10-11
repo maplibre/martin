@@ -11,7 +11,7 @@ use mlt_core::{PropKind, TileLayer};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::group::TileRecords;
-use crate::props::{KeyNames, widen};
+use crate::props::KeyNames;
 use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, TileOrder};
 
 #[derive(Clone, Copy, Debug)]
@@ -106,7 +106,7 @@ impl LayerStats {
     fn add_field(&mut self, name: &str, kind: PropKind) {
         self.fields
             .entry(name.to_owned())
-            .and_modify(|known| *known = widen(*known, kind))
+            .and_modify(|known| *known = known.merge(kind))
             .or_insert(kind);
     }
 

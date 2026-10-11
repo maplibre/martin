@@ -5,7 +5,7 @@ use mlt_core::geo_types::{
 };
 use mlt_core::{PropertyKey, TileLayer};
 
-use crate::props::{KeyNames, TileColumns, to_value};
+use crate::props::{KeyNames, TileColumns};
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 

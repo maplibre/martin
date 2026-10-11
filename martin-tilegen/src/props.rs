@@ -108,7 +108,7 @@ impl TileColumns {
         let idx = if slot == 0 {
             self.columns.push(Column {
                 key,
-                kind: kind(value),
+                kind: value.kind(),
                 has_negative: false,
             });
             *self.slot(key) = index_u32(self.columns.len());
