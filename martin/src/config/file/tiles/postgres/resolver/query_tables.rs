@@ -316,7 +316,7 @@ impl TableQuerySql {
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
-                escape_literal(id_column),
+                escape_identifier(id_column),
                 format!(", {}", escape_literal(id_column)),
                 escape_with_alias(&info.discovered.prop_mapping, id_column),
             )
