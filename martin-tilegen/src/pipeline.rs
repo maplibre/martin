@@ -118,19 +118,13 @@ mod tests {
             }
         };
         let mut seen = 0;
-        let err = run(
-            4,
-            8,
-            produce_n(100),
-            encode,
-            |results| {
-                for result in results {
-                    result?;
-                    seen += 1;
-                }
-                Ok(())
-            },
-        )
+        let err = run(4, 8, produce_n(100), encode, |results| {
+            for result in results {
+                result?;
+                seen += 1;
+            }
+            Ok(())
+        })
         .unwrap_err();
         assert!(matches!(err, TileGenError::RecordTooLarge(7)));
         assert_eq!(seen, 7);
@@ -143,18 +137,12 @@ mod tests {
             Err(TileGenError::InvalidTileId(99))
         };
         let mut seen = Vec::new();
-        let err = run(
-            2,
-            3,
-            produce,
-            Ok,
-            |results| {
-                for result in results {
-                    seen.push(result?);
-                }
-                Ok(())
-            },
-        )
+        let err = run(2, 3, produce, Ok, |results| {
+            for result in results {
+                seen.push(result?);
+            }
+            Ok(())
+        })
         .unwrap_err();
         assert!(matches!(err, TileGenError::InvalidTileId(99)));
         assert_eq!(seen, [0, 1, 2, 3, 4]);
@@ -162,16 +150,10 @@ mod tests {
 
     #[test]
     fn writer_error_stops_the_producer() {
-        let err = run(
-            2,
-            2,
-            produce_n(1_000_000),
-            Ok,
-            |results| {
-                results.take(3).try_for_each(|r| r.map(drop))?;
-                Err::<(), _>(TileGenError::InvalidTileId(1))
-            },
-        )
+        let err = run(2, 2, produce_n(1_000_000), Ok, |results| {
+            results.take(3).try_for_each(|r| r.map(drop))?;
+            Err::<(), _>(TileGenError::InvalidTileId(1))
+        })
         .unwrap_err();
         assert!(matches!(err, TileGenError::InvalidTileId(1)));
     }
