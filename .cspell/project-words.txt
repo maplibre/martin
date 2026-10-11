@@ -129,6 +129,7 @@ schemafile
 serde
 setseed
 setsrid
+shapefile
 spreet
 spritesheet
 sqlx
@@ -137,6 +138,7 @@ sslinfo
 sslmode
 stackoverflow
 stmts
+Straße
 strs
 subpages
 subpaths
