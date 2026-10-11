@@ -285,7 +285,7 @@ jobs:
           - variant: base
             suffix: ''
             flavor: ''
-            extra_packages: libfreetype6
+            extra_packages: ''
             description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
           - variant: full
             suffix: '-full'
