@@ -1252,6 +1252,7 @@ mod tests {
                     geom: FeatureGeom::Points(&[coord! { x: 0.5, y: f64::NAN }]),
                     props: &EncodedProps::default(),
                     bands: &[],
+                    sort: None,
                     zooms: 0..=2,
                     simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                     min_size: PixelThreshold::DEFAULT_MIN_SIZE,
