@@ -293,22 +293,13 @@ impl TableQuerySql {
         grid: &PgTileGrid,
         table_wrap: Option<f64>,
     ) -> PostgresResult<Self> {
-        let props = info.properties.iter().flatten();
-        let properties: String = props
-            .clone()
+        let properties: String = info
+            .properties
+            .iter()
+            .flatten()
             .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
-        let row_properties: String = props
-            .map(|(column, label)| {
-                let table_column = info.discovered.prop_mapping.get(column).unwrap_or(column);
-                let pg_type = info
-                    .discovered
-                    .column_types
-                    .get(table_column)
-                    .unwrap_or(label);
-                escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
-            })
-            .collect();
+        let row_properties = row_properties(info);
 
         let (id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
@@ -323,12 +314,7 @@ impl TableQuerySql {
         let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
         let margin = f64::from(buffer) / f64::from(extent);
         let geometry_column = escape_identifier(&info.geometry_column);
-        // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
-        let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
-            format!("ST_CurveToLine({geometry_column}::geometry)")
-        } else {
-            format!("{geometry_column}::geometry")
-        };
+        let geometry = linear_geometry(info);
         let GridSql {
             geometry,
             envelope,
@@ -503,6 +489,29 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
     let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
     Ok(format!(" {keyword} ({sql})"))
+}
+
+/// The properties as tile row queries select them, cast by the type each column is returned as.
+fn row_properties(info: &TableInfo) -> String {
+    info.properties
+        .iter()
+        .flatten()
+        .map(|(column, label)| {
+            let pg_type = info.column_type(column).unwrap_or(label);
+            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
+        })
+        .collect()
+}
+
+/// The geometry column as `geometry`; `ST_AsMVTGeom` cannot encode arcs, so a column that may hold them
+/// is linearized.
+fn linear_geometry(info: &TableInfo) -> String {
+    let column = escape_identifier(&info.geometry_column);
+    if may_contain_arcs(info.geometry_type.as_deref()) {
+        format!("ST_CurveToLine({column}::geometry)")
+    } else {
+        format!("{column}::geometry")
+    }
 }
 
 /// Whether a column of this geometry type can hold circular arcs.
