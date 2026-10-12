@@ -147,6 +147,8 @@ Each tile's `ETag` is derived from the nine tiles it read plus the settings it w
 
 ## Neighborhood handling
 
+--8<-- "images/postprocess/neighborhood.svg"
+
 Contours are traced across a 3x3 neighborhood with a `fetch_margin` apron, then shifted back so only the center tile's extent is encoded.
 Without it, a line crossing a tile edge would stop short of its continuation in the next tile and the seam would be visible at every boundary.
 
