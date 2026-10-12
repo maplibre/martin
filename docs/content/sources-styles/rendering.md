@@ -138,13 +138,6 @@ An empty or missing body is equivalent to `GET`.
 
 The `{camera}` segment chooses what the image looks at:
 
-| Form                            | Meaning                                              |
-| ------------------------------- | ---------------------------------------------------- |
-| `lon,lat,zoom`                  | Center at `(lon, lat)` and `zoom` (north up, flat).  |
-| `lon,lat,zoom@bearing`          | Center + bearing in degrees (clockwise from north).  |
-| `lon,lat,zoom@bearing,pitch`    | Center + bearing + pitch in degrees.                 |
-| `minLon,minLat,maxLon,maxLat`   | Fit the given bounding box to the requested size.    |
-
 --8<-- "images/styles/camera.svg"
 
 !!! info
