@@ -12,8 +12,8 @@ use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
 };
 use martin_tilegen::{
-    GenerateConfig, LayerGrid, MbtilesSink, PixelThreshold, Progress, SortConfig, Summary,
-    TileFormat, TileGenResult, generate,
+    GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress, SortConfig,
+    Summary, TileFormat, TileGenResult, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser, TileLayer};
@@ -140,7 +140,7 @@ fn generates_a_deterministic_tileset() {
     let dir = tempfile::tempdir().unwrap();
     let (summary, rows, mbt) = run(&source, &plan, dir.path(), 1);
     assert_eq!(summary.features, 120);
-    assert_eq!(summary.slice_errors, 0);
+    assert_eq!(summary.slice_errors, []);
     assert_eq!(summary.tiles, rows.len() as u64);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 4));
 
@@ -176,6 +176,33 @@ fn generates_a_deterministic_tileset() {
         parallel_rows == rows,
         "output must not depend on the thread count"
     );
+}
+
+#[test]
+fn reports_the_first_unrenderable_feature_regardless_of_threads() {
+    let (mut source, plan) = source();
+    source.batches[4].features[5].geometry = Geometry::Points(vec![Coord {
+        x: f64::NAN,
+        y: 0.0,
+    }]);
+    source.batches[2].features[3].geometry = Geometry::Points(vec![Coord {
+        x: 0.0,
+        y: f64::NAN,
+    }]);
+    let dir = tempfile::tempdir().unwrap();
+    let expected = [LayerSliceErrors {
+        layer: "places".to_owned(),
+        errors: 10,
+        zoom: 4,
+        id: Some(203),
+        partition: 2,
+        row: 3,
+        error: "a coordinate is outside the i32 zoom grid".to_owned(),
+    }];
+    for threads in [1, 4] {
+        let (summary, _, _) = run(&source, &plan, dir.path(), threads);
+        assert_eq!(summary.slice_errors, expected, "{threads} threads");
+    }
 }
 
 #[test]

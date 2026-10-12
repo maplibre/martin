@@ -16,8 +16,8 @@ use crate::record::EncodedProps;
 use crate::source::{Crs, FeatureBatch, FeatureSource, Geometry};
 use crate::{
     DedupIndex, EncodeSettings, Feature, FeatureGeom, LayerInfo, LayerStats, Renderer, Seq,
-    SortBuffer, SortConfig, Sorter, TileEncoder, TileFormat, TileGenError, TileGenResult,
-    TileGrouper, TileOrder, TileRecords, TileSink, project,
+    SliceErrors, SortBuffer, SortConfig, Sorter, TileEncoder, TileFormat, TileGenError,
+    TileGenResult, TileGrouper, TileOrder, TileRecords, TileSink, project,
 };
 
 #[derive(Clone, Debug)]
@@ -37,8 +37,20 @@ pub struct GenerateConfig {
 pub struct Summary {
     pub features: u64,
     pub tiles: u64,
-    /// Feature-zooms the slicer could not handle and skipped.
-    pub slice_errors: u64,
+    /// Layers with feature-zooms the slicer could not handle and skipped, in plan order.
+    pub slice_errors: Vec<LayerSliceErrors>,
+}
+
+/// The skipped feature-zooms of one layer, and the first of them in source order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LayerSliceErrors {
+    pub layer: String,
+    pub errors: u64,
+    pub zoom: u8,
+    pub id: Option<u64>,
+    pub partition: u32,
+    pub row: u64,
+    pub error: String,
 }
 
 /// Live counters another thread can report while a generation runs.
@@ -145,8 +157,28 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     Ok(Summary {
         features: totals.features,
         tiles,
-        slice_errors: totals.slice_errors,
+        slice_errors: layer_slice_errors(plan, &totals.slice_errors),
     })
+}
+
+fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErrors> {
+    plan.layers
+        .iter()
+        .filter_map(|layer| {
+            let index = usize::from(layer.render.index);
+            let errors = totals.get(index)?;
+            let first = errors.first.as_ref()?;
+            Some(LayerSliceErrors {
+                layer: layer.info.name.clone(),
+                errors: errors.count,
+                zoom: first.zoom,
+                id: first.id,
+                partition: first.seq.partition(),
+                row: first.seq.row(),
+                error: first.error.to_string(),
+            })
+        })
+        .collect()
 }
 
 /// Property keys as sources intern them, per table, and as tiles hold them, per output layer.
@@ -158,7 +190,8 @@ struct Keys {
 #[derive(Default)]
 struct RenderTotals {
     features: u64,
-    slice_errors: u64,
+    /// By layer index.
+    slice_errors: Vec<SliceErrors>,
 }
 
 fn render_all<S: FeatureSource>(
@@ -248,7 +281,14 @@ fn render_all<S: FeatureSource>(
             match join(worker) {
                 Ok(worker) => {
                     totals.features += worker.features;
-                    totals.slice_errors += worker.slice_errors;
+                    if totals.slice_errors.len() < worker.slice_errors.len() {
+                        totals
+                            .slice_errors
+                            .resize_with(worker.slice_errors.len(), SliceErrors::default);
+                    }
+                    for (total, errors) in totals.slice_errors.iter_mut().zip(worker.slice_errors) {
+                        total.merge(errors);
+                    }
                 }
                 Err(err) => errors.push(err),
             }
