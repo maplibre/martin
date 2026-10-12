@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn the_sort_key_is_an_optional_field_after_the_id() {
         let mut props = EncodedProps::default();
-        props.push(KeyId(2), PropValueRef::I64(-1));
+        props.push(KeyId::new(2), PropValueRef::I64(-1));
         let geom = Geom::Points(&[[3, -2]]);
         let mut unsorted = Vec::new();
         encode(&mut unsorted, Some(4), None, &props, geom);

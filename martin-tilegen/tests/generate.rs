@@ -1369,7 +1369,7 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
     let point = |id, rank| SourceFeature {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
-        props: vec![(KeyId::from(0), Prop::I64(rank))],
+        props: vec![(KeyId::new(0), Prop::I64(rank))],
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -1438,8 +1438,8 @@ fn sort_by_compares_its_keys_in_order() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::from(0), Prop::Str(class.to_owned())),
-            (KeyId::from(1), Prop::I64(rank)),
+            (KeyId::new(0), Prop::Str(class.to_owned())),
+            (KeyId::new(1), Prop::I64(rank)),
         ],
     };
     let source = MemorySource {
@@ -1499,10 +1499,10 @@ fn null_and_failing_sort_keys_sort_first() {
             first_row: 0,
             crs: Crs::Wgs84,
             features: vec![
-                point(1, vec![(KeyId::from(0), Prop::I64(4))]),
-                point(2, vec![(KeyId::from(0), Prop::I64(0))]),
-                point(3, vec![(KeyId::from(0), Prop::I64(8))]),
-                point(4, vec![(KeyId::from(0), Prop::I64(-1))]),
+                point(1, vec![(KeyId::new(0), Prop::I64(4))]),
+                point(2, vec![(KeyId::new(0), Prop::I64(0))]),
+                point(3, vec![(KeyId::new(0), Prop::I64(8))]),
+                point(4, vec![(KeyId::new(0), Prop::I64(-1))]),
                 point(5, vec![]),
             ],
         }],
@@ -1545,7 +1545,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
     let feature = |id, geometry, rank| SourceFeature {
         id: Some(id),
         geometry,
-        props: vec![(KeyId::from(0), Prop::I64(rank))],
+        props: vec![(KeyId::new(0), Prop::I64(rank))],
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -1625,7 +1625,7 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
     let point = |id, rank| SourceFeature {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
-        props: vec![(KeyId::from(0), Prop::I64(rank))],
+        props: vec![(KeyId::new(0), Prop::I64(rank))],
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
