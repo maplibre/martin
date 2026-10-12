@@ -1,14 +1,14 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read as _, Seek as _, Write as _};
+use std::io::{BufReader, BufWriter, Read as _, Seek as _};
 use std::path::Path;
 
-use integer_encoding::{VarIntReader as _, VarIntWriter as _};
+use wincode::config::Configuration;
 
 use crate::{SortKey, TileGenResult};
 
 const WRITE_BUFFER_BYTES: usize = 1 << 20;
 
-/// A sorted temp file of `key (16 bytes LE) | varint length | record`, repeated.
+/// A sorted temp file of `(key, record)` pairs in fixed-width [wincode].
 /// Runs are numbered in creation order, and a worker's runs are created in the order it pushed
 /// records, so breaking key ties by run index keeps each worker's push order.
 pub(super) struct Run {
@@ -21,7 +21,6 @@ pub(super) struct RunWriter {
     index: u32,
     out: BufWriter<File>,
     records: u64,
-    frame: Vec<u8>,
 }
 
 impl RunWriter {
@@ -30,16 +29,11 @@ impl RunWriter {
             index,
             out: BufWriter::with_capacity(WRITE_BUFFER_BYTES, tempfile::tempfile_in(dir)?),
             records: 0,
-            frame: Vec::with_capacity(SortKey::ENCODED_LEN + 10),
         })
     }
 
     pub(super) fn write(&mut self, key: SortKey, record: &[u8]) -> TileGenResult<()> {
-        self.frame.clear();
-        self.frame.extend_from_slice(&key.to_bytes());
-        self.frame.write_varint(record.len())?;
-        self.out.write_all(&self.frame)?;
-        self.out.write_all(record)?;
+        wincode::config::serialize_into(&mut self.out, &(key, record), Configuration::default())?;
         self.records += 1;
         Ok(())
     }
@@ -92,12 +86,11 @@ impl RunReader {
             return Ok(());
         }
         self.remaining -= 1;
-        let mut key = [0; SortKey::ENCODED_LEN];
-        self.reader.read_exact(&mut key)?;
-        let len = self.reader.read_varint::<usize>()?;
+        let (key, len): (_, usize) =
+            wincode::config::deserialize_from(&mut self.reader, Configuration::default())?;
         self.record.resize(len, 0);
         self.reader.read_exact(&mut self.record)?;
-        self.head = Some(SortKey::from_bytes(key));
+        self.head = Some(key);
         Ok(())
     }
 }

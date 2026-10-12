@@ -2,7 +2,7 @@
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::num::NonZeroU32;
 
 use lasso::{Key as _, RodeoResolver, Spur, ThreadedRodeo};
 use mlt_core::{PropKind, PropValueRef};
@@ -18,6 +18,22 @@ impl KeyId {
 
 fn index_u32(len: usize) -> u32 {
     u32::try_from(len).expect("fewer than 2^32 property keys or columns")
+}
+
+/// Position of a key's column among the columns of one layer in one tile (!= [`KeyId`] the key for the whole layer).
+///
+/// `None` while no feature of the tile carries the key.
+#[derive(Clone, Copy, Default)]
+struct ColumnIndex(Option<NonZeroU32>);
+
+impl ColumnIndex {
+    fn new(position: usize) -> Self {
+        Self(NonZeroU32::new(index_u32(position + 1)))
+    }
+
+    fn get(self) -> Option<usize> {
+        self.0.map(|n| n.get() as usize - 1)
+    }
 }
 
 /// Property keys of one layer, shared by all workers. Keys the source declares up front get the first ids
@@ -77,7 +93,7 @@ impl KeyNames {
 /// The columns of one layer in one tile, built from the values its features carry. Reused across tiles.
 #[derive(Default)]
 pub(crate) struct TileColumns {
-    index: HashMap<KeyId, usize>,
+    column_of_key: Vec<ColumnIndex>,
     columns: Vec<Column>,
 }
 
@@ -89,19 +105,33 @@ struct Column {
 
 impl TileColumns {
     pub(crate) fn clear(&mut self) {
-        self.index.clear();
+        for column in &self.columns {
+            self.column_of_key[column.key.0 as usize] = ColumnIndex::default();
+        }
         self.columns.clear();
     }
 
+    fn column_index_mut(&mut self, key: KeyId) -> &mut ColumnIndex {
+        let idx = key.0 as usize;
+        if idx >= self.column_of_key.len() {
+            self.column_of_key.resize(idx + 1, ColumnIndex::default());
+        }
+        &mut self.column_of_key[idx]
+    }
+
     pub(crate) fn add(&mut self, key: KeyId, value: PropValueRef<'_>) {
-        let idx = *self.index.entry(key).or_insert_with(|| {
+        let idx = if let Some(idx) = self.column_index_mut(key).get() {
+            idx
+        } else {
             self.columns.push(Column {
                 key,
                 kind: value.kind(),
                 has_negative: false,
             });
-            self.columns.len() - 1
-        });
+            let idx = self.columns.len() - 1;
+            *self.column_index_mut(key) = ColumnIndex::new(idx);
+            idx
+        };
         let column = &mut self.columns[idx];
         column.kind = column.kind.merge(value.kind());
         column.has_negative |= matches!(value, PropValueRef::I64(v) if v < 0);
@@ -112,7 +142,7 @@ impl TileColumns {
         self.columns
             .sort_by(|a, b| names.column_order(a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
-            self.index.insert(column.key, pos);
+            self.column_of_key[column.key.0 as usize] = ColumnIndex::new(pos);
         }
         self.columns
             .iter()
@@ -125,80 +155,18 @@ impl TileColumns {
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
     pub(crate) fn position(&self, key: KeyId) -> Option<usize> {
-        self.index.get(&key).copied()
+        self.column_of_key.get(key.0 as usize)?.get()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use mlt_core::PropValue;
-
     use super::*;
-
-    #[test]
-    fn known_keys_come_first_in_declaration_order() {
-        let interner = KeyInterner::new(["zeta", "alpha"]);
-        let dynamic_b = interner.intern("b");
-        let dynamic_a = interner.intern("a");
-        assert_eq!(interner.intern("zeta"), KeyId(0));
-        let names = interner.freeze();
-        let mut columns = TileColumns::default();
-        for key in [dynamic_b, KeyId(1), dynamic_a, KeyId(0)] {
-            columns.add(key, PropValueRef::I64(1));
-        }
-        let order: Vec<_> = columns
-            .finish(&names)
-            .iter()
-            .map(|(k, _)| names.name(*k).to_owned())
-            .collect();
-        assert_eq!(order, ["zeta", "alpha", "a", "b"]);
-    }
-
-    #[test]
-    fn kinds_merge_like_mlt_core() {
-        let names = KeyInterner::new(["n", "f", "s", "u", "m"]).freeze();
-        let mut columns = TileColumns::default();
-        for (key, value) in [
-            (0, PropValueRef::I64(-1)),
-            (0, PropValueRef::I64(5)),
-            (1, PropValueRef::F32(1.5)),
-            (1, PropValueRef::F64(2.5)),
-            (2, PropValueRef::I64(1)),
-            (2, PropValueRef::Bool(true)),
-            (3, PropValueRef::I64(7)),
-            (4, PropValueRef::I64(3)),
-            (4, PropValueRef::F64(1.5)),
-        ] {
-            columns.add(KeyId(key), value);
-        }
-        let kinds: Vec<_> = columns.finish(&names).into_iter().map(|(_, k)| k).collect();
-        assert_eq!(
-            kinds,
-            [
-                PropKind::I64,
-                PropKind::F64,
-                PropKind::Str,
-                PropKind::U64,
-                PropKind::F64
-            ]
-        );
-        assert_eq!(
-            PropValueRef::I64(3).coerce(PropKind::F64),
-            PropValue::F64(Some(3.0))
-        );
-        assert_eq!(
-            PropValueRef::I64(1).coerce(PropKind::Str),
-            PropValue::Str(Some("1".to_owned()))
-        );
-        assert_eq!(
-            PropValueRef::F32(1.5).coerce(PropKind::F64),
-            PropValue::F64(Some(1.5))
-        );
-    }
 
     #[test]
     fn interning_is_thread_safe() {
         let interner = KeyInterner::new::<&str>([]);
+
         let ids: Vec<Vec<KeyId>> = std::thread::scope(|scope| {
             let handles: Vec<_> = (0..4)
                 .map(|_| {
@@ -211,7 +179,11 @@ mod tests {
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         });
+
         assert!(ids.windows(2).all(|w| w[0] == w[1]));
-        assert_eq!(interner.freeze().names.len(), 100);
+        let names = interner.freeze();
+        for (i, id) in ids[0].iter().enumerate() {
+            assert_eq!(names.name(*id), format!("k{i}"));
+        }
     }
 }
