@@ -257,7 +257,10 @@ impl Renderer {
                 }
             }
             FeatureGeom::Lines(lines) => {
-                let bbox = lines.iter().filter_map(BoundingRect::bounding_rect).reduce(union);
+                let bbox = lines
+                    .iter()
+                    .filter_map(BoundingRect::bounding_rect)
+                    .reduce(union);
                 self.render_zooms(&ctx, zooms, bbox, out, |r, zoom, shift, out| {
                     r.render_lines(&ctx, zoom, lines, shift, out)
                 })?;
