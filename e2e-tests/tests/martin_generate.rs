@@ -71,7 +71,7 @@ postgres:
         .arg("5")
         .run()
         .await;
-    assert_eq!(tile_listing(&again).await, tile_listing(&output).await);
+    assert_eq!(martin_e2e_tests::tiles(&again).await, martin_e2e_tests::tiles(&output).await);
 }
 
 #[tokio::test]
