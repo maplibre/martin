@@ -3,7 +3,7 @@
 use martin_core::generate::props::Prop;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, LayerDef, Plan, PlanError, TableDef, ValueDef,
+    AttributesDef, ComputedAttr, LayerDef, Plan, PlanError, RuleDef, TableDef, ValueDef,
 };
 
 const GRID: LayerGrid = LayerGrid {
@@ -115,6 +115,32 @@ fn rejects_a_repeated_computed_attribute() {
                 attributes: vec![attr.clone(), attr],
                 prefixes: vec![],
             },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `roads`: attribute `big` is listed more than once"
+    );
+}
+
+#[test]
+fn rejects_a_rule_repeating_an_attribute() {
+    let attr = ComputedAttr {
+        name: "big".to_owned(),
+        value: ValueDef::Literal(Prop::Bool(true)),
+        zooms: 0..=30,
+    };
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            rules: vec![RuleDef {
+                when: Some("true".to_owned()),
+                attributes: vec![attr.clone(), attr],
+                ..RuleDef::default()
+            }],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
