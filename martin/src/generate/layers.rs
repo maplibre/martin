@@ -43,7 +43,6 @@ pub fn lower_table(
         return Err(GenerateError::NoZooms(id.to_owned(), cli_min, cli_max));
     }
     let defaults = LayerDef {
-        clip: info.clip_geom.unwrap_or(true),
         bounds: options.bbox,
         ..LayerDef::new(
             String::new(),
@@ -146,16 +145,15 @@ fn lower_layer(
                 .map_or(defaults.grid.extent, std::num::NonZeroU32::get),
             buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
         },
-        clip: layer.clip_geom.unwrap_or(defaults.clip),
         simplify: threshold(
             layer.simplify,
             layer.simplify_at_maxzoom(),
-            PixelThreshold::PLANETILER_SIMPLIFY,
+            PixelThreshold::DEFAULT_SIMPLIFY,
         ),
         min_size: threshold(
             layer.min_size,
             layer.min_size_at_maxzoom(),
-            PixelThreshold::PLANETILER_MIN_SIZE,
+            PixelThreshold::DEFAULT_MIN_SIZE,
         ),
         bounds: defaults.bounds,
         encoder: defaults.encoder,
@@ -266,7 +264,6 @@ mod tests {
             maxzoom: 10
             extent: 512
             buffer: 8
-            clip_geom: false
             properties:
               name: text
               rank: int4
@@ -297,7 +294,6 @@ mod tests {
                         extent: 512,
                         buffer: 8,
                     },
-                    clip: false,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,
@@ -352,7 +348,6 @@ mod tests {
                         extent: 4096,
                         buffer: 64,
                     },
-                    clip: true,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,
@@ -395,7 +390,6 @@ mod tests {
                     maxzoom: 20
                     extent: 4096
                     buffer: 0
-                    clip_geom: false
                     simplify: 2
                     min_size_at_maxzoom: 0.5
                     id: drop
@@ -432,7 +426,6 @@ mod tests {
                         extent: 4096,
                         buffer: 0,
                     },
-                    clip: false,
                     simplify: PixelThreshold {
                         below_max_zoom: 2.0,
                         at_max_zoom: 2.0,
@@ -456,7 +449,6 @@ mod tests {
                         extent: 1024,
                         buffer: 16,
                     },
-                    clip: true,
                     simplify: PixelThreshold {
                         below_max_zoom: 1.0,
                         at_max_zoom: 0.0,
@@ -480,7 +472,6 @@ mod tests {
                         extent: 1024,
                         buffer: 16,
                     },
-                    clip: true,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,
