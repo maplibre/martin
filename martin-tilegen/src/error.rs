@@ -25,6 +25,12 @@ pub enum TileGenError {
     #[error("invalid sort configuration: {0}")]
     InvalidSortConfig(&'static str),
 
+    #[error(transparent)]
+    RenderLayer(#[from] crate::RenderLayerError),
+
+    #[error(transparent)]
+    Geometry(#[from] crate::GeometryError),
+
     #[error("a temp record is corrupt")]
     CorruptRecord,
 

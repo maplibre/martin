@@ -10,7 +10,7 @@ use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
 /// The tile-local square a fill record stands for, including the buffer.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LayerGrid {
     pub extent: u32,
     pub buffer: u32,

@@ -6,7 +6,7 @@ use mbtiles::{
     is_empty_database,
 };
 use tilejson::TileJSON;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 
 use super::{EncodedTile, TileSink};
 use crate::{TileGenError, TileGenResult, TileOrder};
@@ -17,18 +17,17 @@ const MBT_TYPE: MbtType = MbtType::Normalized {
 };
 
 /// Writes a new deduplicated (`DedupId`) `MBTiles` file through [`Mbtiles::bulk_write`].
-/// The mbtiles crate is async; this sink owns a single-threaded runtime because it runs on the writer thread.
+/// The mbtiles crate is async, so the sink blocks on the tokio runtime it was created in.
 pub struct MbtilesSink {
-    runtime: Runtime,
+    runtime: Handle,
     mbt: Mbtiles,
     conn: SqliteConnection,
 }
 
 impl MbtilesSink {
+    /// Must be called on a blocking thread of a tokio runtime, e.g. inside [`tokio::task::spawn_blocking`].
     pub fn create(path: &Path) -> TileGenResult<Self> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let runtime = Handle::current();
         let mbt = Mbtiles::new(path)?;
         let conn = runtime.block_on(async {
             let mut conn = mbt.open_or_new().await?;
@@ -92,72 +91,91 @@ mod tests {
         }
     }
 
-    #[test]
-    fn writes_tiles_and_metadata() {
+    #[tokio::test]
+    async fn writes_tiles_and_metadata() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("out.mbtiles");
-        let mut sink = MbtilesSink::create(&path).unwrap();
-        let batches = vec![
-            Ok(vec![
-                tile(0, 0, 0, b"root", None),
-                tile(1, 0, 0, b"fill", Some(1)),
-            ]),
-            Ok(vec![
-                tile(1, 0, 1, b"fill", Some(1)),
-                tile(1, 1, 1, b"leaf", None),
-            ]),
-        ];
-        sink.write_all(&mut batches.into_iter()).unwrap();
-        let mut metadata = tilejson::tilejson! { tiles: vec![] };
-        metadata.other.insert("format".to_owned(), "pbf".into());
-        sink.finish(&metadata).unwrap();
+        tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let mut sink = MbtilesSink::create(&path).unwrap();
+                let batches = vec![
+                    Ok(vec![
+                        tile(0, 0, 0, b"root", None),
+                        tile(1, 0, 0, b"fill", Some(1)),
+                    ]),
+                    Ok(vec![
+                        tile(1, 0, 1, b"fill", Some(1)),
+                        tile(1, 1, 1, b"leaf", None),
+                    ]),
+                ];
+                sink.write_all(&mut batches.into_iter()).unwrap();
+                let mut metadata = tilejson::tilejson! { tiles: vec![] };
+                metadata.other.insert("format".to_owned(), "pbf".into());
+                sink.finish(&metadata).unwrap();
+            }
+        })
+        .await
+        .unwrap();
 
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
+            .await
             .unwrap();
-        runtime.block_on(async {
-            let mbt = Mbtiles::new(&path).unwrap();
-            let mut conn = mbt.open_readonly().await.unwrap();
-            mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
-                .await
-                .unwrap();
-            assert_eq!(
-                mbt.get_tile(&mut conn, 1, 0, 1).await.unwrap().unwrap(),
-                b"fill"
-            );
-            assert_eq!(
-                mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(),
-                b"leaf"
-            );
-            let blobs: i64 = mbtiles::sqlx::query_scalar("SELECT count(*) FROM tiles_data")
-                .fetch_one(&mut conn)
-                .await
-                .unwrap();
-            assert_eq!(blobs, 3);
-        });
+        assert_eq!(
+            mbt.get_tile(&mut conn, 1, 0, 1).await.unwrap().unwrap(),
+            b"fill"
+        );
+        assert_eq!(
+            mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(),
+            b"leaf"
+        );
+        let blobs: i64 = mbtiles::sqlx::query_scalar("SELECT count(*) FROM tiles_data")
+            .fetch_one(&mut conn)
+            .await
+            .unwrap();
+        assert_eq!(blobs, 3);
     }
 
-    #[test]
-    fn upstream_error_rolls_back() {
+    #[tokio::test]
+    async fn upstream_error_rolls_back() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("out.mbtiles");
-        let mut sink = MbtilesSink::create(&path).unwrap();
-        let batches = vec![
-            Ok(vec![tile(0, 0, 0, b"root", None)]),
-            Err(TileGenError::InvalidTileId(3)),
-        ];
-        let err = sink.write_all(&mut batches.into_iter()).unwrap_err();
+        let err = tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let mut sink = MbtilesSink::create(&path).unwrap();
+                let batches = vec![
+                    Ok(vec![tile(0, 0, 0, b"root", None)]),
+                    Err(TileGenError::InvalidTileId(3)),
+                ];
+                sink.write_all(&mut batches.into_iter()).unwrap_err()
+            }
+        })
+        .await
+        .unwrap();
         assert!(matches!(err, TileGenError::InvalidTileId(3)));
+
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        let tiles: i64 = mbtiles::sqlx::query_scalar("SELECT count(*) FROM tiles")
+            .fetch_one(&mut conn)
+            .await
+            .unwrap();
+        assert_eq!(tiles, 0);
     }
 
-    #[test]
-    fn refuses_existing_file() {
+    #[tokio::test]
+    async fn refuses_existing_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("out.mbtiles");
-        drop(MbtilesSink::create(&path).unwrap());
-        assert!(matches!(
-            MbtilesSink::create(&path),
-            Err(TileGenError::OutputNotEmpty(_))
-        ));
+        let second = tokio::task::spawn_blocking(move || {
+            drop(MbtilesSink::create(&path).unwrap());
+            MbtilesSink::create(&path)
+        })
+        .await
+        .unwrap();
+        assert!(matches!(second, Err(TileGenError::OutputNotEmpty(_))));
     }
 }
