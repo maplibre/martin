@@ -99,10 +99,7 @@ impl PgScanSource {
             defs.push(TableDef {
                 columns: sql.properties.clone(),
                 dynamic_props,
-                layers: vec![LayerDef {
-                    clip: scan.info.clip_geom.unwrap_or(true),
-                    ..LayerDef::new(scan.name, scan.zooms, grid)
-                }],
+                layers: vec![LayerDef::new(scan.name, scan.zooms, grid)],
             });
             tables.push(Table {
                 layout: ScanLayout {
