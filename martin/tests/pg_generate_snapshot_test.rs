@@ -5,9 +5,9 @@ use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfi
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
 use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
+use martin_core::generate::props::KeyInterner;
+use martin_core::generate::source::{FeatureBatch, FeatureSource as _};
 use martin_core::tiles::postgres::PostgresPool;
-use martin_tilegen::props::KeyInterner;
-use martin_tilegen::source::{FeatureBatch, FeatureSource as _};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};

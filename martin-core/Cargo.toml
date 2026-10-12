@@ -47,7 +47,7 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
-unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen"]
+unstable-generate = ["postgres", "dep:futures", "unstable-generate-source"]
 metrics = ["dep:prometheus"]
 unstable-generate-source = ["dep:geo-types", "dep:lasso", "dep:mlt-core"]
 postgres = [
@@ -150,7 +150,6 @@ itertools = { workspace = true, optional = true }
 jxl-oxide = { workspace = true, optional = true }
 lasso = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
-martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }

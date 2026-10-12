@@ -7,8 +7,8 @@ use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfi
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
 use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
+use martin_core::generate::source::FeatureSource as _;
 use martin_tile_utils::Encoding;
-use martin_tilegen::source::FeatureSource as _;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
 
