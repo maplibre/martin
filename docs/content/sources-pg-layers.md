@@ -204,6 +204,8 @@ postgres:
           sort_by: ["z_order", { expr: "height", desc: true }]
 ```
 
+--8<-- "images/pg/sort-by.svg"
+
 Values order by type first: `null` (and failed evaluations), booleans, integers, floating-point
 numbers, then strings. Any integer sorts before any floating-point number, so convert mixed numbers
 with `double(...)` to compare them by value. `desc` reverses the whole order, so `null` comes last.
