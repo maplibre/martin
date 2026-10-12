@@ -4,11 +4,11 @@ use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 
 use indexmap::IndexSet;
+use martin_core::generate::props::Prop;
 use martin_tilegen::expr::CompiledExpr;
 use martin_tilegen::plan::{
     AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, PlanError, TableDef, ValueDef,
 };
-use martin_tilegen::props::Prop;
 use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold, TileGenError};
 use tilejson::Bounds;
 use tracing::warn;
