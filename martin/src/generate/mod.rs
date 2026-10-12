@@ -223,7 +223,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
 /// Created before the run starts, so that a failure removes only a file this run created.
 enum Output {
     Mbtiles(MbtilesSink),
-    Pmtiles(PmtilesSink),
+    Pmtiles(Box<PmtilesSink>),
 }
 
 impl Output {
@@ -232,7 +232,7 @@ impl Output {
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
         {
-            PmtilesSink::create(path, format, encoding).map(Self::Pmtiles)
+            PmtilesSink::create(path, format, encoding).map(|sink| Self::Pmtiles(Box::new(sink)))
         } else {
             MbtilesSink::create(path).map(Self::Mbtiles)
         }
@@ -250,7 +250,7 @@ impl Output {
                 generate(source, source.plan(), sink, config, metadata, progress)
             }
             Self::Pmtiles(sink) => {
-                generate(source, source.plan(), sink, config, metadata, progress)
+                generate(source, source.plan(), *sink, config, metadata, progress)
             }
         }
     }
