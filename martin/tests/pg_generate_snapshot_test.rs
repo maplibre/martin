@@ -157,28 +157,44 @@ async fn partitions_read_one_by_one_do_not_share_a_snapshot() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_scan_leaves_the_pool_connections_as_they_were() {
+async fn connections_return_to_the_pool_outside_the_scan_snapshot() {
     let (_container, connstr) = start_postgis().await;
-    let name = "snapshot_scan_settings";
+    let name = "snapshot_scan_pool";
     let (pool, source) = source_over_new_table(&connstr, name, 2).await;
     let keys = vec![KeyInterner::new(Vec::<String>::new())];
+    let size = pool.max_size();
 
     tokio::task::spawn_blocking(move || {
-        for partition in 0..source.partitions() {
-            source.read(partition, &keys, &mut |_| Ok(())).unwrap();
+        let mut readers = source.open_readers(size).unwrap();
+        assert_eq!(readers.len(), size);
+        for reader in &mut readers {
+            reader.read(0, &keys, &mut |_| Ok(())).unwrap();
         }
     })
     .await
     .unwrap();
 
-    let conn = pool.get().await.unwrap();
-    let row = conn
-        .query_one(
-            "SELECT current_setting('synchronize_seqscans'), current_setting('max_parallel_workers_per_gather')",
-            &[],
-        )
+    let outside = builder(&connstr).await;
+    outside
+        .pool()
+        .get()
+        .await
+        .unwrap()
+        .batch_execute(&format!(
+            "INSERT INTO {name} VALUES (2001, ST_SetSRID(ST_MakePoint(0, 0), 4326), '')"
+        ))
         .await
         .unwrap();
-    assert_eq!(row.get::<_, String>(0), "on");
-    assert_ne!(row.get::<_, String>(1), "0");
+
+    let mut conns = Vec::with_capacity(size);
+    for _ in 0..size {
+        conns.push(pool.get().await.unwrap());
+    }
+    for conn in &conns {
+        let row = conn
+            .query_one(&format!("SELECT count(*) FROM {name}"), &[])
+            .await
+            .unwrap();
+        assert_eq!(row.get::<_, i64>(0), 2001);
+    }
 }
