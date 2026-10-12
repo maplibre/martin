@@ -15,34 +15,30 @@ Currently configurable:
 - **`convert_to_hillshade`** - bakes a hillshade from a source serving Mapzen normal tiles. Unlike the two above, this is settable per source only, since it describes what a source serves rather than a server-wide policy.
 - **`convert_to_contour`** - traces contour lines from a source serving Mapzen Terrarium elevation tiles, and serves them as MVT. Settable per source only, for the same reason. See the [contour guide](contour.md).
 
-The two conversion keys can appear at three levels.
-The most specific level wins entirely (no merging between levels):
-
-1. **Global** - applies to all sources
-2. **Source-type** - applies to all sources of that type (e.g. all PMTiles sources)
-3. **Per-source** - applies to a single source
-
-A level that sets either key decides both.
-
---8<-- "images/postprocess/cascade.svg"
+The two conversion keys can be set globally, per source type, or per source.
+The most specific level that sets either key decides both, and levels are never merged.
 
 ```yaml
-# Global: default encoder settings for any source whose tiles get converted
-convert_to_mlt: auto
-convert_to_mvt: auto
+convert_to_mlt:
+  tessellate: true
 
-postgres:
-  connection_string: postgresql://localhost/mydb
-  # Source-type: override the encoder config for all PG sources
-  convert_to_mlt: auto
-  tables:
-    my_table:
-      # Per-source: this table uses the default MLT encoder config
-      convert_to_mlt: auto
-    no_mlt_table:
-      # Per-source: explicitly opt out
-      # This source is served as MVT; a client that accepts only MLT gets a 406.
+mbtiles:
+  sources:
+    roads:
+      path: /data/roads.mbtiles
+
+pmtiles:
+  convert_to_mlt:
+    allow_fsst: false
+  sources:
+    basemap:
+      path: /data/basemap.pmtiles
+    legacy:
+      path: /data/legacy.pmtiles
       convert_to_mlt: disabled
-mbtiles: # gets global default
-  - some/file.mbtiles
+    archive:
+      path: /data/archive.pmtiles
+      convert_to_mvt: auto
 ```
+
+--8<-- "images/postprocess/cascade.svg"
