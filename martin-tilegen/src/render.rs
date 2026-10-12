@@ -145,8 +145,42 @@ pub struct Renderer {
     piece_parts: Vec<u32>,
     piece: Vec<Vertex>,
     points: Vec<(i32, i32, Vertex)>,
-    /// Features skipped at a zoom because they could not be quantized or sliced.
-    pub slice_errors: u64,
+    /// Features skipped at a zoom because they could not be quantized or sliced, by layer index.
+    pub slice_errors: Vec<SliceErrors>,
+}
+
+#[derive(Debug, Default)]
+pub struct SliceErrors {
+    pub count: u64,
+    /// The failure with the lowest [`Seq`], so the reported feature does not depend on threading.
+    pub first: Option<SliceError>,
+}
+
+#[derive(Debug)]
+pub struct SliceError {
+    pub seq: Seq,
+    pub id: Option<u64>,
+    pub zoom: u8,
+    pub error: GeometryError,
+}
+
+impl SliceErrors {
+    pub fn merge(&mut self, other: Self) {
+        self.count += other.count;
+        if let Some(error) = other.first {
+            self.record_first(error);
+        }
+    }
+
+    fn record_first(&mut self, error: SliceError) {
+        if self
+            .first
+            .as_ref()
+            .is_none_or(|first| error.seq < first.seq)
+        {
+            self.first = Some(error);
+        }
+    }
 }
 
 impl Renderer {
@@ -171,7 +205,7 @@ impl Renderer {
                 let shift = world_shift(points.iter());
                 for zoom in zooms.rev() {
                     let result = self.render_points(&ctx, zoom, points, shift, out);
-                    self.skip_unrenderable(result)?;
+                    self.skip_unrenderable(&ctx, zoom, result)?;
                 }
             }
             FeatureGeom::Lines(lines) => {
@@ -186,17 +220,36 @@ impl Renderer {
                         break;
                     }
                     let result = self.render_lines(&ctx, zoom, lines, shift, out);
-                    self.skip_unrenderable(result)?;
+                    self.skip_unrenderable(&ctx, zoom, result)?;
                 }
             }
         }
         Ok(())
     }
 
-    fn skip_unrenderable(&mut self, result: TileGenResult<()>) -> TileGenResult<()> {
+    fn skip_unrenderable(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        result: TileGenResult<()>,
+    ) -> TileGenResult<()> {
         match result {
-            Err(TileGenError::Geometry(GeometryError::Slice(_) | GeometryError::CoordOverflow)) => {
-                self.slice_errors += 1;
+            Err(TileGenError::Geometry(
+                error @ (GeometryError::Slice(_) | GeometryError::CoordOverflow),
+            )) => {
+                let index = usize::from(ctx.layer.index);
+                if self.slice_errors.len() <= index {
+                    self.slice_errors
+                        .resize_with(index + 1, SliceErrors::default);
+                }
+                let errors = &mut self.slice_errors[index];
+                errors.count += 1;
+                errors.record_first(SliceError {
+                    seq: ctx.seq,
+                    id: ctx.feature.id,
+                    zoom,
+                    error,
+                });
                 Ok(())
             }
             other => other,
@@ -623,5 +676,74 @@ mod tests {
             },
         )
         .unwrap_err();
+    }
+
+    #[test]
+    fn unrenderable_zooms_are_counted_per_layer_with_the_feature() {
+        let layer = RenderLayer::new(3, 0..=2, GRID).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = Sorter::new(SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 1 << 20,
+            max_fan_in: 8,
+            read_buffer_bytes: 4096,
+        })
+        .unwrap();
+        let mut buffer = sorter.buffer();
+        let mut renderer = Renderer::default();
+        renderer
+            .render(
+                TileOrder::Tms,
+                &layer,
+                Seq::new(4, 7).unwrap(),
+                &Feature {
+                    id: Some(42),
+                    geom: FeatureGeom::Points(&[coord! { x: 0.5, y: f64::NAN }]),
+                    props: &EncodedProps::default(),
+                    zooms: 0..=2,
+                    simplify: PixelThreshold::PLANETILER_SIMPLIFY,
+                    min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+                },
+                &mut buffer,
+            )
+            .unwrap();
+        buffer.finish().unwrap();
+
+        assert_eq!(renderer.slice_errors.len(), 4);
+        assert!(renderer.slice_errors[..3].iter().all(|e| e.count == 0));
+        let errors = &renderer.slice_errors[3];
+        assert_eq!(errors.count, 3);
+        let first = errors.first.as_ref().unwrap();
+        assert_eq!(
+            (first.seq, first.id, first.zoom),
+            (Seq::new(4, 7).unwrap(), Some(42), 2)
+        );
+        assert!(matches!(first.error, GeometryError::CoordOverflow));
+    }
+
+    #[test]
+    fn merged_slice_errors_keep_the_lowest_seq() {
+        let error = |partition, zoom| SliceError {
+            seq: Seq::new(partition, 0).unwrap(),
+            id: None,
+            zoom,
+            error: GeometryError::CoordOverflow,
+        };
+        let mut total = SliceErrors {
+            count: 2,
+            first: Some(error(5, 10)),
+        };
+        total.merge(SliceErrors {
+            count: 1,
+            first: Some(error(2, 12)),
+        });
+        total.merge(SliceErrors {
+            count: 4,
+            first: Some(error(3, 14)),
+        });
+        total.merge(SliceErrors::default());
+
+        assert_eq!(total.count, 7);
+        assert_eq!(total.first.unwrap().zoom, 12);
     }
 }

@@ -21,6 +21,7 @@ pub use error::{TileGenError, TileGenResult};
 pub use group::{LayerRecordRef, TileGrouper, TileRecords};
 pub use render::{
     Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, Renderer,
+    SliceError, SliceErrors,
 };
 #[cfg(feature = "mbtiles")]
 pub use sink::MbtilesSink;
