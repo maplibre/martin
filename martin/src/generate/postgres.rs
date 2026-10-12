@@ -7,10 +7,10 @@ use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, PostgresResult, ScanLayout, id_bounds,
     open_snapshot_connections, relation_blocks, scan_features,
 };
-use martin_tilegen::plan::{LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{LayerDef, Plan, PlanError, TableDef};
 use martin_tilegen::props::KeyInterner;
 use martin_tilegen::source::{FeatureBatch, FeatureReader, FeatureSource};
-use martin_tilegen::{LayerGrid, TileGenError, TileGenResult};
+use martin_tilegen::{LayerGrid, TileGenResult};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
@@ -70,7 +70,7 @@ impl PgScanSource {
         let mut partitions = Vec::new();
         for (layer, scan) in layers.into_iter().enumerate() {
             let index =
-                u16::try_from(layer).map_err(|_too_many| TileGenError::TooManyLayers(count))?;
+                u16::try_from(layer).map_err(|_too_many| PlanError::TooManyLayers(count))?;
             let grid = LayerGrid {
                 extent: scan
                     .info
