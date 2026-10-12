@@ -25,9 +25,7 @@ Use SSL certificates for:
 
 --8<-- "images/pg/sslmode.svg"
 
-Our recommendation: **`verify-full` or `allow`**.
-There are not many cases where anything in between makes sense.
-
+There are not many cases where anything between the two recommended modes makes sense.
 In particular, the default mode (`prefer`) does not make much sense.
 From the postgres documentation:
 
