@@ -5,9 +5,6 @@ use deadpool_postgres::tokio_postgres::types::ToSql;
 use deadpool_postgres::tokio_postgres::{Client, Row};
 use futures::TryStreamExt as _;
 use geo_traits::to_geo::ToGeoGeometry as _;
-use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
-use martin_tilegen::{TileGenError, TileGenResult};
 use mlt_core::PropValue;
 use mlt_core::geo_types::Geometry as GeoGeometry;
 use wkb::reader::Wkb;
@@ -15,6 +12,10 @@ use wkb::reader::Wkb;
 use super::features::{feature_id, property};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
+use crate::generate::props::{KeyId, KeyInterner, Prop};
+use crate::generate::source::{
+    Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult,
+};
 
 const BATCH_FEATURES: usize = 1024;
 
@@ -32,9 +33,9 @@ pub struct ScanLayout {
     pub properties: usize,
 }
 
-impl From<PostgresError> for TileGenError {
+impl From<PostgresError> for SourceError {
     fn from(err: PostgresError) -> Self {
-        Self::Source(Box::new(err))
+        Self::Other(Box::new(err))
     }
 }
 
@@ -93,8 +94,8 @@ pub async fn scan_features(
     layout: &ScanLayout,
     partition: u32,
     keys: &KeyInterner,
-    emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
-) -> TileGenResult<u64> {
+    emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+) -> SourceResult<u64> {
     let rows = conn
         .query_raw(sql, std::iter::empty::<&(dyn ToSql + Sync)>())
         .await
@@ -140,7 +141,7 @@ fn feature(
     row: &Row,
     layout: &ScanLayout,
     keys: &KeyInterner,
-) -> TileGenResult<Option<SourceFeature>> {
+) -> SourceResult<Option<SourceFeature>> {
     let wkb: Option<&[u8]> = row
         .try_get(0)
         .map_err(|e| PostgresError::PostgresError(e, "reading a scanned geometry"))?;
@@ -173,7 +174,7 @@ fn feature(
         match property(row, idx, "reading a scanned property")? {
             PostgresProperty::Value(value) => {
                 if let Some(value) = prop(value) {
-                    props.push((KeyId::from(pos), value));
+                    props.push((KeyId::new(pos), value));
                 }
             }
             PostgresProperty::Json(document) => {

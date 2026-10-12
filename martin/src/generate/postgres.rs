@@ -3,13 +3,15 @@
 use std::ops::RangeInclusive;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use martin_core::generate::props::KeyInterner;
+use martin_core::generate::source::{
+    FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
+};
 use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, PostgresResult, ScanLayout, id_bounds,
     open_snapshot_connections, relation_blocks, scan_features,
 };
 use martin_tilegen::plan::{LayerDef, Plan, PlanError, TableDef};
-use martin_tilegen::props::KeyInterner;
-use martin_tilegen::source::{FeatureBatch, FeatureReader, FeatureSource};
 use martin_tilegen::{LayerGrid, TileGenResult};
 use postgres_protocol::escape::escape_identifier;
 
@@ -78,8 +80,11 @@ impl PgScanSource {
                     .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
                 buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
             };
-            let sql = scan_sql(&scan.info)?;
-            for condition in plan(&pool, &scan.info, options).await? {
+            let sql = scan_sql(&scan.info).map_err(SourceError::from)?;
+            for condition in plan(&pool, &scan.info, options)
+                .await
+                .map_err(SourceError::from)?
+            {
                 partitions.push(Partition {
                     table: layer,
                     condition,
@@ -135,8 +140,8 @@ impl PgScanSource {
         conn: &PooledConnection,
         partition: u32,
         keys: &[KeyInterner],
-        emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
-    ) -> TileGenResult<()> {
+        emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+    ) -> SourceResult<()> {
         let part = &self.partitions[partition as usize];
         let table = &self.tables[part.table];
         let sql = format!("{}{}", table.sql, part.condition);
@@ -163,13 +168,13 @@ impl FeatureSource for PgScanSource {
         &self,
         partition: u32,
         keys: &[KeyInterner],
-        emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
-    ) -> TileGenResult<()> {
+        emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+    ) -> SourceResult<()> {
         let mut readers = self.open_readers(1)?;
         readers.remove(0).read(partition, keys, emit)
     }
 
-    fn open_readers(&self, count: usize) -> TileGenResult<Vec<Box<dyn FeatureReader + '_>>> {
+    fn open_readers(&self, count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>> {
         let conns = self
             .runtime
             .block_on(open_snapshot_connections(&self.pool, count))?;
@@ -195,8 +200,8 @@ impl FeatureReader for SnapshotReader<'_> {
         &mut self,
         partition: u32,
         keys: &[KeyInterner],
-        emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
-    ) -> TileGenResult<()> {
+        emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+    ) -> SourceResult<()> {
         let conn = self.conn.as_ref().expect("the connection lives until drop");
         self.source.scan(conn, partition, keys, emit)
     }
