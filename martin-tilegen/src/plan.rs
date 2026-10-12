@@ -6,7 +6,9 @@ use std::ops::{Range, RangeInclusive};
 use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 
-use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, TypedExpr, Zoom};
+use crate::expr::{
+    Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortKey, TypedExpr, Zoom,
+};
 use crate::{
     FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
 };
@@ -278,8 +280,7 @@ pub(crate) struct PlannedLayer {
     pub(crate) copy: Vec<Option<KeyId>>,
     pub(crate) attrs: PlannedAttrs,
     pub(crate) rules: Vec<PlannedRule>,
-    /// An index into [`Plan::exprs`], and whether it is descending, per `sort_by` key.
-    pub(crate) sort_by: Vec<(usize, bool)>,
+    pub(crate) sort_by: Vec<ExprRef<SortKey>>,
 }
 
 #[derive(Debug, Default)]
@@ -470,8 +471,13 @@ fn plan_layer(
         .sort_by
         .iter()
         .map(|key| {
-            let expr = compiler.compile(&key.expr)?;
-            Ok((compiler.add(&key.expr, expr), key.descending))
+            let expr = compiler.compile(
+                &key.expr,
+                SortKey {
+                    descending: key.descending,
+                },
+            )?;
+            Ok(compiler.add(&key.expr, expr))
         })
         .collect::<Result<_, PlanError>>()?;
     let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {

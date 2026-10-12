@@ -204,6 +204,11 @@ pub struct Id;
 #[derive(Clone, Copy, Debug)]
 pub struct Attr;
 
+#[derive(Clone, Copy, Debug)]
+pub struct SortKey {
+    pub descending: bool,
+}
+
 impl Role for Filter {
     type Out = bool;
 
@@ -233,6 +238,27 @@ impl Role for Attr {
 
     fn coerce(&self, value: Value) -> Result<Option<Self::Out>, ExecutionError> {
         to_prop(value)
+    }
+}
+
+impl Role for SortKey {
+    type Out = Value;
+
+    fn coerce(&self, value: Value) -> Result<Option<Value>, ExecutionError> {
+        match value {
+            Value::Null
+            | Value::Bool(_)
+            | Value::Int(_)
+            | Value::UInt(_)
+            | Value::Float(_)
+            | Value::String(_) => Ok(Some(value)),
+            other @ (Value::List(_)
+            | Value::Map(_)
+            | Value::Function(..)
+            | Value::Bytes(_)
+            | Value::Opaque(_)
+            | Value::Struct(_)) => Err(mismatch(&other, "a scalar")),
+        }
     }
 }
 
