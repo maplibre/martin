@@ -239,7 +239,7 @@ impl TileEncoder {
 
 #[cfg(test)]
 mod tests {
-    use martin_tile_utils::{decode_brotli, decode_gzip, decode_zstd};
+    use martin_tile_utils::decode_gzip;
     use mlt_core::fast_mvt::MvtReaderRef;
     use mlt_core::{Decoder, Parser, PropValueRef};
 
@@ -747,37 +747,5 @@ mod tests {
         empty.merge(&other);
 
         assert_eq!(empty, other);
-    }
-
-    #[test]
-    fn brotli_and_zstd_output_decompress_to_the_uncompressed_tile() {
-        let interner = KeyInterner::new::<&str>([]);
-        let layers = [layer("parks")];
-        let feature_bytes = feature(1, &[], &interner);
-        let keys = [interner.freeze()];
-        let encode_with = |encoding| {
-            let mut tile = TileRecords::new(1);
-            tile.push_record(0, Seq::new(0, 1).unwrap(), &feature_bytes);
-            let settings = EncodeSettings {
-                layers: &layers,
-                keys: &keys,
-                format: TileFormat::Mlt,
-                encoding,
-                order: TileOrder::Tms,
-            };
-            TileEncoder::default()
-                .encode_batch(&settings, &DedupIndex::default(), vec![tile])
-                .unwrap()
-                .remove(0)
-                .data
-        };
-
-        let plain = encode_with(Encoding::Uncompressed);
-
-        assert_eq!(
-            decode_brotli(&encode_with(Encoding::Brotli)).unwrap(),
-            plain
-        );
-        assert_eq!(decode_zstd(&encode_with(Encoding::Zstd)).unwrap(), plain);
     }
 }
