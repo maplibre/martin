@@ -5,7 +5,6 @@ use std::ops::RangeInclusive;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
-use cel::{ExecutionError, Value};
 use geo_types::Coord;
 use hotpath::wrap::flume::{Receiver, Sender};
 
@@ -16,7 +15,7 @@ use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 use tracing::warn;
 
-use crate::expr::{self, ExprKeys, FeatureView, PropSlots};
+use crate::expr::{ExprKeys, ExprRef, FeatureView, Filter, PropSlots, Role, Zoom};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{AttributesDef, Plan, PlannedAttr, PlannedId, PlannedLayer, PlannedValue};
 use crate::record::EncodedProps;
@@ -499,19 +498,19 @@ struct Run<'a> {
 
 impl Run<'_> {
     /// A failed evaluation or conversion is counted, logged the first time, and taken as `null`.
-    fn eval<T>(
+    fn eval<R: Role>(
         &self,
-        expr: usize,
+        expr: &ExprRef<R>,
         view: &FeatureView<'_, String>,
         errors: &mut [u64],
-        convert: impl FnOnce(Value) -> Result<Option<T>, ExecutionError>,
-    ) -> Option<T> {
-        let planned = &self.plan.exprs[expr];
-        match planned.expr.eval(view).and_then(convert) {
+    ) -> Option<R::Out> {
+        let index = expr.index;
+        let planned = &self.plan.exprs[index];
+        match planned.expr.eval(view).and_then(|v| expr.role.coerce(v)) {
             Ok(value) => value,
             Err(err) => {
-                errors[expr] += 1;
-                if !self.warned[expr].swap(true, Ordering::Relaxed) {
+                errors[index] += 1;
+                if !self.warned[index].swap(true, Ordering::Relaxed) {
                     warn!(
                         "layer `{}`: `{}` failed and counts as null: {err}",
                         self.plan.layers[planned.layer].info.name, planned.source
@@ -522,6 +521,15 @@ impl Run<'_> {
         }
     }
 
+    fn holds(
+        &self,
+        expr: ExprRef<Filter>,
+        view: &FeatureView<'_, String>,
+        errors: &mut [u64],
+    ) -> bool {
+        self.eval(&expr, view, errors).unwrap_or(false)
+    }
+
     /// The layer's zooms for this feature, or `None` when it filters the feature out.
     fn feature_zooms(
         &self,
@@ -529,21 +537,14 @@ impl Run<'_> {
         view: &FeatureView<'_, String>,
         errors: &mut [u64],
     ) -> Option<RangeInclusive<u8>> {
-        if let Some(filter) = layer.filter
-            && !self
-                .eval(filter, view, errors, |v| expr::to_filter(&v).map(Some))
-                .unwrap_or(false)
+        if let Some(filter) = &layer.filter
+            && !self.holds(*filter, view, errors)
         {
             return None;
         }
-        let mut zoom = |expr: Option<usize>| {
-            let expr = expr?;
-            self.eval(expr, view, errors, |v| {
-                expr::to_zoom(&v, *layer.zooms.start(), *layer.zooms.end())
-            })
-        };
-        let min = zoom(layer.minzoom).unwrap_or(*layer.zooms.start());
-        let max = zoom(layer.maxzoom).unwrap_or(*layer.zooms.end());
+        let mut zoom = |expr: Option<&ExprRef<Zoom>>| self.eval(expr?, view, errors);
+        let min = zoom(layer.minzoom.as_ref()).unwrap_or(*layer.zooms.start());
+        let max = zoom(layer.maxzoom.as_ref()).unwrap_or(*layer.zooms.end());
         (min <= max).then_some(min..=max)
     }
 
@@ -602,7 +603,7 @@ impl Run<'_> {
                 .iter()
                 .find(|(k, _)| k == key)
                 .map(|(_, value)| borrowed(value)),
-            PlannedValue::Expr(expr) => self.eval(*expr, view?, errors, expr::to_prop),
+            PlannedValue::Expr(expr) => self.eval(expr, view?, errors),
         }
     }
 }
@@ -666,9 +667,7 @@ fn render_batch(
             let id = match layer.id {
                 PlannedId::Keep => feature.id,
                 PlannedId::Drop => None,
-                PlannedId::Expr(expr) => {
-                    view.and_then(|view| run.eval(expr, view, errors, |v| expr::to_id(&v)))
-                }
+                PlannedId::Expr(expr) => view.and_then(|view| run.eval(&expr, view, errors)),
             };
             let (props, bands): (&EncodedProps, &[(u8, EncodedProps)]) = match bands.split_first() {
                 Some((first, rest)) if !layer.bands.is_empty() => (&first.1, rest),

@@ -97,7 +97,7 @@ impl CompiledExpr {
     }
 
     /// The property this expression only reads, unchanged: a bare identifier or `feature['k']`.
-    pub(crate) fn as_property(&self) -> Option<&str> {
+    pub(super) fn as_property(&self) -> Option<&str> {
         let name = if let Expr::Ident(name) = &self.expr.expr {
             name.as_str()
         } else if let Expr::Call(call) = &self.expr.expr

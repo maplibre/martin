@@ -77,8 +77,14 @@ impl Role for Attr {
 /// Where a compiled expression sits in the plan, and the role it was compiled for.
 #[derive(Clone, Copy, Debug)]
 pub struct ExprRef<R> {
-    pub index: usize,
-    pub role: R,
+    pub(crate) index: usize,
+    pub(crate) role: R,
+}
+
+impl<R: Role> ExprRef<R> {
+    pub(crate) fn new(index: usize, role: R) -> Self {
+        Self { index, role }
+    }
 }
 
 #[cfg(test)]
