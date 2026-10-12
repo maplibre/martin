@@ -22,6 +22,10 @@ The most specific level wins entirely (no merging between levels):
 2. **Source-type** - applies to all sources of that type (e.g. all PMTiles sources)
 3. **Per-source** - applies to a single source
 
+A level that sets either key decides both.
+
+--8<-- "images/postprocess/cascade.svg"
+
 ```yaml
 # Global: default encoder settings for any source whose tiles get converted
 convert_to_mlt: auto
