@@ -18,6 +18,12 @@
 
 Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](<https://cogeo.org/>) files.
 
+## How Martin serves a COG
+
+A COG stores one image per zoom level: the full-resolution image and its downsampled overviews. Each image is cut into internal tiles, so a `z/x/y` request maps onto exactly one of them.
+
+Martin reads this mapping from the header once. Each tile is then one range read.
+
 ## Supported color type and bits per sample
 
 | color type | bits per sample | supported | status |
@@ -388,17 +394,3 @@ gdalwarp src1.tif src2.tif out.tif -of COG
 # or gdal_translate
 gdal_translate input.tif output_cog.tif -of COG
 ```
-
-### The mapping from ZXY to tiff chunk
-
-- A single TIFF file could contains many sub-file about same spatial area, each has different resolution
-- A sub file is organized with many tiles
-
-So basically there's a mapping from zxy to tile of sub-file of TIFF.
-
-| zxy | mapping to |
-| --- | --- |
-| Zoom level | which sub-file in TIFF file |
-| X and Y | which tile in subfile |
-
-Clients could read only the header part of COG to figure out the mapping from zxy to the chunk number and the subfile number. Martin get tile to frontend by this mapping.

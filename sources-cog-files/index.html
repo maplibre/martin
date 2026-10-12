@@ -1164,6 +1164,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-martin-serves-a-cog" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How Martin serves a COG
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#supported-color-type-and-bits-per-sample" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1535,17 +1546,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         COG generation with GDAL
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-mapping-from-zxy-to-tiff-chunk" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The mapping from ZXY to tiff chunk
       </span>
     </span>
   </a>
@@ -2544,6 +2544,12 @@ Its behavior may change in patch releases.</p>
 <p>We welcome contributions to help stabilize this feature!</p>
 </div>
 <p>Martin supports serving raster sources such as local and remote <a href="https://cogeo.org/">COG (Cloud Optimized GeoTIFF)</a> files.</p>
+<h2 id="how-martin-serves-a-cog">How Martin serves a COG</h2>
+<p>A COG stores one image per zoom level: the full-resolution image and its downsampled overviews.
+Each image is cut into internal tiles, so a <code>z/x/y</code> request maps onto exactly one of them.</p>
+<p><svg id="cog-zxy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" width="100%" role="img" aria-label="A COG holds one image per zoom, each cut into internal tiles; z picks the image, x and y pick its tile, and the tile tables point at the bytes to read"><title>A COG holds one image per zoom, each cut into internal tiles; z picks the image, x and y pick its tile, and the tile tables point at the bytes to read</title><style>#cog-zxy{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#cog-zxy .fg{fill:var(--md-default-fg-color,#000000de)}#cog-zxy .muted{fill:var(--md-default-fg-color--light,#0000008a)}#cog-zxy .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#cog-zxy .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#cog-zxy .head{fill:var(--md-default-fg-color--light,#0000008a)}#cog-zxy text{dominant-baseline:central}#cog-zxy .t{font-weight:600}#cog-zxy .s{font-size:11px}#cog-zxy .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}#cog-zxy .box{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#cog-zxy .hi{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#cog-zxy .sel{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.3;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#cog-zxy .acc{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#cog-zxy .ghost{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5;stroke-dasharray:4 3}#cog-zxy .apron{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5;stroke-dasharray:5 3}#cog-zxy .accline{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:2}#cog-zxy .accdot{fill:var(--md-accent-fg-color,#7c4dff)}#cog-zxy .accarrow{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:1.5}#cog-zxy .acchead{fill:var(--md-accent-fg-color,#7c4dff)}</style><rect class="box" x="40" y="202" width="48" height="48" rx="0"/><text class="fg s t" x="64" y="190" text-anchor="middle">zoom 12</text><text class="muted s" x="64" y="264" text-anchor="middle">overview</text><rect class="hi" x="130" y="154" width="48" height="48" rx="0"/><rect class="sel" x="178" y="154" width="48" height="48" rx="0"/><rect class="hi" x="130" y="202" width="48" height="48" rx="0"/><rect class="hi" x="178" y="202" width="48" height="48" rx="0"/><text class="fg s t" x="178" y="142" text-anchor="middle">zoom 13</text><text class="muted s" x="178" y="264" text-anchor="middle">overview</text><rect class="box" x="270" y="74" width="44" height="44" rx="0"/><rect class="box" x="314" y="74" width="44" height="44" rx="0"/><rect class="box" x="358" y="74" width="44" height="44" rx="0"/><rect class="box" x="402" y="74" width="44" height="44" rx="0"/><rect class="box" x="270" y="118" width="44" height="44" rx="0"/><rect class="box" x="314" y="118" width="44" height="44" rx="0"/><rect class="box" x="358" y="118" width="44" height="44" rx="0"/><rect class="box" x="402" y="118" width="44" height="44" rx="0"/><rect class="box" x="270" y="162" width="44" height="44" rx="0"/><rect class="box" x="314" y="162" width="44" height="44" rx="0"/><rect class="box" x="358" y="162" width="44" height="44" rx="0"/><rect class="box" x="402" y="162" width="44" height="44" rx="0"/><rect class="box" x="270" y="206" width="44" height="44" rx="0"/><rect class="box" x="314" y="206" width="44" height="44" rx="0"/><rect class="box" x="358" y="206" width="44" height="44" rx="0"/><rect class="box" x="402" y="206" width="44" height="44" rx="0"/><text class="fg s t" x="358" y="62" text-anchor="middle">zoom 14</text><text class="muted s" x="358" y="264" text-anchor="middle">full resolution</text><text class="muted s" x="243" y="290" text-anchor="middle">one TIFF image (IFD) per zoom</text><rect class="hi" x="130" y="22" width="220" height="30" rx="15"/><text class="fg mono" x="240" y="37" text-anchor="middle">GET /dem/13/{x}/{y}</text><path class="arrow" d="M178 52 L178 140"/><path class="head" d="M178 140 L174.0 132.0 L182.0 132.0 Z"/><text class="fg t s" x="500" y="40" text-anchor="start">1. z -&gt; image</text><text class="muted s" x="500" y="57" text-anchor="start">zoom 13</text><text class="fg t s" x="500" y="84" text-anchor="start">2. x, y -&gt; tile</text><text class="muted s" x="500" y="101" text-anchor="start">column 1, row 0</text><text class="fg t s" x="500" y="128" text-anchor="start">3. tile -&gt; bytes</text><text class="muted s" x="500" y="145" text-anchor="start">TileOffsets[i], TileByteCounts[i]</text><text class="fg t s" x="500" y="180" text-anchor="start">.tif file</text><rect class="box" x="500" y="196" width="110" height="34" rx="0"/><text class="muted s" x="555" y="213" text-anchor="middle">header, IFDs</text><rect class="box" x="610" y="196" width="24" height="34" rx="0"/><rect class="box" x="634" y="196" width="24" height="34" rx="0"/><rect class="box" x="658" y="196" width="24" height="34" rx="0"/><rect class="box" x="682" y="196" width="24" height="34" rx="0"/><rect class="hi" x="706" y="196" width="24" height="34" rx="0"/><rect class="hi" x="730" y="196" width="24" height="34" rx="0"/><rect class="sel" x="754" y="196" width="24" height="34" rx="0"/><rect class="hi" x="778" y="196" width="24" height="34" rx="0"/><rect class="box" x="802" y="196" width="24" height="34" rx="0"/><rect class="box" x="826" y="196" width="24" height="34" rx="0"/><rect class="box" x="850" y="196" width="24" height="34" rx="0"/><rect class="box" x="874" y="196" width="24" height="34" rx="0"/><rect class="box" x="898" y="196" width="24" height="34" rx="0"/><path class="accarrow" d="M766 260 L766 234"/><path class="acchead" d="M766 234 L770.0 242.0 L762.0 242.0 Z"/><text class="muted s" x="766" y="272" text-anchor="middle">one range request</text><text class="muted s" x="610" y="246" text-anchor="start">tile data</text></svg></p>
+<p>Martin reads this mapping from the header once.
+Each tile is then one range read.</p>
 <h2 id="supported-color-type-and-bits-per-sample">Supported color type and bits per sample</h2>
 <table>
 <thead>
@@ -3277,32 +3283,6 @@ For quick access to tiles in TIFF files, Martin relies on the requirements/recom
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># or gdal_translate</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
 </span></code></pre></div>
-<h3 id="the-mapping-from-zxy-to-tiff-chunk">The mapping from ZXY to tiff chunk</h3>
-<ul>
-<li>A single TIFF file could contains many sub-file about same spatial area, each has different resolution</li>
-<li>A sub file is organized with many tiles</li>
-</ul>
-<p>So basically there's a mapping from zxy to tile of sub-file of TIFF.</p>
-<table>
-<thead>
-<tr>
-<th>zxy</th>
-<th>mapping to</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Zoom level</td>
-<td>which sub-file in TIFF file</td>
-</tr>
-<tr>
-<td>X and Y</td>
-<td>which tile in subfile</td>
-</tr>
-</tbody>
-</table>
-<p>Clients could read only the header part of COG to figure out the mapping from zxy to the chunk number and the subfile number.
-Martin get tile to frontend by this mapping.</p>
 
 
   <nav class="md-tags" >
