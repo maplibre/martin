@@ -122,6 +122,8 @@ Each tile's `ETag` is derived from the nine tiles it read plus the settings it w
 
 ## Neighborhood handling
 
+--8<-- "images/postprocess/neighborhood.svg"
+
 Missing neighbors are routine rather than an error: at the poles, at the edge of coverage, or when one read of nine fails.
 A missing or unreadable neighbor is replaced by extending the center tile's nearest edge outward, which may create a seam but still serves the tile.
 

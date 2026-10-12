@@ -10,6 +10,8 @@ tags:
 
 The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying different kinds of schema for `tiles` data. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
 
+--8<-- "images/mbtiles/schemas.svg"
+
 ## metadata
 
 Every schema includes a shared `metadata` table that stores key/value pairs such as the tileset name, format, and bounds.

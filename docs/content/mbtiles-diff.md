@@ -16,6 +16,8 @@ be [applied](#mbtiles-apply-patch) to the `src_file.mbtiles` elsewhere, to avoid
 modified dataset. The delta file will contain all tiles that are different between the two files (modifications,
 insertions, and deletions as `NULL` values), for both the tile and metadata tables.
 
+--8<-- "images/mbtiles/diff.svg"
+
 ```bash
 # This command will compare `file1.mbtiles` and `file2.mbtiles`,
 # and generate a new diff file `diff.mbtiles`.
