@@ -1,7 +1,10 @@
 //! What `Plan::new` accepts and rejects.
 
+use martin_core::generate::props::Prop;
 use martin_tilegen::LayerGrid;
-use martin_tilegen::plan::{AttributesDef, LayerDef, Plan, PlanError, TableDef};
+use martin_tilegen::plan::{
+    AttributesDef, ComputedAttr, LayerDef, Plan, PlanError, TableDef, ValueDef,
+};
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -94,5 +97,47 @@ fn rejects_a_repeated_attribute_column() {
     assert_eq!(
         err.to_string(),
         "layer `roads`: attribute `name` is listed more than once"
+    );
+}
+
+#[test]
+fn rejects_a_repeated_computed_attribute() {
+    let attr = ComputedAttr {
+        name: "big".to_owned(),
+        value: ValueDef::Literal(Prop::Bool(true)),
+        zooms: 0..=30,
+    };
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![attr.clone(), attr],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `roads`: attribute `big` is listed more than once"
+    );
+}
+
+#[test]
+fn rejects_an_expression_naming_an_unknown_property() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec!["class".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            filter: Some("kind == 'primary'".to_owned()),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `roads`: `kind == 'primary'` references unknown property `kind`"
     );
 }
