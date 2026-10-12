@@ -148,6 +148,20 @@ mod tests {
         ];
         let err = sink.write_all(&mut batches.into_iter()).unwrap_err();
         assert!(matches!(err, TileGenError::InvalidTileId(3)));
+        drop(sink);
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let mbt = Mbtiles::new(&path).unwrap();
+            let mut conn = mbt.open_readonly().await.unwrap();
+            let tiles: i64 = mbtiles::sqlx::query_scalar("SELECT count(*) FROM tiles")
+                .fetch_one(&mut conn)
+                .await
+                .unwrap();
+            assert_eq!(tiles, 0);
+        });
     }
 
     #[test]
