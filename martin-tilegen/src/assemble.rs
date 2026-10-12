@@ -1,11 +1,12 @@
 //! Builds one layer of one tile from the records the merge yields for it.
 
+use martin_core::generate::props::KeyNames;
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{PropertyKey, TileLayer};
 
-use crate::props::{KeyNames, TileColumns};
+use crate::props::TileColumns;
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
@@ -148,11 +149,11 @@ fn to_geometry(kind: GeomKind, geom: &GeomBuf) -> Geometry<i32> {
 
 #[cfg(test)]
 mod tests {
+    use martin_core::generate::props::KeyInterner;
     use mlt_core::encoder::EncoderConfig;
     use mlt_core::{Decoder, Parser, PropValue, PropValueRef};
 
     use super::*;
-    use crate::props::KeyInterner;
     use crate::record::{EncodedProps, Geom, encode};
 
     const GRID: LayerGrid = LayerGrid {

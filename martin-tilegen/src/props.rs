@@ -1,23 +1,13 @@
-//! Feature properties as they travel through the engine: interned keys and borrowed typed values.
-//! Every property is dynamic: a tile's columns are whatever keys its features carry.
+//! The columns of one layer in one tile, built from the keys its features carry.
 
 use std::cmp::Ordering;
 use std::num::NonZeroU32;
 
-use lasso::{Key as _, RodeoResolver, Spur, ThreadedRodeo};
+use martin_core::generate::props::{KeyId, KeyNames};
 use mlt_core::{PropKind, PropValueRef};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct KeyId(pub(crate) u32);
-
-impl KeyId {
-    fn spur(self) -> Spur {
-        Spur::try_from_usize(self.0 as usize).expect("key ids come from a Spur")
-    }
-}
-
 fn index_u32(len: usize) -> u32 {
-    u32::try_from(len).expect("fewer than 2^32 property keys or columns")
+    u32::try_from(len).expect("fewer than 2^32 columns")
 }
 
 /// Position of a key's column among the columns of one layer in one tile (!= [`KeyId`] the key for the whole layer).
@@ -33,60 +23,6 @@ impl ColumnIndex {
 
     fn get(self) -> Option<usize> {
         self.0.map(|n| n.get() as usize - 1)
-    }
-}
-
-/// Property keys of one layer, shared by all workers. Keys the source declares up front get the first ids
-/// in declaration order, which is their column order in every tile; keys found later sort by name.
-pub struct KeyInterner {
-    known: u32,
-    keys: ThreadedRodeo,
-}
-
-impl KeyInterner {
-    pub fn new<S: AsRef<str>>(known: impl IntoIterator<Item = S>) -> Self {
-        let keys = ThreadedRodeo::new();
-        for name in known {
-            keys.get_or_intern(name.as_ref());
-        }
-        Self {
-            known: index_u32(keys.len()),
-            keys,
-        }
-    }
-
-    pub fn intern(&self, name: &str) -> KeyId {
-        KeyId(index_u32(self.keys.get_or_intern(name).into_usize()))
-    }
-
-    /// Call once no more keys can appear, i.e. after rendering.
-    #[must_use]
-    pub fn freeze(self) -> KeyNames {
-        KeyNames {
-            known: self.known,
-            names: self.keys.into_resolver(),
-        }
-    }
-}
-
-pub struct KeyNames {
-    known: u32,
-    names: RodeoResolver,
-}
-
-impl KeyNames {
-    #[must_use]
-    pub fn name(&self, id: KeyId) -> &str {
-        self.names.resolve(&id.spur())
-    }
-
-    fn column_order(&self, a: KeyId, b: KeyId) -> Ordering {
-        match (a.0 < self.known, b.0 < self.known) {
-            (true, true) => a.cmp(&b),
-            (true, false) => Ordering::Less,
-            (false, true) => Ordering::Greater,
-            (false, false) => self.name(a).cmp(self.name(b)),
-        }
     }
 }
 
@@ -106,13 +42,13 @@ struct Column {
 impl TileColumns {
     pub(crate) fn clear(&mut self) {
         for column in &self.columns {
-            self.column_of_key[column.key.0 as usize] = ColumnIndex::default();
+            self.column_of_key[column.key.index()] = ColumnIndex::default();
         }
         self.columns.clear();
     }
 
     fn column_index_mut(&mut self, key: KeyId) -> &mut ColumnIndex {
-        let idx = key.0 as usize;
+        let idx = key.index();
         if idx >= self.column_of_key.len() {
             self.column_of_key.resize(idx + 1, ColumnIndex::default());
         }
@@ -140,9 +76,9 @@ impl TileColumns {
     /// Final `(key, kind)` per column in column order; the index maps keys to positions in it.
     pub(crate) fn finish(&mut self, names: &KeyNames) -> Vec<(KeyId, PropKind)> {
         self.columns
-            .sort_by(|a, b| names.column_order(a.key, b.key));
+            .sort_by(|a, b| column_order(names, a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
-            self.column_of_key[column.key.0 as usize] = ColumnIndex::new(pos);
+            self.column_of_key[column.key.index()] = ColumnIndex::new(pos);
         }
         self.columns
             .iter()
@@ -155,35 +91,15 @@ impl TileColumns {
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
     pub(crate) fn position(&self, key: KeyId) -> Option<usize> {
-        self.column_of_key.get(key.0 as usize)?.get()
+        self.column_of_key.get(key.index())?.get()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn interning_is_thread_safe() {
-        let interner = KeyInterner::new::<&str>([]);
-
-        let ids: Vec<Vec<KeyId>> = std::thread::scope(|scope| {
-            let handles: Vec<_> = (0..4)
-                .map(|_| {
-                    scope.spawn(|| {
-                        (0..100)
-                            .map(|i| interner.intern(&format!("k{i}")))
-                            .collect()
-                    })
-                })
-                .collect();
-            handles.into_iter().map(|h| h.join().unwrap()).collect()
-        });
-
-        assert!(ids.windows(2).all(|w| w[0] == w[1]));
-        let names = interner.freeze();
-        for (i, id) in ids[0].iter().enumerate() {
-            assert_eq!(names.name(*id), format!("k{i}"));
-        }
+fn column_order(names: &KeyNames, a: KeyId, b: KeyId) -> Ordering {
+    match (names.is_declared(a), names.is_declared(b)) {
+        (true, true) => a.cmp(&b),
+        (true, false) => Ordering::Less,
+        (false, true) => Ordering::Greater,
+        (false, false) => names.name(a).cmp(names.name(b)),
     }
 }

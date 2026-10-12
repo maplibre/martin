@@ -4,10 +4,12 @@
 mod assemble;
 mod encode;
 mod error;
+mod generate;
 mod group;
 pub mod pipeline;
+pub mod plan;
 pub mod project;
-pub mod props;
+mod props;
 pub mod record;
 mod render;
 mod sink;
@@ -18,6 +20,7 @@ mod tile;
 pub use assemble::{LayerAssembler, LayerGrid};
 pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
 pub use error::{TileGenError, TileGenResult};
+pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
 pub use group::{LayerRecordRef, TileGrouper, TileRecords};
 pub use render::{
     Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, Renderer,

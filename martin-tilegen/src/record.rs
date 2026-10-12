@@ -7,12 +7,12 @@
     reason = "the wincode SchemaRead derive forgets its drop guard"
 )]
 
+use martin_core::generate::props::KeyId;
 use mlt_core::PropValueRef;
 use wincode::config::{Configuration, PREALLOCATION_SIZE_LIMIT_DISABLED};
 use wincode::len::BincodeLen;
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::props::KeyId;
 use crate::{TileGenError, TileGenResult};
 
 pub type Vertex = [i32; 2];
@@ -114,7 +114,7 @@ impl EncodedProps {
             PropValueRef::F64(v) => Prop::F64(v),
             PropValueRef::Str(v) => Prop::Str(v),
         };
-        put(&mut self.bytes, &(key.0, value));
+        put(&mut self.bytes, &(key.get(), value));
     }
 }
 
@@ -236,7 +236,7 @@ impl<'a> Iterator for Props<'a> {
                 Prop::F64(v) => PropValueRef::F64(v),
                 Prop::Str(v) => PropValueRef::Str(v),
             };
-            (KeyId(key), value)
+            (KeyId::new(key), value)
         }))
     }
 }
@@ -254,12 +254,12 @@ mod tests {
     use super::*;
 
     const PROPS: [(KeyId, PropValueRef<'static>); 6] = [
-        (KeyId(0), PropValueRef::Bool(true)),
-        (KeyId(3), PropValueRef::I64(-42)),
-        (KeyId(4), PropValueRef::U64(u64::MAX)),
-        (KeyId(1), PropValueRef::F32(1.5)),
-        (KeyId(2), PropValueRef::F64(-2.25)),
-        (KeyId(9), PropValueRef::Str("héllo")),
+        (KeyId::new(0), PropValueRef::Bool(true)),
+        (KeyId::new(3), PropValueRef::I64(-42)),
+        (KeyId::new(4), PropValueRef::U64(u64::MAX)),
+        (KeyId::new(1), PropValueRef::F32(1.5)),
+        (KeyId::new(2), PropValueRef::F64(-2.25)),
+        (KeyId::new(9), PropValueRef::Str("héllo")),
     ];
 
     fn props() -> EncodedProps {

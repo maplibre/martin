@@ -1,3 +1,4 @@
+use martin_core::generate::source::SourceError;
 use martin_tile_utils::TileCoord;
 
 use crate::tile::MAX_ZOOM;
@@ -28,8 +29,17 @@ pub enum TileGenError {
     #[error(transparent)]
     RenderLayer(#[from] crate::RenderLayerError),
 
+    #[error("feature batch names table {0}, but the plan has fewer tables")]
+    UnknownTable(u16),
+
+    #[error(transparent)]
+    Source(SourceError),
+
     #[error(transparent)]
     Geometry(#[from] crate::GeometryError),
+
+    #[error(transparent)]
+    Plan(#[from] crate::plan::PlanError),
 
     #[error("a temp record is corrupt")]
     CorruptRecord,
@@ -58,4 +68,14 @@ pub enum TileGenError {
 
     #[error(transparent)]
     Pmtiles(#[from] pmtiles::PmtError),
+}
+
+impl From<SourceError> for TileGenError {
+    fn from(err: SourceError) -> Self {
+        if matches!(err, SourceError::Stopped) {
+            Self::WriterStopped
+        } else {
+            Self::Source(err)
+        }
+    }
 }

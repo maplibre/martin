@@ -48,6 +48,7 @@ processing = [
     "tokio/fs",
 ]
 metrics = ["dep:prometheus"]
+unstable-generate-source = ["dep:geo-types", "dep:lasso", "dep:mlt-core"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:geo-traits",
@@ -146,6 +147,7 @@ humantime = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 jxl-oxide = { workspace = true, optional = true }
+lasso = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
