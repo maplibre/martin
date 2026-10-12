@@ -143,7 +143,7 @@ impl CompiledExpr {
     }
 
     /// The property this expression only reads, unchanged: a bare identifier or `feature['k']`.
-    pub(crate) fn as_property(&self) -> Option<&str> {
+    fn as_property(&self) -> Option<&str> {
         let name = if let Expr::Ident(name) = &self.expr.expr {
             name.as_str()
         } else if let Expr::Call(call) = &self.expr.expr
@@ -263,16 +263,29 @@ impl<R: Role> TypedExpr<R> {
         self.expr.needs_all_keys()
     }
 
-    pub fn into_parts(self) -> (CompiledExpr, R) {
+    pub(crate) fn into_parts(self) -> (CompiledExpr, R) {
         (self.expr, self.role)
+    }
+}
+
+impl TypedExpr<Attr> {
+    /// The property this expression only reads, unchanged: a bare identifier or `feature['k']`.
+    pub(crate) fn as_property(&self) -> Option<&str> {
+        self.expr.as_property()
     }
 }
 
 /// Where a compiled expression sits in the plan, and the role it was compiled for.
 #[derive(Clone, Copy, Debug)]
 pub struct ExprRef<R> {
-    pub index: usize,
-    pub role: R,
+    pub(crate) index: usize,
+    pub(crate) role: R,
+}
+
+impl<R: Role> ExprRef<R> {
+    pub(crate) fn new(index: usize, role: R) -> Self {
+        Self { index, role }
+    }
 }
 
 enum WalkError {

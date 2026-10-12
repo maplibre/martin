@@ -6,7 +6,7 @@ use std::ops::{Range, RangeInclusive};
 use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 
-use crate::expr::{CompiledExpr, ExprError};
+use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, TypedExpr, Zoom};
 use crate::{
     FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
 };
@@ -215,9 +215,9 @@ pub(crate) struct PlannedLayer {
     pub(crate) min_size: PixelThreshold,
     pub(crate) geometry: Option<GeometryType>,
     /// Indexes into [`Plan::exprs`].
-    pub(crate) filter: Option<usize>,
-    pub(crate) minzoom: Option<usize>,
-    pub(crate) maxzoom: Option<usize>,
+    pub(crate) filter: Option<ExprRef<Filter>>,
+    pub(crate) minzoom: Option<ExprRef<Zoom>>,
+    pub(crate) maxzoom: Option<ExprRef<Zoom>>,
     pub(crate) id: PlannedId,
     pub(crate) attributes: AttributesDef,
     /// The output layer's known keys.
@@ -236,7 +236,7 @@ pub(crate) struct PlannedLayer {
 pub(crate) enum PlannedId {
     Keep,
     Drop,
-    Expr(usize),
+    Expr(ExprRef<Id>),
 }
 
 #[derive(Debug)]
@@ -250,7 +250,7 @@ pub(crate) struct PlannedAttr {
 pub(crate) enum PlannedValue {
     Literal(Prop),
     Column(KeyId),
-    Expr(usize),
+    Expr(ExprRef<Attr>),
 }
 
 impl Plan {
@@ -320,8 +320,8 @@ struct Compiler<'a> {
 }
 
 impl Compiler<'_> {
-    fn compile(&self, source: &str) -> Result<CompiledExpr, PlanError> {
-        CompiledExpr::compile(source, self.columns, self.dynamic_props).map_err(|error| {
+    fn compile<R: Role>(&self, source: &str, role: R) -> Result<TypedExpr<R>, PlanError> {
+        TypedExpr::compile(source, self.columns, self.dynamic_props, role).map_err(|error| {
             PlanError::LayerExpr {
                 layer: self.name.clone(),
                 error,
@@ -329,19 +329,24 @@ impl Compiler<'_> {
         })
     }
 
-    fn add(&mut self, source: &str, expr: CompiledExpr) -> usize {
+    fn add<R: Role>(&mut self, source: &str, expr: TypedExpr<R>) -> ExprRef<R> {
         self.reads.extend(expr.columns().map(str::to_owned));
+        let (expr, role) = expr.into_parts();
         self.exprs.push(PlannedExpr {
             expr,
             source: source.to_owned(),
             layer: self.layer,
         });
-        self.exprs.len() - 1
+        ExprRef::new(self.exprs.len() - 1, role)
     }
 
-    fn plan(&mut self, source: Option<&String>) -> Result<Option<usize>, PlanError> {
+    fn plan<R: Role>(
+        &mut self,
+        source: Option<&String>,
+        role: R,
+    ) -> Result<Option<ExprRef<R>>, PlanError> {
         source
-            .map(|source| Ok(self.add(source, self.compile(source)?)))
+            .map(|source| Ok(self.add(source, self.compile(source, role)?)))
             .transpose()
     }
 }
@@ -368,14 +373,14 @@ fn plan_layer(
     if banded.is_empty() {
         bands.clear();
     }
-    let filter = compiler.plan(def.filter.as_ref())?;
-    let minzoom = compiler.plan(def.minzoom_expr.as_ref())?;
-    let maxzoom = compiler.plan(def.maxzoom_expr.as_ref())?;
+    let filter = compiler.plan(def.filter.as_ref(), Filter)?;
+    let minzoom = compiler.plan(def.minzoom_expr.as_ref(), Zoom::new(&def.zooms))?;
+    let maxzoom = compiler.plan(def.maxzoom_expr.as_ref(), Zoom::new(&def.zooms))?;
     let id = match &def.id {
         IdDef::Keep => PlannedId::Keep,
         IdDef::Drop => PlannedId::Drop,
         IdDef::Expr(source) => {
-            let expr = compiler.compile(source)?;
+            let expr = compiler.compile(source, Id)?;
             PlannedId::Expr(compiler.add(source, expr))
         }
     };
@@ -492,7 +497,7 @@ fn plan_computed(
         let value = match &attr.value {
             ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
             ValueDef::Expr(source) => {
-                let expr = compiler.compile(source)?;
+                let expr = compiler.compile(source, Attr)?;
                 let column = expr
                     .as_property()
                     .and_then(|name| compiler.columns.iter().position(|c| c == name));
