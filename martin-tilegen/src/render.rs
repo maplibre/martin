@@ -2,8 +2,8 @@
 
 use std::ops::RangeInclusive;
 
-use geo::SimplifyIdx as _;
-use geo_types::{Coord, LineString};
+use geo::{BoundingRect, SimplifyIdx as _};
+use geo_types::{Coord, LineString, Rect};
 use map_tile_toolkit::SlicerAll;
 use martin_tile_utils::TileCoord;
 
@@ -67,8 +67,6 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
-    /// `false` keeps whole features in every tile they touch, like `ST_AsMVTGeom(..., clip_geom => false)`.
-    pub clip: bool,
 }
 
 /// Pixels of a 256-pixel tile, with a separate value for the layer's max zoom.
@@ -84,21 +82,20 @@ impl PixelThreshold {
         at_max_zoom: 0.0,
     };
 
-    /// Planetiler's default simplification: 0.1 px, and 1/16 px at the max zoom.
-    pub const PLANETILER_SIMPLIFY: Self = Self {
+    /// 0.1 px, and 1/16 px at the max zoom, matching Planetiler.
+    pub const DEFAULT_SIMPLIFY: Self = Self {
         below_max_zoom: 0.1,
         at_max_zoom: 0.0625,
     };
 
-    /// Planetiler's default minimum size: 1 px, and 1/16 px at the max zoom.
-    pub const PLANETILER_MIN_SIZE: Self = Self {
+    /// 1 px, and 1/16 px at the max zoom, matching Planetiler.
+    pub const DEFAULT_MIN_SIZE: Self = Self {
         below_max_zoom: 1.0,
         at_max_zoom: 0.0625,
     };
 }
 
 impl RenderLayer {
-    /// Clipped.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -120,14 +117,17 @@ impl RenderLayer {
         if grid.buffer >= grid.extent / 2 || u16::try_from(grid.buffer).is_err() {
             return Err(invalid_buffer(grid));
         }
-        Ok(Self {
-            index,
-            zooms,
-            grid,
-            clip: true,
-        })
+        Ok(Self { index, zooms, grid })
     }
 
+    /// The zooms both the layer and the feature cover.
+    fn zooms_for(&self, feature: &Feature<'_>) -> RangeInclusive<u8> {
+        let start = (*self.zooms.start()).max(*feature.zooms.start());
+        let end = (*self.zooms.end()).min(*feature.zooms.end());
+        start..=end
+    }
+
+    /// Picks the threshold value that applies at `zoom`.
     fn pixels(&self, zoom: u8, threshold: PixelThreshold) -> f64 {
         if zoom == *self.zooms.end() {
             threshold.at_max_zoom
@@ -184,6 +184,7 @@ impl SliceErrors {
 }
 
 impl Renderer {
+    /// Pushes the feature's pieces for every zoom in [`RenderLayer::zooms_for`], highest zoom first.
     pub fn render(
         &mut self,
         order: TileOrder,
@@ -198,24 +199,30 @@ impl Renderer {
             seq,
             feature,
         };
-        let zooms = (*feature.zooms.start()).max(*layer.zooms.start())
-            ..=(*feature.zooms.end()).min(*layer.zooms.end());
+        let zooms = layer.zooms_for(feature);
         match feature.geom {
             FeatureGeom::Points(points) => {
-                let shift = world_shift(points.iter());
+                let Some(bbox) = points.iter().map(BoundingRect::bounding_rect).reduce(union)
+                else {
+                    return Ok(());
+                };
+                let shift = world_shift(bbox);
                 for zoom in zooms.rev() {
                     let result = self.render_points(&ctx, zoom, points, shift, out);
                     self.skip_unrenderable(&ctx, zoom, result)?;
                 }
             }
             FeatureGeom::Lines(lines) => {
-                let Some(bbox) = bbox(lines.iter().flat_map(|l| &l.0)) else {
+                let Some(bbox) = lines
+                    .iter()
+                    .filter_map(BoundingRect::bounding_rect)
+                    .reduce(union)
+                else {
                     return Ok(());
                 };
-                let shift = world_shift([bbox.0, bbox.1].iter());
+                let shift = world_shift(bbox);
                 for zoom in zooms.rev() {
-                    let size =
-                        (bbox.1.x - bbox.0.x).max(bbox.1.y - bbox.0.y) * TILE_PIXELS * scale(zoom);
+                    let size = bbox.width().max(bbox.height()) * TILE_PIXELS * scale(zoom);
                     if size < layer.pixels(zoom, ctx.feature.min_size) {
                         break;
                     }
@@ -227,6 +234,8 @@ impl Renderer {
         Ok(())
     }
 
+    /// Records a feature that could not be quantized or sliced at `zoom` and lets rendering go on;
+    /// any other error is returned.
     fn skip_unrenderable(
         &mut self,
         ctx: &Ctx<'_>,
@@ -256,6 +265,8 @@ impl Renderer {
         }
     }
 
+    /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
+    /// a point reaches.
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -296,6 +307,8 @@ impl Renderer {
         Ok(())
     }
 
+    /// Simplifies and quantizes the lines at `zoom`, slices them into tiles and pushes one piece per
+    /// tile. Called once per feature and zoom.
     fn render_lines(
         &mut self,
         ctx: &Ctx<'_>,
@@ -341,21 +354,13 @@ impl Renderer {
                 start = end - 1;
             }
         }
-        let extent = to_i32(grid.extent)?;
         for tile in slicer.iter_tiles() {
             let id = tile.tile_id();
             self.piece_parts.clear();
             self.piece.clear();
-            if ctx.layer.clip {
-                for polyline in tile.iter_features().flat_map(|f| f.iter_polylines()) {
-                    self.piece_parts.push(vertex_count(polyline.len())?);
-                    self.piece.extend(polyline.iter().map(|c| [c.x, c.y]));
-                }
-            } else {
-                let (ox, oy) = (id.x * extent, id.y * extent);
-                self.piece_parts.extend_from_slice(&self.parts);
-                self.piece
-                    .extend(self.vertices.iter().map(|c| [c.x - ox, c.y - oy]));
+            for polyline in tile.iter_features().flat_map(|f| f.iter_polylines()) {
+                self.piece_parts.push(vertex_count(polyline.len())?);
+                self.piece.extend(polyline.iter().map(|c| [c.x, c.y]));
             }
             let geom = Geom::Lines {
                 parts: &self.piece_parts,
@@ -366,6 +371,7 @@ impl Renderer {
         Ok(())
     }
 
+    /// The slicer for the layer's grid, created on first use and reused across features.
     fn slicer_index(&mut self, layer: &RenderLayer) -> TileGenResult<usize> {
         let grid = layer.grid;
         if let Some(pos) = self.slicers.iter().position(|(g, _)| *g == grid) {
@@ -380,6 +386,8 @@ impl Renderer {
     }
 }
 
+/// What every piece of one [`Renderer::render`] call shares: the sort order, the layer, and the
+/// feature with its [`Seq`].
 struct Ctx<'a> {
     order: TileOrder,
     layer: &'a RenderLayer,
@@ -414,6 +422,7 @@ impl Ctx<'_> {
     }
 }
 
+/// Tiles per world side at `zoom`.
 fn scale(zoom: u8) -> f64 {
     f64::from(1u32 << zoom)
 }
@@ -451,10 +460,8 @@ fn quantize(c: Coord<f64>, shift: f64, world: f64) -> Result<Vertex, GeometryErr
 /// Whole world widths that bring a feature lying entirely outside `[0, 1)` back into it, e.g. data drawn
 /// at longitudes 181..190 to avoid splitting Fiji. A feature straddling the edge stays and is wrapped
 /// per tile instead.
-fn world_shift<'a>(xs: impl Iterator<Item = &'a Coord<f64>>) -> f64 {
-    let (lo, hi) = xs.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), c| {
-        (lo.min(c.x), hi.max(c.x))
-    });
+fn world_shift(bbox: Rect<f64>) -> f64 {
+    let (lo, hi) = (bbox.min().x, bbox.max().x);
     if lo >= 1.0 || hi < 0.0 {
         -lo.floor()
     } else {
@@ -462,20 +469,17 @@ fn world_shift<'a>(xs: impl Iterator<Item = &'a Coord<f64>>) -> f64 {
     }
 }
 
-fn bbox<'a>(mut coords: impl Iterator<Item = &'a Coord<f64>>) -> Option<(Coord<f64>, Coord<f64>)> {
-    let first = *coords.next()?;
-    Some(coords.fold((first, first), |(lo, hi), c| {
-        (
-            Coord {
-                x: lo.x.min(c.x),
-                y: lo.y.min(c.y),
-            },
-            Coord {
-                x: hi.x.max(c.x),
-                y: hi.y.max(c.y),
-            },
-        )
-    }))
+fn union(a: Rect<f64>, b: Rect<f64>) -> Rect<f64> {
+    Rect::new(
+        Coord {
+            x: a.min().x.min(b.min().x),
+            y: a.min().y.min(b.min().y),
+        },
+        Coord {
+            x: a.max().x.max(b.max().x),
+            y: a.max().y.max(b.max().y),
+        },
+    )
 }
 
 #[cfg(test)]
@@ -499,8 +503,8 @@ mod tests {
                 geom,
                 props: &EncodedProps::default(),
                 zooms: layer.zooms.clone(),
-                simplify: PixelThreshold::PLANETILER_SIMPLIFY,
-                min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+                simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             },
         )
     }
@@ -580,7 +584,7 @@ mod tests {
                 geom: FeatureGeom::Lines(&[LineString::from(zigzag)]),
                 props: &EncodedProps::default(),
                 zooms: 0..=8,
-                simplify: PixelThreshold::PLANETILER_SIMPLIFY,
+                simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
             },
         );
@@ -621,19 +625,6 @@ mod tests {
         );
         let wrapped = tiles.iter().find(|t| t.0 == "1/1/0").unwrap();
         assert_eq!(wrapped.2.vertices, [[257, 128]]);
-    }
-
-    #[test]
-    fn unclipped_lines_keep_the_whole_feature_per_tile() {
-        let mut layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
-        layer.clip = false;
-        let line = LineString::from(vec![coord! { x: 0.1, y: 0.1 }, coord! { x: 0.9, y: 0.1 }]);
-        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
-        assert_eq!(tiles.len(), 2);
-        for (_, _, geom) in &tiles {
-            assert_eq!(geom.vertices.len(), 2);
-        }
-        assert_eq!(tiles[1].2.vertices, [[51 - 256, 51], [461 - 256, 51]]);
     }
 
     #[test]
@@ -701,8 +692,8 @@ mod tests {
                     geom: FeatureGeom::Points(&[coord! { x: 0.5, y: f64::NAN }]),
                     props: &EncodedProps::default(),
                     zooms: 0..=2,
-                    simplify: PixelThreshold::PLANETILER_SIMPLIFY,
-                    min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+                    simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                    min_size: PixelThreshold::DEFAULT_MIN_SIZE,
                 },
                 &mut buffer,
             )
