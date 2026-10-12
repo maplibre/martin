@@ -67,8 +67,6 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
-    /// `false` keeps whole features in every tile they touch, like `ST_AsMVTGeom(..., clip_geom => false)`.
-    pub clip: bool,
     /// Only tiles intersecting these unit-coordinate bounds (`[min_x, min_y, max_x, max_y]`) are kept.
     pub bounds: Option<[f64; 4]>,
 }
@@ -100,7 +98,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
-    /// Clipped and unbounded.
+    /// Unbounded.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -126,7 +124,6 @@ impl RenderLayer {
             index,
             zooms,
             grid,
-            clip: true,
             bounds: None,
         })
     }
