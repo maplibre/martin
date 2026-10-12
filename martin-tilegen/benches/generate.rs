@@ -9,12 +9,12 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput};
 use geo_types::{Coord, LineString, Polygon};
-use martin_tile_utils::Encoding;
-use martin_tilegen::plan::{LayerDef, Plan, TableDef};
-use martin_tilegen::props::{KeyId, Prop};
-use martin_tilegen::source::{
+use martin_core::generate::props::{KeyId, Prop};
+use martin_core::generate::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
 };
+use martin_tile_utils::Encoding;
+use martin_tilegen::plan::{LayerDef, Plan, TableDef};
 use martin_tilegen::{
     EncodedTile, GenerateConfig, LayerGrid, Progress, SortConfig, TileFormat, TileGenResult,
     TileOrder, TileSink, generate,
@@ -80,7 +80,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
         geometry,
         props,
     };
-    let (k0, k1) = (KeyId::from(0), KeyId::from(1));
+    let (k0, k1) = (KeyId::new(0), KeyId::new(1));
     let names = ["Main St", "Oak Ave", "Elm Rd", "Hauptstraße"];
 
     let buildings = (0..60_000)
