@@ -207,10 +207,17 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
             summary.skipped
         );
     }
-    if summary.slice_errors > 0 {
+    for failed in &summary.slice_errors {
+        let feature = match failed.id {
+            Some(id) => format!("feature {id}"),
+            None => format!(
+                "the feature at partition {} row {}",
+                failed.partition, failed.row
+            ),
+        };
         warn!(
-            "Skipped {} feature-zooms whose geometry the slicer could not handle",
-            summary.slice_errors
+            "Layer `{}`: skipped {} feature-zooms whose geometry the slicer could not handle, first {feature} at z{}: {}",
+            failed.layer, failed.errors, failed.zoom, failed.error
         );
     }
     Ok(())
