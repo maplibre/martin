@@ -6,7 +6,7 @@ use std::ops::RangeInclusive;
 use indexmap::IndexSet;
 use martin_tilegen::expr::CompiledExpr;
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, TableDef, ValueDef,
+    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, PlanError, TableDef, ValueDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold, TileGenError};
@@ -142,10 +142,10 @@ fn expression_reads<'a>(
         for source in layer.expressions() {
             let expr =
                 CompiledExpr::compile(source, static_columns, dynamic_props).map_err(|error| {
-                    TileGenError::LayerExpr {
+                    TileGenError::Plan(PlanError::LayerExpr {
                         layer: layer.name.clone(),
                         error,
-                    }
+                    })
                 })?;
             reads.other_keys |= expr.needs_all_keys();
             for name in expr.columns() {
