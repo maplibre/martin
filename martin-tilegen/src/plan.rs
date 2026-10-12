@@ -53,8 +53,6 @@ pub struct LayerDef {
     pub name: String,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
-    /// `false` keeps whole features in every tile they touch, like `ST_AsMVTGeom(..., clip_geom => false)`.
-    pub clip: bool,
     /// RDP tolerance.
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
@@ -65,17 +63,16 @@ pub struct LayerDef {
 }
 
 impl LayerDef {
-    /// Clipped, in source order, keeping ids and all attributes, with
-    /// [`PixelThreshold::PLANETILER_SIMPLIFY`] and [`PixelThreshold::PLANETILER_MIN_SIZE`].
+    /// In source order, keeping ids and all attributes, with
+    /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
         Self {
             name: name.into(),
             zooms,
             grid,
-            clip: true,
-            simplify: PixelThreshold::PLANETILER_SIMPLIFY,
-            min_size: PixelThreshold::PLANETILER_MIN_SIZE,
+            simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+            min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             encoder: EncoderConfig::default(),
             id: IdDef::Keep,
             attributes: AttributesDef::All,
@@ -204,13 +201,12 @@ fn plan_layer(
                 .map(|pos| KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys")))
         })
         .collect();
-    let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
+    let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
         PlanError::InvalidLayer {
             layer: def.name.clone(),
             error,
         }
     })?;
-    render.clip = def.clip;
     Ok(PlannedLayer {
         render,
         info: LayerInfo {
