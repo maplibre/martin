@@ -231,8 +231,8 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
     } else {
         options.temp_dir.clone()
     };
-    let per_thread =
-        (options.memory_mb.saturating_mul(1 << 20) / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+    let per_thread = (options.memory_mb.saturating_mul(1 << 20) / threads as u64)
+        .clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
     GenerateConfig {
         threads,
         sort: SortConfig {
