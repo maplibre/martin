@@ -19,6 +19,7 @@ use martin_tilegen::{
     SortConfig, Summary, TileFormat, generate,
 };
 use mbtiles::Mbtiles;
+use mlt_core::encoder::EncoderConfig;
 use mlt_core::{Decoder, Parser, TileLayer};
 
 const GRID: LayerGrid = LayerGrid {
@@ -1684,4 +1685,61 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
             r#"z1 ["Some(2) [Str(Some(\"major\"))]", "Some(4) [Str(Some(\"major\"))]", "Some(1) [Str(None)]", "Some(3) [Str(None)]"]"#,
         ]
     );
+}
+
+#[test]
+fn sort_by_wins_over_the_encoders_own_sorts() {
+    let point = |id: u32, rank| SourceFeature {
+        id: Some(u64::from(id)),
+        geometry: Geometry::Points(vec![Coord {
+            x: 10.0 + f64::from(id) * 20.0,
+            y: 10.0,
+        }]),
+        props: vec![(KeyId::new(0), Prop::I64(rank))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, 5),
+                point(2, -3),
+                point(3, 5),
+                point(4, 12),
+                point(5, 0),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec!["rank".to_owned()],
+        dynamic_props: false,
+        layers: vec![LayerDef {
+            encoder: EncoderConfig::default()
+                .with_id_sort(true)
+                .with_spatial_morton_sort(true)
+                .with_spatial_hilbert_sort(true),
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: true,
+            }],
+            ..LayerDef::new("ranked", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let features: Vec<_> = decode(&rows[0].3)[0]
+        .features()
+        .iter()
+        .map(|f| format!("id {:?}", f.id()))
+        .collect();
+    insta::assert_snapshot!(features.join("\n"), @r"
+    id Some(4)
+    id Some(1)
+    id Some(3)
+    id Some(5)
+    id Some(2)
+    ");
 }
