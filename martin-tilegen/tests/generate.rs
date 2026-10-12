@@ -98,28 +98,38 @@ fn run(
         batch_tiles: 7,
         window: 3,
     };
-    let summary = generate(
-        source,
-        plan,
-        MbtilesSink::create(&path).unwrap(),
-        &config,
-        tilejson::tilejson! { tiles: vec![] },
-        &Progress::default(),
-    )
-    .unwrap();
-    let mbt = Mbtiles::new(&path).unwrap();
-    let rows = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
         .build()
-        .unwrap()
-        .block_on(async {
-            let mut conn = mbt.open_readonly().await.unwrap();
-            mbtiles::sqlx::query_as(
-                "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-            )
-            .fetch_all(&mut conn)
-            .await
+        .unwrap();
+    let summary = std::thread::scope(|scope| {
+        scope
+            .spawn(|| {
+                let _guard = runtime.enter();
+                generate(
+                    source,
+                    plan,
+                    MbtilesSink::create(&path).unwrap(),
+                    &config,
+                    tilejson::tilejson! { tiles: vec![] },
+                    &Progress::default(),
+                )
+                .unwrap()
+            })
+            .join()
             .unwrap()
-        });
+    });
+    let mbt = Mbtiles::new(&path).unwrap();
+    let rows = runtime.block_on(async {
+        let mut conn = mbt.open_readonly().await.unwrap();
+        mbtiles::sqlx::query_as(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
+        )
+        .fetch_all(&mut conn)
+        .await
+        .unwrap()
+    });
     (summary, rows, mbt)
 }
 
