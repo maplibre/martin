@@ -8,10 +8,29 @@ use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
 use martin_core::tiles::postgres::PostgresPool;
 use martin_tilegen::props::KeyInterner;
 use martin_tilegen::source::{FeatureBatch, FeatureSource as _};
+use testcontainers_modules::postgres::Postgres;
+use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 
-async fn builder() -> PostgresAutoDiscoveryBuilder {
+async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
+    let container = Postgres::default()
+        .with_name("postgis/postgis")
+        .with_tag("15-3.5")
+        .start()
+        .await
+        .expect("PostGIS container failed to start (is Docker running?)");
+    let host = container.get_host().await.expect("container host");
+    let port = container
+        .get_host_port_ipv4(5432)
+        .await
+        .expect("container port");
+    let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
+    (container, connstr)
+}
+
+async fn builder(connstr: &str) -> PostgresAutoDiscoveryBuilder {
     let mut config = PostgresConfig {
-        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        connection_string: Some(connstr.to_owned()),
         ..PostgresConfig::default()
     };
     config.finalize().await.unwrap();
@@ -25,11 +44,14 @@ async fn builder() -> PostgresAutoDiscoveryBuilder {
     .unwrap()
 }
 
-async fn source_over_new_table(name: &str, partitions: u32) -> (PostgresPool, PgScanSource) {
-    let conn = builder().await.pool().get().await.unwrap();
+async fn source_over_new_table(
+    connstr: &str,
+    name: &str,
+    partitions: u32,
+) -> (PostgresPool, PgScanSource) {
+    let conn = builder(connstr).await.pool().get().await.unwrap();
     conn.batch_execute(&format!(
-        "DROP TABLE IF EXISTS {name};
-         CREATE TABLE {name} (id int PRIMARY KEY, geom geometry(Point, 4326), pad text);
+        "CREATE TABLE {name} (id int PRIMARY KEY, geom geometry(Point, 4326), pad text);
          INSERT INTO {name}
          SELECT i, ST_SetSRID(ST_MakePoint(i % 100, i % 50), 4326), repeat('x', 200)
          FROM generate_series(1, 2000) i;
@@ -38,7 +60,7 @@ async fn source_over_new_table(name: &str, partitions: u32) -> (PostgresPool, Pg
     .await
     .unwrap();
     drop(conn);
-    let builder = builder().await;
+    let builder = builder(connstr).await;
     let (specs, _) = builder.discover().await.unwrap();
     let Some(SourceSpec::Table(info)) = specs.get(name) else {
         panic!("no table source {name}")
@@ -69,17 +91,11 @@ async fn update_first_hundred(pool: &PostgresPool, name: &str) {
     .unwrap();
 }
 
-async fn drop_table(pool: &PostgresPool, name: &str) {
-    let conn = pool.get().await.unwrap();
-    conn.batch_execute(&format!("DROP TABLE {name}"))
-        .await
-        .unwrap();
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn partitions_read_through_one_reader_see_one_snapshot() {
+    let (_container, connstr) = start_postgis().await;
     let name = "snapshot_scan_readers";
-    let (pool, source) = source_over_new_table(name, 4).await;
+    let (pool, source) = source_over_new_table(&connstr, name, 4).await;
     assert_eq!(source.partitions(), 4);
     let keys = vec![KeyInterner::new(Vec::<String>::new())];
     let handle = tokio::runtime::Handle::current();
@@ -108,13 +124,13 @@ async fn partitions_read_through_one_reader_see_one_snapshot() {
     let mut sorted = ids;
     sorted.sort_unstable();
     assert_eq!(sorted, (1..=2000).collect::<Vec<_>>());
-    drop_table(&pool, name).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn partitions_read_one_by_one_do_not_share_a_snapshot() {
+    let (_container, connstr) = start_postgis().await;
     let name = "snapshot_scan_independent";
-    let (pool, source) = source_over_new_table(name, 4).await;
+    let (pool, source) = source_over_new_table(&connstr, name, 4).await;
     let keys = vec![KeyInterner::new(Vec::<String>::new())];
     let handle = tokio::runtime::Handle::current();
 
@@ -138,13 +154,13 @@ async fn partitions_read_one_by_one_do_not_share_a_snapshot() {
     .unwrap();
 
     assert_eq!(count, 2100);
-    drop_table(&pool, name).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_scan_leaves_the_pool_connections_as_they_were() {
+    let (_container, connstr) = start_postgis().await;
     let name = "snapshot_scan_settings";
-    let (pool, source) = source_over_new_table(name, 2).await;
+    let (pool, source) = source_over_new_table(&connstr, name, 2).await;
     let keys = vec![KeyInterner::new(Vec::<String>::new())];
 
     tokio::task::spawn_blocking(move || {
@@ -165,6 +181,4 @@ async fn a_scan_leaves_the_pool_connections_as_they_were() {
         .unwrap();
     assert_eq!(row.get::<_, String>(0), "on");
     assert_ne!(row.get::<_, String>(1), "0");
-    drop(conn);
-    drop_table(&pool, name).await;
 }
