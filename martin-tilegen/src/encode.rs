@@ -4,6 +4,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Mutex, PoisonError};
 
+use martin_core::generate::props::KeyNames;
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::tile_layers_to_mvt;
@@ -11,7 +12,6 @@ use mlt_core::{PropKind, TileLayer};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::group::{LayerRecordRef, TileRecords};
-use crate::props::KeyNames;
 use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, TileOrder};
 
 #[derive(Clone, Copy, Debug)]
@@ -248,12 +248,12 @@ impl TileEncoder {
 
 #[cfg(test)]
 mod tests {
+    use martin_core::generate::props::KeyInterner;
     use martin_tile_utils::decode_gzip;
     use mlt_core::fast_mvt::MvtReaderRef;
     use mlt_core::{Decoder, Parser, PropValueRef};
 
     use super::*;
-    use crate::props::KeyInterner;
     use crate::record::{EncodedProps, Geom, encode};
     use crate::{TileGenError, TileRecords};
 

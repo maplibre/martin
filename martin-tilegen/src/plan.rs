@@ -3,9 +3,9 @@
 use std::collections::HashSet;
 use std::ops::{Range, RangeInclusive};
 
+use martin_core::generate::props::KeyId;
 use mlt_core::encoder::EncoderConfig;
 
-use crate::props::KeyId;
 use crate::{LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
 #[derive(thiserror::Error, Debug)]
@@ -38,10 +38,10 @@ pub enum PlanError {
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
 ///
-/// [`table`]: crate::source::FeatureBatch::table
+/// [`table`]: martin_core::generate::source::FeatureBatch::table
 #[derive(Clone, Debug)]
 pub struct TableDef {
-    /// Property keys known up front, in column order: column `i` is [`KeyId::from(i)`](KeyId::from).
+    /// Property keys known up front, in column order: column `i` is [`KeyId::new(i)`](KeyId::new).
     pub columns: Vec<String>,
     /// Whether features may carry keys beyond `columns`, e.g. from a JSON column.
     pub dynamic_props: bool,
@@ -201,7 +201,7 @@ fn plan_layer(
         .map(|column| {
             keys.iter()
                 .position(|key| key == column)
-                .map(|pos| KeyId::from(u32::try_from(pos).expect("fewer than 2^32 keys")))
+                .map(|pos| KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys")))
         })
         .collect();
     let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
@@ -287,8 +287,12 @@ mod tests {
         assert_eq!(
             copies,
             [
-                vec![Some(KeyId(0)), Some(KeyId(1)), Some(KeyId(2))],
-                vec![Some(KeyId(1)), None, Some(KeyId(0))],
+                vec![
+                    Some(KeyId::new(0)),
+                    Some(KeyId::new(1)),
+                    Some(KeyId::new(2))
+                ],
+                vec![Some(KeyId::new(1)), None, Some(KeyId::new(0))],
                 vec![None, None, None],
             ]
         );

@@ -5,15 +5,15 @@ use std::thread::{self, ScopedJoinHandle};
 
 use geo_types::Coord;
 
+use martin_core::generate::props::{KeyId, KeyInterner, KeyNames};
+use martin_core::generate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 
 use crate::pipeline::{self, BatchSender};
 use crate::plan::{AttributesDef, IdDef, Plan, PlannedLayer};
-use crate::props::{KeyId, KeyInterner, KeyNames};
 use crate::record::EncodedProps;
-use crate::source::{Crs, FeatureBatch, FeatureSource, Geometry};
 use crate::{
     DedupIndex, EncodeSettings, Feature, FeatureGeom, LayerInfo, LayerStats, Renderer, Seq,
     SliceErrors, SortBuffer, SortConfig, Sorter, TileEncoder, TileFormat, TileGenError,
@@ -229,10 +229,9 @@ fn render_all<S: FeatureSource>(
                         }
                         reader
                             .read(partition, &keys.tables, &mut |batch| {
-                                tx.send(batch)
-                                    .map_err(|_closed| TileGenError::WriterStopped)
+                                tx.send(batch).map_err(|_closed| SourceError::Stopped)
                             })
-                            .map_err(fail)?;
+                            .map_err(|err| fail(err.into()))?;
                     }
                 })
             })
@@ -330,7 +329,7 @@ impl Worker {
         keys: (&KeyInterner, &KeyInterner),
         key: KeyId,
     ) -> Option<KeyId> {
-        let pos = key.0 as usize;
+        let pos = key.index();
         if let Some(&copied) = layer.copy.get(pos) {
             return copied;
         }

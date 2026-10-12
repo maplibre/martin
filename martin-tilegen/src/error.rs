@@ -1,3 +1,4 @@
+use martin_core::generate::source::SourceError;
 use martin_tile_utils::TileCoord;
 
 use crate::tile::MAX_ZOOM;
@@ -31,8 +32,8 @@ pub enum TileGenError {
     #[error("feature batch names table {0}, but the plan has fewer tables")]
     UnknownTable(u16),
 
-    #[error("partition {0} does not exist")]
-    UnknownPartition(u32),
+    #[error(transparent)]
+    Source(SourceError),
 
     #[error(transparent)]
     Geometry(#[from] crate::GeometryError),
@@ -67,4 +68,14 @@ pub enum TileGenError {
 
     #[error(transparent)]
     Pmtiles(#[from] pmtiles::PmtError),
+}
+
+impl From<SourceError> for TileGenError {
+    fn from(err: SourceError) -> Self {
+        if matches!(err, SourceError::Stopped) {
+            Self::WriterStopped
+        } else {
+            Self::Source(err)
+        }
+    }
 }

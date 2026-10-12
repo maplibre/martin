@@ -5,15 +5,15 @@
 use std::path::Path;
 
 use geo_types::{Coord, LineString};
+use martin_core::generate::props::{KeyId, KeyInterner, Prop};
+use martin_core::generate::source::{
+    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult,
+};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{AttributesDef, IdDef, LayerDef, Plan, TableDef};
-use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{
-    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
-};
 use martin_tilegen::{
     GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress, SortConfig,
-    Summary, TileFormat, TileGenResult, generate,
+    Summary, TileFormat, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser, TileLayer};
@@ -52,8 +52,8 @@ fn source() -> (MemorySource, Plan) {
                         id: Some(u64::from(p * 100 + i)),
                         geometry,
                         props: vec![
-                            (KeyId::from(0), Prop::Str(format!("f{p}-{i}"))),
-                            (KeyId::from(1), Prop::I64(i64::from(i))),
+                            (KeyId::new(0), Prop::Str(format!("f{p}-{i}"))),
+                            (KeyId::new(1), Prop::I64(i64::from(i))),
                         ],
                     }
                 })
@@ -208,8 +208,8 @@ fn reports_the_first_unrenderable_feature_regardless_of_threads() {
 #[test]
 fn interner_ids_match_known_keys() {
     let keys = KeyInterner::new(["name", "rank"]);
-    assert_eq!(keys.intern("name"), KeyId::from(0));
-    assert_eq!(keys.intern("rank"), KeyId::from(1));
+    assert_eq!(keys.intern("name"), KeyId::new(0));
+    assert_eq!(keys.intern("rank"), KeyId::new(1));
 }
 
 #[test]
@@ -228,9 +228,9 @@ fn one_table_feeds_layers_with_their_own_settings() {
                     id: Some(10),
                     geometry: Geometry::Lines(vec![LineString::from(zigzag)]),
                     props: vec![
-                        (KeyId::from(0), Prop::Str("Main St".to_owned())),
-                        (KeyId::from(1), Prop::Str("primary".to_owned())),
-                        (KeyId::from(2), Prop::I64(4)),
+                        (KeyId::new(0), Prop::Str("Main St".to_owned())),
+                        (KeyId::new(1), Prop::Str("primary".to_owned())),
+                        (KeyId::new(2), Prop::I64(4)),
                     ],
                 },
                 SourceFeature {
@@ -240,9 +240,9 @@ fn one_table_feeds_layers_with_their_own_settings() {
                         (40.1, 10.0),
                     ])]),
                     props: vec![
-                        (KeyId::from(0), Prop::Str("Side St".to_owned())),
-                        (KeyId::from(1), Prop::Str("service".to_owned())),
-                        (KeyId::from(2), Prop::I64(1)),
+                        (KeyId::new(0), Prop::Str("Side St".to_owned())),
+                        (KeyId::new(1), Prop::Str("service".to_owned())),
+                        (KeyId::new(2), Prop::I64(1)),
                     ],
                 },
             ],
@@ -323,8 +323,8 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
             &self,
             partition: u32,
             keys: &[KeyInterner],
-            emit: &mut dyn FnMut(FeatureBatch) -> TileGenResult<()>,
-        ) -> TileGenResult<()> {
+            emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+        ) -> SourceResult<()> {
             let features = (0..40u32)
                 .map(|i| {
                     let x = f64::from(partition) * 20.0 - 60.0 + f64::from(i);
@@ -338,8 +338,8 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
                         id: Some(u64::from(partition * 100 + i)),
                         geometry,
                         props: vec![
-                            (KeyId::from(0), Prop::Str(format!("f{partition}-{i}"))),
-                            (KeyId::from(1), Prop::I64(i64::from(i))),
+                            (KeyId::new(0), Prop::Str(format!("f{partition}-{i}"))),
+                            (KeyId::new(1), Prop::I64(i64::from(i))),
                             (keys[0].intern(&format!("tag{}", i % 3)), Prop::Bool(true)),
                         ],
                     }

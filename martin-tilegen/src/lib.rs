@@ -9,13 +9,12 @@ mod group;
 pub mod pipeline;
 pub mod plan;
 pub mod project;
-pub mod props;
+mod props;
 pub mod record;
 mod render;
 mod sink;
 mod sort;
 mod sort_key;
-pub mod source;
 mod tile;
 
 pub use assemble::{LayerAssembler, LayerGrid};
