@@ -1389,3 +1389,62 @@ fn a_failing_rule_condition_does_not_match_and_is_counted() {
         }]
     );
 }
+
+#[test]
+fn a_rule_without_a_condition_or_expressions_still_applies() {
+    let zigzag: Vec<_> = (0..21u32)
+        .map(|i| (10.0 + f64::from(i), if i % 2 == 0 { 10.0 } else { 10.5 }))
+        .collect();
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(zigzag)]),
+                props: vec![],
+            }],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        dynamic_props: false,
+        layers: vec![
+            LayerDef {
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+                ..LayerDef::new("plain", 0..=0, GRID)
+            },
+            LayerDef {
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+                rules: vec![RuleDef {
+                    simplify: Some(PixelThreshold {
+                        below_max_zoom: 2.0,
+                        at_max_zoom: 2.0,
+                    }),
+                    ..RuleDef::default()
+                }],
+                ..LayerDef::new("ruled", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let points: Vec<_> = decode(&rows[0].3)
+        .iter()
+        .map(|layer| {
+            let geo_types::Geometry::LineString(line) = layer.features()[0].geometry() else {
+                panic!("unexpected {:?}", layer.features()[0].geometry());
+            };
+            format!("{}: {} points", layer.name(), line.0.len())
+        })
+        .collect();
+    insta::assert_snapshot!(points.join("\n"), @r"
+    plain: 21 points
+    ruled: 2 points
+    ");
+}
