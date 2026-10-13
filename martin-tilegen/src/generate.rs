@@ -37,6 +37,8 @@ pub struct GenerateConfig {
 #[derive(Clone, Debug, Default)]
 pub struct Summary {
     pub features: u64,
+    /// Features whose geometry the generator cannot render (yet), e.g. polygons or collections.
+    pub skipped: u64,
     pub tiles: u64,
     /// Layers with feature-zooms the slicer could not handle and skipped, in plan order.
     pub slice_errors: Vec<LayerSliceErrors>,
@@ -159,6 +161,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     sink.finish(&metadata)?;
     Ok(Summary {
         features: totals.features,
+        skipped: totals.skipped,
         tiles,
         slice_errors: layer_slice_errors(plan, &totals.slice_errors),
     })
@@ -193,6 +196,7 @@ struct Keys {
 #[derive(Default)]
 struct RenderTotals {
     features: u64,
+    skipped: u64,
     /// By layer index.
     slice_errors: Vec<SliceErrors>,
 }
@@ -267,6 +271,7 @@ fn render_all<S: FeatureSource>(
                         renderer: Renderer::default(),
                         props: EncodedProps::default(),
                         dynamic: vec![Vec::new(); plan.layers.len()],
+                        skipped: 0,
                     };
                     let mut count = 0;
                     for mut batch in rx {
@@ -282,7 +287,8 @@ fn render_all<S: FeatureSource>(
                     }
                     buffer.finish().map_err(fail)?;
                     Ok(RenderTotals {
-                        features: count,
+                        features: count - worker.skipped,
+                        skipped: worker.skipped,
                         slice_errors: worker.renderer.slice_errors,
                     })
                 })
@@ -301,6 +307,7 @@ fn render_all<S: FeatureSource>(
             match join(worker) {
                 Ok(worker) => {
                     totals.features += worker.features;
+                    totals.skipped += worker.skipped;
                     if totals.slice_errors.len() < worker.slice_errors.len() {
                         totals
                             .slice_errors
@@ -334,6 +341,7 @@ struct Worker {
     props: EncodedProps,
     /// Output key of each table key interned after the declared columns, by layer; filled lazily.
     dynamic: Vec<Vec<DynamicKey>>,
+    skipped: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -390,7 +398,10 @@ fn render_batch(
         .layers
         .clone();
     for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
-        let geom = project_geometry(batch.crs, &mut feature.geometry);
+        let Some(geom) = project_geometry(batch.crs, &mut feature.geometry) else {
+            worker.skipped += 1;
+            continue;
+        };
         let seq = Seq::new(batch.partition, row)?;
         for index in layers.clone() {
             let layer = &plan.layers[index];
@@ -424,18 +435,22 @@ fn render_batch(
     Ok(())
 }
 
-fn project_geometry(crs: Crs, geometry: &mut Geometry) -> FeatureGeom<'_> {
+fn project_geometry(crs: Crs, geometry: &mut Geometry) -> Option<FeatureGeom<'_>> {
+    if !geometry.decode_wkb() {
+        return None;
+    }
     match geometry {
         Geometry::Points(points) => {
             project_coords(crs, points);
-            FeatureGeom::Points(points)
+            Some(FeatureGeom::Points(points))
         }
         Geometry::Lines(lines) => {
             for line in lines.iter_mut() {
                 project_coords(crs, &mut line.0);
             }
-            FeatureGeom::Lines(lines)
+            Some(FeatureGeom::Lines(lines))
         }
+        Geometry::Wkb(_) => None,
     }
 }
 

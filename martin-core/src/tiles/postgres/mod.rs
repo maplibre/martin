@@ -26,7 +26,7 @@ mod scan;
 #[cfg(feature = "unstable-generate")]
 pub use deadpool_postgres::Object as PooledConnection;
 #[cfg(feature = "unstable-generate")]
-pub use scan::{ScanLayout, id_bounds, open_snapshot_connections, relation_blocks, scan_features};
+pub use scan::{ScanLayout, open_scan_connection, scan_features};
 
 mod tile_wkb;
 pub use tile_wkb::{TileWkbError, parse_tile_wkb};

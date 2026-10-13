@@ -1,19 +1,16 @@
-//! The `PostgreSQL` source of `martin generate`: whole-table scans split into partitions.
+//! The `PostgreSQL` source of `martin generate`: whole-table scans on one connection.
 
 use std::ops::RangeInclusive;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use martin_core::generate::props::KeyInterner;
 use martin_core::generate::source::{
     FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
 };
 use martin_core::tiles::postgres::{
-    PooledConnection, PostgresPool, PostgresResult, ScanLayout, id_bounds,
-    open_snapshot_connections, relation_blocks, scan_features,
+    PooledConnection, PostgresPool, ScanLayout, open_scan_connection, scan_features,
 };
 use martin_tilegen::plan::{LayerDef, Plan, PlanError, TableDef};
 use martin_tilegen::{LayerGrid, TileGenResult};
-use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::postgres::resolver::scan_sql;
@@ -28,20 +25,12 @@ pub struct ScanLayer {
     pub zooms: RangeInclusive<u8>,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct ScanOptions {
-    pub partitions_per_table: u32,
-    /// Fewer pages than this are not worth their own connection.
-    pub min_blocks: u64,
-}
-
+/// Each table is one partition, and all of them are read by one reader in one transaction.
 pub struct PgScanSource {
     runtime: tokio::runtime::Handle,
     pool: PostgresPool,
     plan: Plan,
     tables: Vec<Table>,
-    partitions: Vec<Partition>,
-    skipped: AtomicU64,
 }
 
 struct Table {
@@ -49,27 +38,14 @@ struct Table {
     layout: ScanLayout,
 }
 
-struct Partition {
-    table: usize,
-    condition: String,
-}
-
 impl PgScanSource {
-    /// Plans the scans; partitions are numbered table by table in physical order, so reading them in order
-    /// is each table's own scan order.
-    ///
     /// # Errors
     ///
-    /// Fails on more than 256 layers, an invalid filter, an invalid plan, or a failing planning query.
-    pub async fn new(
-        pool: PostgresPool,
-        layers: Vec<ScanLayer>,
-        options: ScanOptions,
-    ) -> TileGenResult<Self> {
+    /// Fails on more than 256 layers, an invalid filter, or an invalid plan.
+    pub fn new(pool: PostgresPool, layers: Vec<ScanLayer>) -> TileGenResult<Self> {
         let count = layers.len();
         let mut defs = Vec::with_capacity(count);
         let mut tables = Vec::with_capacity(count);
-        let mut partitions = Vec::new();
         for (layer, scan) in layers.into_iter().enumerate() {
             let index =
                 u16::try_from(layer).map_err(|_too_many| PlanError::TooManyLayers(count))?;
@@ -81,15 +57,6 @@ impl PgScanSource {
                 buffer: scan.info.buffer.unwrap_or(DEFAULT_BUFFER),
             };
             let sql = scan_sql(&scan.info).map_err(SourceError::from)?;
-            for condition in plan(&pool, &scan.info, options)
-                .await
-                .map_err(SourceError::from)?
-            {
-                partitions.push(Partition {
-                    table: layer,
-                    condition,
-                });
-            }
             let dynamic_props = scan
                 .info
                 .properties
@@ -116,49 +83,26 @@ impl PgScanSource {
             pool,
             plan: Plan::new(defs)?,
             tables,
-            partitions,
-            skipped: AtomicU64::new(0),
         })
     }
 
+    #[must_use]
     pub fn plan(&self) -> &Plan {
         &self.plan
     }
 
-    /// Rows whose geometry the generator cannot render (yet), e.g. polygons or collections.
-    pub fn skipped(&self) -> u64 {
-        self.skipped.load(Ordering::Relaxed)
-    }
-}
-
-impl PgScanSource {
-    fn scan(
-        &self,
-        conn: &PooledConnection,
-        partition: u32,
-        keys: &[KeyInterner],
-        emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
-    ) -> SourceResult<()> {
-        let part = &self.partitions[partition as usize];
-        let table = &self.tables[part.table];
-        let sql = format!("{}{}", table.sql, part.condition);
-        let keys = &keys[usize::from(table.layout.table)];
-        let skipped = self.runtime.block_on(scan_features(
-            conn,
-            &sql,
-            &table.layout,
-            partition,
-            keys,
-            emit,
-        ))?;
-        self.skipped.fetch_add(skipped, Ordering::Relaxed);
-        Ok(())
+    fn open_reader(&self) -> SourceResult<ScanReader<'_>> {
+        let conn = self.runtime.block_on(open_scan_connection(&self.pool))?;
+        Ok(ScanReader {
+            source: self,
+            conn: Some(conn),
+        })
     }
 }
 
 impl FeatureSource for PgScanSource {
     fn partitions(&self) -> u32 {
-        u32::try_from(self.partitions.len()).expect("fewer than 2^32 partitions")
+        u32::try_from(self.tables.len()).expect("fewer than 2^16 tables")
     }
 
     fn read(
@@ -167,156 +111,48 @@ impl FeatureSource for PgScanSource {
         keys: &[KeyInterner],
         emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let mut readers = self.open_readers(1)?;
-        readers.remove(0).read(partition, keys, emit)
+        self.open_reader()?.read(partition, keys, emit)
     }
 
-    fn open_readers(&self, count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>> {
-        let conns = self
-            .runtime
-            .block_on(open_snapshot_connections(&self.pool, count))?;
-        Ok(conns
-            .into_iter()
-            .map(|conn| {
-                Box::new(SnapshotReader {
-                    source: self,
-                    conn: Some(conn),
-                }) as Box<dyn FeatureReader + '_>
-            })
-            .collect())
+    fn open_readers(&self, _count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>> {
+        Ok(vec![Box::new(self.open_reader()?)])
     }
 }
 
-struct SnapshotReader<'a> {
+struct ScanReader<'a> {
     source: &'a PgScanSource,
     conn: Option<PooledConnection>,
 }
 
-impl FeatureReader for SnapshotReader<'_> {
+impl FeatureReader for ScanReader<'_> {
     fn read(
         &mut self,
         partition: u32,
         keys: &[KeyInterner],
         emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
     ) -> SourceResult<()> {
+        let table = self
+            .source
+            .tables
+            .get(partition as usize)
+            .ok_or(SourceError::UnknownPartition(partition))?;
         let conn = self.conn.as_ref().expect("the connection lives until drop");
-        self.source.scan(conn, partition, keys, emit)
+        let keys = &keys[usize::from(table.layout.table)];
+        self.source.runtime.block_on(scan_features(
+            conn,
+            &table.sql,
+            &table.layout,
+            partition,
+            keys,
+            emit,
+        ))
     }
 }
 
-impl Drop for SnapshotReader<'_> {
+impl Drop for ScanReader<'_> {
     fn drop(&mut self) {
         if let Some(conn) = self.conn.take() {
             PostgresPool::discard(conn);
         }
-    }
-}
-
-/// Splits a table into page ranges, a view or foreign table with an integer id into id ranges, and
-/// anything else into one scan. Each condition starts with ` AND`.
-async fn plan(
-    pool: &PostgresPool,
-    info: &TableInfo,
-    options: ScanOptions,
-) -> PostgresResult<Vec<String>> {
-    let relation = format!(
-        "{}.{}",
-        escape_identifier(&info.schema),
-        escape_identifier(&info.table)
-    );
-    let max_parts = u64::from(options.partitions_per_table.max(1));
-    let blocks = relation_blocks(pool, &relation).await?;
-    if blocks > 0 {
-        return Ok(block_ranges(
-            blocks,
-            (blocks / options.min_blocks.max(1)).clamp(1, max_parts),
-        ));
-    }
-    let integer_id = info
-        .id_column
-        .as_ref()
-        .filter(|id| matches!(info.column_type(id), Some("int2" | "int4" | "int8")));
-    if let Some(id) = integer_id {
-        let col = escape_identifier(id);
-        if let Some((lo, hi)) = id_bounds(pool, &relation, &col).await? {
-            return Ok(id_ranges(&col, lo, hi, max_parts));
-        }
-    }
-    Ok(vec![String::new()])
-}
-
-/// The last range is open, so pages added since measuring are still read.
-fn block_ranges(blocks: u64, n: u64) -> Vec<String> {
-    (0..n)
-        .map(|i| {
-            let start = blocks * i / n;
-            if i + 1 == n {
-                format!(" AND ctid >= '({start},0)'::tid")
-            } else {
-                format!(
-                    " AND ctid >= '({start},0)'::tid AND ctid < '({},0)'::tid",
-                    blocks * (i + 1) / n
-                )
-            }
-        })
-        .collect()
-}
-
-/// Without a physical order to fall back on, only `ORDER BY` keeps the concatenated ranges equal to a
-/// single scan. Nulls sort last, so the last range takes them.
-fn id_ranges(col: &str, lo: i64, hi: i64, max_parts: u64) -> Vec<String> {
-    let span = i128::from(hi) - i128::from(lo) + 1;
-    let n = span.min(i128::from(max_parts)).max(1);
-    let bound = |i: i128| i128::from(lo) + span * i / n;
-    (0..n)
-        .map(|i| {
-            let range = match (i == 0, i + 1 == n) {
-                (true, true) => String::new(),
-                (true, false) => format!(" AND {col} < {}", bound(1)),
-                (false, true) => format!(" AND ({col} >= {} OR {col} IS NULL)", bound(i)),
-                (false, false) => {
-                    format!(" AND {col} >= {} AND {col} < {}", bound(i), bound(i + 1))
-                }
-            };
-            format!("{range} ORDER BY {col}")
-        })
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn block_ranges_tile_the_table() {
-        assert_eq!(block_ranges(10, 1), [" AND ctid >= '(0,0)'::tid"]);
-        assert_eq!(
-            block_ranges(10, 3),
-            [
-                " AND ctid >= '(0,0)'::tid AND ctid < '(3,0)'::tid",
-                " AND ctid >= '(3,0)'::tid AND ctid < '(6,0)'::tid",
-                " AND ctid >= '(6,0)'::tid"
-            ]
-        );
-    }
-
-    #[test]
-    fn id_ranges_cover_everything_once() {
-        assert_eq!(id_ranges("id", 5, 5, 4), [" ORDER BY id"]);
-        assert_eq!(
-            id_ranges("id", 0, 9, 3),
-            [
-                " AND id < 3 ORDER BY id",
-                " AND id >= 3 AND id < 6 ORDER BY id",
-                " AND (id >= 6 OR id IS NULL) ORDER BY id"
-            ]
-        );
-        assert_eq!(
-            id_ranges("id", i64::MIN, i64::MAX, 2),
-            [
-                " AND id < 0 ORDER BY id",
-                " AND (id >= 0 OR id IS NULL) ORDER BY id"
-            ]
-        );
     }
 }

@@ -6,7 +6,7 @@ use std::path::Path;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
-use martin::generate::postgres::{PgScanSource, ScanLayer, ScanOptions};
+use martin::generate::postgres::{PgScanSource, ScanLayer};
 use martin_core::generate::source::FeatureSource as _;
 use martin_tile_utils::Encoding;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
@@ -44,13 +44,9 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
             let Some(SourceSpec::Table(info)) = specs.get(name) else {
                 panic!("no table source {name}")
             };
-            let mut info = info.clone();
-            if name == "points1_vw" {
-                info.id_column = Some("gid".to_owned());
-            }
             ScanLayer {
                 name: name.to_owned(),
-                info,
+                info: info.clone(),
                 zooms: 0..=6,
             }
         })
@@ -58,16 +54,11 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
     (builder, layers)
 }
 
-async fn run(dir: &Path, options: ScanOptions, threads: usize) -> (u32, u64, Vec<Row>) {
+async fn run(dir: &Path, threads: usize) -> (u32, u64, Vec<Row>) {
     let (builder, layers) = discover().await;
-    let source = PgScanSource::new(builder.pool().clone(), layers, options)
-        .await
-        .unwrap();
+    let source = PgScanSource::new(builder.pool().clone(), layers).unwrap();
     let partitions = source.partitions();
-    let path = dir.join(format!(
-        "out-{}-{threads}.mbtiles",
-        options.partitions_per_table
-    ));
+    let path = dir.join(format!("out-{threads}.mbtiles"));
     let sort_dir = dir.to_path_buf();
     let summary = tokio::task::spawn_blocking(move || {
         let config = GenerateConfig {
@@ -112,25 +103,17 @@ async fn run(dir: &Path, options: ScanOptions, threads: usize) -> (u32, u64, Vec
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn partitioned_scans_match_a_single_stream() {
+async fn render_threads_do_not_change_the_output() {
     let dir = tempfile::tempdir().unwrap();
-    let single = ScanOptions {
-        partitions_per_table: 1,
-        min_blocks: 1,
-    };
-    let split = ScanOptions {
-        partitions_per_table: 4,
-        min_blocks: 1,
-    };
-    let (partitions, features, rows) = run(dir.path(), single, 1).await;
+    let (partitions, features, rows) = run(dir.path(), 1).await;
     assert_eq!(partitions, 5);
     assert!(features > 0);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 6));
-    let (split_partitions, split_features, split_rows) = run(dir.path(), split, 4).await;
-    assert_eq!(split_partitions, 8, "the view splits into 4 id ranges");
-    assert_eq!(split_features, features);
+    let (threaded_partitions, threaded_features, threaded_rows) = run(dir.path(), 4).await;
+    assert_eq!(threaded_partitions, partitions);
+    assert_eq!(threaded_features, features);
     assert!(
-        split_rows == rows,
-        "partitioning must not change the output"
+        threaded_rows == rows,
+        "render threads must not change the output"
     );
 }

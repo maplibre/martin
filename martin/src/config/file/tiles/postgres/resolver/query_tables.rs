@@ -493,11 +493,10 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     Ok(format!(" {keyword} ({sql})"))
 }
 
-/// The query `martin generate` streams a whole table with, before any partition condition.
+/// The query `martin generate` streams a whole table with.
 #[cfg(feature = "unstable-generate")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScanSql {
-    /// `SELECT` ending in a `WHERE` clause, so partition conditions can be appended with `AND`.
     pub sql: String,
     pub crs: Crs,
     pub has_id: bool,
