@@ -1,25 +1,43 @@
 //! Ordered parallel map: the caller produces batches in tile order, worker threads encode them in any
 //! order, and one writer thread consumes the results in production order.
 
-use std::thread;
+use std::thread::{self, Scope, ScopedJoinHandle};
+
+use hotpath::wrap::flume::Sender as ProfiledSender;
 
 use crate::{TileGenError, TileGenResult};
 
 type Pending<O> = flume::Receiver<TileGenResult<O>>;
+type Work<I, O> = (I, flume::Sender<TileGenResult<O>>);
+
+pub(crate) fn spawn_named<'scope, T: Send + 'scope>(
+    scope: &'scope Scope<'scope, '_>,
+    role: &str,
+    index: usize,
+    task: impl FnOnce() -> T + Send + 'scope,
+) -> ScopedJoinHandle<'scope, T> {
+    thread::Builder::new()
+        .name(format!("{role}-{index}"))
+        .spawn_scoped(scope, task)
+        .expect("spawning a pipeline thread")
+}
 
 /// Hands batches to the encoders, blocking while `window` batches are already in flight.
 pub struct BatchSender<I, O> {
-    work: flume::Sender<(I, flume::Sender<TileGenResult<O>>)>,
-    order: flume::Sender<Pending<O>>,
+    work: ProfiledSender<Work<I, O>>,
+    order: ProfiledSender<Pending<O>>,
 }
 
 impl<I, O> BatchSender<I, O> {
     /// Fails only when the writer stopped early; its own error is what [`run`] returns then.
     pub fn send(&self, batch: I) -> TileGenResult<()> {
         let (result_tx, result_rx) = flume::bounded(1);
-        self.order
-            .send(result_rx)
-            .map_err(|_closed| TileGenError::WriterStopped)?;
+        hotpath::measure_block!(
+            { "submit_order_send" },
+            self.order
+                .send(result_rx)
+                .map_err(|_closed| TileGenError::WriterStopped)
+        )?;
         self.work
             .send((batch, result_tx))
             .map_err(|_closed| TileGenError::WriterStopped)
@@ -37,7 +55,7 @@ impl<I, O> BatchSender<I, O> {
 /// At most `window` batches wait to be written besides the one being written, which bounds memory even
 /// when one batch is slow. A producer or encoder error reaches the writer in order as an `Err` item, so a
 /// sink never finishes a partial output; the first root-cause error is returned.
-pub fn run<I: Send, O: Send, S: Send, W: Send>(
+pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
     threads: usize,
     window: usize,
     produce: impl FnOnce(&BatchSender<I, O>) -> TileGenResult<()>,
@@ -45,13 +63,17 @@ pub fn run<I: Send, O: Send, S: Send, W: Send>(
     encode: impl Fn(&mut S, I) -> TileGenResult<O> + Sync,
     write: impl FnOnce(&mut dyn Iterator<Item = TileGenResult<O>>) -> TileGenResult<W> + Send,
 ) -> TileGenResult<(W, Vec<S>)> {
-    let (work_tx, work_rx) = flume::unbounded::<(I, flume::Sender<TileGenResult<O>>)>();
-    let (order_tx, order_rx) = flume::bounded::<Pending<O>>(window);
+    let (work_tx, work_rx) =
+        hotpath::channel!(flume::unbounded::<Work<I, O>>(), label = { "encode_work" });
+    let (order_tx, order_rx) = hotpath::channel!(
+        flume::bounded::<Pending<O>>(window),
+        label = { "encode_order" }
+    );
     thread::scope(|scope| {
         let encoders: Vec<_> = (0..threads.max(1))
-            .map(|_| {
+            .map(|i| {
                 let (work_rx, init, encode) = (work_rx.clone(), &init, &encode);
-                scope.spawn(move || {
+                spawn_named(scope, "encoder", i, move || {
                     let mut state = init();
                     for (batch, result_tx) in work_rx {
                         let _ = result_tx.send(encode(&mut state, batch));
@@ -61,12 +83,10 @@ pub fn run<I: Send, O: Send, S: Send, W: Send>(
             })
             .collect();
         drop(work_rx);
-        let writer = scope.spawn(move || {
-            write(
-                &mut order_rx
-                    .into_iter()
-                    .map_while(|pending| pending.recv().ok()),
-            )
+        let writer = spawn_named(scope, "writer", 0, move || {
+            write(&mut order_rx.into_iter().map_while(|pending| {
+                hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok())
+            }))
         });
 
         let sender = BatchSender {

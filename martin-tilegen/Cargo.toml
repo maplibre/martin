@@ -30,6 +30,7 @@ mbtiles = ["dep:mbtiles", "dep:tokio"]
 flume.workspace = true
 geo.workspace = true
 geo-types.workspace = true
+hotpath = { workspace = true, features = ["flume"] }
 map-tile-toolkit.workspace = true
 martin-core = { workspace = true, features = ["unstable-generate-source"] }
 martin-tile-utils.workspace = true

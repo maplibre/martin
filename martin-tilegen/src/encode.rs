@@ -2,7 +2,9 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Mutex, PoisonError};
+use std::sync::PoisonError;
+
+use hotpath::wrap::std::sync::Mutex as ProfiledMutex;
 
 use martin_core::generate::props::KeyNames;
 use martin_tile_utils::{Encoding, Format, TileCoord};
@@ -49,9 +51,20 @@ pub struct EncodeSettings<'a> {
 
 /// Dedup keys for tiles likely to repeat, shared by all encoders. A key is only handed out for bytes
 /// equal to the first tile that produced its hash, so sinks can trust equal keys without comparing.
-#[derive(Default)]
 pub struct DedupIndex {
-    tiles: Mutex<HashMap<u64, Vec<u8>>>,
+    tiles: ProfiledMutex<HashMap<u64, Vec<u8>>>,
+}
+
+#[allow(
+    clippy::derivable_impls,
+    reason = "the instrumented mutex has no Default"
+)]
+impl Default for DedupIndex {
+    fn default() -> Self {
+        Self {
+            tiles: hotpath::mutex!(std::sync::Mutex::default(), label = { "dedup_index" }),
+        }
+    }
 }
 
 impl DedupIndex {
@@ -134,6 +147,7 @@ struct Previous {
 }
 
 impl TileEncoder {
+    #[hotpath::measure]
     pub fn encode_batch(
         &mut self,
         settings: &EncodeSettings<'_>,

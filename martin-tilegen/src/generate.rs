@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
 use geo_types::Coord;
+use hotpath::wrap::flume::{Receiver, Sender};
 
 use martin_core::generate::props::{KeyId, KeyInterner, KeyNames};
 use martin_core::generate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
@@ -11,7 +12,7 @@ use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 
-use crate::pipeline::{self, BatchSender};
+use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{AttributesDef, IdDef, Plan, PlannedLayer};
 use crate::record::EncodedProps;
 use crate::{
@@ -115,13 +116,15 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         config.window.max(1),
         |submit: &BatchSender<Vec<TileRecords>, _>| loop {
             let mut batch = Vec::with_capacity(batch_tiles);
-            while batch.len() < batch_tiles {
-                let mut tile = TileRecords::default();
-                if !grouper.next_tile(&mut tile)? {
-                    break;
+            hotpath::measure_block!({ "group_batch" }, {
+                while batch.len() < batch_tiles {
+                    let mut tile = TileRecords::default();
+                    if !grouper.next_tile(&mut tile)? {
+                        break;
+                    }
+                    batch.push(tile);
                 }
-                batch.push(tile);
-            }
+            });
             let done = batch.len() < batch_tiles;
             if !batch.is_empty() {
                 submit.send(batch)?;
@@ -194,6 +197,23 @@ struct RenderTotals {
     slice_errors: Vec<SliceErrors>,
 }
 
+type FeatureTx = Sender<FeatureBatch>;
+type FeatureRx = Receiver<FeatureBatch>;
+
+fn send_features(tx: &FeatureTx, batch: FeatureBatch) -> Result<(), SourceError> {
+    hotpath::measure_block!(
+        { "reader_send" },
+        tx.send(batch).map_err(|_closed| SourceError::Stopped)
+    )
+}
+
+fn feature_channel(capacity: usize) -> (FeatureTx, FeatureRx) {
+    hotpath::channel!(
+        flume::bounded::<FeatureBatch>(capacity),
+        label = { "features" }
+    )
+}
+
 fn render_all<S: FeatureSource>(
     source: &S,
     sorter: &Sorter,
@@ -207,7 +227,7 @@ fn render_all<S: FeatureSource>(
     let partitions = source.partitions();
     let next_partition = AtomicU32::new(0);
     let failed = AtomicBool::new(false);
-    let (tx, rx) = flume::bounded::<FeatureBatch>(threads * 2);
+    let (tx, rx) = feature_channel(threads * 2);
     let fail = |err| {
         failed.store(true, Ordering::Relaxed);
         err
@@ -218,9 +238,10 @@ fn render_all<S: FeatureSource>(
         let readers: Vec<_> = source
             .open_readers(threads.min(partitions as usize))?
             .into_iter()
-            .map(|mut reader| {
+            .enumerate()
+            .map(|(i, mut reader)| {
                 let tx = tx.clone();
-                scope.spawn(move || -> TileGenResult<()> {
+                spawn_named(scope, "reader", i, move || -> TileGenResult<()> {
                     let tx = tx;
                     loop {
                         let partition = next_partition.fetch_add(1, Ordering::Relaxed);
@@ -229,7 +250,7 @@ fn render_all<S: FeatureSource>(
                         }
                         reader
                             .read(partition, &keys.tables, &mut |batch| {
-                                tx.send(batch).map_err(|_closed| SourceError::Stopped)
+                                send_features(&tx, batch)
                             })
                             .map_err(|err| fail(err.into()))?;
                     }
@@ -238,9 +259,9 @@ fn render_all<S: FeatureSource>(
             .collect();
         drop(tx);
         let workers: Vec<_> = (0..threads)
-            .map(|_| {
+            .map(|i| {
                 let rx = rx.clone();
-                scope.spawn(|| -> TileGenResult<RenderTotals> {
+                spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
                     let mut buffer = sorter.buffer();
                     let mut worker = Worker {
                         renderer: Renderer::default(),
@@ -352,6 +373,7 @@ impl Worker {
     }
 }
 
+#[hotpath::measure]
 fn render_batch(
     batch: &mut FeatureBatch,
     worker: &mut Worker,
