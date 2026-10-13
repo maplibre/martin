@@ -73,20 +73,19 @@ impl TileColumns {
         column.has_negative |= matches!(value, PropValueRef::I64(v) if v < 0);
     }
 
-    /// Final `(key, kind)` per column in column order; the index maps keys to positions in it.
-    pub(crate) fn finish(&mut self, names: &KeyNames) -> Vec<(KeyId, PropKind)> {
+    /// Fills `schema` with the final `(key, kind)` per column in column order; the index maps keys to
+    /// positions in it.
+    pub(crate) fn finish(&mut self, names: &KeyNames, schema: &mut Vec<(KeyId, PropKind)>) {
         self.columns
             .sort_by(|a, b| column_order(names, a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
             self.column_of_key[column.key.index()] = ColumnIndex::new(pos);
         }
-        self.columns
-            .iter()
-            .map(|c| {
-                let unsigned = c.kind == PropKind::I64 && !c.has_negative;
-                (c.key, if unsigned { PropKind::U64 } else { c.kind })
-            })
-            .collect()
+        schema.clear();
+        schema.extend(self.columns.iter().map(|c| {
+            let unsigned = c.kind == PropKind::I64 && !c.has_negative;
+            (c.key, if unsigned { PropKind::U64 } else { c.kind })
+        }));
     }
 
     /// Column position of `key`, valid after [`finish`](Self::finish).
@@ -101,5 +100,29 @@ fn column_order(names: &KeyNames, a: KeyId, b: KeyId) -> Ordering {
         (true, false) => Ordering::Less,
         (false, true) => Ordering::Greater,
         (false, false) => names.name(a).cmp(names.name(b)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_core::generate::props::KeyInterner;
+
+    use super::*;
+
+    #[test]
+    fn known_keys_come_first_in_declaration_order() {
+        let interner = KeyInterner::new(["zeta", "alpha"]);
+        let dynamic_b = interner.intern("b");
+        let dynamic_a = interner.intern("a");
+        assert_eq!(interner.intern("zeta"), KeyId::new(0));
+        let names = interner.freeze();
+        let mut columns = TileColumns::default();
+        for key in [dynamic_b, KeyId::new(1), dynamic_a, KeyId::new(0)] {
+            columns.add(key, PropValueRef::I64(1));
+        }
+        let mut schema = Vec::new();
+        columns.finish(&names, &mut schema);
+        let order: Vec<_> = schema.iter().map(|(k, _)| names.name(*k)).collect();
+        assert_eq!(order, ["zeta", "alpha", "a", "b"]);
     }
 }

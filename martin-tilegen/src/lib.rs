@@ -17,7 +17,7 @@ mod sort;
 mod sort_key;
 mod tile;
 
-pub use assemble::{LayerAssembler, LayerGrid};
+pub use assemble::{AssembledLayer, LayerAssembler, LayerGrid};
 pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
 pub use error::{TileGenError, TileGenResult};
 pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
