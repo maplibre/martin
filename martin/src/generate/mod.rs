@@ -329,12 +329,11 @@ async fn select_sources(
                 options.max_zoom,
             ));
         }
-        let bbox = options.bbox.map(|b| [b.left, b.bottom, b.right, b.top]);
         layers.push(ScanLayer {
             name,
             info: info.clone(),
             zooms: min..=max,
-            bbox,
+            bbox: options.bbox,
         });
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;

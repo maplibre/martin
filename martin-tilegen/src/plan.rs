@@ -5,6 +5,7 @@ use std::ops::{Range, RangeInclusive};
 
 use martin_core::generate::props::KeyId;
 use mlt_core::encoder::EncoderConfig;
+use tilejson::Bounds;
 
 use crate::{LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
@@ -57,15 +58,15 @@ pub struct LayerDef {
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
     pub min_size: PixelThreshold,
-    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]`: only tiles intersecting it are generated.
-    pub bounds: Option<[f64; 4]>,
+    /// WGS84: only tiles intersecting it are generated.
+    pub bounds: Option<Bounds>,
     pub encoder: EncoderConfig,
     pub id: IdDef,
     pub attributes: AttributesDef,
 }
 
 impl LayerDef {
-    /// Unbounded, in source order, keeping ids and all attributes, with
+    /// Covering the whole world, in source order, keeping ids and all attributes, with
     /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {

@@ -6,6 +6,7 @@ use geo::{BoundingRect, SimplifyIdx as _};
 use geo_types::{Coord, LineString, Rect};
 use map_tile_toolkit::SlicerAll;
 use martin_tile_utils::TileCoord;
+use tilejson::Bounds;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
 use crate::{LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileOrder};
@@ -67,8 +68,8 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
-    /// Only tiles intersecting these unit-coordinate bounds (`[min_x, min_y, max_x, max_y]`) are kept.
-    pub bounds: Option<[f64; 4]>,
+    /// Only tiles intersecting these unit-coordinate bounds are kept.
+    pub bounds: Option<Rect<f64>>,
 }
 
 /// Pixels of a 256-pixel tile, with a separate value for the layer's max zoom.
@@ -98,7 +99,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
-    /// Unbounded.
+    /// Covering the whole world.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -140,13 +141,14 @@ impl RenderLayer {
         reason = "unit bounds times 2^zoom fit i64"
     )]
     fn contains(&self, zoom: u8, x: u32, y: u32) -> bool {
-        let Some([x0, y0, x1, y1]) = self.bounds else {
+        let Some(bounds) = self.bounds else {
             return true;
         };
         let side = scale(zoom);
         let tile = |v: f64| (v * side).floor() as i64;
-        (tile(x0)..=tile(x1)).contains(&i64::from(x))
-            && (tile(y0)..=tile(y1)).contains(&i64::from(y))
+        let (min, max) = (bounds.min(), bounds.max());
+        (tile(min.x)..=tile(max.x)).contains(&i64::from(x))
+            && (tile(min.y)..=tile(max.y)).contains(&i64::from(y))
     }
 
     /// Picks the threshold value that applies at `zoom`.
@@ -159,11 +161,20 @@ impl RenderLayer {
     }
 }
 
-/// WGS84 `[min_lon, min_lat, max_lon, max_lat]` as unit-coordinate `[min_x, min_y, max_x, max_y]`.
-pub(crate) fn unit_bounds([west, south, east, north]: [f64; 4]) -> [f64; 4] {
-    let mut corners = [Coord { x: west, y: north }, Coord { x: east, y: south }];
+/// WGS84 bounds in unit coordinates.
+pub(crate) fn unit_bounds(bounds: Bounds) -> Rect<f64> {
+    let mut corners = [
+        Coord {
+            x: bounds.left,
+            y: bounds.top,
+        },
+        Coord {
+            x: bounds.right,
+            y: bounds.bottom,
+        },
+    ];
     crate::project::from_lonlat(&mut corners);
-    [corners[0].x, corners[0].y, corners[1].x, corners[1].y]
+    Rect::new(corners[0], corners[1])
 }
 
 #[derive(Default)]
@@ -670,7 +681,10 @@ mod tests {
     #[test]
     fn bounds_drop_tiles_outside() {
         let mut layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
-        layer.bounds = Some([0.0, 0.0, 0.4, 0.4]);
+        layer.bounds = Some(Rect::new(
+            coord! { x: 0.0, y: 0.0 },
+            coord! { x: 0.4, y: 0.4 },
+        ));
         let line = LineString::from(vec![coord! { x: 0.1, y: 0.1 }, coord! { x: 0.9, y: 0.1 }]);
         let tiles = render_feature(
             &layer,

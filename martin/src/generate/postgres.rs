@@ -11,6 +11,7 @@ use martin_core::tiles::postgres::{
 };
 use martin_tilegen::plan::{LayerDef, Plan, PlanError, TableDef};
 use martin_tilegen::{LayerGrid, TileGenResult};
+use tilejson::Bounds;
 
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::postgres::resolver::scan_sql;
@@ -23,8 +24,8 @@ pub struct ScanLayer {
     pub name: String,
     pub info: TableInfo,
     pub zooms: RangeInclusive<u8>,
-    /// WGS84 `[min_lon, min_lat, max_lon, max_lat]` to generate, if not the whole world.
-    pub bbox: Option<[f64; 4]>,
+    /// WGS84 area to generate, if not the whole world.
+    pub bbox: Option<Bounds>,
 }
 
 /// Each table is one partition, and all of them are read by one reader in one transaction.
@@ -167,13 +168,13 @@ impl Drop for ScanReader<'_> {
 }
 
 /// Grows a bbox by the tile buffer at `max_zoom`, so tiles at its edge still get their buffer contents.
-fn widen([west, south, east, north]: [f64; 4], grid: LayerGrid, max_zoom: u8) -> [f64; 4] {
+fn widen(bbox: Bounds, grid: LayerGrid, max_zoom: u8) -> Bounds {
     let margin =
         360.0 / f64::from(1u32 << max_zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
-    [
-        west - margin,
-        (south - margin).max(-90.0),
-        east + margin,
-        (north + margin).min(90.0),
-    ]
+    Bounds::new(
+        bbox.left - margin,
+        (bbox.bottom - margin).max(-90.0),
+        bbox.right + margin,
+        (bbox.top + margin).min(90.0),
+    )
 }
