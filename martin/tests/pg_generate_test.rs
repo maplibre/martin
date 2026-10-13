@@ -359,18 +359,7 @@ async fn sort_by_orders_features_across_partitions() {
         "#})
         .unwrap(),
     ));
-    let options = ScanOptions {
-        partitions_per_table: 2,
-        min_blocks: 1,
-    };
-    let (_, _, rows) = run(
-        &builder,
-        vec![lower("table_source", info)],
-        dir.path(),
-        options,
-        2,
-    )
-    .await;
+    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
     let [row] = rows.as_slice() else {
         panic!("expected one tile, got {}", rows.len());
     };
