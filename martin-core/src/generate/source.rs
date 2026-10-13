@@ -1,6 +1,9 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
-use geo_types::{Coord, LineString};
+use bytes::Bytes;
+use geo_traits::to_geo::ToGeoGeometry as _;
+use geo_types::{Coord, Geometry as GeoGeometry, LineString};
+use wkb::reader::Wkb;
 
 use crate::generate::props::{KeyId, KeyInterner, Prop};
 
@@ -38,6 +41,41 @@ pub enum Crs {
 pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
+    /// Well-known binary, decoded by [`Geometry::decode_wkb`] on the render workers.
+    Wkb(Bytes),
+}
+
+impl Geometry {
+    /// Decodes [`Geometry::Wkb`] in place; `false` if it is invalid or of a kind the generator cannot render
+    /// (yet), e.g. polygons or collections.
+    #[must_use]
+    pub fn decode_wkb(&mut self) -> bool {
+        let Self::Wkb(bytes) = self else {
+            return true;
+        };
+        match decode_wkb(bytes) {
+            Some(geometry) => {
+                *self = geometry;
+                true
+            }
+            None => false,
+        }
+    }
+}
+
+fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
+    Some(match Wkb::try_new(bytes).ok()?.try_to_geometry()? {
+        GeoGeometry::Point(p) => Geometry::Points(vec![p.0]),
+        GeoGeometry::MultiPoint(mp) => Geometry::Points(mp.0.into_iter().map(|p| p.0).collect()),
+        GeoGeometry::LineString(ls) => Geometry::Lines(vec![ls]),
+        GeoGeometry::MultiLineString(mls) => Geometry::Lines(mls.0),
+        GeoGeometry::Line(_)
+        | GeoGeometry::Polygon(_)
+        | GeoGeometry::MultiPolygon(_)
+        | GeoGeometry::GeometryCollection(_)
+        | GeoGeometry::Rect(_)
+        | GeoGeometry::Triangle(_) => return None,
+    })
 }
 
 /// One feature as a source reads it.
@@ -148,5 +186,42 @@ impl FeatureSource for MemorySource {
             partition,
             ..batch.clone()
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wkb_decodes_points_and_lines_and_skips_the_rest() {
+        let point = [
+            &[1, 1, 0, 0, 0][..],
+            &1.5f64.to_le_bytes(),
+            &(-2.0f64).to_le_bytes(),
+        ]
+        .concat();
+        let mut geometry = Geometry::Wkb(Bytes::from(point));
+        assert!(geometry.decode_wkb());
+        assert_eq!(geometry, Geometry::Points(vec![Coord { x: 1.5, y: -2.0 }]));
+
+        let line = [
+            &[1, 2, 0, 0, 0, 2, 0, 0, 0][..],
+            &0f64.to_le_bytes(),
+            &0f64.to_le_bytes(),
+            &3f64.to_le_bytes(),
+            &4f64.to_le_bytes(),
+        ]
+        .concat();
+        let mut geometry = Geometry::Wkb(Bytes::from(line));
+        assert!(geometry.decode_wkb());
+        assert_eq!(
+            geometry,
+            Geometry::Lines(vec![LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])])
+        );
+
+        let polygon = vec![1, 3, 0, 0, 0, 0, 0, 0, 0];
+        assert!(!Geometry::Wkb(Bytes::from(polygon)).decode_wkb());
+        assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
     }
 }

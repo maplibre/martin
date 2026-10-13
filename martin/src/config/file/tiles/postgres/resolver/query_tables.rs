@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
+#[cfg(feature = "unstable-generate")]
+use martin_core::generate::source::Crs;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
@@ -489,6 +491,52 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
     let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
     Ok(format!(" {keyword} ({sql})"))
+}
+
+/// The query `martin generate` streams a whole table with.
+#[cfg(feature = "unstable-generate")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanSql {
+    pub sql: String,
+    pub crs: Crs,
+    pub has_id: bool,
+    pub properties: Vec<String>,
+}
+
+/// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
+/// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
+/// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+#[cfg(feature = "unstable-generate")]
+pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
+    let row_properties = row_properties(info);
+    let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
+        escape_with_alias(&info.discovered.prop_mapping, id)
+    });
+    let column = escape_identifier(&info.geometry_column);
+    let geometry = format!("ST_Force2D({})", linear_geometry(info));
+    let (geometry, crs) = match info.srid {
+        4326 => (geometry, Crs::Wgs84),
+        3857 => (geometry, Crs::WebMercator),
+        _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
+    };
+    let (schema, table) = (
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table),
+    );
+    let filter = row_filter(info, "AND")?;
+    Ok(ScanSql {
+        sql: format!(
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}"
+        ),
+        crs,
+        has_id: info.id_column.is_some(),
+        properties: info
+            .properties
+            .iter()
+            .flatten()
+            .map(|(column, _)| column.clone())
+            .collect(),
+    })
 }
 
 /// The properties as tile row queries select them, cast by the type each column is returned as.

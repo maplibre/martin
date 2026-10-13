@@ -47,8 +47,9 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
+unstable-generate = ["postgres", "dep:futures", "unstable-generate-source"]
 metrics = ["dep:prometheus"]
-unstable-generate-source = ["dep:geo-types", "dep:lasso", "dep:mlt-core"]
+unstable-generate-source = ["dep:geo-traits", "dep:geo-types", "dep:lasso", "dep:mlt-core", "dep:wkb"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:geo-traits",

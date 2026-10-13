@@ -1,0 +1,119 @@
+#![cfg(all(feature = "test-pg", feature = "unstable-generate"))]
+#![expect(clippy::panic, clippy::unwrap_used)]
+
+use std::path::Path;
+
+use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
+use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
+use martin::config::primitives::IdResolver;
+use martin::generate::postgres::{PgScanSource, ScanLayer};
+use martin_core::generate::source::FeatureSource as _;
+use martin_tile_utils::Encoding;
+use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
+use mbtiles::Mbtiles;
+
+/// `(zoom_level, tile_column, tile_row, tile_data)`
+type Row = (i64, i64, i64, Vec<u8>);
+
+const TABLES: [&str; 5] = [
+    "points1",
+    "points3857",
+    "linestring_bounds",
+    "points1_vw",
+    "MixPoints",
+];
+
+async fn discover() -> (PostgresAutoDiscoveryBuilder, Vec<ScanLayer>) {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let layers = TABLES
+        .iter()
+        .map(|&name| {
+            let Some(SourceSpec::Table(info)) = specs.get(name) else {
+                panic!("no table source {name}")
+            };
+            ScanLayer {
+                name: name.to_owned(),
+                info: info.clone(),
+                zooms: 0..=6,
+            }
+        })
+        .collect();
+    (builder, layers)
+}
+
+async fn run(dir: &Path, threads: usize) -> (u32, u64, Vec<Row>) {
+    let (builder, layers) = discover().await;
+    let source = PgScanSource::new(builder.pool().clone(), layers).unwrap();
+    let partitions = source.partitions();
+    let path = dir.join(format!("out-{threads}.mbtiles"));
+    let sort_dir = dir.to_path_buf();
+    let summary = tokio::task::spawn_blocking(move || {
+        let config = GenerateConfig {
+            threads,
+            sort: SortConfig {
+                temp_dirs: vec![sort_dir],
+                buffer_bytes: 64 << 10,
+                max_fan_in: 8,
+                read_buffer_bytes: 4096,
+            },
+            format: TileFormat::Mlt,
+            encoding: Encoding::Gzip,
+            batch_tiles: 16,
+            window: 4,
+        };
+        let sink = MbtilesSink::create(&path).unwrap();
+        (
+            generate(
+                &source,
+                source.plan(),
+                sink,
+                &config,
+                tilejson::tilejson! { tiles: vec![] },
+                &Progress::default(),
+            )
+            .unwrap(),
+            path,
+        )
+    })
+    .await
+    .unwrap();
+    let (summary, path) = summary;
+    let mbt = Mbtiles::new(&path).unwrap();
+    let mut conn = mbt.open_readonly().await.unwrap();
+    let rows = mbtiles::sqlx::query_as(
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
+    )
+    .fetch_all(&mut conn)
+    .await
+    .unwrap();
+    (partitions, summary.features, rows)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn render_threads_do_not_change_the_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let (partitions, features, rows) = run(dir.path(), 1).await;
+    assert_eq!(partitions, 5);
+    assert!(features > 0);
+    assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 6));
+    let (threaded_partitions, threaded_features, threaded_rows) = run(dir.path(), 4).await;
+    assert_eq!(threaded_partitions, partitions);
+    assert_eq!(threaded_features, features);
+    assert!(
+        threaded_rows == rows,
+        "render threads must not change the output"
+    );
+}

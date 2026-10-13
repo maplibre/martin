@@ -5705,6 +5705,7 @@ dependencies = [
  "martin-config-macros",
  "martin-core",
  "martin-tile-utils",
+ "martin-tilegen",
  "mbtiles",
  "miette",
  "mlt-core",
