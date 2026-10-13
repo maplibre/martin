@@ -293,18 +293,7 @@ async fn rules_pick_settings_by_gid_range() {
         "#})
         .unwrap(),
     ));
-    let options = ScanOptions {
-        partitions_per_table: 2,
-        min_blocks: 1,
-    };
-    let (_, _, rows) = run(
-        &builder,
-        vec![lower("table_source", info)],
-        dir.path(),
-        options,
-        2,
-    )
-    .await;
+    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
     let mut decoder = Decoder::default();
     let tiles: Vec<_> = rows
         .iter()
