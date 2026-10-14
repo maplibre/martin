@@ -5,7 +5,7 @@ use std::ops::RangeInclusive;
 use geo::{BoundingRect, SimplifyIdx as _};
 use geo_types::{Coord, LineString, Rect};
 use map_tile_toolkit::SlicerAll;
-use martin_tile_utils::TileCoord;
+use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
@@ -68,8 +68,8 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
-    /// Only tiles intersecting these unit-coordinate bounds are kept.
-    pub bounds: Option<Rect<f64>>,
+    /// Per zoom from `zooms.start()`, the only tiles kept.
+    tiles: Option<Vec<TileRect>>,
 }
 
 /// Pixels of a 256-pixel tile, with a separate value for the layer's max zoom.
@@ -99,7 +99,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
-    /// A layer with no [`bounds`](Self::bounds), so every tile in `zooms` is kept.
+    /// A layer keeping every tile in `zooms`.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -125,8 +125,20 @@ impl RenderLayer {
             index,
             zooms,
             grid,
-            bounds: None,
+            tiles: None,
         })
+    }
+
+    /// Keeps only the tiles intersecting the WGS84 `bounds`.
+    #[must_use]
+    pub fn with_bounds(mut self, bounds: Bounds) -> Self {
+        let tiles = self.zooms.clone().map(|zoom| {
+            let (min_x, min_y, max_x, max_y) =
+                bbox_to_xyz(bounds.left, bounds.bottom, bounds.right, bounds.top, zoom);
+            TileRect::new(zoom, min_x, min_y, max_x, max_y)
+        });
+        self.tiles = Some(tiles.collect());
+        self
     }
 
     /// The zooms both the layer and the feature cover.
@@ -136,19 +148,12 @@ impl RenderLayer {
         start..=end
     }
 
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "unit bounds times 2^zoom fit i64"
-    )]
     fn contains(&self, zoom: u8, x: u32, y: u32) -> bool {
-        let Some(bounds) = self.bounds else {
+        let Some(tiles) = &self.tiles else {
             return true;
         };
-        let side = scale(zoom);
-        let tile = |v: f64| (v * side).floor() as i64;
-        let (min, max) = (bounds.min(), bounds.max());
-        (tile(min.x)..=tile(max.x)).contains(&i64::from(x))
-            && (tile(min.y)..=tile(max.y)).contains(&i64::from(y))
+        let rect = tiles[usize::from(zoom - self.zooms.start())];
+        (rect.min_x..=rect.max_x).contains(&x) && (rect.min_y..=rect.max_y).contains(&y)
     }
 
     /// Picks the threshold value that applies at `zoom`.
@@ -159,22 +164,6 @@ impl RenderLayer {
             threshold.below_max_zoom
         }
     }
-}
-
-/// WGS84 bounds in unit coordinates.
-pub(crate) fn unit_bounds(bounds: Bounds) -> Rect<f64> {
-    let mut corners = [
-        Coord {
-            x: bounds.left,
-            y: bounds.top,
-        },
-        Coord {
-            x: bounds.right,
-            y: bounds.bottom,
-        },
-    ];
-    crate::project::from_lonlat(&mut corners);
-    Rect::new(corners[0], corners[1])
 }
 
 #[derive(Default)]
@@ -527,6 +516,7 @@ mod tests {
     use geo_types::coord;
 
     use super::*;
+    use crate::project::from_lonlat;
     use crate::record::{GeomBuf, GeomKind, Record};
     use crate::{SortConfig, Sorter};
 
@@ -579,12 +569,6 @@ mod tests {
         out
     }
 
-    fn unit(lon: f64, lat: f64) -> Coord<f64> {
-        let mut c = [coord! { x: lon, y: lat }];
-        crate::project::from_lonlat(&mut c);
-        c[0]
-    }
-
     #[test]
     fn point_near_an_edge_reaches_the_neighbor_buffer() {
         let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
@@ -601,7 +585,10 @@ mod tests {
     #[test]
     fn line_is_sliced_per_zoom_and_stops_when_too_small() {
         let layer = RenderLayer::new(0, 0..=3, GRID).unwrap();
-        let line = LineString::from(vec![unit(-0.5, 10.0), unit(0.5, 10.0)]);
+        let line: LineString = [coord! { x: -0.5, y: 10.0 }, coord! { x: 0.5, y: 10.0 }]
+            .into_iter()
+            .map(from_lonlat)
+            .collect();
         let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
         let zooms: Vec<_> = tiles
             .iter()
@@ -615,7 +602,8 @@ mod tests {
     fn simplification_drops_vertices_at_low_zoom() {
         let layer = RenderLayer::new(0, 0..=8, GRID).unwrap();
         let zigzag: Vec<_> = (0..=100)
-            .map(|i| unit(f64::from(i) * 0.01, f64::from(i % 2) * 0.001))
+            .map(|i| coord! { x: f64::from(i) * 0.01, y: f64::from(i % 2) * 0.001 })
+            .map(from_lonlat)
             .collect();
         let tiles = render_feature(
             &layer,
@@ -645,7 +633,10 @@ mod tests {
     #[test]
     fn features_past_the_antimeridian_move_into_the_world() {
         let layer = RenderLayer::new(0, 2..=2, GRID).unwrap();
-        let tiles = render(&layer, FeatureGeom::Points(&[unit(200.0, 10.0)]));
+        let tiles = render(
+            &layer,
+            FeatureGeom::Points(&[coord! { x: 200.0, y: 10.0 }].map(from_lonlat)),
+        );
         assert_eq!(
             tiles.iter().map(|t| t.0.as_str()).collect::<Vec<_>>(),
             ["2/0/1"]
@@ -680,11 +671,9 @@ mod tests {
 
     #[test]
     fn bounds_drop_tiles_outside() {
-        let mut layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
-        layer.bounds = Some(Rect::new(
-            coord! { x: 0.0, y: 0.0 },
-            coord! { x: 0.4, y: 0.4 },
-        ));
+        let layer = RenderLayer::new(0, 1..=1, GRID)
+            .unwrap()
+            .with_bounds(Bounds::new(-180.0, 10.0, -40.0, 80.0));
         let line = LineString::from(vec![coord! { x: 0.1, y: 0.1 }, coord! { x: 0.9, y: 0.1 }]);
         let tiles = render_feature(
             &layer,

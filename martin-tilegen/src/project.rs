@@ -11,19 +11,18 @@ const HALF_WORLD: f64 = EARTH_CIRCUMFERENCE / 2.0;
 
 /// WGS84 degrees, latitude clamped to the Mercator square. Longitudes beyond ±180 are kept: the
 /// renderer moves or wraps such features rather than distorting them.
-pub fn from_lonlat(coords: &mut [Coord<f64>]) {
-    for c in coords.iter_mut() {
-        let (x, y) = wgs84_to_webmercator(c.x, c.y.clamp(-MAX_LATITUDE, MAX_LATITUDE));
-        *c = Coord { x, y };
-    }
-    from_mercator(coords);
+#[must_use]
+pub fn from_lonlat(c: Coord<f64>) -> Coord<f64> {
+    let (x, y) = wgs84_to_webmercator(c.x, c.y.clamp(-MAX_LATITUDE, MAX_LATITUDE));
+    from_mercator(Coord { x, y })
 }
 
 /// EPSG:3857 meters, `y` clamped to the square.
-pub fn from_mercator(coords: &mut [Coord<f64>]) {
-    for c in coords {
-        c.x = (c.x + HALF_WORLD) / (2.0 * HALF_WORLD);
-        c.y = ((HALF_WORLD - c.y) / (2.0 * HALF_WORLD)).clamp(0.0, 1.0);
+#[must_use]
+pub fn from_mercator(c: Coord<f64>) -> Coord<f64> {
+    Coord {
+        x: (c.x + HALF_WORLD) / (2.0 * HALF_WORLD),
+        y: ((HALF_WORLD - c.y) / (2.0 * HALF_WORLD)).clamp(0.0, 1.0),
     }
 }
 
@@ -35,7 +34,7 @@ mod tests {
 
     #[test]
     fn corners_and_center() {
-        let mut lonlat = [
+        let lonlat = [
             Coord {
                 x: -180.0,
                 y: MAX_LATITUDE,
@@ -44,46 +43,40 @@ mod tests {
             Coord { x: 180.0, y: -90.0 },
             Coord { x: 190.0, y: 0.0 },
         ];
-        from_lonlat(&mut lonlat);
         let expected = [
             (0.0, 0.0),
             (0.5, 0.5),
             (1.0, 1.0),
             (190.0 / 360.0 + 0.5, 0.5),
         ];
-        for (c, (x, y)) in lonlat.iter().zip(expected) {
+        for (c, (x, y)) in lonlat.into_iter().map(from_lonlat).zip(expected) {
             assert_abs_diff_eq!(c.x, x, epsilon = 1e-12);
             assert_abs_diff_eq!(c.y, y, epsilon = 1e-12);
         }
 
-        let mut meters = [
-            Coord {
-                x: -HALF_WORLD,
-                y: HALF_WORLD * 2.0,
-            },
-            Coord { x: 0.0, y: 0.0 },
-        ];
-        from_mercator(&mut meters);
-        assert_abs_diff_eq!(meters[0].x, 0.0);
-        assert_abs_diff_eq!(meters[0].y, 0.0, epsilon = 1e-12);
-        assert_abs_diff_eq!(meters[1].x, 0.5);
-        assert_abs_diff_eq!(meters[1].y, 0.5);
+        let corner = from_mercator(Coord {
+            x: -HALF_WORLD,
+            y: HALF_WORLD * 2.0,
+        });
+        assert_abs_diff_eq!(corner.x, 0.0);
+        assert_abs_diff_eq!(corner.y, 0.0, epsilon = 1e-12);
+        let center = from_mercator(Coord { x: 0.0, y: 0.0 });
+        assert_abs_diff_eq!(center.x, 0.5);
+        assert_abs_diff_eq!(center.y, 0.5);
     }
 
     #[test]
     fn matches_mercator_meters() {
         // Berlin: 13.405 E, 52.52 N is (1_492_237, 6_894_699) in EPSG:3857.
-        let mut a = [Coord {
+        let a = from_lonlat(Coord {
             x: 13.405,
             y: 52.52,
-        }];
-        let mut b = [Coord {
+        });
+        let b = from_mercator(Coord {
             x: 1_492_237.4,
             y: 6_894_699.8,
-        }];
-        from_lonlat(&mut a);
-        from_mercator(&mut b);
-        assert_abs_diff_eq!(a[0].x, b[0].x, epsilon = 1e-7);
-        assert_abs_diff_eq!(a[0].y, b[0].y, epsilon = 1e-7);
+        });
+        assert_abs_diff_eq!(a.x, b.x, epsilon = 1e-7);
+        assert_abs_diff_eq!(a.y, b.y, epsilon = 1e-7);
     }
 }

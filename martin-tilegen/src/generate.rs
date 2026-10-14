@@ -456,8 +456,12 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) -> Option<FeatureGeom<'_>
 
 fn project_coords(crs: Crs, coords: &mut [Coord<f64>]) {
     match crs {
-        Crs::Wgs84 => project::from_lonlat(coords),
-        Crs::WebMercator => project::from_mercator(coords),
+        Crs::Wgs84 => coords
+            .iter_mut()
+            .for_each(|c| *c = project::from_lonlat(*c)),
+        Crs::WebMercator => coords
+            .iter_mut()
+            .for_each(|c| *c = project::from_mercator(*c)),
     }
 }
 

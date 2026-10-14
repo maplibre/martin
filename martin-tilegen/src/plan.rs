@@ -205,13 +205,16 @@ fn plan_layer(
                 .map(|pos| KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys")))
         })
         .collect();
-    let mut render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
+    let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
         PlanError::InvalidLayer {
             layer: def.name.clone(),
             error,
         }
     })?;
-    render.bounds = def.bounds.map(crate::render::unit_bounds);
+    let render = match def.bounds {
+        Some(bounds) => render.with_bounds(bounds),
+        None => render,
+    };
     Ok(PlannedLayer {
         render,
         info: LayerInfo {
