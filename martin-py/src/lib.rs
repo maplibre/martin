@@ -122,6 +122,8 @@ impl TileServer {
         let manager = self.manager.clone();
         let source_ids = source_ids.to_owned();
         let query = query.unwrap_or_default().to_owned();
+        let xyz = TileCoord::new_checked(z, x, y)
+            .ok_or_else(|| PyValueError::new_err(format!("invalid tile coordinate {z}/{x}/{y}")))?;
         let tile = py.detach(|| {
             self.rt.block_on(async move {
                 let src = DynTileSource::new(
@@ -132,7 +134,7 @@ impl TileServer {
                     TileRequestHeaders::default(),
                 )
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
-                src.get_tile_content(TileCoord { z, x, y })
+                src.get_tile_content(xyz)
                     .await
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))
             })
