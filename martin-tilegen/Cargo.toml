@@ -19,6 +19,10 @@ name = "encode"
 harness = false
 
 [[bench]]
+name = "generate"
+harness = false
+
+[[bench]]
 name = "sort"
 harness = false
 

@@ -1,20 +1,20 @@
 //! Renders one feature into tile pieces for every zoom it has in its layer, pushed straight into a sort buffer.
 
-use std::ops::RangeInclusive;
+use std::ops::{Range, RangeInclusive};
 
 use geo::{BoundingRect, SimplifyIdx as _};
-use geo_types::{Coord, LineString, Rect};
-use map_tile_toolkit::SlicerAll;
+use geo_types::{Coord, LineString, Polygon, Rect};
+use map_tile_toolkit::{PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
-use crate::{LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileOrder};
+use crate::{
+    LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileId, TileOrder,
+};
 
 /// Simplification and size thresholds are in pixels of a 256-pixel tile, as in Planetiler.
 const TILE_PIXELS: f64 = 256.0;
-/// The toolkit indexes polyline vertices with 16 bits.
-const MAX_SLICED_VERTICES: usize = 1 << 16;
 
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
@@ -60,6 +60,7 @@ pub struct Feature<'a> {
 pub enum FeatureGeom<'a> {
     Points(&'a [Coord<f64>]),
     Lines(&'a [LineString<f64>]),
+    Polygons(&'a [Polygon<f64>]),
 }
 
 #[derive(Clone, Debug)]
@@ -149,11 +150,18 @@ impl RenderLayer {
     }
 
     fn contains(&self, zoom: u8, x: u32, y: u32) -> bool {
+        let (xs, ys) = self.tile_bounds(zoom);
+        xs.contains(&x) && ys.contains(&y)
+    }
+
+    /// The tile columns and rows of `zoom` that [`with_bounds`](Self::with_bounds) allows.
+    fn tile_bounds(&self, zoom: u8) -> (Range<u32>, Range<u32>) {
         let Some(tiles) = &self.tiles else {
-            return true;
+            let all = 0..1 << zoom;
+            return (all.clone(), all);
         };
         let rect = tiles[usize::from(zoom - self.zooms.start())];
-        (rect.min_x..=rect.max_x).contains(&x) && (rect.min_y..=rect.max_y).contains(&y)
+        (rect.min_x..rect.max_x + 1, rect.min_y..rect.max_y + 1)
     }
 
     /// Picks the threshold value that applies at `zoom`.
@@ -168,12 +176,23 @@ impl RenderLayer {
 
 #[derive(Default)]
 pub struct Renderer {
-    slicers: Vec<(LayerGrid, SlicerAll)>,
+    /// One slicer per layer grid, for lines and polygons, reused across features.
+    slicers: Vec<(LayerGrid, Slicer)>,
+    /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
+    /// and vertices.
+    polys: Vec<u32>,
     parts: Vec<u32>,
     vertices: Vec<Coord<i32>>,
-    piece_parts: Vec<u32>,
-    piece: Vec<Vertex>,
+    /// One tile's piece, shaped the same with tile-local vertices.
+    piece: PieceBuf,
+    /// The slicer's output for the feature at one zoom, which comes in no particular order: every
+    /// line run or polygon ring with its tile, its vertices tile-local in `sliced_vertices`.
+    sliced: Vec<SlicedPart>,
+    sliced_vertices: Vec<Vertex>,
     points: Vec<(i32, i32, Vertex)>,
+    /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
+    runs: Vec<(i32, i32, i32)>,
+    ranges: Vec<Range<u64>>,
     /// Features skipped at a zoom because they could not be quantized or sliced, by layer index.
     pub slice_errors: Vec<SliceErrors>,
 }
@@ -242,23 +261,48 @@ impl Renderer {
                 }
             }
             FeatureGeom::Lines(lines) => {
-                let Some(bbox) = lines
+                let bbox = lines
                     .iter()
                     .filter_map(BoundingRect::bounding_rect)
-                    .reduce(union)
-                else {
-                    return Ok(());
-                };
-                let shift = world_shift(bbox);
-                for zoom in zooms.rev() {
-                    let size = bbox.width().max(bbox.height()) * TILE_PIXELS * scale(zoom);
-                    if size < layer.pixels(zoom, ctx.feature.min_size) {
-                        break;
-                    }
-                    let result = self.render_lines(&ctx, zoom, lines, shift, out);
-                    self.skip_unrenderable(&ctx, zoom, result)?;
-                }
+                    .reduce(union);
+                self.render_zooms(&ctx, zooms, bbox, out, |r, zoom, shift, out| {
+                    r.render_lines(&ctx, zoom, lines, shift, out)
+                })?;
             }
+            FeatureGeom::Polygons(polygons) => {
+                let bbox = polygons
+                    .iter()
+                    .filter_map(BoundingRect::bounding_rect)
+                    .reduce(union);
+                self.render_zooms(&ctx, zooms, bbox, out, |r, zoom, shift, out| {
+                    r.render_polygons(&ctx, zoom, polygons, shift, out)
+                })?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Max zoom first, stopping once the feature is below the minimum size (size only shrinks with zoom).
+    /// A zoom the slicer cannot handle is counted and skipped; lower zooms span fewer tiles and may work.
+    fn render_zooms(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zooms: RangeInclusive<u8>,
+        bbox: Option<Rect<f64>>,
+        out: &mut SortBuffer<'_>,
+        mut render: impl FnMut(&mut Self, u8, f64, &mut SortBuffer<'_>) -> TileGenResult<()>,
+    ) -> TileGenResult<()> {
+        let Some(bbox) = bbox else {
+            return Ok(());
+        };
+        let shift = world_shift(bbox);
+        for zoom in zooms.rev() {
+            let size = bbox.width().max(bbox.height()) * TILE_PIXELS * scale(zoom);
+            if size < ctx.layer.pixels(zoom, ctx.feature.min_size) {
+                break;
+            }
+            let result = render(self, zoom, shift, out);
+            self.skip_unrenderable(ctx, zoom, result)?;
         }
         Ok(())
     }
@@ -292,6 +336,29 @@ impl Renderer {
             }
             other => other,
         }
+    }
+
+    /// Simplifies, quantizes and appends `line` without consecutive duplicates; returns how many
+    /// vertices it kept.
+    fn push_quantized(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        line: &LineString<f64>,
+        shift: f64,
+    ) -> TileGenResult<usize> {
+        let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
+        let epsilon = ctx.layer.pixels(zoom, ctx.feature.simplify) / (TILE_PIXELS * scale(zoom));
+        let kept = line.simplify_idx(epsilon);
+        let start = self.vertices.len();
+        for i in kept {
+            let [x, y] = quantize(line.0[i], shift, world)?;
+            let c = Coord { x, y };
+            if self.vertices.len() == start || self.vertices.last() != Some(&c) {
+                self.vertices.push(c);
+            }
+        }
+        Ok(self.vertices.len() - start)
     }
 
     /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
@@ -330,8 +397,8 @@ impl Renderer {
         for group in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
             let (tx, ty, _) = group[0];
             self.piece.clear();
-            self.piece.extend(group.iter().map(|p| p.2));
-            ctx.push(zoom, tx, ty, Geom::Points(&self.piece), out)?;
+            self.piece.vertices.extend(group.iter().map(|p| p.2));
+            ctx.push(zoom, tx, ty, Geom::Points(&self.piece.vertices), out)?;
         }
         Ok(())
     }
@@ -346,56 +413,281 @@ impl Renderer {
         shift: f64,
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
-        let grid = ctx.layer.grid;
-        let world = scale(zoom) * f64::from(grid.extent);
-        let epsilon = ctx.layer.pixels(zoom, ctx.feature.simplify) / (TILE_PIXELS * scale(zoom));
         self.parts.clear();
         self.vertices.clear();
         for line in lines {
             let start = self.vertices.len();
-            for i in line.simplify_idx(epsilon) {
-                let [x, y] = quantize(line.0[i], shift, world)?;
-                let c = Coord { x, y };
-                if self.vertices.len() == start || self.vertices.last() != Some(&c) {
-                    self.vertices.push(c);
-                }
-            }
-            match self.vertices.len() - start {
-                0 => {}
-                1 => self.vertices.truncate(start),
+            match self.push_quantized(ctx, zoom, line, shift)? {
+                0 | 1 => self.vertices.truncate(start),
                 n => self.parts.push(vertex_count(n)?),
             }
         }
 
-        let slicer_index = self.slicer_index(ctx.layer)?;
-        let slicer = &mut self.slicers[slicer_index].1;
-        slicer.clear();
-        let mut rest = self.vertices.as_slice();
-        for &len in &self.parts {
+        let (parts, vertices) = (
+            std::mem::take(&mut self.parts),
+            std::mem::take(&mut self.vertices),
+        );
+        let result = match sole_tile(&vertices, ctx.layer.grid)? {
+            Some(tile) => self.push_whole(ctx, zoom, tile, (&[], &parts, &vertices), out),
+            None => self.slice_lines(ctx, zoom, &parts, &vertices, out),
+        };
+        (self.parts, self.vertices) = (parts, vertices);
+        result
+    }
+
+    /// Slices each line into the tiles it reaches and pushes one piece per tile, holding every run
+    /// of the feature's lines there. A slicer error drops the whole feature at this zoom: nothing is
+    /// pushed until every line is sliced.
+    fn slice_lines(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        parts: &[u32],
+        vertices: &[Coord<i32>],
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        let pos = self.slicer_index(ctx.layer)?;
+        let slicer = &self.slicers[pos].1;
+        self.sliced.clear();
+        self.sliced_vertices.clear();
+        let mut rest = vertices;
+        for &len in parts {
             let (line, tail) = rest.split_at(len as usize);
             rest = tail;
-            let mut start = 0;
-            while start + 1 < line.len() {
-                let end = (start + MAX_SLICED_VERTICES).min(line.len());
-                slicer
-                    .add_feature(&line[start..end])
-                    .map_err(GeometryError::from)?;
-                start = end - 1;
+            for slice in slicer.line(line).map_err(GeometryError::from)? {
+                let start = self.sliced_vertices.len();
+                self.sliced_vertices
+                    .extend(slice.run().iter().map(|c| [c.x, c.y]));
+                self.sliced.push(SlicedPart {
+                    tile: slice.tile(),
+                    polygon: 0,
+                    start,
+                    len: vertex_count(self.sliced_vertices.len() - start)?,
+                });
             }
         }
-        for tile in slicer.iter_tiles() {
-            let id = tile.tile_id();
-            self.piece_parts.clear();
+        self.push_sliced(ctx, zoom, PieceKind::Lines, out)
+    }
+
+    /// Pushes one piece per tile from [`Self::sliced`]: the tile's parts in the order they were
+    /// sliced (a stable sort by tile keeps each line's runs, and each polygon's rings, together and
+    /// in order).
+    fn push_sliced(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        kind: PieceKind,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.sliced.sort_by_key(|p| (p.tile.x, p.tile.y));
+        for tile in self.sliced.chunk_by(|a, b| a.tile == b.tile) {
             self.piece.clear();
-            for polyline in tile.iter_features().flat_map(|f| f.iter_polylines()) {
-                self.piece_parts.push(vertex_count(polyline.len())?);
-                self.piece.extend(polyline.iter().map(|c| [c.x, c.y]));
+            for polygon in tile.chunk_by(|a, b| a.polygon == b.polygon) {
+                for part in polygon {
+                    self.piece.parts.push(part.len);
+                    self.piece.vertices.extend_from_slice(
+                        &self.sliced_vertices[part.start..part.start + part.len as usize],
+                    );
+                }
+                if kind == PieceKind::Polygons {
+                    self.piece.polys.push(len32(polygon.len())?);
+                }
             }
-            let geom = Geom::Lines {
-                parts: &self.piece_parts,
-                vertices: &self.piece,
+            let geom = match kind {
+                PieceKind::Lines => self.piece.lines(),
+                PieceKind::Polygons => self.piece.polygons(),
             };
-            ctx.push(zoom, id.x, id.y, geom, out)?;
+            ctx.push(zoom, tile[0].tile.x, tile[0].tile.y, geom, out)?;
+        }
+        Ok(())
+    }
+
+    fn render_polygons(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        polygons: &[Polygon<f64>],
+        shift: f64,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.polys.clear();
+        self.parts.clear();
+        self.vertices.clear();
+        for polygon in polygons {
+            let first_ring = self.parts.len();
+            for (i, ring) in std::iter::once(polygon.exterior())
+                .chain(polygon.interiors())
+                .enumerate()
+            {
+                let start = self.vertices.len();
+                let mut n = self.push_quantized(ctx, zoom, ring, shift)?;
+                if n > 1 && self.vertices[start] == self.vertices[start + n - 1] {
+                    self.vertices.pop();
+                    n -= 1;
+                }
+                // Exteriors get a positive area in y-down tile coordinates and holes a negative one,
+                // the MVT and MLT winding; a ring collapsed by quantization has none and is dropped.
+                let area = signed_area_2x(&self.vertices[start..]);
+                if n < 3 || area == 0 {
+                    self.vertices.truncate(start);
+                    if i == 0 {
+                        break;
+                    }
+                    continue;
+                }
+                if (area > 0) == (i > 0) {
+                    self.vertices[start..].reverse();
+                }
+                self.parts.push(vertex_count(n)?);
+            }
+            if self.parts.len() > first_ring {
+                self.polys.push(len32(self.parts.len() - first_ring)?);
+            }
+        }
+        let (polys, parts, vertices) = (
+            std::mem::take(&mut self.polys),
+            std::mem::take(&mut self.parts),
+            std::mem::take(&mut self.vertices),
+        );
+        let result = match sole_tile(&vertices, ctx.layer.grid)? {
+            Some(tile) => self.push_whole(ctx, zoom, tile, (&polys, &parts, &vertices), out),
+            None => self.slice_polygons(ctx, zoom, &polys, &parts, &vertices, out),
+        };
+        (self.polys, self.parts, self.vertices) = (polys, parts, vertices);
+        result
+    }
+
+    /// A feature in one tile is that tile's piece, unchanged but for the tile-local frame.
+    fn push_whole(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        (tx, ty): (i32, i32),
+        feature: Rings<'_>,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        let extent = to_i32(ctx.layer.grid.extent)?;
+        self.piece.set_whole(feature, (tx * extent, ty * extent));
+        let geom = if feature.0.is_empty() {
+            self.piece.lines()
+        } else {
+            self.piece.polygons()
+        };
+        ctx.push(zoom, tx, ty, geom, out)
+    }
+
+    fn slice_polygons(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        polys: &[u32],
+        parts: &[u32],
+        vertices: &[Coord<i32>],
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        if polys.is_empty() {
+            return Ok(());
+        }
+        let mut rings = Vec::with_capacity(parts.len());
+        let mut rest = vertices;
+        for &len in parts {
+            let (ring, tail) = rest.split_at(len as usize);
+            rings.push(ring);
+            rest = tail;
+        }
+        let pos = self.slicer_index(ctx.layer)?;
+        let slicer = &mut self.slicers[pos].1;
+        self.sliced.clear();
+        self.sliced_vertices.clear();
+        self.runs.clear();
+        // Each polygon is sliced on its own; its pieces and those of the feature's other polygons in
+        // a tile make one piece there, and nothing is pushed until every polygon is sliced.
+        let mut rest = rings.as_slice();
+        for (polygon, &count) in (0_u32..).zip(polys) {
+            let (polygon_rings, tail) = rest.split_at(count as usize);
+            rest = tail;
+            let mut pieces = slicer.polygon(polygon_rings).map_err(GeometryError::from)?;
+            while let Some(slice) = pieces.next() {
+                match slice.map_err(GeometryError::from)? {
+                    PolygonSlice::Piece(piece) => {
+                        for ring in piece.rings() {
+                            let start = self.sliced_vertices.len();
+                            self.sliced_vertices.extend(ring.iter().map(|c| [c.x, c.y]));
+                            // The slicer closes rings; records store them open.
+                            self.sliced_vertices.pop();
+                            self.sliced.push(SlicedPart {
+                                tile: piece.tile(),
+                                polygon,
+                                start,
+                                len: vertex_count(self.sliced_vertices.len() - start)?,
+                            });
+                        }
+                    }
+                    PolygonSlice::Run(run) => self.runs.push((run.x.start, run.x.end, run.y)),
+                }
+            }
+        }
+        self.push_sliced(ctx, zoom, PieceKind::Polygons, out)?;
+        self.push_fills(ctx, zoom, out)
+    }
+
+    /// Rows with the same column span merge into rectangles, which become contiguous id ranges.
+    fn push_fills(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.runs.sort_unstable();
+        let side = 1i32 << zoom;
+        let (allowed_x, allowed_y) = ctx.layer.tile_bounds(zoom);
+        let runs = std::mem::take(&mut self.runs);
+        let mut result = Ok(());
+        for group in
+            runs.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1) && a.2.checked_add(1) == Some(b.2))
+        {
+            if result.is_err() {
+                break;
+            }
+            let (x0, x1, y0) = group[0];
+            let rows = group.len();
+            let ys = clip(
+                y0..y0.saturating_add(i32::try_from(rows).unwrap_or(i32::MAX)),
+                0..side,
+                &allowed_y,
+            );
+            // A feature past the antimeridian covers wrapped columns.
+            let mut x = x0;
+            while x < x1 && result.is_ok() {
+                let world = x.div_euclid(side) * side;
+                let end = x1.min(world + side);
+                let xs = clip(x - world..end - world, 0..side, &allowed_x);
+                x = end;
+                if !xs.is_empty() && !ys.is_empty() {
+                    result = self.push_rect(ctx, zoom, (xs, ys.clone()), out);
+                }
+            }
+        }
+        self.runs = runs;
+        result
+    }
+
+    fn push_rect(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        (xs, ys): (Range<u32>, Range<u32>),
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.ranges.clear();
+        ctx.order.fill_ranges(zoom, xs, ys, &mut self.ranges)?;
+        for range in &self.ranges {
+            ctx.push_id(
+                zoom,
+                TileId::new(range.start)?,
+                Geom::FillRange { end: range.end },
+                out,
+            )?;
         }
         Ok(())
     }
@@ -409,7 +701,7 @@ impl Renderer {
         let buffer = u16::try_from(grid.buffer).map_err(|_too_large| invalid_buffer(grid))?;
         self.slicers.push((
             grid,
-            SlicerAll::new(grid.extent, buffer).map_err(GeometryError::from)?,
+            Slicer::new(grid.extent, buffer).map_err(GeometryError::from)?,
         ));
         Ok(self.slicers.len() - 1)
     }
@@ -441,14 +733,132 @@ impl Ctx<'_> {
         if y >= side.cast_unsigned() || !self.layer.contains(zoom, x, y) {
             return Ok(());
         }
-        let tile = self.order.tile_id(TileCoord::new_unchecked(zoom, x, y))?;
+        self.push_id(
+            zoom,
+            self.order.tile_id(TileCoord::new_unchecked(zoom, x, y))?,
+            geom,
+            out,
+        )
+    }
+
+    fn push_id(
+        &self,
+        zoom: u8,
+        tile_id: TileId,
+        geom: Geom<'_>,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        let props = self.props_at(zoom);
         out.push_with(
-            SortKey::new(tile, LayerId::new(self.layer.index), self.seq),
+            SortKey::new(tile_id, LayerId::new(self.layer.index), self.seq),
             |buf| {
-                encode(buf, self.feature.id, self.feature.props, geom);
+                encode(buf, self.feature.id, props, geom);
             },
         )
     }
+
+    fn props_at(&self, _zoom: u8) -> &EncodedProps {
+        self.feature.props
+    }
+}
+
+/// A quantized feature in its zoom's global grid: ring counts per polygon, line or ring lengths, vertices.
+type Rings<'a> = (&'a [u32], &'a [u32], &'a [Coord<i32>]);
+
+/// One line run or polygon ring the slicer put in `tile`, its vertices at `start..start + len` of
+/// [`Renderer::sliced_vertices`]. `polygon` numbers the feature's polygons, so a polygon's rings stay
+/// together in a tile.
+#[derive(Clone, Copy)]
+struct SlicedPart {
+    tile: map_tile_toolkit::TileId,
+    polygon: u32,
+    start: usize,
+    len: u32,
+}
+
+/// The shape of the pieces [`Renderer::push_sliced`] builds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PieceKind {
+    Lines,
+    Polygons,
+}
+
+/// One tile's piece of a feature, shaped like [`Rings`] with tile-local vertices.
+#[derive(Default)]
+struct PieceBuf {
+    polys: Vec<u32>,
+    parts: Vec<u32>,
+    vertices: Vec<Vertex>,
+}
+
+impl PieceBuf {
+    fn clear(&mut self) {
+        self.polys.clear();
+        self.parts.clear();
+        self.vertices.clear();
+    }
+
+    /// The whole feature in the frame of the tile at `origin`.
+    fn set_whole(&mut self, (polys, parts, vertices): Rings<'_>, (ox, oy): (i32, i32)) {
+        self.clear();
+        self.polys.extend_from_slice(polys);
+        self.parts.extend_from_slice(parts);
+        self.vertices
+            .extend(vertices.iter().map(|c| [c.x - ox, c.y - oy]));
+    }
+
+    fn lines(&self) -> Geom<'_> {
+        Geom::Lines {
+            parts: &self.parts,
+            vertices: &self.vertices,
+        }
+    }
+
+    fn polygons(&self) -> Geom<'_> {
+        Geom::Polygons {
+            polygons: &self.polys,
+            rings: &self.parts,
+            vertices: &self.vertices,
+        }
+    }
+}
+
+/// `range` within the grid `0..side` and the allowed tiles, as tile indexes.
+fn clip(range: Range<i32>, grid: Range<i32>, allowed: &Range<u32>) -> Range<u32> {
+    let lo = u32::try_from(range.start.max(grid.start))
+        .unwrap_or(0)
+        .max(allowed.start);
+    let hi = u32::try_from(range.end.min(grid.end))
+        .unwrap_or(0)
+        .min(allowed.end);
+    lo..hi.max(lo)
+}
+
+/// The tile a quantized feature lies in when it keeps clear of every neighbor's buffer, as most
+/// features do at most zooms: no slicer is needed to know it reaches that tile alone, whole.
+fn sole_tile(vertices: &[Coord<i32>], grid: LayerGrid) -> TileGenResult<Option<(i32, i32)>> {
+    let (extent, buffer) = (to_i32(grid.extent)?, i64::from(grid.buffer));
+    let Some(first) = vertices.first() else {
+        return Ok(None);
+    };
+    let tile = (first.x.div_euclid(extent), first.y.div_euclid(extent));
+    // Strictly inside, as a vertex on a buffer's edge belongs to the neighbor too.
+    let inside = |v: i32, t: i32| {
+        let local = i64::from(v) - i64::from(t) * i64::from(extent);
+        local > buffer && local < i64::from(extent) - buffer
+    };
+    let sole = vertices
+        .iter()
+        .all(|c| inside(c.x, tile.0) && inside(c.y, tile.1));
+    Ok(sole.then_some(tile))
+}
+
+fn len32(n: usize) -> TileGenResult<u32> {
+    u32::try_from(n).map_err(|_overflow| TileGenError::RecordTooLarge(n))
+}
+
+fn vertex_count(n: usize) -> Result<u32, GeometryError> {
+    u32::try_from(n).map_err(|_overflow| GeometryError::TooManyVertices(n))
 }
 
 /// Tiles per world side at `zoom`.
@@ -458,10 +868,6 @@ fn scale(zoom: u8) -> f64 {
 
 fn to_i32(v: u32) -> Result<i32, GeometryError> {
     i32::try_from(v).map_err(|_overflow| GeometryError::CoordOverflow)
-}
-
-fn vertex_count(n: usize) -> Result<u32, GeometryError> {
-    u32::try_from(n).map_err(|_overflow| GeometryError::TooManyVertices(n))
 }
 
 fn invalid_buffer(grid: LayerGrid) -> RenderLayerError {
@@ -543,6 +949,29 @@ mod tests {
         layer: &RenderLayer,
         feature: &Feature<'_>,
     ) -> Vec<(String, GeomKind, GeomBuf)> {
+        let mut out: Vec<_> = render_in(TileOrder::Tms, layer, feature)
+            .into_iter()
+            .map(|(id, kind, geom)| {
+                (
+                    format!(
+                        "{:#}",
+                        TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap()
+                    ),
+                    kind,
+                    geom,
+                )
+            })
+            .collect();
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// Renders and returns `(tile id, kind, decoded geometry)` per record.
+    fn render_in(
+        order: TileOrder,
+        layer: &RenderLayer,
+        feature: &Feature<'_>,
+    ) -> Vec<(u64, GeomKind, GeomBuf)> {
         let dir = tempfile::tempdir().unwrap();
         let sorter = Sorter::new(SortConfig {
             temp_dirs: vec![dir.path().to_path_buf()],
@@ -553,20 +982,51 @@ mod tests {
         .unwrap();
         let mut buffer = sorter.buffer();
         Renderer::default()
-            .render(TileOrder::Tms, layer, Seq::default(), feature, &mut buffer)
+            .render(order, layer, Seq::default(), feature, &mut buffer)
             .unwrap();
         buffer.finish().unwrap();
         let mut merger = sorter.merge().unwrap();
         let mut out = Vec::new();
         while let Some((key, bytes)) = merger.next_record().unwrap() {
-            let c = TileOrder::Tms.tile_coord(key.tile_id()).unwrap();
             let record = Record::decode(bytes).unwrap();
             let mut geom = GeomBuf::default();
             record.append_geometry(&mut geom).unwrap();
-            out.push((format!("{c:#}"), record.kind, geom));
+            out.push((key.tile_id().value(), record.kind, geom));
         }
-        out.sort_by(|a, b| a.0.cmp(&b.0));
         out
+    }
+
+    /// Every tile a polygon reaches: edge pieces, plus the tiles of each fill range.
+    fn polygon_tiles(
+        order: TileOrder,
+        layer: &RenderLayer,
+        polygons: &[Polygon<f64>],
+    ) -> (Vec<(u8, u32, u32)>, usize) {
+        let feature = Feature {
+            id: Some(1),
+            geom: FeatureGeom::Polygons(polygons),
+            props: &EncodedProps::default(),
+            zooms: layer.zooms.clone(),
+            simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+            min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+        };
+        let records = render_in(order, layer, &feature);
+        let mut tiles = Vec::new();
+        for (id, kind, _) in &records {
+            let ids = match kind {
+                GeomKind::FillRange { end } => *id..*end,
+                GeomKind::Polygon => *id..*id + 1,
+                other @ (GeomKind::Point | GeomKind::Line | GeomKind::Fill) => {
+                    panic!("unexpected {other:?}")
+                }
+            };
+            for id in ids {
+                let c = order.tile_coord(TileId::new(id).unwrap()).unwrap();
+                tiles.push((c.z(), c.x(), c.y()));
+            }
+        }
+        tiles.sort_unstable();
+        (tiles, records.len())
     }
 
     #[test]
@@ -658,15 +1118,73 @@ mod tests {
         assert_eq!(wrapped.2.vertices, [[257, 128]]);
     }
 
+    fn square(lo: f64, hi: f64) -> LineString<f64> {
+        LineString::from(vec![(lo, lo), (hi, lo), (hi, hi), (lo, hi), (lo, lo)])
+    }
+
     #[test]
-    fn unquantizable_points_are_skipped() {
-        let layer = RenderLayer::new(0, 0..=1, GRID).unwrap();
-        let tiles = render(
+    fn polygon_covers_its_tiles_with_fill_ranges() {
+        for order in [TileOrder::Tms, TileOrder::Hilbert] {
+            let layer = RenderLayer::new(0, 5..=5, GRID).unwrap();
+            let polygon = Polygon::new(square(0.1, 0.9), vec![]);
+            let (tiles, records) = polygon_tiles(order, &layer, std::slice::from_ref(&polygon));
+            // A tile is reached if its buffered box overlaps the square.
+            let margin = f64::from(GRID.buffer) / f64::from(GRID.extent);
+            let reached = |t: u32| {
+                (f64::from(t) - margin) / 32.0 < 0.9 && (f64::from(t + 1) + margin) / 32.0 > 0.1
+            };
+            let expected: Vec<_> = (0..32)
+                .flat_map(|x| (0..32).map(move |y| (5, x, y)))
+                .filter(|&(_, x, y)| reached(x) && reached(y))
+                .collect();
+            assert_eq!(tiles, expected, "{order:?}");
+            assert!(
+                records < tiles.len() / 4,
+                "{order:?}: {records} records for {} tiles",
+                tiles.len()
+            );
+        }
+    }
+
+    #[test]
+    fn polygons_get_mvt_winding_and_keep_holes_empty() {
+        let layer = RenderLayer::new(0, 4..=4, GRID).unwrap();
+        // Clockwise exterior in unit coordinates (negative area, y down), with a large hole.
+        let mut exterior = square(0.05, 0.95);
+        exterior.0.reverse();
+        let polygon = Polygon::new(exterior, vec![square(0.3, 0.7)]);
+        let records = render_in(
+            TileOrder::Tms,
             &layer,
-            FeatureGeom::Points(&[coord! { x: f64::NAN, y: 0.5 }]),
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(std::slice::from_ref(&polygon)),
+                props: &EncodedProps::default(),
+                zooms: 4..=4,
+                simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+            },
         );
-        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
-        assert_eq!(names, Vec::<&str>::new());
+        for (_, kind, geom) in records.iter().filter(|r| r.1 == GeomKind::Polygon) {
+            let mut rest = geom.vertices.as_slice();
+            let mut rings = geom.parts.iter();
+            for &count in &geom.polygons {
+                for i in 0..count {
+                    let (ring, tail) = rest.split_at(*rings.next().unwrap() as usize);
+                    rest = tail;
+                    let coords: Vec<_> = ring.iter().map(|&[x, y]| Coord { x, y }).collect();
+                    let area = signed_area_2x(&coords);
+                    assert!(
+                        if i == 0 { area > 0 } else { area < 0 },
+                        "{kind:?} ring {i} area {area}"
+                    );
+                }
+            }
+        }
+        let (tiles, _) = polygon_tiles(TileOrder::Tms, &layer, std::slice::from_ref(&polygon));
+        // Tiles 6..10 lie wholly inside the hole (0.3..0.7 of 16 tiles is 4.8..11.2).
+        assert!(!tiles.contains(&(4, 7, 7)) && !tiles.contains(&(4, 8, 9)));
+        assert!(tiles.contains(&(4, 2, 2)), "covered by the exterior");
     }
 
     #[test]
@@ -690,6 +1208,17 @@ mod tests {
             tiles.iter().map(|t| t.0.as_str()).collect::<Vec<_>>(),
             ["1/0/0"]
         );
+    }
+
+    #[test]
+    fn unquantizable_points_are_skipped() {
+        let layer = RenderLayer::new(0, 0..=1, GRID).unwrap();
+        let tiles = render(
+            &layer,
+            FeatureGeom::Points(&[coord! { x: f64::NAN, y: 0.5 }]),
+        );
+        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(names, Vec::<&str>::new());
     }
 
     #[test]
@@ -790,5 +1319,115 @@ mod tests {
 
         assert_eq!(total.count, 7);
         assert_eq!(total.first.unwrap().zoom, 12);
+    }
+
+    /// Records a renderer call leaves, as `(tile id, bytes)`.
+    fn records(fill: impl FnOnce(&mut Renderer, &mut SortBuffer<'_>)) -> Vec<(u64, Vec<u8>)> {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = Sorter::new(SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 1 << 20,
+            max_fan_in: 8,
+            read_buffer_bytes: 4096,
+        })
+        .unwrap();
+        let mut buffer = sorter.buffer();
+        fill(&mut Renderer::default(), &mut buffer);
+        buffer.finish().unwrap();
+        let mut merger = sorter.merge().unwrap();
+        let mut out = Vec::new();
+        while let Some((key, bytes)) = merger.next_record().unwrap() {
+            out.push((key.tile_id().value(), bytes.to_vec()));
+        }
+        out
+    }
+
+    #[test]
+    #[expect(clippy::cast_possible_truncation, reason = "the hull of i32 vertices")]
+    fn sole_tile_features_match_the_slicer() {
+        let layer = RenderLayer::new(0, 4..=4, GRID).unwrap();
+        let feature = Feature {
+            id: Some(7),
+            geom: FeatureGeom::Points(&[]),
+            props: &EncodedProps::default(),
+            zooms: 0..=u8::MAX,
+            simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+            min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+        };
+        let ctx = Ctx {
+            order: TileOrder::Tms,
+            layer: &layer,
+            seq: Seq::default(),
+            feature: &feature,
+        };
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = move |n: i32| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            i32::try_from(state % u64::from(n.unsigned_abs())).unwrap()
+        };
+        let (mut sole, mut sliced) = (0, 0);
+        for case in 0..3000 {
+            let (cx, cy, r) = (next(16 * 256), next(16 * 256), 1 + next(40));
+            let mut ring: Vec<_> = (0..3 + next(6))
+                .map(|_| Coord {
+                    x: cx + next(2 * r) - r,
+                    y: cy + next(2 * r) - r,
+                })
+                .collect();
+            ring.dedup();
+            if case % 2 == 0 {
+                let parts = [len32(ring.len()).unwrap()];
+                if ring.len() < 2 || sole_tile(&ring, GRID).unwrap().is_none() {
+                    continue;
+                }
+                let fast = records(|r, out| {
+                    let tile = sole_tile(&ring, GRID).unwrap().unwrap();
+                    r.push_whole(&ctx, 4, tile, (&[], &parts, &ring), out)
+                        .unwrap();
+                });
+                let slow = records(|r, out| r.slice_lines(&ctx, 4, &parts, &ring, out).unwrap());
+                assert_eq!(fast, slow, "line {ring:?}");
+            } else {
+                // A convex hull, wound as the renderer winds exteriors.
+                let mut hull = geo::ConvexHull::convex_hull(&geo_types::MultiPoint::from(
+                    ring.iter()
+                        .map(|c| (f64::from(c.x), f64::from(c.y)))
+                        .collect::<Vec<_>>(),
+                ))
+                .exterior()
+                .0
+                .iter()
+                .map(|c| Coord {
+                    x: c.x as i32,
+                    y: c.y as i32,
+                })
+                .collect::<Vec<_>>();
+                hull.pop();
+                if hull.len() < 3 || signed_area_2x(&hull) == 0 {
+                    continue;
+                }
+                if signed_area_2x(&hull) < 0 {
+                    hull.reverse();
+                }
+                let (polys, parts) = ([1], [len32(hull.len()).unwrap()]);
+                let Some(tile) = sole_tile(&hull, GRID).unwrap() else {
+                    sliced += 1;
+                    continue;
+                };
+                let fast = records(|r, out| {
+                    r.push_whole(&ctx, 4, tile, (&polys, &parts, &hull), out)
+                        .unwrap();
+                });
+                let slow = records(|r, out| {
+                    r.slice_polygons(&ctx, 4, &polys, &parts, &hull, out)
+                        .unwrap();
+                });
+                assert_eq!(fast, slow, "polygon {hull:?}");
+            }
+            sole += 1;
+        }
+        assert!(sole > 1000 && sliced > 50, "{sole} sole, {sliced} sliced");
     }
 }
