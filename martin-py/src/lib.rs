@@ -47,7 +47,7 @@ impl TileServer {
         reason = "PyO3's #[new] extracts path-like Python arguments into an owned PathBuf"
     )]
     fn new(config_path: PathBuf) -> PyResult<Self> {
-        let rt = Runtime::new().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        let rt = Runtime::new().map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?;
         let manager = rt.block_on(async {
             let env = OsEnv;
             let mut config: Config = read_config(&config_path, &env)
