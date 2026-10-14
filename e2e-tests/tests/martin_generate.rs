@@ -4,7 +4,9 @@
 use std::fs;
 
 use indoc::indoc;
-use martin_e2e_tests::{MartinCp, MbtilesCli, metadata_listing, temp_dir, tile_listing};
+use martin_e2e_tests::{
+    MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, temp_dir, tile_listing,
+};
 
 #[tokio::test]
 async fn generates_a_valid_tileset() {
@@ -84,7 +86,85 @@ async fn generates_a_valid_tileset() {
 }
 
 #[tokio::test]
-async fn rejects_function_sources_and_pmtiles() {
+async fn generates_pmtiles_with_the_same_tiles() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  layer_id: mixed
+        "},
+    )
+    .expect("failed to write the config");
+    let (mbtiles, pmtiles) = (
+        dir.path().join("out.mbtiles"),
+        dir.path().join("out.pmtiles"),
+    );
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&mbtiles)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&pmtiles)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
+
+    // An existing archive is neither overwritten nor removed.
+    let log = MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&pmtiles)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run_expecting_failure()
+        .await;
+    assert!(log.contains("not empty"), "{log}");
+    assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
+}
+
+#[tokio::test]
+async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::generate()
         .with_postgres()
@@ -95,14 +175,6 @@ async fn rejects_function_sources_and_pmtiles() {
         .run_expecting_failure()
         .await;
     assert!(log.contains("function source"), "{log}");
-
-    let log = MartinCp::generate()
-        .with_postgres()
-        .arg("--output-file")
-        .arg(dir.path().join("out.pmtiles"))
-        .run_expecting_failure()
-        .await;
-    assert!(log.contains("PMTiles output is not supported yet"), "{log}");
 }
 
 #[tokio::test]

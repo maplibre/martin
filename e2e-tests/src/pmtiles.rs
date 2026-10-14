@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use pmtiles::{PmTilesWriter, TileCoord, TileType};
+use pmtiles::{AsyncPmTilesReader, MmapBackend, PmTilesWriter, TileCoord, TileType};
 
 use crate::{metadata, tiles};
 
@@ -43,6 +43,34 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     }
     writer.finalize().expect("failed to finalize the archive");
     dest
+}
+
+/// Assert that the `pmtiles` archive holds exactly the tiles of the `mbtiles` file, byte for byte.
+pub async fn assert_pmtiles_matches_mbtiles(pmtiles: impl AsRef<Path>, mbtiles: impl AsRef<Path>) {
+    let backend = MmapBackend::try_from(pmtiles.as_ref())
+        .await
+        .expect("failed to open the pmtiles archive");
+    let reader = AsyncPmTilesReader::try_from_source(backend)
+        .await
+        .expect("failed to read the pmtiles header");
+    let expected = tiles(mbtiles).await;
+    for (z, x, row, data) in &expected {
+        let tile = reader
+            .get_tile(coord(*z, *x, *row))
+            .await
+            .expect("failed to read a tile");
+        assert_eq!(
+            tile.as_deref(),
+            Some(data.as_slice()),
+            "tile {z}/{x}/{row} (TMS)"
+        );
+    }
+    let header = reader.get_header();
+    assert_eq!(
+        header.n_addressed_tiles().map(u64::from),
+        Some(expected.len() as u64)
+    );
+    assert!(header.clustered());
 }
 
 /// Write a raster archive at `dest` holding every tile of [`LEAFY_ZOOM`], too many for the root
