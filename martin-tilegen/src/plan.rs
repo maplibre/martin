@@ -7,7 +7,7 @@ use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
-use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, TypedExpr, Zoom};
+use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, Zoom};
 use crate::{
     FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
 };
@@ -321,8 +321,8 @@ struct Compiler<'a> {
 }
 
 impl Compiler<'_> {
-    fn compile<R: Role>(&self, source: &str, role: R) -> Result<TypedExpr<R>, PlanError> {
-        TypedExpr::compile(source, self.columns, self.dynamic_props, role).map_err(|error| {
+    fn compile(&self, source: &str) -> Result<CompiledExpr, PlanError> {
+        CompiledExpr::compile(source, self.columns, self.dynamic_props).map_err(|error| {
             PlanError::LayerExpr {
                 layer: self.name.clone(),
                 error,
@@ -330,9 +330,8 @@ impl Compiler<'_> {
         })
     }
 
-    fn add<R: Role>(&mut self, source: &str, expr: TypedExpr<R>) -> ExprRef<R> {
+    fn add<R: Role>(&mut self, source: &str, expr: CompiledExpr, role: R) -> ExprRef<R> {
         self.reads.extend(expr.columns().map(str::to_owned));
-        let (expr, role) = expr.into_parts();
         self.exprs.push(PlannedExpr {
             expr,
             source: source.to_owned(),
@@ -347,7 +346,7 @@ impl Compiler<'_> {
         role: R,
     ) -> Result<Option<ExprRef<R>>, PlanError> {
         source
-            .map(|source| Ok(self.add(source, self.compile(source, role)?)))
+            .map(|source| Ok(self.add(source, self.compile(source)?, role)))
             .transpose()
     }
 }
@@ -381,8 +380,8 @@ fn plan_layer(
         IdDef::Keep => PlannedId::Keep,
         IdDef::Drop => PlannedId::Drop,
         IdDef::Expr(source) => {
-            let expr = compiler.compile(source, Id)?;
-            PlannedId::Expr(compiler.add(source, expr))
+            let expr = compiler.compile(source)?;
+            PlannedId::Expr(compiler.add(source, expr, Id))
         }
     };
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
@@ -501,7 +500,7 @@ fn plan_computed(
         let value = match &attr.value {
             ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
             ValueDef::Expr(source) => {
-                let expr = compiler.compile(source, Attr)?;
+                let expr = compiler.compile(source)?;
                 let column = expr
                     .as_property()
                     .and_then(|name| compiler.columns.iter().position(|c| c == name));
@@ -511,7 +510,7 @@ fn plan_computed(
                         continue;
                     }
                     Some(column) => PlannedValue::Column(key_id(column)),
-                    None => PlannedValue::Expr(compiler.add(source, expr)),
+                    None => PlannedValue::Expr(compiler.add(source, expr, Attr)),
                 }
             }
         };

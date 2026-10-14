@@ -15,7 +15,7 @@ use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 use tracing::warn;
 
-use crate::expr::{ExprKeys, ExprRef, FeatureView, Filter, PropSlots, Role, Zoom};
+use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role, Zoom};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{AttributesDef, Plan, PlannedAttr, PlannedId, PlannedLayer, PlannedValue};
 use crate::record::EncodedProps;
@@ -497,13 +497,13 @@ struct Run<'a> {
 }
 
 impl Run<'_> {
-    /// A failed evaluation or conversion is counted, logged the first time, and taken as `null`.
+    /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
     fn eval<R: Role>(
         &self,
         expr: &ExprRef<R>,
         view: &FeatureView<'_, String>,
         errors: &mut [u64],
-    ) -> Option<R::Out> {
+    ) -> R::Out {
         let index = expr.index;
         let planned = &self.plan.exprs[index];
         match planned.expr.eval(view).and_then(|v| expr.role.coerce(v)) {
@@ -516,18 +516,9 @@ impl Run<'_> {
                         self.plan.layers[planned.layer].info.name, planned.source
                     );
                 }
-                None
+                R::Out::default()
             }
         }
-    }
-
-    fn holds(
-        &self,
-        expr: ExprRef<Filter>,
-        view: &FeatureView<'_, String>,
-        errors: &mut [u64],
-    ) -> bool {
-        self.eval(&expr, view, errors).unwrap_or(false)
     }
 
     /// The layer's zooms for this feature, or `None` when it filters the feature out.
@@ -538,7 +529,7 @@ impl Run<'_> {
         errors: &mut [u64],
     ) -> Option<RangeInclusive<u8>> {
         if let Some(filter) = &layer.filter
-            && !self.holds(*filter, view, errors)
+            && !self.eval(filter, view, errors)
         {
             return None;
         }
