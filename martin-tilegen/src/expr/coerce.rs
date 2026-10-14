@@ -13,7 +13,7 @@ pub(super) fn mismatch(value: &Value, want: &str) -> ExecutionError {
 }
 
 /// A filter result: `null` is `false`.
-pub fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
+pub(super) fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
     match value {
         Value::Null => Ok(false),
         Value::Bool(v) => Ok(*v),
@@ -31,7 +31,7 @@ pub fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
 }
 
 /// A zoom level, clamped into `lo..=hi`.
-pub fn to_zoom(value: &Value, lo: u8, hi: u8) -> Result<Option<u8>, ExecutionError> {
+pub(super) fn to_zoom(value: &Value, lo: u8, hi: u8) -> Result<Option<u8>, ExecutionError> {
     match *value {
         Value::Null => Ok(None),
         Value::Int(v) => Ok(Some(
@@ -53,7 +53,7 @@ pub fn to_zoom(value: &Value, lo: u8, hi: u8) -> Result<Option<u8>, ExecutionErr
 }
 
 /// A property value; `null` leaves the property out.
-pub fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, ExecutionError> {
+pub(super) fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, ExecutionError> {
     Ok(Some(match value {
         Value::Null => return Ok(None),
         Value::Bool(v) => Prop::Bool(v),
@@ -74,7 +74,7 @@ pub fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, Executio
 }
 
 /// A feature id: a non-negative integer; `null` is no id.
-pub fn to_id(value: &Value) -> Result<Option<u64>, ExecutionError> {
+pub(super) fn to_id(value: &Value) -> Result<Option<u64>, ExecutionError> {
     match *value {
         Value::Null => Ok(None),
         Value::UInt(v) => Ok(Some(v)),

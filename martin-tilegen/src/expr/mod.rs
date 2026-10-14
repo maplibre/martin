@@ -11,9 +11,8 @@ mod sort;
 mod view;
 
 use cel::common::types::CelNull;
-pub use coerce::{to_filter, to_id, to_prop, to_zoom};
 pub use compile::{CompiledExpr, ExprError};
-pub use role::{Attr, ExprRef, Filter, Id, Role, TypedExpr, Zoom};
+pub use role::{Attr, ExprRef, Filter, Id, Role, Zoom};
 pub use sort::encode_sort;
 pub use view::{ExprKeys, FeatureView, PropSlots};
 
