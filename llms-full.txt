@@ -6093,7 +6093,7 @@ Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `
 | `--min-zoom` | `0` | Lowest zoom, raised by a source's `minzoom` |
 | `--max-zoom` | `14` | Highest zoom, lowered by a source's `maxzoom` |
 | `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat` |
-| `--memory` | `2GiB` | Memory for sorting, split over the threads |
+| `--memory-mb` | `2048` | Memory for sorting in MB, split over the threads |
 | `--temp-dir` | system temp dir | Where sorted runs go, repeatable to spread them over several disks |
 | `--threads` | CPU count | Worker threads |
 
@@ -6107,7 +6107,7 @@ A failed or interrupted run removes the output file. Temporary files are always 
 
 ## Sizing a run
 
-- `--memory` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so with many threads the total can exceed `--memory`. More memory means fewer, longer sorted runs. Up to 256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads and writes the temporary data one more time.
+- `--memory-mb` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so with many threads the total can exceed `--memory-mb`. More memory means fewer, longer sorted runs. Up to 256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads and writes the temporary data one more time.
 - The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows with the zoom range and is usually several times the size of the input. Merging more than 256 runs needs room for one more copy.
 - `--temp-dir` takes the sorted runs in turn. Directories on separate disks spread the I/O.
 - `--threads` sets the number of render workers and encoders.
@@ -7561,7 +7561,7 @@ A layer's `sort_by` value is not part of the key. It travels in the record, and 
 
 ### External sort
 
-Each render worker owns a sort buffer of `--memory / threads` bytes, at least 16 MiB and at most 4 GiB. Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset, length) is kept beside them. The budget counts the index twice, because the radix sort needs a second copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
+Each render worker owns a sort buffer of `--memory-mb / threads` MB, at least 16 MiB and at most 4 GiB. Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset, length) is kept beside them. The budget counts the index twice, because the radix sort needs a second copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
 
 1. It radix-sorts the index by key, without moving the records. If the records arrived in increasing `Seq`, as with a single reader, sorting by tile and layer is enough, since the radix sort is stable.
 2. It writes the records in key order to a new temporary file, a **sorted run**, as key, length and record, repeated.
@@ -7618,7 +7618,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | What | Bound |
 | --- | --- |
 | Feature queue | `threads × 2` batches of up to 1024 features |
-| Sort buffers | `--memory` in total, records plus index, but at least 16 MiB per worker |
+| Sort buffers | `--memory-mb` in total, records plus index, at least 16 MiB per worker |
 | Run file writers | 1 MiB of write buffer for each run being written |
 | Merge | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge |
 | Encode window | `threads × 4` batches of 256 tiles, plus the one being written |

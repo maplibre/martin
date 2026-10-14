@@ -80,7 +80,7 @@ A layer's `sort_by` value is not part of the key. It travels in the record, and 
 
 ### External sort
 
-Each render worker owns a sort buffer of `--memory / threads` bytes, at least 16 MiB and at most 4 GiB. Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset, length) is kept beside them. The budget counts the index twice, because the radix sort needs a second copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
+Each render worker owns a sort buffer of `--memory-mb / threads` MB, at least 16 MiB and at most 4 GiB. Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset, length) is kept beside them. The budget counts the index twice, because the radix sort needs a second copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
 
 1. It radix-sorts the index by key, without moving the records. If the records arrived in increasing `Seq`, as with a single reader, sorting by tile and layer is enough, since the radix sort is stable.
 2. It writes the records in key order to a new temporary file, a **sorted run**, as key, length and record, repeated.
@@ -137,7 +137,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | What | Bound |
 | --- | --- |
 | Feature queue | `threads × 2` batches of up to 1024 features |
-| Sort buffers | `--memory` in total, records plus index, but at least 16 MiB per worker |
+| Sort buffers | `--memory-mb` in total, records plus index, at least 16 MiB per worker |
 | Run file writers | 1 MiB of write buffer for each run being written |
 | Merge | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge |
 | Encode window | `threads × 4` batches of 256 tiles, plus the one being written |

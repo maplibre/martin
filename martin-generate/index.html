@@ -2175,9 +2175,9 @@ caching, are ignored.</p>
 <td>Only features and tiles inside <code>min_lon,min_lat,max_lon,max_lat</code></td>
 </tr>
 <tr>
-<td><code>--memory</code></td>
-<td><code>2GiB</code></td>
-<td>Memory for sorting, split over the threads</td>
+<td><code>--memory-mb</code></td>
+<td><code>2048</code></td>
+<td>Memory for sorting in MB, split over the threads</td>
 </tr>
 <tr>
 <td><code>--temp-dir</code></td>
@@ -2200,8 +2200,8 @@ the features near the box, not everything the tile covers.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
 <h2 id="sizing-a-run">Sizing a run</h2>
 <ul>
-<li><code>--memory</code> is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
-  with many threads the total can exceed <code>--memory</code>. More memory means fewer, longer sorted runs. Up to
+<li><code>--memory-mb</code> is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
+  with many threads the total can exceed <code>--memory-mb</code>. More memory means fewer, longer sorted runs. Up to
   256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
   and writes the temporary data one more time.</li>
 <li>The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows

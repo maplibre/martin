@@ -1818,7 +1818,7 @@ threads and their timing.</p>
 <p>A layer's <code>sort_by</code> value is not part of the key. It travels in the record, and the encoder orders each
 layer's features by it, keeping the <code>Seq</code> order of equal values.</p>
 <h3 id="external-sort">External sort</h3>
-<p>Each render worker owns a sort buffer of <code>--memory / threads</code> bytes, at least 16 MiB and at most 4 GiB.
+<p>Each render worker owns a sort buffer of <code>--memory-mb / threads</code> MB, at least 16 MiB and at most 4 GiB.
 Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset,
 length) is kept beside them. The budget counts the index twice, because the radix sort needs a second
 copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:</p>
@@ -1911,7 +1911,7 @@ last tile, so the archive stores it last.</p>
 </tr>
 <tr>
 <td>Sort buffers</td>
-<td><code>--memory</code> in total, records plus index, but at least 16 MiB per worker</td>
+<td><code>--memory-mb</code> in total, records plus index, at least 16 MiB per worker</td>
 </tr>
 <tr>
 <td>Run file writers</td>
