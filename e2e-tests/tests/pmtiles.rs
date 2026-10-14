@@ -513,6 +513,121 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
+/// <https://github.com/maplibre/martin/issues/3452>
+#[tokio::test]
+async fn a_configured_source_inside_a_polled_prefix_keeps_its_own_settings() {
+    let statics = StaticFiles::serving(&[
+        (
+            "pmtilestest/webp2.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+        (
+            "pmtilestest/sibling.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+    ])
+    .await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              paths:
+                - s3://pmtilestest/
+              sources:
+                webp2:
+                  path: s3://pmtilestest/webp2.pmtiles
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+    // Only the poller finds `sibling`, so once it is up the first poll is done.
+    martin.wait_for_source("sibling").await;
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "sibling": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      },
+      "webp2": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/webp2/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=1234
+    content-length: 10658
+    content-type: image/webp
+    etag: "YQCG8_HEN_sExq050B7MCQ"
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+
+    martin.stop().await;
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
+#[tokio::test]
+async fn a_configured_source_inside_a_polled_prefix_is_not_served_twice() {
+    let statics = StaticFiles::serving(&[
+        (
+            "pmtilestest/webp2.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+        (
+            "pmtilestest/sibling.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+    ])
+    .await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              paths:
+                - s3://pmtilestest/
+              sources:
+                satellite:
+                  path: s3://pmtilestest/webp2.pmtiles
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+    // Only the poller finds `sibling`, so once it is up the first poll is done.
+    martin.wait_for_source("sibling").await;
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "satellite": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      },
+      "sibling": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    martin.stop().await;
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
 #[tokio::test]
 async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
