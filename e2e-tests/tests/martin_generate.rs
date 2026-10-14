@@ -806,31 +806,42 @@ async fn sort_by_sets_the_draw_order() {
     let config = dir.path().join("config.yaml");
     fs::write(
         &config,
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  auto_publish: false
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      id_column: gid
-      properties:
-        gid: int4
-      layers:
-        sorted:
-          maxzoom: 1
-          attributes:
-            number: gid
-          sort_by: [{ expr: 'gid % 4', desc: true }, gid]
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    sorted:
+                      maxzoom: 1
+                      attributes:
+                        number: gid
+                      sort_by: [{ expr: 'gid % 4', desc: true }, gid]
+        "},
     )
     .expect("failed to write the config");
     let output = dir.path().join("sorted.mbtiles");
-    generate(&config, &output).run().await;
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
     MbtilesCli::new("validate").arg(&output).run().await;
     let order: Vec<String> = tiles(&output)
         .await
