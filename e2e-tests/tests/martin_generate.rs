@@ -620,6 +620,59 @@ async fn skips_a_source_with_no_zoom_in_range() {
 }
 
 #[tokio::test]
+async fn features_whose_zooms_miss_the_generated_zooms_are_dropped() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    points:
+                      minzoom: 'gid > 25 ? 5 : 0'
+                      maxzoom: 'gid < 5 ? 1 : 9'
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("zooms.mbtiles");
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--min-zoom")
+        .arg("2")
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let mut ids = std::collections::BTreeMap::<i64, std::collections::BTreeSet<u64>>::new();
+    for (z, _, _, data) in tiles(&output).await {
+        for layer in mlt_layers(&data) {
+            ids.entry(z)
+                .or_default()
+                .extend(layer.features().iter().filter_map(|f| f.id()));
+        }
+    }
+    insta::assert_snapshot!(format!("{ids:?}"), @"{2: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}, 3: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}}");
+}
+
+#[tokio::test]
 async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::generate()
