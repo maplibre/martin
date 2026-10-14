@@ -4,20 +4,6 @@ use martin_e2e_tests::{Martin, WatchedDir, mbtiles_fixture};
 #[cfg(not(windows))]
 use martin_e2e_tests::{fixture, mbtiles_from_sql};
 use rstest::rstest;
-use tempfile::TempDir;
-
-async fn martin_serving(args: &[&str], names: &[&str]) -> (TempDir, Martin) {
-    let dir = tempfile::tempdir().expect("failed to create a temp dir");
-    let mut builder = Martin::builder();
-    for arg in args {
-        builder = builder.arg(*arg);
-    }
-    for name in names {
-        builder = builder.arg(mbtiles_fixture(dir.path(), name).await);
-    }
-    let martin = builder.start().await.expect("failed to start martin");
-    (dir, martin)
-}
 
 async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
     let response = martin.get(&format!("/{id}")).await;
@@ -27,7 +13,12 @@ async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&[], &["geography-class-jpg"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "geography-class-jpg").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/geography-class-jpg").await;
     assert_eq!(response.status(), 200);
@@ -78,7 +69,12 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn a_png_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&[], &["geography-class-png"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "geography-class-png").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "geography-class-png").await, @r#"
     {
@@ -122,7 +118,12 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "world_cities").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "world_cities").await, @r#"
     {
@@ -166,7 +167,12 @@ async fn an_mvt_source_serves_its_tilejson() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_a_decodable_tile() {
-    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "world_cities").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/world_cities/2/3/1").await;
     assert_eq!(tile.status(), 200);
@@ -250,7 +256,12 @@ async fn an_mvt_source_serves_a_decodable_tile() {
 
 #[tokio::test]
 async fn a_normalized_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&[], &["normalized-dedup-id"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "normalized-dedup-id").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "normalized-dedup-id").await, @r#"
     {
@@ -298,8 +309,13 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
     #[case] y: u32,
     #[case] expected: &[u8],
 ) {
-    let (_dir, mut martin) =
-        martin_serving(&[], &["normalized-dedup-id", "geography-class-jpg"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "normalized-dedup-id").await)
+        .arg(mbtiles_fixture(dir.path(), "geography-class-jpg").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let deduplicated = martin
         .get(&format!("/normalized-dedup-id/{z}/{x}/{y}"))
@@ -325,8 +341,14 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
 #[case::no_version_in_the_metadata("normalized-dedup-id", "")]
 #[tokio::test]
 async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] query: &str) {
-    let (_dir, mut martin) =
-        martin_serving(&["--tilejson-url-version-param", "version"], &[id]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg("--tilejson-url-version-param")
+        .arg("version")
+        .arg(mbtiles_fixture(dir.path(), id).await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tilejson(&martin, id).await["tiles"][0],

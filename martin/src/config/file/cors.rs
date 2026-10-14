@@ -123,10 +123,10 @@ impl CorsConfig {
                     max_age,
                     unrecognized: _,
                 } = CorsProperties::default();
-                info!("CORS enabled with defaults (origin={origin:?}, max_age={max_age:?})");
+                info!(cors.origin = ?origin, cors.max_age = ?max_age, "CORS enabled with defaults");
             }
             Self::Properties(props) => {
-                info!("CORS enabled with custom properties: {props:?}");
+                info!(cors.properties = ?props, "CORS enabled with custom properties");
             }
         }
     }

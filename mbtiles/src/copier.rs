@@ -12,7 +12,6 @@ use tracing::{debug, info, trace, warn};
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
-use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{
     BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name,
@@ -211,11 +210,13 @@ impl MbtileCopierInt {
         };
 
         info!(
-            "Copying {src_mbt} ({src_type}) {what}to a {is_new} file {dst_mbt} ({dst_type})",
-            src_mbt = self.src_mbt,
-            what = self.copy_text(),
-            is_new = if is_empty_db { "new" } else { "existing" },
-            dst_mbt = self.dst_mbt,
+            src.path = %self.src_mbt,
+            src.type = %src_type,
+            dst.path = %self.dst_mbt,
+            dst.type = %dst_type,
+            dst.new = is_empty_db,
+            copy.type = %self.options.copy,
+            "Copying mbtiles file"
         );
 
         if is_empty_db {
@@ -280,14 +281,15 @@ impl MbtileCopierInt {
         }
 
         info!(
-            "Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
-            src_mbt = self.src_mbt,
-            src_type = src_info.mbt_type,
-            dif_path = dif_mbt.filepath(),
-            dif_type = dif_info.mbt_type,
-            what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath(),
-            patch = patch_type_str(patch_type),
+            src.path = %self.src_mbt,
+            src.type = %src_info.mbt_type,
+            diff.path = %dif_mbt.filepath(),
+            diff.type = %dif_info.mbt_type,
+            dst.path = %self.dst_mbt.filepath(),
+            dst.type = %dst_type,
+            copy.type = %self.options.copy,
+            patch.type = patch_type.map(tracing::field::display),
+            "Comparing mbtiles files into a new diff file"
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type, algorithm)
@@ -373,13 +375,15 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         info!(
-            "Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
-            dif_path = dif_mbt.filepath(),
-            dif_type = dif_info.mbt_type,
-            src_mbt = self.src_mbt,
-            what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath(),
-            patch = patch_type_str(dif_info.patch_type),
+            diff.path = %dif_mbt.filepath(),
+            diff.type = %dif_info.mbt_type,
+            src.path = %self.src_mbt,
+            src.type = %src_type,
+            dst.path = %self.dst_mbt.filepath(),
+            dst.type = %dst_type,
+            copy.type = %self.options.copy,
+            patch.type = dif_info.patch_type.map(tracing::field::display),
+            "Applying patch into a new file"
         );
 
         self.init_schema(&mut conn, src_type, dst_type, algorithm)
@@ -415,7 +419,7 @@ impl MbtileCopierInt {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
             if matches!(dif_info.patch_type, Some(BinDiffGz)) {
                 info!(
-                    "Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
+                    "Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
                 );
             } else {
                 let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
@@ -469,14 +473,6 @@ impl MbtileCopierInt {
         src_conn.close().await?;
 
         Ok(src_info)
-    }
-
-    const fn copy_text(&self) -> &str {
-        match self.options.copy {
-            CopyType::All => "",
-            CopyType::Tiles => "tiles data ",
-            CopyType::Metadata => "metadata ",
-        }
     }
 
     #[expect(
@@ -544,7 +540,7 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}')"
             );
-            debug!("Copying metadata, taking into account diff file with {sql}");
+            debug!(sql = %sql, "Copying metadata, taking into account diff file");
         } else if self.options.apply_patch.is_some() {
             sql = format!(
                 "
@@ -559,7 +555,7 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}')"
             );
-            debug!("Copying metadata, and applying the diff file with {sql}");
+            debug!(sql = %sql, "Copying metadata, and applying the diff file");
         } else {
             // The source's aggregate hash is meaningless under another algorithm
             let skipped = if rehash {
@@ -573,7 +569,7 @@ impl MbtileCopierInt {
         SELECT name, value FROM sourceDb.metadata
         WHERE name NOT IN ({skipped})"
             );
-            debug!("Copying metadata with {sql}");
+            debug!(sql = %sql, "Copying metadata");
         }
         rusqlite_conn.execute(&sql, [])?;
         Ok(())
@@ -645,7 +641,7 @@ impl MbtileCopierInt {
     SELECT tile_hash as tile_id, tile_data
     FROM ({select_from} {where_clause})"
                 );
-                debug!("Copying to {dst_type} with {sql}");
+                debug!(dst.type = %dst_type, sql = %sql, "Copying tiles");
                 rusqlite_conn.execute(&sql, [])?;
 
                 format!(
@@ -681,7 +677,7 @@ impl MbtileCopierInt {
             }
         };
 
-        debug!("Copying to {dst_type} with {sql}");
+        debug!(dst.type = %dst_type, sql = %sql, "Copying tiles");
         rusqlite_conn.execute_batch(&sql)?;
 
         Ok(())
@@ -736,7 +732,7 @@ impl MbtileCopierInt {
             for row in sql_objects {
                 let obj_type = row.get::<&str, _>(2);
                 let tbl_name = row.get::<&str, _>(1);
-                debug!("Creating {obj_type} {tbl_name}...");
+                debug!(sqlite.object.type = %obj_type, sqlite.object.name = %tbl_name, "Creating schema object");
                 let Some(sql) = row.get::<Option<String>, _>(0) else {
                     continue;
                 };
@@ -861,7 +857,13 @@ impl MbtileCopierInt {
                 let (min_x, min_y, max_x, max_y) =
                     bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, MAX_ZOOM);
                 trace!(
-                    "Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}"
+                    bbox = %bbox,
+                    tile.min_x = min_x,
+                    tile.min_y = min_y,
+                    tile.max_x = max_x,
+                    tile.max_y = max_y,
+                    tile.zoom = MAX_ZOOM,
+                    "Converted bounding box to tile range"
                 );
                 let (min_y, max_y) = (
                     invert_y_value(MAX_ZOOM, max_y),
@@ -1112,17 +1114,6 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
     }
 }
 
-const fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
-    if let Some(v) = patch_type {
-        match v {
-            BinDiffGz => " with bin-diff on gzip-ed tiles",
-            BinDiffRaw => " with bin-diff-raw",
-        }
-    } else {
-        ""
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
@@ -1132,6 +1123,7 @@ mod tests {
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
+    use crate::PatchType::BinDiffRaw;
     use crate::metadata::temp_named_mbtiles;
 
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);

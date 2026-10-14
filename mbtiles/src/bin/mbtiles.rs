@@ -152,8 +152,8 @@ enum Commands {
         /// Tile-cache `MBTiles` file to purge
         file: PathBuf,
         /// Also evict entries (soonest-expiring first) until the file's live size
-        /// is at most this many MB
-        #[arg(long)]
+        /// is at most this, e.g. `512MB` or `1GiB`. A bare number is in MB
+        #[arg(long, value_parser = parse_byte_size)]
         max_size: Option<u64>,
     },
     /// Unpack an `MBTiles` file into a directory tree of tiles
@@ -414,7 +414,14 @@ async fn main_int() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()> {
+fn parse_byte_size(s: &str) -> Result<u64, String> {
+    if let Ok(mb) = s.parse::<u64>() {
+        return Ok(mb.saturating_mul(bytesize::MB));
+    }
+    s.parse::<bytesize::ByteSize>().map(|size| size.as_u64())
+}
+
+async fn cache_purge(file: &Path, max_size: Option<u64>) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
     if !mbt.is_cache(&mut conn).await? {
@@ -422,11 +429,12 @@ async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()
     }
     let removed = mbt.purge_expired(&mut conn, UnixSeconds::now()).await?;
     println!("Removed {removed} expired tile entries");
-    if let Some(max_size_mb) = max_size_mb {
-        let evicted = mbt
-            .purge_cache_to_size(&mut conn, max_size_mb * 1_000_000)
-            .await?;
-        println!("Evicted {evicted} tile entries to fit under {max_size_mb} MB");
+    if let Some(max_size) = max_size {
+        let evicted = mbt.purge_cache_to_size(&mut conn, max_size).await?;
+        println!(
+            "Evicted {evicted} tile entries to fit under {}",
+            bytesize::ByteSize(max_size).display().si()
+        );
     }
     Ok(())
 }

@@ -94,7 +94,7 @@ pub(super) async fn encode_image_response(
             .content_type(format.content_type())
             .body(bytes),
         Err(e) => {
-            error!("Failed to encode image: {e}");
+            error!(error = %e, "Failed to encode image");
             HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())
                 .body("Failed to encode image")
@@ -200,8 +200,11 @@ pub async fn get_rendered_tile_style(
             .body("Invalid tile coordinates for zoom level");
     };
     trace!(
-        "Rendering style {style_id} ({}) at {zxy}@{pixel_ratio}x",
-        style_path.display()
+        style.id = %style_id,
+        style.path = %style_path.display(),
+        tile.coord = %zxy,
+        style.pixel_ratio = %pixel_ratio,
+        "Rendering style"
     );
 
     #[cfg(target_os = "linux")]
@@ -215,7 +218,7 @@ pub async fn get_rendered_tile_style(
             Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {
-                error!("Failed to render style {style_id} at {zxy}: {e}");
+                error!(style.id = %style_id, tile.coord = %zxy, error = %e, "Failed to render style");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())
                     .body("Failed to render style")
@@ -228,7 +231,7 @@ pub async fn get_rendered_tile_style(
 }
 
 fn rendering_disabled(style_id: &str, zxy: TileCoord) -> HttpResponse {
-    warn!("Failed to render style {style_id} because rendering is disabled");
+    warn!(style.id = %style_id, "Failed to render style because rendering is disabled");
     HttpResponse::Forbidden()
         .content_type(ContentType::plaintext())
         .body(format!(
@@ -269,7 +272,8 @@ pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpRespons
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to {tile}.jpeg caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
+                style.tile = %tile,
+                "Request to a .jpeg style tile caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
             );
         })
         .await;

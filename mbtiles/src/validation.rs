@@ -441,8 +441,8 @@ impl Mbtiles {
                 && tilejson.vector_layers.is_some()
             {
                 warn!(
-                    "{} has vector_layers metadata value, but the tiles are not MVT/MLT",
-                    self.filename()
+                    mbtiles.file = %self.filename(),
+                    "File has vector_layers metadata value, but the tiles are not MVT/MLT"
                 );
             }
             Ok(Some(info))
@@ -460,7 +460,7 @@ impl Mbtiles {
             let file = self.filename();
             match (tile_info, Format::parse(fmt)) {
                 (_, None) => {
-                    warn!("Unknown format value in metadata: {fmt}");
+                    warn!(mbtiles.file = %file, metadata.format = %fmt, "Unknown format value in metadata");
                 }
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
@@ -509,7 +509,7 @@ impl Mbtiles {
             let file = self.filename();
             match Encoding::parse(cmp) {
                 None => {
-                    warn!("Unknown compression value in metadata: {cmp} in file {file}");
+                    warn!(mbtiles.file = %file, metadata.compression = %cmp, "Unknown compression value in metadata");
                 }
                 Some(enc) => match tile_info {
                     None => {
@@ -567,15 +567,16 @@ impl Mbtiles {
         if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
             let info = TileInfo::detect(&tile);
             debug!(
-                "Tile {z}/{x}/{} is detected as {info} in file {}",
-                {
+                mbtiles.file = %self.filename(),
+                tile.coord = %format!("{z}/{x}/{}", {
                     if let (Ok(z), Ok(y)) = (u8::try_from(z), u32::try_from(y)) {
                         invert_y_value(z, y).to_string()
                     } else {
                         format!("{y} (invalid values, cannot invert Y)")
                     }
-                },
-                self.filename(),
+                }),
+                tile.info = %info,
+                "Detected tile format"
             );
             Some(info)
         } else {
@@ -591,7 +592,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Detecting MBTiles type for {self}");
+        debug!(mbtiles.file = %self, "Detecting MBTiles type");
         let typ = self.detect_layout(&mut *conn).await?;
 
         self.check_for_uniqueness_constraint(&mut *conn, typ)
@@ -1002,7 +1003,8 @@ LIMIT 1;"
                 ));
             }
             warn!(
-                "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
+                mbtiles.file = %self,
+                "File has no agg_tiles_hash metadata field, probably because it was created by an older version of the `mbtiles` tool. Run `mbtiles validate --agg-hash update <file>` to update the value"
             );
         } else if info.agg_tiles_hash_before_apply.is_some()
             || info.agg_tiles_hash_after_apply.is_some()
@@ -1011,7 +1013,8 @@ LIMIT 1;"
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_owned()));
             }
             warn!(
-                "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
+                mbtiles.file = %self,
+                "File has agg_tiles_hash_before_apply or agg_tiles_hash_after_apply metadata field, indicating it is a patch file which should not be diffed with another file"
             );
         }
         Ok(())
@@ -1024,7 +1027,10 @@ LIMIT 1;"
         ) {
             (Some(before), Some(after)) => {
                 info!(
-                    "The patch file {self} expects to be applied to a tileset with {AGG_TILES_HASH}={before}, and should result in hash {after} after applying",
+                    mbtiles.file = %self,
+                    agg_tiles_hash.before_apply = %before,
+                    agg_tiles_hash.after_apply = %after,
+                    "Patch file expects to be applied to a tileset with the before_apply agg_tiles_hash, and should result in the after_apply hash"
                 );
             }
             (None, Some(_)) => {
@@ -1034,7 +1040,8 @@ LIMIT 1;"
                     ));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
+                    mbtiles.file = %self,
+                    "Patch file has no agg_tiles_hash_before_apply metadata field, probably because it was created by an older version of the `mbtiles` tool"
                 );
             }
             _ => {
@@ -1042,7 +1049,8 @@ LIMIT 1;"
                     return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_owned()));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."
+                    mbtiles.file = %self,
+                    "Patch file has no agg_tiles_hash_after_apply metadata field, probably because it was not properly created by the `mbtiles` tool"
                 );
             }
         }

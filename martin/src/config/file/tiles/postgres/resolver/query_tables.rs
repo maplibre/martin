@@ -66,14 +66,19 @@ pub async fn query_available_tables(
                 Ok(v) => Some(v),
                 Err(e) => {
                     warn!(
-                        "Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}"
+                        schema = %schema,
+                        table = %table,
+                        error = %e,
+                        "Unable to deserialize SQL comment as tilejson, the automatically generated tilejson would be used"
                     );
                     None
                 }
             }
         } else {
             debug!(
-                "Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically"
+                schema = %schema,
+                table = %table,
+                "Unable to find a SQL comment, the tilejson would be generated automatically"
             );
             None
         };
@@ -105,8 +110,10 @@ pub async fn query_available_tables(
         // Ignore views since those can't have indices and will generally refer to table columns.
         if info.discovered.geometry_index == Some(false) && info.discovered.relkind != Some('v') {
             warn!(
-                "Table {}.{} has no spatial index on column {}",
-                info.schema, info.table, info.geometry_column
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                "Table has no spatial index on the geometry column"
             );
         }
 
@@ -117,7 +124,7 @@ pub async fn query_available_tables(
             .or_default()
             .insert(info.geometry_column.clone(), info)
         {
-            warn!("Unexpected duplicate table {}", v.format_id());
+            warn!(table.id = %v.format_id(), "Unexpected duplicate table");
         }
     }
 
@@ -183,8 +190,9 @@ pub async fn table_to_query(
     if info.bounds.is_none() && grid.grid().is_simple() {
         // plain planar units have no place in WGS84 bounds
         debug!(
-            "Not computing the bounds of {id}: tile grid {} is not geographic",
-            grid.grid().id()
+            source.id = %id,
+            tile_grid = %grid.grid().id(),
+            "Not computing the bounds: tile grid is not geographic"
         );
     } else if info.bounds.is_none()
         && bounds_type != BoundsCalcType::Skip
@@ -193,14 +201,15 @@ pub async fn table_to_query(
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
-                debug!("Computing {} table bounds for {id}", info.format_id());
+                debug!(source.id = %id, table.id = %info.format_id(), "Computing table bounds");
                 info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
-                    "Computing {} table bounds with {}s timeout for {id}",
-                    info.format_id(),
-                    DEFAULT_BOUNDS_TIMEOUT.as_secs()
+                    source.id = %id,
+                    table.id = %info.format_id(),
+                    timeout.secs = DEFAULT_BOUNDS_TIMEOUT.as_secs(),
+                    "Computing table bounds with timeout"
                 );
                 let bounds = {
                     let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
@@ -212,8 +221,9 @@ pub async fn table_to_query(
                     info.bounds = bounds?;
                 } else {
                     warn!(
-                        "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
-                        info.format_id(),
+                        source.id = %id,
+                        table.id = %info.format_id(),
+                        "Timeout computing bounds, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices."
                     );
                 }
             }
@@ -221,8 +231,10 @@ pub async fn table_to_query(
 
         if let Some(bounds) = info.bounds {
             debug!(
-                "The computed bounds for {id} from {} are {bounds}",
-                info.format_id()
+                source.id = %id,
+                table.id = %info.format_id(),
+                bounds = %bounds,
+                "Computed table bounds"
             );
         }
     }
@@ -758,8 +770,10 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
             return Ok(polygon_to_bbox(&bounds));
         }
         warn!(
-            "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
-            info.geometry_column
+            schema = %schema,
+            table = %table,
+            geometry_column = %info.geometry_column,
+            "ST_EstimatedExtent failed, trying slower method to compute bounds"
         );
     }
 
@@ -802,9 +816,11 @@ async fn transforms_to_wgs84(
         Ok(()) => Ok(true),
         Err(CannotTransform(refusal, ..)) => {
             warn!(
-                "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84 ({}). Set bounds in the config to advertise them.",
-                info.format_id(),
-                refusal.message()
+                table.id = %info.format_id(),
+                srid = srid,
+                srid.authority = %authority,
+                error = %refusal.message(),
+                "Not computing the bounds: SRID is not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them."
             );
             Ok(false)
         }

@@ -2,23 +2,8 @@
 #![cfg(all(feature = "test-pg", feature = "test-generate"))]
 
 use std::fs;
-use std::path::Path;
 
 use martin_e2e_tests::{MartinCp, MbtilesCli, metadata_listing, temp_dir, tile_listing};
-
-/// Zooms 0 to 3, uncompressed so the snapshots do not depend on the compressor.
-fn generate(config: &Path, output: &Path) -> MartinCp {
-    MartinCp::generate()
-        .with_postgres()
-        .arg("--config")
-        .arg(config)
-        .arg("--output-file")
-        .arg(output)
-        .arg("--max-zoom")
-        .arg("3")
-        .arg("--encoding")
-        .arg("none")
-}
 
 #[tokio::test]
 async fn generates_a_valid_tileset() {
@@ -52,7 +37,16 @@ postgres:
     )
     .expect("failed to write the config");
     let output = dir.path().join("generated.mbtiles");
-    generate(&config, &output)
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
         .arg("--threads")
         .arg("2")
         .run()
@@ -64,11 +58,22 @@ postgres:
         insta::assert_snapshot!("metadata", metadata);
     });
 
-    // The output does not depend on the thread count.
+    // The output does not depend on the thread count or memory.
     let again = dir.path().join("again.mbtiles");
-    generate(&config, &again)
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&again)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
         .arg("--threads")
         .arg("5")
+        .arg("--memory")
+        .arg("64MiB")
         .run()
         .await;
     assert_eq!(

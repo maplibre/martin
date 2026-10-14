@@ -4,12 +4,6 @@ use std::fs;
 
 use martin_e2e_tests::{Martin, MartinBuilder};
 
-const PMTILES_SOURCE: &str = "
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-";
-
 async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
     builder
         .config(yaml)
@@ -18,16 +12,16 @@ async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
         .expect("failed to start martin")
 }
 
-/// The keys named by every `Ignoring unrecognized configuration key '<key>'` line, sorted.
+/// The `config.key` of every `Ignoring unrecognized configuration key` line, sorted.
 /// The lines are consumed, so the assertion [`Martin`] drops with no longer sees them.
 fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
     let mut keys = martin
         .take_log_lines("Ignoring unrecognized configuration key")
         .iter()
         .map(|line| {
-            line.split('\'')
-                .nth(1)
-                .expect("the warning quotes the key it ignored")
+            line.split_once("config.key=")
+                .and_then(|(_, rest)| rest.split_whitespace().next())
+                .expect("the warning names the key it ignored")
                 .to_owned()
         })
         .collect::<Vec<_>>();
@@ -123,12 +117,14 @@ pmtiles:
 async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
-        &format!(
-            "
+        "
 cog:
   warning: 'unrecognized'
-{PMTILES_SOURCE}"
-        ),
+
+pmtiles:
+  sources:
+    pmt: tests/fixtures/pmtiles/png.pmtiles
+",
     )
     .await;
 
@@ -157,7 +153,7 @@ pmtiles:
 
     martin.stop().await;
     martin.assert_log_contains(
-        r#"Ignoring unrecognized configuration key 'pmtiles.timeout': Object {"nested": Number(1)}. Only boolean, string or number values are allowed here."#,
+        r#"Ignoring unrecognized configuration key: only boolean, string or number values are allowed here. Please check your configuration file for typos. config.key=pmtiles.timeout config.value=Object {"nested": Number(1)}"#,
     );
     assert_eq!(
         unrecognized_keys(&mut martin),

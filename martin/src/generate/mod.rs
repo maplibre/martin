@@ -19,7 +19,9 @@ use tracing::{info, warn};
 
 use self::postgres::{PgScanSource, ScanLayer};
 use crate::StartupError;
-use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
+use crate::config::args::{
+    Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
+};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
@@ -69,9 +71,9 @@ pub struct GenerateArgs {
     /// are written. Unlike `martin cp`, low-zoom tiles are not filled with data from outside the box.
     #[arg(long)]
     pub bbox: Option<Bounds>,
-    /// Memory for sorting (in MB), split over the threads.
-    #[arg(long, default_value_t = 2048)]
-    pub memory_mb: u64,
+    /// Memory for sorting, e.g. `512MB` or `2GiB`, split over the threads. A bare number is in MB.
+    #[arg(long, default_value = "2GiB", value_parser = parse_byte_size)]
+    pub memory: u64,
     /// Directories for temporary sorted runs, used round-robin. Defaults to the system temp directory.
     #[arg(long)]
     pub temp_dir: Vec<PathBuf>,
@@ -134,7 +136,7 @@ impl From<ArgsError> for GenerateError {
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
 pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
-    info!("Martin v{VERSION} tile generator");
+    info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
     let options = args.generate;
     if options
@@ -198,26 +200,25 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
         features = summary.features,
         tiles = summary.tiles,
         elapsed = ?started.elapsed(),
-        "Generated {}",
-        output.display()
+        mbtiles.file = %output.display(),
+        "Generated tiles"
     );
     if summary.skipped > 0 {
         warn!(
-            "Skipped {} features with geometry collections or empty geometries, which tiles cannot hold",
-            summary.skipped
+            features.skipped = summary.skipped,
+            "Skipped features with geometry collections or empty geometries, which tiles cannot hold"
         );
     }
     for failed in &summary.slice_errors {
-        let feature = match failed.id {
-            Some(id) => format!("feature {id}"),
-            None => format!(
-                "the feature at partition {} row {}",
-                failed.partition, failed.row
-            ),
-        };
         warn!(
-            "Layer `{}`: skipped {} feature-zooms whose geometry the slicer could not handle, first {feature} at z{}: {}",
-            failed.layer, failed.errors, failed.zoom, failed.error
+            layer.id = %failed.layer,
+            feature_zooms.skipped = failed.errors,
+            feature.id = failed.id,
+            feature.partition = failed.partition,
+            feature.row = failed.row,
+            tile.zoom = failed.zoom,
+            error = %failed.error,
+            "Skipped feature-zooms whose geometry the slicer could not handle"
         );
     }
     Ok(())
@@ -229,8 +230,8 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
     } else {
         options.temp_dir.clone()
     };
-    let per_thread = (options.memory_mb.saturating_mul(1 << 20) / threads as u64)
-        .clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+    let per_thread =
+        (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
     GenerateConfig {
         threads,
         sort: SortConfig {
@@ -348,11 +349,12 @@ async fn report(progress: Arc<Progress>) {
         let features = progress.features.load(Ordering::Relaxed);
         if progress.writing.load(Ordering::Relaxed) {
             info!(
-                "Rendered {features} features; written {} tiles",
-                progress.tiles.load(Ordering::Relaxed)
+                features,
+                tiles = progress.tiles.load(Ordering::Relaxed),
+                "Rendered features and written tiles"
             );
         } else {
-            info!("Rendered {features} features");
+            info!(features, "Rendered features");
         }
     }
 }
@@ -366,7 +368,7 @@ fn remove_output(path: &Path) {
         if path.exists()
             && let Err(err) = std::fs::remove_file(&path)
         {
-            warn!("Could not remove {}: {err}", path.display());
+            warn!(path = %path.display(), error = %err, "Could not remove partial output");
         }
     }
 }

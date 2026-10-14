@@ -292,7 +292,10 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /style/{style_id}/static/{camera}/{size}.jpeg caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
+                style.id = %style_id,
+                style.camera = %camera,
+                style.size = %size,
+                "Request to a .jpeg static image caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
             );
         })
         .await;
@@ -531,7 +534,7 @@ async fn render_with_overlays(
         Box::new(match e {
             StyleError::RenderingIsDisabled => rendering_disabled(),
             StyleError::OverlayApply(err) => {
-                warn!("Overlay application failed: {err}");
+                warn!(error = %err, "Overlay application failed");
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
                     .body(format!("Overlay application failed: {err}"))
@@ -542,7 +545,7 @@ async fn render_with_overlays(
             | StyleError::FailedToSendRequest
             | StyleError::FailedToReceiveResponse
             | StyleError::RenderingPanicked) => {
-                error!("Failed to render static image: {other}");
+                error!(error = %other, "Failed to render static image");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())
                     .body("Failed to render static image")

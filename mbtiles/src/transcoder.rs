@@ -509,7 +509,7 @@ async fn normalized_writer(
             unique_encoded += chunk.len();
         }
         tx.commit().await?;
-        debug!("{unique_encoded} unique encoded, {rows_written} rows written");
+        debug!(unique_encoded, rows_written, "Wrote normalized batch");
     }
 
     // Normalized destination still needs its map table populated. One
@@ -827,7 +827,7 @@ async fn general_writer(
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
-            debug!("{total} tiles written");
+            debug!(tiles_written = total, "Flushed tile batch");
         }
     }
 

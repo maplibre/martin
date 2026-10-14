@@ -3,14 +3,6 @@
 use martin_e2e_tests::Martin;
 use rstest::rstest;
 
-async fn martin_with_a_pmtiles_source() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/pmtiles2")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 async fn tiles_url(martin: &Martin, path: &str, headers: &[(&str, &str)]) -> String {
     let response = martin.get_with_headers(path, headers).await;
     assert_eq!(response.status(), 200);
@@ -23,7 +15,11 @@ async fn tiles_url(martin: &Martin, path: &str, headers: &[(&str, &str)]) -> Str
 
 #[tokio::test]
 async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/webp2").await;
     assert_eq!(response.status(), 200);
@@ -72,7 +68,11 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
 
 #[tokio::test]
 async fn a_tilejson_answers_head_without_a_body() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.head("/webp2").await;
     assert_eq!(response.status(), 200);
@@ -97,7 +97,11 @@ async fn proxy_headers_set_the_scheme_and_authority(
     #[case] headers: &[(&str, &str)],
     #[case] expected: &str,
 ) {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(tiles_url(&martin, "/webp2", headers).await, expected);
 
@@ -106,7 +110,11 @@ async fn proxy_headers_set_the_scheme_and_authority(
 
 #[tokio::test]
 async fn an_x_forwarded_for_does_not_change_the_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tiles_url(&martin, "/webp2", &[("x-forwarded-for", "192.168.1.100")]).await,
@@ -124,7 +132,11 @@ async fn a_rewrite_header_replaces_the_path(
     #[case] headers: &[(&str, &str)],
     #[case] expected: &str,
 ) {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(tiles_url(&martin, "/webp2", headers).await, expected);
 
@@ -133,7 +145,11 @@ async fn a_rewrite_header_replaces_the_path(
 
 #[tokio::test]
 async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let headers = [
         ("x-rewrite-url", "/footiles/webp2"),
@@ -149,7 +165,11 @@ async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
 
 #[tokio::test]
 async fn only_the_path_of_a_rewrite_header_is_used() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let headers = [(
         "x-rewrite-url",
@@ -165,7 +185,11 @@ async fn only_the_path_of_a_rewrite_header_is_used() {
 
 #[tokio::test]
 async fn the_request_query_string_is_carried_into_the_tiles_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tiles_url(&martin, "/webp2?foo=bar&token=martin", &[]).await,

@@ -2,32 +2,24 @@
 
 use indoc::formatdoc;
 use martin_e2e_tests::{Martin, StaticFiles};
-
-/// A minimal but valid MVT tile: one layer with one point feature.
-fn mvt_tile() -> Vec<u8> {
-    use mlt_core::TileLayer;
-    use mlt_core::geo_types::{Geometry, Point};
-    use mlt_core::mvt::tile_layers_to_mvt;
-
-    let mut builder = TileLayer::builder("test", 4096).expect("layer builder");
-    {
-        let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
-        feature.id(Some(1));
-        feature.finish().expect("finish feature");
-    }
-    tile_layers_to_mvt(vec![builder.finish()]).expect("encode MVT")
-}
-
-async fn upstream_with_one_tile() -> StaticFiles {
-    let dir = tempfile::tempdir().expect("failed to create a temp dir");
-    let tile = dir.path().join("tile.pbf");
-    std::fs::write(&tile, mvt_tile()).expect("failed to write the tile");
-    StaticFiles::serving(&[("0/0/0.pbf", tile)]).await
-}
+use mlt_core::TileLayer;
+use mlt_core::geo_types::{Geometry, Point};
+use mlt_core::mvt::tile_layers_to_mvt;
 
 #[tokio::test]
 async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
-    let upstream = upstream_with_one_tile().await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let tile = dir.path().join("tile.pbf");
+    let mut builder = TileLayer::builder("test", 4096).expect("layer builder");
+    let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
+    feature.id(Some(1));
+    feature.finish().expect("finish feature");
+    std::fs::write(
+        &tile,
+        tile_layers_to_mvt(vec![builder.finish()]).expect("encode MVT"),
+    )
+    .expect("failed to write the tile");
+    let upstream = StaticFiles::serving(&[("0/0/0.pbf", tile)]).await;
     let config = formatdoc! {"
         endpoints:
           purge_cache: true
@@ -63,7 +55,7 @@ async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
     assert_eq!(martin.delete("/cache/nope").await.status(), 404);
 
     martin.stop().await;
-    martin.assert_log_contains("Invalidated tile cache for source: proxy");
+    martin.assert_log_contains("Invalidated cache for source cache.name=tile source.id=proxy");
 }
 
 #[tokio::test]

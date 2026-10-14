@@ -115,7 +115,7 @@ pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Detaching {name}");
+    debug!(sqlite.schema = %name, "Detaching database");
     query(AssertSqlSafe(format!("DETACH DATABASE {name}")))
         .execute(conn)
         .await?;

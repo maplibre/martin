@@ -4,33 +4,8 @@
 
 use std::fs;
 
-use martin_e2e_tests::{
-    Martin, MartinBuilder, StartError, mbtiles_fixture, round_floats, temp_dir,
-};
+use martin_e2e_tests::{Martin, StartError, mbtiles_fixture, round_floats, temp_dir};
 use serde_json::Value;
-use tempfile::TempDir;
-
-/// A server that publishes everything it finds in the fixture database.
-async fn martin_with_postgres() -> Martin {
-    start_with_postgres(Martin::builder()).await
-}
-
-async fn start_with_postgres(builder: MartinBuilder) -> Martin {
-    builder
-        .with_postgres()
-        // also adopt tables whose geometry column has SRID 0
-        .arg("--default-srid")
-        .arg("900913")
-        // no fuzzy estimated bounds
-        .arg("--auto-bounds")
-        .arg("calc")
-        // to not exhaust the global pool
-        .arg("--pool-size")
-        .arg("1")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
 
 /// The `PostgreSQL` config the [`CONFIG`] tests below start from: a few hand-written table and
 /// function sources, plus an `auto_publish` narrowed to the schemas they do not cover.
@@ -132,27 +107,13 @@ postgres:
       bounds: [-180.0, -90.0, 180.0, 90.0]
 ";
 
-/// A server that publishes what [`CONFIG`] declares.
-async fn martin_from_the_config() -> Martin {
-    start_from_the_config(Martin::builder()).await
-}
-
-async fn start_from_the_config(builder: MartinBuilder) -> Martin {
-    builder
-        .with_postgres()
-        .config(CONFIG)
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 /// The tables martin walks past while resolving `auto_publish` warn about their missing index even
 /// when they are not published.
 fn assert_unindexed_table_warnings(martin: &mut Martin) {
     for warning in [
-        "Table public.mat_view has no spatial index on column geom",
-        "Table public.table_source has no spatial index on column geom",
-        "Table public.table_source_geog has no spatial index on column geog",
+        "Table has no spatial index on the geometry column schema=public table=mat_view geometry_column=geom",
+        "Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom",
+        "Table has no spatial index on the geometry column schema=public table=table_source_geog geometry_column=geog",
     ] {
         martin.assert_log_contains(warning);
     }
@@ -216,7 +177,17 @@ async fn assert_tiles_across_zooms(martin: &Martin, source: &str, snapshot_prefi
 
 #[tokio::test]
 async fn every_kind_of_source_in_the_database_is_published() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
@@ -235,7 +206,17 @@ async fn every_kind_of_source_in_the_database_is_published() {
 
 #[tokio::test]
 async fn a_table_source_serves_tilejson_and_tiles_across_zooms() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let table_source = tilejson(&martin, "/table_source").await;
     insta::assert_json_snapshot!(table_source, @r#"
@@ -272,7 +253,17 @@ async fn a_table_source_serves_tilejson_and_tiles_across_zooms() {
 
 #[tokio::test]
 async fn a_composite_source_serves_every_layer_it_names() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let composite = tilejson(&martin, "/table_source,points1,points2").await;
     insta::assert_json_snapshot!("composite_tilejson", composite);
@@ -284,7 +275,17 @@ async fn a_composite_source_serves_every_layer_it_names() {
 
 #[tokio::test]
 async fn a_function_source_serves_tilejson_and_tiles_across_zooms() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let function_source = tilejson(&martin, "/function_zxy_query").await;
     insta::assert_json_snapshot!(function_source, @r#"
@@ -307,7 +308,17 @@ async fn a_function_source_serves_tilejson_and_tiles_across_zooms() {
 
 #[tokio::test]
 async fn a_function_source_reads_its_query_string_and_can_return_a_raster() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let with_token = tilejson(&martin, "/function_zxy_query_test").await;
     let with_jsonb = tilejson(&martin, "/function_zxy_query_jsonb").await;
@@ -336,7 +347,17 @@ async fn a_function_source_reads_its_query_string_and_can_return_a_raster() {
 
 #[tokio::test]
 async fn every_function_calling_convention_serves_the_same_tile() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // The fixture database declares one function per way martin may call it: positional zoom/x/y,
     // a row-returning variant, one that also returns a key, and a mixed-case name.
@@ -359,7 +380,17 @@ async fn every_function_calling_convention_serves_the_same_tile() {
 
 #[tokio::test]
 async fn a_function_returning_a_key_column_serves_it_as_the_etag() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/function_zxy_row_key/6/57/29").await;
     assert_eq!(response.status(), 200);
@@ -381,7 +412,17 @@ async fn a_function_returning_a_key_column_serves_it_as_the_etag() {
 
 #[tokio::test]
 async fn a_curve_column_is_linearized_before_encoding() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // A typed curve column and an untyped column holding curves both keep the linearization,
     // which is the only way ST_AsMVTGeom can encode them at all.
@@ -397,7 +438,17 @@ async fn a_curve_column_is_linearized_before_encoding() {
 
 #[tokio::test]
 async fn a_table_postgis_cannot_convert_to_its_tile_grid_is_left_out_of_auto_publish() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get("/mars_points").await.status(), 404);
     assert_eq!(martin.get("/points1").await.status(), 200);
@@ -408,7 +459,17 @@ async fn a_table_postgis_cannot_convert_to_its_tile_grid_is_left_out_of_auto_pub
 
 #[tokio::test]
 async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let srid_3857 = tilejson(&martin, "/points3857").await;
     insta::assert_json_snapshot!("srid_3857_tilejson", srid_3857);
@@ -428,7 +489,17 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 
 #[tokio::test]
 async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(
         "antimeridian_4_0_4",
@@ -445,7 +516,17 @@ async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
 
 #[tokio::test]
 async fn a_sql_comment_becomes_the_tilejson() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let table_comment = tilejson(&martin, "/MixPoints").await;
     let function_comment = tilejson(&martin, "/function_Mixed_Name").await;
@@ -458,7 +539,17 @@ async fn a_sql_comment_becomes_the_tilejson() {
 
 #[tokio::test]
 async fn a_materialized_view_is_published_like_a_table() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let materialized_view = tilejson(&martin, "/mat_view").await;
     insta::assert_json_snapshot!("materialized_view_tilejson", materialized_view);
@@ -473,7 +564,17 @@ async fn a_materialized_view_is_published_like_a_table() {
 
 #[tokio::test]
 async fn the_same_name_in_two_schemas_gets_a_suffixed_id() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // The second source of each pair is the one auto-discovery had to rename; the suffix is what
     // the `Source was renamed` warnings announce.
@@ -498,7 +599,12 @@ async fn the_same_name_in_two_schemas_gets_a_suffixed_id() {
 
 #[tokio::test]
 async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
@@ -555,7 +661,12 @@ async fn a_config_file_publishes_what_it_names_and_what_auto_publish_adds() {
 
 #[tokio::test]
 async fn a_configured_table_keeps_the_bounds_and_zoom_range_it_declares() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let table_source = tilejson(&martin, "/table_source").await;
     insta::assert_json_snapshot!(table_source, @r#"
@@ -597,7 +708,12 @@ async fn a_configured_table_keeps_the_bounds_and_zoom_range_it_declares() {
 
 #[tokio::test]
 async fn a_configured_composite_source_names_each_layer_after_its_layer_id() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let composite = tilejson(&martin, "/table_source,points1,points2").await;
     insta::assert_json_snapshot!(composite, @r#"
@@ -649,7 +765,12 @@ async fn a_configured_composite_source_names_each_layer_after_its_layer_id() {
 
 #[tokio::test]
 async fn a_configured_function_serves_tiles_and_reads_its_query_string() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(
         "configured_function_zxy_query_0_0_0",
@@ -666,7 +787,12 @@ async fn a_configured_function_serves_tiles_and_reads_its_query_string() {
 
 #[tokio::test]
 async fn a_source_configured_in_the_wrong_case_still_resolves_and_keeps_its_sql_comment() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let table_comment = tilejson(&martin, "/MixPoints").await;
     let function_comment = tilejson(&martin, "/function_Mixed_Name").await;
@@ -723,8 +849,19 @@ async fn a_source_configured_in_the_wrong_case_still_resolves_and_keeps_its_sql_
 async fn the_saved_config_spells_out_every_table_and_function_that_was_discovered() {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = dir.path().join("save_config.yaml");
-    let mut martin =
-        start_with_postgres(Martin::builder().arg("--save-config").arg(&save_config)).await;
+    let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
@@ -742,8 +879,14 @@ async fn the_saved_config_spells_out_every_table_and_function_that_was_discovere
 async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_adopts() {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = dir.path().join("save_config.yaml");
-    let mut martin =
-        start_from_the_config(Martin::builder().arg("--save-config").arg(&save_config)).await;
+    let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     insta::with_settings!({filters => vec![
@@ -826,7 +969,17 @@ postgres:
 
 #[tokio::test]
 async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_the_client_accepts() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // function_zxy_gzip returns the tile function_zxy produces for 6/57/29, gzip-compressed.
     let expected = tile_dump(&martin, "/function_zxy/6/57/29").await;
@@ -864,8 +1017,19 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of both variants")]
 async fn a_queryless_and_a_json_variant_route_by_the_query_string() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // function_pair_json hands off to function_zxy without a query string and to
     // function_zxy_query with one, so the layer name says which variant ran.
@@ -967,8 +1131,19 @@ async fn a_queryless_and_a_json_variant_route_by_the_query_string() {
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of both variants")]
 async fn a_queryless_and_a_jsonb_variant_route_by_the_query_string() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(tile_dump(&martin, "/function_pair_jsonb/6/57/29").await, @"
     layer: 0
@@ -1070,7 +1245,17 @@ async fn a_queryless_and_a_jsonb_variant_route_by_the_query_string() {
 #[tokio::test]
 #[expect(clippy::too_many_lines, reason = "inline snapshots of both variants")]
 async fn a_json_and_a_jsonb_variant_are_two_sources() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // Neither variant can take the bare URL from the other, so each keeps its own id.
     insta::assert_json_snapshot!(tilejson(&martin, "/function_pair_query").await, @r#"
@@ -1193,7 +1378,17 @@ async fn a_json_and_a_jsonb_variant_are_two_sources() {
 #[tokio::test]
 #[expect(clippy::too_many_lines, reason = "inline snapshots of three variants")]
 async fn the_comments_of_three_variants_land_where_their_source_is() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // function_dup has all three variants, each with its own comment. The queryless and json
     // ones share a source, so their comments merge with the json one winning, and the jsonb
@@ -1364,7 +1559,17 @@ async fn the_comments_of_three_variants_land_where_their_source_is() {
 
 #[tokio::test]
 async fn the_same_function_name_in_two_schemas_keeps_each_comment() {
-    let mut martin = martin_with_postgres().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .arg("--default-srid")
+        .arg("900913")
+        .arg("--auto-bounds")
+        .arg("calc")
+        .arg("--pool-size")
+        .arg("1")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "/function_two_schemas").await, @r#"
     {
@@ -1561,7 +1766,12 @@ postgres:
 
 #[tokio::test]
 async fn a_cql2_filter_limits_the_rows_a_table_serves_and_its_bounds() {
-    let mut martin = martin_from_the_config().await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // points1 holds 30 points with gid 1..=30 and the config keeps the first three.
     let filtered = tilejson(&martin, "/points1_filtered").await;
@@ -1747,30 +1957,23 @@ postgres:
         room: text
 ";
 
-/// The archive in [`TILE_GRIDS_CONFIG`] is a copy of the `world_cities` fixture, kept alive by the returned directory.
-async fn martin_with_tile_grids() -> (Martin, TempDir) {
-    let dir = temp_dir();
-    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
-    let config = TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string());
-    let martin = Martin::builder()
-        .with_postgres()
-        .config(&config)
-        .start()
-        .await
-        .expect("failed to start martin");
-    (martin, dir)
-}
-
 /// The one warning every start from [`TILE_GRIDS_CONFIG`] logs, because Mars has no WGS84 bounds.
 fn assert_tile_grid_warnings(martin: &mut Martin) {
     martin.assert_log_contains(
-        "Not computing the bounds of public.mars_points.geom: SRID 949900 is IAU_2015:49900, not an EPSG system",
+        "Not computing the bounds: SRID is not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them. table.id=public.mars_points.geom srid=949900 srid.authority=IAU_2015:49900",
     );
 }
 
 #[tokio::test]
 async fn a_table_on_another_tile_grid_advertises_the_grid_and_serves_its_tiles() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let nz = tilejson(&martin, "/nz_points").await;
     insta::assert_json_snapshot!(nz, @r#"
@@ -1823,7 +2026,14 @@ async fn a_table_on_another_tile_grid_advertises_the_grid_and_serves_its_tiles()
 
 #[tokio::test]
 async fn the_same_table_on_two_grids_splits_the_world_differently() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     // on the square WGS84 grid, zoom 1 splits the world at the equator and the prime meridian
     for zxy in ["1/0/0", "1/1/0"] {
@@ -1852,7 +2062,14 @@ async fn the_same_table_on_two_grids_splits_the_world_differently() {
 
 #[tokio::test]
 async fn a_grid_outside_epsg_is_resolved_through_spatial_ref_sys() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let mars = tilejson(&martin, "/mars_points").await;
     // no WGS84 bounds exist for Mars, so none are advertised
@@ -1869,7 +2086,14 @@ async fn a_grid_outside_epsg_is_resolved_through_spatial_ref_sys() {
 
 #[tokio::test]
 async fn a_two_wide_grid_splits_the_world_at_the_prime_meridian() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, "/points1_crs84").await;
     assert_eq!(tilejson["tileGrid"]["id"], "WorldCRS84Quad");
@@ -1898,7 +2122,14 @@ async fn a_two_wide_grid_splits_the_world_at_the_prime_meridian() {
 
 #[tokio::test]
 async fn a_simple_grid_serves_plain_planar_coordinates() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, "/floor_plan").await;
     assert_eq!(tilejson["tileGrid"]["crs"], "simple");
@@ -1946,28 +2177,28 @@ postgres:
 
     martin.stop().await;
     insta::assert_snapshot!(martin.take_log_lines("simple tile grid").join("\n"), @"
-    WARN Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.constrained_geometry.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.domain_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.measured_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_geog.geog has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_multiple_geom.geom1 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Skipping table error=Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.constrained_geometry.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.domain_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.measured_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_geog.geog has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_multiple_geom.geom1 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     ");
     assert_unindexed_table_warnings(&mut martin);
     martin.assert_log_contains("source.id.new=table_source_multiple_geom.1");
@@ -2005,7 +2236,7 @@ postgres:
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
     insta::assert_snapshot!(log, @"
-    ERROR Tile source resolution warning: Source points1: Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    ERROR Tile source resolution warning warning=Source points1: Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     ERROR error=TileResolutionWarningsIssued
     ERROR warnings issued during tile source resolution
     ");
@@ -2013,7 +2244,14 @@ postgres:
 
 #[tokio::test]
 async fn an_archive_can_be_declared_to_be_on_a_grid() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, "/cities_nztm").await;
     assert_eq!(tilejson["tileGrid"]["id"], "NZTM2000Quad");
@@ -2031,7 +2269,14 @@ async fn an_archive_can_be_declared_to_be_on_a_grid() {
 /// `points1` has a point at 175.7 degrees west inside that strip.
 #[tokio::test]
 async fn a_table_in_wgs84_keeps_its_features_next_to_the_antimeridian() {
-    let (mut martin, _dir) = martin_with_tile_grids().await;
+    let dir = temp_dir();
+    let archive = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(&TILE_GRIDS_CONFIG.replace("WORLD_CITIES_MBTILES", &archive.display().to_string()))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let dump = tile_dump(&martin, "/points1_nztm/0/0/0").await;
     insta::assert_snapshot!("nztm2000quad_wgs84_table_0_0_0", dump);

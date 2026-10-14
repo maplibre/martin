@@ -190,7 +190,8 @@ impl Config {
     pub fn warn_unrecognized_keys(&self) {
         for key in &self.get_unrecognized_keys() {
             warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+                config.key = %key,
+                "Ignoring unrecognized configuration key. Please check your configuration file for typos."
             );
         }
     }
@@ -777,8 +778,8 @@ impl Config {
             println!("\n\n{yaml}\n");
         } else {
             info!(
-                "Saving config to {}, use --config to load it",
-                file_name.display()
+                config.path = %file_name.display(),
+                "Saving config, use --config to load it"
             );
             File::create(file_name)
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?

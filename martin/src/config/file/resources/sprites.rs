@@ -21,8 +21,8 @@ impl SpriteConfig {
         self.paths.retain(|path| {
             let Some(name) = path.file_name() else {
                 warn!(
-                    "Ignoring sprite source with no name from {}",
-                    path.display()
+                    sprite.path = %path.display(),
+                    "Ignoring sprite source with no name"
                 );
                 return false;
             };
