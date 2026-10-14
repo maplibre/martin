@@ -2449,7 +2449,7 @@ of its <code>properties</code> and its feature ids. A table source cannot set bo
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">          </span><span class="nt">simplify</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">name</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"name:*"</span><span class="p p-Indicator">]</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">drop</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span></code></pre></div>
 <p>Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one
 table come in the order they are listed. Tables come in the order of <code>--source</code>, or ordered by source id
@@ -2501,7 +2501,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 </tr>
 <tr>
 <td><code>id</code></td>
-<td><code>keep</code> (default), <code>drop</code>, or <code>{ expr: ... }</code></td>
+<td><code>true</code> (default), <code>false</code>, or an expression</td>
 <td><a href="#feature-ids">Feature ids</a></td>
 </tr>
 <tr>
@@ -2588,7 +2588,7 @@ A rule's <code>simplify</code> and <code>min_size</code> apply at every zoom, in
 <p>In both, <code>name:*</code> copies the columns starting with <code>name:</code>, written <code>"name:*": "name:*"</code> in a map.
 An expression that is <code>null</code> leaves the attribute out.</p>
 <h2 id="feature-ids">Feature ids</h2>
-<p><code>id: keep</code> writes the <code>id_column</code> as the feature id, <code>id: drop</code> writes none, and <code>id: { expr: ... }</code>
+<p><code>id: true</code> writes the <code>id_column</code> as the feature id, <code>id: false</code> writes none, and an expression
 computes it. A computed id is only written when it is an integer of zero or more.</p>
 <h2 id="rules">Rules</h2>
 <p><code>rules</code> is a list. The first rule whose <code>where</code> holds for a feature applies to it, and a last rule
@@ -2781,7 +2781,7 @@ ends with how often each one failed.</p>
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="nt">places</span><span class="p">:</span>
 </span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000"</span>
 </span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000000</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">8"</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"osm_id</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">10"</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="s">"osm_id</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">10"</span>
 </span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span>
 </span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">            </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">class</span>
 </span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">            </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"coalesce(feature['name:en'],</span><span class="nv"> </span><span class="s">name)"</span><span class="p p-Indicator">,</span><span class="nt"> minzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="w"> </span><span class="p p-Indicator">}</span>
