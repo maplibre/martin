@@ -91,7 +91,7 @@ Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `
 | `--output-file` |  | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty |
 | `--source` | all sources | A source id, repeatable |
 | `--format` | `mlt` | `mlt` or `mvt` |
-| `--encoding` | `gzip` | `gzip`, `zstd`, `br`, `zlib` (MBTiles only) or `none` |
+| `--encoding` | `gzip` for MBtiles or MLT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
 | `--min-zoom` | `0` | Lowest zoom, raised by a source's `minzoom` |
 | `--max-zoom` | `14` | Highest zoom, lowered by a source's `maxzoom` |
 | `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat` |
