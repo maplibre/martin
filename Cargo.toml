@@ -170,11 +170,8 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
-<<<<<<< HEAD
 pyo3 = "0.29.2"
-=======
 quantizr = "1.4"
->>>>>>> upstream/main
 quote = "1"
 radsort = "0.1.1"
 ratatui = "0.30.2"
