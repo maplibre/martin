@@ -294,9 +294,9 @@ mod tests {
     fn an_id_is_kept_dropped_or_computed() {
         let layers = parse(indoc! {"
             omitted: {}
-            kept: { id: keep }
-            dropped: { id: drop }
-            computed: { id: { expr: 'osm_id * 10' } }
+            kept: { id: true }
+            dropped: { id: false }
+            computed: { id: 'osm_id * 10' }
         "});
         let ids: Vec<_> = layers
             .iter()
@@ -365,10 +365,10 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_id_policy_is_rejected() {
+    fn a_number_id_is_rejected() {
         insta::assert_snapshot!(
-            rejection("roads: { id: none }"),
-            @"error: line 1 column 10: unknown variant `none`, expected one of keep, drop"
+            rejection("roads: { id: 7 }"),
+            @"error: line 1 column 10: invalid type: integer `7`, expected `true`, `false` or an expression"
         );
     }
 

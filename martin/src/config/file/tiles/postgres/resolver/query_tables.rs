@@ -313,7 +313,7 @@ impl TableQuerySql {
             .flatten()
             .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
-        let row_properties = row_properties(info);
+        let row_properties = row_properties(info, info.properties.iter().flatten());
 
         let (id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
@@ -519,10 +519,21 @@ pub struct ScanSql {
 /// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
 /// spending the database's single-threaded per-connection CPU on `ST_Transform`.
 ///
+/// Of the table's properties, only those in `columns` are selected, in table order.
 /// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
 #[cfg(feature = "unstable-generate")]
-pub fn scan_sql(info: &TableInfo, bbox: Option<Bounds>) -> PostgresResult<ScanSql> {
-    let row_properties = row_properties(info);
+pub fn scan_sql(
+    info: &TableInfo,
+    columns: &[String],
+    bbox: Option<Bounds>,
+) -> PostgresResult<ScanSql> {
+    let selected: Vec<(&String, &String)> = info
+        .properties
+        .iter()
+        .flatten()
+        .filter(|(column, _)| columns.contains(column))
+        .collect();
+    let row_properties = row_properties(info, selected.iter().copied());
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
         escape_with_alias(&info.discovered.prop_mapping, id)
     });
@@ -552,20 +563,20 @@ pub fn scan_sql(info: &TableInfo, bbox: Option<Bounds>) -> PostgresResult<ScanSq
         ),
         crs,
         has_id: info.id_column.is_some(),
-        properties: info
-            .properties
-            .iter()
-            .flatten()
+        properties: selected
+            .into_iter()
             .map(|(column, _)| column.clone())
             .collect(),
     })
 }
 
 /// The properties as tile row queries select them, cast by the type each column is returned as.
-fn row_properties(info: &TableInfo) -> String {
-    info.properties
-        .iter()
-        .flatten()
+fn row_properties<'a>(
+    info: &TableInfo,
+    properties: impl IntoIterator<Item = (&'a String, &'a String)>,
+) -> String {
+    properties
+        .into_iter()
         .map(|(column, label)| {
             let pg_type = info.column_type(column).unwrap_or(label);
             escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)

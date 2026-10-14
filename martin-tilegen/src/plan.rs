@@ -7,7 +7,9 @@ use martin_core::generate::props::KeyId;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
-use crate::{LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
+use crate::{
+    FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
+};
 
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
@@ -61,6 +63,8 @@ pub struct LayerDef {
     /// WGS84: only tiles intersecting it are generated.
     pub bounds: Option<Bounds>,
     pub encoder: EncoderConfig,
+    /// Only features of this type, if set.
+    pub geometry: Option<GeometryType>,
     pub id: IdDef,
     pub attributes: AttributesDef,
 }
@@ -78,9 +82,28 @@ impl LayerDef {
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
             encoder: EncoderConfig::default(),
+            geometry: None,
             id: IdDef::Keep,
             attributes: AttributesDef::All,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GeometryType {
+    Point,
+    Line,
+    Polygon,
+}
+
+impl GeometryType {
+    pub(crate) fn matches(self, geom: FeatureGeom<'_>) -> bool {
+        matches!(
+            (self, geom),
+            (Self::Point, FeatureGeom::Points(_))
+                | (Self::Line, FeatureGeom::Lines(_))
+                | (Self::Polygon, FeatureGeom::Polygons(_))
+        )
     }
 }
 
@@ -122,6 +145,7 @@ pub(crate) struct PlannedLayer {
     pub(crate) zooms: RangeInclusive<u8>,
     pub(crate) simplify: PixelThreshold,
     pub(crate) min_size: PixelThreshold,
+    pub(crate) geometry: Option<GeometryType>,
     pub(crate) id: IdDef,
     pub(crate) attributes: AttributesDef,
     /// The output layer's known keys.
@@ -225,6 +249,7 @@ fn plan_layer(
         zooms: def.zooms,
         simplify: def.simplify,
         min_size: def.min_size,
+        geometry: def.geometry,
         id: def.id,
         attributes: def.attributes,
         keys,

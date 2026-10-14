@@ -39,7 +39,7 @@ postgres:
           minzoom: 10
           simplify: 2
           attributes: [name, "name:*"]
-          id: drop
+          id: false
 ```
 
 Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one
@@ -57,7 +57,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `geometry`                        | `point`, `line` or `polygon`: only features of that type         | [Features](#features)                              |
 | `where`                           | An expression: only features for which it is `true`              | [Features](#features)                              |
 | `attributes`                      | Which properties to write, and under which names                 | [Attributes](#attributes)                          |
-| `id`                              | `keep` (default), `drop`, or `{ expr: ... }`                     | [Feature ids](#feature-ids)                        |
+| `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 
@@ -135,7 +135,7 @@ An expression that is `null` leaves the attribute out.
 
 ## Feature ids
 
-`id: keep` writes the `id_column` as the feature id, `id: drop` writes none, and `id: { expr: ... }`
+`id: true` writes the `id_column` as the feature id, `id: false` writes none, and an expression
 computes it. A computed id is only written when it is an integer of zero or more.
 
 ## Rules
@@ -330,7 +330,7 @@ postgres:
         places:
           where: "population > 1000"
           minzoom: "population > 1000000 ? 2 : 8"
-          id: { expr: "osm_id * 10" }
+          id: "osm_id * 10"
           attributes:
             kind: class
             label: { expr: "coalesce(feature['name:en'], name)", minzoom: 10 }

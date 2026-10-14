@@ -7,7 +7,7 @@ use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::error::TilingConfigError;
-use super::primitives::{Expr, Literal, NonEmpty, forward_scalars, single_entry_map};
+use super::primitives::{Expr, Literal, NonEmpty, forward_scalars};
 use super::zoom::{Zoom, ZoomRange};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -327,47 +327,30 @@ impl IdPolicy {
 impl Serialize for IdPolicy {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            Self::Keep => serializer.serialize_str("keep"),
-            Self::Drop => serializer.serialize_str("drop"),
-            Self::Expr(expr) => single_entry_map(serializer, "expr", expr),
+            Self::Keep => serializer.serialize_bool(true),
+            Self::Drop => serializer.serialize_bool(false),
+            Self::Expr(expr) => expr.serialize(serializer),
         }
     }
 }
 
 impl<'de> Deserialize<'de> for IdPolicy {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "snake_case")]
-        enum Word {
-            Keep,
-            Drop,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct ExprOnly {
-            expr: Expr,
-        }
-
         struct IdVisitor;
 
-        impl<'de> Visitor<'de> for IdVisitor {
+        impl Visitor<'_> for IdVisitor {
             type Value = IdPolicy;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("`keep`, `drop` or `{ expr: … }`")
+                f.write_str("`true`, `false` or an expression")
+            }
+
+            fn visit_bool<E: de::Error>(self, v: bool) -> Result<IdPolicy, E> {
+                Ok(if v { IdPolicy::Keep } else { IdPolicy::Drop })
             }
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<IdPolicy, E> {
-                match Word::deserialize(de::IntoDeserializer::<E>::into_deserializer(v))? {
-                    Word::Keep => Ok(IdPolicy::Keep),
-                    Word::Drop => Ok(IdPolicy::Drop),
-                }
-            }
-
-            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<IdPolicy, A::Error> {
-                ExprOnly::deserialize(MapAccessDeserializer::new(map))
-                    .map(|e| IdPolicy::Expr(e.expr))
+                Expr::new(v).map(IdPolicy::Expr).map_err(E::custom)
             }
         }
 
