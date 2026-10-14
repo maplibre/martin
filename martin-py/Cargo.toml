@@ -18,12 +18,12 @@ name = "martin_py"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# `pmtiles` and `geojson` pull in `_tiles` without requiring a system
+# `pmtiles` and `processing` (incl. GeoJSON) pull in `_tiles` without requiring a system
 # libpq install. `unstable-duckdb` additionally builds DuckDB from source
 # (the `bundled` feature on the `duckdb` crate) - no system install needed,
 # but it's a slow first build. Add `postgres`/`mbtiles`/etc. here if bindings
 # for those source kinds are needed too.
-martin = { workspace = true, features = ["pmtiles", "geojson", "unstable-duckdb"] }
+martin = { workspace = true, features = ["pmtiles", "processing", "unstable-duckdb"] }
 martin-tile-utils.workspace = true
 pyo3.workspace = true
 serde_json.workspace = true
