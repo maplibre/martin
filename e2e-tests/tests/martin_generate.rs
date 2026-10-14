@@ -322,108 +322,110 @@ async fn refuses_max_feature_count() {
 #[tokio::test]
 async fn help_lists_the_options() {
     let help = MartinCp::generate().arg("--help").run().await;
-    insta::assert_snapshot!(help, @"
-    Generate a tileset from whole tables in one pass (bulk generation)
+    insta::with_settings!({ filters => vec![(r"(?m)[ \t]+$", "")] }, {
+        insta::assert_snapshot!(help, @"
+        Generate a tileset from whole tables in one pass (bulk generation)
 
-    Usage: martin generate [OPTIONS] --output-file <OUTPUT_FILE> [CONNECTION]...
+        Usage: martin generate [OPTIONS] --output-file <OUTPUT_FILE> [CONNECTION]...
 
-    Arguments:
-      [CONNECTION]...
-              PostgreSQL connection strings, e.g. postgres://...
+        Arguments:
+          [CONNECTION]...
+                  PostgreSQL connection strings, e.g. postgres://...
 
-    Options:
-      -s, --source <ID>
-              Table sources to render. Defaults to every table source
+        Options:
+          -s, --source <ID>
+                  Table sources to render. Defaults to every table source
 
-      -o, --output-file <OUTPUT_FILE>
-              The .mbtiles file to create, which must not exist or be empty, or a new .pmtiles archive
+          -o, --output-file <OUTPUT_FILE>
+                  The .mbtiles file to create, which must not exist or be empty, or a new .pmtiles archive
 
-          --format <FORMAT>
-              Possible values:
-              - mvt: Mapbox Vector Tile
-              - mlt: MapLibre Tile
+              --format <FORMAT>
+                  Possible values:
+                  - mvt: Mapbox Vector Tile
+                  - mlt: MapLibre Tile
 
-              [default: mlt]
+                  [default: mlt]
 
-          --encoding <ENCODING>
-              Tile compression: gzip, zlib or none for MBTiles; gzip, br, zstd or none for MVT in
-              PMTiles; only none for MLT in PMTiles. Defaults to none for MLT in PMTiles, otherwise gzip
+              --encoding <ENCODING>
+                  Tile compression: gzip, zlib or none for MBTiles; gzip, br, zstd or none for MVT in
+                  PMTiles; only none for MLT in PMTiles. Defaults to none for MLT in PMTiles, otherwise gzip
 
-          --min-zoom <MIN_ZOOM>
-              Lowest zoom to generate; a source's own minzoom raises it
+              --min-zoom <MIN_ZOOM>
+                  Lowest zoom to generate; a source's own minzoom raises it
 
-              [default: 0]
+                  [default: 0]
 
-          --max-zoom <MAX_ZOOM>
-              Highest zoom to generate; a source's own maxzoom lowers it
+              --max-zoom <MAX_ZOOM>
+                  Highest zoom to generate; a source's own maxzoom lowers it
 
-              [default: 14]
+                  [default: 14]
 
-          --bbox <BBOX>
-              Only features intersecting min_lon,min_lat,max_lon,max_lat are rendered, and only tiles
-              intersecting it are written. Unlike martin cp, low-zoom tiles are not filled with data
-              from outside the box
+              --bbox <BBOX>
+                  Only features intersecting min_lon,min_lat,max_lon,max_lat are rendered, and only tiles
+                  intersecting it are written. Unlike martin cp, low-zoom tiles are not filled with data
+                  from outside the box
 
-          --memory <MEMORY>
-              Memory for sorting, e.g. 512MB or 2GiB, split over the threads. A bare number is in MB
+              --memory <MEMORY>
+                  Memory for sorting, e.g. 512MB or 2GiB, split over the threads. A bare number is in MB
 
-              [default: 2GiB]
+                  [default: 2GiB]
 
-          --temp-dir <TEMP_DIR>
-              Directories for temporary sorted runs, used round-robin. Defaults to the system temp
-              directory
+              --temp-dir <TEMP_DIR>
+                  Directories for temporary sorted runs, used round-robin. Defaults to the system temp
+                  directory
 
-          --threads <THREADS>
-              Worker threads. Defaults to the number of CPUs
+              --threads <THREADS>
+                  Worker threads. Defaults to the number of CPUs
 
-      -c, --config <CONFIG>
-              Path to config file. If set, no connection strings are allowed
+          -c, --config <CONFIG>
+                  Path to config file. If set, no connection strings are allowed
 
-          --on-invalid <ON_INVALID>
-              Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+              --on-invalid <ON_INVALID>
+                  Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
 
-              Possible values:
-              - warn:  Log warning messages, abort if the error is critical
-              - abort: Log warnings as errors, abort startup
+                  Possible values:
+                  - warn:  Log warning messages, abort if the error is critical
+                  - abort: Log warnings as errors, abort startup
 
-      -b, --auto-bounds <AUTO_BOUNDS>
-              Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
+          -b, --auto-bounds <AUTO_BOUNDS>
+                  Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
 
-              Possible values:
-              - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
-              - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all
-                GEO columns have indexes
-              - skip:  Skip bounds calculation. The bounds will be set to the whole world
+                  Possible values:
+                  - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
+                  - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all
+                    GEO columns have indexes
+                  - skip:  Skip bounds calculation. The bounds will be set to the whole world
 
-          --ca-root-file <CA_ROOT_FILE>
-              Loads trusted root certificates from a file. The file should contain a sequence of
-              PEM-formatted CA certificates
+              --ca-root-file <CA_ROOT_FILE>
+                  Loads trusted root certificates from a file. The file should contain a sequence of
+                  PEM-formatted CA certificates
 
-      -d, --default-srid <DEFAULT_SRID>
-              If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
+          -d, --default-srid <DEFAULT_SRID>
+                  If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
 
-      -p, --pool-size <POOL_SIZE>
-              Maximum Postgres connections pool size [DEFAULT: 20]
+          -p, --pool-size <POOL_SIZE>
+                  Maximum Postgres connections pool size [DEFAULT: 20]
 
-          --pg-retry-timeout <PG_RETRY_TIMEOUT>
-              How long the first PostgreSQL connection is retried before startup fails, a duration like
-              30s or infinite. [DEFAULT: 30s]
+              --pg-retry-timeout <PG_RETRY_TIMEOUT>
+                  How long the first PostgreSQL connection is retried before startup fails, a duration like
+                  30s or infinite. [DEFAULT: 30s]
 
-          --ssl-cert <SSL_CERT>
-              A file with a client SSL certificate
+              --ssl-cert <SSL_CERT>
+                  A file with a client SSL certificate
 
-          --ssl-key <SSL_KEY>
-              A file with the key for the client SSL certificate
+              --ssl-key <SSL_KEY>
+                  A file with the key for the client SSL certificate
 
-      -h, --help
-              Print help (see a summary with '-h')
+          -h, --help
+                  Print help (see a summary with '-h')
 
-      -V, --version
-              Print version
+          -V, --version
+                  Print version
 
-    Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
-    whole tilesets.
-    ");
+        Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
+        whole tilesets.
+        ");
+    });
 }
 
 #[tokio::test]
