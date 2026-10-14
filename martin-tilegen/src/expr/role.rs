@@ -11,7 +11,7 @@ use super::{CompiledExpr, ExprError, to_filter, to_id, to_prop, to_zoom};
 pub trait Role {
     type Out;
 
-    /// `None` is `null`: the filter, zoom, id or property is left out.
+    /// `None` leaves the zoom, id or property out. A filter is never `None`.
     fn coerce(&self, value: Value) -> Result<Option<Self::Out>, ExecutionError>;
 }
 
@@ -52,7 +52,7 @@ impl Role for Zoom {
     type Out = u8;
 
     fn coerce(&self, value: Value) -> Result<Option<u8>, ExecutionError> {
-        to_zoom(&value, self.lo..=self.hi)
+        to_zoom(&value, self.lo, self.hi)
     }
 }
 
@@ -60,7 +60,7 @@ impl Role for Id {
     type Out = u64;
 
     fn coerce(&self, value: Value) -> Result<Option<u64>, ExecutionError> {
-        Ok(to_id(&value))
+        to_id(&value)
     }
 }
 
@@ -109,4 +109,36 @@ impl<R: Role> TypedExpr<R> {
 pub struct ExprRef<R> {
     pub index: usize,
     pub role: R,
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_core::generate::props::KeyId;
+
+    use super::*;
+    use crate::expr::{ExprKeys, PropSlots};
+
+    #[test]
+    fn a_filter_over_a_missing_property_drops_the_feature() {
+        let (expr, role) = TypedExpr::compile("is_open", &["name", "is_open"], false, Filter)
+            .unwrap()
+            .into_parts();
+        let keys = ExprKeys::columns(&["name", "is_open"]);
+        let props = vec![(KeyId::new(0), Prop::Str("Berlin".to_owned()))];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(role.coerce(expr.eval(&view).unwrap()), Ok(Some(false)));
+    }
+
+    #[test]
+    fn a_zoom_outside_the_layer_range_is_clamped() {
+        let (expr, role) = TypedExpr::compile("rank * 10", &["rank"], false, Zoom::new(&(4..=12)))
+            .unwrap()
+            .into_parts();
+        let keys = ExprKeys::columns(&["rank"]);
+        let props = vec![(KeyId::new(0), Prop::<String>::I64(3))];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(role.coerce(expr.eval(&view).unwrap()), Ok(Some(12)));
+    }
 }

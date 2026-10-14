@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 use cel::objects::ValueType;
@@ -31,16 +30,15 @@ pub fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
     }
 }
 
-/// A zoom level, clamped into `range`.
-pub fn to_zoom(value: &Value, range: RangeInclusive<u8>) -> Result<Option<u8>, ExecutionError> {
-    let (lo, hi) = (*range.start(), *range.end());
+/// A zoom level, clamped into `lo..=hi`.
+pub fn to_zoom(value: &Value, lo: u8, hi: u8) -> Result<Option<u8>, ExecutionError> {
     match *value {
         Value::Null => Ok(None),
         Value::Int(v) => Ok(Some(
-            u8::try_from(v.clamp(i64::from(lo), i64::from(hi))).unwrap_or(hi),
+            u8::try_from(v.clamp(i64::from(lo), i64::from(hi))).expect("clamped into u8"),
         )),
         Value::UInt(v) => Ok(Some(
-            u8::try_from(v.clamp(u64::from(lo), u64::from(hi))).unwrap_or(hi),
+            u8::try_from(v.clamp(u64::from(lo), u64::from(hi))).expect("clamped into u8"),
         )),
         ref other @ (Value::List(_)
         | Value::Map(_)
@@ -60,9 +58,10 @@ pub fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, Executio
         Value::Null => return Ok(None),
         Value::Bool(v) => Prop::Bool(v),
         Value::Int(v) => Prop::I64(v),
-        Value::UInt(v) => {
-            i64::try_from(v).map_or_else(|_| Prop::Str(v.to_string().into()), Prop::I64)
-        }
+        Value::UInt(v) => match i64::try_from(v) {
+            Ok(v) => Prop::I64(v),
+            Err(_) => return Err(mismatch(&value, "a uint up to 9223372036854775807")),
+        },
         Value::Float(v) => Prop::F64(v),
         Value::String(v) => Prop::Str(Arc::unwrap_or_clone(v).into()),
         other @ (Value::List(_)
@@ -74,13 +73,13 @@ pub fn to_prop(value: Value) -> Result<Option<Prop<Cow<'static, str>>>, Executio
     }))
 }
 
-/// A feature id: only a non-negative integer is one.
-#[must_use]
-pub fn to_id(value: &Value) -> Option<u64> {
+/// A feature id: a non-negative integer; `null` is no id.
+pub fn to_id(value: &Value) -> Result<Option<u64>, ExecutionError> {
     match *value {
-        Value::Int(v) => u64::try_from(v).ok(),
-        Value::UInt(v) => Some(v),
-        Value::Null
+        Value::Null => Ok(None),
+        Value::UInt(v) => Ok(Some(v)),
+        Value::Int(v) if v >= 0 => Ok(Some(v.cast_unsigned())),
+        Value::Int(_)
         | Value::Bool(_)
         | Value::Float(_)
         | Value::String(_)
@@ -89,7 +88,7 @@ pub fn to_id(value: &Value) -> Option<u64> {
         | Value::Map(_)
         | Value::Function(..)
         | Value::Opaque(_)
-        | Value::Struct(_) => None,
+        | Value::Struct(_) => Err(mismatch(value, "a non-negative int")),
     }
 }
 
@@ -119,7 +118,7 @@ mod tests {
     #[case::uint(Value::UInt(u64::MAX), Ok(Some(14)))]
     #[case::double(Value::Float(5.0), Err(ExecutionError::UnexpectedType { got: "float".to_owned(), want: "int".to_owned() }))]
     fn zoom_coercion(#[case] value: Value, #[case] expected: Result<Option<u8>, ExecutionError>) {
-        assert_eq!(to_zoom(&value, 2..=14), expected);
+        assert_eq!(to_zoom(&value, 2, 14), expected);
     }
 
     #[rstest]
@@ -127,7 +126,7 @@ mod tests {
     #[case::string(Value::from("a"), Ok(Some(Prop::Str("a".into()))))]
     #[case::int(Value::Int(-4), Ok(Some(Prop::I64(-4))))]
     #[case::small_uint(Value::UInt(4), Ok(Some(Prop::I64(4))))]
-    #[case::big_uint(Value::UInt(u64::MAX), Ok(Some(Prop::Str("18446744073709551615".into()))))]
+    #[case::big_uint(Value::UInt(u64::MAX), Err(ExecutionError::UnexpectedType { got: "uint".to_owned(), want: "a uint up to 9223372036854775807".to_owned() }))]
     #[case::double(Value::Float(1.5), Ok(Some(Prop::F64(1.5))))]
     #[case::bool(Value::Bool(true), Ok(Some(Prop::Bool(true))))]
     #[case::list(Value::from(vec![1]), Err(ExecutionError::UnexpectedType { got: "list".to_owned(), want: "a scalar".to_owned() }))]
@@ -156,14 +155,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case::int(Value::Int(42), Some(42))]
-    #[case::zero(Value::Int(0), Some(0))]
-    #[case::negative(Value::Int(-1), None)]
-    #[case::uint(Value::UInt(u64::MAX), Some(u64::MAX))]
-    #[case::double(Value::Float(3.0), None)]
-    #[case::string(Value::from("42"), None)]
-    #[case::null(Value::Null, None)]
-    fn id_coercion(#[case] value: Value, #[case] expected: Option<u64>) {
+    #[case::int(Value::Int(42), Ok(Some(42)))]
+    #[case::zero(Value::Int(0), Ok(Some(0)))]
+    #[case::uint(Value::UInt(u64::MAX), Ok(Some(u64::MAX)))]
+    #[case::null(Value::Null, Ok(None))]
+    #[case::negative(Value::Int(-1), Err(ExecutionError::UnexpectedType { got: "int".to_owned(), want: "a non-negative int".to_owned() }))]
+    #[case::double(Value::Float(3.0), Err(ExecutionError::UnexpectedType { got: "float".to_owned(), want: "a non-negative int".to_owned() }))]
+    #[case::string(Value::from("42"), Err(ExecutionError::UnexpectedType { got: "string".to_owned(), want: "a non-negative int".to_owned() }))]
+    #[case::bool(Value::Bool(true), Err(ExecutionError::UnexpectedType { got: "bool".to_owned(), want: "a non-negative int".to_owned() }))]
+    fn id_coercion(#[case] value: Value, #[case] expected: Result<Option<u64>, ExecutionError>) {
         assert_eq!(to_id(&value), expected);
     }
 }

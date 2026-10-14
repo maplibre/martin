@@ -8,6 +8,30 @@ use cel::{Context, ExecutionError, Value};
 use super::env::{SHARED, Shared};
 use super::{FEATURE, FeatureView};
 
+const OPERATORS: [&str; 21] = [
+    operators::CONDITIONAL,
+    operators::LOGICAL_AND,
+    operators::LOGICAL_OR,
+    operators::LOGICAL_NOT,
+    operators::SUBSTRACT,
+    operators::ADD,
+    operators::MULTIPLY,
+    operators::DIVIDE,
+    operators::MODULO,
+    operators::EQUALS,
+    operators::NOT_EQUALS,
+    operators::GREATER_EQUALS,
+    operators::LESS_EQUALS,
+    operators::GREATER,
+    operators::LESS,
+    operators::NEGATE,
+    operators::INDEX,
+    operators::OPT_INDEX,
+    operators::OPT_SELECT,
+    operators::NOT_STRICTLY_FALSE,
+    operators::IN,
+];
+
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ExprError {
@@ -251,7 +275,7 @@ impl Analyzer<'_> {
             let key = key.inner().to_owned();
             return self.key(&key);
         }
-        let is_operator = name.starts_with(['_', '@', '!', '-']);
+        let is_operator = OPERATORS.contains(&name);
         let namespaced = call.target.as_deref().and_then(|t| self.qualified_name(t));
         let target_is_namespace = namespaced
             .is_some_and(|ns| self.shared.is_function(&format!("{ns}.{}", call.func_name)));
@@ -281,6 +305,10 @@ mod tests {
     #[case::conversion("int(population / 1000)", Value::Int(3645))]
     #[case::comprehension("[1, 2].exists(x, x == rank)", Value::Bool(true))]
     #[case::ternary("population > 1000000 ? 'city' : 'town'", Value::from("city"))]
+    #[case::operators(
+        "!(rank > 5) && -rank < 0 && rank % 2 == 0 || area / 2.0 < 0.0",
+        Value::Bool(true)
+    )]
     fn expressions_evaluate_over_the_view(#[case] source: &str, #[case] expected: Value) {
         let columns = ["name", "population", "area", "rank"];
         let expr = CompiledExpr::compile(source, &columns, false).unwrap();

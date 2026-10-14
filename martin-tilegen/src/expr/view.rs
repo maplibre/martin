@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use cel::ExecutionError;
-use cel::common::traits::{Container, Indexer};
+use cel::common::traits::{Container, Indexer, Iterable, Iterator as CelIterator, Sizer};
 use cel::common::types::{CelBool, CelDouble, CelInt, CelString, CelUInt, MAP_TYPE, Type};
 use cel::common::value::{CowVal, Val};
 use cel::context::VariableResolver;
@@ -13,7 +13,7 @@ use super::{FEATURE, NULL};
 /// Property names of one table and their key ids. Built once per table, shared by every worker.
 #[derive(Debug, Default, Clone)]
 pub struct ExprKeys {
-    keys: Vec<(Box<str>, KeyId)>,
+    keys: Vec<(CelString<'static>, KeyId)>,
 }
 
 impl ExprKeys {
@@ -26,16 +26,18 @@ impl ExprKeys {
     }
 
     pub fn insert(&mut self, name: &str, key: KeyId) {
-        match self.keys.binary_search_by(|(k, _)| (**k).cmp(name)) {
+        match self.keys.binary_search_by(|(k, _)| k.inner().cmp(name)) {
             Ok(pos) => self.keys[pos].1 = key,
-            Err(pos) => self.keys.insert(pos, (name.into(), key)),
+            Err(pos) => self
+                .keys
+                .insert(pos, (CelString::from(name.to_owned()), key)),
         }
     }
 
     #[must_use]
     pub fn get(&self, name: &str) -> Option<KeyId> {
         self.keys
-            .binary_search_by(|(k, _)| (**k).cmp(name))
+            .binary_search_by(|(k, _)| k.inner().cmp(name))
             .ok()
             .map(|pos| self.keys[pos].1)
     }
@@ -151,6 +153,17 @@ impl<S: AsRef<str> + Debug + Send + Sync> Val for FeatureView<'_, S> {
         Some(self)
     }
 
+    fn as_sizer(&self) -> Option<&dyn Sizer> {
+        Some(self)
+    }
+
+    fn as_iterable<'b, 'w>(&'b self) -> Option<&'b (dyn Iterable + 'w)>
+    where
+        Self: 'w,
+    {
+        Some(self)
+    }
+
     fn as_indexer<'b, 'w>(&'b self) -> Option<&'b (dyn Indexer + 'w)>
     where
         Self: 'w,
@@ -170,6 +183,43 @@ impl<S: AsRef<str> + Debug + Send + Sync> Val for FeatureView<'_, S> {
         Self: 'w,
     {
         Box::new(*self)
+    }
+}
+
+struct PresentKeys<'a, S> {
+    keys: std::slice::Iter<'a, (CelString<'static>, KeyId)>,
+    view: FeatureView<'a, S>,
+}
+
+impl<'a: 'b, 'b, 'w, S: AsRef<str>> CelIterator<'b, 'w> for PresentKeys<'a, S> {
+    fn next(&mut self) -> Option<&'b (dyn Val + 'w)> {
+        let view = self.view;
+        self.keys
+            .find(|(_, key)| view.prop(*key).is_some())
+            .map(|(name, _)| name as &dyn Val)
+    }
+}
+
+impl<S: AsRef<str>> Iterable for FeatureView<'_, S> {
+    fn iter<'b, 'w>(&'b self) -> Box<dyn CelIterator<'b, 'w> + 'b>
+    where
+        Self: 'w,
+    {
+        Box::new(PresentKeys {
+            keys: self.keys.keys.iter(),
+            view: *self,
+        })
+    }
+}
+
+impl<S: AsRef<str>> Sizer for FeatureView<'_, S> {
+    fn size(&self) -> CelInt {
+        let present = self
+            .keys
+            .keys
+            .iter()
+            .filter(|(_, key)| self.prop(*key).is_some());
+        CelInt::from(i64::try_from(present.count()).expect("fewer than 2^63 properties"))
     }
 }
 
@@ -295,5 +345,32 @@ mod tests {
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
         assert_eq!(expr.eval(&view).unwrap(), Value::Bool(true));
+    }
+
+    #[test]
+    fn size_of_feature_counts_the_present_properties() {
+        let expr = CompiledExpr::compile("size(feature)", &["name", "ref", "rank"], false).unwrap();
+        let keys = ExprKeys::columns(&["name", "ref", "rank"]);
+        let props = vec![
+            (KeyId::new(0), Prop::Str("Berlin".to_owned())),
+            (KeyId::new(2), Prop::I64(2)),
+        ];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(expr.eval(&view).unwrap(), Value::Int(2));
+    }
+
+    #[test]
+    fn iterating_feature_yields_the_present_property_names() {
+        let expr =
+            CompiledExpr::compile("feature.map(k, k)", &["ref", "name", "rank"], false).unwrap();
+        let keys = ExprKeys::columns(&["ref", "name", "rank"]);
+        let props = vec![
+            (KeyId::new(2), Prop::I64(2)),
+            (KeyId::new(1), Prop::Str("Berlin".to_owned())),
+        ];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(expr.eval(&view).unwrap(), Value::from(vec!["name", "rank"]));
     }
 }

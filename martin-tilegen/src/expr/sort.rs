@@ -25,7 +25,7 @@ pub fn encode_sort(
         Value::Bool(v) => out.extend([SortTag::Bool as u8, u8::from(*v)]),
         Value::Int(v) if *v < 0 => {
             out.push(SortTag::Negative as u8);
-            out.extend((u64::from_ne_bytes(v.to_ne_bytes()) ^ (1 << 63)).to_be_bytes());
+            out.extend(v.cast_unsigned().to_be_bytes());
         }
         Value::Int(v) => {
             out.push(SortTag::NonNegative as u8);
