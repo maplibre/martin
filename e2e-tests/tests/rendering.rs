@@ -668,21 +668,34 @@ async fn one_renderer_per_worker_still_renders_each_style() {
 /// fresh, unless it is disabled.
 #[rstest]
 #[case::by_default("", 1)]
-#[case::disabled("    ambient_cache_size_mb: 0\n", 2)]
+#[case::disabled("ambient_cache_size_mb: 0", 2)]
 #[tokio::test]
 async fn the_ambient_cache_answers_a_reloaded_renderer(
-    #[case] options: &str,
+    #[case] ambient_cache: &str,
     #[case] fetches: usize,
 ) {
     // Without a freshness header, MapLibre Native asks the server again even for what it has
     // cached.
     let cassette = Cassette::serving_fresh_for(UPSTREAMS, 3600).await;
-    let mut martin = start_with_rendering(
-        &cassette,
-        &format!("\n    enabled: true\n    workers: 1\n    renderers_per_worker: 1\n{options}"),
-    )
-    .await
-    .expect("failed to start martin");
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+                renderers_per_worker: 1
+                {ambient_cache}
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
 
     for style in ["maplibre_demo", "maptiler_basic", "maplibre_demo"] {
         let body = rendered(&martin, &format!("/style/{style}/0/0/0.png")).await;
