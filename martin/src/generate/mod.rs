@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use martin_core::tiles::postgres::{PostgresError, PostgresPool};
+use martin_core::tiles::postgres::{PostgresError, PostgresPool, RetryTimeout};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
 use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat,
@@ -25,10 +25,12 @@ use tracing::{info, warn};
 use self::postgres::{PgScanSource, ScanLayer};
 use crate::StartupError;
 use crate::config::args::{
-    Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
+    Args, ArgsError, BoundsCalcType, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
 };
-use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
-use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
+use crate::config::file::postgres::{
+    DEFAULT_POOL_SIZE, PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo,
+};
+use crate::config::file::{Config, ConfigFileError, OnInvalid, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{MartinCpError, check_bboxes};
@@ -49,9 +51,73 @@ pub struct GeneratorArgs {
     #[command(flatten)]
     pub generate: GenerateArgs,
     #[command(flatten)]
-    pub meta: MetaArgs,
+    pub sources: GenerateSourceArgs,
     #[command(flatten)]
-    pub pg: Option<PostgresArgs>,
+    pub pg: Option<GeneratePgArgs>,
+}
+
+/// Where the tables come from: the subset of [`MetaArgs`] that `martin generate` uses.
+#[derive(clap::Args, Debug, PartialEq)]
+pub struct GenerateSourceArgs {
+    /// Path to config file. If set, no connection strings are allowed.
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
+    /// `PostgreSQL` connection strings, e.g. `postgres://...`
+    pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
+}
+
+impl From<GenerateSourceArgs> for MetaArgs {
+    fn from(args: GenerateSourceArgs) -> Self {
+        Self {
+            config: args.config,
+            connection: args.connection,
+            on_invalid: args.on_invalid,
+            ..Self::default()
+        }
+    }
+}
+
+/// The subset of [`PostgresArgs`] that `martin generate` uses.
+#[derive(clap::Args, Debug, PartialEq, Eq)]
+pub struct GeneratePgArgs {
+    /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
+    #[arg(short = 'b', long)]
+    pub auto_bounds: Option<BoundsCalcType>,
+    /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
+    #[arg(long)]
+    pub ca_root_file: Option<PathBuf>,
+    /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
+    #[arg(short, long)]
+    pub default_srid: Option<i32>,
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
+    pub pool_size: Option<NonZeroUsize>,
+    /// How long the first PostgreSQL connection is retried before startup fails, a duration like `30s` or `infinite`. [DEFAULT: 30s]
+    #[arg(long)]
+    pub pg_retry_timeout: Option<RetryTimeout>,
+    /// A file with a client SSL certificate.
+    #[arg(long)]
+    pub ssl_cert: Option<PathBuf>,
+    /// A file with the key for the client SSL certificate.
+    #[arg(long)]
+    pub ssl_key: Option<PathBuf>,
+}
+
+impl From<GeneratePgArgs> for PostgresArgs {
+    fn from(args: GeneratePgArgs) -> Self {
+        Self {
+            auto_bounds: args.auto_bounds,
+            ca_root_file: args.ca_root_file,
+            default_srid: args.default_srid,
+            pool_size: args.pool_size,
+            pg_retry_timeout: args.pg_retry_timeout,
+            max_feature_count: None,
+            ssl_cert: args.ssl_cert,
+            ssl_key: args.ssl_key,
+        }
+    }
 }
 
 #[derive(clap::Args, Debug, PartialEq)]
@@ -176,16 +242,16 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     if let Some(bbox) = options.bbox {
         check_bboxes(&WEB_MERCATOR_QUAD, vec![bbox])?;
     }
-    let mut config = match &args.meta.config {
+    let mut config = match &args.sources.config {
         Some(path) => read_config(path, &OsEnv)?,
         None => Config::default(),
     };
     Args {
         command: None,
-        meta: args.meta,
+        meta: args.sources.into(),
         extras: ExtraArgs::default(),
         srv: SrvArgs::default(),
-        pg: args.pg,
+        pg: args.pg.map(PostgresArgs::from),
     }
     .merge_into_config(&mut config)?;
     config.finalize().await?;
