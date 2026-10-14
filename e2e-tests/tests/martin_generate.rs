@@ -64,11 +64,13 @@ postgres:
         insta::assert_snapshot!("metadata", metadata);
     });
 
-    // The output does not depend on the thread count.
+    // The output does not depend on the thread count or memory.
     let again = dir.path().join("again.mbtiles");
     generate(&config, &again)
         .arg("--threads")
         .arg("5")
+        .arg("--memory")
+        .arg("64MiB")
         .run()
         .await;
     assert_eq!(
