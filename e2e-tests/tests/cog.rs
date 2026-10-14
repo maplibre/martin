@@ -15,14 +15,6 @@ use martin_e2e_tests::{
 use rstest::rstest;
 use serde_json::Value;
 
-async fn martin_with_the_cog_dir() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/cog")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 /// The tilejson of `id`, with the server address redacted and every float rounded to ten digits,
 /// which is as far as the extent arithmetic agrees across platforms.
 async fn tilejson(martin: &Martin, id: &str) -> Value {
@@ -210,7 +202,7 @@ cog:
     assert_eq!(remote.body(), local.body());
     martin.stop().await;
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
@@ -247,7 +239,7 @@ cog:
     assert_eq!(restarted.get("/remote/18/42712/97343").await.status(), 200);
     restarted.stop().await;
     restarted.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     assert_remote_reads_use_ranges(
@@ -629,7 +621,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
     #[case] tile_size: u32,
     #[case] format: &str,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, id).await;
     assert_eq!(tilejson["minzoom"], minzoom);
@@ -646,7 +642,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
 
 #[tokio::test]
 async fn the_tilejson_bounds_are_the_area_the_image_covers() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "usda_naip_512_webp_z5").await, @r#"
     {
@@ -713,7 +713,11 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
     #[case] format: ImageFormat,
     #[case] tile_size: u32,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get(&format!("/{path}")).await;
     assert_eq!(tile.status(), 200);
@@ -726,7 +730,11 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
 
 #[tokio::test]
 async fn the_shape_of_a_tile_response() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/42712/97343").await;
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
@@ -741,7 +749,11 @@ async fn the_shape_of_a_tile_response() {
 
 #[tokio::test]
 async fn a_tile_the_image_does_not_cover_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/0/0").await;
     assert_eq!(tile.status(), 204);
@@ -755,7 +767,11 @@ async fn a_tile_the_image_does_not_cover_is_empty() {
 #[case::above_the_full_resolution_image("18/42704/97344")]
 #[tokio::test]
 async fn a_zoom_no_overview_resolves_to_is_rejected(#[case] coordinates: &str) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin
         .get(&format!("/usda_naip_512_jpeg_z5/{coordinates}"))
@@ -988,7 +1004,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
         .start()
         .await
         .expect("failed to start martin");
-    let mut with_the_cog_dir = martin_with_the_cog_dir().await;
+    let mut with_the_cog_dir = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tilejson(&martin, "usda_naip_256_lzw_z3").await,
@@ -1004,7 +1024,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
 
 #[tokio::test]
 async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_256_lzw_rgb_z2/18/42709/97344").await;
     assert_eq!(tile.status(), 200);
@@ -1019,7 +1043,11 @@ async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
 /// tiles 10-11 of rows 14-16, so its very first tile is one of the gaps.
 #[tokio::test]
 async fn a_tile_the_image_leaves_out_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let stored = martin.get("/usda_naip_512_jpeg_z5/17/21354/48670").await;
     assert_eq!(stored.status(), 200);

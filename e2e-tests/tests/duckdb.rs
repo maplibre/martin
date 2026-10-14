@@ -267,7 +267,7 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
 
     martin.stop().await;
     martin.assert_log_contains(&format!(
-        "Tile source resolution warning: Source polygons_bad: {warning}"
+        "Tile source resolution warning warning=Source polygons_bad: {warning}"
     ));
     martin.assert_log_contains(r#"ERROR error="Source polygons_bad does not exist""#);
 }
@@ -391,7 +391,7 @@ duckdb:
 
     martin.stop().await;
     martin.assert_log_contains(
-        "Ignoring 5 columns of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB). Vector tiles can only carry text, numeric and boolean properties.",
+        "Ignoring columns with no MVT representation. Vector tiles can only carry text, numeric and boolean properties. source.label=tests/fixtures/duckdb/geoparquet_mixed_types.parquet columns.count=5 columns=address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB)",
     );
 }
 
@@ -769,7 +769,7 @@ async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -803,7 +803,7 @@ async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -1058,14 +1058,6 @@ duckdb:
     martin.stop().await;
 }
 
-async fn start_watching_polygons(watched: &WatchedDir, dir: &TempDir, config: &str) -> Martin {
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
-    start_with_config(dir, config).await
-}
-
 #[cfg(not(windows))]
 #[tokio::test]
 async fn reload_rebuilds_a_replaced_geoparquet_file() {
@@ -1082,7 +1074,11 @@ duckdb:
 ",
         watched.dir().join("polygons.parquet").display()
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
     insta::assert_json_snapshot!(fields, @r#"
@@ -1118,7 +1114,7 @@ duckdb:
     );
 
     martin.stop().await;
-    martin.assert_log_contains("Ignoring 5 columns of");
+    martin.assert_log_contains("columns.count=5");
 }
 
 #[rstest]
@@ -1152,7 +1148,11 @@ async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
         "{parquet}",
         &watched.dir().join("polygons.parquet").display().to_string(),
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.touch("polygons.parquet");
     martin
@@ -1188,7 +1188,11 @@ duckdb:
 ",
         watched.dir().join("polygons.parquet").display()
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.remove("polygons.parquet");
     martin.wait_for_source_removed("polygons").await;

@@ -278,10 +278,10 @@ impl PostgresSource {
 
         let url_query = if info.use_url_query {
             let json = query_to_json(url_query);
-            debug!("SQL: {sql} [{xyz}, {json:?}]");
+            debug!(sql = %sql, tile.coord = %xyz, url_query = ?json, "Running tile query");
             Some(json)
         } else {
-            debug!("SQL: {sql} [{xyz}]");
+            debug!(sql = %sql, tile.coord = %xyz, "Running tile query");
             None
         };
 

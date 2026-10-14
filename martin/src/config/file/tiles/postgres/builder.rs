@@ -152,7 +152,8 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
         Err(e) => {
             debug!(
                 tile_grid = grid.grid().id(),
-                "Could not check whether a pole lies inside the grid: {e}"
+                error = %e,
+                "Could not check whether a pole lies inside the grid"
             );
             // a failed projection leaves PostGIS state behind that breaks later transforms on this connection
             PostgresPool::discard(conn);
@@ -381,7 +382,7 @@ impl PostgresAutoDiscoveryBuilder {
                         };
                         db_inf.srid = srid;
                         if let Err(reason) = self.check_srid_fits_tile_grid(&db_inf) {
-                            warn!("{reason}, skipping");
+                            warn!(error = %reason, "Skipping table");
                             continue;
                         }
                         let grid = self.tile_grid_for(db_inf.tile_grid.as_deref());
@@ -513,8 +514,8 @@ impl PostgresAutoDiscoveryBuilder {
                         source.id = id,
                         table.srid = info.srid,
                         tile_grid = grid.grid().id(),
-                        "A pole lies inside the tile grid and the table is stored in another CRS, so tiles around the pole may miss features. Storing the data in {} avoids that.",
-                        grid.grid().crs()
+                        tile_grid.crs = %grid.grid().crs(),
+                        "A pole lies inside the tile grid and the table is stored in another CRS, so tiles around the pole may miss features. Storing the data in the tile grid's CRS avoids that."
                     );
                 }
                 let (id, pg_sql, info) = table_to_query(

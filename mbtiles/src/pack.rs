@@ -79,8 +79,8 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
                 if !keep {
                     warned_about_dirs.call_once(|| {
                         tracing::info!(
-                            "Skipping {} and similarly-named directories; expected numeric `z`/`x` directory names",
-                            entry.path().display()
+                            src.path = %entry.path().display(),
+                            "Skipping this and similarly-named directories; expected numeric `z`/`x` directory names"
                         );
                     });
                 }
@@ -95,8 +95,8 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
                 if !keep {
                     warned_about_files.call_once(|| {
                         tracing::info!(
-                            "Skipping {} and similarly-named files; expected numeric `y.<ext>` file names",
-                            entry.path().display()
+                            src.path = %entry.path().display(),
+                            "Skipping this and similarly-named files; expected numeric `y.<ext>` file names"
                         );
                     });
                 }

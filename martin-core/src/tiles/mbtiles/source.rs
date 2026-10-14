@@ -70,9 +70,9 @@ impl MbtSource {
             .when(is_sqlite_busy)
             .notify(|_err, dur| {
                 warn!(
-                    "Database file {:?} locked (SQLITE_BUSY). Retrying in {:.2}s...",
-                    path.display(),
-                    dur.as_secs_f64()
+                    source.path = ?path.display(),
+                    retry.delay = ?dur,
+                    "Database file locked (SQLITE_BUSY), retrying"
                 );
             })
             .await
@@ -144,13 +144,7 @@ impl Source for MbtSource {
         {
             Ok(tile.into())
         } else {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z(),
-                xyz.x(),
-                xyz.y(),
-                &self.id
-            );
+            trace!(source.id = %self.id, tile.coord = %xyz, "Couldn't find tile data");
             Ok(TileData::new())
         }
     }

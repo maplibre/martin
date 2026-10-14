@@ -8,15 +8,6 @@ use rstest::rstest;
 const REGULAR: &str = "Overpass%20Mono%20Regular";
 const LIGHT: &str = "Overpass%20Mono%20Light";
 
-async fn martin_with_font_dir() -> Martin {
-    Martin::builder()
-        .arg("--font")
-        .arg(fixture("fonts"))
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 fn fontstack(response: &TestResponse) -> Fontstack {
     Glyphs::decode(response.body())
         .expect("response body is not a glyphs protobuf")
@@ -28,7 +19,12 @@ fn fontstack(response: &TestResponse) -> Fontstack {
 
 #[tokio::test]
 async fn a_font_directory_is_discovered_recursively() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["fonts"], @r#"
     {
@@ -82,7 +78,12 @@ async fn a_single_font_file_publishes_only_that_font() {
 
 #[tokio::test]
 async fn a_glyph_range_is_served_as_compressed_protobuf() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 200);
@@ -130,7 +131,12 @@ async fn a_glyph_range_is_served_in_the_negotiated_encoding(
     #[case] accept_encoding: &str,
     #[case] content_encoding: Option<&str>,
 ) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .get_with_headers(
@@ -147,7 +153,12 @@ async fn a_glyph_range_is_served_in_the_negotiated_encoding(
 
 #[tokio::test]
 async fn a_client_accepting_no_encoding_is_refused() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .get_with_headers(
@@ -170,7 +181,12 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
     #[case] range: &str,
     #[case] glyphs: usize,
 ) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 200);
@@ -183,7 +199,12 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
 
 #[tokio::test]
 async fn a_fontstack_takes_each_glyph_from_the_first_font_that_has_it() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let regular = fontstack(&martin.get(&format!("/font/{REGULAR}/0-255")).await);
     let light = fontstack(&martin.get(&format!("/font/{LIGHT}/0-255")).await);
@@ -241,7 +262,12 @@ async fn a_fontstack_takes_what_its_first_font_lacks_from_the_next() {
 #[case::inside_a_fontstack("Overpass%20Mono%20Regular,Nonexistent")]
 #[tokio::test]
 async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{fontstack}/0-255")).await;
     assert_eq!(response.status(), 404);
@@ -292,7 +318,12 @@ async fn a_range_outside_the_256_codepoint_grid_is_rejected(
     #[case] message: &str,
     #[case] logged: &str,
 ) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 400);
@@ -305,7 +336,12 @@ async fn a_range_outside_the_256_codepoint_grid_is_rejected(
 
 #[tokio::test]
 async fn a_glyph_range_answers_conditional_requests() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/font/{REGULAR}/0-255");
     let first = martin.get(&path).await;
@@ -334,7 +370,12 @@ async fn a_glyph_range_answers_conditional_requests() {
 
 #[tokio::test]
 async fn the_plural_fonts_path_redirects() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/fonts/{REGULAR}/0-255");
     for response in [martin.get(&path).await, martin.head(&path).await] {
@@ -360,7 +401,12 @@ async fn the_plural_fonts_path_redirects() {
 #[case::plural("fonts")]
 #[tokio::test]
 async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/{segment}/{REGULAR}/0-255.pbf");
     for response in [martin.get(&path).await, martin.head(&path).await] {

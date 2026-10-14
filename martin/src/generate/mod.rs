@@ -136,7 +136,7 @@ impl From<ArgsError> for GenerateError {
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
 pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
-    info!("Martin v{VERSION} tile generator");
+    info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
     let options = args.generate;
     if options
@@ -200,26 +200,25 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
         features = summary.features,
         tiles = summary.tiles,
         elapsed = ?started.elapsed(),
-        "Generated {}",
-        output.display()
+        mbtiles.file = %output.display(),
+        "Generated tiles"
     );
     if summary.skipped > 0 {
         warn!(
-            "Skipped {} features with polygon or collection geometry, which `martin generate` cannot render yet",
-            summary.skipped
+            features.skipped = summary.skipped,
+            "Skipped features with polygon or collection geometry, which `martin generate` cannot render yet"
         );
     }
     for failed in &summary.slice_errors {
-        let feature = match failed.id {
-            Some(id) => format!("feature {id}"),
-            None => format!(
-                "the feature at partition {} row {}",
-                failed.partition, failed.row
-            ),
-        };
         warn!(
-            "Layer `{}`: skipped {} feature-zooms whose geometry the slicer could not handle, first {feature} at z{}: {}",
-            failed.layer, failed.errors, failed.zoom, failed.error
+            layer.id = %failed.layer,
+            feature_zooms.skipped = failed.errors,
+            feature.id = failed.id,
+            feature.partition = failed.partition,
+            feature.row = failed.row,
+            tile.zoom = failed.zoom,
+            error = %failed.error,
+            "Skipped feature-zooms whose geometry the slicer could not handle"
         );
     }
     Ok(())
@@ -350,11 +349,12 @@ async fn report(progress: Arc<Progress>) {
         let features = progress.features.load(Ordering::Relaxed);
         if progress.writing.load(Ordering::Relaxed) {
             info!(
-                "Rendered {features} features; written {} tiles",
-                progress.tiles.load(Ordering::Relaxed)
+                features,
+                tiles = progress.tiles.load(Ordering::Relaxed),
+                "Rendered features and written tiles"
             );
         } else {
-            info!("Rendered {features} features");
+            info!(features, "Rendered features");
         }
     }
 }
@@ -368,7 +368,7 @@ fn remove_output(path: &Path) {
         if path.exists()
             && let Err(err) = std::fs::remove_file(&path)
         {
-            warn!("Could not remove {}: {err}", path.display());
+            warn!(path = %path.display(), error = %err, "Could not remove partial output");
         }
     }
 }

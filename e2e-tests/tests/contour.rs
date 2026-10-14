@@ -25,8 +25,8 @@ fn neighbourhood() -> Vec<(u32, u32, u32)> {
         .collect()
 }
 
-async fn upstream() -> StaticFiles {
-    let paths = neighbourhood()
+async fn serving(coords: impl IntoIterator<Item = (u32, u32, u32)>) -> StaticFiles {
+    let paths = coords
         .into_iter()
         .map(|(z, x, y)| (format!("{z}/{x}/{y}"), neighbour_tile(x, y)))
         .collect::<Vec<_>>();
@@ -35,24 +35,6 @@ async fn upstream() -> StaticFiles {
         .map(|(path, tile)| (path.as_str(), tile.clone()))
         .collect::<Vec<_>>();
     StaticFiles::serving(&files).await
-}
-
-async fn start(files: &StaticFiles, contour: &str) -> Martin {
-    Martin::builder()
-        .config(&format!(
-            "passthrough:
-  sources:
-    elevation:
-      url: {}/{{z}}/{{x}}/{{y}}
-      format: png
-      maxzoom: 12
-      {contour}
-",
-            files.base_url()
-        ))
-        .start()
-        .await
-        .expect("failed to start martin")
 }
 
 fn tile_path() -> String {
@@ -72,8 +54,22 @@ async fn sorted_log(files: &StaticFiles) -> String {
 
 #[tokio::test]
 async fn an_elevation_source_is_served_as_traced_contours() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -108,8 +104,22 @@ async fn an_elevation_source_is_served_as_traced_contours() {
 
 #[tokio::test]
 async fn a_traced_tile_reprojects_to_contour_lines_over_the_fixture_tile() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -142,8 +152,22 @@ async fn a_traced_tile_reprojects_to_contour_lines_over_the_fixture_tile() {
 
 #[tokio::test]
 async fn tracing_one_tile_reads_exactly_nine_upstream_tiles() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
 
@@ -170,8 +194,22 @@ async fn tracing_one_tile_reads_exactly_nine_upstream_tiles() {
 
 #[tokio::test]
 async fn a_disabled_source_serves_the_elevation_tile_unchanged() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: disabled").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: disabled
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -189,7 +227,7 @@ async fn a_disabled_source_serves_the_elevation_tile_unchanged() {
 
 #[tokio::test]
 async fn an_out_of_range_setting_is_rejected_at_startup() {
-    let files = upstream().await;
+    let files = serving(neighbourhood()).await;
     let started = Martin::builder()
         .config(&format!(
             "passthrough:
@@ -213,8 +251,22 @@ async fn an_out_of_range_setting_is_rejected_at_startup() {
 
 #[tokio::test]
 async fn query_overrides_are_ignored_unless_opted_in() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let plain = martin.get(&tile_path()).await;
     let overridden = martin
@@ -233,8 +285,22 @@ async fn query_overrides_are_ignored_unless_opted_in() {
 
 #[tokio::test]
 async fn a_contoured_source_advertises_vector_tiles() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await.json();
     insta::assert_json_snapshot!(catalog["tiles"]["elevation"], @r#"
@@ -270,8 +336,22 @@ async fn a_contoured_source_advertises_vector_tiles() {
 
 #[tokio::test]
 async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .get_with_headers(
@@ -294,12 +374,23 @@ async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
 
 #[tokio::test]
 async fn a_contoured_source_transcodes_to_mlt_on_request() {
-    let files = upstream().await;
-    let mut martin = start(
-        &files,
-        "convert_to_contour: auto\n      convert_to_mlt: auto",
-    )
-    .await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: auto
+      convert_to_mlt: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .get_with_headers(&tile_path(), &[("Accept", "application/vnd.maplibre-tile")])
@@ -318,8 +409,22 @@ async fn a_contoured_source_transcodes_to_mlt_on_request() {
 
 #[tokio::test]
 async fn a_disabled_source_still_advertises_the_raster() {
-    let files = upstream().await;
-    let mut martin = start(&files, "convert_to_contour: disabled").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    elevation:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_contour: disabled
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await.json();
     assert_eq!(catalog["tiles"]["elevation"]["content_type"], "image/png");
