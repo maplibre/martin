@@ -543,8 +543,9 @@ impl Run<'_> {
             return None;
         }
         let mut zoom = |expr: Option<&ExprRef<Zoom>>| self.eval(expr?, view, errors);
-        let min = zoom(layer.minzoom.as_ref()).unwrap_or(*layer.zooms.start());
-        let max = zoom(layer.maxzoom.as_ref()).unwrap_or(*layer.zooms.end());
+        let (lo, hi) = (*layer.zooms.start(), *layer.zooms.end());
+        let min = zoom(layer.minzoom.as_ref()).map_or(lo, |z| z.max(lo));
+        let max = zoom(layer.maxzoom.as_ref()).map_or(hi, |z| z.min(hi));
         (min <= max).then_some(min..=max)
     }
 

@@ -647,7 +647,7 @@ fn zoom_expressions_set_each_features_zooms() {
             "z1 [Some(1), Some(2)]",
             "z2 [Some(2)]",
             "z3 [Some(2)]",
-            "z4 [Some(2), Some(3)]",
+            "z4 [Some(2)]",
         ]
     );
 }

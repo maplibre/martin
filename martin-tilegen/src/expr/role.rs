@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::ops::RangeInclusive;
 
 use cel::{ExecutionError, Value};
 use martin_core::generate::props::Prop;
@@ -21,20 +20,7 @@ pub trait Role {
 pub struct Filter;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Zoom {
-    lo: u8,
-    hi: u8,
-}
-
-impl Zoom {
-    #[must_use]
-    pub fn new(range: &RangeInclusive<u8>) -> Self {
-        Self {
-            lo: *range.start(),
-            hi: *range.end(),
-        }
-    }
-}
+pub struct Zoom;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Id;
@@ -54,7 +40,7 @@ impl Role for Zoom {
     type Out = Option<u8>;
 
     fn coerce(&self, value: Value) -> Result<Option<u8>, ExecutionError> {
-        to_zoom(&value, self.lo, self.hi)
+        to_zoom(&value)
     }
 }
 
@@ -105,15 +91,12 @@ mod tests {
     }
 
     #[test]
-    fn a_zoom_outside_the_layer_range_is_clamped() {
-        let expr = CompiledExpr::compile("rank * 10", &["rank"], false).unwrap();
+    fn a_zoom_above_255_is_255() {
+        let expr = CompiledExpr::compile("rank * 100", &["rank"], false).unwrap();
         let keys = ExprKeys::columns(&["rank"]);
         let props = vec![(KeyId::new(0), Prop::<String>::I64(3))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
-        assert_eq!(
-            Zoom::new(&(4..=12)).coerce(expr.eval(&view).unwrap()),
-            Ok(Some(12))
-        );
+        assert_eq!(Zoom.coerce(expr.eval(&view).unwrap()), Ok(Some(255)));
     }
 }

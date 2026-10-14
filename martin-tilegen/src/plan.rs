@@ -375,8 +375,8 @@ fn plan_layer(
         bands.clear();
     }
     let filter = compiler.plan(def.filter.as_ref(), Filter)?;
-    let minzoom = compiler.plan(def.minzoom_expr.as_ref(), Zoom::new(&def.zooms))?;
-    let maxzoom = compiler.plan(def.maxzoom_expr.as_ref(), Zoom::new(&def.zooms))?;
+    let minzoom = compiler.plan(def.minzoom_expr.as_ref(), Zoom)?;
+    let maxzoom = compiler.plan(def.maxzoom_expr.as_ref(), Zoom)?;
     let id = match &def.id {
         IdDef::Keep => PlannedId::Keep,
         IdDef::Drop => PlannedId::Drop,
