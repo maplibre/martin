@@ -80,7 +80,7 @@ async fn start(config: &str, postgres: bool, save_config: Option<&str>) -> (Temp
 }
 
 fn assert_table_source_warning(martin: &mut Martin) {
-    martin.assert_log_contains("Table public.table_source has no spatial index on column geom");
+    martin.assert_log_contains("Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom");
 }
 
 #[tokio::test]

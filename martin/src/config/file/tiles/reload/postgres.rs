@@ -79,11 +79,13 @@ impl PostgresReloader {
         on_slow(init, DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)), || {
             if auto_bounds == BoundsCalcType::Skip {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Bounds calculation is already disabled. You may need to tune your database."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Bounds calculation is already disabled. You may need to tune your database."
                 );
             } else {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
                 );
             }
         })

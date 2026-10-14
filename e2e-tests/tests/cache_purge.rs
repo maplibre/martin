@@ -63,7 +63,7 @@ async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
     assert_eq!(martin.delete("/cache/nope").await.status(), 404);
 
     martin.stop().await;
-    martin.assert_log_contains("Invalidated tile cache for source: proxy");
+    martin.assert_log_contains("Invalidated cache for source cache.name=tile source.id=proxy");
 }
 
 #[tokio::test]

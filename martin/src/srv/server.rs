@@ -390,6 +390,6 @@ async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
                 server.stop(true).await;
             }
         }
-        Err(e) => tracing::warn!("Ctrl+Break will not stop martin gracefully: {e}"),
+        Err(e) => tracing::warn!(error = %e, "Ctrl+Break will not stop martin gracefully"),
     }
 }

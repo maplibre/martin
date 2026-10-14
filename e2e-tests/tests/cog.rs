@@ -210,7 +210,7 @@ cog:
     assert_eq!(remote.body(), local.body());
     martin.stop().await;
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
@@ -247,7 +247,7 @@ cog:
     assert_eq!(restarted.get("/remote/18/42712/97343").await.status(), 200);
     restarted.stop().await;
     restarted.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     assert_remote_reads_use_ranges(

@@ -172,14 +172,18 @@ fn retain_or_skip(
 ) {
     if let Some(version) = last {
         tracing::warn!(
-            "{label}: check failed for {}: {error}; retaining the last-known version",
-            sanitized_url(&object.url)
+            discovery.label = %label,
+            source.url = %sanitized_url(&object.url),
+            error = %error,
+            "Check failed, retaining the last-known version"
         );
         out.insert(object.id.clone(), (version, object.clone()));
     } else {
         tracing::warn!(
-            "{label}: check failed for {}: {error}; skipping this tick",
-            sanitized_url(&object.url)
+            discovery.label = %label,
+            source.url = %sanitized_url(&object.url),
+            error = %error,
+            "Check failed, skipping this tick"
         );
     }
 }
@@ -273,7 +277,10 @@ impl ObjectStoreDiscovery {
             }
             Ok(SourceLocation::Local(_)) => {}
             Err(error) => tracing::warn!(
-                "{label}: remote prefix {path:?} is not a valid URL ({error}); skipping"
+                discovery.label = %label,
+                source.path = ?path,
+                error = %error,
+                "Remote prefix is not a valid URL, skipping"
             ),
         };
         config.paths.iter().for_each(collect);

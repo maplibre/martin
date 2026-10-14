@@ -150,9 +150,9 @@ async fn start_from_the_config(builder: MartinBuilder) -> Martin {
 /// when they are not published.
 fn assert_unindexed_table_warnings(martin: &mut Martin) {
     for warning in [
-        "Table public.mat_view has no spatial index on column geom",
-        "Table public.table_source has no spatial index on column geom",
-        "Table public.table_source_geog has no spatial index on column geog",
+        "Table has no spatial index on the geometry column schema=public table=mat_view geometry_column=geom",
+        "Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom",
+        "Table has no spatial index on the geometry column schema=public table=table_source_geog geometry_column=geog",
     ] {
         martin.assert_log_contains(warning);
     }
@@ -1764,7 +1764,7 @@ async fn martin_with_tile_grids() -> (Martin, TempDir) {
 /// The one warning every start from [`TILE_GRIDS_CONFIG`] logs, because Mars has no WGS84 bounds.
 fn assert_tile_grid_warnings(martin: &mut Martin) {
     martin.assert_log_contains(
-        "Not computing the bounds of public.mars_points.geom: SRID 949900 is IAU_2015:49900, not an EPSG system",
+        "Not computing the bounds: SRID is not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them. table.id=public.mars_points.geom srid=949900 srid.authority=IAU_2015:49900",
     );
 }
 
@@ -1946,28 +1946,28 @@ postgres:
 
     martin.stop().await;
     insta::assert_snapshot!(martin.take_log_lines("simple tile grid").join("\n"), @"
-    WARN Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.constrained_geometry.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.domain_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.measured_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_geog.geog has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_multiple_geom.geom1 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
-    WARN Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan, skipping
+    WARN Skipping table error=Table public.antimeridian.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.array_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.constrained_geometry.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.curves.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.curves_untyped.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.dimensioned_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.domain_props.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.empty_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.linestring_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.linestring_bounds_vertical.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.mars_points.geom has SRID=949900, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.measured_shapes.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_geog.geog has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_multiple_geom.geom1 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    WARN Skipping table error=Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     ");
     assert_unindexed_table_warnings(&mut martin);
     martin.assert_log_contains("source.id.new=table_source_multiple_geom.1");
@@ -2005,7 +2005,7 @@ postgres:
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
     insta::assert_snapshot!(log, @"
-    ERROR Tile source resolution warning: Source points1: Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
+    ERROR Tile source resolution warning warning=Source points1: Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     ERROR error=TileResolutionWarningsIssued
     ERROR warnings issued during tile source resolution
     ");

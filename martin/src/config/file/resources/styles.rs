@@ -229,7 +229,9 @@ impl StyleConfig {
                 true
             } else {
                 warn!(
-                    "style {id} (pointing to {source:?}) is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
+                    source.id = %id,
+                    style.source = ?source,
+                    "Style is not a file. To prevent footguns, we ignore directories for 'sources'. To use directories, specify them as 'paths' or specify each file in 'sources' instead."
                 );
                 false
             }
@@ -240,16 +242,16 @@ impl StyleConfig {
             let files = list_contained_files(&base_path, "json")?;
             if files.is_empty() {
                 warn!(
-                    "No styles (.json files) found in path {:?}",
-                    base_path.display()
+                    style.path = ?base_path.display(),
+                    "No styles (.json files) found in path"
                 );
                 continue;
             }
             for path in files {
                 let Some(name) = path.file_name() else {
                     warn!(
-                        "Ignoring style source with no name from {:?}",
-                        path.display()
+                        style.path = ?path.display(),
+                        "Ignoring style source with no name"
                     );
                     continue;
                 };

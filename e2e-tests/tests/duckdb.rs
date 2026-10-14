@@ -267,7 +267,7 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
 
     martin.stop().await;
     martin.assert_log_contains(&format!(
-        "Tile source resolution warning: Source polygons_bad: {warning}"
+        "Tile source resolution warning warning=Source polygons_bad: {warning}"
     ));
     martin.assert_log_contains(r#"ERROR error="Source polygons_bad does not exist""#);
 }
@@ -391,7 +391,7 @@ duckdb:
 
     martin.stop().await;
     martin.assert_log_contains(
-        "Ignoring 5 columns of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB). Vector tiles can only carry text, numeric and boolean properties.",
+        "Ignoring columns with no MVT representation. Vector tiles can only carry text, numeric and boolean properties. source.label=tests/fixtures/duckdb/geoparquet_mixed_types.parquet columns.count=5 columns=address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB)",
     );
 }
 
@@ -769,7 +769,7 @@ async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -803,7 +803,7 @@ async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -1118,7 +1118,7 @@ duckdb:
     );
 
     martin.stop().await;
-    martin.assert_log_contains("Ignoring 5 columns of");
+    martin.assert_log_contains("columns.count=5");
 }
 
 #[rstest]

@@ -110,7 +110,7 @@ impl IdResolver {
                             source.id.old = %name,
                             source.id.new = %new_name,
                             source.info = %info.as_deref().unwrap_or(""),
-                            "`{name}` is a reserved keyword and may not be used as a source; renamed"
+                            "Reserved keyword may not be used as a source; renamed"
                         );
                     } else {
                         warn!(

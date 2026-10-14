@@ -236,7 +236,10 @@ pub async fn redirect_tile_ext(
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+                source.ids = %ids,
+                tile.coord = %format!("{z}/{x}/{y}"),
+                tile.extension = %ext,
+                "Request to a tile with a file extension caused unnecessary redirect. Omit the extension to avoid extra round-trip latency."
             );
         })
         .await;
@@ -269,7 +272,9 @@ pub async fn redirect_tiles(
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                tile.coord = %format!("{z}/{x}/{y}"),
+                "Request to /tiles caused unnecessary redirect. Omit the /tiles prefix to avoid extra round-trip latency."
             );
         })
         .await;

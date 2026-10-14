@@ -171,13 +171,7 @@ impl GeoJsonSource {
             .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
 
         if indices.is_empty() {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z(),
-                xyz.x(),
-                xyz.y(),
-                &self.id
-            );
+            trace!(source.id = %self.id, tile.coord = %xyz, "Couldn't find tile data");
             return Ok(TileData::new());
         }
 

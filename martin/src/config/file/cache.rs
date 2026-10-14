@@ -41,8 +41,8 @@ impl CacheConfig {
     pub fn create_tile_cache(&self) -> Option<TileCache> {
         if let Some(setting) = &self.tiles {
             tracing::info!(
-                "Initializing tile cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing tile cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(TileCache::new(size, setting.expiry, setting.idle_timeout))
@@ -58,8 +58,8 @@ impl CacheConfig {
     pub fn create_pmtiles_cache(&self) -> PmtCache {
         if let Some(setting) = &self.pmtiles {
             tracing::info!(
-                "Initializing PMTiles directory cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing PMTiles directory cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             PmtCache::new(size, setting.expiry, setting.idle_timeout)
@@ -76,8 +76,8 @@ impl CacheConfig {
     pub fn create_sprite_cache(&self) -> OptSpriteCache {
         if let Some(setting) = &self.sprites {
             tracing::info!(
-                "Initializing sprite cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing sprite cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(SpriteCache::new(size, setting.expiry, setting.idle_timeout))
@@ -93,8 +93,8 @@ impl CacheConfig {
     pub fn create_font_cache(&self) -> OptFontCache {
         if let Some(setting) = &self.fonts {
             tracing::info!(
-                "Initializing font cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing font cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(FontCache::new(size, setting.expiry, setting.idle_timeout))

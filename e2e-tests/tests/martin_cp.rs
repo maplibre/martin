@@ -171,7 +171,7 @@ async fn falls_back_to_the_source_bounds_without_a_bbox() {
     }
 
     assert_eq!(tile_listing(&bounded).await, tile_listing(&unbounded).await);
-    insta::assert_snapshot!(tile_listing(&unbounded).await, @r"
+    insta::assert_snapshot!(tile_listing(&unbounded).await, @"
     0/0/0 1107 bytes
     2/3/1 151 bytes
     2/3/2 263 bytes
@@ -209,7 +209,7 @@ async fn writes_the_requested_schema(#[case] mbtiles_type: Option<&str>, #[case]
     let summary = summary(&output).run_json().await;
     assert_eq!(summary["mbt_type"], expected);
     assert_eq!(summary["tile_count"], 2);
-    insta::assert_snapshot!(tile_listing(&output).await, @r"
+    insta::assert_snapshot!(tile_listing(&output).await, @"
     0/0/0 1107 bytes
     1/0/0 20 bytes
     ");
@@ -977,7 +977,9 @@ postgres:
             .run()
             .await;
         assert!(
-            log.contains("Copying table_source through MVT"),
+            log.contains(
+                "Copying through MVT instead of encoding MLT from its rows source.id=table_source"
+            ),
             "the copy did not report falling back off the row-per-feature path:\n{log}"
         );
 
@@ -1053,7 +1055,7 @@ postgres:
             .take_while(|line| line.starts_with("    table_source:") || line.starts_with("      "))
             .collect();
         insta::with_settings!({filters => snapshot_filters()}, {
-            insta::assert_snapshot!(described.trim_end(), @r"
+            insta::assert_snapshot!(described.trim_end(), @"
             table_source:
               schema: public
               table: table_source

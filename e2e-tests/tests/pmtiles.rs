@@ -252,13 +252,13 @@ async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
     };
     insta::with_settings!({filters => vec![
         (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
-        (r"Martin v\S+", "Martin v[VERSION]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
     ]}, {
         insta::assert_snapshot!(log, @"
-         INFO Starting Martin v[VERSION]
+         INFO Starting Martin martin.version=[VERSION]
          INFO Config file is not specified, auto-detecting sources
-         INFO resolve: Initializing PMTiles directory cache with maximum size 128 MB
-        ERROR resolve:handle_tile_warnings: Tile source resolution warning: Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
+         INFO resolve: Initializing PMTiles directory cache cache.size_mb=128
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
         ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
         ERROR resolve: error=Config(TileResolutionWarningsIssued)
         ERROR warnings issued during tile source resolution
@@ -325,7 +325,7 @@ pmtiles:
 /// The `AWS_REGION` [`Martin::builder`] sets, which an `s3_config` overrides.
 fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=pmtiles.aws_region",
     );
 }
 

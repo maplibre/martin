@@ -79,8 +79,10 @@ pub async fn get_style_json(
         }
         Err(e) => {
             error!(
-                "Failed to parse style JSON {e:?} for style {style_id} at {:?}",
-                path.display()
+                style.id = %style_id,
+                style.path = %path.display(),
+                error = ?e,
+                "Failed to parse style JSON"
             );
 
             HttpResponse::BadRequest()
@@ -123,7 +125,8 @@ pub async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /styles/{style_id} caused unnecessary redirect. Use /style/{style_id} to avoid extra round-trip latency."
+                style.id = %style_id,
+                "Request to /styles caused unnecessary redirect. Use /style to avoid extra round-trip latency."
             );
         })
         .await;

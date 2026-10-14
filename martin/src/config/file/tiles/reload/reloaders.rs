@@ -198,23 +198,23 @@ impl TileReloaders {
     pub fn start(self) {
         #[cfg(feature = "mbtiles")]
         if let Err(e) = self.mbtiles.start() {
-            tracing::warn!("failed to start MbtilesReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start MbtilesReloader");
         }
         #[cfg(feature = "unstable-cog")]
         if let Err(e) = self.cog.start() {
-            tracing::warn!("failed to start CogReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start CogReloader");
         }
         #[cfg(feature = "unstable-duckdb")]
         if let Err(e) = self.duckdb.start() {
-            tracing::warn!("failed to start DuckDbReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start DuckDbReloader");
         }
         #[cfg(feature = "processing")]
         if let Err(e) = self.geojson.start() {
-            tracing::warn!("failed to start GeoJsonReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start GeoJsonReloader");
         }
         #[cfg(feature = "pmtiles")]
         if let Err(e) = self.pmtiles.start() {
-            tracing::warn!("failed to start PmtilesReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start PmtilesReloader");
         }
         #[cfg(feature = "postgres")]
         for reloader in self.postgres {
