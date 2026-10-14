@@ -5,7 +5,6 @@ use std::ops::RangeInclusive;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
-use cel::Value;
 use geo_types::Coord;
 use hotpath::wrap::flume::{Receiver, Sender};
 
@@ -16,7 +15,7 @@ use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 use tracing::warn;
 
-use crate::expr::{self, ExprKeys, ExprRef, FeatureView, PropSlots, Role, Zoom};
+use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role, Zoom};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{
     AttributesDef, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedRule,
@@ -616,8 +615,8 @@ impl Run<'_> {
     ) {
         out.clear();
         for expr in &layer.sort_by {
-            let value = self.eval(expr, view, errors).unwrap_or(Value::Null);
-            expr::encode_sort(&value, expr.role.descending, out).expect("a sort key is a scalar");
+            self.eval(expr, view, errors)
+                .encode(expr.role.descending, out);
         }
     }
 

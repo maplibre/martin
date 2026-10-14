@@ -7,9 +7,7 @@ use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
-use crate::expr::{
-    Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortKey, Zoom,
-};
+use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::{
     FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
 };
@@ -260,7 +258,7 @@ pub(crate) struct PlannedLayer {
     pub(crate) copy: Vec<Option<KeyId>>,
     pub(crate) attrs: PlannedAttrs,
     pub(crate) rules: Vec<PlannedRule>,
-    pub(crate) sort_by: Vec<ExprRef<SortKey>>,
+    pub(crate) sort_by: Vec<ExprRef<SortBy>>,
 }
 
 #[derive(Debug, Default)]
@@ -538,13 +536,11 @@ fn plan_layer(
         .sort_by
         .iter()
         .map(|key| {
-            let expr = compiler.compile(
-                &key.expr,
-                SortKey {
-                    descending: key.descending,
-                },
-            )?;
-            Ok(compiler.add(&key.expr, expr))
+            let expr = compiler.compile(&key.expr)?;
+            let role = SortBy {
+                descending: key.descending,
+            };
+            Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {

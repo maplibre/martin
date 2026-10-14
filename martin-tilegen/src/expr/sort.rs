@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cel::{ExecutionError, Value};
 
 use super::coerce::mismatch;
@@ -12,63 +14,84 @@ enum SortTag {
     String,
 }
 
-/// Appends a key whose byte order is this value's order: by type (null, bool, int, double,
-/// string), then by value. `descending` reverses it.
-pub fn encode_sort(
-    value: &Value,
-    descending: bool,
-    out: &mut Vec<u8>,
-) -> Result<(), ExecutionError> {
-    let start = out.len();
-    match value {
-        Value::Null => out.push(SortTag::Null as u8),
-        Value::Bool(v) => out.extend([SortTag::Bool as u8, u8::from(*v)]),
-        Value::Int(v) if *v < 0 => {
-            out.push(SortTag::Negative as u8);
-            out.extend(v.cast_unsigned().to_be_bytes());
-        }
-        Value::Int(v) => {
-            out.push(SortTag::NonNegative as u8);
-            out.extend(v.to_be_bytes());
-        }
-        Value::UInt(v) => {
-            out.push(SortTag::NonNegative as u8);
-            out.extend(v.to_be_bytes());
-        }
-        Value::Float(v) => {
-            let bits = v.to_bits();
-            let bits = if bits >> 63 == 1 {
-                !bits
-            } else {
-                bits | (1 << 63)
-            };
-            out.push(SortTag::Double as u8);
-            out.extend(bits.to_be_bytes());
-        }
-        Value::String(v) => {
-            out.push(SortTag::String as u8);
-            for &b in v.as_bytes() {
-                if b == 0 {
-                    out.extend([0, 0xFF]);
-                } else {
-                    out.push(b);
-                }
-            }
-            out.extend([0, 0]);
-        }
+/// A `sort_by` result: a scalar or `null`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum SortValue {
+    #[default]
+    Null,
+    Bool(bool),
+    Int(i64),
+    UInt(u64),
+    Float(f64),
+    #[expect(clippy::rc_buffer, reason = "cel's strings are Arc<String>")]
+    String(Arc<String>),
+}
+
+pub(super) fn to_sort(value: Value) -> Result<SortValue, ExecutionError> {
+    Ok(match value {
+        Value::Null => SortValue::Null,
+        Value::Bool(v) => SortValue::Bool(v),
+        Value::Int(v) => SortValue::Int(v),
+        Value::UInt(v) => SortValue::UInt(v),
+        Value::Float(v) => SortValue::Float(v),
+        Value::String(v) => SortValue::String(v),
         other @ (Value::List(_)
         | Value::Map(_)
         | Value::Function(..)
         | Value::Bytes(_)
         | Value::Opaque(_)
-        | Value::Struct(_)) => return Err(mismatch(other, "a scalar")),
-    }
-    if descending {
-        for b in &mut out[start..] {
-            *b = !*b;
+        | Value::Struct(_)) => return Err(mismatch(&other, "a scalar")),
+    })
+}
+
+impl SortValue {
+    /// Appends a key whose byte order is this value's order: by type (null, bool, int, double,
+    /// string), then by value. `descending` reverses it.
+    pub(crate) fn encode(&self, descending: bool, out: &mut Vec<u8>) {
+        let start = out.len();
+        match self {
+            Self::Null => out.push(SortTag::Null as u8),
+            Self::Bool(v) => out.extend([SortTag::Bool as u8, u8::from(*v)]),
+            Self::Int(v) if *v < 0 => {
+                out.push(SortTag::Negative as u8);
+                out.extend(v.cast_unsigned().to_be_bytes());
+            }
+            Self::Int(v) => {
+                out.push(SortTag::NonNegative as u8);
+                out.extend(v.to_be_bytes());
+            }
+            Self::UInt(v) => {
+                out.push(SortTag::NonNegative as u8);
+                out.extend(v.to_be_bytes());
+            }
+            Self::Float(v) => {
+                let bits = v.to_bits();
+                let bits = if bits >> 63 == 1 {
+                    !bits
+                } else {
+                    bits | (1 << 63)
+                };
+                out.push(SortTag::Double as u8);
+                out.extend(bits.to_be_bytes());
+            }
+            Self::String(v) => {
+                out.push(SortTag::String as u8);
+                for &b in v.as_bytes() {
+                    if b == 0 {
+                        out.extend([0, 0xFF]);
+                    } else {
+                        out.push(b);
+                    }
+                }
+                out.extend([0, 0]);
+            }
+        }
+        if descending {
+            for b in &mut out[start..] {
+                *b = !*b;
+            }
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -111,7 +134,7 @@ mod tests {
             .iter()
             .map(|v| {
                 let mut key = Vec::new();
-                encode_sort(v, false, &mut key).unwrap();
+                to_sort(v.clone()).unwrap().encode(false, &mut key);
                 key
             })
             .collect();
@@ -122,7 +145,7 @@ mod tests {
             .iter()
             .map(|v| {
                 let mut key = vec![9];
-                encode_sort(v, true, &mut key).unwrap();
+                to_sort(v.clone()).unwrap().encode(true, &mut key);
                 key
             })
             .collect();
@@ -138,15 +161,13 @@ mod tests {
     }
 
     #[test]
-    fn a_list_has_no_sort_key() {
-        let mut key = Vec::new();
+    fn a_list_has_no_sort_value() {
         assert_eq!(
-            encode_sort(&Value::from(vec![1]), false, &mut key),
+            to_sort(Value::from(vec![1])),
             Err(ExecutionError::UnexpectedType {
                 got: "list".to_owned(),
                 want: "a scalar".to_owned()
             })
         );
-        assert_eq!(key, Vec::<u8>::new());
     }
 }

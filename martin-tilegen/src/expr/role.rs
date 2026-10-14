@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use cel::{ExecutionError, Value};
 use martin_core::generate::props::Prop;
 
-use super::coerce::{mismatch, to_filter, to_id, to_prop, to_zoom};
+use super::coerce::{to_filter, to_id, to_prop, to_zoom};
+use super::sort::{SortValue, to_sort};
 
 /// What an expression is for, and how its result becomes that. A role value carries what is known when
 /// the layer is planned, so evaluating needs nothing more.
@@ -29,7 +30,7 @@ pub struct Id;
 pub struct Attr;
 
 #[derive(Clone, Copy, Debug)]
-pub struct SortKey {
+pub struct SortBy {
     pub descending: bool,
 }
 
@@ -65,24 +66,11 @@ impl Role for Attr {
     }
 }
 
-impl Role for SortKey {
-    type Out = Value;
+impl Role for SortBy {
+    type Out = SortValue;
 
-    fn coerce(&self, value: Value) -> Result<Value, ExecutionError> {
-        match value {
-            Value::Null
-            | Value::Bool(_)
-            | Value::Int(_)
-            | Value::UInt(_)
-            | Value::Float(_)
-            | Value::String(_) => Ok(value),
-            other @ (Value::List(_)
-            | Value::Map(_)
-            | Value::Function(..)
-            | Value::Bytes(_)
-            | Value::Opaque(_)
-            | Value::Struct(_)) => Err(mismatch(&other, "a scalar")),
-        }
+    fn coerce(&self, value: Value) -> Result<SortValue, ExecutionError> {
+        to_sort(value)
     }
 }
 
