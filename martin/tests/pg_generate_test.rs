@@ -58,7 +58,7 @@ fn table_info(specs: &BTreeMap<String, SourceSpec>, name: &str) -> TableInfo {
 fn lower(name: &str, info: TableInfo) -> ScanTable {
     let options = LowerOptions {
         zooms: 0..=6,
-        bbox: None,
+        bounds: None,
     };
     lower_table(name, info, &options).unwrap().unwrap()
 }
@@ -150,7 +150,7 @@ async fn one_table_feeds_two_layers() {
             overview:
               maxzoom: 1
               attributes: []
-              id: drop
+              id: false
             points:
               minzoom: 1
               maxzoom: 2

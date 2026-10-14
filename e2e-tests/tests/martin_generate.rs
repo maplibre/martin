@@ -454,7 +454,7 @@ async fn one_table_feeds_several_layers() {
                     shapes:
                       maxzoom: 1
                       attributes: []
-                      id: drop
+                      id: false
                     points:
                       minzoom: 1
                       geometry: point

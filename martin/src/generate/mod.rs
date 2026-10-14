@@ -261,12 +261,12 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
-    let (pool, tables) = select_sources(&config, &options).await?;
+    let (pool, scans) = select_sources(&config, &options).await?;
     let threads = options
         .threads
         .or_else(|| std::thread::available_parallelism().ok())
         .map_or(1, NonZeroUsize::get);
-    let source = PgScanSource::new(pool, tables)?;
+    let source = PgScanSource::new(pool, scans)?;
     let generate_config = generate_config(&options, threads, encoding);
     let metadata = metadata(&options);
     let output = options.output_file;
@@ -458,7 +458,7 @@ async fn select_sources(
 
     let lower = LowerOptions {
         zooms: options.min_zoom..=options.max_zoom,
-        bbox: options.bbox,
+        bounds: options.bbox,
     };
     let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;

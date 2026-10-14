@@ -17,7 +17,7 @@ use crate::config::file::postgres::resolver::scan_sql;
 #[derive(Clone, Debug)]
 pub struct ScanTable {
     pub info: TableInfo,
-    pub table: TableDef,
+    pub def: TableDef,
 }
 
 /// Each table is one partition, and all of them are read by one reader in one transaction.
@@ -25,10 +25,10 @@ pub struct PgScanSource {
     runtime: tokio::runtime::Handle,
     pool: PostgresPool,
     plan: Plan,
-    tables: Vec<Table>,
+    scans: Vec<Scan>,
 }
 
-struct Table {
+struct Scan {
     sql: String,
     layout: ScanLayout,
 }
@@ -38,16 +38,16 @@ impl PgScanSource {
     ///
     /// Fails on an invalid plan or an invalid filter.
     pub fn new(pool: PostgresPool, tables: Vec<ScanTable>) -> TileGenResult<Self> {
-        let plan = Plan::new(tables.iter().map(|t| t.table.clone()).collect())?;
+        let plan = Plan::new(tables.iter().map(|t| t.def.clone()).collect())?;
         let mut scans = Vec::with_capacity(tables.len());
         for (index, scan) in tables.into_iter().enumerate() {
             let sql = scan_sql(
                 &scan.info,
-                &scan.table.columns,
-                scan_bbox(&scan.table.layers),
+                &scan.def.columns,
+                scan_bbox(&scan.def.layers),
             )
             .map_err(SourceError::from)?;
-            scans.push(Table {
+            scans.push(Scan {
                 layout: ScanLayout {
                     table: u16::try_from(index).expect("the plan has fewer than 2^16 tables"),
                     crs: sql.crs,
@@ -61,7 +61,7 @@ impl PgScanSource {
             runtime: tokio::runtime::Handle::current(),
             pool,
             plan,
-            tables: scans,
+            scans,
         })
     }
 
@@ -81,7 +81,7 @@ impl PgScanSource {
 
 impl FeatureSource for PgScanSource {
     fn partitions(&self) -> u32 {
-        u32::try_from(self.tables.len()).expect("fewer than 2^16 tables")
+        u32::try_from(self.scans.len()).expect("fewer than 2^16 tables")
     }
 
     fn read(
@@ -110,17 +110,17 @@ impl FeatureReader for ScanReader<'_> {
         keys: &[KeyInterner],
         emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let table = self
+        let scan = self
             .source
-            .tables
+            .scans
             .get(partition as usize)
             .ok_or(SourceError::UnknownPartition(partition))?;
         let conn = self.conn.as_ref().expect("the connection lives until drop");
-        let keys = &keys[usize::from(table.layout.table)];
+        let keys = &keys[usize::from(scan.layout.table)];
         self.source.runtime.block_on(scan_features(
             conn,
-            &table.sql,
-            &table.layout,
+            &scan.sql,
+            &scan.layout,
             partition,
             keys,
             emit,

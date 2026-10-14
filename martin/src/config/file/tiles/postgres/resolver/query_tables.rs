@@ -519,19 +519,19 @@ pub struct ScanSql {
 /// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
 /// spending the database's single-threaded per-connection CPU on `ST_Transform`.
 ///
-/// Of the table's properties, only those in `properties` are selected, in table order.
+/// Of the table's properties, only those in `columns` are selected, in table order.
 /// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
 #[cfg(feature = "unstable-generate")]
 pub fn scan_sql(
     info: &TableInfo,
-    properties: &[String],
+    columns: &[String],
     bbox: Option<Bounds>,
 ) -> PostgresResult<ScanSql> {
     let selected: Vec<(&String, &String)> = info
         .properties
         .iter()
         .flatten()
-        .filter(|(column, _)| properties.contains(column))
+        .filter(|(column, _)| columns.contains(column))
         .collect();
     let row_properties = row_properties(info, selected.iter().copied());
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {

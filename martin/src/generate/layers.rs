@@ -22,7 +22,7 @@ const DEFAULT_BUFFER: u32 = 64;
 pub struct LowerOptions {
     pub zooms: RangeInclusive<u8>,
     /// WGS84 area to generate, if not the whole world.
-    pub bbox: Option<Bounds>,
+    pub bounds: Option<Bounds>,
 }
 
 /// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when the
@@ -44,7 +44,7 @@ pub fn lower_table(
         return Ok(None);
     }
     let defaults = LayerDef {
-        bounds: options.bbox,
+        bounds: options.bounds,
         ..LayerDef::new(
             String::new(),
             min..=max,
@@ -101,12 +101,12 @@ pub fn lower_table(
             })
         })
         .collect();
-    let table = TableDef {
+    let def = TableDef {
         columns: selected.iter().map(|(c, _)| (*c).to_owned()).collect(),
         dynamic_props: selected.iter().any(|(_, jsonb)| *jsonb),
         layers,
     };
-    Ok(Some(ScanTable { info, table }))
+    Ok(Some(ScanTable { info, def }))
 }
 
 fn lower_layer(
@@ -250,7 +250,7 @@ mod tests {
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
-        lower_table("roads_source", info, &LowerOptions { zooms, bbox: None })
+        lower_table("roads_source", info, &LowerOptions { zooms, bounds: None })
     }
 
     #[test]
@@ -272,7 +272,7 @@ mod tests {
         .expect("valid table");
         let options = LowerOptions {
             zooms: 0..=8,
-            bbox: Some(Bounds::new(-10.0, -5.0, 10.0, 5.0)),
+            bounds: Some(Bounds::new(-10.0, -5.0, 10.0, 5.0)),
         };
         let scan = lower_table("roads_source", info, &options)
             .expect("lowers")
@@ -280,7 +280,7 @@ mod tests {
         let mut settings = insta::Settings::clone_current();
         settings.add_filter(r"EncoderConfig \{[^}]*\}", "EncoderConfig { .. }");
         let _guard = settings.bind_to_scope();
-        insta::assert_debug_snapshot!(scan.table, @r#"
+        insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
                 "name",
@@ -337,7 +337,7 @@ mod tests {
         let mut settings = insta::Settings::clone_current();
         settings.add_filter(r"EncoderConfig \{[^}]*\}", "EncoderConfig { .. }");
         let _guard = settings.bind_to_scope();
-        insta::assert_debug_snapshot!(scan.table, @r#"
+        insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [],
             dynamic_props: false,
@@ -393,7 +393,7 @@ mod tests {
                     buffer: 0
                     simplify: 2
                     min_size_at_maxzoom: 0.5
-                    id: drop
+                    id: false
                   road_points:
                     geometry: point
                     maxzoom: 6
@@ -403,7 +403,7 @@ mod tests {
                   areas:
                     geometry: polygon
                     min_size: 4
-                    id: keep
+                    id: true
             "},
             0..=12,
         )
@@ -412,7 +412,7 @@ mod tests {
         let mut settings = insta::Settings::clone_current();
         settings.add_filter(r"EncoderConfig \{[^}]*\}", "EncoderConfig { .. }");
         let _guard = settings.bind_to_scope();
-        insta::assert_debug_snapshot!(scan.table, @r#"
+        insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
                 "class",
@@ -522,13 +522,13 @@ mod tests {
         .expect("lowers")
         .expect("has layers");
         let attributes: Vec<_> = scan
-            .table
+            .def
             .layers
             .iter()
             .map(|layer| (layer.name.as_str(), &layer.attributes))
             .collect();
         insta::assert_debug_snapshot!(
-            (&scan.table.columns, scan.table.dynamic_props, attributes),
+            (&scan.def.columns, scan.def.dynamic_props, attributes),
             @r#"
         (
             [
@@ -597,8 +597,8 @@ mod tests {
         )
         .expect("lowers")
         .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        assert!(!scan.table.dynamic_props);
+        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
+        assert!(!scan.def.dynamic_props);
         insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "gid", "name", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
@@ -623,8 +623,8 @@ mod tests {
         )
         .expect("lowers")
         .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        assert!(!scan.table.dynamic_props);
+        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
+        assert!(!scan.def.dynamic_props);
         insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
@@ -644,8 +644,8 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        assert!(scan.table.dynamic_props);
+        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
+        assert!(scan.def.dynamic_props);
         insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "name", "tags" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
@@ -668,7 +668,7 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let names: Vec<_> = scan.table.layers.iter().map(|l| l.name.as_str()).collect();
+        let names: Vec<_> = scan.def.layers.iter().map(|l| l.name.as_str()).collect();
         assert_eq!(names, ["roads"]);
     }
 
@@ -720,7 +720,7 @@ mod tests {
             r#"roads: { attributes: { "name:*": "name:*" } }"#,
             "roads: { rules: [ { where: \"class == 'primary'\", minzoom: 4 } ] }",
             "roads: { sort_by: rank }",
-            "roads: { id: { expr: 'gid * 10' } }",
+            "roads: { id: 'gid * 10' }",
             "roads: { tile: { merge_lines: { by: [class] } } }",
             "roads: { tile: { limit: 100 } }",
         ];
