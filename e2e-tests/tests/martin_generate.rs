@@ -5,7 +5,8 @@ use std::fs;
 
 use indoc::indoc;
 use martin_e2e_tests::{
-    MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, temp_dir, tile_listing,
+    Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump,
+    temp_dir, tile_listing,
 };
 
 #[tokio::test]
@@ -161,6 +162,99 @@ async fn generates_pmtiles_with_the_same_tiles() {
         .await;
     assert!(log.contains("not empty"), "{log}");
     assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
+}
+
+#[tokio::test]
+async fn martin_serves_the_default_pmtiles_output() {
+    let dir = temp_dir();
+    let pmtiles = dir.path().join("out.pmtiles");
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--source")
+        .arg("points1")
+        .arg("--output-file")
+        .arg(&pmtiles)
+        .arg("--max-zoom")
+        .arg("1")
+        .run()
+        .await;
+    let mut martin = Martin::builder()
+        .arg(&pmtiles)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let tile = martin.get("/out/0/0/0").await;
+    insta::assert_snapshot!(tile.headers_snapshot_masking_etag(), @"
+    cache-control: max-age=0, stale-while-revalidate=86400
+    content-length: 193
+    content-type: application/vnd.maplibre-tile
+    etag: [ETAG]
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    ");
+    insta::assert_snapshot!(mlt_dump(&tile.mlt()), @"
+    layer points1 extent 4096
+      id=None geom=MULTIPOINT(4104 1845,8 1845) props=[gid=U32(Some(9))]
+      id=None geom=MULTIPOINT(4145 2032,49 2032) props=[gid=U32(Some(21))]
+      id=None geom=POINT(1310 3101) props=[gid=U32(Some(26))]
+      id=None geom=POINT(1377 2078) props=[gid=U32(Some(27))]
+      id=None geom=POINT(1415 16) props=[gid=U32(Some(16))]
+      id=None geom=POINT(1455 2502) props=[gid=U32(Some(14))]
+      id=None geom=POINT(166 2707) props=[gid=U32(Some(28))]
+      id=None geom=POINT(1728 2658) props=[gid=U32(Some(25))]
+      id=None geom=POINT(2312 2004) props=[gid=U32(Some(12))]
+      id=None geom=POINT(2316 1790) props=[gid=U32(Some(24))]
+      id=None geom=POINT(2337 2613) props=[gid=U32(Some(13))]
+      id=None geom=POINT(2583 2400) props=[gid=U32(Some(23))]
+      id=None geom=POINT(2619 1520) props=[gid=U32(Some(8))]
+      id=None geom=POINT(2749 1706) props=[gid=U32(Some(20))]
+      id=None geom=POINT(2754 966) props=[gid=U32(Some(17))]
+      id=None geom=POINT(2780 1898) props=[gid=U32(Some(30))]
+      id=None geom=POINT(2961 2263) props=[gid=U32(Some(11))]
+      id=None geom=POINT(3553 2982) props=[gid=U32(Some(22))]
+      id=None geom=POINT(3639 2944) props=[gid=U32(Some(10))]
+      id=None geom=POINT(3673 1911) props=[gid=U32(Some(1))]
+      id=None geom=POINT(3673 1911) props=[gid=U32(Some(2))]
+      id=None geom=POINT(3673 1911) props=[gid=U32(Some(3))]
+      id=None geom=POINT(3786 1562) props=[gid=U32(Some(6))]
+      id=None geom=POINT(3802 665) props=[gid=U32(Some(7))]
+      id=None geom=POINT(3825 2146) props=[gid=U32(Some(19))]
+      id=None geom=POINT(3898 1322) props=[gid=U32(Some(29))]
+      id=None geom=POINT(636 2785) props=[gid=U32(Some(4))]
+      id=None geom=POINT(69 313) props=[gid=U32(Some(5))]
+      id=None geom=POINT(769 2818) props=[gid=U32(Some(18))]
+      id=None geom=POINT(862 1817) props=[gid=U32(Some(15))]
+    ");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn refuses_encodings_martin_cannot_serve() {
+    let dir = temp_dir();
+    let mut log = String::new();
+    for (output, encoding) in [
+        ("out.pmtiles", "gzip"),
+        ("out.pmtiles", "br"),
+        ("out.mbtiles", "br"),
+        ("out.mbtiles", "zstd"),
+    ] {
+        log += &MartinCp::generate()
+            .env("RUST_LOG", "error")
+            .with_postgres()
+            .arg("--output-file")
+            .arg(dir.path().join(output))
+            .arg("--encoding")
+            .arg(encoding)
+            .arg("--max-zoom")
+            .arg("0")
+            .run_expecting_failure()
+            .await;
+    }
+    insta::assert_snapshot!(log, @"
+    ERROR Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`
+    ERROR Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`
+    ERROR Martin cannot detect br compression in MBTiles; use `--encoding gzip`, `zlib` or `none`
+    ERROR Martin cannot detect zstd compression in MBTiles; use `--encoding gzip`, `zlib` or `none`
+    ");
 }
 
 #[tokio::test]

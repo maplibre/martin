@@ -91,18 +91,18 @@ martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
 
 ## Options
 
-| Option          | Default         | Meaning                                                              |
-|-----------------|-----------------|----------------------------------------------------------------------|
-| `--output-file` |                 | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty |
-| `--source`      | all sources     | A source id, repeatable                                              |
-| `--format`      | `mlt`           | `mlt` or `mvt`                                                       |
-| `--encoding`    | `gzip`          | `gzip`, `zstd`, `br`, `zlib` (MBTiles only) or `none`                |
-| `--min-zoom`    | `0`             | Lowest zoom, raised by a source's `minzoom`                          |
-| `--max-zoom`    | `14`            | Highest zoom, lowered by a source's `maxzoom`                        |
-| `--bbox`        | whole world     | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat`     |
-| `--memory`      | `2GiB`          | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads   |
-| `--temp-dir`    | system temp dir | Where sorted runs go, repeatable to spread them over several disks   |
-| `--threads`     | CPU count       | Worker threads                                                       |
+| Option          | Default                              | Meaning                                                                                            |
+|-----------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
+| `--output-file` |                                      | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty                               |
+| `--source`      | all sources                          | A source id, repeatable                                                                            |
+| `--format`      | `mlt`                                | `mlt` or `mvt`                                                                                     |
+| `--encoding`    | `gzip`, or `none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`. PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
+| `--min-zoom`    | `0`                                  | Lowest zoom, raised by a source's `minzoom`                                                        |
+| `--max-zoom`    | `14`                                 | Highest zoom, lowered by a source's `maxzoom`                                                      |
+| `--bbox`        | whole world                          | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat`                                   |
+| `--memory`      | `2GiB`                               | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                 |
+| `--temp-dir`    | system temp dir                      | Where sorted runs go, repeatable to spread them over several disks                                 |
+| `--threads`     | CPU count                            | Worker threads                                                                                     |
 
 The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also apply, such as
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.

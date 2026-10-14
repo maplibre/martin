@@ -64,9 +64,10 @@ pub struct GenerateArgs {
     pub output_file: PathBuf,
     #[arg(long, value_enum, default_value = "mlt")]
     pub format: GenerateFormat,
-    /// Tile compression: `gzip`, `zstd`, `br`, `zlib` (`MBTiles` only) or `none`.
-    #[arg(long, default_value = "gzip", value_parser = parse_encoding)]
-    pub encoding: Encoding,
+    /// Tile compression: `gzip`, `zlib` or `none` for `MBTiles`; `gzip`, `br`, `zstd` or `none` for MVT in `PMTiles`;
+    /// only `none` for MLT in `PMTiles`. Defaults to `none` for MLT in `PMTiles`, otherwise `gzip`.
+    #[arg(long, value_parser = parse_encoding)]
+    pub encoding: Option<Encoding>,
     /// Lowest zoom to generate; a source's own `minzoom` raises it.
     #[arg(long, alias = "minzoom", default_value_t = 0)]
     pub min_zoom: u8,
@@ -119,6 +120,12 @@ pub enum GenerateError {
     NoSources,
     #[error("Source `{0}` has no zoom between {1} and {2}")]
     NoZooms(String, u8, u8),
+    #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
+    CompressedPmtilesMlt,
+    #[error(
+        "Martin cannot detect {0} compression in MBTiles; use `--encoding gzip`, `zlib` or `none`"
+    )]
+    UndetectableMbtilesEncoding(&'static str),
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
     #[error("Could not listen for interrupts: {0}")]
@@ -165,6 +172,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
     let options = args.generate;
+    let encoding = resolve_encoding(&options)?;
     if let Some(bbox) = options.bbox {
         check_bboxes(&WEB_MERCATOR_QUAD, vec![bbox])?;
     }
@@ -189,12 +197,12 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
         .or_else(|| std::thread::available_parallelism().ok())
         .map_or(1, NonZeroUsize::get);
     let source = PgScanSource::new(pool, layers)?;
-    let generate_config = generate_config(&options, threads);
+    let generate_config = generate_config(&options, threads, encoding);
     let metadata = metadata(&options);
     let output = options.output_file;
     let mut interrupt = Interrupt::register()?;
     let sink = {
-        let (output, format, encoding) = (output.clone(), generate_config.format, options.encoding);
+        let (output, format) = (output.clone(), generate_config.format);
         tokio::task::spawn_blocking(move || Output::create(&output, format, encoding)).await??
     };
 
@@ -248,10 +256,7 @@ enum Output {
 
 impl Output {
     fn create(path: &Path, format: TileFormat, encoding: Encoding) -> TileGenResult<Self> {
-        if path
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
-        {
+        if is_pmtiles(path) {
             PmtilesSink::create(path, format, encoding).map(|sink| Self::Pmtiles(Box::new(sink)))
         } else {
             MbtilesSink::create(path).map(Self::Mbtiles)
@@ -276,7 +281,32 @@ impl Output {
     }
 }
 
-fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
+fn is_pmtiles(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
+}
+
+/// The tile compression to write, refusing any that Martin could not serve the output with.
+fn resolve_encoding(options: &GenerateArgs) -> GenerateResult<Encoding> {
+    let pmtiles_mlt = is_pmtiles(&options.output_file) && options.format == GenerateFormat::Mlt;
+    match options.encoding {
+        None if pmtiles_mlt => Ok(Encoding::Uncompressed),
+        None => Ok(Encoding::Gzip),
+        Some(encoding) if pmtiles_mlt && encoding.is_encoded() => {
+            Err(GenerateError::CompressedPmtilesMlt)
+        }
+        Some(encoding @ (Encoding::Brotli | Encoding::Zstd))
+            if !is_pmtiles(&options.output_file) =>
+        {
+            Err(GenerateError::UndetectableMbtilesEncoding(
+                encoding.compression().unwrap_or_default(),
+            ))
+        }
+        Some(encoding) => Ok(encoding),
+    }
+}
+
+fn generate_config(options: &GenerateArgs, threads: usize, encoding: Encoding) -> GenerateConfig {
     let temp_dirs = if options.temp_dir.is_empty() {
         vec![std::env::temp_dir()]
     } else {
@@ -296,7 +326,7 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
             GenerateFormat::Mlt => TileFormat::Mlt,
             GenerateFormat::Mvt => TileFormat::Mvt,
         },
-        encoding: options.encoding,
+        encoding,
         batch_tiles: 256,
         window: threads * 4,
     }
