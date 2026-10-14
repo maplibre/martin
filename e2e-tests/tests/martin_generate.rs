@@ -342,21 +342,21 @@ async fn help_lists_the_options() {
               Possible values:
               - mvt: Mapbox Vector Tile
               - mlt: MapLibre Tile
-              
+
               [default: mlt]
 
           --encoding <ENCODING>
-              Tile compression: gzip, zlib or none for MBTiles; gzip, br, zstd or none for MVT in 
+              Tile compression: gzip, zlib or none for MBTiles; gzip, br, zstd or none for MVT in
               PMTiles; only none for MLT in PMTiles. Defaults to none for MLT in PMTiles, otherwise gzip
 
           --min-zoom <MIN_ZOOM>
               Lowest zoom to generate; a source's own minzoom raises it
-              
+
               [default: 0]
 
           --max-zoom <MAX_ZOOM>
               Highest zoom to generate; a source's own maxzoom lowers it
-              
+
               [default: 14]
 
           --bbox <BBOX>
@@ -366,7 +366,7 @@ async fn help_lists_the_options() {
 
           --memory <MEMORY>
               Memory for sorting, e.g. 512MB or 2GiB, split over the threads. A bare number is in MB
-              
+
               [default: 2GiB]
 
           --temp-dir <TEMP_DIR>
@@ -406,7 +406,7 @@ async fn help_lists_the_options() {
               Maximum Postgres connections pool size [DEFAULT: 20]
 
           --pg-retry-timeout <PG_RETRY_TIMEOUT>
-              How long the first PostgreSQL connection is retried before startup fails, a duration like 
+              How long the first PostgreSQL connection is retried before startup fails, a duration like
               30s or infinite. [DEFAULT: 30s]
 
           --ssl-cert <SSL_CERT>
