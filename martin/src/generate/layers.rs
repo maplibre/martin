@@ -250,7 +250,14 @@ mod tests {
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
-        lower_table("roads_source", info, &LowerOptions { zooms, bounds: None })
+        lower_table(
+            "roads_source",
+            info,
+            &LowerOptions {
+                zooms,
+                bounds: None,
+            },
+        )
     }
 
     #[test]

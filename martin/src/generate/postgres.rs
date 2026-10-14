@@ -41,12 +41,8 @@ impl PgScanSource {
         let plan = Plan::new(tables.iter().map(|t| t.def.clone()).collect())?;
         let mut scans = Vec::with_capacity(tables.len());
         for (index, scan) in tables.into_iter().enumerate() {
-            let sql = scan_sql(
-                &scan.info,
-                &scan.def.columns,
-                scan_bbox(&scan.def.layers),
-            )
-            .map_err(SourceError::from)?;
+            let sql = scan_sql(&scan.info, &scan.def.columns, scan_bbox(&scan.def.layers))
+                .map_err(SourceError::from)?;
             scans.push(Scan {
                 layout: ScanLayout {
                     table: u16::try_from(index).expect("the plan has fewer than 2^16 tables"),
