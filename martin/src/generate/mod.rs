@@ -299,11 +299,13 @@ async fn select_sources(
     let mut pools = Vec::new();
     let mut tables: BTreeMap<String, (TableInfo, usize)> = BTreeMap::new();
     let mut functions = HashSet::new();
+    let mut warnings = Vec::new();
     for pg in &config.postgres {
         let builder =
             PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids)
                 .await?;
-        let (specs, _warnings) = builder.discover().await?;
+        let (specs, pg_warnings) = builder.discover().await?;
+        warnings.extend(pg_warnings);
         for (id, spec) in specs {
             match spec {
                 SourceSpec::Table(info) => {
@@ -316,6 +318,10 @@ async fn select_sources(
         }
         pools.push(builder.pool().clone());
     }
+    config
+        .on_invalid
+        .unwrap_or_default()
+        .handle_tile_warnings(&warnings)?;
     let requested: Vec<String> = if options.sources.is_empty() {
         tables.keys().cloned().collect()
     } else {

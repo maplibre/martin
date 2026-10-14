@@ -197,3 +197,94 @@ async fn rejects_inverted_and_off_world_bboxes() {
         assert!(log.contains(expected), "{log}");
     }
 }
+
+#[tokio::test]
+async fn aborts_on_a_misconfigured_table() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                typo:
+                  schema: ghost_schema
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::generate()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @r#"
+    ERROR Tile source resolution warning warning=Source typo: Unable to configure source typo because schema 'ghost_schema' does not exist. Available schemas: "Quotes' \ \' \" and Space.Dot., MixedCase, autodetect, public, schema_a, schema_b, topology
+    ERROR error=TileResolutionWarningsIssued
+    ERROR warnings issued during tile source resolution
+    "#);
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            on_invalid: warn
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                typo:
+                  schema: ghost_schema
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::generate()
+        .env("RUST_LOG", "warn")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("1")
+        .run()
+        .await;
+    insta::assert_snapshot!(log, @r#"
+    WARN Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom
+    WARN Tile source resolution warning warning=Source typo: Unable to configure source typo because schema 'ghost_schema' does not exist. Available schemas: "Quotes' \ \' \" and Space.Dot., MixedCase, autodetect, public, schema_a, schema_b, topology
+    WARN Skipped features with geometry collections or empty geometries, which tiles cannot hold features.skipped=1
+    "#);
+    assert!(output.exists());
+}
