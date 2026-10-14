@@ -25,13 +25,12 @@ pub struct LowerOptions {
     pub bbox: Option<Bounds>,
 }
 
-/// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when every
-/// layer has fixed zooms outside the table's and the options' zooms.
+/// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when the
+/// table, or every layer with fixed zooms, has no zoom within the options' zooms.
 ///
 /// # Errors
 ///
-/// Fails when the table has no zoom within the options' zooms, or a layer uses a setting `martin
-/// generate` does not support yet.
+/// Fails when a layer uses a setting `martin generate` does not support yet.
 pub fn lower_table(
     id: &str,
     info: TableInfo,
@@ -41,7 +40,8 @@ pub fn lower_table(
     let min = info.minzoom.unwrap_or(0).max(cli_min);
     let max = info.maxzoom.unwrap_or(u8::MAX).min(cli_max);
     if min > max {
-        return Err(GenerateError::NoZooms(id.to_owned(), cli_min, cli_max));
+        warn!("Skipping source `{id}`: it has no zoom between {cli_min} and {cli_max}");
+        return Ok(None);
     }
     let defaults = LayerDef {
         bounds: options.bbox,
@@ -691,8 +691,8 @@ mod tests {
     }
 
     #[test]
-    fn a_table_outside_the_zooms_is_rejected() {
-        let err = lower(
+    fn a_table_outside_the_zooms_is_dropped() {
+        let scan = lower(
             indoc! {"
                 schema: public
                 table: roads
@@ -704,8 +704,8 @@ mod tests {
             "},
             0..=14,
         )
-        .expect_err("no zooms");
-        insta::assert_snapshot!(err, @"Source `roads_source` has no zoom between 0 and 14");
+        .expect("lowers");
+        assert!(scan.is_none());
     }
 
     #[test]

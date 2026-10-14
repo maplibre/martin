@@ -493,6 +493,73 @@ async fn one_table_feeds_several_layers() {
 }
 
 #[tokio::test]
+async fn skips_a_source_with_no_zoom_in_range() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  minzoom: 12
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::generate()
+        .env("RUST_LOG", "warn")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("1")
+        .run()
+        .await;
+    insta::assert_snapshot!(log, @"
+    WARN Unable to deserialize SQL comment as tilejson, the automatically generated tilejson would be used schema=public table=points2 error=expected value at line 1 column 1
+    WARN Skipping source `points2`: it has no zoom between 0 and 1
+    ");
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+        insta::assert_snapshot!(metadata, @r#"
+        agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
+        format = mlt
+        generator = martin generate v[VERSION]
+        hash_algorithm = md5
+        json = {
+          "vector_layers": [
+            {
+              "fields": {},
+              "id": "points1",
+              "maxzoom": 1,
+              "minzoom": 0
+            }
+          ]
+        }
+        maxzoom = 1
+        minzoom = 0
+        name = out
+        "#);
+    });
+}
+
+#[tokio::test]
 async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::generate()

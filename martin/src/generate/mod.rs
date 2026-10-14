@@ -188,8 +188,6 @@ pub enum GenerateError {
     MultipleDatabases,
     #[error("No table sources to generate")]
     NoSources,
-    #[error("Source `{0}` has no zoom between {1} and {2}")]
-    NoZooms(String, u8, u8),
     #[error("No layer has a zoom between {0} and {1}")]
     NoLayers(u8, u8),
     #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
