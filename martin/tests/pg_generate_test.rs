@@ -8,6 +8,7 @@ use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGr
 use martin::config::primitives::IdResolver;
 use martin::generate::postgres::{PgScanSource, ScanLayer};
 use martin_core::generate::source::FeatureSource as _;
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, open_scan_connection};
 use martin_tile_utils::Encoding;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
@@ -117,4 +118,40 @@ async fn render_threads_do_not_change_the_output() {
         threaded_rows == rows,
         "render threads must not change the output"
     );
+}
+
+#[tokio::test]
+async fn the_scan_transaction_turns_off_the_session_timeouts() {
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
+    let separator = if url.contains('?') { '&' } else { '?' };
+    let url = format!(
+        "{url}{separator}options=-c%20statement_timeout%3D100%20-c%20idle_in_transaction_session_timeout%3D100"
+    );
+    let pool = PostgresPool::new(&url, None, None, None, 1, RetryTimeout::default())
+        .await
+        .unwrap();
+    let session = pool
+        .get()
+        .await
+        .unwrap()
+        .query_one(
+            "SELECT current_setting('statement_timeout'), current_setting('idle_in_transaction_session_timeout')",
+            &[],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        (session.get::<_, &str>(0), session.get::<_, &str>(1)),
+        ("100ms", "100ms")
+    );
+    let scan = open_scan_connection(&pool)
+        .await
+        .unwrap()
+        .query_one(
+            "SELECT current_setting('statement_timeout'), current_setting('idle_in_transaction_session_timeout')",
+            &[],
+        )
+        .await
+        .unwrap();
+    assert_eq!((scan.get::<_, &str>(0), scan.get::<_, &str>(1)), ("0", "0"));
 }

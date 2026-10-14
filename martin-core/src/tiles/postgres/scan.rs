@@ -39,7 +39,7 @@ impl From<PostgresError> for SourceError {
 }
 
 /// Opens the connection a scan reads every table through: one `REPEATABLE READ` transaction, so all
-/// tables come from one snapshot, with the scan order settings applied to it only.
+/// tables come from one snapshot, with the scan order settings applied to it only and its timeouts off.
 ///
 /// # Errors
 ///
@@ -48,7 +48,8 @@ pub async fn open_scan_connection(pool: &PostgresPool) -> Result<Object, Postgre
     let conn = pool.get().await?;
     conn.batch_execute(
         "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; \
-         SET LOCAL max_parallel_workers_per_gather = 0; SET LOCAL synchronize_seqscans = off;",
+         SET LOCAL max_parallel_workers_per_gather = 0; SET LOCAL synchronize_seqscans = off; \
+         SET LOCAL statement_timeout = 0; SET LOCAL idle_in_transaction_session_timeout = 0;",
     )
     .await
     .map_err(|e| PostgresError::PostgresError(e, "opening the scan transaction"))?;
