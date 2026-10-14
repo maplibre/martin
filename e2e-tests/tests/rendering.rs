@@ -25,41 +25,6 @@ const UPSTREAMS: &[&str] = &[
 const TILE_REFERENCES: &str = "rendering_references";
 const CAMERA_REFERENCES: &str = "static_camera";
 
-async fn martin_rendering(cassette: &Cassette) -> Martin {
-    start_rendering(cassette, "")
-        .await
-        .expect("failed to start martin")
-}
-
-/// Start martin rendering the test styles, with `options` added to its `rendering:` section.
-async fn start_rendering(cassette: &Cassette, options: &str) -> Result<Martin, StartError> {
-    start_with_rendering(
-        cassette,
-        &format!("\n    enabled: true\n    workers: 2\n{options}"),
-    )
-    .await
-}
-
-/// Start martin rendering the test styles, with `rendering` as the value of `styles.rendering`.
-async fn start_with_rendering(cassette: &Cassette, rendering: &str) -> Result<Martin, StartError> {
-    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
-    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
-    Martin::builder()
-        .config(&format!(
-            "styles:
-  rendering: {}
-  sources:
-    maplibre_demo: {}
-    maptiler_basic: {}
-",
-            rendering.trim_end(),
-            maplibre_demo.display(),
-            maptiler_basic.display()
-        ))
-        .start()
-        .await
-}
-
 /// Colour type and bit depth the PNG `body` stores its pixels in, before any decoder expands them.
 fn png_pixel_format(body: &[u8]) -> String {
     let reader = png::Decoder::new(std::io::Cursor::new(body))
@@ -99,7 +64,24 @@ async fn rendered(martin: &Martin, path: &str) -> Vec<u8> {
 #[tokio::test]
 async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
@@ -117,7 +99,24 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
 #[tokio::test]
 async fn a_style_renders_as_a_jpeg_tile(#[case] path: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
@@ -143,7 +142,24 @@ async fn a_rendered_tile_matches_its_reference(
     #[case] extension: &str,
 ) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let body = rendered(&martin, &format!("/style/{style}/{tile}.{extension}")).await;
     let name = format!("{style}_{}.{extension}", tile.replace('/', "_"));
@@ -156,7 +172,24 @@ async fn a_rendered_tile_matches_its_reference(
 #[tokio::test]
 async fn a_rendered_tile_is_served_as_an_image() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/style/maplibre_demo/0/0/0.png").await;
     insta::with_settings!({filters => vec![(r"(?m)^content-length: \d+$", "content-length: [LENGTH]")]}, {
@@ -170,7 +203,24 @@ async fn a_rendered_tile_is_served_as_an_image() {
 #[tokio::test]
 async fn a_render_fetches_what_the_style_points_at() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         martin.get("/style/maplibre_demo/0/0/0.png").await.status(),
@@ -204,7 +254,24 @@ async fn a_render_fetches_what_the_style_points_at() {
 #[tokio::test]
 async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 301);
@@ -217,7 +284,24 @@ async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target:
 #[tokio::test]
 async fn an_unknown_style_renders_nothing() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/style/nope/0/0/0.png").await;
     assert_eq!(response.status(), 404);
@@ -233,7 +317,24 @@ async fn an_unknown_style_renders_nothing() {
 #[tokio::test]
 async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 400);
@@ -255,7 +356,24 @@ async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
 #[tokio::test]
 async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 404);
@@ -279,7 +397,24 @@ async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(
     #[case] reason: &str,
 ) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 400);
@@ -298,7 +433,24 @@ async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(
 #[tokio::test]
 async fn a_pixel_ratio_multiplies_the_tile_size(#[case] path: &str, #[case] size: u32) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200, "{path} did not render");
@@ -311,7 +463,24 @@ async fn a_pixel_ratio_multiplies_the_tile_size(#[case] path: &str, #[case] size
 #[tokio::test]
 async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let paths = [
         ("/style/maplibre_demo/1/0/0.png", 512),
@@ -341,7 +510,23 @@ async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size
 #[tokio::test]
 async fn a_configured_max_pixel_ratio_caps_the_tiles() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    max_pixel_ratio: 2\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    max_pixel_ratio: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -359,7 +544,23 @@ async fn a_configured_max_pixel_ratio_caps_the_tiles() {
 #[tokio::test]
 async fn a_zero_max_pixel_ratio_fails_startup() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let error = start_rendering(&cassette, "    max_pixel_ratio: 0\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let error = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    max_pixel_ratio: 0
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect_err("martin must reject max_pixel_ratio: 0");
     let StartError::EarlyExit { status, log } = error else {
@@ -382,7 +583,23 @@ async fn a_zero_max_pixel_ratio_fails_startup() {
 #[tokio::test]
 async fn a_configured_tile_size_sizes_the_tiles(#[case] path: &str, #[case] size: u32) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    tile_size: 256\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    tile_size: 256
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -397,7 +614,23 @@ async fn a_configured_tile_size_sizes_the_tiles(#[case] path: &str, #[case] size
 #[tokio::test]
 async fn an_unsupported_tile_size_fails_startup() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let error = start_rendering(&cassette, "    tile_size: 300\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let error = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    tile_size: 300
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect_err("martin must reject tile_size: 300");
     let StartError::EarlyExit { status, log } = error else {
@@ -413,7 +646,23 @@ async fn an_unsupported_tile_size_fails_startup() {
 #[tokio::test]
 async fn one_renderer_per_worker_still_renders_each_style() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    renderers_per_worker: 1\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    renderers_per_worker: 1
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -432,7 +681,24 @@ async fn one_renderer_per_worker_still_renders_each_style() {
 #[tokio::test]
 async fn neighbouring_tiles_render_differently() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let west = martin.get("/style/maplibre_demo/1/0/0.png").await;
     let east = martin.get("/style/maplibre_demo/1/1/0.png").await;
@@ -445,7 +711,24 @@ async fn neighbouring_tiles_render_differently() {
 #[tokio::test]
 async fn tiles_requested_at_once_each_render_their_own_coordinates() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let paths = [
         "/style/maplibre_demo/1/0/0.png",
@@ -478,7 +761,24 @@ async fn tiles_requested_at_once_each_render_their_own_coordinates() {
 #[tokio::test]
 async fn a_static_image_renders_as_a_jpeg() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .get("/style/maplibre_demo/static/0,0,0/200x200.jpg")
@@ -502,7 +802,24 @@ async fn a_static_image_renders_as_a_jpeg() {
 #[tokio::test]
 async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let body = rendered(
         &martin,
@@ -524,7 +841,24 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
 #[tokio::test]
 async fn a_camera_option_changes_the_static_image(#[case] one: &str, #[case] other: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let one = rendered(&martin, &format!("/style/maplibre_demo/static/{one}.png")).await;
     let other = rendered(&martin, &format!("/style/maplibre_demo/static/{other}.png")).await;
@@ -537,7 +871,24 @@ async fn a_camera_option_changes_the_static_image(#[case] one: &str, #[case] oth
 #[tokio::test]
 async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let bbox = rendered(
         &martin,
@@ -554,7 +905,24 @@ async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
 #[tokio::test]
 async fn a_doubled_pixel_ratio_doubles_the_static_image() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let one_x = martin
         .get("/style/maplibre_demo/static/0,0,0/100x100.png")
@@ -599,7 +967,24 @@ async fn encodings(martin: &Martin, paths: &[&str]) -> String {
 #[tokio::test]
 async fn rendered_pngs_are_indexed_by_default() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(encodings(&martin, ENCODED_PATHS).await, @"
     /style/maplibre_demo/0/0/0.png: 200 image/png Indexed Eight
@@ -616,7 +1001,20 @@ async fn rendered_pngs_are_indexed_by_default() {
 #[tokio::test]
 async fn the_rendering_shorthand_indexes_pngs_too() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_with_rendering(&cassette, "true")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering: true
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -635,7 +1033,23 @@ async fn the_rendering_shorthand_indexes_pngs_too() {
 #[tokio::test]
 async fn a_disabled_png_palette_keeps_rgba() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    png_palette: false\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    png_palette: false
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -654,7 +1068,24 @@ async fn a_disabled_png_palette_keeps_rgba() {
 #[tokio::test]
 async fn a_small_png_palette_packs_fewer_bits() {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    png_palette:\n      max_colors: 4\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    png_palette:
+      max_colors: 4
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -671,12 +1102,29 @@ async fn a_small_png_palette_packs_fewer_bits() {
 }
 
 #[rstest]
-#[case::too_few("    png_palette:\n      max_colors: 1\n")]
-#[case::too_many("    png_palette:\n      max_colors: 257\n")]
+#[case::too_few(1)]
+#[case::too_many(257)]
 #[tokio::test]
-async fn a_png_palette_size_outside_png_fails_startup(#[case] options: &str) {
+async fn a_png_palette_size_outside_png_fails_startup(#[case] max_colors: u32) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let error = start_rendering(&cassette, options)
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let error = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    png_palette:
+      max_colors: {max_colors}
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect_err("martin must reject the palette size");
     let StartError::EarlyExit { status, log } = error else {
@@ -695,7 +1143,24 @@ async fn a_png_palette_size_outside_png_fails_startup(#[case] options: &str) {
 #[tokio::test]
 async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = martin_rendering(&cassette).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin
         .post_json("/style/maplibre_demo/static/0,0,0/200x200.png", body)
@@ -712,7 +1177,23 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
 
 async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, group: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let mut martin = start_rendering(&cassette, "    png_palette: false\n")
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "styles:
+  rendering:
+    enabled: true
+    workers: 2
+    png_palette: false
+  sources:
+    maplibre_demo: {}
+    maptiler_basic: {}
+",
+            maplibre_demo.display(),
+            maptiler_basic.display()
+        ))
+        .start()
         .await
         .expect("failed to start martin");
 

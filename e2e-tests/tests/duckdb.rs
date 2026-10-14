@@ -1058,14 +1058,6 @@ duckdb:
     martin.stop().await;
 }
 
-async fn start_watching_polygons(watched: &WatchedDir, dir: &TempDir, config: &str) -> Martin {
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
-    start_with_config(dir, config).await
-}
-
 #[cfg(not(windows))]
 #[tokio::test]
 async fn reload_rebuilds_a_replaced_geoparquet_file() {
@@ -1082,7 +1074,11 @@ duckdb:
 ",
         watched.dir().join("polygons.parquet").display()
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
     insta::assert_json_snapshot!(fields, @r#"
@@ -1152,7 +1148,11 @@ async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
         "{parquet}",
         &watched.dir().join("polygons.parquet").display().to_string(),
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.touch("polygons.parquet");
     martin
@@ -1188,7 +1188,11 @@ duckdb:
 ",
         watched.dir().join("polygons.parquet").display()
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.remove("polygons.parquet");
     martin.wait_for_source_removed("polygons").await;

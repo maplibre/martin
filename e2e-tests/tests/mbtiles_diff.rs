@@ -2,7 +2,7 @@
 //! between schemas, and the patch files that turn one tileset into another.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use martin_e2e_tests::{
     MbtilesCli, Tile, gunzip, mbtiles_fixture, metadata, open_read_only, open_read_write,
@@ -50,26 +50,6 @@ fn redact(dir: &TempDir, output: &str) -> String {
         .expect("the pattern is valid")
         .replace_all(&output, "bindiff.cpus=[CPUS]")
         .into_owned()
-}
-
-/// Build `world_cities` and `world_cities_modified` in `dir` and cut a patch between them.
-/// Returns the tileset the patch applies to, the one it produces, and the patch itself.
-async fn patch_fixtures(dir: &Path, extra_args: &[&str]) -> (PathBuf, PathBuf, PathBuf) {
-    let source = mbtiles_fixture(dir, "world_cities").await;
-    let modified = mbtiles_fixture(dir, "world_cities_modified").await;
-    let patch = dir.join("patch.mbtiles");
-
-    let mut command = MbtilesCli::new("copy")
-        .arg(&source)
-        .arg(&patch)
-        .arg("--diff-with-file")
-        .arg(&modified);
-    for arg in extra_args {
-        command = command.arg(*arg);
-    }
-    command.run().await;
-
-    (source, modified, patch)
 }
 
 #[tokio::test]
@@ -344,7 +324,18 @@ async fn the_checked_in_bin_diff_fixture_still_applies() {
 #[tokio::test]
 async fn a_freshly_cut_bin_diff_matches_the_checked_in_one() {
     let dir = temp_dir();
-    let (_, _, cut) = patch_fixtures(dir.path(), &["--patch-type", "bin-diff-gz"]).await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let modified = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let cut = dir.path().join("patch.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&cut)
+        .arg("--diff-with-file")
+        .arg(&modified)
+        .arg("--patch-type")
+        .arg("bin-diff-gz")
+        .run()
+        .await;
     let checked_in = mbtiles_fixture(dir.path(), "world_cities_bindiff").await;
 
     assert_eq!(patch_tiles(&cut).await, patch_tiles(&checked_in).await);
@@ -355,8 +346,19 @@ async fn a_freshly_cut_bin_diff_matches_the_checked_in_one() {
 #[tokio::test]
 async fn applying_a_patch_announces_the_hashes_it_expects() {
     let dir = temp_dir();
-    let (source, _, patch) = patch_fixtures(dir.path(), &["--patch-type", "bin-diff-gz"]).await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let modified = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let patch = dir.path().join("patch.mbtiles");
     let applied = dir.path().join("applied.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&patch)
+        .arg("--diff-with-file")
+        .arg(&modified)
+        .arg("--patch-type")
+        .arg("bin-diff-gz")
+        .run()
+        .await;
 
     let output = MbtilesCli::new("copy")
         .arg(&source)

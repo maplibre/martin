@@ -50,32 +50,6 @@ async fn serving(coords: impl IntoIterator<Item = (u32, u32, u32)>) -> StaticFil
     StaticFiles::serving(&files).await
 }
 
-async fn upstream() -> StaticFiles {
-    serving(neighbourhood()).await
-}
-
-async fn start(files: &StaticFiles, hillshade: &str) -> Martin {
-    start_with(files, hillshade, "").await
-}
-
-async fn start_with(files: &StaticFiles, hillshade: &str, extra: &str) -> Martin {
-    Martin::builder()
-        .config(&format!(
-            "passthrough:
-  sources:
-    terrain:
-      url: {}/{{z}}/{{x}}/{{y}}
-      format: png
-      maxzoom: 12
-{extra}      convert_to_hillshade:{hillshade}
-",
-            files.base_url()
-        ))
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 fn tile_path() -> String {
     format!("/terrain/{ZOOM}/{}/{}", CENTRE.0, CENTRE.1)
 }
@@ -93,8 +67,22 @@ async fn sorted_log(files: &StaticFiles) -> String {
 
 #[tokio::test]
 async fn a_normal_source_is_served_as_a_baked_hillshade() {
-    let files = upstream().await;
-    let mut martin = start(&files, " auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -116,8 +104,22 @@ async fn a_normal_source_is_served_as_a_baked_hillshade() {
 
 #[tokio::test]
 async fn baking_one_tile_reads_exactly_nine_upstream_tiles() {
-    let files = upstream().await;
-    let mut martin = start(&files, " auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
 
@@ -144,8 +146,23 @@ async fn baking_one_tile_reads_exactly_nine_upstream_tiles() {
 
 #[tokio::test]
 async fn neighbour_reads_carry_no_query_string() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        allow_request_overrides: true").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        allow_request_overrides: true
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("{}?azimuth=180&ambient=0.4", tile_path());
     assert_eq!(martin.get(&path).await.status(), 200);
@@ -166,8 +183,22 @@ async fn neighbour_reads_carry_no_query_string() {
 
 #[tokio::test]
 async fn a_second_request_reuses_the_cached_normal_tiles() {
-    let files = upstream().await;
-    let mut martin = start(&files, " auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
     let after_first = files.request_log().await.lines().count();
@@ -184,8 +215,23 @@ async fn a_second_request_reuses_the_cached_normal_tiles() {
 
 #[tokio::test]
 async fn a_source_that_forbids_caching_re_reads_its_normal_tiles() {
-    let files = upstream().await;
-    let mut martin = start_with(&files, " auto", "      cache: disable\n").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      cache: disable
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
     assert_eq!(martin.get(&tile_path()).await.status(), 200);
@@ -200,8 +246,23 @@ async fn a_source_that_forbids_caching_re_reads_its_normal_tiles() {
 
 #[tokio::test]
 async fn an_apron_widens_the_served_tile() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        padding: 8").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        padding: 8
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.image_size(), (544, 544));
@@ -211,8 +272,23 @@ async fn an_apron_widens_the_served_tile() {
 
 #[tokio::test]
 async fn webp_is_served_when_configured() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        format: webp").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        format: webp
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -224,8 +300,23 @@ async fn webp_is_served_when_configured() {
 
 #[tokio::test]
 async fn jxl_is_served_when_configured() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        format: jxl").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        format: jxl
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -237,8 +328,22 @@ async fn jxl_is_served_when_configured() {
 
 #[tokio::test]
 async fn a_disabled_hillshade_serves_the_source_unchanged() {
-    let files = upstream().await;
-    let mut martin = start(&files, " disabled").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: disabled
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     let upstream_bytes = fs::read(normal_tile()).expect("failed to read the fixture");
@@ -250,7 +355,21 @@ async fn a_disabled_hillshade_serves_the_source_unchanged() {
 #[tokio::test]
 async fn a_degraded_neighbourhood_still_serves() {
     let files = serving([centre()]).await;
-    let mut martin = start(&files, " auto").await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 200);
@@ -262,7 +381,21 @@ async fn a_degraded_neighbourhood_still_serves() {
 #[tokio::test]
 async fn an_absent_centre_tile_serves_no_content() {
     let files = serving(neighbourhood().into_iter().filter(|c| *c != centre())).await;
-    let mut martin = start(&files, " auto").await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&tile_path()).await;
     assert_eq!(response.status(), 204);
@@ -285,7 +418,21 @@ async fn a_tile_at_the_pole_still_serves() {
         .map(|path| (path.as_str(), tile.clone()))
         .collect::<Vec<_>>();
     let files = StaticFiles::serving(&entries).await;
-    let mut martin = start(&files, " auto").await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/terrain/2/1/0").await;
     assert_eq!(response.status(), 200);
@@ -303,8 +450,22 @@ async fn a_tile_at_the_pole_still_serves() {
 
 #[tokio::test]
 async fn request_overrides_are_refused_unless_configured() {
-    let files = upstream().await;
-    let mut martin = start(&files, " auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let plain = martin.get(&tile_path()).await;
     let steered = martin.get(&format!("{}?azimuth=90", tile_path())).await;
@@ -319,8 +480,23 @@ async fn request_overrides_are_refused_unless_configured() {
 
 #[tokio::test]
 async fn request_overrides_change_the_bake_when_configured() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        allow_request_overrides: true").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        allow_request_overrides: true
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let plain = martin.get(&tile_path()).await;
     let steered = martin.get(&format!("{}?azimuth=90", tile_path())).await;
@@ -337,8 +513,23 @@ async fn request_overrides_change_the_bake_when_configured() {
 
 #[tokio::test]
 async fn the_etag_follows_the_parameters() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        allow_request_overrides: true").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        allow_request_overrides: true
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let baseline = etag(&martin, "").await;
     assert_eq!(baseline, etag(&martin, "").await, "the tag must be stable");
@@ -358,8 +549,22 @@ async fn etag(martin: &Martin, query: &str) -> String {
 
 #[tokio::test]
 async fn a_matching_etag_answers_not_modified() {
-    let files = upstream().await;
-    let mut martin = start(&files, " auto").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade: auto
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let first = martin.get(&tile_path()).await;
     let etag = first.header("etag").expect("etag").to_owned();
@@ -374,8 +579,23 @@ async fn a_matching_etag_answers_not_modified() {
 
 #[tokio::test]
 async fn an_out_of_range_override_is_rejected() {
-    let files = upstream().await;
-    let mut martin = start(&files, "\n        allow_request_overrides: true").await;
+    let files = serving(neighbourhood()).await;
+    let mut martin = Martin::builder()
+        .config(&format!(
+            "passthrough:
+  sources:
+    terrain:
+      url: {}/{{z}}/{{x}}/{{y}}
+      format: png
+      maxzoom: 12
+      convert_to_hillshade:
+        allow_request_overrides: true
+",
+            files.base_url()
+        ))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("{}?altitude=120", tile_path())).await;
     assert_eq!(response.status(), 400);
@@ -386,7 +606,7 @@ async fn an_out_of_range_override_is_rejected() {
 
 #[tokio::test]
 async fn an_invalid_hillshade_stops_startup() {
-    let files = upstream().await;
+    let files = serving(neighbourhood()).await;
     let error = Martin::builder()
         .config(&format!(
             "passthrough:

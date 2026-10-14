@@ -4,12 +4,6 @@ use std::fs;
 
 use martin_e2e_tests::{Martin, MartinBuilder};
 
-const PMTILES_SOURCE: &str = "
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-";
-
 async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
     builder
         .config(yaml)
@@ -123,12 +117,14 @@ pmtiles:
 async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
-        &format!(
-            "
+        "
 cog:
   warning: 'unrecognized'
-{PMTILES_SOURCE}"
-        ),
+
+pmtiles:
+  sources:
+    pmt: tests/fixtures/pmtiles/png.pmtiles
+",
     )
     .await;
 
