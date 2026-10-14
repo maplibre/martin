@@ -20,13 +20,14 @@ async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
     )
     .expect("failed to write the tile");
     let upstream = StaticFiles::serving(&[("0/0/0.pbf", tile)]).await;
+    let url = upstream.base_url();
     let config = formatdoc! {"
         endpoints:
           purge_cache: true
         passthrough:
           sources:
             proxy: {url}/{{z}}/{{x}}/{{y}}.pbf
-    ", url = upstream.base_url()};
+    "};
     let mut martin = Martin::builder()
         .config(&config)
         .start()

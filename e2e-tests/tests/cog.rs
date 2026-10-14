@@ -8,6 +8,7 @@
 use std::fs;
 
 use image::ImageFormat;
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
     CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture,
     round_floats, tag, temp_dir,
@@ -143,13 +144,11 @@ async fn a_file_is_published_under_its_stem() {
 #[tokio::test]
 async fn a_configured_source_is_published_under_its_configured_id() {
     let mut martin = Martin::builder()
-        .config(
-            "\
-cog:
-  sources:
-    naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
-",
-        )
+        .config(indoc! {"
+            cog:
+              sources:
+                naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -172,25 +171,23 @@ async fn a_configured_cog_is_read_from_an_s3_compatible_store_using_ranges() {
     let save_config = tmp.path().join("save_config.yaml");
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  aws_endpoint: {}
-  aws_region: eu-central-1
-  aws_access_key_id: test-key
-  aws_secret_access_key: test-secret
-  skip_signature: true
-  virtual_hosted_style_request: false
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-    local: tests/fixtures/cog/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              aws_access_key_id: test-key
+              aws_secret_access_key: test-secret
+              skip_signature: true
+              virtual_hosted_style_request: false
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+                local: tests/fixtures/cog/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with an S3 COG");
@@ -256,20 +253,18 @@ async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics =
         StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a read-failing remote COG");
@@ -337,20 +332,18 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let fixture_path = fixture("cog/usda_naip_128_none_z2.tif");
     let statics = StaticFiles::serving(&[(key, fixture_path.clone())]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
@@ -405,19 +398,17 @@ cog:
 async fn a_replaced_remote_cog_is_detected_and_reloaded() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 1s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 1s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
@@ -486,19 +477,17 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
         (removed_key, original_fixture.clone()),
     ])
     .await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 2s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  paths:
-    - s3://cogtest/imagery/
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 2s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              paths:
+                - s3://cogtest/imagery/
+        "})
         .start()
         .await
         .expect("failed to start martin with a remote COG prefix");
@@ -564,14 +553,12 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  sources:
-    usda_naip_512_webp_z5: {configured_url}
-"
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              sources:
+                usda_naip_512_webp_z5: {configured_url}
+        "})
         .start()
         .await
         .expect("failed to start martin with an HTTP COG");

@@ -1,5 +1,6 @@
 //! `MBTiles` sources, both configured up front and served from a watched directory.
 
+use indoc::formatdoc;
 use martin_e2e_tests::{Martin, WatchedDir, mbtiles_fixture};
 #[cfg(not(windows))]
 use martin_e2e_tests::{fixture, mbtiles_from_sql};
@@ -463,11 +464,13 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
     let original = watched.outside("original.mbtiles");
     mbtiles_from_sql(fixture("mbtiles/world_cities.sql"), &original).await;
 
+    let collections = watched.dir();
+    let collections = collections.display();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  collections: {}\n",
-            watched.dir().display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              collections: {collections}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -525,11 +528,14 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
     mbtiles_fixture(watched.dir(), "world_cities").await;
     let dir = watched.dir();
 
+    let paths = dir.display();
     let mut bounded = Martin::builder()
-        .config(&format!(
-            "cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n",
-            dir.display()
-        ))
+        .config(&formatdoc! {"
+            cache:
+              minzoom: 1
+            mbtiles:
+              paths: {paths}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -542,7 +548,10 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
 
     // The same directory without a lower bound shows what the cache would have counted.
     let mut unbounded = Martin::builder()
-        .config(&format!("mbtiles:\n  paths: {}\n", dir.display()))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -570,11 +579,14 @@ async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_i
     let file = mbtiles_fixture(watched.dir(), "world_cities").await;
     let dir = watched.dir();
 
+    let paths = dir.display();
     let mut kind_level = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n",
-            dir.display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+              cache:
+                minzoom: 1
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -585,12 +597,19 @@ async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_i
     insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
     kind_level.stop().await;
 
+    let file = file.display();
     let mut overridden = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n  sources:\n    world_cities:\n      path: {}\n      cache:\n        minzoom: 0\n",
-            dir.display(),
-            file.display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+              cache:
+                minzoom: 1
+              sources:
+                world_cities:
+                  path: {file}
+                  cache:
+                    minzoom: 0
+        "})
         .start()
         .await
         .expect("failed to start martin");

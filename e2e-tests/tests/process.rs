@@ -4,6 +4,7 @@
 
 use std::fs;
 
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::Martin;
 
 const MLT_ACCEPT: &str = "application/vnd.maplibre-tile";
@@ -15,37 +16,35 @@ fn assert_table_source_warning(martin: &mut Martin) {
 #[tokio::test]
 async fn the_catalog_lists_every_configured_source() {
     let mut martin = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
@@ -71,37 +70,35 @@ postgres:
 async fn the_saved_config_records_the_resolved_encoder_settings() {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let mut martin = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .arg("--save-config")
         .arg(dir.path().join("save_config.yaml"))
@@ -154,37 +151,35 @@ postgres:
 #[tokio::test]
 async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
     let mut martin = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
@@ -225,71 +220,67 @@ postgres:
 #[tokio::test]
 async fn a_per_source_encoder_setting_overrides_the_global_default() {
     let mut tessellating = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
         .expect("failed to start martin");
     let mut plain = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
@@ -322,53 +313,49 @@ postgres:
 #[tokio::test]
 async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
     let mut upstream = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
         .expect("failed to start martin");
+    let upstream_addr = upstream.addr();
     let mut proxy = Martin::builder()
-        .config(&format!(
-            r"
-convert_to_mlt: auto
-passthrough:
-  sources:
-    passthrough_table:
-      url: http://{}/table_source/{{z}}/{{x}}/{{y}}
-      format: mvt
-",
-            upstream.addr()
-        ))
+        .config(&formatdoc! {"
+            convert_to_mlt: auto
+            passthrough:
+              sources:
+                passthrough_table:
+                  url: http://{upstream_addr}/table_source/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -402,53 +389,49 @@ passthrough:
 #[tokio::test]
 async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     let mut upstream = Martin::builder()
-        .config(
-            r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      convert_to_mlt:
-        tessellate: true
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-",
-        )
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
         .with_postgres()
         .start()
         .await
         .expect("failed to start martin");
+    let upstream_addr = upstream.addr();
     let mut proxy = Martin::builder()
-        .config(&format!(
-            r"
-convert_to_mlt: auto
-passthrough:
-  sources:
-    passthrough_table:
-      url: http://{}/table_source/{{z}}/{{x}}/{{y}}
-      format: mvt
-",
-            upstream.addr()
-        ))
+        .config(&formatdoc! {"
+            convert_to_mlt: auto
+            passthrough:
+              sources:
+                passthrough_table:
+                  url: http://{upstream_addr}/table_source/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        "})
         .start()
         .await
         .expect("failed to start martin");

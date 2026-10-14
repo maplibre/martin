@@ -4,108 +4,109 @@
 
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, StartError, mbtiles_fixture, round_floats, temp_dir};
 use serde_json::Value;
 
 /// The `PostgreSQL` config the [`CONFIG`] tests below start from: a few hand-written table and
 /// function sources, plus an `auto_publish` narrowed to the schemas they do not cover.
-const CONFIG: &str = "
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 4326
-  pool_size: 1
-  auto_publish:
-    tables:
-      from_schemas: autodetect
-      id_columns: [feat_id, big_feat_id]
-      clip_geom: false
-      buffer: 3
-      extent: 9000
-    functions:
-      from_schemas: MixedCase
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      id_column: ~
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      extent: 4096
-      buffer: 64
-      clip_geom: true
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-    MixPoints:
-      schema: MIXEDCASE
-      table: MixPoints
-      id_column: giD
-      geometry_column: geoM
-      srid: 4326
-      geometry_type: POINT
-      properties:
-        taBLe: text
-    points1:
-      layer_id: abc
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      geometry_type: POINT
-      properties:
-        gid: int4
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      geometry_type: POINT
-      properties:
-        gid: int4
-    points1_filtered:
-      layer_id: filtered
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      filter: gid <= 3
-      properties:
-        gid: int4
-    points3857:
-      schema: public
-      table: points3857
-      srid: 3857
-      geometry_column: geom
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      geometry_type: POINT
-      properties:
-        gid: int4
-  functions:
-    function_zxy_query:
-      schema: public
-      function: function_zxy_query
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-    function_zxy_query_test:
-      schema: public
-      function: function_zxy_query_test
-      minzoom: 0
-      maxzoom: 30
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-";
+const CONFIG: &str = indoc! {"
+    postgres:
+      connection_string: ${DATABASE_URL}
+      default_srid: 4326
+      pool_size: 1
+      auto_publish:
+        tables:
+          from_schemas: autodetect
+          id_columns: [feat_id, big_feat_id]
+          clip_geom: false
+          buffer: 3
+          extent: 9000
+        functions:
+          from_schemas: MixedCase
+      tables:
+        table_source:
+          schema: public
+          table: table_source
+          srid: 4326
+          geometry_column: geom
+          id_column: ~
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+          extent: 4096
+          buffer: 64
+          clip_geom: true
+          geometry_type: GEOMETRY
+          properties:
+            gid: int4
+        MixPoints:
+          schema: MIXEDCASE
+          table: MixPoints
+          id_column: giD
+          geometry_column: geoM
+          srid: 4326
+          geometry_type: POINT
+          properties:
+            taBLe: text
+        points1:
+          layer_id: abc
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+          geometry_type: POINT
+          properties:
+            gid: int4
+        points2:
+          schema: public
+          table: points2
+          srid: 4326
+          geometry_column: geom
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+          geometry_type: POINT
+          properties:
+            gid: int4
+        points1_filtered:
+          layer_id: filtered
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          geometry_type: POINT
+          filter: gid <= 3
+          properties:
+            gid: int4
+        points3857:
+          schema: public
+          table: points3857
+          srid: 3857
+          geometry_column: geom
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+          geometry_type: POINT
+          properties:
+            gid: int4
+      functions:
+        function_zxy_query:
+          schema: public
+          function: function_zxy_query
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+        function_zxy_query_test:
+          schema: public
+          function: function_zxy_query_test
+          minzoom: 0
+          maxzoom: 30
+          bounds: [-180.0, -90.0, 180.0, 90.0]
+"};
 
 /// The tables martin walks past while resolving `auto_publish` warn about their missing index even
 /// when they are not published.
@@ -904,16 +905,15 @@ async fn the_saved_config_carries_the_auto_publish_settings_into_every_table_it_
 async fn an_auto_discovered_table_takes_the_connection_level_cache_bounds() {
     let mut bounded = Martin::builder()
         .with_postgres()
-        .config(
-            "
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 900913
-  auto_bounds: calc
-  pool_size: 1
-  cache:
-    minzoom: 1",
-        )
+        .config(indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 900913
+              auto_bounds: calc
+              pool_size: 1
+              cache:
+                minzoom: 1
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -937,14 +937,13 @@ postgres:
 async fn an_auto_discovered_table_takes_the_default_cache_bounds() {
     let mut unbounded = Martin::builder()
         .with_postgres()
-        .config(
-            "
-postgres:
-  connection_string: ${DATABASE_URL}
-  default_srid: 900913
-  auto_bounds: calc
-  pool_size: 1",
-        )
+        .config(indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 900913
+              auto_bounds: calc
+              pool_size: 1
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -1604,20 +1603,18 @@ async fn the_same_function_name_in_two_schemas_keeps_each_comment() {
 async fn a_configured_function_names_a_further_variant_by_its_signature() {
     let mut martin = Martin::builder()
         .with_postgres()
-        .config(
-            "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  functions:
-    pair:
-      schema: public
-      function: function_dup
-    with_jsonb:
-      schema: public
-      function: function_dup(integer, integer, integer, jsonb)
-",
-        )
+        .config(indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              functions:
+                pair:
+                  schema: public
+                  function: function_dup
+                with_jsonb:
+                  schema: public
+                  function: function_dup(integer, integer, integer, jsonb)
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -1845,19 +1842,17 @@ async fn a_filter_that_is_not_cql2_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()
         .env("RUST_LOG", "martin=error")
-        .config(
-            "
-postgres:
-  connection_string: ${DATABASE_URL}
-  tables:
-    broken:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      filter: gid <=
-",
-        )
+        .config(indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              tables:
+                broken:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  filter: gid <=
+        "})
         .start()
         .await
         .expect_err("martin must not start with a filter it cannot parse");
@@ -1877,85 +1872,85 @@ postgres:
 
 /// Three tables on three grids.
 /// New Zealand on LINZ's `NZTM2000Quad`, world points on a square WGS84 grid, and Mars landing sites on a CRS `PostGIS` only knows from a `spatial_ref_sys` row.
-const TILE_GRIDS_CONFIG: &str = "
-tile_grids:
-  WGS84Square:
-    crs: EPSG:4326
-    origin: [-180, 90]
-    extent_at_zoom0: 360
-  MarsGeographic:
-    crs: IAU_2015:49900
-    origin: [-180, 90]
-    extent_at_zoom0: 360
-  FloorPlan:
-    crs: simple
-    origin: [0, 1000]
-    extent_at_zoom0: 1000
-mbtiles:
-  sources:
-    cities_nztm:
-      path: WORLD_CITIES_MBTILES
-      tile_grid: NZTM2000Quad
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  tables:
-    nz_points:
-      schema: public
-      table: nz_points
-      srid: 2193
-      geometry_column: geom
-      tile_grid: NZTM2000Quad
-      properties:
-        city: text
-    points1_wgs84:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      tile_grid: WGS84Square
-      properties:
-        gid: int4
-    points1:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      properties:
-        gid: int4
-    mars_points:
-      schema: public
-      table: mars_points
-      srid: 949900
-      geometry_column: geom
-      tile_grid: MarsGeographic
-      properties:
-        site: text
-    points1_crs84:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      tile_grid: WorldCRS84Quad
-      properties:
-        gid: int4
-    points1_nztm:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      tile_grid: NZTM2000Quad
-      properties:
-        gid: int4
-    floor_plan:
-      schema: public
-      table: floor_plan
-      srid: 0
-      geometry_column: geom
-      tile_grid: FloorPlan
-      properties:
-        room: text
-";
+const TILE_GRIDS_CONFIG: &str = indoc! {"
+    tile_grids:
+      WGS84Square:
+        crs: EPSG:4326
+        origin: [-180, 90]
+        extent_at_zoom0: 360
+      MarsGeographic:
+        crs: IAU_2015:49900
+        origin: [-180, 90]
+        extent_at_zoom0: 360
+      FloorPlan:
+        crs: simple
+        origin: [0, 1000]
+        extent_at_zoom0: 1000
+    mbtiles:
+      sources:
+        cities_nztm:
+          path: WORLD_CITIES_MBTILES
+          tile_grid: NZTM2000Quad
+    postgres:
+      connection_string: ${DATABASE_URL}
+      pool_size: 1
+      tables:
+        nz_points:
+          schema: public
+          table: nz_points
+          srid: 2193
+          geometry_column: geom
+          tile_grid: NZTM2000Quad
+          properties:
+            city: text
+        points1_wgs84:
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          tile_grid: WGS84Square
+          properties:
+            gid: int4
+        points1:
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          properties:
+            gid: int4
+        mars_points:
+          schema: public
+          table: mars_points
+          srid: 949900
+          geometry_column: geom
+          tile_grid: MarsGeographic
+          properties:
+            site: text
+        points1_crs84:
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          tile_grid: WorldCRS84Quad
+          properties:
+            gid: int4
+        points1_nztm:
+          schema: public
+          table: points1
+          srid: 4326
+          geometry_column: geom
+          tile_grid: NZTM2000Quad
+          properties:
+            gid: int4
+        floor_plan:
+          schema: public
+          table: floor_plan
+          srid: 0
+          geometry_column: geom
+          tile_grid: FloorPlan
+          properties:
+            room: text
+"};
 
 /// The one warning every start from [`TILE_GRIDS_CONFIG`] logs, because Mars has no WGS84 bounds.
 fn assert_tile_grid_warnings(martin: &mut Martin) {
@@ -2149,23 +2144,21 @@ async fn a_simple_grid_serves_plain_planar_coordinates() {
 async fn a_simple_grid_set_on_the_connection_auto_publishes_only_tables_without_a_srid() {
     let mut martin = Martin::builder()
         .with_postgres()
-        .config(
-            "
-tile_grids:
-  FloorPlan:
-    crs: simple
-    origin: [0, 1000]
-    extent_at_zoom0: 1000
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  tile_grid: FloorPlan
-  auto_publish:
-    tables:
-      from_schemas: public
-    functions: false
-",
-        )
+        .config(indoc! {"
+            tile_grids:
+              FloorPlan:
+                crs: simple
+                origin: [0, 1000]
+                extent_at_zoom0: 1000
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              tile_grid: FloorPlan
+              auto_publish:
+                tables:
+                  from_schemas: public
+                functions: false
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -2209,25 +2202,23 @@ async fn a_table_with_a_srid_on_a_simple_grid_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()
         .env("RUST_LOG", "martin=error")
-        .config(
-            "
-tile_grids:
-  FloorPlan:
-    crs: simple
-    origin: [0, 1000]
-    extent_at_zoom0: 1000
-postgres:
-  connection_string: ${DATABASE_URL}
-  auto_publish: false
-  tables:
-    points1:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      tile_grid: FloorPlan
-",
-        )
+        .config(indoc! {"
+            tile_grids:
+              FloorPlan:
+                crs: simple
+                origin: [0, 1000]
+                extent_at_zoom0: 1000
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  tile_grid: FloorPlan
+        "})
         .start()
         .await
         .expect_err("martin must not start with a table a simple grid cannot serve");

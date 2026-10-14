@@ -1,5 +1,6 @@
 //! Font glyph ranges rendered from `.ttf`/`.otf` files.
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, StartError, TestResponse, fixture};
 use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs};
@@ -458,14 +459,12 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
 #[tokio::test]
 async fn an_alias_serves_the_fonts_it_combines() {
     let mut martin = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono: [Overpass Mono Regular, Overpass Mono Light]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono: [Overpass Mono Regular, Overpass Mono Light]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -511,14 +510,12 @@ fonts:
 #[tokio::test]
 async fn an_alias_may_shadow_the_font_it_extends() {
     let mut martin = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono Regular: [Overpass Mono Regular, Overpass Mono Light]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono Regular: [Overpass Mono Regular, Overpass Mono Light]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -537,14 +534,12 @@ fonts:
 #[tokio::test]
 async fn an_alias_naming_an_unknown_font_fails_startup() {
     let error = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono: [Overpass Mono Regular, Nonexistent]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono: [Overpass Mono Regular, Nonexistent]
+        "})
         .start()
         .await
         .expect_err("martin must reject an alias naming an unknown font");

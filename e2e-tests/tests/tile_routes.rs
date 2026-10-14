@@ -1,5 +1,6 @@
 //! Routing behaviour shared by every tile source: redirects from a format suffix and from the `/tiles/` prefix, `Accept` header negotiation, and the zoom range a source covers.
 
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{Martin, StartError, mbtiles_fixture};
 use rstest::rstest;
 
@@ -172,15 +173,13 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
 #[tokio::test]
 async fn a_source_that_opted_out_of_mlt_rejects_an_mlt_only_accept_header(#[case] accept: &str) {
     let mut martin = Martin::builder()
-        .config(
-            "
-geojson:
-  sources:
-    feature_1:
-      path: tests/fixtures/geojson/feature_1.geojson
-      convert_to_mlt: disabled
-",
-        )
+        .config(indoc! {"
+            geojson:
+              sources:
+                feature_1:
+                  path: tests/fixtures/geojson/feature_1.geojson
+                  convert_to_mlt: disabled
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -206,15 +205,13 @@ geojson:
 #[tokio::test]
 async fn a_source_that_opted_out_of_mlt_serves_mvt_to_a_wildcard_fallback(#[case] accept: &str) {
     let mut martin = Martin::builder()
-        .config(
-            "
-geojson:
-  sources:
-    feature_1:
-      path: tests/fixtures/geojson/feature_1.geojson
-      convert_to_mlt: disabled
-",
-        )
+        .config(indoc! {"
+            geojson:
+              sources:
+                feature_1:
+                  path: tests/fixtures/geojson/feature_1.geojson
+                  convert_to_mlt: disabled
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -374,16 +371,14 @@ async fn an_alias_serves_the_sources_it_combines() {
     let cities = mbtiles_fixture(dir.path(), "world_cities").await;
     let cities = cities.to_str().expect("fixture path is valid utf-8");
     let mut martin = Martin::builder()
-        .config(&format!(
-            "
-mbtiles:
-  sources:
-    cities: {cities}
-    more_cities: {cities}
-aliases:
-  basemap: [cities, more_cities]
-"
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                cities: {cities}
+                more_cities: {cities}
+            aliases:
+              basemap: [cities, more_cities]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -423,17 +418,15 @@ async fn an_alias_may_shadow_the_source_it_extends() {
     let cities = mbtiles_fixture(dir.path(), "world_cities").await;
     let cities = cities.to_str().expect("fixture path is valid utf-8");
     let mut martin = Martin::builder()
-        .config(&format!(
-            "
-mbtiles:
-  sources:
-    cities: {cities}
-    more_cities: {cities}
-aliases:
-  basemap: [cities, more_cities]
-  cities: [cities, more_cities]
-"
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                cities: {cities}
+                more_cities: {cities}
+            aliases:
+              basemap: [cities, more_cities]
+              cities: [cities, more_cities]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -457,16 +450,14 @@ async fn an_alias_naming_an_unknown_source_fails_startup() {
     let cities = mbtiles_fixture(dir.path(), "world_cities").await;
     let cities = cities.to_str().expect("fixture path is valid utf-8");
     let error = Martin::builder()
-        .config(&format!(
-            "
-mbtiles:
-  sources:
-    cities: {cities}
-    more_cities: {cities}
-aliases:
-  basemap: [cities, nonexistent]
-"
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                cities: {cities}
+                more_cities: {cities}
+            aliases:
+              basemap: [cities, nonexistent]
+        "})
         .start()
         .await
         .expect_err("martin must reject an alias naming an unknown tile source");

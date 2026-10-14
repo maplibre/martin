@@ -2,6 +2,7 @@
 
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, MartinBuilder};
 
 async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
@@ -33,33 +34,33 @@ fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
 async fn every_section_reports_its_unrecognized_keys_by_full_path() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-warning: 'unrecognized'
-observability:
-  warning: 'unrecognized'
-  metrics:
-    warning: 'unrecognized'
-cors:
-  warning: 'unrecognized'
-  origin: ['*']
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-mbtiles:
-  warning: 'unrecognized'
-geojson:
-  warning: 'unrecognized'
-sprites:
-  warning: 'unrecognized'
-  paths: tests/fixtures/sprites/src1
-styles:
-  warning: 'unrecognized'
-  sources:
-    maplibre: tests/fixtures/styles/maplibre_demo.json
-fonts:
-  warning: 'unrecognized'
-",
+        indoc! {"
+            warning: 'unrecognized'
+            observability:
+              warning: 'unrecognized'
+              metrics:
+                warning: 'unrecognized'
+            cors:
+              warning: 'unrecognized'
+              origin: ['*']
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+            mbtiles:
+              warning: 'unrecognized'
+            geojson:
+              warning: 'unrecognized'
+            sprites:
+              warning: 'unrecognized'
+              paths: tests/fixtures/sprites/src1
+            styles:
+              warning: 'unrecognized'
+              sources:
+                maplibre: tests/fixtures/styles/maplibre_demo.json
+            fonts:
+              warning: 'unrecognized'
+        "},
     )
     .await;
 
@@ -82,13 +83,13 @@ fonts:
 async fn an_unrecognized_key_does_not_stop_the_configured_sources_from_being_served() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-warning: 'unrecognized'
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            warning: 'unrecognized'
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -117,14 +118,14 @@ pmtiles:
 async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-cog:
-  warning: 'unrecognized'
+        indoc! {"
+            cog:
+              warning: 'unrecognized'
 
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+            pmtiles:
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -140,14 +141,14 @@ pmtiles:
 async fn an_object_store_option_is_reported_when_its_value_is_not_a_scalar() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-pmtiles:
-  connect_timeout: 5s
-  timeout:
-    nested: 1
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            pmtiles:
+              connect_timeout: 5s
+              timeout:
+                nested: 1
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -168,13 +169,13 @@ async fn unrecognized_keys_are_left_out_of_the_saved_config() {
     let save_config = dir.path().join("save_config.yaml");
     let mut martin = start_with_config(
         Martin::builder().arg("--save-config").arg(&save_config),
-        "
-warning: 'unrecognized'
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            warning: 'unrecognized'
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -198,27 +199,27 @@ pmtiles:
 async fn the_postgres_section_reports_its_unrecognized_keys_per_source() {
     let mut martin = start_with_config(
         Martin::builder().with_postgres(),
-        "
-postgres:
-  warning: 'unrecognized'
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  tables:
-    points1:
-      warning: 'unrecognized'
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-  functions:
-    function_zxy_query:
-      warning: 'unrecognized'
-      schema: public
-      function: function_zxy_query
-",
+        indoc! {"
+            postgres:
+              warning: 'unrecognized'
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              tables:
+                points1:
+                  warning: 'unrecognized'
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+              functions:
+                function_zxy_query:
+                  warning: 'unrecognized'
+                  schema: public
+                  function: function_zxy_query
+        "},
     )
     .await;
 
@@ -235,19 +236,19 @@ postgres:
 async fn the_postgres_auto_publish_section_reports_its_unrecognized_keys() {
     let mut martin = start_with_config(
         Martin::builder().with_postgres(),
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  auto_publish:
-    warning: 'unrecognized'
-    tables:
-      warning: 'unrecognized'
-      from_schemas: MixedCase
-    functions:
-      warning: 'unrecognized'
-      from_schemas: MixedCase
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              auto_publish:
+                warning: 'unrecognized'
+                tables:
+                  warning: 'unrecognized'
+                  from_schemas: MixedCase
+                functions:
+                  warning: 'unrecognized'
+                  from_schemas: MixedCase
+        "},
     )
     .await;
 
