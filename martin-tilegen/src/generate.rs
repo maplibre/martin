@@ -543,7 +543,7 @@ impl Run<'_> {
         let rule = layer.rules.iter().find(|rule| {
             rule.when
                 .as_ref()
-                .is_none_or(|when| self.holds(*when, view, errors))
+                .is_none_or(|when| self.eval(when, view, errors))
         });
         let mut zoom = |rule: Option<&PlannedZoom>, expr: Option<&ExprRef<Zoom>>| {
             let mut eval = |expr| self.eval(expr, view, errors);

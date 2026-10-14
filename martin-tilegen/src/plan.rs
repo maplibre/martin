@@ -666,8 +666,8 @@ fn plan_zoom(
         None => None,
         Some(ZoomDef::Fixed(zoom)) => Some(PlannedZoom::Fixed(*zoom)),
         Some(ZoomDef::Expr(source)) => {
-            let expr = compiler.compile(source, Zoom)?;
-            Some(PlannedZoom::Expr(compiler.add(source, expr)))
+            let expr = compiler.compile(source)?;
+            Some(PlannedZoom::Expr(compiler.add(source, expr, Zoom)))
         }
     })
 }
@@ -676,13 +676,13 @@ fn plan_value(value: &ValueDef, compiler: &mut Compiler<'_>) -> Result<PlannedVa
     Ok(match value {
         ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
         ValueDef::Expr(source) => {
-            let expr = compiler.compile(source, Attr)?;
+            let expr = compiler.compile(source)?;
             let column = expr
                 .as_property()
                 .and_then(|name| compiler.columns.iter().position(|c| c == name));
             match column {
                 Some(column) => PlannedValue::Column(key_id(column)),
-                None => PlannedValue::Expr(compiler.add(source, expr)),
+                None => PlannedValue::Expr(compiler.add(source, expr, Attr)),
             }
         }
     })
