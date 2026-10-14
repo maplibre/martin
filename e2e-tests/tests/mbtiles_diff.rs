@@ -171,6 +171,33 @@ async fn purging_a_cache_keeps_the_entries_that_have_not_expired() {
 }
 
 #[tokio::test]
+async fn purging_to_a_size_with_a_unit_keeps_a_cache_that_fits() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let cache = dir.path().join("cache.mbtiles");
+
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&cache)
+        .arg("--mbtiles-type")
+        .arg("cache")
+        .run()
+        .await;
+    let output = MbtilesCli::new("cache-purge")
+        .arg(&cache)
+        .arg("--max-size")
+        .arg("1GiB")
+        .run()
+        .await;
+
+    insta::assert_snapshot!(redact(&dir, &output), @"
+    Removed 0 expired tile entries
+    Evicted 0 tile entries to fit under 1.1 GB
+    ");
+    assert_eq!(tiles(&cache).await.len(), 8);
+}
+
+#[tokio::test]
 async fn purging_refuses_a_tileset_that_is_not_a_cache() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;

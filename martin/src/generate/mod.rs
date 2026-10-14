@@ -19,7 +19,9 @@ use tracing::{info, warn};
 
 use self::postgres::{PgScanSource, ScanLayer};
 use crate::StartupError;
-use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
+use crate::config::args::{
+    Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
+};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
@@ -69,9 +71,9 @@ pub struct GenerateArgs {
     /// are written. Unlike `martin cp`, low-zoom tiles are not filled with data from outside the box.
     #[arg(long)]
     pub bbox: Option<Bounds>,
-    /// Memory for sorting (in MB), split over the threads.
-    #[arg(long, default_value_t = 2048)]
-    pub memory_mb: u64,
+    /// Memory for sorting, e.g. `512MB` or `2GiB`, split over the threads. A bare number is in MB.
+    #[arg(long, default_value = "2GiB", value_parser = parse_byte_size)]
+    pub memory: u64,
     /// Directories for temporary sorted runs, used round-robin. Defaults to the system temp directory.
     #[arg(long)]
     pub temp_dir: Vec<PathBuf>,
@@ -228,8 +230,8 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
     } else {
         options.temp_dir.clone()
     };
-    let per_thread = (options.memory_mb.saturating_mul(1 << 20) / threads as u64)
-        .clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+    let per_thread =
+        (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
     GenerateConfig {
         threads,
         sort: SortConfig {
