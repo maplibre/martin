@@ -681,42 +681,53 @@ async fn layer_rules_override_settings_per_feature() {
     let config = dir.path().join("config.yaml");
     fs::write(
         &config,
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  auto_publish: false
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      id_column: gid
-      properties:
-        gid: int4
-      layers:
-        ranked:
-          maxzoom: 2
-          attributes:
-            number: gid
-            band: { value: low }
-          rules:
-            - where: 'gid > 15'
-              attributes:
-                band: { value: high }
-                half: { expr: 'gid / 2', minzoom: 2 }
-            - where: 'gid > 5'
-              minzoom: 1
-              simplify: 0
-              attributes:
-                band: { value: mid }
-            - minzoom: 'gid % 2 == 0 ? 1 : 2'
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    ranked:
+                      maxzoom: 2
+                      attributes:
+                        number: gid
+                        band: { value: low }
+                      rules:
+                        - where: 'gid > 15'
+                          attributes:
+                            band: { value: high }
+                            half: { expr: 'gid / 2', minzoom: 2 }
+                        - where: 'gid > 5'
+                          minzoom: 1
+                          simplify: 0
+                          attributes:
+                            band: { value: mid }
+                        - minzoom: 'gid % 2 == 0 ? 1 : 2'
+        "},
     )
     .expect("failed to write the config");
     let output = dir.path().join("rules.mbtiles");
-    generate(&config, &output).run().await;
+    MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
     MbtilesCli::new("validate").arg(&output).run().await;
     let dump: Vec<String> = tiles(&output)
         .await
