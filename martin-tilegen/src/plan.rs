@@ -598,8 +598,8 @@ fn plan_rule(
     layer: &PlannedAttrs,
 ) -> Result<PlannedRule, PlanError> {
     let when = compiler.plan(rule.when.as_ref(), Filter)?;
-    let minzoom = plan_zoom(rule.minzoom.as_ref(), &def.zooms, compiler)?;
-    let maxzoom = plan_zoom(rule.maxzoom.as_ref(), &def.zooms, compiler)?;
+    let minzoom = plan_zoom(rule.minzoom.as_ref(), compiler)?;
+    let maxzoom = plan_zoom(rule.maxzoom.as_ref(), compiler)?;
     let attrs = if rule.attributes.is_empty() {
         None
     } else {
@@ -660,16 +660,13 @@ fn plan_rule(
 
 fn plan_zoom(
     zoom: Option<&ZoomDef>,
-    zooms: &RangeInclusive<u8>,
     compiler: &mut Compiler<'_>,
 ) -> Result<Option<PlannedZoom>, PlanError> {
     Ok(match zoom {
         None => None,
-        Some(ZoomDef::Fixed(zoom)) => Some(PlannedZoom::Fixed(
-            (*zoom).clamp(*zooms.start(), *zooms.end()),
-        )),
+        Some(ZoomDef::Fixed(zoom)) => Some(PlannedZoom::Fixed(*zoom)),
         Some(ZoomDef::Expr(source)) => {
-            let expr = compiler.compile(source, Zoom::new(zooms))?;
+            let expr = compiler.compile(source, Zoom)?;
             Some(PlannedZoom::Expr(compiler.add(source, expr)))
         }
     })
